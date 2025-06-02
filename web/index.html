@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+  <meta name="google-signin-client_id" content="855464885227-jrpn4a465rnt9vkppqfsss838d5qqrc1.apps.googleusercontent.com">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="SISGEO">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>SISGEO</title>
+  <link rel="manifest" href="manifest.json">
+  <!-- Firebase core and auth compat libs (v9 compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
+
+  <script>
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDZh7jcJNO0XEW2eCXecWq3MdTvRFPzHJk",
+      authDomain: "sisgeoderal.firebaseapp.com",
+      databaseURL: "https://sisgeoderal-default-rtdb.firebaseio.com",
+      projectId: "sisgeoderal",
+      storageBucket: "sisgeoderal.appspot.com",
+      messagingSenderId: "769410863294",
+      appId: "1:769410863294:web:a51d56dfd32369dd4b0eef",
+      measurementId: "G-EJBDWKRPQ8"
+    };
+
+    // Initialize Firebase once
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
+  </script>
+
+</head>
+<body>
+<script src="flutter.js" defer></script>
+<script src="main.dart.js" type="application/javascript"></script>
+</body>
+</html>
