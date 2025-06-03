@@ -40,6 +40,8 @@ dependencies:
   path_provider: ^2.1.1
   permission_handler: ^11.0.1
   datetime_picker_formfield: 2.0.0 #1.0.0 #Formulário de input tipo date
+  flutter_multi_formatter: ^2.5.0
+  mask_text_input_formatter: ^2.4.0
 
   flutter_map: ^6.2.1
   #geojson: ^1.0.0

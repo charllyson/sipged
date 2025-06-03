@@ -38,7 +38,7 @@ class MainInformationPage extends StatelessWidget {
                 initialValue: contractData?.contractnumber ?? '',
               ),
               CustomTextField(
-                labelText: 'Obra',
+                labelText: 'Resumo do objeto do contrato',
                 initialValue: contractData?.summarysubjectcontract ?? '',
               ),
               CustomTextField(
@@ -124,6 +124,10 @@ class MainInformationPage extends StatelessWidget {
               CustomTextField(
                 labelText: 'Telefone do fiscal',
                 initialValue: contractData?.managerphonenumber ?? '',
+              ),
+              CustomTextField(
+                labelText: 'Valor contratado',
+                initialValue: contractData?.valorinicialdocontrato.toString() ?? '',
               ),
               CustomTextMaxLinesField(
                 labelText: 'Descrição do objeto',

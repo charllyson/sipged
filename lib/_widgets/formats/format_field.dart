@@ -20,7 +20,10 @@ String dateAndTimeToString(DateTime datetime) {
 String dateToString(DateTime datetime) {
   return DateFormat('dd/MM/yyyy ', 'pt-br',).format(datetime);
 }
-
+double stringToDouble(String? value) {
+  if (value == null || value.isEmpty) return 0.0;
+  return double.tryParse(value.replaceAll(',', '.')) ?? 0.0;
+}
 String resumedDateToString(DateTime datetime) {
   return DateFormat('dd/MM/yy ', 'pt-br',).format(datetime);
 }
@@ -31,6 +34,17 @@ String monthAndYearToString(DateTime datetime) {
 
 String dayAndMonthToString(DateTime datetime) {
   return DateFormat('dd/MM ', 'pt-br',).format(datetime);
+}
+
+DateTime convertDDMMYYYYToDateTime(String ddmmyyyy) {
+  final parts = ddmmyyyy.split('/');
+  if (parts.length != 3) {
+    throw FormatException('Formato inválido: $ddmmyyyy');
+  }
+  final day = int.parse(parts[0]);
+  final month = int.parse(parts[1]);
+  final year = int.parse(parts[2]);
+  return DateTime(year, month, day);
 }
 
 String yearToString(DateTime datetime) {

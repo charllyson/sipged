@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sisgeo/_widgets/background/backgroundCleaner.dart';
-import 'package:sisgeo/screens/contracts/apostilamento/apostillesPage.dart';
+import 'package:sisgeo/screens/contracts/apostilles/apostillesPage.dart';
 import 'package:sisgeo/screens/contracts/validity/validityPage.dart';
 import '../../_datas/contracts/contracts_data.dart';
 import '../../_datas/user/user_data.dart';

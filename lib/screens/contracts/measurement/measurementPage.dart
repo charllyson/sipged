@@ -59,6 +59,8 @@ class _MeasurementPageState extends State<MeasurementPage> {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Center(child: Text('Erro: \${snapshot.error}'));
+        }else if(!snapshot.hasData || snapshot.data!.isEmpty){
+          return Center(child: Text('Nenhuma medição encontrada'));
         }
 
         final measurements = snapshot.data ?? [];
@@ -91,55 +93,81 @@ class _MeasurementPageState extends State<MeasurementPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
+          Row(
             children: [
-              CustomTextField(labelText: 'Ordem da medição', controller: _orderController),
-              CustomTextField(labelText: 'Data da medição', controller: _dateController),
-              CustomTextField(labelText: 'Valor da medição', controller: _initialValueController),
-              CustomTextField(labelText: 'Valor do reajuste', controller: _adjustmentValueController),
-              CustomTextField(labelText: 'Valor da revisão', controller: _revisionValueController),
-              CustomTextField(labelText: 'Data do reajuste', controller: _adjustmentDateController),
-              CustomTextField(labelText: 'Nº processo', controller: _processNumberController),
+              Expanded(child: CustomTextField(labelText: 'Ordem da medição', controller: _orderController)),
+              const SizedBox(width: 12),
+              Expanded(child: CustomTextField(labelText: 'Nº processo', controller: _processNumberController)),
+              const SizedBox(width: 12),
+              Expanded(child: CustomTextField(labelText: 'Valor da medição', controller: _initialValueController)),
+              const SizedBox(width: 12),
+              Expanded(child: CustomTextField(labelText: 'Data da medição', controller: _dateController)),
+              const SizedBox(width: 12),
             ],
           ),
-          const SizedBox(height: 16),
-          TextButton.icon(
-            onPressed: () {
-              // salvar
-            },
-            icon: const Icon(Icons.save),
-            label: const Text('Salvar medição'),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: CustomTextField(labelText: 'Valor do reajuste', controller: _adjustmentValueController)),
+              const SizedBox(width: 12),
+              Expanded(child: CustomTextField(labelText: 'Data do reajuste', controller: _adjustmentDateController)),
+              const SizedBox(width: 12),
+              Expanded(child: CustomTextField(labelText: 'Valor da revisão', controller: _revisionValueController)),
+            ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () {
+                  // salvar
+                },
+                icon: const Icon(Icons.save),
+                label: const Text('Salvar medição'),
+              ),
+            ]
+          )
         ],
       ),
     );
   }
 
   Widget _buildTabela(List<MeasurementData> measurements) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: Table(
-          columnWidths: const {
-            0: FixedColumnWidth(100),
-            1: FixedColumnWidth(200),
-            2: FixedColumnWidth(180),
-            3: FixedColumnWidth(180),
-            4: FixedColumnWidth(180),
-            5: FixedColumnWidth(180),
-            6: FixedColumnWidth(180),
-            7: FixedColumnWidth(80),
-          },
-          border: TableBorder.all(color: Colors.grey.shade300),
-          children: [
-            _buildHeaderRow(),
-            ...measurements.map((data) => _buildDataRow(data)),
-          ],
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constrains) {
+        final larguraTotal = constrains.maxWidth;
+        final col0 = larguraTotal * 0.1;
+        final col1 = larguraTotal * 0.2;
+        final col2 = larguraTotal * 0.19;
+        final col3 = larguraTotal * 0.1;
+        final col4 = larguraTotal * 0.1;
+        final col5 = larguraTotal * 0.1;
+        final col6 = larguraTotal * 0.1;
+        final col7 = larguraTotal * 0.1;
+
+        return SingleChildScrollView(
+          child: Center(
+            child: Table(
+              columnWidths: {
+                0: FixedColumnWidth(col0),
+                1: FixedColumnWidth(col1),
+                2: FixedColumnWidth(col2),
+                3: FixedColumnWidth(col3),
+                4: FixedColumnWidth(col4),
+                5: FixedColumnWidth(col5),
+                6: FixedColumnWidth(col6),
+                7: FixedColumnWidth(col7),
+              },
+              border: TableBorder.all(color: Colors.grey.shade300),
+              children: [
+                _buildHeaderRow(),
+                ...measurements.map((data) => _buildDataRow(data)),
+              ],
+            ),
+          ),
+        );
+      }
     );
   }
 

@@ -27,6 +27,46 @@ class ContractsBloc extends BlocBase {
     });
   }
 
+  Future<void> salvarOuAtualizarValidade(ValidityData validade) async {
+    final uidContract = validade.uidContract;
+    if (uidContract == null) {
+      throw Exception("Contrato não informado");
+    }
+
+    final data = {
+      'orderdate': validade.orderdate,
+      'ordernumber': validade.ordernumber,
+      'ordertype': validade.ordertype,
+    };
+
+    final ref = FirebaseFirestore.instance
+        .collection('contracts')
+        .doc(uidContract)
+        .collection('orders');
+
+    if (validade.uid != null) {
+      // Atualizar
+      await ref.doc(validade.uid).update(data);
+    } else {
+      // Criar novo
+      await ref.add(data);
+    }
+  }
+
+  Future<void> deletarValidade(String uidContract, String uidValidade) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(uidContract)
+          .collection('orders')
+          .doc(uidValidade)
+          .delete();
+    } catch (e) {
+      throw Exception('Erro ao deletar validade: $e');
+    }
+  }
+
+
   ///valor de todos os contratos
   Future<double> getAllContractsValue() async {
     double soma = 0.0;
@@ -108,7 +148,26 @@ class ContractsBloc extends BlocBase {
     return list;
   }
 
+  Future<void> salvarOuAtualizarAditivo(AdditiveData data, String uidContract) async {
+    final Map<String, dynamic> newData = {
+      'additivenumberprocess': data.additivenumberprocess,
+      'additiveorder': data.additiveorder,
+      'additivevaliditycontractdata': data.additivevaliditycontractdata,
+      'additivedata': data.additivedata,
+      'additivevalue': data.additivevalue,
+    };
 
+    final ref = FirebaseFirestore.instance
+        .collection('contracts')
+        .doc(uidContract)
+        .collection('additives');
+
+    if (data.uid != null) {
+      await ref.doc(data.uid).update(newData);
+    } else {
+      await ref.add(newData);
+    }
+  }
 
 
   @override

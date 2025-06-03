@@ -56,7 +56,10 @@ class _ApostillesPageState extends State<ApostillesPage> {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Center(child: Text('Erro: \${snapshot.error}'));
+        }else if(!snapshot.hasData || snapshot.data!.isEmpty){
+          return Center(child: Text('Nenhum apostilamento encontrado'));
         }
+
 
         final apostilles = snapshot.data ?? [];
 
@@ -88,49 +91,64 @@ class _ApostillesPageState extends State<ApostillesPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
+          Row(
             children: [
-              CustomTextField(labelText: 'Ordem do apostilamento', controller: _orderController),
-              CustomTextField(labelText: 'Data do apostilamento', controller: _dateController),
-              CustomTextField(labelText: 'Valor do apostilamento', controller: _valueController),
-              CustomTextField(labelText: 'Nº do processo', controller: _processController),
+              Expanded(child: CustomTextField(labelText: 'Ordem do apostilles', controller: _orderController)),
+              const SizedBox(width: 12),
+              Expanded(child: CustomTextField(labelText: 'Nº do processo', controller: _processController)),
+              const SizedBox(width: 12),
+              Expanded(child: CustomTextField(labelText: 'Valor do apostilles', controller: _valueController)),
+              const SizedBox(width: 12),
+              Expanded(child: CustomTextField(labelText: 'Data do apostilles', controller: _dateController)),
+
             ],
           ),
-          const SizedBox(height: 16),
-          TextButton.icon(
-            onPressed: () {
-              // salvar
-            },
-            icon: const Icon(Icons.save),
-            label: const Text('Salvar apostilamento'),
-          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () {
+                  // salvar
+                },
+                icon: const Icon(Icons.save),
+                label: const Text('Salvar apostilamento'),
+              ),
+            ]
+          )
         ],
       ),
     );
   }
 
   Widget _buildTabela(List<ApostillesData> apostilles) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: Table(
-          columnWidths: const {
-            0: FixedColumnWidth(100),
-            1: FixedColumnWidth(200),
-            2: FixedColumnWidth(180),
-            3: FixedColumnWidth(180),
-            4: FixedColumnWidth(80),
-          },
-          border: TableBorder.all(color: Colors.grey.shade300),
-          children: [
-            _buildHeaderRow(),
-            ...apostilles.map((data) => _buildDataRow(data)),
-          ],
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final larguraTotal = constraints.maxWidth;
+        final col0 = larguraTotal * 0.1;
+        final col1 = larguraTotal * 0.265;
+        final col2 = larguraTotal * 0.265;
+        final col3 = larguraTotal * 0.26;
+        final col4 = larguraTotal * 0.1;
+        return SingleChildScrollView(
+          child: Center(
+            child: Table(
+              columnWidths: {
+                0: FixedColumnWidth(col0),
+                1: FixedColumnWidth(col1),
+                2: FixedColumnWidth(col2),
+                3: FixedColumnWidth(col3),
+                4: FixedColumnWidth(col4),
+              },
+              border: TableBorder.all(color: Colors.grey.shade300),
+              children: [
+                _buildHeaderRow(),
+                ...apostilles.map((data) => _buildDataRow(data)),
+              ],
+            ),
+          ),
+        );
+      }
     );
   }
 
