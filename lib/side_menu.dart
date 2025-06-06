@@ -8,19 +8,19 @@ class SideMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      width: 220,
+      width: 250,
       backgroundColor: const Color(0xFF1B2033),
       child: ListView(
         children: [
           const DrawerHeader(
             child: Text('SISGEO', style: TextStyle(color: Colors.white, fontSize: 24)),
           ),
-          _buildExpandableItem(Icons.list, 'GESTÃO', [_buildSubItem('CONTRATOS', 0),]),
-          _buildItem(Icons.map, 'OPERAÇÕES', 1),
-          _buildItem(Icons.map, 'ADMINISTRATIVO', 20),
-          _buildItem(Icons.map, 'FINANCEIRO', 30),
-          _buildItem(Icons.map, 'PLANEJAMENTO', 40),
-          _buildItem(Icons.map, 'MALHA RODOVIÁRIA', 50),
+          _buildExpandableItem(Icons.list, 'GESTÃO', [_buildSubItem('CONTRATOS', 0)]),
+          _buildExpandableItem(Icons.open_with_rounded, 'OPERAÇÕES', [_buildSubItem('DASHBOARD', 20)]),
+          _buildExpandableItem(Icons.open_with_rounded, 'ADMINISTRATIVO', [_buildSubItem('DASHBOARD', 30)]),
+          _buildExpandableItem(Icons.open_with_rounded, 'PLANEJAMENTO', [_buildSubItem('DASHBOARD', 40)]),
+          _buildExpandableItem(Icons.open_with_rounded, 'FINANCEIRO', [_buildSubItem('DASHBOARD', 50)]),
+          _buildItem(Icons.map, 'MALHA RODOVIÁRIA', 5),
         ],
       ),
     );

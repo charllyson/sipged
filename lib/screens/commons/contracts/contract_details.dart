@@ -85,7 +85,7 @@ class _ContractDetailsPageState extends State<ContractDetailsPage> {
                             _wrapWithBlocker(AdditivePage(contractData: widget.contractData)),
                             _wrapWithBlocker(ApostillesPage(contractData: widget.contractData)),
                             _wrapWithBlocker(MeasurementPage(contractData: widget.contractData)),
-                            _wrapWithBlocker(RodoviaEmBlocos(contractData: widget.contractData)),
+                            _wrapWithBlocker(PhysicalSchedule(contractData: widget.contractData)),
                           ],
                         ),
 
