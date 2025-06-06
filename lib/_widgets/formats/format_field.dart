@@ -8,9 +8,12 @@ String getSanitizedPrice(String text) {
   return text.replaceAll(RegExp(',',), '.',);
 }
 
-String? priceToString(double? number) {
+String priceToString(double? number) {
+  if (number == null){
+    return '';
+  }
   return NumberFormat('R\$ ###,##0.00', 'pt-br',)
-      .format(double.parse(number!.toStringAsFixed(2,),),);
+      .format(double.parse(number.toStringAsFixed(2,),),);
 }
 
 String dateAndTimeToString(DateTime datetime) {
@@ -20,10 +23,17 @@ String dateAndTimeToString(DateTime datetime) {
 String dateToString(DateTime datetime) {
   return DateFormat('dd/MM/yyyy ', 'pt-br',).format(datetime);
 }
-double stringToDouble(String? value) {
-  if (value == null || value.isEmpty) return 0.0;
-  return double.tryParse(value.replaceAll(',', '.')) ?? 0.0;
+double? stringToDouble(String? input) {
+  if (input == null || input.isEmpty) return null;
+  final sanitized = input.replaceAll(RegExp(r'[^\d,.-]'), '').replaceAll('.', '').replaceAll(',', '.');
+  return double.tryParse(sanitized);
 }
+
+int stringToInt(String? value) {
+  if (value == null || value.isEmpty) return 0;
+  return int.tryParse(value) ?? 0;
+}
+
 String resumedDateToString(DateTime datetime) {
   return DateFormat('dd/MM/yy ', 'pt-br',).format(datetime);
 }
@@ -111,4 +121,8 @@ String addFormatCpfDynamicToString(dynamic inputCpf) {
 String removeFormatCpf(String inputCpf) {
   String text = inputCpf.replaceAll(RegExp(r'\D'), '');
   return text.toString();
+}
+
+String convertDoubletoString(double? value) {
+  return NumberFormat('###,##0.00', 'pt-br',).format(value);
 }

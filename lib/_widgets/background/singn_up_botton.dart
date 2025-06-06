@@ -11,15 +11,11 @@ class SignUpBotton extends StatelessWidget {
     required this.userBloc, 
     required this.userData,
     required this.loginBloc,
-    required this.passController,
-    required this.repeatPassController,
     required this.formKey
   });
   final UserBloc userBloc;
   final UserData userData;
   final LoginBloc loginBloc;
-  final passController;
-  final repeatPassController;
   final GlobalKey<FormState> formKey;
 
   @override

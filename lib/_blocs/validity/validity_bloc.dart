@@ -21,15 +21,10 @@ class ValidityBloc extends BlocBase {
     final snapshot = await FirebaseFirestore.instance.collection('contracts').doc(uid).get();
 
     if (!snapshot.exists) {
-      print('Contrato com UID $uid não encontrado no Firestore');
       return null;
     }
 
     return ContractData.fromDocument(snapshot: snapshot);
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

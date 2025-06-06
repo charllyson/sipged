@@ -5,7 +5,7 @@ import '../../_blocs/user/user_bloc.dart';
 import '../loading/loading_progress.dart';
 
 class BlockScreenToSave extends StatelessWidget {
-  const BlockScreenToSave({this.userBloc, this.loginBloc});
+  const BlockScreenToSave({super.key, this.userBloc, this.loginBloc});
   final UserBloc? userBloc;
   final LoginBloc? loginBloc;
 

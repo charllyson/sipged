@@ -10,7 +10,7 @@ import '../../../_widgets/input/custom_text_field.dart';
 import '../../../_widgets/validates/login_validators.dart';
 
 class SignUp extends StatefulWidget {
-  const SignUp({required this.userData});
+  const SignUp({super.key, required this.userData});
   final UserData userData;
 
   @override

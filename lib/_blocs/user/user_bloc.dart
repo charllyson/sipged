@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -82,13 +84,13 @@ class UserBloc extends BlocBase {
   }
 
   Future<List<Map<String, dynamic>>>? getAllUsersOfCPF() {
-    List<Map<String, dynamic>> _users = [];
+    List<Map<String, dynamic>> users = [];
 
     _db.collection("users").get().then((e){
       for (final DocumentSnapshot<Map<String, dynamic>> change in e.docs) {
-        _users.add(change.data()!);
+        users.add(change.data()!);
       }
-      return _users;
+      return users;
     });
     return null;
   }

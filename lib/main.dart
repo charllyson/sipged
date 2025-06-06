@@ -6,7 +6,9 @@ import 'package:scoped_model/scoped_model.dart';
 import 'package:sisgeo/_blocs/login/login_bloc.dart';
 import 'package:sisgeo/_models/user/user_model.dart';
 import 'package:sisgeo/screens/commons/login/sign_in.dart';
-import 'package:sisgeo/sideMenuPage.dart';
+import 'package:sisgeo/side_menu_page.dart';
+
+import '_widgets/schedule/physical_schedule.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,7 +71,7 @@ class _SisGeoState extends State<SisGeo> {
                   return SignIn();
                 } else {
                   UserModel.of(context).loadCurrentUser();
-                  return const SideMenuPage();
+                  return SideMenuPage();
                 }
               },
             ),

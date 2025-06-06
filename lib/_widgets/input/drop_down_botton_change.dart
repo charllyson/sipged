@@ -6,8 +6,10 @@ class DropDownButtonChange extends StatefulWidget {
     required this.items,
     this.labelText,
     required this.controller,
+    this.onChanged,
   });
 
+  final void Function(String?)? onChanged;
   final List<String> items;
   final String? labelText;
   final TextEditingController controller;
@@ -41,8 +43,13 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
           selectedTypes = selected;
           widget.controller.text = selected ?? '';
         });
+        if (widget.onChanged != null) {
+          widget.onChanged!(selected);
+        }
       },
       decoration: InputDecoration(
+        fillColor: Colors.white,
+        filled: true,
         labelText: widget.labelText,
         hintStyle: const TextStyle(color: Colors.grey), // ← aqui está o ajuste
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),

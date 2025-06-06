@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../_blocs/login/login_bloc.dart';
 import '../../../_widgets/background/background.dart';
-import '../../../_widgets/background/der_logo.dart';
-import '../../../_widgets/buttons/stream_button_.dart'; // Presume-se que StreamBotton foi um erro de digitação
+import '../../../_widgets/buttons/stream_button_.dart';
 import '../../../_widgets/input/custom_icon_button.dart';
 import '../../../_widgets/input/custom_text_field.dart';
 import '../../../_widgets/loading/loading_progress.dart';
 
 class SignIn extends StatefulWidget {
+  const SignIn({super.key});
+
   @override
   _SignInState createState() => _SignInState();
 }
@@ -83,7 +84,7 @@ class _SignInState extends State<SignIn> {
                 children: <Widget>[
                   Column(
                     children: [
-                      DERLogo(),
+                      //DERLogo(),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           double maxWidth;
@@ -182,7 +183,7 @@ class _SignInState extends State<SignIn> {
                       ),
                     ],
                   ),
-                  Container(
+                  /*Container(
                     color: Colors.white,
                     height: 30,
                     child: Row(
@@ -206,7 +207,7 @@ class _SignInState extends State<SignIn> {
                         ),
                       ],
                     ),
-                  ),
+                  ),*/
                 ],
               ),
               if (isLoading)

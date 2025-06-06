@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 
 class CustomDateField extends StatelessWidget {
   CustomDateField(
-      {this.stream,
+      {super.key, this.stream,
       this.hint,
       this.initialValue,
       this.valueColor,

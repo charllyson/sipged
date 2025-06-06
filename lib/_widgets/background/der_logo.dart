@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class DERLogo extends StatelessWidget {
+  const DERLogo({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Column(
