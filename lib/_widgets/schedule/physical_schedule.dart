@@ -177,7 +177,11 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
   }
 
   void _mostrarPopupServico(int estaca, int faixaIndex, String tipoServico) async {
-    final _comentarioCtrl = TextEditingController();
+    final execucao = _execucoes.firstWhere(
+          (e) => e.numero == estaca && e.faixaIndex == faixaIndex,
+      orElse: () => ExecucaoQuadrado(numero: estaca, faixaIndex: faixaIndex, tipo: tipoServico, status: '', comentario: ''),
+    );
+    final _comentarioCtrl = TextEditingController(text: execucao.comentario ?? '');
 
     String? escolha = await showDialog<String>(
       context: context,
@@ -441,19 +445,21 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
             Positioned.fill(child: Container(color: cor)),
             if (hasComment)
               const Positioned(
-                top: 1,
-                right: 1,
-                child: Icon(Icons.circle, size: 6, color: Colors.black),
+                child: Center(child: Icon(Icons.info_outline_rounded, size: 15, color: Colors.black38)),
               ),
           ],
         ),
       ),
     );
 
-    return Tooltip(
-      message: _buildTooltip(execucao),
-      child: container,
-    );
+    if (execucao.status.isEmpty || execucao.status == 'a iniciar') {
+      return container; // Sem tooltip
+    } else {
+      return Tooltip(
+        message: _buildTooltip(execucao),
+        child: container,
+      );
+    }
   }
 
   String _buildTooltip(ExecucaoQuadrado execucao) {
