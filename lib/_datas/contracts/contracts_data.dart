@@ -6,35 +6,35 @@ import 'package:image_picker/image_picker.dart';
 
 class ContractData extends ChangeNotifier {
   ///Informações do contrato
-  String? uid;
-  String? managerid;
-  String? contractnumber;
-  String? maincontracthighway;
+  String? id;
+  String? managerId;
+  String? contractNumber;
+  String? mainContractHighway;
   String? restriction;
-  String? contractservices;
-  String? contractmanagerartnumber;
-  String? summarysubjectcontract;
-  String? regionofstate;
-  String? managerphonenumber;
-  String? contractcompanyleader;
-  String? generalnumber;
-  String? contractbiddingprocessnumber;
-  String? automaticnumbersiafe;
-  double? fisicalpercentage;
-  String? regionalmanager;
-  String? contractstatus;
-  String? contractobjectdescription;
-  String? contracttype;
-  String? contractcompaniesinvolved;
-  String? urlpdf;
-  String? cnonumber;
+  String? contractServices;
+  String? contractManagerArtNumber;
+  String? summarySubjectContract;
+  String? regionOfState;
+  String? managerPhoneNumber;
+  String? contractCompanyLeader;
+  String? generalNumber;
+  String? contractBiddingProcessNumber;
+  String? automaticNumberSiafe;
+  double? physicalPercentage;
+  String? regionalManager;
+  String? contractStatus;
+  String? contractObjectDescription;
+  String? contractType;
+  String? contractCompaniesInvolved;
+  String? urlContractPdf;
+  String? cnoNumber;
 
-  int? cnpjnumber;
-  int? initialvalidityexecutiondays;
-  int? initialvaliditycontractdays;
-  int? cpfcontractmanager;
+  int? cnpjNumber;
+  int? initialValidityExecutionDays;
+  int? initialValidityContractDays;
+  int? cpfContractManager;
 
-  bool? existecontrato;
+  bool? existContract;
 
   DateTime? initialvalidityexecutiondate;
   DateTime? initialvaliditycontractdate;
@@ -43,40 +43,43 @@ class ContractData extends ChangeNotifier {
   double? financialpercentage;
   double? contractextkm;
 
+  Map<String, Map<String, bool>> permissionContractId = {};
+
   ContractData({
-    this.uid,
-    this.managerid,
-    this.summarysubjectcontract,
-    this.contractnumber,
-    this.maincontracthighway,
+    this.id,
+    this.managerId,
+    this.summarySubjectContract,
+    this.contractNumber,
+    this.mainContractHighway,
     this.restriction,
-    this.contractservices,
-    this.contractmanagerartnumber,
+    this.contractServices,
+    this.contractManagerArtNumber,
     this.contractextkm,
-    this.regionofstate,
-    this.managerphonenumber,
-    this.contractcompanyleader,
-    this.generalnumber,
-    this.contractbiddingprocessnumber,
-    this.automaticnumbersiafe,
-    this.fisicalpercentage,
-    this.regionalmanager,
-    this.contractstatus,
-    this.contractobjectdescription,
-    this.contracttype,
-    this.contractcompaniesinvolved,
-    this.urlpdf,
-    this.initialvalidityexecutiondays,
-    this.initialvaliditycontractdays,
-    this.cpfcontractmanager,
-    this.cnonumber,
-    this.cnpjnumber,
-    this.existecontrato,
+    this.regionOfState,
+    this.managerPhoneNumber,
+    this.contractCompanyLeader,
+    this.generalNumber,
+    this.contractBiddingProcessNumber,
+    this.automaticNumberSiafe,
+    this.physicalPercentage,
+    this.regionalManager,
+    this.contractStatus,
+    this.contractObjectDescription,
+    this.contractType,
+    this.contractCompaniesInvolved,
+    this.urlContractPdf,
+    this.initialValidityExecutionDays,
+    this.initialValidityContractDays,
+    this.cpfContractManager,
+    this.cnoNumber,
+    this.cnpjNumber,
+    this.existContract,
     this.initialvalidityexecutiondate,
     this.datapublicacaodoe,
     this.valorinicialdocontrato,
     this.initialvaliditycontractdate,
     this.financialpercentage,
+    this.permissionContractId = const {},
 });
 
   ///Recuperando informações no banco de dados
@@ -92,45 +95,93 @@ class ContractData extends ChangeNotifier {
     }
 
     return ContractData(
-      uid: snapshot.id,
-      contractnumber: data['contractnumber'].toString(),
-      summarysubjectcontract: data['summarysubjectcontract'].toString(),
-      contractbiddingprocessnumber: data['contractbiddingprocessnumber'].toString(),
-      managerid: data['managerid'].toString(),
-      maincontracthighway: data['maincontracthighway'].toString(),
-      restriction: data['restriction'].toString(),
-      contractservices: data['services'].toString(),
-      contractmanagerartnumber: data['contractmanagerartnumber'].toString(),
-      regionofstate: data['regionofstate'].toString(),
-      managerphonenumber: data['managerphonenumber'].toString(),
-      contractcompanyleader: data['companyleader'].toString(),
-      generalnumber: data['generalnumber'].toString(),
-      automaticnumbersiafe: data['automaticnumbersiafe'].toString(),
-      regionalmanager: data['regionalmanager'].toString(),
-      contractstatus: data['contractstatus'].toString(),
-      contractobjectdescription: data['objectcontractdescription'].toString(),
-      contracttype: data['contracttype'].toString(),
-      contractcompaniesinvolved: data['companiesinvolved'].toString(),
-      urlpdf: data['urlpdf'].toString(),
-      cnonumber: data['cnonumber'],
-
-      initialvalidityexecutiondate: data['initialvalidityexecutiondate'].toDate() as DateTime,
-      datapublicacaodoe: data['datapublicacaodoe'].toDate() as DateTime,
-      initialvaliditycontractdate: data['initialvaliditycontractdate'].toDate() as DateTime,
-
-      valorinicialdocontrato: data['valorinicialdocontrato'].toDouble() ?? 0.0,
-      fisicalpercentage: data['fisicalpercentage'].toDouble() ?? 0.0,
-      financialpercentage: data['financialpercentage'].toDouble() ?? 0.0,
-      contractextkm: data['extkm'].toDouble() ?? 0.0,
-
-      cnpjnumber: (data['cnpjnumber'] as num).toInt(),
-      cpfcontractmanager: (data['cpfcontractmanager'] as num).toInt(),
-      initialvalidityexecutiondays: (data['initialvalidityexecutiondays'] as num).toInt(),
-      initialvaliditycontractdays: (data['initialvaliditycontractdays'] as num).toInt(),
-
-      existecontrato: data['existecontrato'],
-
+      id: snapshot.id,
+      contractNumber: data['contractnumber']?.toString(),
+      summarySubjectContract: data['summarysubjectcontract']?.toString(),
+      contractBiddingProcessNumber: data['contractbiddingprocessnumber']?.toString(),
+      managerId: data['managerid']?.toString(),
+      mainContractHighway: data['maincontracthighway']?.toString(),
+      restriction: data['restriction']?.toString(),
+      contractServices: data['services']?.toString(),
+      contractManagerArtNumber: data['contractmanagerartnumber']?.toString(),
+      regionOfState: data['regionofstate']?.toString(),
+      managerPhoneNumber: data['managerphonenumber']?.toString(),
+      contractCompanyLeader: data['companyleader']?.toString(),
+      generalNumber: data['generalnumber']?.toString(),
+      automaticNumberSiafe: data['automaticnumbersiafe']?.toString(),
+      regionalManager: data['regionalmanager']?.toString(),
+      contractStatus: data['contractstatus']?.toString(),
+      contractObjectDescription: data['objectcontractdescription']?.toString(),
+      contractType: data['contracttype']?.toString(),
+      contractCompaniesInvolved: data['companiesinvolved']?.toString(),
+      urlContractPdf: data['urlpdf']?.toString(),
+      cnoNumber: data['cnonumber']?.toString(),
+      initialvalidityexecutiondate: (data['initialvalidityexecutiondate'] as Timestamp?)?.toDate(),
+      datapublicacaodoe: (data['datapublicacaodoe'] as Timestamp?)?.toDate(),
+      initialvaliditycontractdate: (data['initialvaliditycontractdate'] as Timestamp?)?.toDate(),
+      valorinicialdocontrato: (data['valorinicialdocontrato'] as num?)?.toDouble() ?? 0.0,
+      physicalPercentage: (data['fisicalpercentage'] as num?)?.toDouble() ?? 0.0,
+      financialpercentage: (data['financialpercentage'] as num?)?.toDouble() ?? 0.0,
+      contractextkm: (data['extkm'] as num?)?.toDouble() ?? 0.0,
+      cnpjNumber: (data['cnpjnumber'] as num?)?.toInt(),
+      cpfContractManager: (data['cpfcontractmanager'] as num?)?.toInt(),
+      initialValidityExecutionDays: (data['initialvalidityexecutiondays'] as num?)?.toInt(),
+      initialValidityContractDays: (data['initialvaliditycontractdays'] as num?)?.toInt(),
+      existContract: data['existecontrato'] as bool? ?? false,
+      permissionContractId: (data['permissionContractId'] as Map<String, dynamic>?)?.map(
+            (userId, perm) => MapEntry(
+          userId,
+          Map<String, bool>.from(perm as Map),
+        ),
+      ) ?? {},
     );
   }
 
+
+  Map<String, dynamic> toMap() {
+    return {
+      'contractnumber': contractNumber,
+      'summarysubjectcontract': summarySubjectContract,
+      'contractbiddingprocessnumber': contractBiddingProcessNumber,
+      'managerid': managerId,
+      'maincontracthighway': mainContractHighway,
+      'restriction': restriction,
+      'services': contractServices,
+      'contractmanagerartnumber': contractManagerArtNumber,
+      'regionofstate': regionOfState,
+      'managerphonenumber': managerPhoneNumber,
+      'companyleader': contractCompanyLeader,
+      'generalnumber': generalNumber,
+      'automaticnumbersiafe': automaticNumberSiafe,
+      'regionalmanager': regionalManager,
+      'contractstatus': contractStatus,
+      'objectcontractdescription': contractObjectDescription,
+      'contracttype': contractType,
+      'companiesinvolved': contractCompaniesInvolved,
+      'urlpdf': urlContractPdf,
+      'cnonumber': cnoNumber,
+      'initialvalidityexecutiondate': initialvalidityexecutiondate,
+      'datapublicacaodoe': datapublicacaodoe,
+      'initialvaliditycontractdate': initialvaliditycontractdate,
+      'valorinicialdocontrato': valorinicialdocontrato,
+      'fisicalpercentage': physicalPercentage,
+      'financialpercentage': financialpercentage,
+      'extkm': contractextkm,
+      'cnpjnumber': cnpjNumber,
+      'cpfcontractmanager': cpfContractManager,
+      'initialvalidityexecutiondays': initialValidityExecutionDays,
+      'initialvaliditycontractdays': initialValidityContractDays,
+      'existecontrato': existContract,
+      'permissionContractId': permissionContractId,
+    };
+  }
+
+
+  // Atualiza as permissões do usuário para um contrato específico usando o ID do documento
+  void updateContractPermissions(String contractDocId, String permissionType, bool value) {
+    if (permissionContractId[contractDocId] == null) {
+      permissionContractId[contractDocId] = {};
+    }
+    permissionContractId[contractDocId]![permissionType] = value;
+  }
 }

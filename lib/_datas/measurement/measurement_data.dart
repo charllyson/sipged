@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 
 class MeasurementData extends ChangeNotifier {
   ///Informações de medições
-  String? uid;
+  String? uidMeasurement;
   DateTime? measurementadjustmentdate;
   String? measurementadjustmentnumberprocess;
   double? measurementadjustmentvalue;
@@ -20,7 +20,7 @@ class MeasurementData extends ChangeNotifier {
 
 
   MeasurementData({
-    this.uid,
+    this.uidMeasurement,
     this.measurementadjustmentdate,
     this.measurementadjustmentnumberprocess,
     this.measurementadjustmentvalue,
@@ -48,7 +48,7 @@ class MeasurementData extends ChangeNotifier {
     }
 
     return MeasurementData(
-      uid: snapshot.id,
+      uidMeasurement: snapshot.id,
       measurementadjustmentdate: data['measurementadjustmentdate'].toDate() as DateTime,
       measurementadjustmentnumberprocess: data['measurementadjustmentnumberprocess'],
       measurementadjustmentvalue: data['measurementadjustmentvalue'].toDouble() ?? 0.0,
@@ -65,5 +65,23 @@ class MeasurementData extends ChangeNotifier {
     );
 
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'measurementadjustmentdate': measurementadjustmentdate,
+      'measurementadjustmentnumberprocess': measurementadjustmentnumberprocess,
+      'measurementadjustmentvalue': measurementadjustmentvalue,
+      'measurementconsolidatedvalue': measurementconsolidatedvalue,
+      'measurementdata': measurementdata,
+      'measurementinitialvalue': measurementinitialvalue,
+      'measurementnumberprocess': measurementnumberprocess,
+      'measurementorder': measurementorder,
+      'measurementrevisiondate': measurementrevisiondate,
+      'measurementrevisionnumberprocess': measurementrevisionnumberprocess,
+      'measurementvalueprediction': measurementvalueprediction,
+      'measurementvaluerevisionsadjustments': measurementvaluerevisionsadjustments,
+    };
+  }
+
 
 }

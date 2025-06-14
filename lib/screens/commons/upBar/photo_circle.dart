@@ -2,33 +2,33 @@ import 'package:flutter/material.dart';
 import '../../../_datas/user/user_data.dart';
 
 class PhotoCircle extends StatelessWidget {
-  const PhotoCircle({super.key, this.userData});
   final UserData? userData;
+
+  const PhotoCircle({super.key, this.userData});
 
   @override
   Widget build(BuildContext context) {
+    final photoUrl = userData?.urlPhoto;
+
     return ClipOval(
-      child: (userData?.urlPhoto?.isNotEmpty ?? false)
+      child: (photoUrl != null && photoUrl.isNotEmpty)
           ? Image.network(
-        userData!.urlPhoto!,
+        photoUrl,
         width: 40,
         height: 40,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Image.asset(
-            'assets/images/default_avatar.png',
-            width: 40,
-            height: 40,
-            fit: BoxFit.cover,
-          );
-        },
+        errorBuilder: (context, error, stackTrace) => _defaultAvatar(),
       )
-          : Image.asset(
-        'assets/images/default_avatar.png',
-        width: 40,
-        height: 40,
-        fit: BoxFit.cover,
-      ),
+          : _defaultAvatar(),
+    );
+  }
+
+  Widget _defaultAvatar() {
+    return Image.asset(
+      'assets/images/default_avatar.png',
+      width: 40,
+      height: 40,
+      fit: BoxFit.cover,
     );
   }
 }

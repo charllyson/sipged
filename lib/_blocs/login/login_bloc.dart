@@ -161,7 +161,7 @@ class LoginBloc extends BlocBase with LoginValidators {
       );
 
       firebaseUser = authResult.user;
-      userData.uid = firebaseUser!.uid;
+      userData.id = firebaseUser!.uid;
 
       await userBloc.saveUser(userData: userData);
 
@@ -196,11 +196,12 @@ class LoginBloc extends BlocBase with LoginValidators {
 
   @override
   void dispose() {
-    _emailController.close();
-    _passwordController.close();
-    _loadingController.close();
-    _stateController.close();
-    _loginErrorController.close();
+    // Remova o fechamento dos controllers
+    // _emailController.close();
+    // _passwordController.close();
+    // _loadingController.close();
+    // _stateController.close();
+    // _loginErrorController.close();
     super.dispose();
   }
 }

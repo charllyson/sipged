@@ -3,14 +3,14 @@ import 'package:flutter/cupertino.dart';
 
 class ValidityData extends ChangeNotifier {
   String? uid;
-  String? uidContract; // <-- Adicione isso
+  String? uidContract;
   DateTime? orderdate;
   int? ordernumber;
   String? ordertype;
 
   ValidityData({
     this.uid,
-    this.uidContract, // <-- Atribua no construtor também
+    this.uidContract,
     this.orderdate,
     this.ordernumber,
     this.ordertype,

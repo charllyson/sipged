@@ -5,8 +5,11 @@ import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:provider/provider.dart';
 import 'package:rxdart/rxdart.dart';
 import '../../_datas/user/user_data.dart';
+import '../../_models/user/user_model.dart';
 
 class UserBloc extends BlocBase {
   final Map<String, Map<String, dynamic>> _users = {};
@@ -24,128 +27,147 @@ class UserBloc extends BlocBase {
     _addUsersListener();
   }
 
-
-  ///Salvando os dados no firebase
+  /// Salvando os dados no Firebase
   Future<bool> saveUser({
     required UserData userData,
     DocumentSnapshot? snapUser,
   }) async {
     _loadingController.add(true);
     try {
-
-      ///criando o usuário com o mesmo id do auth
-      if (userData.uid != null) {
-        await _db.collection("users").doc(userData.uid).set(userData.toMap());
-      }
-      ///Atualizando os dados do usuário
-      if (snapUser != null) {
-        if (userData.urlPhoto != null) {
-          await _uploadImages(snapUser.id);
-        }
-        await snapUser.reference.update(userData.toMap());
-      }
-      if (userData.urlPhoto != null) {
-        await _uploadImages(userData.uid);
+      /// Criando o usuário com o mesmo id do auth
+      if (userData.id != null) {
+        await _db.collection("users").doc(userData.id).set(userData.toMap());
       }
       _createdController.add(true);
       _loadingController.add(false);
       return true;
     } catch (e) {
       _loadingController.add(false);
+      print('Erro ao salvar o usuário: $e');
       return false;
     }
   }
 
-  ///Salvando as imagens noFirebaseFirestore
-  Future _uploadImages(String? userId) async {
-    if (userData!.urlPhoto is File) {
-      final UploadTask task = FirebaseStorage.instance
-          .ref()
-          .child("users")
-          .child(userId!)
-          .child("photoProfile")
-          .putFile(userData!.urlPhoto as File);
-
-      final TaskSnapshot s = await task;
-      final String downloadUrl = await s.ref.getDownloadURL();
-      userData!.urlPhoto = downloadUrl;
-    }
-  }
-
-  ///Pegando a coleção de usuários
+  /// Pegando a coleção de usuários
   void _addUsersListener() {
     _db.collection("users").snapshots().listen((snapshot) async {
-      for (final DocumentSnapshot<Map<String, dynamic>> change
-          in snapshot.docs) {
+      for (final DocumentSnapshot<Map<String, dynamic>> change in snapshot.docs) {
         final String uid = change.id;
         _users[uid] = change.data()!;
       }
     });
   }
 
-  Future<List<Map<String, dynamic>>>? getAllUsersOfCPF() {
+  Future<List<Map<String, dynamic>>> getAllUsersOfCPF() async {
     List<Map<String, dynamic>> users = [];
 
-    _db.collection("users").get().then((e){
-      for (final DocumentSnapshot<Map<String, dynamic>> change in e.docs) {
+    try {
+      final querySnapshot = await _db.collection("users").get();
+      for (final DocumentSnapshot<Map<String, dynamic>> change in querySnapshot.docs) {
         users.add(change.data()!);
       }
       return users;
-    });
-    return null;
+    } catch (e) {
+      print('Erro ao buscar usuários: $e');
+      return [];
+    }
   }
 
-  ///Repra o usuário com o id informado
+  /// Recuperando um usuário específico pelo id
   Future<DocumentSnapshot<Map<String, dynamic>>> getSpecificUser({
     required String? uid,
   }) async {
-    return _db.collection('users').doc(uid).get();
+    return await _db.collection('users').doc(uid).get();
   }
 
-  Future<DocumentSnapshot<Map<String, dynamic>>> getDataUser({
-    required String uid,
-  }) async {
-    final DocumentSnapshot<Map<String, dynamic>> docUser =
-        await _db.collection("users").doc(uid).get();
-    return docUser;
-  }
-
+  /// Recuperando dados do usuário
   Future<UserData?> getUserData({required String uid}) async {
-    final snapshot = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-
-    if (!snapshot.exists) {
-      print('Usuário com UID $uid não encontrado no Firestore');
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (!snapshot.exists) {
+        print('Usuário com UID $uid não encontrado no Firestore');
+        return null;
+      }
+      return UserData.fromDocument(snapshot: snapshot);
+    } catch (e) {
+      print('Erro ao buscar dados do usuário: $e');
       return null;
     }
-
-    return UserData.fromDocument(snapshot: snapshot);
   }
 
-  ///Deletando o token do usuário
+  /// Deletando o token do usuário
   Future<void> deleteSpecificToken({
     required String? uid,
     required String? tokenId,
   }) async {
-    await _db
-        .collection("users")
-        .doc(uid)
-        .collection("tokens")
-        .doc(tokenId)
-        .delete();
+    try {
+      await _db
+          .collection("users")
+          .doc(uid)
+          .collection("tokens")
+          .doc(tokenId)
+          .delete();
+    } catch (e) {
+      print('Erro ao deletar token: $e');
+    }
   }
 
-  ///Recuperando todos os tokens do usuário
+  /// Recuperando todos os tokens do usuário
   Stream<QuerySnapshot<Map<String, dynamic>>> getStreamAllTokens({
     required String? uid,
   }) {
     return _db.collection("users").doc(uid).collection("tokens").snapshots();
   }
 
-  ///Recuperando todos os tokens do usuário
+  /// Recuperando todos os tokens do usuário
   Future<QuerySnapshot> getAllTokens({required String? uid}) async {
-    return _db.collection('users').doc(uid).collection('tokens').get();
+    return await _db.collection('users').doc(uid).collection('tokens').get();
   }
 
+  //autoconplete para sugestao de possiveis nomes
+  List<String> generateSearchKeywords(String fullName) {
+    final nameParts = fullName.toLowerCase().split(RegExp(r'\s+'));
+    final keywords = <String>{};
+
+    for (var part in nameParts) {
+      for (var i = 1; i <= part.length; i++) {
+        keywords.add(part.substring(0, i));
+      }
+    }
+
+    return keywords.toList();
+  }
+
+
+  Future<List<UserData>> getAllUsers(BuildContext context) async {
+    final snapshot = await FirebaseFirestore.instance.collection('users').get();
+
+    final list = snapshot.docs
+        .map((doc) => UserData.fromDocument(snapshot: doc))
+        .toList();
+
+    Provider.of<UserProvider>(context, listen: false).setUserDataList(list);
+
+    return list; // <- Adicione este retorno
+  }
+
+  getUserPermissions(
+      {
+        required String userId,
+      }
+      ){
+
+  }
+
+  savePermissions(
+      {
+        required String userId,
+        required List<String> permissionOrgan,
+        required List<String> permissionDirector,
+        required List<String> permissionSector,
+      }){
+
+  }
 
   @override
   void dispose() {

@@ -49,70 +49,48 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        double maxWidth;
-        if (constraints.maxWidth >= 1000) {
-          /// Desktop
-          maxWidth = 500;
-        } else if (constraints.maxWidth >= 600) {
-          /// Tablet
-          maxWidth = 400;
-        } else {
-          maxWidth = constraints.maxWidth * 0.9;
-
-          /// Mobile
-        }
-        return ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Padding(
-            padding: const EdgeInsets.only(top: 6.0),
-            child: TextFormField(
-              autocorrect: autoCorrect,
-              textInputAction: textInputAction,
-              focusNode: focusNode,
-              maxLength: maxLength,
-              controller: controller,
-              obscureText: obscure,
-              initialValue: initialValue,
-              enabled: enabled,
-              validator: validator,
-              onSaved: onSaved,
-              onChanged: onChanged,
-              keyboardType: keyboardType,
-              inputFormatters: inputFormatters,
-              decoration: InputDecoration(
-                labelStyle: const TextStyle(color: Colors.grey), // cor do rótulo
-                filled: true,
-                fillColor: Colors.white,
-                labelText: labelText,
-                prefixIcon: prefix,
-                suffixIcon: suffix,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: const BorderSide(color: Colors.grey),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: const BorderSide(color: Colors.blue),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: const BorderSide(color: Colors.red),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: const BorderSide(color: Colors.red),
-                ),
-                disabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                  borderSide: const BorderSide(color: Colors.grey),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    return TextFormField(
+      autocorrect: autoCorrect,
+      textInputAction: textInputAction,
+      focusNode: focusNode,
+      maxLength: maxLength,
+      controller: controller,
+      obscureText: obscure,
+      initialValue: initialValue,
+      enabled: enabled,
+      validator: validator,
+      onSaved: onSaved,
+      onChanged: onChanged,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      decoration: InputDecoration(
+        labelStyle: const TextStyle(color: Colors.grey), // cor do rótulo
+        filled: true,
+        fillColor: Colors.white,
+        labelText: labelText,
+        prefixIcon: prefix,
+        suffixIcon: suffix,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+          borderSide: const BorderSide(color: Colors.grey),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+          borderSide: const BorderSide(color: Colors.blue),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+          borderSide: const BorderSide(color: Colors.grey),
+        ),
+      ),
     );
   }
 }

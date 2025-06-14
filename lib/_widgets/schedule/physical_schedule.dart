@@ -1,15 +1,9 @@
-// Versão com cabeçalho fixo e cronograma separado por serviço usando coleção temContracts
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:sisgeo/_datas/calculationMemory/calculation_memory_data.dart';
 import 'package:sisgeo/_datas/contracts/contracts_data.dart';
+import '../../_class/highway/highway_class.dart';
 import '../buttons/button_flutuante_hover.dart';
-
-class FaixaRodovia {
-  final String label;
-  final Color cor;
-  final double altura;
-  const FaixaRodovia(this.label, this.cor, this.altura);
-}
 
 class PhysicalSchedule extends StatefulWidget {
   const PhysicalSchedule({super.key, this.contractData});
@@ -25,14 +19,14 @@ class PhysicalSchedule extends StatefulWidget {
     'MARGEM LD',
   ];
 
-  static List<FaixaRodovia> faixas = [
-    FaixaRodovia(nomesFaixas[0], Colors.black12, 20),
-    FaixaRodovia(nomesFaixas[1], Colors.black87, 20),
-    FaixaRodovia(nomesFaixas[2], Colors.grey, 20),
-    FaixaRodovia(nomesFaixas[3], Colors.yellow, 10),
-    FaixaRodovia(nomesFaixas[4], Colors.grey, 20),
-    FaixaRodovia(nomesFaixas[5], Colors.black87, 20),
-    FaixaRodovia(nomesFaixas[6], Colors.black12, 20),
+  static List<HighwayClass> faixas = [
+    HighwayClass(nomesFaixas[0], Colors.black12, 20),
+    HighwayClass(nomesFaixas[1], Colors.black87, 20),
+    HighwayClass(nomesFaixas[2], Colors.grey, 20),
+    HighwayClass(nomesFaixas[3], Colors.yellow, 10),
+    HighwayClass(nomesFaixas[4], Colors.grey, 20),
+    HighwayClass(nomesFaixas[5], Colors.black87, 20),
+    HighwayClass(nomesFaixas[6], Colors.black12, 20),
   ];
 
   @override
@@ -40,40 +34,22 @@ class PhysicalSchedule extends StatefulWidget {
 }
 
 
-class ExecucaoQuadrado {
-  final int numero;
-  final int faixaIndex;
-  final String tipo;
-  final String status;
-  final DateTime? timestamp;
-  final String? comentario;
-
-  ExecucaoQuadrado({
-    required this.numero,
-    required this.faixaIndex,
-    required this.tipo,
-    required this.status,
-    this.timestamp,
-    this.comentario,
-  });
-
-  factory ExecucaoQuadrado.fromMap(Map<String, dynamic> map) {
-    return ExecucaoQuadrado(
-      numero: map['numero'],
-      faixaIndex: map['faixa_index'],
-      tipo: map['tipo'],
-      status: map['status'],
-      timestamp: (map['timestamp'] as Timestamp?)?.toDate(),
-      comentario: map['comentario'],
-    );
-  }
-}
 
 class _PhysicalScheduleState extends State<PhysicalSchedule> {
   late final int totalEstacas;
-  List<ExecucaoQuadrado> _execucoes = [];
+  List<CalculationMemoryData> _execucoes = [];
   String _servicoSelecionado = "GERAL";
   Future<Map<String, Map<String, double>>>? _futurePercentuaisPorServico;
+  CalculationMemoryData calculationMemoryData = CalculationMemoryData();
+  int get totalEsperado => totalEstacas * PhysicalSchedule.faixas.length;
+  int get concluidos => _execucoes.where((e) => e.status == 'concluido').length;
+  int get emAndamento => _execucoes.where((e) => e.status == 'em andamento').length;
+  int get iniciados => concluidos + emAndamento;
+  int get aIniciar => totalEsperado - iniciados;
+
+  double get percentualConcluido => totalEsperado == 0 ? 0 : concluidos / totalEsperado * 100;
+  double get percentualEmAndamento => totalEsperado == 0 ? 0 : emAndamento / totalEsperado * 100;
+  double get percentualAIniciar => totalEsperado == 0 ? 0 : aIniciar / totalEsperado * 100;
 
   @override
   void initState() {
@@ -107,7 +83,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
   }
 
   Future<void> carregarExecucao() async {
-    final contractId = widget.contractData?.uid;
+    final contractId = widget.contractData?.id;
     if (contractId == null) return;
 
     List<QuerySnapshot<Map<String, dynamic>>> snapshots;
@@ -124,10 +100,10 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
     }
 
     final execucoes = snapshots.expand((snap) {
-      return snap.docs.map((doc) => ExecucaoQuadrado.fromMap(doc.data()));
+      return snap.docs.map((doc) => CalculationMemoryData.fromMap(doc.data()));
     }).toList();
 
-    final mapUnico = <String, ExecucaoQuadrado>{};
+    final mapUnico = <String, CalculationMemoryData>{};
     for (final e in execucoes) {
       final key = '${e.numero}_${e.faixaIndex}';
       if (!mapUnico.containsKey(key) || (e.timestamp?.isAfter(mapUnico[key]!.timestamp ?? DateTime(2000)) ?? false)) {
@@ -141,7 +117,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
   }
 
   Future<void> _atualizarQuadrado(int estaca, int faixaIndex, String tipo, String status, [String? comentario]) async {
-    final contractId = widget.contractData?.uid;
+    final contractId = widget.contractData?.id;
     if (contractId == null) return;
     if (_servicoSelecionado == "GERAL") return;
 
@@ -179,9 +155,9 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
   void _mostrarPopupServico(int estaca, int faixaIndex, String tipoServico) async {
     final execucao = _execucoes.firstWhere(
           (e) => e.numero == estaca && e.faixaIndex == faixaIndex,
-      orElse: () => ExecucaoQuadrado(numero: estaca, faixaIndex: faixaIndex, tipo: tipoServico, status: '', comentario: ''),
+      orElse: () => CalculationMemoryData(numero: estaca, faixaIndex: faixaIndex, tipo: tipoServico, status: '', comentario: ''),
     );
-    final _comentarioCtrl = TextEditingController(text: execucao.comentario ?? '');
+    final comentarioCtrl = TextEditingController(text: execucao.comentario ?? '');
 
     String? escolha = await showDialog<String>(
       context: context,
@@ -192,7 +168,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: _comentarioCtrl,
+                controller: comentarioCtrl,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Comentário (opcional)',
@@ -227,7 +203,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
     );
 
     if (escolha != null) {
-      await _atualizarQuadrado(estaca, faixaIndex, tipoServico, escolha, _comentarioCtrl.text.trim().isEmpty ? null : _comentarioCtrl.text.trim());
+      await _atualizarQuadrado(estaca, faixaIndex, tipoServico, escolha, comentarioCtrl.text.trim().isEmpty ? null : comentarioCtrl.text.trim());
     }
   }
 
@@ -290,7 +266,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
           final faixa = PhysicalSchedule.faixas[i];
           final execucao = _execucoes.firstWhere(
                 (e) => e.numero == index && e.faixaIndex == i,
-            orElse: () => ExecucaoQuadrado(numero: index, faixaIndex: i, tipo: '', status: ''),
+            orElse: () => CalculationMemoryData(numero: index, faixaIndex: i, tipo: '', status: ''),
           );
 
           return _buildBlocoRodovia(execucao, faixa.altura);
@@ -301,7 +277,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
   }
 
   Future<Map<String, Map<String, double>>> calcularPercentuaisPorServico() async {
-    final contractId = widget.contractData?.uid;
+    final contractId = widget.contractData?.id;
     if (contractId == null) return {};
 
     final servicos = {
@@ -315,7 +291,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
     for (final entry in servicos.entries) {
       final snap = await getSubcollectionRef(contractId, entry.value).get();
 
-      final execucoes = snap.docs.map((doc) => ExecucaoQuadrado.fromMap(doc.data())).toList();
+      final execucoes = snap.docs.map((doc) => CalculationMemoryData.fromMap(doc.data())).toList();
       final total = totalEstacas * PhysicalSchedule.faixas.length;
       final concluidos = execucoes.where((e) => e.status == 'concluido').length;
       final andamento = execucoes.where((e) => e.status == 'em andamento').length;
@@ -375,67 +351,14 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
     await carregarExecucao();
   }
 
-  int get totalEsperado => totalEstacas * PhysicalSchedule.faixas.length;
-  int get concluidos => _execucoes.where((e) => e.status == 'concluido').length;
-  int get emAndamento => _execucoes.where((e) => e.status == 'em andamento').length;
-  int get iniciados => concluidos + emAndamento;
-  int get aIniciar => totalEsperado - iniciados;
-
-  double get percentualConcluido => totalEsperado == 0 ? 0 : concluidos / totalEsperado * 100;
-  double get percentualEmAndamento => totalEsperado == 0 ? 0 : emAndamento / totalEsperado * 100;
-  double get percentualAIniciar => totalEsperado == 0 ? 0 : aIniciar / totalEsperado * 100;
-
-  Widget _cabecalhoPadrao(String titulo) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(16),
-          bottomRight: Radius.circular(16),
-        ),
-        boxShadow: [
-          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Text(titulo, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              const Icon(Icons.square, color: Colors.green, size: 16),
-              const SizedBox(width: 4),
-              Text("Concluído (${percentualConcluido.toStringAsFixed(1)}%)", style: const TextStyle(fontSize: 12)),
-              const SizedBox(width: 4),
-              const Icon(Icons.square, color: Colors.orange, size: 16),
-              const SizedBox(width: 4),
-              Text("Em andamento (${percentualEmAndamento.toStringAsFixed(1)}%)", style: const TextStyle(fontSize: 12)),
-              const SizedBox(width: 4),
-              const Icon(Icons.square, color: Colors.grey, size: 16),
-              const SizedBox(width: 4),
-              Text("A iniciar (${percentualAIniciar.toStringAsFixed(1)}%)", style: const TextStyle(fontSize: 12)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBlocoRodovia(ExecucaoQuadrado execucao, double altura) {
+  Widget _buildBlocoRodovia(CalculationMemoryData execucao, double altura) {
     final hasComment = execucao.comentario != null && execucao.comentario!.trim().isNotEmpty;
-    final cor = corQuadrado(execucao.numero, execucao.faixaIndex);
+    final cor = corQuadrado(execucao.numero!, execucao.faixaIndex!);
 
     final container = GestureDetector(
       onTap: _servicoSelecionado == "GERAL"
           ? () => mostrarToastSuperior("Para editar, selecione um serviço específico.")
-          : () => _mostrarPopupServico(execucao.numero, execucao.faixaIndex, execucao.tipo),
+          : () => _mostrarPopupServico(execucao.numero!, execucao.faixaIndex!, execucao.tipo!),
       child: Container(
         width: 20,
         height: altura,
@@ -452,7 +375,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
       ),
     );
 
-    if (execucao.status.isEmpty || execucao.status == 'a iniciar') {
+    if (execucao.status!.isEmpty || execucao.status == 'a iniciar') {
       return container; // Sem tooltip
     } else {
       return Tooltip(
@@ -462,7 +385,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
     }
   }
 
-  String _buildTooltip(ExecucaoQuadrado execucao) {
+  String _buildTooltip(CalculationMemoryData execucao) {
     final data = execucao.timestamp;
     final comentario = execucao.comentario;
     final buffer = StringBuffer();
@@ -494,12 +417,12 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
   Color corQuadrado(int estaca, int faixaIndex) {
     final execucao = _execucoes.firstWhere(
           (e) => e.numero == estaca && e.faixaIndex == faixaIndex,
-      orElse: () => ExecucaoQuadrado(numero: estaca, faixaIndex: faixaIndex, tipo: '', status: ''),
+      orElse: () => CalculationMemoryData(numero: estaca, faixaIndex: faixaIndex, tipo: '', status: ''),
     );
 
     if (_servicoSelecionado == "GERAL") {
       if (execucao.status == 'concluido' || execucao.status == 'em andamento') {
-        return _corDoServico(execucao.tipo);
+        return _corDoServico(execucao.tipo!);
       } else {
         return Colors.grey.shade300;
       }
@@ -515,8 +438,18 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
     }
   }
 
+  double getResponsiveWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth < 600) {
+      return screenWidth - 32; // tela pequena: 1 campo por linha
+    } else if (screenWidth < 1000) {
+      return (screenWidth - 64) / 2; // tela média: 2 por linha
+    } else {
+      return (screenWidth - 96) / 4; // tela grande: 3 por linha
+    }
+  }
 
-  Widget _cabecalhoPorServico(Map<String, Map<String, double>> dados) {
+  Widget _cabecalhoPorServico(Map<String, Map<String, double>> dados, String servicoSelecionado) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
@@ -529,23 +462,24 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
           BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              const Text("Cronograma - GERAL", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text("CRONOGRAMA - $servicoSelecionado", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ],
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
             children: [
               ...dados.entries.map((entry) {
                 final nome = entry.key;
                 final valores = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
                       Row(
@@ -553,7 +487,8 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
                           Container(
                             width: 4,
                             height: 18,
-                            margin: const EdgeInsets.only(right: 6),
+                            margin: const EdgeInsets.only(right:
+                            6),
                             decoration: BoxDecoration(
                               color: _corDoServico(nome),
                               borderRadius: BorderRadius.circular(2),
@@ -581,7 +516,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
             ]
           )
 
@@ -594,7 +529,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
 
   @override
   Widget build(BuildContext context) {
-    final largura = MediaQuery.of(context).size.width;
+    final largura = MediaQuery.of(context).size.width - 32;
     const larguraLegenda = 100.0;
     const larguraEstaca = 22.5;
     final estacasPorLinha = ((largura - larguraLegenda) / larguraEstaca).floor();
@@ -604,23 +539,52 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          ListView.builder(
-            padding: const EdgeInsets.only(top: 80, left: 32, right: 32, bottom: 32),
-            itemCount: linhas,
-            itemBuilder: (context, linhaIndex) {
-              final start = linhaIndex * estacasPorLinha;
-              final end = (start + estacasPorLinha).clamp(0, totalEstacas);
-              final blocos = List.generate(end - start, (i) {
-                final index = start + i + 1;
-                return SizedBox(width: 20.5, child: blocoRodoviaVertical(index));
-              });
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  legendaLateral(),
-                  const SizedBox(width: 8),
-                  ...blocos,
-                ],
+          FutureBuilder<Map<String, Map<String, double>>>(
+            future: _futurePercentuaisPorServico,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: Text("Carregando..."));
+              }
+
+              final data = snapshot.data!;
+              final largura = MediaQuery.of(context).size.width - 32;
+              const larguraLegenda = 100.0;
+              const larguraEstaca = 22.5;
+              final estacasPorLinha = ((largura - larguraLegenda) / larguraEstaca).floor();
+              final linhas = (totalEstacas / estacasPorLinha).ceil();
+
+              return ListView.builder(
+                itemCount: linhas + 1, // +1 para o cabeçalho
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _cabecalhoPorServico(data, _servicoSelecionado);
+                  }
+                  final linhaIndex = index - 1;
+                  final start = linhaIndex * estacasPorLinha;
+                  final end = (start + estacasPorLinha).clamp(0, totalEstacas);
+                  final blocos = List.generate(end - start, (i) {
+                    final estacaIndex = start + i + 1;
+                    return SizedBox(width: 20.5, child: blocoRodoviaVertical(estacaIndex));
+                  });
+
+                  return Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        legendaLateral(),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Wrap(
+                            spacing: 0,
+                            runSpacing: 0,
+                            children: blocos,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -633,7 +597,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
                 BotaoFlutuanteHover(
                   icon: Icons.clear_all,
                   label: "GERAL",
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black54,
                   onPressed: () => selecionarServico("GERAL"),
                 ),
                 const SizedBox(height: 12),
@@ -660,44 +624,8 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
               ],
             ),
           ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _servicoSelecionado == "GERAL"
-                ? FutureBuilder<Map<String, Map<String, double>>>(
-              future: _futurePercentuaisPorServico,
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return _cabecalhoPadrao("Carregando...");
-                }
-                final data = snapshot.data!;
-                return _cabecalhoPorServico(data);
-              },
-            )
-                : _cabecalhoPadrao("Cronograma - $_servicoSelecionado"),
-          ),
         ],
       ),
     );
   }
-}
-
-class HachuraPainter extends CustomPainter {
-  final Color cor;
-  HachuraPainter(this.cor);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = cor.withOpacity(0.4)
-      ..strokeWidth = 1;
-
-    for (double y = 0; y < size.height; y += 4) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y + 4), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

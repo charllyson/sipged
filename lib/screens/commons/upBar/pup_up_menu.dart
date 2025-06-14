@@ -4,6 +4,7 @@ import 'package:sisgeo/screens/commons/upBar/photo_circle.dart';
 import '../../../_blocs/login/login_bloc.dart';
 import '../../../_blocs/user/user_bloc.dart';
 import '../../../_datas/user/user_data.dart';
+import '../../adm/settings_system_page.dart';
 
 class PopUpMenu extends StatefulWidget {
   const PopUpMenu({super.key});
@@ -49,7 +50,7 @@ class _PopUpMenuState extends State<PopUpMenu> {
   @override
   Widget build(BuildContext context) {
     if (firebaseUser == null) {
-      return const SizedBox.shrink(); // ou algum loader
+      return const SizedBox.shrink();
     }
 
     return FutureBuilder<UserData?>(
@@ -65,15 +66,19 @@ class _PopUpMenuState extends State<PopUpMenu> {
           color: Colors.black54,
           onSelected: (value) {
             switch (value) {
-              case 'perfil':
+              /*case 'perfil':
                 Navigator.pushNamed(context, '/perfil');
-                break;
-              case 'configuracoes':
-                Navigator.pushNamed(context, '/configuracoes');
-                break;
+                break;*/
               case 'administrador':
-                Navigator.pushReplacementNamed(context, '/admPage');
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SettingsSystemPage(),
+                  ),
+                );
                 break;
+              /*case 'configuracoes':
+                Navigator.pushReplacementNamed(context, '/admPage');
+                break;*/
               case 'sair':
                 _loginBloc.signOut();
                 break;
@@ -84,7 +89,7 @@ class _PopUpMenuState extends State<PopUpMenu> {
               enabled: false,
               child: Text('Olá, ${userData.data?.name ?? ''}', style: const TextStyle(color: Colors.white)),
             ),
-            const PopupMenuItem<String>(
+            /*const PopupMenuItem<String>(
               value: 'perfil',
               child: Row(
                 children: [
@@ -93,8 +98,19 @@ class _PopUpMenuState extends State<PopUpMenu> {
                   Text('Perfil', style: TextStyle(color: Colors.white)),
                 ],
               ),
-            ),
-            const PopupMenuItem<String>(
+            ),*/
+            if (userData.data?.baseProfile == 'Administrador')
+              PopupMenuItem<String>(
+                value: 'administrador',
+                child: Row(
+                  children: const [
+                    Icon(Icons.admin_panel_settings, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text('Administrador', style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              ),
+            /*const PopupMenuItem<String>(
               value: 'configuracoes',
               child: Row(
                 children: [
@@ -103,17 +119,7 @@ class _PopUpMenuState extends State<PopUpMenu> {
                   Text('Configurações', style: TextStyle(color: Colors.white)),
                 ],
               ),
-            ),
-            const PopupMenuItem<String>(
-              value: 'administrador',
-              child: Row(
-                children: [
-                  Icon(Icons.admin_panel_settings, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text('Administrador', style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
+            ),*/
             const PopupMenuItem<String>(
               value: 'sair',
               child: Row(

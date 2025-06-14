@@ -1,33 +1,25 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:scoped_model/scoped_model.dart';
+import 'package:flutter/material.dart';
+import 'package:sisgeo/_datas/user/user_data.dart';
 
-import '../../_datas/user/user_data.dart';
+class UserProvider extends ChangeNotifier {
+  UserData? _userData;
+  List<UserData> _userDataList = [];
 
-class UserModel extends Model {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  User? firebaseUser = FirebaseAuth.instance.currentUser;
-  late UserData userData = UserData();
-  late DocumentSnapshot<Map<String, dynamic>> docUser;
+  UserData? get userData => _userData;
+  List<UserData> get userDataList => _userDataList;
 
-  bool isLoading = false;
+  void setUserData(UserData data) {
+    _userData = data;
+    notifyListeners();
+  }
 
-  static UserModel of(BuildContext context) => ScopedModel.of<UserModel>(context);
+  void clearUserData() {
+    _userData = null;
+    notifyListeners();
+  }
 
-  Future<UserData?> loadCurrentUser() async {
-    if (firebaseUser != null) {
-      firebaseUser = _auth.currentUser!;
-    } else {
-       await FirebaseFirestore.instance
-            .collection("users")
-            .doc(firebaseUser?.uid)
-            .get().then((e){
-              userData = UserData.fromDocument(snapshot: e);
-       });
-        return userData;
-      }
-      notifyListeners();
-      return null;
-    }
+  void setUserDataList(List<UserData> users) {
+    _userDataList = users;
+    notifyListeners();
+  }
 }

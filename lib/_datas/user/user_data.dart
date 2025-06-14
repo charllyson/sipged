@@ -2,9 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../system/system_data.dart';
+
 class UserData extends ChangeNotifier {
-  ///Informações do usuário
-  String? uid;
+  /// Informações do usuário
+  String? id;
   DateTime? createUser;
   String? name;
   String? surname;
@@ -17,35 +19,31 @@ class UserData extends ChangeNotifier {
   DateTime? dateToBirthday;
   String? cellPhone;
   DocumentSnapshot<Map<String, dynamic>>? userSnap;
+  List<String>? permissionOrgan;
+  List<String>? permissionDirector;
+  List<String>? permissionSector;
 
-  ///device
-  String? idPhone;
+  /// Permissões híbridas
+  String? baseProfile; // Ex: leitor, colaborador, administrador
+  Map<String, Map<String, bool>> modulePermissions = {};
 
-  ///Permissões da conta
-  bool? userProfessional;
-  bool? userCompany;
-  bool? userCollaborator;
-  bool? profileProfessional;
-  bool? profileCompany;
-  bool? profileCollaborator;
+  /// Campos auxiliares para controle de permissão
+  bool isSelectedOrgan = false;
+  bool isSelectedDirector = false;
+  bool isSelectedSector = false;
 
+  /// Listas internas para hierarquia
+  List<SystemData>? directors;
+  List<SystemData>? sectors;
 
-  ///Localização
+  /// Localização
   GeoPoint? geoPoint;
-  //GeoData? address;
-  String? postalCode;
-  String? city;
-  String? addressStreet;
-  String? countryCode;
-  String? state;
-  String? streetNumber;
-  String? country;
 
-  ///configuracao do app
+  /// Configuração do app
   bool? themeDark;
 
   UserData({
-    this.uid,
+    this.id,
     this.name,
     this.surname,
     this.cpf,
@@ -56,70 +54,68 @@ class UserData extends ChangeNotifier {
     this.dateToBirthday,
     this.cellPhone,
     this.userSnap,
-    this.idPhone,
-    this.userProfessional,
-    this.userCompany,
-    this.userCollaborator,
-    this.profileProfessional,
-    this.profileCompany,
-    this.profileCollaborator,
     this.geoPoint,
-    this.postalCode,
-    this.city,
-    this.addressStreet,
-    this.countryCode,
-    this.state,
-    this.streetNumber,
-    this.country,
     this.themeDark,
     this.createUser,
     this.gender,
+    this.permissionOrgan,
+    this.permissionDirector,
+    this.permissionSector,
+    this.baseProfile,
+    this.modulePermissions = const {},
+    this.directors,
+    this.sectors,
+    this.isSelectedOrgan = false,
+    this.isSelectedDirector = false,
+    this.isSelectedSector = false,
+  });
 
-});
-
-  ///Recuperando informações no banco de dados
+  /// Construtor a partir do documento do Firebase
   factory UserData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) {
-      throw Exception("Documento do usuário não encontrado");
-    }
-
+    if (!snapshot.exists) throw Exception("Documento do usuário não encontrado");
     final data = snapshot.data() as Map<String, dynamic>?;
 
-    if (data == null) {
-      throw Exception("Dados do usuário estão vazios");
-    }
+    if (data == null) throw Exception("Dados do usuário estão vazios");
+
+    // Compatibilidade com diferentes formatos de modulePermissions
+    final rawPermissions = data['modulePermissions'] as Map<String, dynamic>? ?? {};
+    final parsedPermissions = <String, Map<String, bool>>{};
+    rawPermissions.forEach((module, permissions) {
+      if (permissions is Map) {
+        parsedPermissions[module] = permissions.map(
+              (k, v) => MapEntry(k.toString(), v == true),
+        );
+      } else if (permissions is List) {
+        parsedPermissions[module] = {
+          for (var perm in permissions) perm.toString(): true,
+        };
+      } else {
+        parsedPermissions[module] = {};
+      }
+    });
 
     return UserData(
-      uid: snapshot.id,
+      id: snapshot.id,
       urlPhoto: data['photo'] ?? '',
-      name: data['name'] as String?,
-      surname: data['surname'] as String?,
-      cpf: data['cpf'] as String?,
-      email: data['email'] as String?,
+      name: data['name'] as String? ?? 'Sem nome',
+      surname: data['surname'] as String? ?? 'Sem sobrenome',
+      cpf: data['cpf'] as String? ?? 'Sem CPF',
+      email: data['email'] as String? ?? 'Sem email',
       password: data['password'] as String?,
-      dateToBirthday: data['dateToBirthday']?.toDate() as DateTime?,
+      dateToBirthday: (data['dateToBirthday'] as Timestamp?)?.toDate(),
       cellPhone: data['cellPhone'] as String?,
-      idPhone: data['idPhone'] as String?,
-      userProfessional: data['userProfessional'] as bool?,
-      userCompany: data['userCompany'] as bool?,
-      userCollaborator: data['userCollaborator'] as bool?,
-      profileProfessional: data['profileProfessional'] as bool?,
-      profileCompany: data['profileCompany'] as bool?,
-      profileCollaborator: data['profileCollaborator'] as bool?,
-      geoPoint: data['coords'] as GeoPoint?,
-      postalCode: data['postalCode'] as String?,
-      city: data['subThoroughfare'] as String?,
-      addressStreet: data['adminArea'] as String?,
-      countryCode: data['locality'] as String?,
-      state: data['subLocality'] as String?,
-      streetNumber: data['thoroughfare'] as String?,
-      country: data['countryName'] as String?,
-      themeDark: data['themeDark'] as bool?,
-      createUser: data['createUser']?.toDate() as DateTime?,
+      themeDark: data['themeDark'] as bool? ?? false,
+      createUser: (data['createUser'] as Timestamp?)?.toDate(),
       gender: data['gender'] as String?,
+      permissionOrgan: (data['permissionOrgan'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      permissionDirector: (data['permissionDirector'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      permissionSector: (data['permissionSector'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      baseProfile: data['baseProfile'] as String?,
+      modulePermissions: parsedPermissions,
     );
   }
 
+  /// Converte para mapa para salvar no Firestore
   Map<String, dynamic> toMap() {
     return {
       'name': name,
@@ -127,10 +123,17 @@ class UserData extends ChangeNotifier {
       'email': email,
       'dateToBirthday': dateToBirthday,
       'cpf': cpf,
-      "createUser": DateTime.now(),
-      "lastSignIn": DateTime.now(),
+      'createUser': createUser ?? DateTime.now(),
+      'lastSignIn': DateTime.now(),
       'cellPhone': cellPhone,
       'gender': gender,
+      'photo': urlPhoto,
+      'themeDark': themeDark,
+      'permissionOrgan': permissionOrgan,
+      'permissionDirector': permissionDirector,
+      'permissionSector': permissionSector,
+      'baseProfile': baseProfile,
+      'modulePermissions': modulePermissions,
     };
   }
 }

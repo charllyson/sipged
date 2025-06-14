@@ -26,8 +26,6 @@ class _ValidityPageState extends State<ValidityPage> {
 
   String? _currentValidityId;
   bool _isSaving = false;
-  bool _ordemBloqueada = true;
-  final bool _forcarEdicaoOrdem = false;
 
   final List<String> _tiposDeOrdem = [
     'ORDEM DE INÍCIO',
@@ -41,9 +39,9 @@ class _ValidityPageState extends State<ValidityPage> {
   void initState() {
     super.initState();
     _contractsBloc = ContractsBloc();
-    if (widget.contractData?.uid != null) {
+    if (widget.contractData?.id != null) {
       _futureValidity = _contractsBloc.getAllValidityOfContract(
-        uidContract: widget.contractData!.uid!,
+        uidContract: widget.contractData!.id!,
       ).then((list) {
         if (list.isNotEmpty) {
           final ultimaOrdem = list.map((e) => e.ordernumber ?? 0).reduce((a, b) => a > b ? a : b);
@@ -60,6 +58,14 @@ class _ValidityPageState extends State<ValidityPage> {
     if (_ordemCtrl.text.isEmpty) {
       _ordemCtrl.text = '1';
     }
+  }
+
+  @override
+  void dispose() {
+    _ordemCtrl.dispose();
+    _tipoOrdemCtrl.dispose();
+    _dataOrdemCtrl.dispose();
+    super.dispose();
   }
 
   void preencherCampos(ValidityData data) {
@@ -79,7 +85,7 @@ class _ValidityPageState extends State<ValidityPage> {
   }
 
   void _salvarOuAtualizarValidade() async {
-    if (widget.contractData?.uid == null) return;
+    if (widget.contractData?.id == null) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -99,7 +105,7 @@ class _ValidityPageState extends State<ValidityPage> {
 
     final novaValidade = ValidityData(
       uid: _currentValidityId,
-      uidContract: widget.contractData!.uid,
+      uidContract: widget.contractData!.id,
       ordernumber: int.tryParse(_ordemCtrl.text),
       ordertype: _tipoOrdemCtrl.text,
       orderdate: convertDDMMYYYYToDateTime(_dataOrdemCtrl.text),
@@ -109,7 +115,7 @@ class _ValidityPageState extends State<ValidityPage> {
 
     setState(() {
       _futureValidity = _contractsBloc.getAllValidityOfContract(
-        uidContract: widget.contractData!.uid!,
+        uidContract: widget.contractData!.id!,
       ).then((list) {
         if (_currentValidityId == null && list.isNotEmpty) {
           final ultimaOrdem = list.map((e) => e.ordernumber ?? 0).reduce((a, b) => a > b ? a : b);
@@ -118,7 +124,6 @@ class _ValidityPageState extends State<ValidityPage> {
         return list;
       });
       _currentValidityId = null;
-      _ordemBloqueada = true;
       _tipoOrdemCtrl.clear();
       _dataOrdemCtrl.clear();
       _isSaving = false;
@@ -135,7 +140,7 @@ class _ValidityPageState extends State<ValidityPage> {
   }
 
   void _deletarValidade(String validadeId) async {
-    if (widget.contractData?.uid == null) return;
+    if (widget.contractData?.id == null) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -149,12 +154,27 @@ class _ValidityPageState extends State<ValidityPage> {
       ),
     );
     if (confirm != true) return;
-    await _contractsBloc.deletarValidade(widget.contractData!.uid!, validadeId);
+    await _contractsBloc.deletarValidade(widget.contractData!.id!, validadeId);
     setState(() {
       _futureValidity = _contractsBloc.getAllValidityOfContract(
-        uidContract: widget.contractData!.uid!,
+        uidContract: widget.contractData!.id!,
       );
     });
+  }
+
+
+  double getResponsiveWidth(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    const spacing = 12; // mesmo valor usado no Wrap
+    const margin = 12;
+
+    if (screenWidth < 600) {
+      return screenWidth - margin - 32; // 1 por linha
+    } else if (screenWidth < 1000) {
+      return (screenWidth - spacing - margin * 1 - 32) / 2; // 2 por linha
+    } else {
+      return (screenWidth - spacing - margin * 2 - 32) / 3; // 3 por linha
+    }
   }
 
   @override
@@ -218,44 +238,46 @@ class _ValidityPageState extends State<ValidityPage> {
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Tooltip(
-                    message: 'Este campo é calculado automaticamente e não pode ser editado.',
-                    child: CustomTextField(
-                      labelText: 'Ordem',
-                      controller: _ordemCtrl,
-                      enabled: false,
+            Align(
+              alignment: Alignment.topLeft,
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: getResponsiveWidth(context),
+                    child: Tooltip(
+                      message: 'Este campo é calculado automaticamente e não pode ser editado.',
+                      child: CustomTextField(
+                        labelText: 'Ordem',
+                        controller: _ordemCtrl,
+                        enabled: false,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
+                  SizedBox(
+                    width: getResponsiveWidth(context),
                       child: DropDownButtonChange(
                         labelText: 'Tipo da ordem',
                         items: _tiposDeOrdem,
                         controller: _tipoOrdemCtrl,
                       ),
-                    ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CustomTextField(
-                    labelText: 'Data da ordem',
-                    controller: _dataOrdemCtrl,
-                    keyboardType: TextInputType.datetime,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      TextInputMask(mask: '99/99/9999'),
-                    ],
                   ),
-                ),
-              ],
+                  SizedBox(
+                    width: getResponsiveWidth(context),
+                    child: CustomTextField(
+                      labelText: 'Data da ordem',
+                      controller: _dataOrdemCtrl,
+                      keyboardType: TextInputType.datetime,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        TextInputMask(mask: '99/99/9999'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -263,15 +285,15 @@ class _ValidityPageState extends State<ValidityPage> {
               children: [
                 if (_currentValidityId != null)
                   TextButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Adicionar nova ordem'),
+                    icon: const Icon(Icons.restore_sharp),
+                    label: const Text('Limpar'),
                     onPressed: _criarNovaOrdem,
                   ),
                 const SizedBox(width: 12),
                 TextButton.icon(
                   onPressed: camposPreenchidos && !_isSaving ? _salvarOuAtualizarValidade : null,
                   icon: const Icon(Icons.save),
-                  label: Text(_currentValidityId != null ? 'Atualizar ordem' : 'Adicionar ordem'),
+                  label: Text(_currentValidityId != null ? 'Atualizar' : 'Salvar'),
                 ),
               ],
             ),
@@ -283,10 +305,10 @@ class _ValidityPageState extends State<ValidityPage> {
 
 
   void _criarNovaOrdem() async {
-    if (widget.contractData?.uid == null) return;
+    if (widget.contractData?.id == null) return;
 
     final list = await _contractsBloc.getAllValidityOfContract(
-      uidContract: widget.contractData!.uid!,
+      uidContract: widget.contractData!.id!,
     );
 
     final ultimaOrdem = list.map((e) => e.ordernumber ?? 0).fold(0, (a, b) => a > b ? a : b);
@@ -296,7 +318,6 @@ class _ValidityPageState extends State<ValidityPage> {
       _ordemCtrl.text = (ultimaOrdem + 1).toString();
       _tipoOrdemCtrl.clear();
       _dataOrdemCtrl.clear();
-      _ordemBloqueada = true;
     });
   }
 
@@ -304,26 +325,21 @@ class _ValidityPageState extends State<ValidityPage> {
   Widget _buildTabela(List<ValidityData> list) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final larguraTotal = constraints.maxWidth;
-        final col0 = larguraTotal * 0.3;
-        final col1 = larguraTotal * 0.3;
-        final col2 = larguraTotal * 0.3;
-        final col3 = larguraTotal * 0.09;
-
-        return Center(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
             child: Table(
-              columnWidths: {
-                0: FixedColumnWidth(col0),
-                1: FixedColumnWidth(col1),
-                2: FixedColumnWidth(col2),
-                3: FixedColumnWidth(col3),
-              },
               border: TableBorder.all(
                 borderRadius: BorderRadius.circular(10),
                 color: Colors.grey.shade300,
               ),
+              columnWidths: const {
+                0: FixedColumnWidth(80), // ORDEM
+                1: FixedColumnWidth(150), // TIPO
+                2: FixedColumnWidth(100), // DATA
+                3: FixedColumnWidth(80),  // APAGAR
+              },
               children: [
                 _buildHeaderRow(),
                 ...list.map((data) => _buildDataRow(data)),
@@ -335,6 +351,7 @@ class _ValidityPageState extends State<ValidityPage> {
     );
   }
 
+
   TableRow _buildHeaderRow() {
     const headers = ['ORDEM', 'TIPO DA ORDEM', 'DATA DA ORDEM', 'APAGAR'];
     return TableRow(
@@ -342,7 +359,9 @@ class _ValidityPageState extends State<ValidityPage> {
       children: headers.map((title) {
         return Padding(
           padding: const EdgeInsets.all(8),
-          child: Center(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold))),
+          child: Text(
+              textAlign: TextAlign.center, // Alinhamento horizontal
+              title, style: const TextStyle(fontWeight: FontWeight.bold)),
         );
       }).toList(),
     );
@@ -352,9 +371,9 @@ class _ValidityPageState extends State<ValidityPage> {
     return TableRow(
       decoration: const BoxDecoration(color: Colors.white),
       children: [
-        _buildCell(data.ordernumber.toString(), () => preencherCampos(data)),
-        _buildCell(data.ordertype ?? '', () => preencherCampos(data)),
-        _buildCell(convertDateTimeToDDMMYYYY(data.orderdate!), () => preencherCampos(data)),
+        _buildCell(data.ordernumber.toString(), () => preencherCampos(data), Alignment.center),
+        _buildCell(data.ordertype ?? '', () => preencherCampos(data), Alignment.bottomLeft),
+        _buildCell(convertDateTimeToDDMMYYYY(data.orderdate!), () => preencherCampos(data), Alignment.center),
         Padding(
           padding: const EdgeInsets.all(8.0),
           child: Center(
@@ -368,12 +387,13 @@ class _ValidityPageState extends State<ValidityPage> {
     );
   }
 
-  Widget _buildCell(String? text, VoidCallback onTap) {
+  Widget _buildCell(String? text, VoidCallback onTap, Alignment alignment) {
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
       child: InkWell(
         onTap: onTap,
-        child: Center(
+        child: Align(
+          alignment: alignment,
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Text(

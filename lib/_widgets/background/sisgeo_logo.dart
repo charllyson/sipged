@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class DERLogo extends StatelessWidget {
-  const DERLogo({super.key});
+class SisGeoLogo extends StatelessWidget {
+  const SisGeoLogo({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -11,7 +11,7 @@ class DERLogo extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
-              'DER-AL',
+              'SisGeo',
               style: TextStyle(
                 fontFamily: 'Homework',
                 color: Colors.white,
@@ -20,24 +20,20 @@ class DERLogo extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             SizedBox(
-              height: 65,
-              width: 65,
+              height: 50,
+              width: 50,
               child: Image(
                 image: AssetImage(
-                  'assets/logos/deral/logo-deral.png',
+                  'assets/logos/sisgeo/sisgeo.png',
                 ),
               ),
             ),
           ],
         ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: const Text(
-            'Gerenciamento de contratos, e acompanhamento de obras',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: 'RobotoMono',
-            ),
+        const Text(
+          'Sistema Integrado de Gerenciamento de obras',
+          style: TextStyle(
+            color: Colors.white,
           ),
         ),
       ],

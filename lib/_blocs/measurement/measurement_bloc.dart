@@ -1,8 +1,7 @@
-// ignore_for_file: avoid_print
-
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sisgeo/_datas/measurement/measurement_data.dart';
+
+import '../../_datas/measurement/measurement_data.dart';
 
 class MeasurementBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -16,15 +15,36 @@ class MeasurementBloc extends BlocBase {
         .collection('measurements')
         .orderBy('measurementorder')
         .get();
-    print('Quantidade de medições: ${snapshot.docs.length}');
 
     final list = snapshot.docs.map((doc) {
       return MeasurementData.fromDocument(snapshot: doc);
     }).toList();
-
-    print('Lista convertida com ${list.length} medições');
-
     return list;
   }
 
+  Future<void> salvarOuAtualizarMedicao(MeasurementData data) async {
+    final ref = _db
+        .collection('contracts')
+        .doc(data.uidMeasurement)
+        .collection('measurements');
+
+    if (data.uidMeasurement != null) {
+      // Atualizar medição existente
+      await ref.doc(data.uidMeasurement).set(data.toJson(), SetOptions(merge: true));
+    } else {
+      // Criar nova medição
+      await ref.add(data.toJson());
+    }
+  }
+
+
+
+  Future<void> deletarMedicao(String uidContract, String uidMedicao) async {
+    final ref = _db
+        .collection('contracts')
+        .doc(uidContract)
+        .collection('measurements')
+        .doc(uidMedicao);
+    await ref.delete();
+  }
 }

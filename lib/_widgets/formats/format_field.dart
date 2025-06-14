@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 String getSanitizedText(String text) {
   return text.replaceAll(RegExp(r'[^\d]',), '',);
@@ -12,8 +13,10 @@ String priceToString(double? number) {
   if (number == null){
     return '';
   }
+  final safeNumber = number ?? 0.0;
   return NumberFormat('R\$ ###,##0.00', 'pt-br',)
-      .format(double.parse(number.toStringAsFixed(2,),),);
+      .format(double.parse(safeNumber.toStringAsFixed(2,),),);
+
 }
 
 String dateAndTimeToString(DateTime datetime) {
@@ -46,15 +49,22 @@ String dayAndMonthToString(DateTime datetime) {
   return DateFormat('dd/MM ', 'pt-br',).format(datetime);
 }
 
-DateTime convertDDMMYYYYToDateTime(String ddmmyyyy) {
-  final parts = ddmmyyyy.split('/');
-  if (parts.length != 3) {
-    throw FormatException('Formato inválido: $ddmmyyyy');
+final processoMaskFormatter = MaskTextInputFormatter(
+  mask: '#####.############/####',
+  filter: {"#": RegExp(r'[0-9]')},
+);
+
+DateTime? convertDDMMYYYYToDateTime(String input) {
+  try {
+    final parts = input.split('/');
+    if (parts.length != 3) return null;
+    final day = int.parse(parts[0]);
+    final month = int.parse(parts[1]);
+    final year = int.parse(parts[2]);
+    return DateTime(year, month, day);
+  } catch (_) {
+    return null;
   }
-  final day = int.parse(parts[0]);
-  final month = int.parse(parts[1]);
-  final year = int.parse(parts[2]);
-  return DateTime(year, month, day);
 }
 
 String yearToString(DateTime datetime) {
@@ -73,10 +83,10 @@ String onlyMinutesToString(DateTime datetime) {
   return DateFormat('mm', 'pt-br',).format(datetime);
 }
 
-String convertDateTimeToDDMMYYYY(DateTime dateTime) {
-  final formatter = DateFormat('dd/MM/yyyy',);
-  final String formatted = formatter.format(dateTime);
-  return formatted;
+String convertDateTimeToDDMMYYYY(DateTime? dateTime) {
+  if (dateTime == null) return '';
+  final formatter = DateFormat('dd/MM/yyyy');
+  return formatter.format(dateTime);
 }
 
 String nameOfDayToString(DateTime datetime) {
@@ -87,6 +97,11 @@ String timestampToHour(DateTime dateTime) {
   final formatter = DateFormat('HH:mm',);
   final String formatted = formatter.format(dateTime);
   return formatted;
+}
+
+String formatToMillions(double value) {
+  final NumberFormat formatter = NumberFormat.compactCurrency(locale: 'pt_BR', symbol: 'R\$');
+  return formatter.format(value);
 }
 
 String addFormatCpf(String inputCpf) {

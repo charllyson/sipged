@@ -12,7 +12,7 @@ class AdditiveData extends ChangeNotifier {
   DateTime? additivevaliditycontractdata;
   DateTime? additivevalidityexecutiondata;
   double? additivevalue;
-
+  String? typeOfAdditive;
 
   AdditiveData({
     this.uid,
@@ -24,6 +24,8 @@ class AdditiveData extends ChangeNotifier {
     this.additivevaliditycontractdata,
     this.additivevalidityexecutiondata,
     this.additivevalue,
+    this.typeOfAdditive,
+
 });
 
   ///Recuperando informações no banco de dados
@@ -41,20 +43,30 @@ class AdditiveData extends ChangeNotifier {
     return AdditiveData(
       uid: snapshot.id,
       additivenumberprocess: data['additivenumberprocess'],
-      additiveorder: (data['additiveorder'] as num).toInt(),
-      additivevaliditycontractdays: (data['additivevaliditycontractdays'] as num).toInt(),
-      additivevalidityexecutiondays: (data['additivevalidityexecutiondays'] as num).toInt(),
-
-      additivedata: data['additivedata'].toDate() as DateTime,
-      additivevaliditycontractdata: data['additivevaliditycontractdata'].toDate() as DateTime,
-      additivevalidityexecutiondata: data['additivevalidityexecutiondata'].toDate() as DateTime,
-
-
-      additivevalue: data['additivevalue'].toDouble() ?? 0.0,
-
-
+      additiveorder: (data['additiveorder'] as num?)?.toInt(),
+      additivevaliditycontractdays: (data['additivevaliditycontractdays'] as num?)?.toInt(),
+      additivevalidityexecutiondays: (data['additivevalidityexecutiondays'] as num?)?.toInt(),
+      additivedata: (data['additivedata'] as Timestamp?)?.toDate(),
+      additivevaliditycontractdata: (data['additivevaliditycontractdata'] as Timestamp?)?.toDate(),
+      additivevalidityexecutiondata: (data['additivevalidityexecutiondata'] as Timestamp?)?.toDate(),
+      additivevalue: (data['additivevalue'] as num?)?.toDouble(),
+      typeOfAdditive: data['typeOfAdditive'], // ✅ agora lido corretamente
     );
+  }
 
+  Map<String, dynamic> toMap() {
+    return {
+      'uid': uid,
+      'additivenumberprocess': additivenumberprocess,
+      'additiveorder': additiveorder,
+      'additivevaliditycontractdays': additivevaliditycontractdays,
+      'additivevalidityexecutiondays': additivevalidityexecutiondays,
+      'additivedata': additivedata,
+      'additivevaliditycontractdata': additivevaliditycontractdata,
+      'additivevalidityexecutiondata': additivevalidityexecutiondata,
+      'additivevalue': additivevalue,
+      'typeOfAdditive': typeOfAdditive,
+    };
   }
 
 }

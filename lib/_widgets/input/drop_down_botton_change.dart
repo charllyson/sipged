@@ -51,6 +51,7 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
         fillColor: Colors.white,
         filled: true,
         labelText: widget.labelText,
+        labelStyle: const TextStyle(color: Colors.grey),
         hintStyle: const TextStyle(color: Colors.grey), // ← aqui está o ajuste
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         enabledBorder: OutlineInputBorder(
