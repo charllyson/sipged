@@ -10,7 +10,8 @@ import 'package:sisgeo/_datas/user/user_data.dart';
 import 'package:sisgeo/screens/commons/login/sign_in.dart';
 import 'package:sisgeo/side_menu_page.dart';
 
-import '_models/user/user_model.dart';
+import '_provider/user/user_provider.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -76,6 +76,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                         children: [
                           Expanded(
                             child: CustomTextField(
+                              enabled: true,
                               controller: _collectionCtrl,
                               labelText: 'Nome da coleção principal',
                             ),

@@ -7,12 +7,16 @@ class DropDownButtonChange extends StatefulWidget {
     this.labelText,
     required this.controller,
     this.onChanged,
+    this.enabled,
+    this.validator,
   });
 
   final void Function(String?)? onChanged;
   final List<String> items;
   final String? labelText;
   final TextEditingController controller;
+  final bool? enabled;
+  final String? Function(String?)? validator;
 
   @override
   State<DropDownButtonChange> createState() => _DropDownButtonChangeState();
@@ -29,7 +33,10 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
 
   @override
   Widget build(BuildContext context) {
+    final isEnabled = widget.enabled ?? true;
+
     return DropdownButtonFormField<String>(
+      validator: widget.validator,
       dropdownColor: Colors.white,
       value: widget.items.contains(widget.controller.text) ? widget.controller.text : null,
       items: widget.items.map((value) {
@@ -38,32 +45,32 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
           child: Text(value),
         );
       }).toList(),
-      onChanged: (selected) {
+      onChanged: isEnabled
+          ? (selected) {
         setState(() {
           selectedTypes = selected;
           widget.controller.text = selected ?? '';
         });
-        if (widget.onChanged != null) {
-          widget.onChanged!(selected);
-        }
-      },
+        widget.onChanged?.call(selected);
+      }
+          : null,
       decoration: InputDecoration(
-        fillColor: Colors.white,
+        fillColor: isEnabled ? Colors.white : Colors.grey.shade200,
         filled: true,
         labelText: widget.labelText,
-        labelStyle: const TextStyle(color: Colors.grey),
-        hintStyle: const TextStyle(color: Colors.grey), // ← aqui está o ajuste
+        labelStyle: TextStyle(color: isEnabled ? Colors.grey : Colors.grey.shade500),
+        hintStyle: TextStyle(color: isEnabled ? Colors.grey : Colors.grey.shade400),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.grey), // cor da borda normal
+          borderSide: BorderSide(color: isEnabled ? Colors.grey : Colors.grey.shade400),
           borderRadius: BorderRadius.circular(10),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.blue), // cor ao focar
+          borderSide: BorderSide(color: isEnabled ? Colors.blue : Colors.grey.shade400),
           borderRadius: BorderRadius.circular(10),
         ),
         errorBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.red), // cor se houver erro
+          borderSide: const BorderSide(color: Colors.red),
           borderRadius: BorderRadius.circular(10),
         ),
         focusedErrorBorder: OutlineInputBorder(
@@ -71,10 +78,11 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
           borderRadius: BorderRadius.circular(10),
         ),
         border: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.grey),
+          borderSide: BorderSide(color: Colors.grey.shade400),
           borderRadius: BorderRadius.circular(10),
         ),
       ),
     );
   }
+
 }

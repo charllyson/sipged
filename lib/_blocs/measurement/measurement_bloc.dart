@@ -22,7 +22,7 @@ class MeasurementBloc extends BlocBase {
     return list;
   }
 
-  Future<void> salvarOuAtualizarMedicao(MeasurementData data) async {
+  Future<void> saveOrUpdateMeasurement(MeasurementData data) async {
     final ref = _db
         .collection('contracts')
         .doc(data.uidMeasurement)

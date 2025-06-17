@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:sisgeo/_blocs/contracts/contracts_bloc.dart';
 import 'package:sisgeo/_datas/contracts/contracts_data.dart';
 import 'package:sisgeo/_datas/validity/validity_data.dart';
-import 'package:sisgeo/_widgets/formats/format_field.dart';
 import 'package:sisgeo/_widgets/input/drop_down_botton_change.dart';
+import 'package:sisgeo/_widgets/loading/loading_progress.dart';
 
+import '../../../../_blocs/user/user_bloc.dart';
+import '../../../../_datas/user/user_data.dart';
+import '../../../../_provider/user/user_provider.dart';
+import '../../../../_utils/date_utils.dart';
+import '../../../../_utils/responsive_utils.dart';
+import '../../../../_widgets/buttons/deleteButtonPermission.dart';
 import '../../../../_widgets/input/custom_text_field.dart';
+import '../../../../_widgets/mask_class.dart';
+import '../../../../_widgets/validates/form_validation_mixin.dart';
 
 class ValidityPage extends StatefulWidget {
   const ValidityPage({super.key, this.contractData});
@@ -16,75 +25,97 @@ class ValidityPage extends StatefulWidget {
   State<ValidityPage> createState() => _ValidityPageState();
 }
 
-class _ValidityPageState extends State<ValidityPage> {
+class _ValidityPageState extends State<ValidityPage> with FormValidationMixin {
   late ContractsBloc _contractsBloc;
+  late UserBloc _userBloc;
+  late UserData _currentUser;
   late Future<List<ValidityData>> _futureValidity;
 
-  final _ordemCtrl = TextEditingController();
-  final _tipoOrdemCtrl = TextEditingController();
-  final _dataOrdemCtrl = TextEditingController();
+  final _orderCtrl = TextEditingController();
+  final _orderTypeCtrl = TextEditingController();
+  final _orderDateCtrl = TextEditingController();
 
   String? _currentValidityId;
   bool _isSaving = false;
+  bool _formValidated = false;
+  bool _isEditable = false;
 
-  final List<String> _tiposDeOrdem = [
+  final List<String> _typeOfOrder = [
     'ORDEM DE INÍCIO',
     'ORDEM DE PARALIZAÇÃO',
     'ORDEM DE REINÍCIO',
     'ORDEM DE FINALIZAÇÃO',
   ];
 
-
   @override
   void initState() {
     super.initState();
     _contractsBloc = ContractsBloc();
+    _userBloc = UserBloc();
+    setupValidation([_orderTypeCtrl, _orderDateCtrl], _validateForm);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = Provider.of<UserProvider>(context, listen: false).userData;
+      if (user != null) {
+        _currentUser = user;
+        _isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
+      }
+      setState(() {});
+    });
     if (widget.contractData?.id != null) {
       _futureValidity = _contractsBloc.getAllValidityOfContract(
         uidContract: widget.contractData!.id!,
       ).then((list) {
         if (list.isNotEmpty) {
-          final ultimaOrdem = list.map((e) => e.ordernumber ?? 0).reduce((a, b) => a > b ? a : b);
-          _ordemCtrl.text = (ultimaOrdem + 1).toString();
+          final lastOrder = list.map((e) => e.orderNumber ?? 0).reduce((a, b) => a > b ? a : b);
+          _orderCtrl.text = (lastOrder + 1).toString();
         } else {
-          _ordemCtrl.text = '1';
+          _orderCtrl.text = '1';
         }
         return list;
       });
     } else {
       _futureValidity = Future.value([]);
-    }
-
-    if (_ordemCtrl.text.isEmpty) {
-      _ordemCtrl.text = '1';
+      _orderCtrl.text = '1';
     }
   }
 
-  @override
-  void dispose() {
-    _ordemCtrl.dispose();
-    _tipoOrdemCtrl.dispose();
-    _dataOrdemCtrl.dispose();
-    super.dispose();
+  bool isDisabled(String module) {
+    final perms = _currentUser.modulePermissions[module] ?? {};
+    return !(perms['create'] ?? false || (perms['edit'] ?? false));
   }
 
-  void preencherCampos(ValidityData data) {
+  Future<void> _refreshValidityList() async {
     setState(() {
-      _currentValidityId = data.uid;
-      _tipoOrdemCtrl.text = data.ordertype ?? '';
-      _ordemCtrl.text = data.ordernumber.toString(); // <- aqui está o valor visível
-      final tipo = data.ordertype ?? '';
-      if (_tiposDeOrdem.contains(tipo)) {
-        _tipoOrdemCtrl.text = tipo;
-      } else {
-        _tipoOrdemCtrl.clear(); // evita erro se o tipo não existir mais
-      }
-
-      _dataOrdemCtrl.text = convertDateTimeToDDMMYYYY(data.orderdate!);
+      _futureValidity = _contractsBloc.getAllValidityOfContract(
+        uidContract: widget.contractData!.id!,
+      );
     });
   }
 
-  void _salvarOuAtualizarValidade() async {
+  void _validateForm() {
+    final valid = areFieldsFilled([_orderTypeCtrl, _orderDateCtrl], minLength: 5) && _orderDateCtrl.text.length == 10;
+    if (_formValidated != valid) {
+      setState(() => _formValidated = valid);
+    }
+  }
+
+  void _fillFields(ValidityData data) {
+    setState(() {
+      _currentValidityId = data.uid;
+      _orderTypeCtrl.text = data.ordertype ?? '';
+      _orderCtrl.text = data.orderNumber.toString();
+      final type = data.ordertype ?? '';
+      if (_typeOfOrder.contains(type)) {
+        _orderTypeCtrl.text = type;
+      } else {
+        _orderTypeCtrl.clear();
+      }
+
+      _orderDateCtrl.text = convertDateTimeToDDMMYYYY(data.orderdate!);
+    });
+  }
+
+  void _saveOrUpdateValidity() async {
     if (widget.contractData?.id == null) return;
 
     final confirm = await showDialog<bool>(
@@ -103,29 +134,29 @@ class _ValidityPageState extends State<ValidityPage> {
 
     setState(() => _isSaving = true);
 
-    final novaValidade = ValidityData(
+    final newValidity = ValidityData(
       uid: _currentValidityId,
       uidContract: widget.contractData!.id,
-      ordernumber: int.tryParse(_ordemCtrl.text),
-      ordertype: _tipoOrdemCtrl.text,
-      orderdate: convertDDMMYYYYToDateTime(_dataOrdemCtrl.text),
+      orderNumber: int.tryParse(_orderCtrl.text),
+      ordertype: _orderTypeCtrl.text,
+      orderdate: convertDDMMYYYYToDateTime(_orderDateCtrl.text),
     );
 
-    await _contractsBloc.salvarOuAtualizarValidade(novaValidade);
+    await _contractsBloc.salvarOuAtualizarValidade(newValidity);
 
     setState(() {
       _futureValidity = _contractsBloc.getAllValidityOfContract(
         uidContract: widget.contractData!.id!,
       ).then((list) {
         if (_currentValidityId == null && list.isNotEmpty) {
-          final ultimaOrdem = list.map((e) => e.ordernumber ?? 0).reduce((a, b) => a > b ? a : b);
-          _ordemCtrl.text = (ultimaOrdem + 1).toString();
+          final lastOrder = list.map((e) => e.orderNumber ?? 0).reduce((a, b) => a > b ? a : b);
+          _orderCtrl.text = (lastOrder + 1).toString();
         }
         return list;
       });
       _currentValidityId = null;
-      _tipoOrdemCtrl.clear();
-      _dataOrdemCtrl.clear();
+      _orderTypeCtrl.clear();
+      _orderDateCtrl.clear();
       _isSaving = false;
     });
 
@@ -139,42 +170,33 @@ class _ValidityPageState extends State<ValidityPage> {
     );
   }
 
-  void _deletarValidade(String validadeId) async {
+  void _deleteValidity(String validityId) async {
     if (widget.contractData?.id == null) return;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmação'),
-        content: const Text('Deseja realmente apagar esta ordem?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
-        ],
+    await _contractsBloc.deletarValidade(widget.contractData!.id!, validityId);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ordem apagada com sucesso!'),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 3),
       ),
     );
-    if (confirm != true) return;
-    await _contractsBloc.deletarValidade(widget.contractData!.id!, validadeId);
-    setState(() {
-      _futureValidity = _contractsBloc.getAllValidityOfContract(
-        uidContract: widget.contractData!.id!,
-      );
-    });
+    await _refreshValidityList();
   }
 
+  void _createNewOrder() async {
+    if (widget.contractData?.id == null) return;
 
-  double getResponsiveWidth(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    const spacing = 12; // mesmo valor usado no Wrap
-    const margin = 12;
-
-    if (screenWidth < 600) {
-      return screenWidth - margin - 32; // 1 por linha
-    } else if (screenWidth < 1000) {
-      return (screenWidth - spacing - margin * 1 - 32) / 2; // 2 por linha
-    } else {
-      return (screenWidth - spacing - margin * 2 - 32) / 3; // 3 por linha
-    }
+    final list = await _contractsBloc.getAllValidityOfContract(
+      uidContract: widget.contractData!.id!,
+    );
+    final lastOder = list.map((e) => e.orderNumber ?? 0).fold(0, (a, b) => a > b ? a : b);
+    setState(() {
+      _currentValidityId = null;
+      _orderCtrl.text = (lastOder + 1).toString();
+      _orderTypeCtrl.clear();
+      _orderDateCtrl.clear();
+    });
   }
 
   @override
@@ -186,22 +208,21 @@ class _ValidityPageState extends State<ValidityPage> {
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
-                _buildCamposFormulario(),
+                _buildFieldsForm(),
                 FutureBuilder<List<ValidityData>>(
                   future: _futureValidity,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                      return const LoadingProgress();
                     } else if (snapshot.hasError) {
                       return Center(child: Text('Erro ao carregar dados: ${snapshot.error}'));
-                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.all(16.0),
+                    } else if (!snapshot.hasData || (snapshot.data is Iterable && (snapshot.data as Iterable).isEmpty)) {
+                      return Padding(
+                        padding: const EdgeInsets.all(16.0),
                         child: Text('Nenhuma ordem encontrada'),
                       );
                     }
-
-                    final list = snapshot.data!;
+                    final list = snapshot.data ?? [];
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -209,7 +230,7 @@ class _ValidityPageState extends State<ValidityPage> {
                           padding: EdgeInsets.all(16.0),
                           child: Text('Ordens cadastradas no sistema', style: TextStyle(fontSize: 20)),
                         ),
-                        _buildTabela(list),
+                        _buildTable(list),
                       ],
                     );
                   },
@@ -220,15 +241,14 @@ class _ValidityPageState extends State<ValidityPage> {
         ),
         if (_isSaving)
           Container(
-            color: Colors.black.withValues(alpha: 255 * 0.5),
+            color: Colors.black.withOpacity(0.2),
             child: const Center(child: CircularProgressIndicator()),
           ),
       ],
     );
   }
 
-  Widget _buildCamposFormulario() {
-    final camposPreenchidos = _ordemCtrl.text.isNotEmpty && _tipoOrdemCtrl.text.isNotEmpty && _dataOrdemCtrl.text.length == 10;
+  Widget _buildFieldsForm() {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey),
@@ -246,29 +266,31 @@ class _ValidityPageState extends State<ValidityPage> {
                 runSpacing: 12,
                 children: [
                   SizedBox(
-                    width: getResponsiveWidth(context),
+                    width: responsiveInputsThreePerLine(context),
                     child: Tooltip(
                       message: 'Este campo é calculado automaticamente e não pode ser editado.',
                       child: CustomTextField(
                         labelText: 'Ordem',
-                        controller: _ordemCtrl,
+                        controller: _orderCtrl,
                         enabled: false,
                       ),
                     ),
                   ),
                   SizedBox(
-                    width: getResponsiveWidth(context),
+                    width: responsiveInputsThreePerLine(context),
                       child: DropDownButtonChange(
+                        enabled: _isEditable,
                         labelText: 'Tipo da ordem',
-                        items: _tiposDeOrdem,
-                        controller: _tipoOrdemCtrl,
+                        items: _typeOfOrder,
+                        controller: _orderTypeCtrl,
                       ),
                   ),
                   SizedBox(
-                    width: getResponsiveWidth(context),
+                    width: responsiveInputsThreePerLine(context),
                     child: CustomTextField(
+                      enabled: _isEditable,
                       labelText: 'Data da ordem',
-                      controller: _dataOrdemCtrl,
+                      controller: _orderDateCtrl,
                       keyboardType: TextInputType.datetime,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -284,45 +306,32 @@ class _ValidityPageState extends State<ValidityPage> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (_currentValidityId != null)
-                  TextButton.icon(
-                    icon: const Icon(Icons.restore_sharp),
-                    label: const Text('Limpar'),
-                    onPressed: _criarNovaOrdem,
+                  Tooltip(
+                    message: 'Limpar formulário',
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.restore),
+                      label: const Text('Limpar'),
+                      onPressed: _createNewOrder,
+                    ),
                   ),
                 const SizedBox(width: 12),
-                TextButton.icon(
-                  onPressed: camposPreenchidos && !_isSaving ? _salvarOuAtualizarValidade : null,
-                  icon: const Icon(Icons.save),
-                  label: Text(_currentValidityId != null ? 'Atualizar' : 'Salvar'),
+                Tooltip(
+                  message: _formValidated ? 'Salvar ordem' : 'Preencha os campos obrigatórios',
+                  child: TextButton.icon(
+                    onPressed: _formValidated && !_isSaving ? _saveOrUpdateValidity : null,
+                    icon: Icon(Icons.save),
+                    label: Text(_currentValidityId != null ? 'Atualizar' : 'Salvar'),
+                  ),
                 ),
               ],
-            ),
+            )
           ],
         ),
       ),
     );
   }
 
-
-  void _criarNovaOrdem() async {
-    if (widget.contractData?.id == null) return;
-
-    final list = await _contractsBloc.getAllValidityOfContract(
-      uidContract: widget.contractData!.id!,
-    );
-
-    final ultimaOrdem = list.map((e) => e.ordernumber ?? 0).fold(0, (a, b) => a > b ? a : b);
-
-    setState(() {
-      _currentValidityId = null;
-      _ordemCtrl.text = (ultimaOrdem + 1).toString();
-      _tipoOrdemCtrl.clear();
-      _dataOrdemCtrl.clear();
-    });
-  }
-
-
-  Widget _buildTabela(List<ValidityData> list) {
+  Widget _buildTable(List<ValidityData> list) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -335,10 +344,10 @@ class _ValidityPageState extends State<ValidityPage> {
                 color: Colors.grey.shade300,
               ),
               columnWidths: const {
-                0: FixedColumnWidth(80), // ORDEM
-                1: FixedColumnWidth(150), // TIPO
-                2: FixedColumnWidth(100), // DATA
-                3: FixedColumnWidth(80),  // APAGAR
+                0: FixedColumnWidth(80),
+                1: FixedColumnWidth(150),
+                2: FixedColumnWidth(100),
+                3: FixedColumnWidth(80),
               },
               children: [
                 _buildHeaderRow(),
@@ -350,8 +359,7 @@ class _ValidityPageState extends State<ValidityPage> {
       },
     );
   }
-
-
+  
   TableRow _buildHeaderRow() {
     const headers = ['ORDEM', 'TIPO DA ORDEM', 'DATA DA ORDEM', 'APAGAR'];
     return TableRow(
@@ -360,7 +368,7 @@ class _ValidityPageState extends State<ValidityPage> {
         return Padding(
           padding: const EdgeInsets.all(8),
           child: Text(
-              textAlign: TextAlign.center, // Alinhamento horizontal
+              textAlign: TextAlign.center,
               title, style: const TextStyle(fontWeight: FontWeight.bold)),
         );
       }).toList(),
@@ -368,19 +376,36 @@ class _ValidityPageState extends State<ValidityPage> {
   }
 
   TableRow _buildDataRow(ValidityData data) {
+    final currentUser = Provider.of<UserProvider>(context).userData;
     return TableRow(
       decoration: const BoxDecoration(color: Colors.white),
       children: [
-        _buildCell(data.ordernumber.toString(), () => preencherCampos(data), Alignment.center),
-        _buildCell(data.ordertype ?? '', () => preencherCampos(data), Alignment.bottomLeft),
-        _buildCell(convertDateTimeToDDMMYYYY(data.orderdate!), () => preencherCampos(data), Alignment.center),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Center(
-            child: IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _deletarValidade(data.uid!),
-            ),
+        _buildCell(data.orderNumber.toString(), () => _fillFields(data), Alignment.center),
+        _buildCell(data.ordertype ?? '', () => _fillFields(data), Alignment.bottomLeft),
+        _buildCell(convertDateTimeToDDMMYYYY(data.orderdate!), () => _fillFields(data), Alignment.center),
+        TableCell(
+          child: Stack(
+            children: [
+              if (currentUser == null)
+                const Center(child: CircularProgressIndicator())
+              else
+              PermissionIconDeleteButton(
+                tooltip: 'Apagar ordem?',
+                currentUser: currentUser,
+                showConfirmDialog: true,
+                confirmTitle: 'Confirmar exclusão',
+                confirmContent: 'Deseja apagar esta ordem?',
+                hasPermission: (user) => _contractsBloc.knowUserPermissionProfileAdm(
+                  userData: user,
+                  contract: widget.contractData!,
+                ),
+                onConfirmed: () async {
+                  if (widget.contractData!.id != null) {
+                    _deleteValidity(data.uid!);
+                  }
+                },
+              ),
+            ],
           ),
         ),
       ],
@@ -408,29 +433,13 @@ class _ValidityPageState extends State<ValidityPage> {
       ),
     );
   }
-}
-
-class TextInputMask extends TextInputFormatter {
-  final String mask;
-  TextInputMask({required this.mask});
 
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    String digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    String newText = '';
-    int digitIndex = 0;
-
-    for (int i = 0; i < mask.length && digitIndex < digits.length; i++) {
-      if (mask[i] == '9') {
-        newText += digits[digitIndex];
-        digitIndex++;
-      } else {
-        newText += mask[i];
-      }
-    }
-    return TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: newText.length),
-    );
+  void dispose() {
+    removeValidation([_orderTypeCtrl, _orderDateCtrl], _validateForm);
+    _orderCtrl.dispose();
+    _orderTypeCtrl.dispose();
+    _orderDateCtrl.dispose();
+    super.dispose();
   }
 }

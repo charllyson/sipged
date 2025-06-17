@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sisgeo/screens/commons/contracts/list_contract_page.dart';
-import 'package:sisgeo/screens/directors/operation/execution/list_only_read_contract_page.dart';
 import 'package:sisgeo/screens/directors/transportAndTransit/transport_transit_page.dart';
 import 'package:sisgeo/screens/general/networkOfRoads/network_of_roads.dart';
 import 'package:sisgeo/drawer_menu.dart';
@@ -19,8 +18,8 @@ class _SideMenuPageState extends State<SideMenuPage> {
   final List<Widget> _pages = [
     const ListContractPage(), ///01
     const NetworkOfRoadsPage(), ///02
-    const ListOnlyReadContractPage(), ///03
-    const ListOnlyReadContractPage(), ///04
+    const ListContractPage(), ///03
+    const ListContractPage(), ///04
     const TransportTransitPage(), ///05
     const TransportTransitPage(), ///06
   ];

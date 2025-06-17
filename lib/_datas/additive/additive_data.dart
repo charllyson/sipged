@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 
 class AdditiveData extends ChangeNotifier {
   ///Informações de medições
-  String? uid;
+  String? id;
   String? additivenumberprocess;
   int? additiveorder;
   int? additivevaliditycontractdays;
@@ -15,7 +15,7 @@ class AdditiveData extends ChangeNotifier {
   String? typeOfAdditive;
 
   AdditiveData({
-    this.uid,
+    this.id,
     this.additivenumberprocess,
     this.additiveorder,
     this.additivevaliditycontractdays,
@@ -41,7 +41,7 @@ class AdditiveData extends ChangeNotifier {
     }
 
     return AdditiveData(
-      uid: snapshot.id,
+      id: snapshot.id,
       additivenumberprocess: data['additivenumberprocess'],
       additiveorder: (data['additiveorder'] as num?)?.toInt(),
       additivevaliditycontractdays: (data['additivevaliditycontractdays'] as num?)?.toInt(),
@@ -56,7 +56,7 @@ class AdditiveData extends ChangeNotifier {
 
   Map<String, dynamic> toMap() {
     return {
-      'uid': uid,
+      'uid': id,
       'additivenumberprocess': additivenumberprocess,
       'additiveorder': additiveorder,
       'additivevaliditycontractdays': additivevaliditycontractdays,

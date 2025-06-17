@@ -22,6 +22,13 @@ class TabBarContractPage extends StatefulWidget {
 }
 
 class _TabBarContractPageState extends State<TabBarContractPage> {
+  late ContractData? _contractData;
+
+  @override
+  void initState() {
+    super.initState();
+    _contractData = widget.contractData;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,12 +69,19 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 4.0),
                         child: TabBarView(
                           children: [
-                            MainInformationPage(contractData: widget.contractData),
-                            _wrapWithBlocker(ValidityPage(contractData: widget.contractData)),
-                            _wrapWithBlocker(AdditivePage(contractData: widget.contractData)),
-                            _wrapWithBlocker(ApostillesPage(contractData: widget.contractData)),
-                            _wrapWithBlocker(MeasurementPage(contractData: widget.contractData)),
-                            _wrapWithBlocker(PhysicalSchedule(contractData: widget.contractData)),
+                            MainInformationPage(
+                              contractData: _contractData,
+                              onSaved: (updatedData) {
+                                setState(() {
+                                  _contractData = updatedData;
+                                });
+                              },
+                            ),
+                            _wrapWithBlocker(ValidityPage(contractData: _contractData)),
+                            _wrapWithBlocker(AdditivePage(contractData: _contractData)),
+                            _wrapWithBlocker(ApostillesPage(contractData: _contractData)),
+                            _wrapWithBlocker(MeasurementPage(contractData: _contractData)),
+                            _wrapWithBlocker(PhysicalSchedule(contractData: _contractData)),
                           ],
                         ),
 
@@ -84,7 +98,7 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
   }
 
   Widget _wrapWithBlocker(Widget child) {
-    if (widget.contractData?.id == null) {
+    if (_contractData?.id == null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

@@ -1,15 +1,11 @@
-// ignore_for_file: avoid_print
-
-import 'dart:io';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import 'package:rxdart/rxdart.dart';
 import '../../_datas/user/user_data.dart';
-import '../../_models/user/user_model.dart';
+import '../../_provider/user/user_provider.dart';
 
 class UserBloc extends BlocBase {
   final Map<String, Map<String, dynamic>> _users = {};
@@ -22,6 +18,7 @@ class UserBloc extends BlocBase {
 
   Stream<bool> get outLoading => _loadingController.stream;
   Stream<bool> get outCreated => _createdController.stream;
+
 
   UserBloc() {
     _addUsersListener();
@@ -151,12 +148,10 @@ class UserBloc extends BlocBase {
     return list; // <- Adicione este retorno
   }
 
-  getUserPermissions(
-      {
-        required String userId,
-      }
-      ){
-
+  bool getUserCreateEditPermissions({required UserData userData}){
+    return userData.baseProfile == 'Administrador' ||
+        userData.modulePermissions['contratos']?['edit'] == true ||
+        userData.modulePermissions['contratos']?['create'] == true;
   }
 
   savePermissions(

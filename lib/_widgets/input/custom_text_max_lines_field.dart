@@ -22,7 +22,9 @@ class CustomTextMaxLinesField extends StatelessWidget {
       this.labelText,
       this.maxLines,
       this.maxLength,
-      this.minLines,});
+      this.minLines,
+
+      });
 
   final Stream<String>? stream;
   final TextEditingController? controller;
@@ -42,6 +44,7 @@ class CustomTextMaxLinesField extends StatelessWidget {
   final int? maxLength;
   final int? maxLines;
   final int? minLines;
+
 
   @override
   Widget build(BuildContext context) {

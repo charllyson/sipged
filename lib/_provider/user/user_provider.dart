@@ -6,6 +6,7 @@ class UserProvider extends ChangeNotifier {
   List<UserData> _userDataList = [];
 
   UserData? get userData => _userData;
+  UserData? get user => _userData; // <- ADICIONADO AQUI
   List<UserData> get userDataList => _userDataList;
 
   void setUserData(UserData data) {

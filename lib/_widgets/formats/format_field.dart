@@ -1,5 +1,4 @@
 import 'package:intl/intl.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 String getSanitizedText(String text) {
   return text.replaceAll(RegExp(r'[^\d]',), '',);
@@ -49,22 +48,8 @@ String dayAndMonthToString(DateTime datetime) {
   return DateFormat('dd/MM ', 'pt-br',).format(datetime);
 }
 
-final processoMaskFormatter = MaskTextInputFormatter(
-  mask: '#####.############/####',
-  filter: {"#": RegExp(r'[0-9]')},
-);
-
-DateTime? convertDDMMYYYYToDateTime(String input) {
-  try {
-    final parts = input.split('/');
-    if (parts.length != 3) return null;
-    final day = int.parse(parts[0]);
-    final month = int.parse(parts[1]);
-    final year = int.parse(parts[2]);
-    return DateTime(year, month, day);
-  } catch (_) {
-    return null;
-  }
+double? parseCurrencyToDouble(String value) {
+  return double.tryParse(value.replaceAll(RegExp(r'[^\d,]'), '').replaceAll(',', '.'));
 }
 
 String yearToString(DateTime datetime) {
@@ -83,12 +68,6 @@ String onlyMinutesToString(DateTime datetime) {
   return DateFormat('mm', 'pt-br',).format(datetime);
 }
 
-String convertDateTimeToDDMMYYYY(DateTime? dateTime) {
-  if (dateTime == null) return '';
-  final formatter = DateFormat('dd/MM/yyyy');
-  return formatter.format(dateTime);
-}
-
 String nameOfDayToString(DateTime datetime) {
   return DateFormat('EE', 'pt-br',).format(datetime);
 }
@@ -97,6 +76,19 @@ String timestampToHour(DateTime dateTime) {
   final formatter = DateFormat('HH:mm',);
   final String formatted = formatter.format(dateTime);
   return formatted;
+}
+
+DateTime? stringToDate(String input) {
+  final parts = input.split('/');
+  if (parts.length == 3) {
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+    if (day != null && month != null && year != null) {
+      return DateTime(year, month, day);
+    }
+  }
+  return null;
 }
 
 String formatToMillions(double value) {

@@ -1,11 +1,11 @@
+/*
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisgeo/_blocs/contracts/contracts_bloc.dart';
 import 'package:sisgeo/_blocs/system/system_bloc.dart';
 import 'package:sisgeo/_datas/system/system_data.dart';
 import 'package:sisgeo/_datas/user/user_data.dart';
 import '../../../_blocs/user/user_bloc.dart';
-import '../../../_models/user/user_model.dart';
+import '../../../_provider/user/user_provider.dart';
 
 class ManagePermissionsPage extends StatefulWidget {
   const ManagePermissionsPage({super.key});
@@ -155,3 +155,4 @@ class _ManagePermissionsPageState extends State<ManagePermissionsPage> {
     );
   }
 }
+*/

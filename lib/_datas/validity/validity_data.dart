@@ -5,14 +5,14 @@ class ValidityData extends ChangeNotifier {
   String? uid;
   String? uidContract;
   DateTime? orderdate;
-  int? ordernumber;
+  int? orderNumber;
   String? ordertype;
 
   ValidityData({
     this.uid,
     this.uidContract,
     this.orderdate,
-    this.ordernumber,
+    this.orderNumber,
     this.ordertype,
   });
 
@@ -20,7 +20,7 @@ class ValidityData extends ChangeNotifier {
     final data = snapshot.data() as Map<String, dynamic>;
     return ValidityData(
       uid: snapshot.id,
-      ordernumber: (data['ordernumber'] as num?)?.toInt(),
+      orderNumber: (data['ordernumber'] as num?)?.toInt(),
       ordertype: data['ordertype'],
       orderdate: (data['orderdate'] as Timestamp?)?.toDate(),
     );

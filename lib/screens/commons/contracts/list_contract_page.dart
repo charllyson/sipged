@@ -1,12 +1,13 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:sisgeo/_blocs/contracts/contracts_bloc.dart';
 import 'package:sisgeo/_datas/contracts/contracts_data.dart';
-import 'package:sisgeo/_datas/user/user_data.dart';
 import 'package:sisgeo/_widgets/background/background_cleaner.dart';
-import '../../../_models/user/user_model.dart';
+import 'package:sisgeo/_widgets/buttons/deleteButtonPermission.dart';
+import '../../../_blocs/user/user_bloc.dart';
+import '../../../_datas/user/user_data.dart';
+import '../../../_provider/user/user_provider.dart';
 import '../../../_widgets/input/custom_text_field.dart';
 import '../../../_widgets/input/drop_down_botton_change.dart';
 import 'tab_bar_contract_page.dart';
@@ -19,11 +20,17 @@ class ListContractPage extends StatefulWidget {
 }
 
 class _ListContractPageState extends State<ListContractPage> {
-  late final ContractsBloc _contractsBloc = ContractsBloc();
-  final _tipoStatusCtrl = TextEditingController();
-  final _searchCtrl = TextEditingController();
+  late UserBloc _userBloc;
+  UserData? _currentUser;
+  late ContractsBloc _contractsBloc;
 
-  final List<String> _tiposDeStatus = [
+  final _contractTypesStatusCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
+  Future<List<ContractData>>? _futureContracts;
+
+  bool _isEditable = false;
+
+  final List<String> _contractTypesStatus = [
     'A INICIAR',
     'EM ANDAMENTO',
     'CONCLUÍDO',
@@ -31,18 +38,56 @@ class _ListContractPageState extends State<ListContractPage> {
     'CANCELADO',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _userBloc = UserBloc();
+    _contractsBloc = ContractsBloc();
 
-  void _limparFiltros() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = Provider.of<UserProvider>(context, listen: false).userData;
+      if (user != null) {
+        _currentUser = user;
+        _isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
+        _futureContracts = _contractsBloc.getFilteredContracts(currentUser: user);
+        setState(() {});
+      }
+    });
+  }
+
+  bool isDisabled(String module) {
+    final perms = _currentUser?.modulePermissions[module] ?? {};
+    return !(perms['create'] ?? false || (perms['edit'] ?? false));
+  }
+
+  void _clearFilters() {
     _searchCtrl.clear();
-    _tipoStatusCtrl.clear();
+    _contractTypesStatusCtrl.clear();
     setState(() {});
   }
 
+  void _deleteContract(String idContract) async {
+    if (idContract == null) return;
+    await _contractsBloc.deleteContract(idContract);
+    setState(() {
+      if (_currentUser != null) {
+        _futureContracts = _contractsBloc.getFilteredContracts(currentUser: _currentUser!);
+      }
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Contrato deletado com sucesso!'),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
-
     final currentUser = Provider.of<UserProvider>(context).userData;
-
     return Scaffold(
       body: Stack(
         children: [
@@ -71,7 +116,7 @@ class _ListContractPageState extends State<ListContractPage> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         child: FutureBuilder<List<ContractData>>(
-                          future: _contractsBloc.getFilteredContracts(currentUser: currentUser),
+                          future: _futureContracts,
                           builder: (context, snapshot) {
                             if (!snapshot.hasData) {
                               return const Center(child: CircularProgressIndicator());
@@ -106,51 +151,26 @@ class _ListContractPageState extends State<ListContractPage> {
                                       ),
                                       ...contracts.map(
                                             (contractData) {
-
-                                              final canDelete = _contractsBloc.canDeleteContract(
-                                                userData: currentUser,
-                                                contract: contractData,
-                                              );
                                               return TableRow(
                                                 decoration: const BoxDecoration(color: Colors.white),
                                                 children: [
                                                   _buildCell(contractData.contractNumber, contractData, Alignment.center),
                                                   _buildCell(contractData.summarySubjectContract, contractData, Alignment.centerLeft),
                                                   _buildCell(contractData.contractBiddingProcessNumber, contractData, Alignment.center),
-
                                                   TableCell(
-                                                    child: Center(
-                                                      child: IconButton(
-                                                        icon: Icon(
-                                                          Icons.delete,
-                                                          color: canDelete ? Colors.red : Colors.grey,
-                                                        ),
-                                                        onPressed: canDelete
-                                                            ? () async {
-                                                          final confirm = await showDialog<bool>(
-                                                            context: context,
-                                                            builder: (_) => AlertDialog(
-                                                              title: const Text('Confirmar exclusão'),
-                                                              content: const Text('Deseja apagar este contrato?'),
-                                                              actions: [
-                                                                TextButton(
-                                                                  onPressed: () => Navigator.pop(context, false),
-                                                                  child: const Text('Cancelar'),
-                                                                ),
-                                                                ElevatedButton(
-                                                                  onPressed: () => Navigator.pop(context, true),
-                                                                  child: const Text('Apagar'),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          );
-                                                          if (confirm == true && contractData.id != null) {
-                                                            await _contractsBloc.deleteContract(contractData.id!);
-                                                            setState(() {});
-                                                          }
-                                                        }
-                                                            : null,
+                                                    child: PermissionIconDeleteButton(
+                                                      tooltip: 'Apagar contrato',
+                                                      currentUser: currentUser,
+                                                      showConfirmDialog: true,
+                                                      confirmTitle: 'Confirmar exclusão',
+                                                      confirmContent: 'Deseja apagar este contrato?',
+                                                      hasPermission: (user) => _contractsBloc.knowUserPermissionProfileAdm(
+                                                        userData: user,
+                                                        contract: contractData,
                                                       ),
+                                                      onConfirmed: () async {
+                                                        _deleteContract(contractData.id!);
+                                                      },
                                                     ),
                                                   )
                                                 ],
@@ -171,15 +191,15 @@ class _ListContractPageState extends State<ListContractPage> {
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: TextButton.icon(
-                              onPressed: () {
+                              onPressed: _isEditable ? () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => TabBarContractPage(),
                                   ),
                                 );
-                              },
-                              icon: const Icon(Icons.add),
-                              label: const Text('Adicionar novo contrato'),
+                              } : null,
+                              icon: Icon(_isEditable ? Icons.add : Icons.lock),
+                              label: Text('Adicionar novo contrato', style: TextStyle(color: _isEditable ? Colors.blue : Colors.grey)),
                             ),
                           ),
                         ],
@@ -237,8 +257,8 @@ class _ListContractPageState extends State<ListContractPage> {
                 Expanded(
                   child: DropDownButtonChange(
                     labelText: 'Status',
-                    items: _tiposDeStatus,
-                    controller: _tipoStatusCtrl,
+                    items: _contractTypesStatus,
+                    controller: _contractTypesStatusCtrl,
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
@@ -246,7 +266,7 @@ class _ListContractPageState extends State<ListContractPage> {
                   width: 70,
                   height: 48,
                   child: TextButton(
-                    onPressed: _limparFiltros,
+                    onPressed: _clearFilters,
                     child: const Text('Limpar'),
                   ),
                 )
@@ -291,8 +311,8 @@ class _ListContractPageState extends State<ListContractPage> {
                       Expanded(
                         child: DropDownButtonChange(
                           labelText: 'Status',
-                          items: _tiposDeStatus,
-                          controller: _tipoStatusCtrl,
+                          items: _contractTypesStatus,
+                          controller: _contractTypesStatusCtrl,
                           onChanged: (_) => setState(() {}),
                         ),
                       ),
@@ -301,7 +321,7 @@ class _ListContractPageState extends State<ListContractPage> {
                         width: 70,
                         height: 48,
                         child: TextButton(
-                          onPressed: _limparFiltros,
+                          onPressed: _clearFilters,
                           child: const Text('Limpar'),
                         ),
                       ),

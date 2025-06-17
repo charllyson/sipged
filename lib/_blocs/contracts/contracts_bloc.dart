@@ -74,7 +74,7 @@ class ContractsBloc extends BlocBase {
 
     final data = {
       'orderdate': validade.orderdate,
-      'ordernumber': validade.ordernumber,
+      'ordernumber': validade.orderNumber,
       'ordertype': validade.ordertype,
     };
 
@@ -205,14 +205,14 @@ class ContractsBloc extends BlocBase {
         .doc(uidContract)
         .collection('additives');
 
-    if (data.uid != null) {
-      await ref.doc(data.uid).update(newData);
+    if (data.id != null) {
+      await ref.doc(data.id).update(newData);
     } else {
       await ref.add(newData);
     }
   }
 
-  Future<void> deletarAditivo(String uidContract, String uidAditivo) async {
+  Future<void> deleteAdditive(String uidContract, String uidAditivo) async {
     try {
       await FirebaseFirestore.instance
           .collection('contracts')
@@ -253,8 +253,8 @@ class ContractsBloc extends BlocBase {
         .doc(uidContract)
         .collection('apostilles');
 
-    if (data.uid != null) {
-      await ref.doc(data.uid).update(newData);
+    if (data.id != null) {
+      await ref.doc(data.id).update(newData);
     } else {
       await ref.add(newData);
     }
@@ -372,7 +372,7 @@ class ContractsBloc extends BlocBase {
     }
   }
 
-  bool canDeleteContract({
+  bool knowUserPermissionProfileAdm({
     required UserData userData,
     required ContractData contract,
   }) {

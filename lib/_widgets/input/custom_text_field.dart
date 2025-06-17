@@ -64,7 +64,7 @@ class CustomTextField extends StatelessWidget {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       decoration: InputDecoration(
-        labelStyle: const TextStyle(color: Colors.grey), // cor do rótulo
+        labelStyle: const TextStyle(color: Colors.grey),
         filled: true,
         fillColor: Colors.white,
         labelText: labelText,

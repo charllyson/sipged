@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sisgeo/_datas/user/user_data.dart';
+import 'package:sisgeo/_utils/responsive_utils.dart';
 import '../input/custom_text_field.dart';
 
 class AutocompleteUserClass extends StatefulWidget {
@@ -8,6 +9,9 @@ class AutocompleteUserClass extends StatefulWidget {
   final void Function(String userId)? setValue;
   final List<UserData> allUsers;
   final String? hint;
+  final bool enabled;
+  final String? Function(String? value)? validator;
+  final TextEditingController? controller;
 
   const AutocompleteUserClass({
     super.key,
@@ -16,6 +20,9 @@ class AutocompleteUserClass extends StatefulWidget {
     required this.allUsers,
     this.label,
     this.hint,
+    required this.enabled,
+    this.validator,
+    this.controller,
   });
 
   @override
@@ -23,23 +30,6 @@ class AutocompleteUserClass extends StatefulWidget {
 }
 
 class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
-  double getResponsiveWidth(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    const spacing = 12.0;
-    const margin = 8;
-    const horizontalPadding = 32.0;
-
-    if (screenWidth < 600) {
-      return screenWidth - margin * 2 - horizontalPadding;
-    } else if (screenWidth < 900) {
-      return (screenWidth - margin * 2 - spacing * 1 - horizontalPadding) / 2;
-    } else if (screenWidth < 1300) {
-      return (screenWidth - margin * 2 - spacing * 2 - horizontalPadding) / 3;
-    } else {
-      return (screenWidth - margin * 2 - spacing * 3 - horizontalPadding) / 4;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final selectedUserId = widget.getValue?.call();
@@ -54,7 +44,7 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
           Tooltip(
             message: 'Busque por nome ou email',
             child: SizedBox(
-              width: getResponsiveWidth(context),
+              width: responsiveInputsFourPerLine(context),
               child: Autocomplete<UserData>(
                 optionsBuilder: (TextEditingValue textEditingValue) {
                   if (textEditingValue.text.isEmpty) return const Iterable.empty();
@@ -69,6 +59,8 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
                 displayStringForOption: (user) => user.name ?? user.email ?? '',
                 fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
                   return CustomTextField(
+                    validator: widget.validator,
+                    enabled: widget.enabled,
                     controller: controller,
                     focusNode: focusNode,
                     labelText: widget.label,
@@ -76,8 +68,7 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
                   );
                 },
                 optionsViewBuilder: (context, onSelected, options) {
-                  final width = getResponsiveWidth(context);
-
+                  final width = responsiveInputsFourPerLine(context);
                   return Align(
                     alignment: Alignment.topLeft,
                     child: Material(
@@ -125,7 +116,7 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
           Stack(
             children: [
               Container(
-                width: getResponsiveWidth(context),
+                width: responsiveInputsFourPerLine(context),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
                   border: Border.all(color: Colors.grey.shade400),
@@ -134,21 +125,22 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
                 child: ListTile(
                   leading: CircleAvatar(
                     radius: 18,
+                    backgroundColor: Colors.grey.shade200,
                     backgroundImage: (selectedUser.urlPhoto?.isNotEmpty ?? false)
                         ? NetworkImage(selectedUser.urlPhoto!)
                         : null,
                     child: (selectedUser.urlPhoto?.isEmpty ?? true)
-                        ? const Icon(Icons.person)
-                        : null,
+                        ? widget.enabled ? const Icon(Icons.person)
+                        : const Icon(Icons.person, color: Colors.grey) : null,
                   ),
-                  title: Text('${selectedUser.name ?? 'Sem nome'} ${selectedUser.surname ?? ''}'),
+                  title: Text('${selectedUser.name ?? 'Sem nome'} ${selectedUser.surname ?? ''}', style: TextStyle(color: widget.enabled ? Colors.black : Colors.grey)),
                   trailing: IconButton(
                     icon: const Icon(Icons.clear),
-                    onPressed: () {
+                    onPressed: widget.enabled ? () {
                       setState(() {
                         widget.setValue?.call('');
                       });
-                    },
+                    }: null,
                   ),
                 ),
               ),

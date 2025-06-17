@@ -1,15 +1,27 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:provider/provider.dart';
 import 'package:sisgeo/_widgets/formats/format_field.dart';
+import '../../../../_blocs/contracts/contracts_bloc.dart';
 import '../../../../_blocs/measurement/measurement_bloc.dart';
+import '../../../../_blocs/user/user_bloc.dart';
 import '../../../../_datas/contracts/contracts_data.dart';
 import '../../../../_datas/measurement/measurement_data.dart';
+import '../../../../_datas/user/user_data.dart';
+import '../../../../_provider/user/user_provider.dart';
+import '../../../../_utils/date_utils.dart';
+import '../../../../_utils/responsive_utils.dart';
+import '../../../../_widgets/buttons/deleteButtonPermission.dart';
 import '../../../../_widgets/charts/line_chart_sample_class.dart';
 import '../../../../_widgets/charts/pie_chart_sample.dart';
+import '../../../../_widgets/formats/input_formatters.dart';
 import '../../../../_widgets/input/custom_text_field.dart';
+import '../../../../_widgets/mask_class.dart';
+import '../../../../_widgets/validates/form_validation_mixin.dart';
 
 class MeasurementPage extends StatefulWidget {
   const MeasurementPage({super.key, this.contractData});
@@ -19,12 +31,18 @@ class MeasurementPage extends StatefulWidget {
   State<MeasurementPage> createState() => _MeasurementPageState();
 }
 
-class _MeasurementPageState extends State<MeasurementPage> {
+class _MeasurementPageState extends State<MeasurementPage> with FormValidationMixin{
   late MeasurementBloc _measurementBloc;
+  late UserBloc _userBloc;
+  late ContractsBloc _contractsBloc;
+  late UserData _currentUser;
+
   late Future<List<MeasurementData>> _futureMeasurements;
-  int? _linhaSelecionada;
+
+  int? _selectedLine;
   String? _currentMeasurementId;
-  final _dateFormatter = MaskTextInputFormatter(mask: '##/##/####');
+  bool _formValidated = false;
+  bool _isEditable = false;
 
   final _orderController = TextEditingController();
   final _dateController = TextEditingController();
@@ -34,10 +52,27 @@ class _MeasurementPageState extends State<MeasurementPage> {
   final _processNumberController = TextEditingController();
   final _adjustmentDateController = TextEditingController();
 
+
+
   @override
   void initState() {
     super.initState();
     _measurementBloc = MeasurementBloc();
+    _userBloc = UserBloc();
+    setupValidation([
+      _dateController,
+      _initialValueController,
+      _adjustmentValueController,
+      _revisionValueController,
+      _processNumberController,
+      _adjustmentDateController,
+      _orderController
+    ], _validateForm);
+
+    final user = Provider.of<UserProvider>(context, listen: false).userData;
+    if (user != null) {
+      _isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
+    }
     if (widget.contractData?.id != null) {
       _futureMeasurements = _measurementBloc.getAllMeasurementsOfContract(
         uidContract: widget.contractData!.id!,
@@ -55,7 +90,29 @@ class _MeasurementPageState extends State<MeasurementPage> {
     }
   }
 
-  void preencherCampos(MeasurementData data) {
+  bool isDisabled(String module) {
+    final perms = _currentUser.modulePermissions[module] ?? {};
+    return !(perms['create'] ?? false || (perms['edit'] ?? false));
+  }
+
+  void _validateForm() {
+    final valid = areFieldsFilled([
+      _dateController,
+      _initialValueController,
+      _adjustmentValueController,
+      _revisionValueController,
+      _processNumberController,
+      _adjustmentDateController,
+      _orderController
+    ], minLength: 5);
+
+    if (_formValidated != valid) {
+      setState(() => _formValidated = valid);
+    }
+  }
+
+
+  void _fillFields(MeasurementData data) {
     setState(() {
       _currentMeasurementId = data.uidMeasurement;
       _orderController.text = data.measurementorder.toString();
@@ -68,20 +125,11 @@ class _MeasurementPageState extends State<MeasurementPage> {
     });
   }
 
-  bool get _formularioValido {
-    return _orderController.text.isNotEmpty &&
-        _dateController.text.length == 10 &&
-        _initialValueController.text.isNotEmpty &&
-        _adjustmentValueController.text.isNotEmpty &&
-        _revisionValueController.text.isNotEmpty &&
-        _adjustmentDateController.text.length == 10;
-  }
-
-  void _criarNovaMedicao(List<MeasurementData> list) {
-    final ultimaOrdem = list.map((e) => e.measurementorder ?? 0).fold(0, (a, b) => a > b ? a : b);
+  void _createNewMeasurement(List<MeasurementData> list) {
+    final lastMeasurement = list.map((e) => e.measurementorder ?? 0).fold(0, (a, b) => a > b ? a : b);
     setState(() {
-      _linhaSelecionada = null;
-      _orderController.text = (ultimaOrdem + 1).toString();
+      _selectedLine = null;
+      _orderController.text = (lastMeasurement + 1).toString();
       _dateController.clear();
       _initialValueController.clear();
       _adjustmentValueController.clear();
@@ -91,7 +139,7 @@ class _MeasurementPageState extends State<MeasurementPage> {
     });
   }
 
-  void _salvarMedicao() async {
+  void _saveOrUpdateMeasurement() async {
     if (widget.contractData?.id == null) return;
 
     final confirm = await showDialog<bool>(
@@ -108,7 +156,7 @@ class _MeasurementPageState extends State<MeasurementPage> {
 
     if (confirm != true) return;
 
-    final novaMedicao = MeasurementData(
+    final newMeasurement = MeasurementData(
       uidMeasurement: widget.contractData!.id,
       measurementorder: int.tryParse(_orderController.text),
       measurementnumberprocess: _processNumberController.text,
@@ -119,13 +167,13 @@ class _MeasurementPageState extends State<MeasurementPage> {
       measurementvaluerevisionsadjustments: parseCurrencyToDouble(_revisionValueController.text),
     );
 
-    await _measurementBloc.salvarOuAtualizarMedicao(novaMedicao);
+    await _measurementBloc.saveOrUpdateMeasurement(newMeasurement);
 
     setState(() {
       _futureMeasurements = _measurementBloc.getAllMeasurementsOfContract(
         uidContract: widget.contractData!.id!,
       ).then((list) {
-        _criarNovaMedicao(list);
+        _createNewMeasurement(list);
         return list;
       });
     });
@@ -140,107 +188,112 @@ class _MeasurementPageState extends State<MeasurementPage> {
     );
   }
 
+  void _deleteMeasurement(String idMeasurement) async {
+    if (widget.contractData?.id == null || idMeasurement == null) return;
+    await _measurementBloc.deletarMedicao(widget.contractData!.id!, idMeasurement);
+    setState(() {
+      _futureMeasurements = _measurementBloc.getAllMeasurementsOfContract(
+        uidContract: widget.contractData!.id!,
+      );
+      _selectedLine = null;
+    });
 
-  double getResponsiveWidth(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    const spacing = 18;
-    const margin = 12;
-    const horizontalPadding = 32.0; // somando os dois lados (Padding 16 + 16)
-
-    if (screenWidth < 600) {
-      return screenWidth - margin * 2 - horizontalPadding; // 1 por linha
-    } else if (screenWidth < 900) {
-      return (screenWidth - margin * 2 - spacing * 1 - horizontalPadding) / 2; // 2 por linha
-    } else if (screenWidth < 1300) {
-      return (screenWidth - margin * 2 - spacing * 2 - horizontalPadding) / 3; // 3 por linha
-    } else {
-      return (screenWidth - margin * 2 - spacing * 3 - horizontalPadding) / 4; // 4 por linha
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Medição apagada com sucesso.'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<MeasurementData>>(
-      future: _futureMeasurements,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Erro: \${snapshot.error}'));
-        }else if(!snapshot.hasData || snapshot.data!.isEmpty){
-          return Center(child: Text('Nenhuma medição encontrada'));
-        }
-
-        final measurements = snapshot.data ?? [];
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildFormCampos(),
-              SizedBox(height: 12),
-              const Text('Gráfico das medições cadastradas no sistema', style: TextStyle(fontSize: 20)),
-              const SizedBox(height: 12),
-              LayoutBuilder(
-                  builder: (context, constraints) {
-                    final double larguraDisponivel = constraints.maxWidth;
-                    const double larguraGraficoPizza = 300;
-                    const double espacamento = 26;
-
-                    final double larguraGraficoLinha = math.max(
-                      larguraDisponivel - larguraGraficoPizza - espacamento - espacamento, 300, // largura mínima segura
-                    );
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          PieChartSample(
-                            measurements: measurements,
-                            selectedIndex: _linhaSelecionada,
-                            larguraGrafico: larguraGraficoPizza,
-                            onTouch: (index) {
-                              setState(() {
-                                _linhaSelecionada = index;
-                                if (index != null && index >= 0 && index < measurements.length) {
-                                  preencherCampos(measurements[index]);
-                                }
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          LineChartSample(
-                            measurements: measurements,
-                            selectedIndex: _linhaSelecionada,
-                            larguraGraficoLinha: larguraGraficoLinha,
-                            onPointTap: (index) {
-                              setState(() {
-                                _linhaSelecionada = index;
-                                if (index >= 0 && index < measurements.length) {
-                                  preencherCampos(measurements[index]);
-                                }
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    );
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          children: [
+            _buildFormCampos(),
+            FutureBuilder<List<MeasurementData>>(
+              future: _futureMeasurements,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return Center(child: Text('Erro: \${snapshot.error}'));
+                }else if(!snapshot.hasData || snapshot.data!.isEmpty){
+                  return Center(child: Text('Nenhuma medição encontrada'));
                 }
-              ),
-              const SizedBox(height: 24),
-              const Text('Medições cadastradas no sistema', style: TextStyle(fontSize: 20)),
-              const SizedBox(height: 12),
-              _buildTabela(measurements),
-            ],
-          ),
-        );
-      },
+                final measurements = snapshot.data ?? [];
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: 12),
+                    const Text('Gráfico das medições cadastradas no sistema', style: TextStyle(fontSize: 20)),
+                    const SizedBox(height: 12),
+                    LayoutBuilder(
+                        builder: (context, constraints) {
+                          final double larguraDisponivel = constraints.maxWidth;
+                          const double larguraGraficoPizza = 300;
+                          const double espacamento = 26;
+
+                          final double larguraGraficoLinha = math.max(
+                            larguraDisponivel - larguraGraficoPizza - espacamento - espacamento, 300, // largura mínima segura
+                          );
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                PieChartSample(
+                                  measurements: measurements,
+                                  selectedIndex: _selectedLine,
+                                  larguraGrafico: larguraGraficoPizza,
+                                  onTouch: (index) {
+                                    setState(() {
+                                      _selectedLine = index;
+                                      if (index != null && index >= 0 && index < measurements.length) {
+                                        _fillFields(measurements[index]);
+                                      }
+                                    });
+                                  },
+                                ),
+                                const SizedBox(width: 12),
+                                LineChartSample(
+                                  measurements: measurements,
+                                  selectedIndex: _selectedLine,
+                                  larguraGraficoLinha: larguraGraficoLinha,
+                                  onPointTap: (index) {
+                                    setState(() {
+                                      _selectedLine = index;
+                                      if (index >= 0 && index < measurements.length) {
+                                        _fillFields(measurements[index]);
+                                      }
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                      }
+                    ),
+                    const SizedBox(height: 24),
+                    const Text('Medições cadastradas no sistema', style: TextStyle(fontSize: 20)),
+                    const SizedBox(height: 12),
+                    _buildTable(measurements),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildFormCampos() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: Colors.grey.shade300),
@@ -249,12 +302,14 @@ class _MeasurementPageState extends State<MeasurementPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text('Nova medição', style: TextStyle(fontSize: 16)),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: [
               SizedBox(
-                  width: getResponsiveWidth(context),
+                  width: responsiveInputsThreePerLine(context),
                   child: Tooltip(
                     message: 'Este campo é calculado automaticamente e não pode ser editado.',
                     child: CustomTextField(
@@ -264,16 +319,18 @@ class _MeasurementPageState extends State<MeasurementPage> {
                     ),
                   )),
               SizedBox(
-                  width: getResponsiveWidth(context),
+                  width: responsiveInputsThreePerLine(context),
                   child: CustomTextField(
+                    enabled: _isEditable,
                       labelText: 'Nº processo',
                       controller: _processNumberController,
                     inputFormatters: [processoMaskFormatter],
                     keyboardType: TextInputType.number,
                   )),
               SizedBox(
-                  width: getResponsiveWidth(context),
+                  width: responsiveInputsThreePerLine(context),
                   child: CustomTextField(
+                    enabled: _isEditable,
                       labelText: 'Valor da medição',
                       controller: _initialValueController,
                     inputFormatters: [
@@ -287,23 +344,30 @@ class _MeasurementPageState extends State<MeasurementPage> {
                     keyboardType: TextInputType.number,
                   )),
               SizedBox(
-                  width: getResponsiveWidth(context),
+                  width: responsiveInputsThreePerLine(context),
                   child: CustomTextField(
+                    enabled: _isEditable,
                       labelText: 'Data da medição',
                       controller: _dateController,
-                    inputFormatters: [_dateFormatter],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      TextInputMask(mask: '99/99/9999'),
+                    ],
                     keyboardType: TextInputType.datetime,
                   )),
             ],
           ),
+          const SizedBox(height: 12),
+          const Text('Revisão de medições', style: TextStyle(fontSize: 16)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 12,
             runSpacing: 12,
             children: [
               SizedBox(
-                  width: getResponsiveWidth(context),
+                  width: responsiveInputsThreePerLine(context),
                   child: CustomTextField(
+                    enabled: _isEditable,
                       labelText: 'Valor do reajuste',
                       controller: _adjustmentValueController,
                     inputFormatters: [
@@ -317,16 +381,21 @@ class _MeasurementPageState extends State<MeasurementPage> {
                     keyboardType: TextInputType.number,
                   )),
               SizedBox(
-                  width: getResponsiveWidth(context),
+                  width: responsiveInputsThreePerLine(context),
                   child: CustomTextField(
+                    enabled: _isEditable,
                       labelText: 'Data do reajuste',
                       controller: _adjustmentDateController,
-                    inputFormatters: [_dateFormatter],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      TextInputMask(mask: '99/99/9999'),
+                    ],
                     keyboardType: TextInputType.datetime,
                   )),
               SizedBox(
-                  width: getResponsiveWidth(context),
+                  width: responsiveInputsThreePerLine(context),
                   child: CustomTextField(
+                    enabled: _isEditable,
                       labelText: 'Valor da revisão',
                       controller: _revisionValueController,
                     inputFormatters: [
@@ -351,14 +420,14 @@ class _MeasurementPageState extends State<MeasurementPage> {
                   label: const Text('Limpar'),
                   onPressed: () async {
                     final list = await _futureMeasurements;
-                    _criarNovaMedicao(list);
+                    _createNewMeasurement(list);
                   },
                 ),
               const SizedBox(width: 12),
               TextButton.icon(
                 icon: const Icon(Icons.save),
                 label: Text(_currentMeasurementId != null ? 'Atualizar' : 'Salvar'),
-                onPressed: _formularioValido ? _salvarMedicao : null,
+                onPressed: _formValidated ? _isEditable ? _saveOrUpdateMeasurement : null : null,
               ),
             ],
           )
@@ -367,11 +436,7 @@ class _MeasurementPageState extends State<MeasurementPage> {
     );
   }
 
-  double? parseCurrencyToDouble(String value) {
-    return double.tryParse(value.replaceAll(RegExp(r'[^\d,]'), '').replaceAll(',', '.'));
-  }
-
-  Widget _buildTabela(List<MeasurementData> measurements) {
+  Widget _buildTable(List<MeasurementData> measurements) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -381,14 +446,14 @@ class _MeasurementPageState extends State<MeasurementPage> {
             child: Table(
               border: TableBorder.all(color: Colors.grey.shade300),
               columnWidths: const {
-                0: FixedColumnWidth(100), // ORDEM
-                1: FixedColumnWidth(180), // Nº PROCESSO
-                2: FixedColumnWidth(160), // VALOR MEDIÇÃO
-                3: FixedColumnWidth(140), // DATA MEDIÇÃO
-                4: FixedColumnWidth(160), // VALOR REAJUSTE
-                5: FixedColumnWidth(140), // DATA REAJUSTE
-                6: FixedColumnWidth(160), // VALOR REVISÃO
-                7: FixedColumnWidth(80),  // APAGAR
+                0: FixedColumnWidth(100),
+                1: FixedColumnWidth(180),
+                2: FixedColumnWidth(160),
+                3: FixedColumnWidth(140),
+                4: FixedColumnWidth(160),
+                5: FixedColumnWidth(140),
+                6: FixedColumnWidth(160),
+                7: FixedColumnWidth(80),
               },
               children: [
                 _buildHeaderRow(),
@@ -425,67 +490,48 @@ class _MeasurementPageState extends State<MeasurementPage> {
 
   TableRow _buildDataRow(MeasurementData data, List<MeasurementData> measurements) {
     final index = measurements.indexOf(data);
-    final isSelected = data.measurementorder == (_linhaSelecionada != null ? _linhaSelecionada! + 1 : -1);
-
+    final isSelected = data.measurementorder == (_selectedLine != null ? _selectedLine! + 1 : -1);
+    final currentUser = Provider.of<UserProvider>(context).userData;
     return TableRow(
       decoration: BoxDecoration(
         color: isSelected ? Colors.green.shade50 : Colors.white,
       ),
       children: [
-        _buildEditableCell(data.measurementorder.toString(), () => preencherCampos(data), index: index, measurements: measurements),
-        _buildEditableCell(data.measurementnumberprocess ?? '', () => preencherCampos(data), index: index, measurements: measurements),
-        _buildEditableCell(priceToString(data.measurementinitialvalue), () => preencherCampos(data), index: index, measurements: measurements),
-        _buildEditableCell(convertDateTimeToDDMMYYYY(data.measurementdata!), () => preencherCampos(data), index: index, measurements: measurements),
-        _buildEditableCell(priceToString(data.measurementadjustmentvalue), () => preencherCampos(data), index: index, measurements: measurements),
-        _buildEditableCell(convertDateTimeToDDMMYYYY(data.measurementadjustmentdate!), () => preencherCampos(data), index: index, measurements: measurements),
-        _buildEditableCell(priceToString(data.measurementvaluerevisionsadjustments), () => preencherCampos(data), index: index, measurements: measurements),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Center(
-            child: IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () async {
-                if (widget.contractData?.id == null || data.uidMeasurement == null) return;
-
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Confirmação'),
-                    content: const Text('Deseja apagar esta medição?'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                      ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
-                    ],
+        _buildEditableCell(data.measurementorder.toString(), () => _fillFields(data), index: index, measurements: measurements),
+        _buildEditableCell(data.measurementnumberprocess ?? '', () => _fillFields(data), index: index, measurements: measurements),
+        _buildEditableCell(priceToString(data.measurementinitialvalue), () => _fillFields(data), index: index, measurements: measurements),
+        _buildEditableCell(convertDateTimeToDDMMYYYY(data.measurementdata!), () => _fillFields(data), index: index, measurements: measurements),
+        _buildEditableCell(priceToString(data.measurementadjustmentvalue), () => _fillFields(data), index: index, measurements: measurements),
+        _buildEditableCell(convertDateTimeToDDMMYYYY(data.measurementadjustmentdate!), () => _fillFields(data), index: index, measurements: measurements),
+        _buildEditableCell(priceToString(data.measurementvaluerevisionsadjustments), () => _fillFields(data), index: index, measurements: measurements),
+        TableCell(
+          child: Stack(
+            children: [
+              if (currentUser == null)
+                const Center(child: CircularProgressIndicator())
+              else
+                PermissionIconDeleteButton(
+                  tooltip: 'Apagar medição?',
+                  currentUser: currentUser,
+                  showConfirmDialog: true,
+                  confirmTitle: 'Confirmar exclusão',
+                  confirmContent: 'Deseja apagar esta medição?',
+                  hasPermission: (user) => _contractsBloc.knowUserPermissionProfileAdm(
+                    userData: user,
+                    contract: widget.contractData!,
                   ),
-                );
-
-                if (confirm != true) return;
-
-                await _measurementBloc.deletarMedicao(widget.contractData!.id!, data.uidMeasurement!);
-
-                setState(() {
-                  _futureMeasurements = _measurementBloc.getAllMeasurementsOfContract(
-                    uidContract: widget.contractData!.id!,
-                  );
-                  _linhaSelecionada = null;
-                });
-
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Medição apagada com sucesso.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              },
-
-            ),
+                  onConfirmed: () async {
+                    if (widget.contractData!.id != null) {
+                      _deleteMeasurement(data.uidMeasurement!);
+                    }
+                  },
+                ),
+            ],
           ),
         ),
       ],
     );
   }
-
 
   Widget _buildEditableCell(String? text, VoidCallback onTap, {int? index, List<MeasurementData>? measurements}) {
     return TableCell(
@@ -494,8 +540,8 @@ class _MeasurementPageState extends State<MeasurementPage> {
         onTap: () {
           if (index != null && measurements != null) {
             setState(() {
-              _linhaSelecionada = index;
-              preencherCampos(measurements[index]);
+              _selectedLine = index;
+              _fillFields(measurements[index]);
             });
           }
           onTap();
@@ -514,5 +560,18 @@ class _MeasurementPageState extends State<MeasurementPage> {
     );
   }
 
+  @override
+  void dispose() {
+    removeValidation([
+      _dateController,
+      _initialValueController,
+      _adjustmentValueController,
+      _revisionValueController,
+      _processNumberController,
+      _adjustmentDateController,
+      _orderController
+    ], _validateForm);
+    super.dispose();
+  }
 
 }

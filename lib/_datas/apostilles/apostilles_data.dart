@@ -3,14 +3,14 @@ import 'package:flutter/cupertino.dart';
 
 class ApostillesData extends ChangeNotifier {
   ///Informações de medições
-  String? uid;
+  String? id;
   String? apostillenumberprocess;
   int? apostilleorder;
   DateTime? apostilledata;
   double? apostillevalue;
 
   ApostillesData({
-    this.uid,
+    this.id,
     this.apostillenumberprocess,
     this.apostilleorder,
     this.apostilledata,
@@ -30,7 +30,7 @@ class ApostillesData extends ChangeNotifier {
     }
 
     return ApostillesData(
-      uid: snapshot.id,
+      id: snapshot.id,
       apostillenumberprocess: data['apostillenumberprocess'],
       apostilleorder: (data['apostilleorder'] as num).toInt(),
       apostilledata: data['apostilledata'].toDate() as DateTime,
