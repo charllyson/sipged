@@ -25,12 +25,12 @@ class MeasurementBloc extends BlocBase {
   Future<void> saveOrUpdateMeasurement(MeasurementData data) async {
     final ref = _db
         .collection('contracts')
-        .doc(data.uidMeasurement)
+        .doc(data.id)
         .collection('measurements');
 
-    if (data.uidMeasurement != null) {
+    if (data.id != null) {
       // Atualizar medição existente
-      await ref.doc(data.uidMeasurement).set(data.toJson(), SetOptions(merge: true));
+      await ref.doc(data.id).set(data.toJson(), SetOptions(merge: true));
     } else {
       // Criar nova medição
       await ref.add(data.toJson());

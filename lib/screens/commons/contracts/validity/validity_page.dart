@@ -6,8 +6,10 @@ import 'package:sisgeo/_datas/contracts/contracts_data.dart';
 import 'package:sisgeo/_datas/validity/validity_data.dart';
 import 'package:sisgeo/_widgets/input/drop_down_botton_change.dart';
 import 'package:sisgeo/_widgets/loading/loading_progress.dart';
+import 'package:sisgeo/_widgets/timeline/timeline_class.dart';
 
 import '../../../../_blocs/user/user_bloc.dart';
+import '../../../../_class/archives/pdf/pdf_icon_action.dart';
 import '../../../../_datas/user/user_data.dart';
 import '../../../../_provider/user/user_provider.dart';
 import '../../../../_utils/date_utils.dart';
@@ -47,12 +49,18 @@ class _ValidityPageState extends State<ValidityPage> with FormValidationMixin {
     'ORDEM DE FINALIZAÇÃO',
   ];
 
+  ValidityData? _selectedValidity;
+
+
   @override
   void initState() {
     super.initState();
     _contractsBloc = ContractsBloc();
     _userBloc = UserBloc();
-    setupValidation([_orderTypeCtrl, _orderDateCtrl], _validateForm);
+    setupValidation([
+      _orderTypeCtrl,
+      _orderDateCtrl]
+        , _validateForm);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Provider.of<UserProvider>(context, listen: false).userData;
       if (user != null) {
@@ -101,7 +109,7 @@ class _ValidityPageState extends State<ValidityPage> with FormValidationMixin {
 
   void _fillFields(ValidityData data) {
     setState(() {
-      _currentValidityId = data.uid;
+      _currentValidityId = data.id;
       _orderTypeCtrl.text = data.ordertype ?? '';
       _orderCtrl.text = data.orderNumber.toString();
       final type = data.ordertype ?? '';
@@ -135,7 +143,7 @@ class _ValidityPageState extends State<ValidityPage> with FormValidationMixin {
     setState(() => _isSaving = true);
 
     final newValidity = ValidityData(
-      uid: _currentValidityId,
+      id: _currentValidityId,
       uidContract: widget.contractData!.id,
       orderNumber: int.tryParse(_orderCtrl.text),
       ordertype: _orderTypeCtrl.text,
@@ -208,6 +216,11 @@ class _ValidityPageState extends State<ValidityPage> with FormValidationMixin {
             padding: const EdgeInsets.all(8.0),
             child: Column(
               children: [
+                TimelineClass(
+                  futureValidity: _futureValidity,
+                  futureContractList: Future.value([widget.contractData!]),
+                  futureAdditiveList: _contractsBloc.getAllAdditivesOfContract(uidContract: widget.contractData!.id!),
+                ),                SizedBox(height: 12),
                 _buildFieldsForm(),
                 FutureBuilder<List<ValidityData>>(
                   future: _futureValidity,
@@ -250,6 +263,7 @@ class _ValidityPageState extends State<ValidityPage> with FormValidationMixin {
 
   Widget _buildFieldsForm() {
     return Container(
+      height: 156,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey),
         borderRadius: BorderRadius.circular(8),
@@ -257,74 +271,94 @@ class _ValidityPageState extends State<ValidityPage> with FormValidationMixin {
       ),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Column(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Align(
-              alignment: Alignment.topLeft,
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  SizedBox(
-                    width: responsiveInputsThreePerLine(context),
-                    child: Tooltip(
-                      message: 'Este campo é calculado automaticamente e não pode ser editado.',
-                      child: CustomTextField(
-                        labelText: 'Ordem',
-                        controller: _orderCtrl,
-                        enabled: false,
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: responsiveInputsThreePerLine(context),
-                      child: DropDownButtonChange(
-                        enabled: _isEditable,
-                        labelText: 'Tipo da ordem',
-                        items: _typeOfOrder,
-                        controller: _orderTypeCtrl,
-                      ),
-                  ),
-                  SizedBox(
-                    width: responsiveInputsThreePerLine(context),
-                    child: CustomTextField(
-                      enabled: _isEditable,
-                      labelText: 'Data da ordem',
-                      controller: _orderDateCtrl,
-                      keyboardType: TextInputType.datetime,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        TextInputMask(mask: '99/99/9999'),
-                      ],
-                    ),
-                  ),
-                ],
+            SizedBox(width: 6),
+            if (_currentValidityId != null)
+              PdfFileIconActionGeneric(
+                key: Key(_currentValidityId!),
+                tipo: TipoArquivoPDF.aditivo,
+                bloc: _contractsBloc,
+                contrato: widget.contractData!,
+                dataEspecifica: _selectedValidity, // do tipo AdditiveData
+                onUploadSaveToFirestore: (url) async {
+                  await _contractsBloc.salvarUrlPdfDoAditivo(
+                    contractId: widget.contractData!.id!,
+                    additiveId: _selectedValidity!.id!,
+                    url: url,
+                  );
+                },
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if (_currentValidityId != null)
-                  Tooltip(
-                    message: 'Limpar formulário',
-                    child: TextButton.icon(
-                      icon: const Icon(Icons.restore),
-                      label: const Text('Limpar'),
-                      onPressed: _createNewOrder,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: responsiveInputsThreePerLineWithPDF(context),
+                      child: Tooltip(
+                        message: 'Este campo é calculado automaticamente e não pode ser editado.',
+                        child: CustomTextField(
+                          labelText: 'Ordem',
+                          controller: _orderCtrl,
+                          enabled: false,
+                        ),
+                      ),
                     ),
-                  ),
-                const SizedBox(width: 12),
-                Tooltip(
-                  message: _formValidated ? 'Salvar ordem' : 'Preencha os campos obrigatórios',
-                  child: TextButton.icon(
-                    onPressed: _formValidated && !_isSaving ? _saveOrUpdateValidity : null,
-                    icon: Icon(Icons.save),
-                    label: Text(_currentValidityId != null ? 'Atualizar' : 'Salvar'),
-                  ),
+                    SizedBox(
+                      width: responsiveInputsThreePerLineWithPDF(context),
+                        child: DropDownButtonChange(
+                          enabled: _isEditable,
+                          labelText: 'Tipo da ordem',
+                          items: _typeOfOrder,
+                          controller: _orderTypeCtrl,
+                        ),
+                    ),
+                    SizedBox(
+                      width: responsiveInputsThreePerLineWithPDF(context),
+                      child: CustomTextField(
+                        enabled: _isEditable,
+                        labelText: 'Data da ordem',
+                        controller: _orderDateCtrl,
+                        keyboardType: TextInputType.datetime,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          TextInputMask(mask: '99/99/9999'),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (_currentValidityId != null)
+                      Tooltip(
+                        message: 'Limpar formulário',
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.restore),
+                          label: const Text('Limpar'),
+                          onPressed: _createNewOrder,
+                        ),
+                      ),
+                    const SizedBox(width: 12),
+                    Tooltip(
+                      message: _formValidated ? 'Salvar ordem' : 'Preencha os campos obrigatórios',
+                      child: TextButton.icon(
+                        onPressed: _formValidated && !_isSaving ? _saveOrUpdateValidity : null,
+                        icon: Icon(Icons.save),
+                        label: Text(_currentValidityId != null ? 'Atualizar' : 'Salvar'),
+                      ),
+                    ),
+                  ],
+                )
               ],
-            )
+            ),
           ],
         ),
       ),
@@ -401,7 +435,7 @@ class _ValidityPageState extends State<ValidityPage> with FormValidationMixin {
                 ),
                 onConfirmed: () async {
                   if (widget.contractData!.id != null) {
-                    _deleteValidity(data.uid!);
+                    _deleteValidity(data.id!);
                   }
                 },
               ),

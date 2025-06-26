@@ -4,26 +4,29 @@ import 'package:flutter/cupertino.dart';
 class AdditiveData extends ChangeNotifier {
   ///Informações de medições
   String? id;
-  String? additivenumberprocess;
-  int? additiveorder;
-  int? additivevaliditycontractdays;
-  int? additivevalidityexecutiondays;
-  DateTime? additivedata;
-  DateTime? additivevaliditycontractdata;
-  DateTime? additivevalidityexecutiondata;
-  double? additivevalue;
+  int? additiveOrder;
+  String? additiveNumberProcess;
+  DateTime? additiveData;
   String? typeOfAdditive;
+  double? additiveValue;
+
+  DateTime? additiveValidityContractData;
+  DateTime? additiveValidityExecutionData;
+
+  int? additionalAdditiveContractDays;
+  int? additionalAdditiveExecutionDays;
+
 
   AdditiveData({
     this.id,
-    this.additivenumberprocess,
-    this.additiveorder,
-    this.additivevaliditycontractdays,
-    this.additivevalidityexecutiondays,
-    this.additivedata,
-    this.additivevaliditycontractdata,
-    this.additivevalidityexecutiondata,
-    this.additivevalue,
+    this.additiveNumberProcess,
+    this.additiveOrder,
+    this.additionalAdditiveExecutionDays,
+    this.additiveData,
+    this.additiveValidityContractData,
+    this.additiveValidityExecutionData,
+    this.additionalAdditiveContractDays,
+    this.additiveValue,
     this.typeOfAdditive,
 
 });
@@ -42,14 +45,14 @@ class AdditiveData extends ChangeNotifier {
 
     return AdditiveData(
       id: snapshot.id,
-      additivenumberprocess: data['additivenumberprocess'],
-      additiveorder: (data['additiveorder'] as num?)?.toInt(),
-      additivevaliditycontractdays: (data['additivevaliditycontractdays'] as num?)?.toInt(),
-      additivevalidityexecutiondays: (data['additivevalidityexecutiondays'] as num?)?.toInt(),
-      additivedata: (data['additivedata'] as Timestamp?)?.toDate(),
-      additivevaliditycontractdata: (data['additivevaliditycontractdata'] as Timestamp?)?.toDate(),
-      additivevalidityexecutiondata: (data['additivevalidityexecutiondata'] as Timestamp?)?.toDate(),
-      additivevalue: (data['additivevalue'] as num?)?.toDouble(),
+      additiveNumberProcess: data['additivenumberprocess'],
+      additiveOrder: (data['additiveorder'] as num?)?.toInt(),
+      additionalAdditiveContractDays: (data['additivevaliditycontractdays'] as num?)?.toInt(),
+      additionalAdditiveExecutionDays: (data['additivevalidityexecutiondays'] as num?)?.toInt(),
+      additiveData: (data['additivedata'] as Timestamp?)?.toDate(),
+      additiveValidityContractData: (data['additivevaliditycontractdata'] as Timestamp?)?.toDate(),
+      additiveValidityExecutionData: (data['additivevalidityexecutiondata'] as Timestamp?)?.toDate(),
+      additiveValue: (data['additivevalue'] as num?)?.toDouble(),
       typeOfAdditive: data['typeOfAdditive'], // ✅ agora lido corretamente
     );
   }
@@ -57,14 +60,14 @@ class AdditiveData extends ChangeNotifier {
   Map<String, dynamic> toMap() {
     return {
       'uid': id,
-      'additivenumberprocess': additivenumberprocess,
-      'additiveorder': additiveorder,
-      'additivevaliditycontractdays': additivevaliditycontractdays,
-      'additivevalidityexecutiondays': additivevalidityexecutiondays,
-      'additivedata': additivedata,
-      'additivevaliditycontractdata': additivevaliditycontractdata,
-      'additivevalidityexecutiondata': additivevalidityexecutiondata,
-      'additivevalue': additivevalue,
+      'additivenumberprocess': additiveNumberProcess,
+      'additiveorder': additiveOrder,
+      'additivevaliditycontractdays': additionalAdditiveContractDays,
+      'additivevalidityexecutiondays': additionalAdditiveExecutionDays,
+      'additivedata': additiveData,
+      'additivevaliditycontractdata': additiveValidityContractData,
+      'additivevalidityexecutiondata': additiveValidityExecutionData,
+      'additivevalue': additiveValue,
       'typeOfAdditive': typeOfAdditive,
     };
   }

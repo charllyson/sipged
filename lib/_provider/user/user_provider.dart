@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:sisgeo/_datas/user/user_data.dart';
 
@@ -21,6 +22,12 @@ class UserProvider extends ChangeNotifier {
 
   void setUserDataList(List<UserData> users) {
     _userDataList = users;
+    notifyListeners();
+  }
+
+  Future<void> loadAllUsers() async {
+    final snapshot = await FirebaseFirestore.instance.collection('users').get();
+    _userDataList = snapshot.docs.map((doc) => UserData.fromDocument(snapshot: doc)).toList();
     notifyListeners();
   }
 }

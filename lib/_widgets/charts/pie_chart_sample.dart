@@ -68,9 +68,9 @@ class _PieChartSampleState extends State<PieChartSample> {
     }
 
     final total = dataList.fold<double>(0, (sum, e) {
-      if (isApostille) return sum + ((e as ApostillesData).apostillevalue ?? 0);
+      if (isApostille) return sum + ((e as ApostillesData).apostilleValue ?? 0);
       if (isMeasurement) return sum + ((e as MeasurementData).measurementinitialvalue ?? 0);
-      return sum + ((e as AdditiveData).additivevalue ?? 0);
+      return sum + ((e as AdditiveData).additiveValue ?? 0);
     });
 
     if (total == 0) {
@@ -108,16 +108,16 @@ class _PieChartSampleState extends State<PieChartSample> {
 
                   if (isApostille) {
                     final item = dataList[index] as ApostillesData;
-                    value = item.apostillevalue ?? 0;
-                    order = item.apostilleorder;
+                    value = item.apostilleValue ?? 0;
+                    order = item.apostilleOrder;
                   } else if (isMeasurement) {
                     final item = dataList[index] as MeasurementData;
                     value = item.measurementinitialvalue ?? 0;
                     order = item.measurementorder;
                   } else if (isAdditive) {
                     final item = dataList[index] as AdditiveData;
-                    value = item.additivevalue ?? 0;
-                    order = item.additiveorder;
+                    value = item.additiveValue ?? 0;
+                    order = item.additiveOrder;
                   }
 
                   final percentual = (value / total) * 100;

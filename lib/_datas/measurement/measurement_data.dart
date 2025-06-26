@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 
 class MeasurementData extends ChangeNotifier {
   ///Informações de medições
-  String? uidMeasurement;
+  String? id;
   DateTime? measurementadjustmentdate;
   String? measurementadjustmentnumberprocess;
   double? measurementadjustmentvalue;
@@ -20,7 +20,7 @@ class MeasurementData extends ChangeNotifier {
 
 
   MeasurementData({
-    this.uidMeasurement,
+    this.id,
     this.measurementadjustmentdate,
     this.measurementadjustmentnumberprocess,
     this.measurementadjustmentvalue,
@@ -48,7 +48,7 @@ class MeasurementData extends ChangeNotifier {
     }
 
     return MeasurementData(
-      uidMeasurement: snapshot.id,
+      id: snapshot.id,
       measurementadjustmentdate: data['measurementadjustmentdate'].toDate() as DateTime,
       measurementadjustmentnumberprocess: data['measurementadjustmentnumberprocess'],
       measurementadjustmentvalue: data['measurementadjustmentvalue'].toDouble() ?? 0.0,

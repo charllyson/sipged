@@ -4,17 +4,17 @@ import 'package:flutter/cupertino.dart';
 class ApostillesData extends ChangeNotifier {
   ///Informações de medições
   String? id;
-  String? apostillenumberprocess;
-  int? apostilleorder;
-  DateTime? apostilledata;
-  double? apostillevalue;
+  String? apostilleNumberProcess;
+  int? apostilleOrder;
+  DateTime? apostilleData;
+  double? apostilleValue;
 
   ApostillesData({
     this.id,
-    this.apostillenumberprocess,
-    this.apostilleorder,
-    this.apostilledata,
-    this.apostillevalue,
+    this.apostilleNumberProcess,
+    this.apostilleOrder,
+    this.apostilleData,
+    this.apostilleValue,
 });
 
   ///Recuperando informações no banco de dados
@@ -31,10 +31,10 @@ class ApostillesData extends ChangeNotifier {
 
     return ApostillesData(
       id: snapshot.id,
-      apostillenumberprocess: data['apostillenumberprocess'],
-      apostilleorder: (data['apostilleorder'] as num).toInt(),
-      apostilledata: data['apostilledata'].toDate() as DateTime,
-      apostillevalue: data['apostillevalue'].toDouble() ?? 0.0,
+      apostilleNumberProcess: data['apostillenumberprocess'],
+      apostilleOrder: (data['apostilleorder'] as num).toInt(),
+      apostilleData: data['apostilledata'].toDate() as DateTime,
+      apostilleValue: data['apostillevalue'].toDouble() ?? 0.0,
 
 
     );

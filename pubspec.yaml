@@ -32,6 +32,7 @@ dependencies:
   #DRAW
   image_picker: ^1.1.2 #0.8.4+4 #0.7.0 #^0.6.7+22 #Recupera imagem da camera e galeria
   fl_chart: ^0.63.0
+  url_launcher: ^6.2.5
 
   cpf_cnpj_validator: ^2.0.0 #^1.0.5 #Validador de CPF e CNPJ
   brasil_fields: 1.15.0 #1.0.0 #0.6.1 #Adaptar valores para o formato de moeda brasileira
@@ -41,13 +42,14 @@ dependencies:
   #file_picker: ^6.1.1
   provider: ^6.1.1
   rive: ^0.13.20
-
-
+  open_file: ^3.3.2
+  file_picker: ^10.2.0
+  open_filex: ^4.4.0
   vector_math: ^2.1.4
   web: ^1.1.0
-
-  path_provider: ^2.1.1
-  permission_handler: ^11.0.1
+  http: ^1.2.1
+  path_provider: ^2.1.2
+  permission_handler: ^11.3.1
   datetime_picker_formfield: 2.0.0 #1.0.0 #Formulário de input tipo date
   mask_text_input_formatter: ^2.4.0
   flutter_multi_formatter: ^2.9.0  # ou a versão mais recente
@@ -57,7 +59,6 @@ dependencies:
   latlong2: ^0.9.1
   flutter_map_tappable_polyline: ^6.0.0
   flutter_map_cancellable_tile_provider: ^1.0.0
-
 
 
 dev_dependencies:
@@ -83,6 +84,9 @@ flutter:
     - assets/logos/deral/logo-deral.png
     - assets/images/default_avatar.png
     - assets/logos/sisgeo/sisgeo.png
+    - assets/icons/map.png
+    - assets/icons/pdf-file-format.png
+    - assets/icons/wait-to-up-file.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

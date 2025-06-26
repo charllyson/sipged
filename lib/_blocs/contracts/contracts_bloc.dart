@@ -1,9 +1,16 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'dart:ui' as html;
+
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:sisgeo/_datas/additive/additive_data.dart';
 import 'package:sisgeo/_datas/apostilles/apostilles_data.dart';
+import 'package:sisgeo/_datas/measurement/measurement_data.dart';
 import 'package:sisgeo/_datas/validity/validity_data.dart';
 import '../../_datas/contracts/contracts_data.dart';
 import '../../_datas/user/user_data.dart';
@@ -11,6 +18,7 @@ import '../../_datas/user/user_data.dart';
 class ContractsBloc extends BlocBase {
   late ContractData? contractsData;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   final _createdController = BehaviorSubject<bool>();
   final _loadingController = BehaviorSubject<bool>();
@@ -30,13 +38,608 @@ class ContractsBloc extends BlocBase {
         .replaceAll(RegExp(r'[úùûü]', caseSensitive: false), 'u')
         .replaceAll(RegExp(r'[ç]', caseSensitive: false), 'c');
   }
+  ///---------------------------INÍCIO DOS PDF-------------------------------///
 
+  String getNomePadronizadoPdfContrato(ContractData contract) {
+    final contractNumber = contract.contractNumber ?? 'contrato';
+    final contractProcess = contract.contractNumberProcess ?? 'processo';
+    return '$contractNumber-$contractProcess.pdf';
+  }
+
+  Future<bool> verificarSePdfExiste(ContractData contract) async {
+    try {
+      final fileName = getNomePadronizadoPdfContrato(contract);
+
+      final ref = FirebaseStorage.instance
+          .ref('contracts/${contract.id}/contract/$fileName');
+
+      await ref.getMetadata(); // lança erro se não existir
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> salvarUrlPdfDoContrato(String contractId, String url) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .update({'urlContractPdf': url});
+    } catch (e) {
+      print('Erro ao salvar URL do PDF do contrato no Firestore: $e');
+    }
+  }
+
+  ///
+  Future<bool> deletarPdf(ContractData? contract) async {
+    try {
+      final contractNumber = contract!.contractNumber ?? 'contrato';
+      final contractProcess = contract.contractNumberProcess ?? 'processo';
+      final fileName = '$contractNumber-$contractProcess.pdf';
+
+      final path = 'contracts/${contract.id}/contract/$fileName';
+
+      // 🗑️ Deleta do Firebase Storage
+      await FirebaseStorage.instance.ref(path).delete();
+
+      // 🔄 Remove a URL do Firestore
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contract.id)
+          .update({'urlContractPdf': FieldValue.delete()});
+
+      return true;
+    } catch (e) {
+      print('Erro ao deletar PDF do contrato: $e');
+      return false;
+    }
+  }
+
+
+  Future<void> enviarPdfWeb({
+    required ContractData? contract,
+    required void Function(double) onProgress,
+  }) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+
+      print('DEBUG: contract.id = ${contract?.id}');
+      print('DEBUG: contract.contractNumber = ${contract?.contractNumber}');
+      print('DEBUG: contract.contractNumberProcess = ${contract?.contractNumberProcess}');
+
+      if (result == null || result.files.single.bytes == null) {
+        throw Exception('Nenhum arquivo PDF selecionado ou arquivo vazio.');
+      }
+
+      if (contract == null || contract.id == null || contract.contractNumber == null || contract.contractNumberProcess == null) {
+        throw Exception('Dados do contrato incompletos. Verifique número e processo.');
+      }
+
+      final fileBytes = result.files.single.bytes!;
+      final fileName = '${contract.contractNumber}-${contract.contractNumberProcess}.pdf';
+      final path = 'contracts/${contract.id}/contract/$fileName';
+
+      final ref = FirebaseStorage.instance.ref(path);
+      final metadata = SettableMetadata(contentType: 'application/pdf');
+
+      final uploadTask = ref.putData(fileBytes, metadata);
+
+      uploadTask.snapshotEvents.listen((event) {
+        final progress = event.bytesTransferred / event.totalBytes;
+        onProgress(progress);
+      });
+
+      await uploadTask;
+
+      final url = await ref.getDownloadURL();
+
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contract.id)
+          .update({'urlContractPdf': url});
+    } catch (e) {
+      print('Erro ao enviar PDF do contrato: $e');
+      rethrow;
+    }
+  }
+
+
+  ///
+  Future<String?> getFirstPdfUrl(ContractData? contract) async {
+    try {
+      if (contract?.id == null || contract!.id!.isEmpty) {
+        throw Exception('ID do contrato está ausente.');
+      }
+
+      final fileName = getNomePadronizadoPdfContrato(contract);
+      final ref = FirebaseStorage.instance.ref(
+        'contracts/${contract.id}/contract/$fileName',
+      );
+
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print('Erro ao obter URL do PDF do contrato: $e');
+      return null;
+    }
+  }
+
+
+  ///------------------------------ FIM DOS PDF -----------------------------///
+  ///------------------------ INÍCO DOS ADITIVOS ----------------------------///
+
+  Future<void> selecionarEPDFDeAditivoComProgresso({
+    required String contractId,
+    required AdditiveData additiveData,
+    required void Function(double progress) onProgress,
+    required void Function(bool success) onComplete,
+  }) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+
+      if (result != null && result.files.single.bytes != null) {
+        final Uint8List fileBytes = result.files.single.bytes!;
+
+        final contractSnap = await FirebaseFirestore.instance
+            .collection('contracts')
+            .doc(contractId)
+            .get();
+
+        final contractNumber = contractSnap.data()?['contractnumber'] ?? 'contrato';
+        final fileName = '$contractNumber-${additiveData.additiveOrder}-${additiveData.additiveNumberProcess}.pdf';
+
+        final ref = FirebaseStorage.instance.ref('contracts/$contractId/additives/${additiveData.id}/$fileName');
+        final metadata = SettableMetadata(contentType: 'application/pdf');
+
+        final uploadTask = ref.putData(fileBytes, metadata);
+
+        uploadTask.snapshotEvents.listen((snapshot) {
+          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+          onProgress(progress);
+        });
+
+        await uploadTask;
+        final url = await ref.getDownloadURL();
+
+        await FirebaseFirestore.instance
+            .collection('contracts')
+            .doc(contractId)
+            .collection('additives')
+            .doc(additiveData.id)
+            .update({'pdfUrl': url});
+
+        onComplete(true);
+      } else {
+        onComplete(false);
+      }
+    } catch (e) {
+      print('Erro ao enviar PDF do aditivo: $e');
+      onComplete(false);
+    }
+  }
+
+  Future<bool> verificarSePdfDeAditivoExiste({
+    required ContractData contract,
+    required AdditiveData additive,
+  }) async {
+    final contractNumber = contract.contractNumber ?? 'contrato';
+    final additiveOrder = additive.additiveOrder ?? '0';
+    final additiveNumberProcess = additive.additiveNumberProcess ?? 'processo';
+
+    final fileName = '$contractNumber-$additiveOrder-$additiveNumberProcess.pdf';
+    final ref = FirebaseStorage.instance.ref(
+      'contracts/${contract.id}/additives/${additive.id}/$fileName',
+    );
+
+    try {
+      await ref.getMetadata();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  ///
+  Future<String?> getPdfUrlDoAditivo({
+    required ContractData contract,
+    required AdditiveData additive,
+  }) async {
+    final contractNumber = contract.contractNumber ?? 'contrato';
+    final additiveOrder = additive.additiveOrder ?? '0';
+    final additiveNumberProcess = additive.additiveNumberProcess ?? 'processo';
+
+    final fileName = '$contractNumber-$additiveOrder-$additiveNumberProcess.pdf';
+    final ref = FirebaseStorage.instance.ref(
+      'contracts/${contract.id}/additives/${additive.id}/$fileName',
+    );
+
+    try {
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print('Erro ao obter URL do PDF do aditivo: $e');
+      return null;
+    }
+  }
+
+
+
+  Future<bool> deletarPdfDoAditivo({
+    required String contractId,
+    required AdditiveData additiveData,
+  }) async {
+    try {
+      final contractSnap = await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .get();
+
+      final contractNumber = contractSnap.data()?['contractnumber'] ?? 'contrato';
+      final fileName = '$contractNumber-${additiveData.additiveOrder}-${additiveData.additiveNumberProcess}.pdf';
+      final pdfPath = 'contracts/$contractId/additives/${additiveData.id}/$fileName';
+
+      await FirebaseStorage.instance.ref(pdfPath).delete();
+
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .collection('additives')
+          .doc(additiveData.id)
+          .update({'pdfUrl': FieldValue.delete()});
+
+      return true;
+    } catch (e) {
+      print('Erro ao deletar PDF do aditivo: $e');
+      return false;
+    }
+  }
+
+  Future<void> salvarUrlPdfDoAditivo({
+    required String contractId,
+    required String additiveId,
+    required String url,
+  }) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .collection('additives')
+          .doc(additiveId)
+          .update({'pdfUrl': url});
+    } catch (e) {
+      print('Erro ao salvar URL do PDF do aditivo no Firestore: $e');
+    }
+  }
+
+
+  ///--------------------------- FIM DOS ADITIVOS ---------------------------///
+
+  ///----------------------- INÍCIO DOS APOSTILAMENTOS ----------------------///
+
+  Future<void> salvarUrlPdfDaApostila({
+    required String contractId,
+    required String apostilleId,
+    required String url,
+  }) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .collection('apostilles')
+          .doc(apostilleId)
+          .update({'pdfUrl': url});
+    } catch (e) {
+      print('Erro ao salvar URL do PDF da apostila no Firestore: $e');
+    }
+  }
+
+
+  Future<void> selecionarEPdfDeApostilaComProgresso({
+    required String contractId,
+    required ApostillesData apostilleData,
+    required void Function(double progress) onProgress,
+    required void Function(bool success) onComplete,
+  }) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+
+      if (result != null && result.files.single.bytes != null) {
+        final Uint8List fileBytes = result.files.single.bytes!;
+
+        final contractSnap = await FirebaseFirestore.instance
+            .collection('contracts')
+            .doc(contractId)
+            .get();
+
+        final contractNumber = contractSnap.data()?['contractnumber'] ?? 'contrato';
+        final fileName = '$contractNumber-${apostilleData.apostilleOrder}-${apostilleData.apostilleNumberProcess}.pdf';
+
+        final ref = FirebaseStorage.instance.ref('contracts/$contractId/apostilles/${apostilleData.id}/$fileName');
+        final metadata = SettableMetadata(contentType: 'application/pdf');
+
+        final uploadTask = ref.putData(fileBytes, metadata);
+
+        uploadTask.snapshotEvents.listen((snapshot) {
+          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+          onProgress(progress);
+        });
+
+        await uploadTask;
+        final url = await ref.getDownloadURL();
+
+        await FirebaseFirestore.instance
+            .collection('contracts')
+            .doc(contractId)
+            .collection('apostilles')
+            .doc(apostilleData.id)
+            .update({'pdfUrl': url});
+
+        onComplete(true);
+      } else {
+        onComplete(false);
+      }
+    } catch (e) {
+      print('Erro ao enviar PDF da apostila: $e');
+      onComplete(false);
+    }
+  }
+
+  Future<bool> verificarSePdfDeApostilaExiste({
+    required ContractData contract,
+    required ApostillesData apostille,
+  }) async {
+    final contractNumber = contract.contractNumber ?? 'contrato';
+    final order = apostille.apostilleOrder ?? '0';
+    final process = apostille.apostilleNumberProcess ?? 'processo';
+
+    final fileName = '$contractNumber-$order-$process.pdf';
+    final ref = FirebaseStorage.instance.ref(
+      'contracts/${contract.id}/apostilles/${apostille.id}/$fileName',
+    );
+
+    try {
+      await ref.getMetadata();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> getPdfUrlDaApostila({
+    required ContractData contract,
+    required ApostillesData apostille,
+  }) async {
+    final contractNumber = contract.contractNumber ?? 'contrato';
+    final order = apostille.apostilleOrder ?? '0';
+    final process = apostille.apostilleNumberProcess ?? 'processo';
+
+    final fileName = '$contractNumber-$order-$process.pdf';
+    final ref = FirebaseStorage.instance.ref(
+      'contracts/${contract.id}/apostilles/${apostille.id}/$fileName',
+    );
+
+    try {
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print('Erro ao obter URL da apostila: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deletarPdfDaApostila({
+    required String contractId,
+    required ApostillesData apostilleData,
+  }) async {
+    try {
+      final contractSnap = await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .get();
+
+      final contractNumber = contractSnap.data()?['contractnumber'] ?? 'contrato';
+      final fileName = '$contractNumber-${apostilleData.apostilleOrder}-${apostilleData.apostilleNumberProcess}.pdf';
+
+      final pdfPath = 'contracts/$contractId/apostilles/${apostilleData.id}/$fileName';
+
+      await FirebaseStorage.instance.ref(pdfPath).delete();
+
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .collection('apostilles')
+          .doc(apostilleData.id)
+          .update({'pdfUrl': FieldValue.delete()});
+
+      return true;
+    } catch (e) {
+      print('Erro ao deletar PDF da apostila: $e');
+      return false;
+    }
+  }
+
+
+  ///---------------------- INÍCIO DOS PDF DE MEDIÇÕES ---------------------///
+
+  ///------------------------ INÍCIO DAS MEDIÇÕES ------------------------///
+
+  String getNomePadronizadoPdfDaMedicao({
+    required String contractNumber,
+    required MeasurementData measurement,
+  }) {
+    return '$contractNumber-${measurement.measurementorder}-${measurement.measurementadjustmentnumberprocess}.pdf';
+  }
+
+
+  Future<void> salvarUrlPdfDaMedicao({
+    required String contractId,
+    required String measurementId,
+    required String url,
+  }) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .collection('measurements')
+          .doc(measurementId)
+          .update({'pdfUrl': url});
+    } catch (e) {
+      print('Erro ao salvar URL do PDF da medição: $e');
+    }
+  }
+
+
+  Future<void> selecionarEPdfDeMedicaoComProgresso({
+    required String contractId,
+    required MeasurementData measurementData,
+    required void Function(double progress) onProgress,
+    required void Function(bool success) onComplete,
+  }) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+
+      if (result != null && result.files.single.bytes != null) {
+        final Uint8List fileBytes = result.files.single.bytes!;
+
+        final contractSnap = await FirebaseFirestore.instance
+            .collection('contracts')
+            .doc(contractId)
+            .get();
+        final contractNumber = contractSnap.data()?['contractnumber'] ?? 'contrato';
+
+        final fileName =
+            '$contractNumber-${measurementData.measurementorder}-${measurementData.measurementadjustmentnumberprocess}.pdf';
+
+        final ref = FirebaseStorage.instance.ref(
+          'contracts/$contractId/measurements/${measurementData.id}/$fileName',
+        );
+        final metadata = SettableMetadata(contentType: 'application/pdf');
+
+        final uploadTask = ref.putData(fileBytes, metadata);
+
+        uploadTask.snapshotEvents.listen((snapshot) {
+          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+          onProgress(progress);
+        });
+
+        await uploadTask;
+        final url = await ref.getDownloadURL();
+
+        await FirebaseFirestore.instance
+            .collection('contracts')
+            .doc(contractId)
+            .collection('measurements')
+            .doc(measurementData.id)
+            .update({'pdfUrl': url});
+
+        onComplete(true);
+      } else {
+        onComplete(false);
+      }
+    } catch (e) {
+      print('Erro ao enviar PDF da medição: $e');
+      onComplete(false);
+    }
+  }
+
+  Future<bool> verificarSePdfDeMedicaoExiste({
+    required ContractData contract,
+    required MeasurementData measurement,
+  }) async {
+    final contractNumber = contract.contractNumber ?? 'contrato';
+    final fileName =
+        '$contractNumber-${measurement.measurementorder}-${measurement.measurementadjustmentnumberprocess}.pdf';
+
+    final ref = FirebaseStorage.instance.ref(
+      'contracts/${contract.id}/measurements/${measurement.id}/$fileName',
+    );
+
+    try {
+      await ref.getMetadata();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> getPdfUrlDaMedicao({
+    required ContractData contract,
+    required MeasurementData measurement,
+  }) async {
+    final contractNumber = contract.contractNumber ?? 'contrato';
+    final fileName =
+        '$contractNumber-${measurement.measurementorder}-${measurement.measurementadjustmentnumberprocess}.pdf';
+
+    final ref = FirebaseStorage.instance.ref(
+      'contracts/${contract.id}/measurements/${measurement.id}/$fileName',
+    );
+
+    try {
+      return await ref.getDownloadURL();
+    } catch (e) {
+      print('Erro ao obter URL do PDF da medição: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deletarPdfDaMedicao({
+    required String contractId,
+    required MeasurementData measurement,
+  }) async {
+    try {
+      final contractSnap = await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .get();
+
+      final contractNumber = contractSnap.data()?['contractnumber'] ?? 'contrato';
+      final fileName =
+          '$contractNumber-${measurement.measurementorder}-${measurement.measurementadjustmentnumberprocess}.pdf';
+      final path = 'contracts/$contractId/measurements/${measurement.id}/$fileName';
+
+      await FirebaseStorage.instance.ref(path).delete();
+
+      await FirebaseFirestore.instance
+          .collection('contracts')
+          .doc(contractId)
+          .collection('measurements')
+          .doc(measurement.id)
+          .update({'pdfUrl': FieldValue.delete()});
+
+      return true;
+    } catch (e) {
+      print('Erro ao deletar PDF da medição: $e');
+      return false;
+    }
+  }
+
+
+  ///---------------------- FIM DOS PDF DE MEDIÇÕES -------------------------///
+
+  ///-------------------------INÍCIO DOS CONTRATOS---------------------------///
+
+  ///deletando um contrato
   Future<void> deleteContract(String contractId) async {
     await FirebaseFirestore.instance
         .collection('contracts')
         .doc(contractId)
         .delete();
   }
+
   ///Recuperando todos os contratos
   Future<List<ContractData>> getAllContracts({
     String? statusFilter,
@@ -46,7 +649,9 @@ class ContractsBloc extends BlocBase {
 
 
     if (statusFilter != null && statusFilter.isNotEmpty) {
-      query = query.where('contractstatus', isEqualTo: statusFilter);
+      query = query.where(
+        'contractstatus', isEqualTo: statusFilter,
+      );
     }
 
     final snapshot = await query.get();
@@ -64,8 +669,7 @@ class ContractsBloc extends BlocBase {
     return contracts;
   }
 
-
-
+  ///salvando ou atualizando um contrato
   Future<void> salvarOuAtualizarValidade(ValidityData validade) async {
     final uidContract = validade.uidContract;
     if (uidContract == null) {
@@ -83,15 +687,16 @@ class ContractsBloc extends BlocBase {
         .doc(uidContract)
         .collection('orders');
 
-    if (validade.uid != null) {
+    if (validade.id != null) {
       // Atualizar
-      await ref.doc(validade.uid).update(data);
+      await ref.doc(validade.id).update(data);
     } else {
       // Criar novo
       await ref.add(data);
     }
   }
 
+  ///deletando uma validade
   Future<void> deletarValidade(String uidContract, String uidValidade) async {
     try {
       await FirebaseFirestore.instance
@@ -104,7 +709,6 @@ class ContractsBloc extends BlocBase {
       throw Exception('Erro ao deletar validade: $e');
     }
   }
-
 
   ///valor de todos os contratos
   Future<double> getAllContractsfilterStatus(String statusContract) async {
@@ -192,11 +796,12 @@ class ContractsBloc extends BlocBase {
 
   Future<void> salvarOuAtualizarAditivo(AdditiveData data, String uidContract) async {
     final Map<String, dynamic> newData = {
-      'additivenumberprocess': data.additivenumberprocess,
-      'additiveorder': data.additiveorder,
-      'additivevaliditycontractdata': data.additivevaliditycontractdata,
-      'additivedata': data.additivedata,
-      'additivevalue': data.additivevalue,
+      'additivenumberprocess': data.additiveNumberProcess,
+      'additiveorder': data.additiveOrder,
+      'additivevaliditycontractdata': data.additionalAdditiveContractDays,
+      'additivevalidityexecutiondata': data.additionalAdditiveExecutionDays,
+      'additivedata': data.additiveData,
+      'additivevalue': data.additiveValue,
       'typeOfAdditive': data.typeOfAdditive, // ✅ Adicionado
     };
 
@@ -242,10 +847,10 @@ class ContractsBloc extends BlocBase {
   Future<void> saveOrUpdateApostille(ApostillesData data, String uidContract) async {
     final Map<String, dynamic> newData = {
 
-      'apostillenumberprocess': data.apostillenumberprocess,
-      'apostilleorder': data.apostilleorder,
-      'apostilledata': data.apostilledata,
-      'apostillevalue': data.apostillevalue,
+      'apostillenumberprocess': data.apostilleNumberProcess,
+      'apostilleorder': data.apostilleOrder,
+      'apostilledata': data.apostilleData,
+      'apostillevalue': data.apostilleValue,
     };
 
     final ref = FirebaseFirestore.instance
@@ -260,62 +865,14 @@ class ContractsBloc extends BlocBase {
     }
   }
 
-  Future<void> salvarOuAtualizarContrato(ContractData data) async {
-    _loadingController.add(true);
-
-    try {
-      final Map<String, dynamic> contractMap = {
-        'managerid': data.managerId,
-        'contractnumber': data.contractNumber,
-        'maincontracthighway': data.mainContractHighway,
-        'restriction': data.restriction,
-        'services': data.contractServices,
-        'contractmanagerartnumber': data.contractManagerArtNumber,
-        'summarysubjectcontract': data.summarySubjectContract,
-        'regionofstate': data.regionOfState,
-        'managerphonenumber': data.managerPhoneNumber,
-        'companyleader': data.contractCompanyLeader,
-        'generalnumber': data.generalNumber,
-        'contractbiddingprocessnumber': data.contractBiddingProcessNumber,
-        'automaticnumbersiafe': data.automaticNumberSiafe,
-        'fisicalpercentage': data.physicalPercentage,
-        'regionalmanager': data.regionalManager,
-        'contractstatus': data.contractStatus,
-        'objectcontractdescription': data.contractObjectDescription,
-        'contracttype': data.contractType,
-        'companiesinvolved': data.contractCompaniesInvolved,
-        'urlpdf': data.urlContractPdf,
-        'cnonumber': data.cnoNumber,
-        'initialvalidityexecutiondays': data.initialValidityExecutionDays,
-        'initialvaliditycontractdays': data.initialValidityContractDays,
-        'cpfcontractmanager': data.cpfContractManager,
-        'cnpjnumber': data.cnpjNumber,
-        'existecontrato': data.existContract,
-        'initialvalidityexecutiondate': data.initialvalidityexecutiondate,
-        'datapublicacaodoe': data.datapublicacaodoe,
-        'valorinicialdocontrato': data.valorinicialdocontrato,
-        'initialvaliditycontractdate': data.initialvaliditycontractdate,
-        'financialpercentage': data.financialpercentage,
-        'extkm': data.contractextkm,
-      };
-
-      final contractsRef = _db.collection('contracts');
-
-      if (data.id != null && data.id!.isNotEmpty) {
-        // Atualiza
-        await contractsRef.doc(data.id).update(contractMap);
-      } else {
-        // Cria novo e recupera o uid gerado
-        final newDoc = await contractsRef.add(contractMap);
-        data.id = newDoc.id;
-      }
-
-      _createdController.add(true);
-    } catch (e) {
-      _createdController.add(false);
-      rethrow;
-    } finally {
-      _loadingController.add(false);
+  Future<void> salvarOuAtualizarContrato(ContractData contractData) async {
+    final db = FirebaseFirestore.instance;
+    final collection = db.collection('contracts');
+    if (contractData.id != null && contractData.id!.isNotEmpty) {
+      await collection.doc(contractData.id).set(contractData.toMap(), SetOptions(merge: true));
+    } else {
+      final docRef = await collection.add(contractData.toMap());
+      contractData.id = docRef.id; // Garante que o ID gerado fique salvo no objeto
     }
   }
 
@@ -379,14 +936,14 @@ class ContractsBloc extends BlocBase {
     final profile = userData.baseProfile?.toLowerCase();
 
     // ✅ Administrador pode apagar qualquer contrato
-    if (profile == 'administrador') return true;
+    if (profile == 'administrador' || profile == 'colaborador') return true;
 
     // 👇 Para os demais, verificar permissão específica no contrato
     final perms = contract.permissionContractId[userData.id];
     return perms != null && perms['delete'] == true;
   }
 
-
+  ///Recebendo contratos filtrados
   Future<List<ContractData>> getFilteredContracts({
     required UserData currentUser,
     String? statusFilter,
@@ -395,7 +952,7 @@ class ContractsBloc extends BlocBase {
     final uid = currentUser.id!;
     final perfil = currentUser.baseProfile?.toLowerCase();
 
-    if (perfil == 'administrador') {
+    if (perfil == 'administrador' || perfil == 'colaborador') {
       return await getAllContracts(
         statusFilter: statusFilter,
         searchQuery: searchQuery,
@@ -427,7 +984,7 @@ class ContractsBloc extends BlocBase {
       if (perms == null) return false;
 
       if (perfil == 'colaborador') {
-        return perms['edit'] == true || perms['read'] == true;
+        return perms['edit'] == true || perms['read'] == true || perms['delete'] == true;
       }
       if (perfil == 'leitor') {
         return perms['read'] == true;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -14,7 +16,8 @@ import '_provider/user/user_provider.dart';
 
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('pt_BR');
   await Firebase.initializeApp(
     options: kIsWeb
@@ -41,6 +44,9 @@ void main() async {
       child: const SisGeo(),
     ),
   );
+  }, (error, stack) {
+    print('Erro não tratado: $error');
+  });
 }
 
 

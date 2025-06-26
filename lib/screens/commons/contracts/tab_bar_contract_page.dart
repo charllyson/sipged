@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sisgeo/_widgets/background/background_cleaner.dart';
 import 'package:sisgeo/_widgets/buttons/float_button_menu.dart';
 import 'package:sisgeo/screens/commons/contracts/validity/validity_page.dart';
+import '../../../_blocs/contracts/contracts_bloc.dart';
 import '../../../_datas/contracts/contracts_data.dart';
 import '../../../_datas/user/user_data.dart';
 import '../../../_widgets/schedule/physical_schedule.dart';
@@ -68,12 +69,14 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4.0),
                         child: TabBarView(
+                          physics: const NeverScrollableScrollPhysics(), // impede o swipe
                           children: [
                             MainInformationPage(
                               contractData: _contractData,
-                              onSaved: (updatedData) {
+                              onSaved: (updatedData) async {
+                                final refreshed = await ContractsBloc().getSpecificContract(uidContract: updatedData.id!);
                                 setState(() {
-                                  _contractData = updatedData;
+                                  _contractData = refreshed;
                                 });
                               },
                             ),

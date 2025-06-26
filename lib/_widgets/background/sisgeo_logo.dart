@@ -15,7 +15,7 @@ class SisGeoLogo extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'Homework',
                 color: Colors.white,
-                fontSize: 100,
+                fontSize: 80,
               ),
               textAlign: TextAlign.center,
             ),

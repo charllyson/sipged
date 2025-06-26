@@ -27,8 +27,8 @@ class BarChartSample extends StatelessWidget {
     final list = isApostille ? apostilles! : additives!;
     final values = list.map((e) {
       return isApostille
-          ? (e as ApostillesData).apostillevalue ?? 0
-          : (e as AdditiveData).additivevalue ?? 0;
+          ? (e as ApostillesData).apostilleValue ?? 0
+          : (e as AdditiveData).additiveValue ?? 0;
     }).toList();
 
     double maxY = values.fold<double>(0, max) * 1.2;

@@ -125,7 +125,7 @@ String addFormatCpfDynamicToString(dynamic inputCpf) {
   return buffer.toString();
 }
 
-String removeFormatCpf(String inputCpf) {
+String removeCaracters(String inputCpf) {
   String text = inputCpf.replaceAll(RegExp(r'\D'), '');
   return text.toString();
 }
@@ -133,3 +133,33 @@ String removeFormatCpf(String inputCpf) {
 String convertDoubletoString(double? value) {
   return NumberFormat('###,##0.00', 'pt-br',).format(value);
 }
+
+/*String convertDoubleToPercentageString(double? value) {
+  if (value == null) return '';
+  final formatted = NumberFormat('###,##0.00', 'pt-br').format(value);
+  return '$formatted%';
+}*/
+
+String convertDoubleToPercentageString(double? value) {
+  final raw = value.toString().replaceAll('%', '').replaceAll(',', '.');
+  final parsed = double.tryParse(raw ?? '');
+  if (parsed != null && parsed <= 100) {
+    return '$parsed';
+  }
+  return '';
+}
+
+double? removePercentToDouble(String value) {
+  try {
+    final clean = value
+        .replaceAll('%', '')
+        .replaceAll('.', '')     // Remove milhar
+        .replaceAll(',', '.')   // Troca vírgula decimal
+        .trim();
+
+    return double.tryParse(clean);
+  } catch (_) {
+    return null;
+  }
+}
+

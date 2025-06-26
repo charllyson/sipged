@@ -42,6 +42,16 @@ mixin FormValidationMixin<T extends StatefulWidget> on State<T> {
     return null;
   }
 
+  String? Function(DateTime?)? validateDateToBirthday = (date) {
+    if (date == null) return 'Selecione uma data';
+    if (date.isBefore(DateTime.now())) return 'Data não pode ser no passado';
+    return null;
+  };
+
+  String? validateNoEmptyDate(DateTime? dateNoEmptyDate) {
+    return null;
+  }
+
   String? validateEmail(String? email) {
     const Pattern pattern =
         r"^(([^<>()[\]\\.,;:\s@']+(\.[^<>()[\]\\.,;:\s@']+)*)|('.+'))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))\$";

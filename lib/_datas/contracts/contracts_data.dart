@@ -18,7 +18,7 @@ class ContractData extends ChangeNotifier {
   String? managerPhoneNumber;
   String? contractCompanyLeader;
   String? generalNumber;
-  String? contractBiddingProcessNumber;
+  String? contractNumberProcess;
   String? automaticNumberSiafe;
   double? physicalPercentage;
   String? regionalManager;
@@ -28,20 +28,23 @@ class ContractData extends ChangeNotifier {
   String? contractCompaniesInvolved;
   String? urlContractPdf;
   String? cnoNumber;
-
   int? cnpjNumber;
+  int? cpfContractManager;
+  bool? existContract;
+  double? initialContractValue;
+  double? financialPercentage;
+  double? contractExtKm;
   int? initialValidityExecutionDays;
   int? initialValidityContractDays;
-  int? cpfContractManager;
 
-  bool? existContract;
+  ///Datas de validade do contrato
+  DateTime? initialValidityExecutionDate;
+  DateTime? finalValidityExecutionDate;
+  DateTime? initialValidityContractDate;
+  DateTime? finalValidityContractDate;
+  DateTime? dateDeliveryWork;
+  DateTime? publicationDateDoe;
 
-  DateTime? initialvalidityexecutiondate;
-  DateTime? initialvaliditycontractdate;
-  DateTime? datapublicacaodoe;
-  double? valorinicialdocontrato;
-  double? financialpercentage;
-  double? contractextkm;
 
   Map<String, Map<String, bool>> permissionContractId = {};
 
@@ -54,12 +57,12 @@ class ContractData extends ChangeNotifier {
     this.restriction,
     this.contractServices,
     this.contractManagerArtNumber,
-    this.contractextkm,
+    this.contractExtKm,
     this.regionOfState,
     this.managerPhoneNumber,
     this.contractCompanyLeader,
     this.generalNumber,
-    this.contractBiddingProcessNumber,
+    this.contractNumberProcess,
     this.automaticNumberSiafe,
     this.physicalPercentage,
     this.regionalManager,
@@ -74,11 +77,13 @@ class ContractData extends ChangeNotifier {
     this.cnoNumber,
     this.cnpjNumber,
     this.existContract,
-    this.initialvalidityexecutiondate,
-    this.datapublicacaodoe,
-    this.valorinicialdocontrato,
-    this.initialvaliditycontractdate,
-    this.financialpercentage,
+    this.initialValidityExecutionDate,
+    this.publicationDateDoe,
+    this.financialPercentage,
+    this.initialContractValue,
+    this.initialValidityContractDate,
+    this.finalValidityExecutionDate,
+    this.finalValidityContractDate,
     this.permissionContractId = const {},
 });
 
@@ -98,7 +103,7 @@ class ContractData extends ChangeNotifier {
       id: snapshot.id,
       contractNumber: data['contractnumber']?.toString(),
       summarySubjectContract: data['summarysubjectcontract']?.toString(),
-      contractBiddingProcessNumber: data['contractbiddingprocessnumber']?.toString(),
+      contractNumberProcess: data['contractbiddingprocessnumber']?.toString(),
       managerId: data['managerid']?.toString(),
       mainContractHighway: data['maincontracthighway']?.toString(),
       restriction: data['restriction']?.toString(),
@@ -116,13 +121,13 @@ class ContractData extends ChangeNotifier {
       contractCompaniesInvolved: data['companiesinvolved']?.toString(),
       urlContractPdf: data['urlpdf']?.toString(),
       cnoNumber: data['cnonumber']?.toString(),
-      initialvalidityexecutiondate: (data['initialvalidityexecutiondate'] as Timestamp?)?.toDate(),
-      datapublicacaodoe: (data['datapublicacaodoe'] as Timestamp?)?.toDate(),
-      initialvaliditycontractdate: (data['initialvaliditycontractdate'] as Timestamp?)?.toDate(),
-      valorinicialdocontrato: (data['valorinicialdocontrato'] as num?)?.toDouble() ?? 0.0,
+      initialValidityExecutionDate: (data['initialvalidityexecutiondate'] as Timestamp?)?.toDate(),
+      publicationDateDoe: (data['datapublicacaodoe'] as Timestamp?)?.toDate(),
+      initialValidityContractDate: (data['initialvaliditycontractdate'] as Timestamp?)?.toDate(),
+      initialContractValue: (data['valorinicialdocontrato'] as num?)?.toDouble() ?? 0.0,
       physicalPercentage: (data['fisicalpercentage'] as num?)?.toDouble() ?? 0.0,
-      financialpercentage: (data['financialpercentage'] as num?)?.toDouble() ?? 0.0,
-      contractextkm: (data['extkm'] as num?)?.toDouble() ?? 0.0,
+      financialPercentage: (data['financialpercentage'] as num?)?.toDouble() ?? 0.0,
+      contractExtKm: (data['extkm'] as num?)?.toDouble() ?? 0.0,
       cnpjNumber: (data['cnpjnumber'] as num?)?.toInt(),
       cpfContractManager: (data['cpfcontractmanager'] as num?)?.toInt(),
       initialValidityExecutionDays: (data['initialvalidityexecutiondays'] as num?)?.toInt(),
@@ -134,47 +139,48 @@ class ContractData extends ChangeNotifier {
           Map<String, bool>.from(perm as Map),
         ),
       ) ?? {},
+
     );
   }
 
 
   Map<String, dynamic> toMap() {
     return {
-      'contractnumber': contractNumber,
-      'summarysubjectcontract': summarySubjectContract,
-      'contractbiddingprocessnumber': contractBiddingProcessNumber,
-      'managerid': managerId,
-      'maincontracthighway': mainContractHighway,
-      'restriction': restriction,
-      'services': contractServices,
-      'contractmanagerartnumber': contractManagerArtNumber,
-      'regionofstate': regionOfState,
-      'managerphonenumber': managerPhoneNumber,
-      'companyleader': contractCompanyLeader,
-      'generalnumber': generalNumber,
-      'automaticnumbersiafe': automaticNumberSiafe,
-      'regionalmanager': regionalManager,
-      'contractstatus': contractStatus,
-      'objectcontractdescription': contractObjectDescription,
-      'contracttype': contractType,
-      'companiesinvolved': contractCompaniesInvolved,
-      'urlpdf': urlContractPdf,
-      'cnonumber': cnoNumber,
-      'initialvalidityexecutiondate': initialvalidityexecutiondate,
-      'datapublicacaodoe': datapublicacaodoe,
-      'initialvaliditycontractdate': initialvaliditycontractdate,
-      'valorinicialdocontrato': valorinicialdocontrato,
-      'fisicalpercentage': physicalPercentage,
-      'financialpercentage': financialpercentage,
-      'extkm': contractextkm,
-      'cnpjnumber': cnpjNumber,
-      'cpfcontractmanager': cpfContractManager,
-      'initialvalidityexecutiondays': initialValidityExecutionDays,
-      'initialvaliditycontractdays': initialValidityContractDays,
-      'existecontrato': existContract,
-      'permissionContractId': permissionContractId,
+      if (contractNumber != null) 'contractnumber': contractNumber,
+      if (contractType != null) 'contracttype': contractType,
+      if (contractServices != null) 'services': contractServices,
+      if (mainContractHighway != null) 'maincontracthighway': mainContractHighway,
+      if (summarySubjectContract != null) 'summarysubjectcontract': summarySubjectContract,
+      if (contractNumberProcess != null) 'contractbiddingprocessnumber': contractNumberProcess,
+      if (regionOfState != null) 'regionofstate': regionOfState,
+      if (contractStatus != null) 'contractstatus': contractStatus,
+      if (contractCompanyLeader != null) 'companyleader': contractCompanyLeader,
+      if (contractCompaniesInvolved != null) 'companiesinvolved': contractCompaniesInvolved,
+      if (automaticNumberSiafe != null) 'automaticnumbersiafe': automaticNumberSiafe,
+      if (contractObjectDescription != null) 'objectcontractdescription': contractObjectDescription,
+      if (managerPhoneNumber != null) 'managerphonenumber': managerPhoneNumber,
+      if (contractManagerArtNumber != null) 'contractmanagerartnumber': contractManagerArtNumber,
+      if (regionalManager != null) 'regionalmanager': regionalManager,
+      if (managerId != null) 'managerid': managerId,
+      if (cnoNumber != null) 'cnonumber': cnoNumber,
+      if (cnpjNumber != null) 'cnpjnumber': cnpjNumber,
+      if (cpfContractManager != null) 'cpfcontractmanager': cpfContractManager,
+      if (contractExtKm != null) 'extkm': contractExtKm,
+      if (financialPercentage != null) 'financialpercentage': financialPercentage,
+      if (physicalPercentage != null) 'fisicalpercentage': physicalPercentage,
+      if (initialContractValue != null) 'valorinicialdocontrato': initialContractValue,
+      if (publicationDateDoe != null) 'datapublicacaodoe': publicationDateDoe,
+      if (initialValidityExecutionDate != null) 'initialvalidityexecutiondate': initialValidityExecutionDate,
+      if (initialValidityContractDate != null) 'initialvaliditycontractdate': initialValidityContractDate,
+      if (finalValidityExecutionDate != null) 'finalvalidityexecutiondate': finalValidityExecutionDate,
+      if (finalValidityContractDate != null) 'finalvaliditycontractdate': finalValidityContractDate,
+      if (initialValidityExecutionDays != null) 'initialvalidityexecutiondays': initialValidityExecutionDays,
+      if (initialValidityContractDays != null) 'initialvaliditycontractdays': initialValidityContractDays,
+      if (existContract != null) 'existecontrato': existContract,
+      if (permissionContractId.isNotEmpty) 'permissionContractId': permissionContractId,
     };
   }
+
 
 
   // Atualiza as permissões do usuário para um contrato específico usando o ID do documento

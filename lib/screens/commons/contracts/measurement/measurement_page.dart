@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
 import 'package:sisgeo/_widgets/formats/format_field.dart';
 import '../../../../_blocs/contracts/contracts_bloc.dart';
 import '../../../../_blocs/measurement/measurement_bloc.dart';
 import '../../../../_blocs/user/user_bloc.dart';
+import '../../../../_class/archives/pdf/pdf_icon_action.dart';
 import '../../../../_datas/contracts/contracts_data.dart';
 import '../../../../_datas/measurement/measurement_data.dart';
 import '../../../../_datas/user/user_data.dart';
@@ -31,7 +31,8 @@ class MeasurementPage extends StatefulWidget {
   State<MeasurementPage> createState() => _MeasurementPageState();
 }
 
-class _MeasurementPageState extends State<MeasurementPage> with FormValidationMixin{
+class _MeasurementPageState extends State<MeasurementPage>
+    with FormValidationMixin {
   late MeasurementBloc _measurementBloc;
   late UserBloc _userBloc;
   late ContractsBloc _contractsBloc;
@@ -52,13 +53,14 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
   final _processNumberController = TextEditingController();
   final _adjustmentDateController = TextEditingController();
 
-
+  MeasurementData? _selectedMeasurement;
 
   @override
   void initState() {
     super.initState();
     _measurementBloc = MeasurementBloc();
     _userBloc = UserBloc();
+    _contractsBloc = ContractsBloc();
     setupValidation([
       _dateController,
       _initialValueController,
@@ -66,7 +68,7 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
       _revisionValueController,
       _processNumberController,
       _adjustmentDateController,
-      _orderController
+      _orderController,
     ], _validateForm);
 
     final user = Provider.of<UserProvider>(context, listen: false).userData;
@@ -74,17 +76,19 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
       _isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
     }
     if (widget.contractData?.id != null) {
-      _futureMeasurements = _measurementBloc.getAllMeasurementsOfContract(
-        uidContract: widget.contractData!.id!,
-      ).then((list) {
-        if (list.isNotEmpty) {
-          final ultimaOrdem = list.map((e) => e.measurementorder ?? 0).reduce((a, b) => a > b ? a : b);
-          _orderController.text = (ultimaOrdem + 1).toString();
-        } else {
-          _orderController.text = '1';
-        }
-        return list;
-      });
+      _futureMeasurements = _measurementBloc
+          .getAllMeasurementsOfContract(uidContract: widget.contractData!.id!)
+          .then((list) {
+            if (list.isNotEmpty) {
+              final ultimaOrdem = list
+                  .map((e) => e.measurementorder ?? 0)
+                  .reduce((a, b) => a > b ? a : b);
+              _orderController.text = (ultimaOrdem + 1).toString();
+            } else {
+              _orderController.text = '1';
+            }
+            return list;
+          });
     } else {
       _futureMeasurements = Future.value([]);
     }
@@ -103,7 +107,7 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
       _revisionValueController,
       _processNumberController,
       _adjustmentDateController,
-      _orderController
+      _orderController,
     ], minLength: 5);
 
     if (_formValidated != valid) {
@@ -111,22 +115,32 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
     }
   }
 
-
   void _fillFields(MeasurementData data) {
     setState(() {
-      _currentMeasurementId = data.uidMeasurement;
+      _selectedMeasurement = data;
+      _currentMeasurementId = data.id;
       _orderController.text = data.measurementorder.toString();
       _dateController.text = convertDateTimeToDDMMYYYY(data.measurementdata!);
-      _initialValueController.text = priceToString(data.measurementinitialvalue);
-      _adjustmentValueController.text = priceToString(data.measurementadjustmentvalue);
-      _revisionValueController.text = priceToString(data.measurementvaluerevisionsadjustments);
+      _initialValueController.text = priceToString(
+        data.measurementinitialvalue,
+      );
+      _adjustmentValueController.text = priceToString(
+        data.measurementadjustmentvalue,
+      );
+      _revisionValueController.text = priceToString(
+        data.measurementvaluerevisionsadjustments,
+      );
       _processNumberController.text = data.measurementnumberprocess ?? '';
-      _adjustmentDateController.text = convertDateTimeToDDMMYYYY(data.measurementadjustmentdate!);
+      _adjustmentDateController.text = convertDateTimeToDDMMYYYY(
+        data.measurementadjustmentdate!,
+      );
     });
   }
 
   void _createNewMeasurement(List<MeasurementData> list) {
-    final lastMeasurement = list.map((e) => e.measurementorder ?? 0).fold(0, (a, b) => a > b ? a : b);
+    final lastMeasurement = list
+        .map((e) => e.measurementorder ?? 0)
+        .fold(0, (a, b) => a > b ? a : b);
     setState(() {
       _selectedLine = null;
       _orderController.text = (lastMeasurement + 1).toString();
@@ -144,38 +158,53 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
 
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmação'),
-        content: const Text('Deseja salvar esta medição?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
-        ],
-      ),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Confirmação'),
+            content: const Text('Deseja salvar esta medição?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Confirmar'),
+              ),
+            ],
+          ),
     );
 
     if (confirm != true) return;
 
     final newMeasurement = MeasurementData(
-      uidMeasurement: widget.contractData!.id,
+      id: widget.contractData!.id,
       measurementorder: int.tryParse(_orderController.text),
       measurementnumberprocess: _processNumberController.text,
-      measurementinitialvalue: parseCurrencyToDouble(_initialValueController.text),
+      measurementinitialvalue: parseCurrencyToDouble(
+        _initialValueController.text,
+      ),
       measurementdata: convertDDMMYYYYToDateTime(_dateController.text),
-      measurementadjustmentvalue: parseCurrencyToDouble(_adjustmentValueController.text),
-      measurementadjustmentdate: convertDDMMYYYYToDateTime(_adjustmentDateController.text),
-      measurementvaluerevisionsadjustments: parseCurrencyToDouble(_revisionValueController.text),
+      measurementadjustmentvalue: parseCurrencyToDouble(
+        _adjustmentValueController.text,
+      ),
+      measurementadjustmentdate: convertDDMMYYYYToDateTime(
+        _adjustmentDateController.text,
+      ),
+      measurementvaluerevisionsadjustments: parseCurrencyToDouble(
+        _revisionValueController.text,
+      ),
     );
 
     await _measurementBloc.saveOrUpdateMeasurement(newMeasurement);
 
     setState(() {
-      _futureMeasurements = _measurementBloc.getAllMeasurementsOfContract(
-        uidContract: widget.contractData!.id!,
-      ).then((list) {
-        _createNewMeasurement(list);
-        return list;
-      });
+      _futureMeasurements = _measurementBloc
+          .getAllMeasurementsOfContract(uidContract: widget.contractData!.id!)
+          .then((list) {
+            _createNewMeasurement(list);
+            return list;
+          });
     });
 
     if (!mounted) return;
@@ -190,7 +219,10 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
 
   void _deleteMeasurement(String idMeasurement) async {
     if (widget.contractData?.id == null || idMeasurement == null) return;
-    await _measurementBloc.deletarMedicao(widget.contractData!.id!, idMeasurement);
+    await _measurementBloc.deletarMedicao(
+      widget.contractData!.id!,
+      idMeasurement,
+    );
     setState(() {
       _futureMeasurements = _measurementBloc.getAllMeasurementsOfContract(
         uidContract: widget.contractData!.id!,
@@ -222,7 +254,7 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
                   return const Center(child: CircularProgressIndicator());
                 } else if (snapshot.hasError) {
                   return Center(child: Text('Erro: \${snapshot.error}'));
-                }else if(!snapshot.hasData || snapshot.data!.isEmpty){
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return Center(child: Text('Nenhuma medição encontrada'));
                 }
                 final measurements = snapshot.data ?? [];
@@ -230,55 +262,68 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 12),
-                    const Text('Gráfico das medições cadastradas no sistema', style: TextStyle(fontSize: 20)),
+                    const Text(
+                      'Gráfico das medições cadastradas no sistema',
+                      style: TextStyle(fontSize: 20),
+                    ),
                     const SizedBox(height: 12),
                     LayoutBuilder(
-                        builder: (context, constraints) {
-                          final double larguraDisponivel = constraints.maxWidth;
-                          const double larguraGraficoPizza = 300;
-                          const double espacamento = 26;
+                      builder: (context, constraints) {
+                        final double larguraDisponivel = constraints.maxWidth;
+                        const double larguraGraficoPizza = 300;
+                        const double espacamento = 26;
 
-                          final double larguraGraficoLinha = math.max(
-                            larguraDisponivel - larguraGraficoPizza - espacamento - espacamento, 300, // largura mínima segura
-                          );
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                PieChartSample(
-                                  measurements: measurements,
-                                  selectedIndex: _selectedLine,
-                                  larguraGrafico: larguraGraficoPizza,
-                                  onTouch: (index) {
-                                    setState(() {
-                                      _selectedLine = index;
-                                      if (index != null && index >= 0 && index < measurements.length) {
-                                        _fillFields(measurements[index]);
-                                      }
-                                    });
-                                  },
-                                ),
-                                const SizedBox(width: 12),
-                                LineChartSample(
-                                  measurements: measurements,
-                                  selectedIndex: _selectedLine,
-                                  larguraGraficoLinha: larguraGraficoLinha,
-                                  onPointTap: (index) {
-                                    setState(() {
-                                      _selectedLine = index;
-                                      if (index >= 0 && index < measurements.length) {
-                                        _fillFields(measurements[index]);
-                                      }
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                      }
+                        final double larguraGraficoLinha = math.max(
+                          larguraDisponivel -
+                              larguraGraficoPizza -
+                              espacamento -
+                              espacamento,
+                          300, // largura mínima segura
+                        );
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              PieChartSample(
+                                measurements: measurements,
+                                selectedIndex: _selectedLine,
+                                larguraGrafico: larguraGraficoPizza,
+                                onTouch: (index) {
+                                  setState(() {
+                                    _selectedLine = index;
+                                    if (index != null &&
+                                        index >= 0 &&
+                                        index < measurements.length) {
+                                      _fillFields(measurements[index]);
+                                    }
+                                  });
+                                },
+                              ),
+                              const SizedBox(width: 12),
+                              LineChartSample(
+                                measurements: measurements,
+                                selectedIndex: _selectedLine,
+                                larguraGraficoLinha: larguraGraficoLinha,
+                                onPointTap: (index) {
+                                  setState(() {
+                                    _selectedLine = index;
+                                    if (index >= 0 &&
+                                        index < measurements.length) {
+                                      _fillFields(measurements[index]);
+                                    }
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
-                    const Text('Medições cadastradas no sistema', style: TextStyle(fontSize: 20)),
+                    const Text(
+                      'Medições cadastradas no sistema',
+                      style: TextStyle(fontSize: 20),
+                    ),
                     const SizedBox(height: 12),
                     _buildTable(measurements),
                   ],
@@ -299,138 +344,175 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Nova medição', style: TextStyle(fontSize: 16)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          SizedBox(width: 6),
+          if (_currentMeasurementId != null)
+            PdfFileIconActionGeneric(
+              key: Key(_currentMeasurementId!),
+              tipo: TipoArquivoPDF.medicao,
+              bloc: _contractsBloc,
+              contrato: widget.contractData!,
+              dataEspecifica: _selectedMeasurement, // do tipo MeasurementData
+              onUploadSaveToFirestore: (url) async {
+                await _contractsBloc.salvarUrlPdfDaMedicao(
+                  contractId: widget.contractData!.id!,
+                  measurementId: _selectedMeasurement!.id!,
+                  url: url,
+                );
+              },
+            ),
+          SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: Tooltip(
-                    message: 'Este campo é calculado automaticamente e não pode ser editado.',
-                    child: CustomTextField(
+              const Text('Nova medição', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: responsiveInputsFourPerLineWithPDF(context),
+                    child: Tooltip(
+                      message:
+                          'Este campo é calculado automaticamente e não pode ser editado.',
+                      child: CustomTextField(
                         labelText: 'Ordem da medição',
                         controller: _orderController,
                         enabled: false,
+                      ),
                     ),
-                  )),
-              SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: CustomTextField(
-                    enabled: _isEditable,
+                  ),
+                  SizedBox(
+                    width: responsiveInputsFourPerLineWithPDF(context),
+                    child: CustomTextField(
+                      enabled: _isEditable,
                       labelText: 'Nº processo',
                       controller: _processNumberController,
-                    inputFormatters: [processoMaskFormatter],
-                    keyboardType: TextInputType.number,
-                  )),
-              SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: CustomTextField(
-                    enabled: _isEditable,
+                      inputFormatters: [processoMaskFormatter],
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  SizedBox(
+                    width: responsiveInputsFourPerLineWithPDF(context),
+                    child: CustomTextField(
+                      enabled: _isEditable,
                       labelText: 'Valor da medição',
                       controller: _initialValueController,
-                    inputFormatters: [
-                      CurrencyInputFormatter(
-                        leadingSymbol: 'R\$',
-                        useSymbolPadding: true,
-                        thousandSeparator: ThousandSeparator.Period,
-                        mantissaLength: 2,
-                      ),
-                    ],
-                    keyboardType: TextInputType.number,
-                  )),
-              SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: CustomTextField(
-                    enabled: _isEditable,
+                      inputFormatters: [
+                        CurrencyInputFormatter(
+                          leadingSymbol: 'R\$',
+                          useSymbolPadding: true,
+                          thousandSeparator: ThousandSeparator.Period,
+                          mantissaLength: 2,
+                        ),
+                      ],
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  SizedBox(
+                    width: responsiveInputsFourPerLineWithPDF(context),
+                    child: CustomTextField(
+                      enabled: _isEditable,
                       labelText: 'Data da medição',
                       controller: _dateController,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      TextInputMask(mask: '99/99/9999'),
-                    ],
-                    keyboardType: TextInputType.datetime,
-                  )),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Text('Revisão de medições', style: TextStyle(fontSize: 16)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: CustomTextField(
-                    enabled: _isEditable,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        TextInputMask(mask: '99/99/9999'),
+                      ],
+                      keyboardType: TextInputType.datetime,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text('Revisão de medições', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: responsiveInputsFourPerLineWithPDF(context),
+                    child: CustomTextField(
+                      enabled: _isEditable,
                       labelText: 'Valor do reajuste',
                       controller: _adjustmentValueController,
-                    inputFormatters: [
-                      CurrencyInputFormatter(
-                        leadingSymbol: 'R\$',
-                        useSymbolPadding: true,
-                        thousandSeparator: ThousandSeparator.Period,
-                        mantissaLength: 2,
-                      ),
-                    ],
-                    keyboardType: TextInputType.number,
-                  )),
-              SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: CustomTextField(
-                    enabled: _isEditable,
+                      inputFormatters: [
+                        CurrencyInputFormatter(
+                          leadingSymbol: 'R\$',
+                          useSymbolPadding: true,
+                          thousandSeparator: ThousandSeparator.Period,
+                          mantissaLength: 2,
+                        ),
+                      ],
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  SizedBox(
+                    width: responsiveInputsFourPerLineWithPDF(context),
+                    child: CustomTextField(
+                      enabled: _isEditable,
                       labelText: 'Data do reajuste',
                       controller: _adjustmentDateController,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      TextInputMask(mask: '99/99/9999'),
-                    ],
-                    keyboardType: TextInputType.datetime,
-                  )),
-              SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: CustomTextField(
-                    enabled: _isEditable,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        TextInputMask(mask: '99/99/9999'),
+                      ],
+                      keyboardType: TextInputType.datetime,
+                    ),
+                  ),
+                  SizedBox(
+                    width: responsiveInputsFourPerLineWithPDF(context),
+                    child: CustomTextField(
+                      enabled: _isEditable,
                       labelText: 'Valor da revisão',
                       controller: _revisionValueController,
-                    inputFormatters: [
-                      CurrencyInputFormatter(
-                        leadingSymbol: 'R\$',
-                        useSymbolPadding: true,
-                        thousandSeparator: ThousandSeparator.Period,
-                        mantissaLength: 2,
-                      ),
-                    ],
-                    keyboardType: TextInputType.number,
-                  )),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              if (_currentMeasurementId != null)
-                TextButton.icon(
-                  icon: const Icon(Icons.restore),
-                  label: const Text('Limpar'),
-                  onPressed: () async {
-                    final list = await _futureMeasurements;
-                    _createNewMeasurement(list);
-                  },
-                ),
-              const SizedBox(width: 12),
-              TextButton.icon(
-                icon: const Icon(Icons.save),
-                label: Text(_currentMeasurementId != null ? 'Atualizar' : 'Salvar'),
-                onPressed: _formValidated ? _isEditable ? _saveOrUpdateMeasurement : null : null,
+                      inputFormatters: [
+                        CurrencyInputFormatter(
+                          leadingSymbol: 'R\$',
+                          useSymbolPadding: true,
+                          thousandSeparator: ThousandSeparator.Period,
+                          mantissaLength: 2,
+                        ),
+                      ],
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (_currentMeasurementId != null)
+                    TextButton.icon(
+                      icon: const Icon(Icons.restore),
+                      label: const Text('Limpar'),
+                      onPressed: () async {
+                        final list = await _futureMeasurements;
+                        _createNewMeasurement(list);
+                      },
+                    ),
+                  const SizedBox(width: 12),
+                  TextButton.icon(
+                    icon: const Icon(Icons.save),
+                    label: Text(
+                      _currentMeasurementId != null ? 'Atualizar' : 'Salvar',
+                    ),
+                    onPressed:
+                        _formValidated
+                            ? _isEditable
+                                ? _saveOrUpdateMeasurement
+                                : null
+                            : null,
+                  ),
+                ],
               ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -457,7 +539,9 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
               },
               children: [
                 _buildHeaderRow(),
-                ...measurements.map((data) => _buildDataRow(data, measurements)),
+                ...measurements.map(
+                  (data) => _buildDataRow(data, measurements),
+                ),
               ],
             ),
           ),
@@ -475,35 +559,81 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
       'VALOR REAJUSTE',
       'DATA REAJUSTE',
       'VALOR REVISÃO',
-      'APAGAR'
+      'APAGAR',
     ];
     return TableRow(
       decoration: const BoxDecoration(color: Color.fromRGBO(0, 200, 255, 0.3)),
-      children: headers.map((title) {
-        return Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Center(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold))),
-        );
-      }).toList(),
+      children:
+          headers.map((title) {
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Center(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            );
+          }).toList(),
     );
   }
 
-  TableRow _buildDataRow(MeasurementData data, List<MeasurementData> measurements) {
+  TableRow _buildDataRow(
+    MeasurementData data,
+    List<MeasurementData> measurements,
+  ) {
     final index = measurements.indexOf(data);
-    final isSelected = data.measurementorder == (_selectedLine != null ? _selectedLine! + 1 : -1);
+    final isSelected =
+        data.measurementorder ==
+        (_selectedLine != null ? _selectedLine! + 1 : -1);
     final currentUser = Provider.of<UserProvider>(context).userData;
     return TableRow(
       decoration: BoxDecoration(
         color: isSelected ? Colors.green.shade50 : Colors.white,
       ),
       children: [
-        _buildEditableCell(data.measurementorder.toString(), () => _fillFields(data), index: index, measurements: measurements),
-        _buildEditableCell(data.measurementnumberprocess ?? '', () => _fillFields(data), index: index, measurements: measurements),
-        _buildEditableCell(priceToString(data.measurementinitialvalue), () => _fillFields(data), index: index, measurements: measurements),
-        _buildEditableCell(convertDateTimeToDDMMYYYY(data.measurementdata!), () => _fillFields(data), index: index, measurements: measurements),
-        _buildEditableCell(priceToString(data.measurementadjustmentvalue), () => _fillFields(data), index: index, measurements: measurements),
-        _buildEditableCell(convertDateTimeToDDMMYYYY(data.measurementadjustmentdate!), () => _fillFields(data), index: index, measurements: measurements),
-        _buildEditableCell(priceToString(data.measurementvaluerevisionsadjustments), () => _fillFields(data), index: index, measurements: measurements),
+        _buildEditableCell(
+          data.measurementorder.toString(),
+          () => _fillFields(data),
+          index: index,
+          measurements: measurements,
+        ),
+        _buildEditableCell(
+          data.measurementnumberprocess ?? '',
+          () => _fillFields(data),
+          index: index,
+          measurements: measurements,
+        ),
+        _buildEditableCell(
+          priceToString(data.measurementinitialvalue),
+          () => _fillFields(data),
+          index: index,
+          measurements: measurements,
+        ),
+        _buildEditableCell(
+          convertDateTimeToDDMMYYYY(data.measurementdata!),
+          () => _fillFields(data),
+          index: index,
+          measurements: measurements,
+        ),
+        _buildEditableCell(
+          priceToString(data.measurementadjustmentvalue),
+          () => _fillFields(data),
+          index: index,
+          measurements: measurements,
+        ),
+        _buildEditableCell(
+          convertDateTimeToDDMMYYYY(data.measurementadjustmentdate!),
+          () => _fillFields(data),
+          index: index,
+          measurements: measurements,
+        ),
+        _buildEditableCell(
+          priceToString(data.measurementvaluerevisionsadjustments),
+          () => _fillFields(data),
+          index: index,
+          measurements: measurements,
+        ),
         TableCell(
           child: Stack(
             children: [
@@ -516,13 +646,14 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
                   showConfirmDialog: true,
                   confirmTitle: 'Confirmar exclusão',
                   confirmContent: 'Deseja apagar esta medição?',
-                  hasPermission: (user) => _contractsBloc.knowUserPermissionProfileAdm(
-                    userData: user,
-                    contract: widget.contractData!,
-                  ),
+                  hasPermission:
+                      (user) => _contractsBloc.knowUserPermissionProfileAdm(
+                        userData: user,
+                        contract: widget.contractData!,
+                      ),
                   onConfirmed: () async {
                     if (widget.contractData!.id != null) {
-                      _deleteMeasurement(data.uidMeasurement!);
+                      _deleteMeasurement(data.id!);
                     }
                   },
                 ),
@@ -533,7 +664,12 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
     );
   }
 
-  Widget _buildEditableCell(String? text, VoidCallback onTap, {int? index, List<MeasurementData>? measurements}) {
+  Widget _buildEditableCell(
+    String? text,
+    VoidCallback onTap, {
+    int? index,
+    List<MeasurementData>? measurements,
+  }) {
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
       child: InkWell(
@@ -569,9 +705,8 @@ class _MeasurementPageState extends State<MeasurementPage> with FormValidationMi
       _revisionValueController,
       _processNumberController,
       _adjustmentDateController,
-      _orderController
+      _orderController,
     ], _validateForm);
     super.dispose();
   }
-
 }

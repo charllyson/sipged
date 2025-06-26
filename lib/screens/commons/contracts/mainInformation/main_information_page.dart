@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
@@ -7,6 +8,8 @@ import 'package:sisgeo/_blocs/user/user_bloc.dart';
 import 'package:sisgeo/_widgets/background/background_cleaner.dart';
 import 'package:sisgeo/_widgets/formats/format_field.dart';
 import '../../../../_blocs/contracts/contracts_bloc.dart';
+import '../../../../_class/archives/pdf/pdf_icon_action.dart';
+import '../../../../_class/archives/pdf/web_pdf_viewer.dart';
 import '../../../../_datas/contracts/contracts_data.dart';
 import '../../../../_datas/user/user_data.dart';
 import '../../../../_provider/user/user_provider.dart';
@@ -14,11 +17,13 @@ import '../../../../_utils/date_utils.dart';
 import '../../../../_utils/responsive_utils.dart';
 import '../../../../_widgets/autocomplete/autocomplete_user_class.dart';
 import '../../../../_widgets/formats/input_formatters.dart';
+import '../../../../_widgets/input/custom_date_field.dart';
 import '../../../../_widgets/input/custom_text_field.dart';
 import '../../../../_widgets/input/custom_text_max_lines_field.dart';
 import '../../../../_widgets/input/drop_down_botton_change.dart';
 import '../../../../_widgets/mask_class.dart';
 import '../../../../_widgets/validates/form_validation_mixin.dart';
+
 
 class MainInformationPage extends StatefulWidget {
   final void Function(ContractData)? onSaved;
@@ -49,44 +54,46 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
   String? managerId;
   String? contractNumber;
   String? mainContractHighway;
+  late Future<ContractData> _futureContractData;
 
   final _contractStatusCtrl = TextEditingController();
-  final _financialCtrl = TextEditingController();
-  final _physicalCtrl = TextEditingController();
-  final _contractTextKmCtrl = TextEditingController();
+  final _initialValueOfContractCtrl = TextEditingController();
 
   final _contractBiddingProcessNumberCtrl = TextEditingController();
   final _contractNumberCtrl = TextEditingController();
-  final _contractManagerArtNumberCtrl = TextEditingController();
-  final _summarySubjectContractCtrl = TextEditingController();
-  final _regionOfStateCtrl = TextEditingController();
-  final _managerPhoneNumberCtrl = TextEditingController();
-  final _contractCompanyLeaderCtrl = TextEditingController();
-  final _generalNumberCtrl = TextEditingController();
-  final _automaticNumberSiafeCtrl = TextEditingController();
-  final _regionalManagerCtrl = TextEditingController();
-  final _contractObjectDescriptionCtrl = TextEditingController();
-  final _contractCompaniesInvolvedCtrl = TextEditingController();
   final _contractTypeCtrl = TextEditingController();
-  final _cnoNumberCtrl = TextEditingController();
-  final _cnpjNumberCtrl = TextEditingController();
-  final _existContractCtrl = TextEditingController();
-  final _initialValidityExecutionDaysCtrl = TextEditingController();
-  final _initialValidityContractDaysCtrl = TextEditingController();
-  final _cpfContractManagerCtrl = TextEditingController();
-  final _urlContractPdfCtrl = TextEditingController();
-  final _initialValidityExecutionDateCtrl = TextEditingController();
-  final _initialValidityContractDateCtrl = TextEditingController();
-  final _financialPercentageCtrl = TextEditingController();
-  final _physicalPercentageCtrl = TextEditingController();
-  final _initialValueOfContractCtrl = TextEditingController();
-  final _managerIdCtrl = TextEditingController();
+  final _contractRegionOfStateCtrl = TextEditingController();
+
+  final _contractServiceCtrl = TextEditingController();
+  final _contractHighWayCtrl = TextEditingController();
+  final _summarySubjectContractCtrl = TextEditingController();
+  final _contractTextKmCtrl = TextEditingController();
+
   final _datapublicacaodoeCtrl = TextEditingController();
-  final _mainContractHighwayCtrl = TextEditingController();
+  final _contractCompanyLeaderCtrl = TextEditingController();
+  final _contractCompaniesInvolvedCtrl = TextEditingController();
 
+  final _cnoNumberCtrl = TextEditingController();
+  final _contractObjectDescriptionCtrl = TextEditingController();
+  final _regionalManagerCtrl = TextEditingController();
+  final _managerIdCtrl = TextEditingController();
 
+  final _managerPhoneNumberCtrl = TextEditingController();
+  final _cpfContractManagerCtrl = TextEditingController();
+  final _contractManagerArtNumberCtrl = TextEditingController();
 
-  final List<String> _typesOfStatus = [
+  void setText(TextEditingController ctrl, String? value) {
+    ctrl.text = value ?? '';
+  }
+
+  String getText(TextEditingController ctrl) {
+    return ctrl.text.trim();
+  }
+
+  double? getDouble(TextEditingController ctrl) {
+    return stringToDouble(ctrl.text.trim());
+  }
+  final List<String> _contractStatus = [
     'A INICIAR',
     'EM ANDAMENTO',
     'CONCLUÍDO',
@@ -100,6 +107,8 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
     'IMPLANTAÇÃO E PAVIMENTAÇÃO',
     'RESTAURAÇÃO',
     'DUPLICAÇÃO',
+    'MANUTENÇÃO',
+    'SINALIZAÇÃO',
     'CONSTRUÇÃO',
     'REABILITAÇÃO',
     'GERENCIAMENTO',
@@ -114,86 +123,72 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
     super.initState();
     _contractsBloc = ContractsBloc();
     _userBloc = UserBloc();
-    _userBloc.getAllUsers(context);
-
-    final status = widget.contractData?.contractStatus?.toUpperCase().trim();
-
-    _summarySubjectContractCtrl.text = widget.contractData?.summarySubjectContract ?? '';
-    _contractTextKmCtrl.text = widget.contractData?.contractextkm?.toStringAsFixed(3) ?? '';
-    _financialCtrl.text = widget.contractData?.financialpercentage?.toStringAsFixed(2) ?? '';
-    _physicalCtrl.text = widget.contractData?.physicalPercentage?.toStringAsFixed(2) ?? '';
-    _contractTypeCtrl.text = widget.contractData?.contractServices ?? '';
-    _contractStatusCtrl.text = _typesOfStatus.contains(status) ? status! : '';
-    if (widget.contractData?.datapublicacaodoe != null) {
-      _datapublicacaodoeCtrl.text = convertDateTimeToDDMMYYYY(
-        widget.contractData!.datapublicacaodoe!,
-      );
-    }
-    _contractBiddingProcessNumberCtrl.text = widget.contractData?.contractBiddingProcessNumber ?? '';
-    _contractNumberCtrl.text = widget.contractData?.contractNumber ?? '';
-    _contractManagerArtNumberCtrl.text = widget.contractData?.contractManagerArtNumber ?? '';
-    _regionOfStateCtrl.text = widget.contractData?.regionOfState ?? '';
-    _managerPhoneNumberCtrl.text = widget.contractData?.managerPhoneNumber ?? '';
-    _contractCompanyLeaderCtrl.text = widget.contractData?.contractCompanyLeader ?? '';
-    _generalNumberCtrl.text = widget.contractData?.generalNumber ?? '';
-    _automaticNumberSiafeCtrl.text = widget.contractData?.automaticNumberSiafe ?? '';
-    _regionalManagerCtrl.text = widget.contractData?.regionalManager ?? '';
-    _contractObjectDescriptionCtrl.text = widget.contractData?.contractObjectDescription ?? '';
-    _contractCompaniesInvolvedCtrl.text = widget.contractData?.contractCompaniesInvolved ?? '';
-    _contractTypeCtrl.text = widget.contractData?.contractType ?? '';
-    _cnoNumberCtrl.text = widget.contractData?.cnoNumber?.toString() ?? '';
-    _cnpjNumberCtrl.text = widget.contractData?.cnpjNumber?.toString() ?? '';
-    _existContractCtrl.text = widget.contractData?.existContract?.toString() ?? '';
-    _initialValidityExecutionDaysCtrl.text = widget.contractData?.initialValidityExecutionDays?.toString() ?? '';
-    _initialValidityContractDaysCtrl.text = widget.contractData?.initialValidityContractDays?.toString() ?? '';
-    _cpfContractManagerCtrl.text = widget.contractData?.cpfContractManager?.toString() ?? '';
-    _urlContractPdfCtrl.text = widget.contractData?.urlContractPdf ?? '';
-    if (widget.contractData?.initialvalidityexecutiondate != null) {
-      _initialValidityExecutionDateCtrl.text = convertDateTimeToDDMMYYYY(
-        widget.contractData!.initialvalidityexecutiondate!,
-      );
-    }
-    if (widget.contractData?.initialvaliditycontractdate != null) {
-      _initialValidityContractDateCtrl.text = convertDateTimeToDDMMYYYY(
-        widget.contractData!.initialvaliditycontractdate!,
-      );
-    }
-    _financialPercentageCtrl.text = widget.contractData?.financialpercentage?.toStringAsFixed(2) ?? '';
-    _physicalPercentageCtrl.text = widget.contractData?.physicalPercentage?.toStringAsFixed(2) ?? '';
-    _mainContractHighwayCtrl.text = widget.contractData?.mainContractHighway ?? '';
-
-
+    _preencherCampos();
     setupValidation([
       _contractStatusCtrl,
-      _datapublicacaodoeCtrl,
+      _initialValueOfContractCtrl,
+
+      _contractBiddingProcessNumberCtrl,
+      _contractNumberCtrl,
       _contractTypeCtrl,
-      _financialCtrl,
-      _physicalCtrl,
+      _contractRegionOfStateCtrl,
+
+      _contractServiceCtrl,
+      _contractHighWayCtrl,
       _summarySubjectContractCtrl,
       _contractTextKmCtrl,
-    ], _validateForm);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = Provider.of<UserProvider>(context, listen: false).userData;
-      if (user != null) {
-        _currentUser = user;
-        _isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
-      }
-      _contractData = widget.contractData ?? ContractData(contractStatus: _contractStatusCtrl.text);
-      setState(() {});
-    });
+      _datapublicacaodoeCtrl,
+      _contractCompanyLeaderCtrl,
+      _contractCompaniesInvolvedCtrl,
+
+      _cnoNumberCtrl,
+      _contractObjectDescriptionCtrl,
+      _regionalManagerCtrl,
+      _managerIdCtrl,
+
+      _managerPhoneNumberCtrl,
+      _cpfContractManagerCtrl,
+      _contractManagerArtNumberCtrl,
+
+    ], _validateForm);
+    Provider.of<UserProvider>(context, listen: false).loadAllUsers();
+    final user = Provider.of<UserProvider>(context, listen: false).userData;
+    if (user != null) {
+      _currentUser = user;
+      _isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
+    }
   }
 
   void _validateForm() {
     final valid = areFieldsFilled([
       _contractStatusCtrl,
-      _datapublicacaodoeCtrl,
+      _initialValueOfContractCtrl,
+
+      _contractBiddingProcessNumberCtrl,
+      _contractNumberCtrl,
       _contractTypeCtrl,
-      _financialCtrl,
-      _physicalCtrl,
+      _contractRegionOfStateCtrl,
+
+      _contractServiceCtrl,
+      _contractHighWayCtrl,
       _summarySubjectContractCtrl,
       _contractTextKmCtrl,
-    ], minLength: 1);
+
+      _datapublicacaodoeCtrl,
+      _contractCompanyLeaderCtrl,
+      _contractCompaniesInvolvedCtrl,
+
+      _cnoNumberCtrl,
+      _contractObjectDescriptionCtrl,
+      _regionalManagerCtrl,
+      _managerIdCtrl,
+
+      _managerPhoneNumberCtrl,
+      _cpfContractManagerCtrl,
+      _contractManagerArtNumberCtrl,
+
+    ]);
 
     if (_formValidated != valid) {
       setState(() => _formValidated = valid);
@@ -205,32 +200,118 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
     return !(perms['create'] ?? false || (perms['edit'] ?? false));
   }
 
+  @override
+  void didUpdateWidget(covariant MainInformationPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.contractData?.id != widget.contractData?.id) {
+      _preencherCampos();
+    }
+  }
+
+  void _preencherCampos() {
+    _contractData = widget.contractData;
+
+    setText(_contractStatusCtrl, _contractData?.contractStatus);
+    setText(_initialValueOfContractCtrl, priceToString(_contractData?.initialContractValue));
+
+    setText(_contractBiddingProcessNumberCtrl, _contractData?.contractNumberProcess);
+    setText(_contractNumberCtrl, _contractData?.contractNumber);
+    setText(_contractTypeCtrl, _contractData?.contractType);
+    setText(_contractRegionOfStateCtrl, _contractData?.regionOfState);
+
+    setText(_contractServiceCtrl, _contractData?.contractServices);
+    setText(_contractHighWayCtrl, _contractData?.mainContractHighway);
+    setText(_summarySubjectContractCtrl, _contractData?.summarySubjectContract);
+    setText(_contractTextKmCtrl, _contractData?.contractExtKm?.toStringAsFixed(3));
+
+    setText(_datapublicacaodoeCtrl, convertDateTimeToDDMMYYYY(_contractData?.publicationDateDoe));
+    setText(_contractCompanyLeaderCtrl, _contractData?.contractCompanyLeader);
+    setText(_contractCompaniesInvolvedCtrl, _contractData?.contractCompaniesInvolved);
+
+    setText(_cnoNumberCtrl, _contractData?.cnoNumber?.toString());
+    setText(_contractObjectDescriptionCtrl, _contractData?.contractObjectDescription);
+    setText(_regionalManagerCtrl, _contractData?.regionalManager);
+    setText(_managerIdCtrl, _contractData?.managerId);
+
+    setText(_managerPhoneNumberCtrl, _contractData?.managerPhoneNumber);
+    setText(_cpfContractManagerCtrl, _contractData?.cpfContractManager?.toString());
+    setText(_contractManagerArtNumberCtrl, _contractData?.contractManagerArtNumber);
+
+  }
+
+
   Future<void> _saveInformation() async {
     if (!_formValidated) {
-      setState(() => _showErrors = true); // ativa exibição dos erros
+      setState(() => _showErrors = true);
       return;
     }
 
+    _atualizarContractDataDosCampos();
+
     setState(() => _isSaving = true);
     try {
-      _contractData?.datapublicacaodoe = stringToDate(_datapublicacaodoeCtrl.text);
       await _contractsBloc.salvarOuAtualizarContrato(_contractData!);
+
+      // ✅ Chamar callback se existir
       widget.onSaved?.call(_contractData!);
+
+      // ✅ Atualiza UI com os novos dados
       if (mounted) {
+        setState(() {
+          _formValidated = false;
+          _preencherCampos(); // recarrega os controllers com os novos valores
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Contrato salvo com sucesso!')),
+          const SnackBar(
+            content: Text('Contrato salvo com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar contrato: $e')),
+          SnackBar(
+            content: Text('Erro ao salvar contrato: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
+
+  void _atualizarContractDataDosCampos() {
+    _contractData ??= ContractData();
+
+    _contractData!
+      ..contractStatus = getText(_contractStatusCtrl)
+      ..initialContractValue = getDouble(_initialValueOfContractCtrl)
+      ..contractNumberProcess = getText(_contractBiddingProcessNumberCtrl)
+      ..contractNumber = getText(_contractNumberCtrl)
+      ..contractType = getText(_contractTypeCtrl)
+      ..regionOfState = getText(_contractRegionOfStateCtrl)
+      ..contractServices = getText(_contractServiceCtrl)
+      ..mainContractHighway = getText(_contractHighWayCtrl)
+      ..summarySubjectContract = getText(_summarySubjectContractCtrl)
+      ..contractExtKm = double.tryParse(getText(_contractTextKmCtrl))
+      ..publicationDateDoe = stringToDate(_datapublicacaodoeCtrl.text)
+      ..contractCompanyLeader = getText(_contractCompanyLeaderCtrl)
+      ..contractCompaniesInvolved = getText(_contractCompaniesInvolvedCtrl)
+      ..cnoNumber = getText(_cnoNumberCtrl)
+      ..contractObjectDescription = getText(_contractObjectDescriptionCtrl)
+      ..regionalManager = getText(_regionalManagerCtrl)
+      ..managerId = getText(_managerIdCtrl)
+      ..managerPhoneNumber = getText(_managerPhoneNumberCtrl)
+      ..cpfContractManager = int.tryParse(_cpfContractManagerCtrl.text.replaceAll(RegExp(r'\D'), ''))
+      ..contractManagerArtNumber = getText(_contractManagerArtNumberCtrl);
+
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +323,7 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
         backgroundColor: _isEditable ? Colors.blue.shade300 : Colors.grey.shade400,
         onPressed: (){
           final isValid = _formKey.currentState?.validate() ?? false;
-          if (!isValid) return;
+          if (!isValid || _contractData == null) return;
           _saveInformation();
         },
         icon: _isSaving
@@ -280,7 +361,7 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                           validator: validateDropdown,
                           enabled: _isEditable,
                           labelText: 'Status do contrato',
-                          items: _typesOfStatus,
+                          items: _contractStatus,
                           controller: _contractStatusCtrl,
                           onChanged:
                               (value) =>
@@ -292,28 +373,11 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                         child: CustomTextField(
                           validator: validateRequired,
                           enabled: _isEditable,
-                          labelText: 'Avanço financeiro',
-                          controller: _financialCtrl,
-                          onChanged: (v) {
-                            final raw = v?.replaceAll('%', '').replaceAll(',', '.');
-                            final parsed = double.tryParse(raw ?? '');
-                            if (parsed != null && parsed <= 100) {
-                              _contractData?.financialpercentage = parsed;
-                            }
-                          },
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'\d|\.|,')),
-                            TextInputFormatter.withFunction((oldValue, newValue) {
-                              final text = newValue.text
-                                  .replaceAll('%', '')
-                                  .replaceAll(',', '.');
-                              final value = double.tryParse(text);
-                              if (value == null || value > 100) return oldValue;
-                              return newValue.copyWith(
-                                text: '${value.toStringAsFixed(2)}%',
-                              );
-                            }),
-                          ],
+                          labelText: 'Nº do processo',
+                          controller: _contractBiddingProcessNumberCtrl,
+                          onChanged: (v) => _contractData?.contractNumberProcess = v,
+                          inputFormatters: [processoMaskFormatter],
+                          keyboardType: TextInputType.number,
                         ),
                       ),
                       SizedBox(
@@ -321,30 +385,11 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                         child: CustomTextField(
                           validator: validateRequired,
                           enabled: _isEditable,
-                          labelText: 'Avanço físico',
-                          controller: _physicalCtrl,
-                          onChanged: (v) {
-                            final raw = v
-                                ?.replaceAll('%', '')
-                                .replaceAll(',', '.');
-                            final parsed = double.tryParse(raw ?? '');
-                            if (parsed != null && parsed <= 100) {
-                              _contractData?.physicalPercentage = parsed;
-                            }
-                          },
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'\d|\.|,')),
-                            TextInputFormatter.withFunction((oldValue, newValue) {
-                              final text = newValue.text
-                                  .replaceAll('%', '')
-                                  .replaceAll(',', '.');
-                              final value = double.tryParse(text);
-                              if (value == null || value > 100) return oldValue;
-                              return newValue.copyWith(
-                                text: '${value.toStringAsFixed(2)}%',
-                              );
-                            }),
-                          ],
+                          labelText: 'Nº do contrato',
+                          controller: _contractNumberCtrl,
+                          onChanged: (v) => _contractData?.contractNumber = v,
+                          inputFormatters: [contractMaskFormatter],
+                          keyboardType: TextInputType.number,
                         ),
                       ),
                       SizedBox(
@@ -353,13 +398,12 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                           enabled: _isEditable,
                           labelText: 'Valor contratado',
                           controller: _initialValueOfContractCtrl,
-                          onChanged: (v) => _contractData?.valorinicialdocontrato = stringToDouble(v),
+                          onChanged: (v) => _contractData?.initialContractValue = stringToDouble(v),
                           inputFormatters: [
                             CurrencyInputFormatter(
                               leadingSymbol: 'R\$',
                               useSymbolPadding: true,
                               thousandSeparator: ThousandSeparator.Period,
-                              mantissaLength: 2,
                             ),
                           ],
                           validator: validateRequired,
@@ -372,19 +416,17 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                     spacing: 12,
                     runSpacing: 12,
                     children: [
-                      SizedBox(
+                      /*SizedBox(
                         width: responsiveInputsFourPerLine(context),
                         child: CustomTextField(
                           validator: validateRequired,
                           enabled: _isEditable,
-                          labelText: 'Nº do processo',
-                          initialValue:
-                              _contractData?.contractBiddingProcessNumber,
-                          onChanged:
-                              (v) =>
-                                  _contractData?.contractBiddingProcessNumber = v,
-                          inputFormatters: [processoMaskFormatter],
-                          keyboardType: TextInputType.number,
+                          labelText: 'Avanço financeiro',
+                          controller: _financialPercentageCtrl,
+                          onChanged: (v) => _contractData?.financialPercentage = removePercentToDouble(v!),
+                          inputFormatters: [
+                            PercentInputFormatter(mantissaLength: 2),
+                          ],
                         ),
                       ),
                       SizedBox(
@@ -392,22 +434,36 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                         child: CustomTextField(
                           validator: validateRequired,
                           enabled: _isEditable,
-                          labelText: 'Nº do contrato',
-                          initialValue: _contractData?.contractNumber,
-                          onChanged: (v) => _contractData?.contractNumber = v,
-                          inputFormatters: [contractMaskFormatter],
-                          keyboardType: TextInputType.number,
+                          labelText: 'Avanço físico',
+                          controller: _physicalPercentageCtrl,
+                          onChanged: (v) => _contractData?.physicalPercentage = removePercentToDouble(v!),
+                          inputFormatters: [
+                            PercentInputFormatter(mantissaLength: 2),
+                          ],
                         ),
-                      ),
+                      ),*/
                       SizedBox(
                         width: responsiveInputsFourPerLine(context),
                         child: CustomTextField(
                           validator: validateRequired,
                           enabled: _isEditable,
-                          labelText: 'Tipo de contrato',
-                          initialValue: _contractData?.contractType,
-                          onChanged: (v) => _contractData?.contractType = v,
+                          labelText: 'Resumo do objeto',
+                          controller: _summarySubjectContractCtrl,
+                          onChanged: (v) => _contractData?.summarySubjectContract = v,
                         ),
+                      ),
+                      SizedBox(
+                        width: responsiveInputsFourPerLine(context),
+                        child: DropDownButtonChange(
+                            validator: validateDropdown,
+                            enabled: _isEditable,
+                            labelText: 'Tipo de Serviço',
+                            items: _typeOfService,
+                            controller: _contractServiceCtrl,
+                            onChanged: (value) {
+                              _contractServiceCtrl.text = value ?? '';
+                              _contractData?.contractServices = value;
+                            }                        ),
                       ),
                       SizedBox(
                         width: responsiveInputsFourPerLine(context),
@@ -415,8 +471,22 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                           validator: validateRequired,
                           enabled: _isEditable,
                           labelText: 'Região',
-                          initialValue: _contractData?.regionOfState,
+                          controller: _contractRegionOfStateCtrl,
                           onChanged: (v) => _contractData?.regionOfState = v,
+                        ),
+                      ),
+                      SizedBox(
+                        width: responsiveInputsFourPerLine(context),
+                        child: CustomTextField(
+                          validator: validateRequired,
+                          enabled: _isEditable,
+                          labelText: 'Extensão (km)',
+                          controller: _contractTextKmCtrl,
+                          onChanged: (v) => _contractData?.contractExtKm = double.tryParse(v!),
+                          inputFormatters: [
+                            ThreeDecimalTextInputFormatter(decimalDigits: 3),
+                          ],
+                          keyboardType: TextInputType.number,
                         ),
                       ),
                     ],
@@ -428,22 +498,11 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                     children: [
                       SizedBox(
                         width: responsiveInputsFourPerLine(context),
-                        child: DropDownButtonChange(
-                          validator: validateDropdown,
-                          enabled: _isEditable,
-                          labelText: 'Tipo de Serviço',
-                          items: _typeOfService,
-                          controller: _contractTypeCtrl,
-                          onChanged: (v) => _contractData?.contractServices = v,
-                        ),
-                      ),
-                      SizedBox(
-                        width: responsiveInputsFourPerLine(context),
                         child: CustomTextField(
                           validator: validateRequired,
                           enabled: _isEditable,
                           labelText: 'Rodovia',
-                          controller: _mainContractHighwayCtrl,
+                          controller: _contractHighWayCtrl,
                           onChanged: (v) => _contractData?.mainContractHighway = v,
                           inputFormatters: [highwayMaskFormatter],
                           keyboardType: TextInputType.number,
@@ -454,58 +513,11 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                         child: CustomTextField(
                           validator: validateRequired,
                           enabled: _isEditable,
-                          labelText: 'Resumo do objeto',
-                          controller: _summarySubjectContractCtrl,
-                          onChanged:
-                              (v) => _contractData?.summarySubjectContract = v,
-                        ),
-                      ),
-                      SizedBox(
-                        width: responsiveInputsFourPerLine(context),
-                        child: CustomTextField(
-                          validator: validateRequired,
-                          enabled: _isEditable,
-                          labelText: 'Extensão (km)',
-                          controller: _contractTextKmCtrl,
-                          onChanged: (v) => _contractData?.contractextkm = double.tryParse(v ?? ''),
-                          inputFormatters: [
-                            ThreeDecimalTextInputFormatter(decimalDigits: 3),
-                          ],
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: responsiveInputsFourPerLine(context),
-                        child: CustomTextField(
-                          validator: validateRequired,
-                          enabled: _isEditable,
-                          labelText: 'Data da DOE',
-                          controller: _datapublicacaodoeCtrl,
-                          keyboardType: TextInputType.datetime,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            TextInputMask(mask: '99/99/9999'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: responsiveInputsFourPerLine(context),
-                        child: CustomTextField(
-                          validator: validateRequired,
-                          enabled: _isEditable,
                           labelText: 'Empresa líder',
                           controller: _contractCompanyLeaderCtrl,
-                          onChanged:
-                              (v) => _contractData?.contractCompanyLeader = v,
+                          onChanged: (v) => _contractData?.contractCompanyLeader = v,
                         ),
                       ),
-                      const SizedBox(width: 12),
                       SizedBox(
                         width: responsiveInputsFourPerLine(context),
                         child: CustomTextField(
@@ -513,12 +525,39 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                           enabled: _isEditable,
                           labelText: 'Consórcio envolvidas',
                           controller: _contractCompaniesInvolvedCtrl,
-                          onChanged:
-                              (v) => _contractData?.contractCompaniesInvolved = v,
+                          onChanged: (v) => _contractData?.contractCompaniesInvolved = v,
                         ),
                       ),
-                      const SizedBox(width: 12),
                       SizedBox(
+                        width: responsiveInputsFourPerLine(context),
+                        child: CustomDateField(
+                          initialValue: _contractData?.publicationDateDoe ?? DateTime.now(),
+                          validator: validateNoEmptyDate,
+                          enabled: _isEditable,
+                          labelText: 'Data de publicação do DOE',
+                          controller: _datapublicacaodoeCtrl,
+                          onChanged: (v) => _contractData?.publicationDateDoe = v,
+                        ),
+                      ),
+
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                 Wrap(
+                   spacing: 12,
+                   runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: responsiveInputsFourPerLine(context),
+                        child: CustomTextField(
+                          validator: validateRequired,
+                          enabled: _isEditable,
+                          labelText: 'Tipo de contrato',
+                          controller: _contractTypeCtrl,
+                          onChanged: (v) => _contractData?.contractType = v,
+                        ),
+                      ),
+                      /*SizedBox(
                         width: responsiveInputsFourPerLine(context),
                         child: CustomTextField(
                           validator: validateRequired,
@@ -526,7 +565,7 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                           labelText: 'CNPJ',
                           controller: _cnpjNumberCtrl,
                           onChanged: (value) {
-                            final parsed = int.tryParse(value!);
+                            final parsed = int.tryParse(value!.replaceAll(RegExp(r'\D'), ''));
                             if (parsed != null) {
                               _contractData?.cnpjNumber = parsed;
                             }
@@ -538,12 +577,7 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                           ],
                           keyboardType: TextInputType.number,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
+                      ),*/
                       SizedBox(
                         width: responsiveInputsFourPerLine(context),
                         child: CustomTextField(
@@ -551,29 +585,40 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                           enabled: _isEditable,
                           labelText: 'CNO',
                           controller: _cnoNumberCtrl,
-                          onChanged: (v) => _contractData?.cnpjNumber = int.tryParse(v!) ?? 0,
+                          onChanged: (v) => _contractData?.cnoNumber = v.toString(),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(12),
+                          ],
                           keyboardType: TextInputType.number,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: responsiveInputsOnePerLine(context),
+                      Expanded(
                         child: CustomTextMaxLinesField(
                           enabled: _isEditable,
                           labelText: 'Descrição do objeto',
                           controller: _contractObjectDescriptionCtrl,
                           maxLines: 5,
-                          maxLength: 500,
+                          maxLength: 2000,
                           onChanged: (v) => _contractData?.contractObjectDescription = v,
                           validator: validateRequired,
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      PdfFileIconActionGeneric(
+                        tipo: TipoArquivoPDF.contrato,
+                        bloc: _contractsBloc,
+                        contrato: widget.contractData!,
+                        onUploadSaveToFirestore: (url) async {
+                          await _contractsBloc.salvarUrlPdfDoContrato(widget.contractData!.id!, url);
+                        },
+                      )
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -587,30 +632,29 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                     runSpacing: 12,
                     children: [
                       AutocompleteUserClass(
-                        controller: _regionalManagerCtrl,
-                        validator: validateRequired,
-                        enabled: _isEditable,
-                        allUsers: Provider.of<UserProvider>(context).userDataList,
-                        getValue: () => _contractData?.regionalManager,
-                        setValue: (id) => _contractData?.regionalManager = id,
                         label: 'Gerente Regional',
+                        controller: _regionalManagerCtrl,
+                        allUsers: Provider.of<UserProvider>(context).userDataList,
+                        enabled: _isEditable,
+                        initialUserId: _contractData?.regionalManager,
+                        onChanged: (id) => _contractData?.regionalManager = id,
                       ),
                       AutocompleteUserClass(
+                        label: 'Fiscal da obra',
                         controller: _managerIdCtrl,
+                        allUsers: Provider.of<UserProvider>(context).userDataList,
+                        initialUserId: _contractData?.managerId,
+                        onChanged: (id) => _contractData?.managerId = id,
                         validator: validateRequired,
                         enabled: _isEditable,
-                        allUsers: Provider.of<UserProvider>(context).userDataList,
-                        getValue: () => _contractData?.managerId,
-                        setValue: (id) => _contractData?.managerId = id,
-                        label: 'Fical da obra',
                       ),
-                      SizedBox(
+                     SizedBox(
                         width: responsiveInputsFourPerLine(context),
                         child: CustomTextField(
+                          controller: _cpfContractManagerCtrl,
                           validator: validateRequired,
                           enabled: _isEditable,
                           labelText: 'CPF do responsável',
-                          controller: _cpfContractManagerCtrl,
                           onChanged: (v) =>
                           _contractData?.cpfContractManager =
                               int.tryParse(v?.replaceAll(RegExp(r'\D'), '') ?? ''),
@@ -652,30 +696,6 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Informações financeiras',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: [
-                      SizedBox(
-                        width: responsiveInputsFourPerLine(context),
-                        child: CustomTextField(
-                          validator: validateRequired,
-                          enabled: _isEditable,
-                          labelText: 'Nº SIAFE',
-                          controller: _automaticNumberSiafeCtrl,
-                          onChanged:
-                              (v) => _contractData?.automaticNumberSiafe = v,
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -689,12 +709,60 @@ class _MainInformationPageState extends State<MainInformationPage> with FormVali
   void dispose() {
     removeValidation([
       _contractStatusCtrl,
-      _financialCtrl,
-      _physicalCtrl,
+      //_financialPercentageCtrl,
+      //_physicalPercentageCtrl,
+      _initialValueOfContractCtrl,
+
+      _contractBiddingProcessNumberCtrl,
+      _contractNumberCtrl,
+      _contractTypeCtrl,
+      _contractRegionOfStateCtrl,
+
+      _contractServiceCtrl,
+      _contractHighWayCtrl,
+      _summarySubjectContractCtrl,
+      _contractTextKmCtrl,
+
+      _datapublicacaodoeCtrl,
+      _contractCompanyLeaderCtrl,
+      _contractCompaniesInvolvedCtrl,
+
+      _cnoNumberCtrl,
+      _contractObjectDescriptionCtrl,
+      _regionalManagerCtrl,
+      _managerIdCtrl,
+
+      _managerPhoneNumberCtrl,
+      _cpfContractManagerCtrl,
+      _contractManagerArtNumberCtrl,
+
     ], _validateForm);
     _contractStatusCtrl.dispose();
-    _financialCtrl.dispose();
-    _physicalCtrl.dispose();
+    _initialValueOfContractCtrl.dispose();
+
+    _contractBiddingProcessNumberCtrl.dispose();
+    _contractNumberCtrl.dispose();
+    _contractTypeCtrl.dispose();
+    _contractRegionOfStateCtrl.dispose();
+
+    _contractServiceCtrl.dispose();
+    _contractHighWayCtrl.dispose();
+    _summarySubjectContractCtrl.dispose();
+    _contractTextKmCtrl.dispose();
+
+    _datapublicacaodoeCtrl.dispose();
+    _contractCompanyLeaderCtrl.dispose();
+    _contractCompaniesInvolvedCtrl.dispose();
+
+    _cnoNumberCtrl.dispose();
+    _contractObjectDescriptionCtrl.dispose();
+    _regionalManagerCtrl.dispose();
+    _managerIdCtrl.dispose();
+
+    _managerPhoneNumberCtrl.dispose();
+    _cpfContractManagerCtrl.dispose();
+    _contractManagerArtNumberCtrl.dispose();
+
     super.dispose();
   }
 }

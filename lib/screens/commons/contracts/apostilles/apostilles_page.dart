@@ -6,9 +6,9 @@ import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 import 'package:provider/provider.dart';
 import 'package:sisgeo/_widgets/formats/format_field.dart';
-
 import '../../../../_blocs/contracts/contracts_bloc.dart';
 import '../../../../_blocs/user/user_bloc.dart';
+import '../../../../_class/archives/pdf/pdf_icon_action.dart';
 import '../../../../_datas/apostilles/apostilles_data.dart';
 import '../../../../_datas/contracts/contracts_data.dart';
 import '../../../../_datas/user/user_data.dart';
@@ -46,6 +46,8 @@ class _ApostillesPageState extends State<ApostillesPage> with FormValidationMixi
   bool _editingMode = false;
   bool _formValidated = false;
   bool _isEditable = false;
+
+  ApostillesData? _selectedApostille;
 
   @override
   void initState() {
@@ -111,12 +113,13 @@ class _ApostillesPageState extends State<ApostillesPage> with FormValidationMixi
 
   void _fillFields(ApostillesData data) {
     setState(() {
+      _selectedApostille = data;
       _editingMode = true;
       _currentApostillesId = data.id;
-      _orderController.text = data.apostilleorder?.toString() ?? '';
-      _dateController.text = convertDateTimeToDDMMYYYY(data.apostilledata);
-      _valueController.text = priceToString(data.apostillevalue);
-      _processController.text = data.apostillenumberprocess ?? '';
+      _orderController.text = data.apostilleOrder?.toString() ?? '';
+      _dateController.text = convertDateTimeToDDMMYYYY(data.apostilleData);
+      _valueController.text = priceToString(data.apostilleValue);
+      _processController.text = data.apostilleNumberProcess ?? '';
     });
   }
 
@@ -127,7 +130,7 @@ class _ApostillesPageState extends State<ApostillesPage> with FormValidationMixi
       uidContract: widget.contractData!.id!,
     );
     final lastOrder = list
-        .map((e) => e.apostilleorder ?? 0)
+        .map((e) => e.apostilleOrder ?? 0)
         .fold(0, (a, b) => a > b ? a : b);
 
     setState(() {
@@ -147,7 +150,7 @@ class _ApostillesPageState extends State<ApostillesPage> with FormValidationMixi
           .then((list) {
             if (!_editingMode) {
               final lastOrder = list
-                  .map((e) => e.apostilleorder ?? 0)
+                  .map((e) => e.apostilleOrder ?? 0)
                   .fold(0, (a, b) => a > b ? a : b);
               _orderController.text = (lastOrder + 1).toString();
             }
@@ -196,10 +199,10 @@ class _ApostillesPageState extends State<ApostillesPage> with FormValidationMixi
 
     final novo = ApostillesData(
       id: _currentApostillesId,
-      apostillenumberprocess: _processController.text,
-      apostilleorder: int.tryParse(_orderController.text),
-      apostilledata: convertDDMMYYYYToDateTime(_dateController.text),
-      apostillevalue: stringToDouble(_valueController.text),
+      apostilleNumberProcess: _processController.text,
+      apostilleOrder: int.tryParse(_orderController.text),
+      apostilleData: convertDDMMYYYYToDateTime(_dateController.text),
+      apostilleValue: stringToDouble(_valueController.text),
     );
 
     await _contractsBloc.saveOrUpdateApostille(novo, widget.contractData!.id!);
@@ -331,87 +334,109 @@ class _ApostillesPageState extends State<ApostillesPage> with FormValidationMixi
       ),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
+            SizedBox(width: 6),
+            if (_currentApostillesId != null)
+              PdfFileIconActionGeneric(
+                key: Key(_currentApostillesId!),
+                tipo: TipoArquivoPDF.apostila,
+                bloc: _contractsBloc,
+                contrato: widget.contractData!,
+                dataEspecifica: _selectedApostille, // do tipo ApostillesData
+                onUploadSaveToFirestore: (url) async {
+                  await _contractsBloc.salvarUrlPdfDaApostila(
+                    contractId: widget.contractData!.id!,
+                    apostilleId: _selectedApostille!.id!,
+                    url: url,
+                  );
+                },
+              ),
+            SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: Tooltip(
-                    message: 'Este campo é gerado automaticamente.',
-                    child: CustomTextField(
-                      labelText: 'Ordem do apostilamento',
-                      controller: _orderController,
-                      enabled: false,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: CustomTextField(
-                    enabled: _isEditable,
-                    labelText: 'Nº do processo',
-                    controller: _processController,
-                    inputFormatters: [processoMaskFormatter],
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: CustomTextField(
-                    enabled: _isEditable,
-                    labelText: 'Valor do apostilamento',
-                    controller: _valueController,
-                    inputFormatters: [
-                      CurrencyInputFormatter(
-                        leadingSymbol: 'R\$',
-                        useSymbolPadding: true,
-                        thousandSeparator: ThousandSeparator.Period,
-                        mantissaLength: 2,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: responsiveInputsFourPerLineWithPDF(context),
+                      child: Tooltip(
+                        message: 'Este campo é gerado automaticamente.',
+                        child: CustomTextField(
+                          labelText: 'Ordem do apostilamento',
+                          controller: _orderController,
+                          enabled: false,
+                        ),
                       ),
-                    ],
-                    keyboardType: TextInputType.number,
-                  ),
+                    ),
+                    SizedBox(
+                      width: responsiveInputsFourPerLineWithPDF(context),
+                      child: CustomTextField(
+                        enabled: _isEditable,
+                        labelText: 'Nº do processo',
+                        controller: _processController,
+                        inputFormatters: [processoMaskFormatter],
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    SizedBox(
+                      width: responsiveInputsFourPerLineWithPDF(context),
+                      child: CustomTextField(
+                        enabled: _isEditable,
+                        labelText: 'Valor do apostilamento',
+                        controller: _valueController,
+                        inputFormatters: [
+                          CurrencyInputFormatter(
+                            leadingSymbol: 'R\$',
+                            useSymbolPadding: true,
+                            thousandSeparator: ThousandSeparator.Period,
+                            mantissaLength: 2,
+                          ),
+                        ],
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    SizedBox(
+                      width: responsiveInputsFourPerLineWithPDF(context),
+                      child: CustomTextField(
+                        enabled: _isEditable,
+                        labelText: 'Data do apostilamento',
+                        controller: _dateController,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          TextInputMask(mask: '99/99/9999'),
+                        ],
+                        keyboardType: TextInputType.datetime,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: CustomTextField(
-                    enabled: _isEditable,
-                    labelText: 'Data do apostilamento',
-                    controller: _dateController,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      TextInputMask(mask: '99/99/9999'),
-                    ],
-                    keyboardType: TextInputType.datetime,
-                  ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed:
+                          _formValidated
+                              ? _isEditable
+                                  ? _saveOrUpdateApostilles
+                                  : null
+                              : null,
+                      icon: Icon(Icons.save),
+                      label: Text(_editingMode ? 'Atualizar' : 'Salvar'),
+                    ),
+                    const SizedBox(width: 12),
+                    if (_editingMode)
+                      TextButton.icon(
+                        icon: const Icon(Icons.update),
+                        label: const Text('Limpar'),
+                        onPressed: _createNewApostilles,
+                      ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton.icon(
-                  onPressed:
-                      _formValidated
-                          ? _isEditable
-                              ? _saveOrUpdateApostilles
-                              : null
-                          : null,
-                  icon: Icon(Icons.save),
-                  label: Text(_editingMode ? 'Atualizar' : 'Salvar'),
-                ),
-                const SizedBox(width: 12),
-                if (_editingMode)
-                  TextButton.icon(
-                    icon: const Icon(Icons.update),
-                    label: const Text('Limpar'),
-                    onPressed: _createNewApostilles,
-                  ),
               ],
             ),
           ],
@@ -475,25 +500,25 @@ class _ApostillesPageState extends State<ApostillesPage> with FormValidationMixi
         color: isSelected ? Colors.green.shade50 : Colors.white,
       ),
       children: [
-        _buildEditableCell(data.apostilleorder.toString(), () {
+        _buildEditableCell(data.apostilleOrder.toString(), () {
           setState(() {
             _selectedLine = index;
             _fillFields(data);
           });
         }),
-        _buildEditableCell(data.apostillenumberprocess ?? '', () {
+        _buildEditableCell(data.apostilleNumberProcess ?? '', () {
           setState(() {
             _selectedLine = index;
             _fillFields(data);
           });
         }),
-        _buildEditableCell(priceToString(data.apostillevalue), () {
+        _buildEditableCell(priceToString(data.apostilleValue), () {
           setState(() {
             _selectedLine = index;
             _fillFields(data);
           });
         }),
-        _buildEditableCell(convertDateTimeToDDMMYYYY(data.apostilledata!), () {
+        _buildEditableCell(convertDateTimeToDDMMYYYY(data.apostilleData!), () {
           setState(() {
             _selectedLine = index;
             _fillFields(data);

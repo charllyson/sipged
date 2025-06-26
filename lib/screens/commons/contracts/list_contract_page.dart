@@ -24,11 +24,17 @@ class _ListContractPageState extends State<ListContractPage> {
   UserData? _currentUser;
   late ContractsBloc _contractsBloc;
 
+  String? _lastSortedStatus;
+  String Function(ContractData)? _lastSortField;
+  final Map<String, List<ContractData>> _cachedContractsByStatus = {};
+
   final _contractTypesStatusCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   Future<List<ContractData>>? _futureContracts;
 
   bool _isEditable = false;
+  int? _sortColumnIndex;
+  bool _isAscending = true;
 
   final List<String> _contractTypesStatus = [
     'A INICIAR',
@@ -43,13 +49,11 @@ class _ListContractPageState extends State<ListContractPage> {
     super.initState();
     _userBloc = UserBloc();
     _contractsBloc = ContractsBloc();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Provider.of<UserProvider>(context, listen: false).userData;
       if (user != null) {
         _currentUser = user;
         _isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
-        _futureContracts = _contractsBloc.getFilteredContracts(currentUser: user);
         setState(() {});
       }
     });
@@ -60,10 +64,15 @@ class _ListContractPageState extends State<ListContractPage> {
     return !(perms['create'] ?? false || (perms['edit'] ?? false));
   }
 
+  void _applyFilters() {
+    _cachedContractsByStatus.clear(); // força o recarregamento dos dados filtrados
+    setState(() {});
+  }
+
   void _clearFilters() {
     _searchCtrl.clear();
     _contractTypesStatusCtrl.clear();
-    setState(() {});
+    _applyFilters();
   }
 
   void _deleteContract(String idContract) async {
@@ -84,7 +93,6 @@ class _ListContractPageState extends State<ListContractPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     final currentUser = Provider.of<UserProvider>(context).userData;
@@ -99,112 +107,47 @@ class _ListContractPageState extends State<ListContractPage> {
               scrollDirection: Axis.vertical,
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(left: 80.0, top: 24, bottom: 6),
-                        child: Text(
-                          'Contratos cadastrados',
-                          style: TextStyle(fontSize: 20),
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 80, bottom: 16.0),
+                          child: _buildFilters(constraints),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: _buildFiltros(constraints),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: FutureBuilder<List<ContractData>>(
-                          future: _futureContracts,
-                          builder: (context, snapshot) {
-                            if (!snapshot.hasData) {
-                              return const Center(child: CircularProgressIndicator());
-                            } else if (snapshot.hasError) {
-                              return Center(child: Text('Erro: \${snapshot.error}'));
-                            } else {
-                              final contracts = snapshot.data!;
-                              return SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                                  child: Table(
-                                    border: TableBorder.all(
-                                      borderRadius: BorderRadius.circular(10),
-                                      color: Colors.grey.shade300,
+                        _getContractStatus(currentUser, constraints, '🚜 Em Andamento', 'EM ANDAMENTO'),
+                        _getContractStatus(currentUser, constraints, '✅ Concluídos', 'CONCLUÍDO'),
+                        _getContractStatus(currentUser, constraints, '⏳ A Iniciar', 'A INICIAR'),
+                        _getContractStatus(currentUser, constraints, '🚫 Paralisados', 'PARALISADO'),
+                        _getContractStatus(currentUser, constraints, '❌ Cancelados', 'CANCELADO'),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: TextButton.icon(
+                                onPressed: _isEditable ? () async {
+                                  final result = await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => TabBarContractPage(),
                                     ),
-                                    columnWidths: const {
-                                      0: FixedColumnWidth(120),
-                                      1: FixedColumnWidth(420),
-                                      2: FixedColumnWidth(200),
-                                      3: FixedColumnWidth(80),
-                                    },
-                                    children: [
-                                      const TableRow(
-                                        decoration: BoxDecoration(color: Colors.white),
-                                        children: [
-                                          Center(child: Padding(padding: EdgeInsets.all(8), child: Text('CONTRATO', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                          Center(child: Padding(padding: EdgeInsets.all(8), child: Text('OBRA', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                          Center(child: Padding(padding: EdgeInsets.all(8), child: Text('Nº PROCESSO', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                          Center(child: Padding(padding: EdgeInsets.all(8), child: Text('APAGAR', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                        ],
-                                      ),
-                                      ...contracts.map(
-                                            (contractData) {
-                                              return TableRow(
-                                                decoration: const BoxDecoration(color: Colors.white),
-                                                children: [
-                                                  _buildCell(contractData.contractNumber, contractData, Alignment.center),
-                                                  _buildCell(contractData.summarySubjectContract, contractData, Alignment.centerLeft),
-                                                  _buildCell(contractData.contractBiddingProcessNumber, contractData, Alignment.center),
-                                                  TableCell(
-                                                    child: PermissionIconDeleteButton(
-                                                      tooltip: 'Apagar contrato',
-                                                      currentUser: currentUser,
-                                                      showConfirmDialog: true,
-                                                      confirmTitle: 'Confirmar exclusão',
-                                                      confirmContent: 'Deseja apagar este contrato?',
-                                                      hasPermission: (user) => _contractsBloc.knowUserPermissionProfileAdm(
-                                                        userData: user,
-                                                        contract: contractData,
-                                                      ),
-                                                      onConfirmed: () async {
-                                                        _deleteContract(contractData.id!);
-                                                      },
-                                                    ),
-                                                  )
-                                                ],
-                                              );
-                                            },
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: TextButton.icon(
-                              onPressed: _isEditable ? () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => TabBarContractPage(),
-                                  ),
-                                );
-                              } : null,
-                              icon: Icon(_isEditable ? Icons.add : Icons.lock),
-                              label: Text('Adicionar novo contrato', style: TextStyle(color: _isEditable ? Colors.blue : Colors.grey)),
+                                  );
+
+                                  if (result == true && _currentUser != null) {
+                                    setState(() {
+                                      _futureContracts = _contractsBloc.getFilteredContracts(currentUser: _currentUser!);
+                                    });
+                                  }
+                                } : null,
+                                icon: Icon(_isEditable ? Icons.add : Icons.lock),
+                                label: Text('Adicionar novo contrato', style: TextStyle(color: _isEditable ? Colors.blue : Colors.grey)),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   );
                 },
               ),
@@ -214,7 +157,155 @@ class _ListContractPageState extends State<ListContractPage> {
     );
   }
 
-  Widget _buildFiltros(BoxConstraints constraints) {
+
+  Widget _buildSortableHeader(String title, int columnIndex, String Function(ContractData) fieldGetter, String statusFilter) {
+    _cachedContractsByStatus.remove(statusFilter);
+    return Tooltip(
+      message: 'Ordenar por $title',
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _sortColumnIndex = columnIndex;
+            _isAscending = !_isAscending;
+            _lastSortedStatus = statusFilter;
+            _lastSortField = fieldGetter;
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+              SizedBox(width: 20),
+              if (_sortColumnIndex == columnIndex && _lastSortedStatus == statusFilter)
+                Icon(_isAscending ? Icons.arrow_upward : Icons.arrow_downward, size: 16, color: Colors.indigoAccent),
+              if (_lastSortedStatus != statusFilter)
+              Icon(Icons.filter_list, size: 16, color: Colors.indigoAccent)
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _getContractStatus(
+      currentUser,
+      BoxConstraints constraints,
+      String? status,
+      String? statusFilter,
+      ) {
+    return FutureBuilder<List<ContractData>>(
+      future: _cachedContractsByStatus[statusFilter] != null
+          ? Future.value(_cachedContractsByStatus[statusFilter])
+          : _contractsBloc.getFilteredContracts(
+        currentUser: currentUser,
+        statusFilter: _contractTypesStatusCtrl.text.isNotEmpty
+            ? _contractTypesStatusCtrl.text
+            : statusFilter,
+        searchQuery: _searchCtrl.text.trim(),
+      ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Erro: ${snapshot.error}'));
+        } else if (snapshot.data!.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Text('$status - (Nenhum)', style: const TextStyle(fontSize: 20)),
+          );
+        } else {
+          final contracts = List<ContractData>.from(snapshot.data!);
+
+          // Salva no cache se ainda não estiver
+          _cachedContractsByStatus[statusFilter!] ??= contracts;
+
+          // Ordena somente se a coluna correspondente for clicada
+          if (_lastSortedStatus == statusFilter &&
+              _sortColumnIndex != null &&
+              _lastSortField != null) {
+            contracts.sort((a, b) {
+              final aValue = _lastSortField!(a).toLowerCase();
+              final bValue = _lastSortField!(b).toLowerCase();
+              return _isAscending ? aValue.compareTo(bValue) : bValue.compareTo(aValue);
+            });
+          }
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 12.0, bottom: 12.0),
+                  child: Text('$status - (${contracts.length}) Contratos', style: const TextStyle(fontSize: 20)),
+                ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: Table(
+                    border: TableBorder.all(
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.grey.shade300,
+                    ),
+                    columnWidths: const {
+                      0: FixedColumnWidth(130),
+                      1: FixedColumnWidth(350),
+                      2: FixedColumnWidth(200),
+                      3: FixedColumnWidth(150),
+                      4: FixedColumnWidth(200),
+                      5: FixedColumnWidth(100),
+                    },
+                    children: [
+                      TableRow(
+                        decoration: const BoxDecoration(color: Colors.white),
+                        children: [
+                          _buildSortableHeader('CONTRATO', 0, (c) => c.contractNumber ?? '', statusFilter),
+                          _buildSortableHeader('OBRA', 3, (c) => c.summarySubjectContract ?? '', statusFilter),
+                          _buildSortableHeader('REGIÃO', 1, (c) => c.regionOfState ?? '', statusFilter),
+                          _buildSortableHeader('SERVIÇOS', 2, (c) => c.contractServices ?? '', statusFilter),
+                          _buildSortableHeader('Nº PROCESSO', 4, (c) => c.contractNumberProcess ?? '', statusFilter),
+                          const Center(child: Padding(padding: EdgeInsets.all(8), child: Text('APAGAR', style: TextStyle(fontWeight: FontWeight.bold)))),
+                        ],
+                      ),
+                      ...contracts.map((contractData) {
+                        return TableRow(
+                          decoration: const BoxDecoration(color: Colors.white),
+                          children: [
+                            _buildCell(contractData.contractNumber, contractData, Alignment.center),
+                            _buildCell(contractData.summarySubjectContract, contractData, Alignment.centerLeft),
+                            _buildCell(contractData.regionOfState, contractData, Alignment.center),
+                            _buildCell(contractData.contractServices, contractData, Alignment.center),
+                            _buildCell(contractData.contractNumberProcess, contractData, Alignment.center),
+                            TableCell(
+                              child: PermissionIconDeleteButton(
+                                tooltip: 'Apagar contrato',
+                                currentUser: currentUser,
+                                showConfirmDialog: true,
+                                confirmTitle: 'Confirmar exclusão',
+                                confirmContent: 'Deseja apagar este contrato?',
+                                hasPermission: (user) =>
+                                    _contractsBloc.knowUserPermissionProfileAdm(userData: user, contract: contractData),
+                                onConfirmed: () async {
+                                  _deleteContract(contractData.id!);
+                                },
+                              ),
+                            )
+                          ],
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildFilters(BoxConstraints constraints) {
     final isMobile = constraints.maxWidth < 600;
     return Container(
       decoration: BoxDecoration(
@@ -232,7 +323,7 @@ class _ListContractPageState extends State<ListContractPage> {
                   child: RawKeyboardListener(
                     focusNode: FocusNode(),
                     onKey: (event) {
-                      if (event.isKeyPressed(LogicalKeyboardKey.enter)) setState(() {});
+                      if (event.isKeyPressed(LogicalKeyboardKey.enter)) _applyFilters();
                     },
                     child: CustomTextField(
                       labelText: 'Pesquisar...',
@@ -246,7 +337,7 @@ class _ListContractPageState extends State<ListContractPage> {
                   height: 48,
                   child: IconButton(
                     icon: const Icon(Icons.search),
-                    onPressed: () => setState(() {}),
+                    onPressed: _applyFilters,
                   ),
                 ),
               ],
@@ -259,7 +350,7 @@ class _ListContractPageState extends State<ListContractPage> {
                     labelText: 'Status',
                     items: _contractTypesStatus,
                     controller: _contractTypesStatusCtrl,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => _applyFilters(),
                   ),
                 ),
                 SizedBox(
@@ -283,7 +374,7 @@ class _ListContractPageState extends State<ListContractPage> {
                         child: RawKeyboardListener(
                           focusNode: FocusNode(),
                           onKey: (event) {
-                            if (event.isKeyPressed(LogicalKeyboardKey.enter)) setState(() {});
+                            if (event.isKeyPressed(LogicalKeyboardKey.enter)) _applyFilters();
                           },
                           child: CustomTextField(
                             labelText: 'Pesquisar...',
@@ -297,7 +388,7 @@ class _ListContractPageState extends State<ListContractPage> {
                         height: 48,
                         child: IconButton(
                           icon: const Icon(Icons.search),
-                          onPressed: () => setState(() {}),
+                          onPressed: _applyFilters,
                         ),
                       ),
                     ],
@@ -313,7 +404,7 @@ class _ListContractPageState extends State<ListContractPage> {
                           labelText: 'Status',
                           items: _contractTypesStatus,
                           controller: _contractTypesStatusCtrl,
-                          onChanged: (_) => setState(() {}),
+                          onChanged: (_) => _applyFilters(),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -338,6 +429,7 @@ class _ListContractPageState extends State<ListContractPage> {
 
   Widget _buildCell(String? text, ContractData contractData, Alignment alignment) {
     return TableCell(
+      verticalAlignment: TableCellVerticalAlignment.middle,
       child: InkWell(
         onTap: () {
           Navigator.of(context).push(
@@ -353,6 +445,7 @@ class _ListContractPageState extends State<ListContractPage> {
             child: Text(
               text ?? '',
               overflow: TextOverflow.ellipsis,
+              textAlign: alignment == Alignment.centerLeft ? TextAlign.left : TextAlign.center,
               maxLines: 2,
             ),
           ),

@@ -33,16 +33,62 @@ double responsiveInputsThreePerLine(BuildContext context) {
 
 double responsiveInputsFourPerLine(BuildContext context) {
   final screenWidth = MediaQuery.of(context).size.width;
-  const spacing = 12.0; // espaçamento entre inputs
-  const margin = 16.0;  // padding lateral (por exemplo, 16px em cada lado = 32 total)
+  const spacing = 12.0;
+  const margin = 16.0;
 
   if (screenWidth < 600) {
-    // Em telas pequenas, ocupa a largura total (menos margens)
     return screenWidth - margin * 2;
   } else {
-    // Espaço total menos margens e espaçamentos entre 4 inputs
     final totalSpacing = spacing * 3; // 3 espaçamentos entre 4 campos
     final availableWidth = screenWidth - margin * 2 - totalSpacing;
+    return availableWidth / 4;
+  }
+}
+
+
+double responsiveInputsFourPerLineWithContainer(BuildContext context) {
+  final screenWidth = MediaQuery.of(context).size.width;
+  const spacing = 16.0; // espaço entre os campos
+  const margin = 16.0;  // margem horizontal do container
+
+  if (screenWidth < 600) {
+    // Em telas pequenas, o campo ocupa quase toda a largura
+    return screenWidth - margin * 2;
+  } else {
+    // Espaço total entre os 4 campos (3 espaços de 12)
+    final totalSpacing = spacing * 3;
+    final availableWidth = screenWidth - margin * 2 - totalSpacing;
+    return availableWidth / 4;
+  }
+}
+
+double responsiveInputsThreePerLineWithPDF(BuildContext context) {
+  final screenWidth = MediaQuery.of(context).size.width;
+  const spacing = 16.0; // espaço entre os campos
+  const margin = 16.0;  // margem horizontal do container
+
+  if (screenWidth < 600) {
+    // Em telas pequenas, o campo ocupa quase toda a largura
+    return screenWidth - margin - 32;
+  } else {
+    final totalSpacing = spacing * 4;
+    final availableWidth = screenWidth - margin * 2 - totalSpacing - 98;
+    return availableWidth / 3;
+  }
+}
+
+double responsiveInputsFourPerLineWithPDF(BuildContext context) {
+  final screenWidth = MediaQuery.of(context).size.width;
+  const spacing = 16.0; // espaço entre os campos
+  const margin = 16.0;  // margem horizontal do container
+
+  if (screenWidth < 600) {
+    // Em telas pequenas, o campo ocupa quase toda a largura
+    return screenWidth - margin - 32;
+  } else {
+    // Espaço total entre os 4 campos (3 espaços de 12)
+    final totalSpacing = spacing * 3;
+    final availableWidth = screenWidth - margin * 2 - totalSpacing - 98;
     return availableWidth / 4;
   }
 }

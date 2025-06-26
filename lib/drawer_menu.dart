@@ -56,17 +56,15 @@ class _DrawerMenuState extends State<DrawerMenu> {
                       if (!userData.hasData) {
                         return Text('');
                       }
-                    return Text('Olá, ${userData.data!.name}', style: TextStyle(color: Colors.white, fontSize: 12));
+                    return Text('Olá, ${userData.data!.name} ${userData.data!.surname}', style: TextStyle(color: Colors.white, fontSize: 12));
                   }
                 ),
               ],
             ),
           ),
-          _buildExpandableItem(Icons.list, 'GESTÃO', [
             _buildSubItem('CONTRATOS', 0),
-            _buildSubItem('MALHA RODOVIÁRIA', 1),
-          ]),
-          _buildExpandableItem(Icons.list, 'DIORC', [
+            //_buildSubItem('MALHA RODOVIÁRIA', 1),
+          /*_buildExpandableItem(Icons.list, 'DIORC', [
             _buildSubItem('CRONOGRAMA FÍSICO', 2),
             _buildSubItem('DESAPROPRIAÇÃO', 3),
           ]),
@@ -74,7 +72,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
             _buildSubItem('ACIDENTES', 3),
             _buildSubItem('INFRAÇÕES', 4),
           ]),
-          //_buildExpandableItem(Icons.open_with_rounded, 'ADMINISTRATIVO', [_buildSubItem('DASHBOARD', 30)]),
+          *///_buildExpandableItem(Icons.open_with_rounded, 'ADMINISTRATIVO', [_buildSubItem('DASHBOARD', 30)]),
           //_buildExpandableItem(Icons.open_with_rounded, 'PLANEJAMENTO', [_buildSubItem('DASHBOARD', 40)]),
           //_buildExpandableItem(Icons.open_with_rounded, 'FINANCEIRO', [_buildSubItem('DASHBOARD', 50)]),
         ],

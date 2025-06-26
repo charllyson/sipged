@@ -8,8 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:sisgeo/_blocs/contracts/contracts_bloc.dart';
 import 'package:sisgeo/_datas/additive/additive_data.dart';
 import 'package:sisgeo/_widgets/formats/format_field.dart';
-
 import '../../../../_blocs/user/user_bloc.dart';
+import '../../../../_class/archives/pdf/pdf_icon_action.dart';
 import '../../../../_datas/contracts/contracts_data.dart';
 import '../../../../_datas/user/user_data.dart';
 import '../../../../_provider/user/user_provider.dart';
@@ -43,6 +43,8 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
   final _orderController = TextEditingController();
   final _dateController = TextEditingController();
   final _valueController = TextEditingController();
+  final _additionalDaysExecutionController = TextEditingController();
+  final _additionalDaysContractController = TextEditingController();
   final _processController = TextEditingController();
   final _validityContractController = TextEditingController();
   final _typeOfAdditiveCtrl = TextEditingController();
@@ -52,7 +54,7 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
   bool _formValidated = false;
   bool _isEditable = false;
 
-  final AdditiveData additiveData = AdditiveData();
+  AdditiveData? _selectedAdditive;
 
   final List<String> _typeOfAdditive = [
     'VALOR',
@@ -72,6 +74,8 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
     setupValidation([
       _dateController,
       _valueController,
+      _additionalDaysExecutionController,
+      _additionalDaysContractController,
       _processController,
       _validityContractController,
     ], _validateForm);
@@ -94,6 +98,8 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
     final valid = areFieldsFilled([
       _dateController,
       _valueController,
+      _additionalDaysExecutionController,
+      _additionalDaysContractController,
       _processController,
       _validityContractController,
     ], minLength: 5);
@@ -105,16 +111,19 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
 
   void _fillFields(AdditiveData data) {
     setState(() {
+      _selectedAdditive = data;
       _editingMode = true;
       _currentAdditiveId = data.id;
       _typeOfAdditiveCtrl.text = data.typeOfAdditive ?? '';
-      _orderController.text = data.additiveorder?.toString() ?? '';
-      _dateController.text = data.additivedata != null ? convertDateTimeToDDMMYYYY(data.additivedata!) : '';
-      _valueController.text = priceToString(data.additivevalue);
-      _processController.text = data.additivenumberprocess ?? '';
-      _validityContractController.text = data.additivevaliditycontractdata != null
-          ? convertDateTimeToDDMMYYYY(data.additivevaliditycontractdata!)
-          : '';
+      _orderController.text = data.additiveOrder?.toString() ?? '';
+      _dateController.text = data.additiveData != null ? convertDateTimeToDDMMYYYY(data.additiveData!) : '';
+      _valueController.text = priceToString(data.additiveValue);
+      _additionalDaysExecutionController.text = data.additionalAdditiveExecutionDays?.toString() ?? '';
+      _additionalDaysContractController.text = data.additionalAdditiveContractDays?.toString() ?? '';
+      _processController.text = data.additiveNumberProcess ?? '';
+      /*_validityContractController.text = data.additiveValidityContractData != null
+          ? convertDateTimeToDDMMYYYY(data.additiveValidityContractData!)
+          : '';*/
     });
   }
 
@@ -125,7 +134,7 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
       uidContract: widget.contractData!.id!,
     );
 
-    final lastOrder = list.map((e) => e.additiveorder ?? 0).fold(0, (a, b) => a > b ? a : b);
+    final lastOrder = list.map((e) => e.additiveOrder ?? 0).fold(0, (a, b) => a > b ? a : b);
     setState(() {
       _orderController.text = (lastOrder + 1).toString();
     });
@@ -138,7 +147,7 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
       uidContract: widget.contractData!.id!,
     );
 
-    final lastOrder = list.map((e) => e.additiveorder ?? 0).fold(0, (a, b) => a > b ? a : b);
+    final lastOrder = list.map((e) => e.additiveOrder ?? 0).fold(0, (a, b) => a > b ? a : b);
 
     setState(() {
       _editingMode = false;
@@ -146,6 +155,8 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
       _orderController.text = (lastOrder + 1).toString();
       _dateController.clear();
       _valueController.clear();
+      _additionalDaysExecutionController.clear();
+      _additionalDaysContractController.clear();
       _processController.clear();
       _validityContractController.clear();
       _typeOfAdditiveCtrl.clear();
@@ -172,11 +183,13 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
     setState(() => _isSaving = true);
     final novo = AdditiveData(
       id: _currentAdditiveId,
-      additivenumberprocess: _processController.text,
-      additiveorder: int.tryParse(_orderController.text),
-      additivevaliditycontractdata: convertDDMMYYYYToDateTime(_validityContractController.text),
-      additivedata: convertDDMMYYYYToDateTime(_dateController.text),
-      additivevalue: stringToDouble(_valueController.text),
+      additiveNumberProcess: _processController.text,
+      additiveOrder: int.tryParse(_orderController.text),
+      //additiveValidityContractData: convertDDMMYYYYToDateTime(_validityContractController.text),
+      additiveData: convertDDMMYYYYToDateTime(_dateController.text),
+      additiveValue: stringToDouble(_valueController.text),
+      additionalAdditiveContractDays: int.tryParse(_additionalDaysContractController.text),
+      additionalAdditiveExecutionDays: int.tryParse(_additionalDaysExecutionController.text),
       typeOfAdditive: _typeOfAdditiveCtrl.text,
     );
 
@@ -191,6 +204,8 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
       _orderController.clear();
       _dateController.clear();
       _valueController.clear();
+      _additionalDaysExecutionController.clear();
+      _additionalDaysContractController.clear();
       _processController.clear();
       _validityContractController.clear();
       _typeOfAdditiveCtrl.clear();
@@ -330,111 +345,162 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
       ),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
+            SizedBox(width: 6),
+            if (_currentAdditiveId != null)
+              PdfFileIconActionGeneric(
+                key: Key(_currentAdditiveId!),
+                tipo: TipoArquivoPDF.aditivo,
+                bloc: _contractsBloc,
+                contrato: widget.contractData!,
+                dataEspecifica: _selectedAdditive, // do tipo AdditiveData
+                onUploadSaveToFirestore: (url) async {
+                  await _contractsBloc.salvarUrlPdfDoAditivo(
+                    contractId: widget.contractData!.id!,
+                    additiveId: _selectedAdditive!.id!,
+                    url: url,
+                  );
+                },
+              ),
+            SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                SizedBox(
-                  width: responsiveInputsThreePerLine(context),
-                  child: Tooltip(
-                    message: 'Este campo é calculado automaticamente e não pode ser editado.',
-                    child: CustomTextField(
-                      labelText: 'Ordem do aditivo',
-                      controller: _orderController,
-                      enabled: false,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: responsiveInputsFourPerLineWithPDF(context),
+                      child: Tooltip(
+                        message: 'Este campo é calculado automaticamente e não pode ser editado.',
+                        child: CustomTextField(
+                          labelText: 'Ordem do aditivo',
+                          controller: _orderController,
+                          enabled: false,
+                        ),
+                      ),
                     ),
-                  ),
+                    SizedBox(
+                        width: responsiveInputsFourPerLineWithPDF(context),
+                        child: CustomTextField(
+                          enabled: _isEditable,
+                          labelText: 'Processo do Aditivo',
+                          controller: _processController,
+                          inputFormatters: [processoMaskFormatter],
+                          keyboardType: TextInputType.number,
+                        )),
+                    SizedBox(
+                        width: responsiveInputsFourPerLineWithPDF(context),
+                        child: CustomTextField(
+                          enabled: _isEditable,
+                          labelText: 'Data do aditivo',
+                          controller: _dateController,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            TextInputMask(mask: '99/99/9999'),
+                          ],
+                          keyboardType: TextInputType.datetime,
+                        )),
+                    SizedBox(
+                        width: responsiveInputsFourPerLineWithPDF(context),
+                        child: CustomTextField(
+                          enabled: _isEditable,
+                          labelText: 'Data da vigência do aditivo',
+                          controller: _validityContractController,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            TextInputMask(mask: '99/99/9999'),
+                          ],
+                          keyboardType: TextInputType.datetime,
+                        )),
+                  ],
                 ),
-                SizedBox(
-                    width: responsiveInputsThreePerLine(context),
-                    child: CustomTextField(
-                      enabled: _isEditable,
-                      labelText: 'Data do aditivo',
-                      controller: _dateController,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        TextInputMask(mask: '99/99/9999'),
-                      ],
-                      keyboardType: TextInputType.datetime,
-                    )),
-                SizedBox(
-                    width: responsiveInputsThreePerLine(context),
-                    child: CustomTextField(
-                      enabled: _isEditable,
-                      labelText: 'Data da vigência do aditivo',
-                      controller: _validityContractController,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        TextInputMask(mask: '99/99/9999'),
-                      ],
-                      keyboardType: TextInputType.datetime,
-                    )),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  SizedBox(
-                      width: responsiveInputsThreePerLine(context),
-                      child: CustomTextField(
-                        enabled: _isEditable,
-                        labelText: 'Processo do Aditivo',
-                        controller: _processController,
-                        inputFormatters: [processoMaskFormatter],
-                        keyboardType: TextInputType.number,
-                      )),
-                  SizedBox(
-                      width: responsiveInputsThreePerLine(context),
-                      child: CustomTextField(
-                        enabled: _isEditable,
-                        labelText: 'Valor do aditivo',
-                        controller: _valueController,
-                        inputFormatters: [
-                          CurrencyInputFormatter(
-                            leadingSymbol: 'R\$',
-                            useSymbolPadding: true,
-                            thousandSeparator: ThousandSeparator.Period,
-                            mantissaLength: 2,
-                          ),
-                        ],
-                        keyboardType: TextInputType.number,
-                      )),
-                  SizedBox(
-                    width: responsiveInputsThreePerLine(context),
-                    child: DropDownButtonChange(
-                      enabled: _isEditable,
-                      labelText: 'Tipo de Aditivo',
-                      items: _typeOfAdditive,
-                      controller: _typeOfAdditiveCtrl,
-                      onChanged: (value) => additiveData.typeOfAdditive = value ?? '',
+                const SizedBox(height: 12),
+                Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: responsiveInputsFourPerLineWithPDF(context),
+                        child: DropDownButtonChange(
+                          enabled: _isEditable,
+                          labelText: 'Tipo de Aditivo',
+                          items: _typeOfAdditive,
+                          controller: _typeOfAdditiveCtrl,
+                          onChanged: (value) => _selectedAdditive!.typeOfAdditive = value ?? '',
+                        ),
+                      ),
+                      SizedBox(
+                          width: responsiveInputsFourPerLineWithPDF(context),
+                          child: CustomTextField(
+                            enabled: _isEditable,
+                            labelText: 'Valor do aditivo',
+                            controller: _valueController,
+                            inputFormatters: [
+                              CurrencyInputFormatter(
+                                leadingSymbol: 'R\$',
+                                useSymbolPadding: true,
+                                thousandSeparator: ThousandSeparator.Period,
+                                mantissaLength: 2,
+                              ),
+                            ],
+                            keyboardType: TextInputType.number,
+                          )
+                      ),
+                      SizedBox(
+                          width: responsiveInputsFourPerLineWithPDF(context),
+                          child: CustomTextField(
+                            enabled: _isEditable,
+                            labelText: 'Dias adicionais ao prazo do contrato',
+                            controller: _additionalDaysContractController,
+                            inputFormatters: [
+                              CurrencyInputFormatter(
+                                mantissaLength: 1,
+                              ),
+                            ],
+                            keyboardType: TextInputType.number,
+                          )
+                      ),
+                      SizedBox(
+                          width: responsiveInputsFourPerLineWithPDF(context),
+                          child: CustomTextField(
+                            enabled: _isEditable,
+                            labelText: 'Dias adicionais ao prazo de execução',
+                            controller: _additionalDaysExecutionController,
+                            inputFormatters: [
+                              CurrencyInputFormatter(
+                                mantissaLength: 1,
+                              ),
+                            ],
+                            keyboardType: TextInputType.number,
+                          )
+                      ),
+                    ]
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _formValidated ? _isEditable ? _saveOrUpdateAdditive : null : null,
+                      icon: Icon(Icons.save),
+                      label: Text(_editingMode ? 'Atualizar' : 'Salvar'),
                     ),
-                  ),
-                ]
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton.icon(
-                  onPressed: _formValidated ? _isEditable ? _saveOrUpdateAdditive : null : null,
-                  icon: Icon(Icons.save),
-                  label: Text(_editingMode ? 'Atualizar' : 'Salvar'),
-                ),
-                const SizedBox(width: 12),
-                if (_editingMode)
-                  TextButton.icon(
-                    icon: const Icon(Icons.update),
-                    label: const Text('Limpar campos'),
-                    onPressed: _createNewAdditive,
-                  ),
-              ],
-            )
+                    const SizedBox(width: 12),
+                    if (_editingMode)
+                      TextButton.icon(
+                        icon: const Icon(Icons.update),
+                        label: const Text('Limpar campos'),
+                        onPressed: _createNewAdditive,
+                      ),
+                  ],
+                )
 
+              ],
+            ),
           ],
         ),
       ),
@@ -455,10 +521,12 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
                 1: FixedColumnWidth(200),
                 2: FixedColumnWidth(140),
                 3: FixedColumnWidth(120),
+/*
+                4: FixedColumnWidth(120),
+*/
                 4: FixedColumnWidth(120),
                 5: FixedColumnWidth(120),
-                6: FixedColumnWidth(120),
-                7: FixedColumnWidth(80),
+                6: FixedColumnWidth(80),
               },
               children: [
                 _buildHeaderRow(),
@@ -476,10 +544,10 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
       'ORDEM',
       'Nº PROCESSO',
       'VALOR DO ADITIVO',
-      'VIGÊNCIA INICIAL',
-      'VIGÊNCIA PÓS ADITIVO',
-      'DIAS DO ADITIVO',
-      'DIAS DE VALIDADE',
+      'DATA DO ADITIVO',/*
+      'VIGÊNCIA PÓS ADITIVO'*/
+      'VALIDADE DO CONTRATO',
+      'VALIDADE DA EXECUÇÃO',
       'APAGAR',
     ];
     return TableRow(
@@ -504,31 +572,35 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
         color: isSelected ? Colors.green.shade50 : Colors.white,
       ),
       children: [
-        _buildEditableCell(data.additiveorder.toString(), (){
+        _buildEditableCell(data.additiveOrder.toString(), (){
           _selectedLine = index;
           _fillFields(data);
         }),
-        _buildEditableCell(data.additivenumberprocess ?? '', (){
+        _buildEditableCell(data.additiveNumberProcess ?? '', (){
           _selectedLine = index;
           _fillFields(data);
         }),
-        _buildEditableCell(priceToString(data.additivevalue), (){
+        _buildEditableCell(priceToString(data.additiveValue), (){
           _selectedLine = index;
           _fillFields(data);
         }),
-        _buildEditableCell(convertDateTimeToDDMMYYYY(data.additivedata), (){
+        _buildEditableCell(convertDateTimeToDDMMYYYY(data.additiveData), (){
           _selectedLine = index;
           _fillFields(data);
         }),
-        _buildEditableCell(convertDateTimeToDDMMYYYY(data.additivevaliditycontractdata), (){
+        /*_buildEditableCell(convertDateTimeToDDMMYYYY(data.additiveValidityContractData), (){
+          _selectedLine = index;
+          _fillFields(data);
+        }),*/
+        /*_buildEditableCell(convertDateTimeToDDMMYYYY(data.additiveValidityExecutionData), (){
+          _selectedLine = index;
+          _fillFields(data);
+        }),*/
+        _buildEditableCell(data.additionalAdditiveContractDays.toString(), (){
           _selectedLine = index;
           _fillFields(data);
         }),
-        _buildEditableCell(convertDateTimeToDDMMYYYY(data.additivevalidityexecutiondata), (){
-          _selectedLine = index;
-          _fillFields(data);
-        }),
-        _buildEditableCell(data.additivevalidityexecutiondays.toString(), (){
+        _buildEditableCell(data.additionalAdditiveExecutionDays.toString(), (){
           _selectedLine = index;
           _fillFields(data);
         }),
@@ -583,6 +655,8 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
     removeValidation([
       _dateController,
       _valueController,
+      _additionalDaysExecutionController,
+      _additionalDaysContractController,
       _processController,
       _validityContractController,
     ], _validateForm);
@@ -590,6 +664,8 @@ class _AdditivePageState extends State<AdditivePage> with FormValidationMixin{
     _orderController.dispose();
     _dateController.dispose();
     _valueController.dispose();
+    _additionalDaysExecutionController.dispose();
+    _additionalDaysContractController.dispose();
     _processController.dispose();
     _validityContractController.dispose();
     _typeOfAdditiveCtrl.dispose();

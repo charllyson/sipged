@@ -54,7 +54,7 @@ class _PhysicalScheduleState extends State<PhysicalSchedule> {
   @override
   void initState() {
     super.initState();
-    final km = widget.contractData?.contractextkm ?? 0;
+    final km = widget.contractData?.contractExtKm ?? 0;
     totalEstacas = ((km * 1000) / 20).ceil();
     carregarExecucao();
     if (_servicoSelecionado == "GERAL") {

@@ -17,11 +17,11 @@ class _SideMenuPageState extends State<SideMenuPage> {
 
   final List<Widget> _pages = [
     const ListContractPage(), ///01
-    const NetworkOfRoadsPage(), ///02
-    const ListContractPage(), ///03
-    const ListContractPage(), ///04
-    const TransportTransitPage(), ///05
-    const TransportTransitPage(), ///06
+    //const NetworkOfRoadsPage(), ///02
+    //const ListContractPage(), ///03
+    //const ListContractPage(), ///04
+    //const TransportTransitPage(), ///05
+    //const TransportTransitPage(), ///06
   ];
 
   void _onSelectPage(int index) {
