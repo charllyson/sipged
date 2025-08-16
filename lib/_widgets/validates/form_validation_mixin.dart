@@ -1,35 +1,37 @@
 import 'dart:async';
-
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 
-mixin FormValidationMixin<T extends StatefulWidget> on State<T> {
+mixin FormValidationMixin {
   final Map<TextEditingController, VoidCallback> _listeners = {};
 
   void setupValidation(
-    List<TextEditingController> controllers,
-    VoidCallback callback,
-  ) {
+      List<TextEditingController> controllers,
+      VoidCallback callback,
+      ) {
     for (final ctrl in controllers) {
-      _listeners[ctrl] = callback;
-      ctrl.addListener(callback);
+      // evita duplicar listener se chamar duas vezes
+      if (_listeners[ctrl] != callback) {
+        _listeners[ctrl] = callback;
+        ctrl.addListener(callback);
+      }
     }
   }
 
   void removeValidation(
-    List<TextEditingController> controllers,
-    VoidCallback callback,
-  ) {
+      List<TextEditingController> controllers,
+      VoidCallback callback,
+      ) {
     for (final ctrl in controllers) {
       ctrl.removeListener(callback);
+      _listeners.remove(ctrl);
     }
-    _listeners.clear();
   }
 
   bool areFieldsFilled(
-    List<TextEditingController> controllers, {
-    int minLength = 1,
-  }) {
+      List<TextEditingController> controllers, {
+        int minLength = 1,
+      }) {
     return controllers.every((ctrl) => ctrl.text.trim().length >= minLength);
   }
 
@@ -48,29 +50,32 @@ mixin FormValidationMixin<T extends StatefulWidget> on State<T> {
     return null;
   };
 
-  String? validateNoEmptyDate(DateTime? dateNoEmptyDate) {
+  String? validateNoEmptyDate(DateTime? date) {
+    if (date == null) return 'Data obrigatória';
     return null;
   }
 
   String? validateEmail(String? email) {
-    const Pattern pattern =
-        r"^(([^<>()[\]\\.,;:\s@']+(\.[^<>()[\]\\.,;:\s@']+)*)|('.+'))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))\$";
-    final regex = RegExp(pattern as String);
+    const String pattern =
+        r"^(([^<>()[\]\\.,;:\s@']+(\.[^<>()[\]\\.,;:\s@']+)*)|('.+'))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$";
+    final regex = RegExp(pattern);
     if (email == null || email.trim().isEmpty) return 'Campo obrigatório';
     if (!regex.hasMatch(email)) return 'E-mail inválido';
     return null;
   }
 
   final StreamTransformer<String, String> validatePassword =
-  StreamTransformer<String, String>.fromHandlers(handleData: (pass, sink) {
-    if (pass.isEmpty) {
-      sink.addError('Insira a sua senha',);
-    } else if (pass.length > 5) {
-      sink.add(pass);
-    } else {
-      sink.addError('A senha não pode ser menor que 6 dígitos',);
-    }
-  },);
+  StreamTransformer<String, String>.fromHandlers(
+    handleData: (pass, sink) {
+      if (pass.isEmpty) {
+        sink.addError('Insira a sua senha');
+      } else if (pass.length > 5) {
+        sink.add(pass);
+      } else {
+        sink.addError('A senha não pode ser menor que 6 dígitos');
+      }
+    },
+  );
 
   String? validateCpf(String? text) {
     if (text == null || !CPFValidator.isValid(text)) {
@@ -97,8 +102,11 @@ mixin FormValidationMixin<T extends StatefulWidget> on State<T> {
     return null;
   }
 
-  String? Function(String?) validatorFromController(TextEditingController controller, String? Function(String?) validatorFn) {
-    return (value) => validatorFn(controller.text);
+  String? Function(String?) validatorFromController(
+      TextEditingController controller,
+      String? Function(String?) validatorFn,
+      ) {
+    return (_) => validatorFn(controller.text);
   }
 
   InputBorder getErrorBorder(bool hasError) {

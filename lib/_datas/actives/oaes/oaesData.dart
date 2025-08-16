@@ -1,0 +1,196 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../../../_widgets/map/markers/tagged_marker.dart';
+
+class OaesData extends ChangeNotifier {
+  String? id;
+  int? order;
+  double? score;
+
+  String? state;
+  String? road;
+  String? region;
+  String? identificationName;
+
+  double? extension;
+  double? width;
+  double? area;
+
+  String? structureType;
+  String? relatedContracts;
+  double? valueIntervention;
+  double? linearCostMedia;
+  double? costEstimate;
+
+  DateTime? lastDateIntervention;
+  String? companyBuild;
+
+  double? latitude;
+  double? longitude;
+  double? altitude;
+
+  DateTime? createdAt;
+  String? createdBy;
+  DateTime? updatedAt;
+  String? updatedBy;
+  DateTime? deletedAt;
+  String? deletedBy;
+
+  OaesData({
+    this.id,
+    this.order,
+    this.score,
+    this.state,
+    this.road,
+    this.region,
+    this.identificationName,
+    this.extension,
+    this.width,
+    this.area,
+    this.structureType,
+    this.relatedContracts,
+    this.valueIntervention,
+    this.linearCostMedia,
+    this.costEstimate,
+    this.lastDateIntervention,
+    this.companyBuild,
+    this.latitude,
+    this.longitude,
+    this.altitude,
+    this.createdAt,
+    this.createdBy,
+    this.updatedAt,
+    this.updatedBy,
+    this.deletedAt,
+    this.deletedBy,
+  });
+
+
+  static Color getColorByNota(double nota) {
+    if (nota == 0) return Colors.green.shade700;
+    if (nota == 1) return Colors.red.shade900;
+    if (nota == 2) return Colors.orange.shade900;
+    if (nota == 3) return Colors.yellow.shade800;
+    if (nota == 4) return Colors.purple.shade400;
+    if (nota == 5) return Colors.blue.shade700;
+    return Colors.grey.shade400;
+  }
+
+  factory OaesData.fromDocument(DocumentSnapshot snapshot) {
+    final data = snapshot.data() as Map<String, dynamic>?;
+
+    if (data == null) throw Exception('Dados da OAE não encontrados');
+
+    return OaesData(
+      id: snapshot.id,
+      order: (data['order'] as num?)?.toInt(),
+      score: (data['score'] as num?)?.toDouble(),
+      state: data['state'],
+      road: data['road'],
+      region: data['region'],
+      identificationName: data['identificationName'],
+      extension: (data['extension'] as num?)?.toDouble(),
+      width: (data['width'] as num?)?.toDouble(),
+      area: (data['area'] as num?)?.toDouble(),
+      structureType: data['structureType'],
+      relatedContracts: data['relatedContracts'],
+      valueIntervention: (data['valueIntervention'] as num?)?.toDouble(),
+      linearCostMedia: (data['linearCostMedia'] as num?)?.toDouble(),
+      costEstimate: (data['costEstimate'] as num?)?.toDouble(),
+      //lastDateIntervention: (data['lastDateIntervention'] as Timestamp?)?.toDate(),
+      companyBuild: data['companyBuild'],
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
+      altitude: (data['altitude'] as num?)?.toDouble(),
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      createdBy: data['createdBy'],
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      updatedBy: data['updatedBy'],
+      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
+      deletedBy: data['deletedBy'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'order': order,
+      'score': score,
+      'state': state,
+      'road': road,
+      'region': region,
+      'identificationName': identificationName,
+      'extension': extension,
+      'width': width,
+      'area': area,
+      'structureType': structureType,
+      'relatedContracts': relatedContracts,
+      'valueIntervention': valueIntervention,
+      'linearCostMedia': linearCostMedia,
+      'costEstimate': costEstimate,
+      //'lastDateIntervention': lastDateIntervention,
+      'companyBuild': companyBuild,
+      'latitude': latitude,
+      'longitude': longitude,
+      'altitude': altitude,
+      'createdAt': createdAt,
+      'createdBy': createdBy,
+      'updatedAt': updatedAt,
+      'updatedBy': updatedBy,
+      'deletedAt': deletedAt,
+      'deletedBy': deletedBy,
+    };
+  }
+  factory OaesData.fromMap(Map<String, dynamic> map) {
+    return OaesData(
+      id: map['id'],
+      order: (map['order'] as num?)?.toInt(),
+      score: (map['score'] as num?)?.toDouble(),
+      state: map['state'],
+      road: map['road'],
+      region: map['region'],
+      identificationName: map['identificationName'],
+      extension: (map['extension'] as num?)?.toDouble(),
+      width: (map['width'] as num?)?.toDouble(),
+      area: (map['area'] as num?)?.toDouble(),
+      structureType: map['structureType'],
+      relatedContracts: map['relatedContracts'],
+      valueIntervention: (map['valueIntervention'] as num?)?.toDouble(),
+      linearCostMedia: (map['linearCostMedia'] as num?)?.toDouble(),
+      costEstimate: (map['costEstimate'] as num?)?.toDouble(),
+      companyBuild: map['companyBuild'],
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
+      altitude: (map['altitude'] as num?)?.toDouble(),
+      lastDateIntervention: _parseDate(map['lastDateIntervention']),
+      createdAt: _parseDate(map['createdAt']),
+      createdBy: map['createdBy'],
+      updatedAt: _parseDate(map['updatedAt']),
+      updatedBy: map['updatedBy'],
+      deletedAt: _parseDate(map['deletedAt']),
+      deletedBy: map['deletedBy'],
+    );
+  }
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate(); // Caso venha do Firebase direto
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+}
+
+extension OAEsDataExtension on OaesData {
+  TaggedChangedMarker<OaesData>? toTaggedMarker() {
+    if (latitude == null || longitude == null) return null;
+
+    return TaggedChangedMarker<OaesData>(
+      point: LatLng(latitude!, longitude!),
+      data: this,
+      properties: toMap(),
+    );
+  }
+
+}

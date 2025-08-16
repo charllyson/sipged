@@ -12,14 +12,26 @@ String priceToString(double? number) {
   if (number == null){
     return '';
   }
-  final safeNumber = number ?? 0.0;
+  final safeNumber = number;
   return NumberFormat('R\$ ###,##0.00', 'pt-br',)
       .format(double.parse(safeNumber.toStringAsFixed(2,),),);
 
 }
 
-String dateAndTimeToString(DateTime datetime) {
-  return DateFormat('dd/MM HH:mm', 'pt-br',).format(datetime);
+String dateAndTimeHumanized(DateTime dateTime) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final inputDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+
+  final time = DateFormat('HH:mm', 'pt_BR').format(dateTime);
+
+  if (inputDate == today) {
+    return 'Hoje, $time';
+  } else if (inputDate == today.subtract(const Duration(days: 1))) {
+    return 'Ontem, $time';
+  } else {
+    return '${DateFormat('dd/MM', 'pt_BR').format(dateTime)}, $time';
+  }
 }
 
 String dateToString(DateTime datetime) {
@@ -48,8 +60,15 @@ String dayAndMonthToString(DateTime datetime) {
   return DateFormat('dd/MM ', 'pt-br',).format(datetime);
 }
 
-double? parseCurrencyToDouble(String value) {
-  return double.tryParse(value.replaceAll(RegExp(r'[^\d,]'), '').replaceAll(',', '.'));
+double parseCurrencyToDouble(String text) {
+  final cleaned = text
+      .replaceAll('R\$', '')     // remove símbolo
+      .replaceAll('.', '')       // remove pontos de milhar
+      .replaceAll(',', '.')      // substitui vírgula por ponto
+      .replaceAll(' ', '')       // remove espaços
+      .trim();
+
+  return double.tryParse(cleaned) ?? 0.0;
 }
 
 String yearToString(DateTime datetime) {
@@ -91,6 +110,17 @@ DateTime? stringToDate(String input) {
   return null;
 }
 
+String normalize(String input) {
+  return input
+      .toLowerCase()
+      .replaceAll(RegExp(r'[áàâãä]', caseSensitive: false), 'a')
+      .replaceAll(RegExp(r'[éèêë]', caseSensitive: false), 'e')
+      .replaceAll(RegExp(r'[íìîï]', caseSensitive: false), 'i')
+      .replaceAll(RegExp(r'[óòôõö]', caseSensitive: false), 'o')
+      .replaceAll(RegExp(r'[úùûü]', caseSensitive: false), 'u')
+      .replaceAll(RegExp(r'[ç]', caseSensitive: false), 'c');
+}
+
 String formatToMillions(double value) {
   final NumberFormat formatter = NumberFormat.compactCurrency(locale: 'pt_BR', symbol: 'R\$');
   return formatter.format(value);
@@ -125,7 +155,7 @@ String addFormatCpfDynamicToString(dynamic inputCpf) {
   return buffer.toString();
 }
 
-String removeCaracters(String inputCpf) {
+String removeCharacters(String inputCpf) {
   String text = inputCpf.replaceAll(RegExp(r'\D'), '');
   return text.toString();
 }
@@ -142,7 +172,7 @@ String convertDoubletoString(double? value) {
 
 String convertDoubleToPercentageString(double? value) {
   final raw = value.toString().replaceAll('%', '').replaceAll(',', '.');
-  final parsed = double.tryParse(raw ?? '');
+  final parsed = double.tryParse(raw);
   if (parsed != null && parsed <= 100) {
     return '$parsed';
   }

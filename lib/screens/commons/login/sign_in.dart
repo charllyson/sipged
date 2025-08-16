@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../_blocs/login/login_bloc.dart';
+import '../../../_blocs/system/login_bloc.dart';
 import '../../../_widgets/background/background.dart';
 import '../../../_widgets/background/sisgeo_logo.dart';
 import '../../../_widgets/buttons/stream_button_.dart';
@@ -46,13 +46,13 @@ class _SignInState extends State<SignIn> {
   void dispose() {
     _emailController.dispose();
     _passController.dispose();
-    _loginBloc.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: StreamBuilder<LoginState>(
         stream: _loginBloc.outState,
         builder: (context, snapshot) {
@@ -65,7 +65,7 @@ class _SignInState extends State<SignIn> {
                 children: <Widget>[
                   Column(
                     children: [
-                      SisGeoLogo(),
+                      SisGedLogo(),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           double maxWidth;

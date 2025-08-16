@@ -1,9 +1,9 @@
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../../_blocs/login/login_bloc.dart';
-import '../../../_blocs/user/user_bloc.dart';
-import '../../../_datas/user/user_data.dart';
+import '../../../_blocs/system/login_bloc.dart';
+import '../../../_blocs/system/user_bloc.dart';
+import '../../../_datas/system/user_data.dart';
 import '../../../_widgets/formats/format_field.dart';
 import '../../../_widgets/input/custom_date_field.dart';
 import '../../../_widgets/input/custom_text_field.dart';
@@ -61,6 +61,7 @@ class _SignUpState extends State<SignUp> with LoginValidators {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: GestureDetector(
         onTap: () {
           FocusScope.of(context).requestFocus(FocusNode());

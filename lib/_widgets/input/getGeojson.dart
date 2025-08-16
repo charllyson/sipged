@@ -1,12 +1,8 @@
 import 'dart:convert';
-import 'dart:typed_data';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-// ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 
 class GeojsonViewer extends StatefulWidget {
@@ -18,9 +14,9 @@ class GeojsonViewer extends StatefulWidget {
 
 class _GeojsonViewerState extends State<GeojsonViewer> {
   String? _nomeArquivoSelecionado;
-  List<LatLng> _pontos = [];
-  List<LatLng> _linha = [];
-  List<List<LatLng>> _poligonos = [];
+  final List<LatLng> _pontos = [];
+  final List<LatLng> _linha = [];
+  final List<List<LatLng>> _poligonos = [];
 
   void _uploadGeoJsonWeb() {
     final uploadInput = html.FileUploadInputElement();
@@ -92,7 +88,7 @@ class _GeojsonViewerState extends State<GeojsonViewer> {
   Widget build(BuildContext context) {
     final allPoints = [..._pontos, ..._linha, ..._poligonos.expand((p) => p)];
 
-    final bounds = () {
+    final _ = () {
       if (allPoints.length >= 2) {
         final b = LatLngBounds(allPoints.first, allPoints[1]);
         for (final p in allPoints) {
@@ -136,12 +132,7 @@ class _GeojsonViewerState extends State<GeojsonViewer> {
           SizedBox(
             height: 300,
             child: FlutterMap(
-              options: MapOptions(
-                bounds: allPoints.length >= 2 ? bounds : null,
-                center: allPoints.length == 1 ? allPoints.first : null,
-                zoom: allPoints.length == 1 ? 15 : null,
-                boundsOptions: const FitBoundsOptions(padding: EdgeInsets.all(16)),
-              ),
+              options: MapOptions(),
               children: [
                 TileLayer(
                   urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',

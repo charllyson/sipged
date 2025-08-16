@@ -1,9 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../../_blocs/login/login_bloc.dart';
-import '../../_blocs/user/user_bloc.dart';
-import '../../_datas/user/user_data.dart';
+import '../../_blocs/system/login_bloc.dart';
+import '../../_blocs/system/user_bloc.dart';
+import '../../_datas/system/user_data.dart';
 
 class SignUpBotton extends StatelessWidget {
   const SignUpBotton({

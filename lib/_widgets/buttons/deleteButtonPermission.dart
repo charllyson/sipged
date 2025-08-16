@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sisgeo/_datas/user/user_data.dart';
+import 'package:sisged/_datas/system/user_data.dart';
 
 class PermissionIconDeleteButton extends StatelessWidget {
   final bool Function(UserData userData) hasPermission;
@@ -23,7 +23,13 @@ class PermissionIconDeleteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final allowed = hasPermission(currentUser);
+    final allowed = (() {
+      try {
+        return hasPermission(currentUser);
+      } catch (_) {
+        return false;
+      }
+    })();
     return Center(
       child: IconButton(
         tooltip: tooltip,

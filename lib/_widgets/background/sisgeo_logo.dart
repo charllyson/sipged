@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
 
-class SisGeoLogo extends StatelessWidget {
-  const SisGeoLogo({super.key});
+class SisGedLogo extends StatelessWidget {
+
+  final double? fontSize;
+  final double? heightLogo;
+  final double? widthLogo;
+
+  const SisGedLogo({
+    super.key,
+    this.fontSize = 80,
+    this.heightLogo = 50,
+    this.widthLogo = 50,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -10,18 +20,19 @@ class SisGeoLogo extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              'SisGeo',
+            Text(
+              'SiGed',
               style: TextStyle(
                 fontFamily: 'Homework',
                 color: Colors.white,
-                fontSize: 80,
+                fontSize: fontSize,
               ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(width: 10),
             SizedBox(
-              height: 50,
-              width: 50,
+              height: heightLogo,
+              width: widthLogo,
               child: Image(
                 image: AssetImage(
                   'assets/logos/sisgeo/sisgeo.png',
@@ -31,7 +42,8 @@ class SisGeoLogo extends StatelessWidget {
           ],
         ),
         const Text(
-          'Sistema Integrado de Gerenciamento de obras',
+          'Sistema Integrado de Gerenciamento de dados',
+          textAlign: TextAlign.center,
           style: TextStyle(
             color: Colors.white,
           ),

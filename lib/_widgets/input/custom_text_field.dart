@@ -24,6 +24,9 @@ class CustomTextField extends StatelessWidget {
     this.textInputAction,
     this.focusNode,
     this.autoCorrect = true,
+    this.onFieldSubmitted,
+    this.fillCollor,
+    this.width,
   });
 
   final List<String>? autofillHints;
@@ -46,49 +49,56 @@ class CustomTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final FocusNode? focusNode;
   final bool autoCorrect;
+  final Function(String)? onFieldSubmitted;
+  final Color? fillCollor;
+  final double? width;
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      autocorrect: autoCorrect,
-      textInputAction: textInputAction,
-      focusNode: focusNode,
-      maxLength: maxLength,
-      controller: controller,
-      obscureText: obscure,
-      initialValue: initialValue,
-      enabled: enabled,
-      validator: validator,
-      onSaved: onSaved,
-      onChanged: onChanged,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      decoration: InputDecoration(
-        labelStyle: const TextStyle(color: Colors.grey),
-        filled: true,
-        fillColor: Colors.white,
-        labelText: labelText,
-        prefixIcon: prefix,
-        suffixIcon: suffix,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-          borderSide: const BorderSide(color: Colors.grey),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-          borderSide: const BorderSide(color: Colors.blue),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-          borderSide: const BorderSide(color: Colors.grey),
+    return SizedBox(
+      width: width,
+      child: TextFormField(
+        onFieldSubmitted: onFieldSubmitted,
+        autocorrect: autoCorrect,
+        textInputAction: textInputAction,
+        focusNode: focusNode,
+        maxLength: maxLength,
+        controller: controller,
+        obscureText: obscure,
+        initialValue: initialValue,
+        enabled: enabled,
+        validator: validator,
+        onSaved: onSaved,
+        onChanged: onChanged,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
+        decoration: InputDecoration(
+          labelStyle: const TextStyle(color: Colors.grey),
+          filled: true,
+          fillColor: fillCollor ?? Colors.white,
+          labelText: labelText,
+          prefixIcon: prefix,
+          suffixIcon: suffix,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10.0),
+            borderSide: BorderSide(color: Colors.grey.shade500),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10.0),
+            borderSide: const BorderSide(color: Colors.blue),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10.0),
+            borderSide: const BorderSide(color: Colors.red),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10.0),
+            borderSide: const BorderSide(color: Colors.red),
+          ),
+          disabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10.0),
+            borderSide: BorderSide(color: Colors.grey.shade400),
+          ),
         ),
       ),
     );

@@ -1,0 +1,69 @@
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:sisged/_widgets/charts/line_chart_changed.dart';
+import 'package:sisged/_widgets/charts/pieGraph/pie_chart_changed.dart';
+
+import '../../../../../_widgets/charts/gauge_circular_percent.dart';
+
+class PaymentsReportChartsSection extends StatelessWidget {
+  final int? selectedIndex;
+  final void Function(int index)? onSelectIndex;
+  final List<String> labels;
+  final List<double> values;
+  final double valorTotal;
+  final double totalMedicoes;
+
+  const PaymentsReportChartsSection({
+    super.key,
+    required this.selectedIndex,
+    required this.onSelectIndex,
+    required this.labels,
+    required this.values,
+    required this.valorTotal,
+    required this.totalMedicoes,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          GaugeCircularPercent(
+            percent: valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
+            label: 'Execução das medições',
+            radius: 70,
+            larguraGrafico: 200,
+            values: totalMedicoes.isNaN ? null : [totalMedicoes],
+          ),
+          const SizedBox(width: 12),
+          PieChartChanged(
+            labels: labels,
+            values: values,
+            selectedIndex: selectedIndex,
+            larguraGrafico: 300,
+            onTouch: (index) {
+              if (index != null && index >= 0 && index < values.length) {
+                onSelectIndex?.call(index);
+              }
+            },
+          ),
+          const SizedBox(width: 12),
+          LineChartChanged(
+            labels: labels,
+            values: values,
+            selectedIndex: selectedIndex,
+            larguraGrafico: math.max(MediaQuery.of(context).size.width - 300 - 52, 800),
+            alturaGrafico: 260,
+            onPointTap: (index) {
+              if (index >= 0 && index < values.length) {
+                onSelectIndex?.call(index);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}

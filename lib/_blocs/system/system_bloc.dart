@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../../_datas/system/system_data.dart';
-import '../../_datas/user/user_data.dart';
+import 'package:flutter/foundation.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
 class SystemBloc extends BlocBase {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -11,170 +15,117 @@ class SystemBloc extends BlocBase {
   List<Map<String, dynamic>> directorsList = [];
   List<Map<String, dynamic>> sectorList = [];
   bool isLoading = true;
+  final String _docId = 'info'; // ID fixo do documento
 
-  /// Carrega órgãos
-  Future<List<SystemData>> loadOrgans() async {
-    List<SystemData> organs = [];
+
+  double calcularLarguraDinamica(
+      int quantidadeMedicoes, {
+        double larguraPorPonto = 60,
+        double larguraMinima = 300,
+      }) {
+    return (quantidadeMedicoes * larguraPorPonto).clamp(
+      larguraMinima,
+      2000,
+    ); // máximo opcional
+  }
+
+
+  Future<Placemark?> getPlaceMarkAdapted(LatLng coords) async {
     try {
-      final snapshotOrgans = await _firestore.collection('organ').get();
-
-      organs = snapshotOrgans.docs.map((doc) {
-        return SystemData.fromFirestore(doc);
-      }).toList();
-    } catch (e) {
-      print('Erro ao carregar órgãos: $e');
-    }
-    print(organs);
-    return organs;
-  }
-
-
-  /// Carrega diretorias
-  Future<List<SystemData>> loadDirectors(String idOrgan) async {
-    List<SystemData> directors = [];
-    try {
-      final snapshotDirectors = await _firestore
-          .collection('organ')
-          .doc(idOrgan)
-          .collection('directors')
-          .get();
-
-      directors = snapshotDirectors.docs.map((doc) {
-        return SystemData.fromFirestore(doc);
-      }).toList();
-
-      directorsList = snapshotDirectors.docs.map((doc) {
-        return {
-          'idDirectors': doc.id,
-          'acronymDirectors': doc['acronymDirectors'],
-        };
-      }).toList();
-    } catch (e) {
-      print('Erro ao carregar diretorias: $e');
-    }
-
-    return directors;
-  }
-
-  /// Carrega setores
-  Future<List<SystemData>> loadSectors({
-    required String idOrgan,
-    required String idDirectors,
-  }) async {
-    List<SystemData> sectors = [];
-    try {
-      final snapshot = await _firestore
-          .collection('organ')
-          .doc(idOrgan)
-          .collection('directors')
-          .doc(idDirectors)
-          .collection('sectors')
-          .get();
-      sectors = snapshot.docs.map((doc) {
-        return SystemData.fromFirestore(doc);
-      }).toList();
-    } catch (e) {
-      print('Erro ao carregar setores: $e');
-    }
-
-    return sectors;
-  }
-
-  /// Cria órgão
-  Future<void> createOrgan(String acronymOrgan) async {
-    if (acronymOrgan.isEmpty) return;
-
-    final docRef = await _firestore.collection('organ').add({
-      'acronymOrgan': acronymOrgan,
-      'dateCreateOrgan': DateTime.now(),
-      'dateUpdateOrgan': DateTime.now(),
-      'statusOrgan': 'ativo',
-    });
-
-    await docRef.update({'uidOrgan': docRef.id});
-    await loadOrgans();
-  }
-
-  /// Cria diretoria
-  Future<void> createDirectors({
-    required String idOrgan,
-    required String acronymDirectors,
-  }) async {
-    if (idOrgan.isEmpty || acronymDirectors.isEmpty) {
-      print('ID do órgão ou sigla da diretoria está vazio');
-      return;
-    }
-
-    final docRef = await _firestore
-        .collection('organ')
-        .doc(idOrgan)
-        .collection('directors')
-        .add({
-      'acronymDirectors': acronymDirectors,
-      'descriptionDirectors': '',
-      'dateCreateDirectors': DateTime.now(),
-      'dateUpdateDirectors': DateTime.now(),
-      'statusDirectors': 'ativo',
-      'idOrgao': idOrgan,
-    });
-
-    await docRef.update({'idDirectors': docRef.id});
-    await loadDirectors(idOrgan);
-  }
-
-  /// Cria setor
-  Future<void> createSector({
-    required String idOrgan,
-    required String idDirectors,
-    required String acronymSectors,
-  }) async {
-    final docRef = await _firestore
-        .collection('organ')
-        .doc(idOrgan)
-        .collection('directors')
-        .doc(idDirectors)
-        .collection('sectors')
-        .add({
-      'acronymSectors': acronymSectors,
-      'descriptionSector': '',
-      'dateCreateSectors': DateTime.now(),
-      'dateUpdateSectors': DateTime.now(),
-      'statusSectors': 'ativo',
-      'idOrgan': idOrgan,
-      'idDirectors': idDirectors,
-    });
-
-    await docRef.update({'idSectors': docRef.id});
-    await loadSectors(idOrgan: idOrgan, idDirectors: idDirectors);
-  }
-
-  Future<List<SystemData>> loadStructureWithPermissions(UserData user) async {
-    final organs = await loadOrgans();
-
-    // Paraleliza carregamento de diretorias e setores
-    await Future.wait(organs.map((organ) async {
-      organ.isSelectedOrgan = user.permissionOrgan?.contains(organ.idOrgan) ?? false;
-
-      final directors = await loadDirectors(organ.idOrgan ?? '');
-      organ.directors = directors;
-
-      await Future.wait(directors.map((director) async {
-        director.isSelectedDirector = user.permissionDirector?.contains(director.idDirectors) ?? false;
-
-        final sectors = await loadSectors(
-          idOrgan: organ.idOrgan ?? '',
-          idDirectors: director.idDirectors ?? '',
+      if (kIsWeb) {
+        final url = Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR',
         );
-        director.sectors = sectors;
+        final response = await http.get(url);
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final address = data['address'];
 
-        for (final sector in sectors) {
-          sector.isSelectedSector = user.permissionSector?.contains(sector.idSector) ?? false;
+          return Placemark(
+            street: address['road'] ?? '',
+            subLocality: address['suburb'] ?? '',
+            locality: address['city'] ?? address['town'] ?? address['village'] ?? '',
+            postalCode: address['postcode'] ?? '',
+            administrativeArea: address['state'] ?? '',
+            country: address['country'] ?? '',
+            isoCountryCode: (address['country_code'] ?? '').toUpperCase(),
+            subAdministrativeArea: address['county'] ?? '',
+            thoroughfare: address['neighbourhood'] ?? '',
+            subThoroughfare: '',
+            name: data['name'] ?? '',
+          );
+        } else {
+          debugPrint('Erro Nominatim: ${response.statusCode}');
         }
-      }));
-    }));
+      } else {
+        final placeMarks = await placemarkFromCoordinates(
+          coords.latitude,
+          coords.longitude,
+        );
+        return placeMarks.isNotEmpty ? placeMarks.first : null;
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar placemark: $e');
+    }
 
-    return organs;
+    return null;
   }
 
+
+  Future<LatLng?> getCoordinates(String address) async {
+    final url = Uri.parse('https://nominatim.openstreetmap.org/search?q=$address&format=json&limit=1');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data.isNotEmpty) {
+        final lat = double.tryParse(data[0]['lat']);
+        final lon = double.tryParse(data[0]['lon']);
+        if (lat != null && lon != null) {
+          return LatLng(lat, lon);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  Future<LatLng?> getUserCurrentLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint('Serviço de localização desativado');
+        return null;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          debugPrint('Permissão negada');
+          return null;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('Permissão permanentemente negada');
+        return null;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      return LatLng(position.latitude, position.longitude);
+    } catch (e) {
+      debugPrint('Erro ao obter localização: $e');
+      return null;
+    }
+  }
+
+  Future<int> getBuildNumber() async {
+    final docSnapshot = await _firestore.collection('system').doc(_docId).get();
+    return docSnapshot.data()?['buildNumber'] ?? 0;
+  }
 
 }

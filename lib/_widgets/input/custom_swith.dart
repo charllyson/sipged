@@ -22,7 +22,7 @@ class LiteRollingSwitch extends StatefulWidget {
   final Function? onSwipe;
 
   const LiteRollingSwitch(
-      {this.value = false,
+      {super.key, this.value = false,
       this.textOff = 'OFF',
       this.textOn = 'ON',
       this.textSize = 12.0,

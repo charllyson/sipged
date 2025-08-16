@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 
 class CustomTimeField extends StatelessWidget {
   CustomTimeField(
-      {this.stream,
+      {super.key, this.stream,
       this.hint,
       this.initialValue,
       this.valueColor,

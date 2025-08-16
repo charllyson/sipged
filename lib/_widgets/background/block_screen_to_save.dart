@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../_blocs/login/login_bloc.dart';
-import '../../_blocs/user/user_bloc.dart';
+import '../../_blocs/system/login_bloc.dart';
+import '../../_blocs/system/user_bloc.dart';
 import '../loading/loading_progress.dart';
 
 class BlockScreenToSave extends StatelessWidget {

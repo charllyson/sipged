@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sisgeo/_datas/user/user_data.dart';
-import 'package:sisgeo/_utils/responsive_utils.dart';
+import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_utils/responsive_utils.dart';
 import '../input/custom_text_field.dart';
 
 class AutocompleteUserClass extends StatefulWidget {
@@ -67,66 +67,72 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
         if (selectedUserId == null || selectedUserId!.isEmpty)
           Tooltip(
             message: 'Busque por nome ou email',
-            child: SizedBox(
-              width: responsiveInputsFourPerLine(context),
-              child: Autocomplete<UserData>(
-                optionsBuilder: (TextEditingValue textEditingValue) {
-                  if (textEditingValue.text.isEmpty) return const Iterable.empty();
-                  final input = textEditingValue.text.toLowerCase();
-                  return widget.allUsers.where((user) {
-                    final name = user.name?.toLowerCase() ?? '';
-                    final email = user.email?.toLowerCase() ?? '';
-                    return name.contains(input) || email.contains(input);
-                  });
-                },
-                displayStringForOption: (user) => user.name ?? user.email ?? '',
-                fieldViewBuilder: (context, textController, focusNode, _) {
-                  return CustomTextField(
-                    validator: widget.validator,
-                    enabled: widget.enabled,
-                    controller: textController,
-                    focusNode: focusNode,
-                    labelText: widget.label,
-                    hint: widget.hint,
-                  );
-                },
-                optionsViewBuilder: (context, onSelected, options) {
-                  final width = responsiveInputsFourPerLine(context);
-                  return Align(
-                    alignment: Alignment.topLeft,
-                    child: Material(
-                      elevation: 4,
-                      child: SizedBox(
-                        width: width,
-                        child: ListView.builder(
-                          padding: EdgeInsets.zero,
-                          shrinkWrap: true,
-                          itemCount: options.length,
-                          itemBuilder: (context, index) {
-                            final user = options.elementAt(index);
-                            return ListTile(
-                              onTap: () {
-                                onSelected(user);
-                              },
-                              leading: CircleAvatar(
-                                backgroundImage: user.urlPhoto?.isNotEmpty == true
-                                    ? NetworkImage(user.urlPhoto!)
-                                    : null,
-                                child: user.urlPhoto?.isEmpty != false
-                                    ? const Icon(Icons.person)
-                                    : null,
-                              ),
-                              title: Text(user.name ?? ''),
-                              subtitle: Text(user.email ?? ''),
-                            );
-                          },
-                        ),
+            child: Autocomplete<UserData>(
+              optionsBuilder: (TextEditingValue textEditingValue) {
+                if (textEditingValue.text.isEmpty) return const Iterable.empty();
+                final input = textEditingValue.text.toLowerCase();
+                return widget.allUsers.where((user) {
+                  final name = user.name?.toLowerCase() ?? '';
+                  final email = user.email?.toLowerCase() ?? '';
+                  return name.contains(input) || email.contains(input);
+                });
+              },
+              displayStringForOption: (user) => user.name ?? user.email ?? '',
+              fieldViewBuilder: (context, textController, focusNode, _) {
+                return CustomTextField(
+                  validator: widget.validator,
+                  enabled: widget.enabled,
+                  controller: textController,
+                  focusNode: focusNode,
+                  labelText: widget.label,
+                  hint: widget.hint,
+                );
+              },
+              optionsViewBuilder: (context, onSelected, options) {
+                final width = responsiveInputWidth(
+                  context: context,
+                  itemsPerLine: 3,
+                  reservedWidth: 98.0,
+                  spacing: 12.0,
+                  margin: 12.0,
+                  extraPadding: 24.0, // padding horizontal somado
+                );
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4,
+                    child: SizedBox(
+                      width: width,
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        itemBuilder: (context, index) {
+                          final user = options.elementAt(index);
+                          return ListTile(
+                            tileColor: Colors.white,
+                            onTap: () {
+                              onSelected(user);
+                            },
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.grey.shade200,
+                              backgroundImage: user.urlPhoto?.isNotEmpty == true
+                                  ? NetworkImage(user.urlPhoto!)
+                                  : null,
+                              child: user.urlPhoto?.isEmpty != false
+                                  ? const Icon(Icons.person, color: Colors.grey)
+                                  : null,
+                            ),
+                            title: Text(user.name ?? ''),
+                            subtitle: Text(user.email ?? ''),
+                          );
+                        },
                       ),
                     ),
-                  );
-                },
-                onSelected: (user) => _selectUser(user.id!),
-              ),
+                  ),
+                );
+              },
+              onSelected: (user) => _selectUser(user.id!),
             ),
           ),
 
@@ -134,13 +140,21 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
           Stack(
             children: [
               Container(
-                width: responsiveInputsFourPerLine(context),
+                width: responsiveInputWidth(
+                  context: context,
+                  itemsPerLine: 3,
+                  reservedWidth: 98.0,
+                  spacing: 12.0,
+                  margin: 12.0,
+                  extraPadding: 24.0, // padding horizontal somado
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: Colors.grey.shade400),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: ListTile(
+                  tileColor: Colors.white,
                   leading: CircleAvatar(
                     radius: 18,
                     backgroundColor: Colors.white,
@@ -149,7 +163,7 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
                         : null,
                     child: (user.urlPhoto?.isEmpty ?? true)
                         ? widget.enabled
-                        ? const Icon(Icons.person)
+                        ? const Icon(Icons.person, color: Colors.grey)
                         : const Icon(Icons.person, color: Colors.grey)
                         : null,
                   ),

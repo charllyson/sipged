@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:sisgeo/_datas/user/user_data.dart';
+import 'package:sisged/_datas/system/user_data.dart';
 
 class UserProvider extends ChangeNotifier {
   UserData? _userData;
