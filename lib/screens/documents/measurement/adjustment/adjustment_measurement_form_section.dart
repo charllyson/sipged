@@ -6,15 +6,16 @@ import 'package:sisged/_widgets/input/custom_date_field.dart';
 import 'package:sisged/_widgets/input/custom_text_field.dart';
 import 'package:sisged/_widgets/mask_class.dart';
 
-import '../../../../../_widgets/archives/pdf/pdf_icon_action.dart';
+import '../../../../../_widgets/archives/pdf/web_pdf_widget.dart';
 import '../../../../../_widgets/formats/input_formatters.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../../../_datas/documents/measurement/measurement_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
+import '../../../../_widgets/archives/pdf/web_pdf_controller.dart';
 
 class AdjustmentMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
   final bool formValidated;
-  final ReportData? selectedAdjustmentMeasurement;
+  final ReportMeasurementData? selectedAdjustmentMeasurement;
   final String? currentAdjustmentMeasurementId;
   final ContractData contractData;
 
@@ -189,12 +190,12 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   }
 
   Widget _buildPdfWidget() {
-    return PdfFileIconActionGeneric(
+    return WebPdfWidgetGeneric(
       key: Key(currentAdjustmentMeasurementId!),
       type: PDFType.report,
       contractData: contractData,
       specificData: selectedAdjustmentMeasurement!,
-      onUploadSaveToFirestore: onUploadSaveToFirestore,
+
     );
   }
 }

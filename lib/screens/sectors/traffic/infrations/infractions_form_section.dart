@@ -72,7 +72,7 @@ class InfractionsFormSection extends StatelessWidget {
         enabled: enabled,
         controller: ctrl,
         labelText: label,
-        hint: hintText,
+        hintText: hintText,
         inputFormatters: mask,
         keyboardType: keyboardType,
         maxLength: maxLines,

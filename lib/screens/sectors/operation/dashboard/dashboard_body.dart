@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:sisged/screens/sectors/operation/dashboard/charts_contract_section.dart';
 import 'package:sisged/screens/sectors/operation/dashboard/resumed_measurement_card.dart';
 import 'package:sisged/screens/sectors/operation/dashboard/summary_contract_section.dart';
-import '../../../../_datas/documents/measurement/measurement_data.dart';
+import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
 import '../../../../_widgets/background/background_cleaner.dart';
 import '../../../../_widgets/contractList/contract_list.dart';
 import '../../../../_widgets/texts/divider_text.dart';
@@ -24,7 +24,7 @@ class DashboardBody extends StatefulWidget {
 }
 
 class _DashboardBodyState extends State<DashboardBody> {
-  List<ReportData> filteredMeasurements = [];
+  List<ReportMeasurementData> filteredMeasurements = [];
   int? selectedPointIndex;
   String? selectedContractSummary;
 
@@ -34,7 +34,7 @@ class _DashboardBodyState extends State<DashboardBody> {
 
     return Stack(
       children: [
-        const BackgroundCleaner(),
+        const BackgroundClean(),
         LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(

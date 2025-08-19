@@ -8,7 +8,7 @@ import 'package:sisged/_blocs/system/user_bloc.dart';
 import 'package:sisged/_widgets/background/background_cleaner.dart';
 import 'package:sisged/_widgets/formats/format_field.dart';
 
-import '../../../../../_widgets/archives/pdf/pdf_icon_action.dart';
+import '../../../../../_widgets/archives/pdf/web_pdf_widget.dart';
 import '../../../../../_utils/date_utils.dart';
 import '../../../../../_utils/responsive_utils.dart';
 import '../../../../../_widgets/input/custom_date_field.dart';
@@ -19,15 +19,17 @@ import '../../../../../_widgets/mask_class.dart';
 import '../../../../../_widgets/texts/divider_text.dart';
 import '../../../../../_widgets/validates/form_validation_mixin.dart';
 
-import '../../../../_blocs/documents/contracts/contracts/contracts_bloc.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_store.dart';
 import '../../../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../_widgets/archives/pdf/web_pdf_controller.dart';
 import '../../../../_widgets/formats/input_formatters.dart';
 import '../../../commons/footBar/foot_bar.dart';
 
+import '../../../../_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
 import './main_information_controller.dart';
 import './manager_info_section.dart';
-import './company_info_section.dart'; // << novo import
+import './company_info_section.dart';
 
 class MainInformationPage extends StatefulWidget {
   final void Function(ContractData)? onSaved;
@@ -43,14 +45,12 @@ class _MainInformationPageState extends State<MainInformationPage>
     with FormValidationMixin {
   bool _validationRegistered = false;
 
-  // <<< ADICIONE ESTA LINHA
+  // guardamos a instância para remover os listeners no dispose
   MainInformationController? _c;
 
   void _registerValidationOnce(BuildContext ctx) {
     if (_validationRegistered) return;
     final c = ctx.read<MainInformationController>();
-
-    // <<< GUARDA A REFERÊNCIA PARA USAR NO dispose()
     _c = c;
 
     setupValidation(
@@ -91,7 +91,6 @@ class _MainInformationPageState extends State<MainInformationPage>
   @override
   void dispose() {
     if (_validationRegistered) {
-      // <<< USA A REFERÊNCIA, SEM context.read NO dispose()
       final c = _c;
       if (c != null) {
         removeValidation([
@@ -126,39 +125,37 @@ class _MainInformationPageState extends State<MainInformationPage>
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<MainInformationController>(
-      create:
-          (ctx) => MainInformationController(
-            contractsBloc: ContractsBloc(),
-            userBloc: UserBloc(),
-            moduleKey: 'contracts',
-            forceEditable: true,
-          )..init(ctx, initial: widget.contractData),
+      create: (ctx) => MainInformationController(
+        // ✅ Injeções corretas
+        contractsStore: ctx.read<ContractsStore>(),              // Firestore (CRUD/URL)
+        contractStorageBloc: ctx.read<ContractStorageBloc>(),    // Storage (upload/url/delete)
+        userBloc: ctx.read<UserBloc>(),
+        moduleKey: 'contracts',
+        forceEditable: true,
+      )..init(ctx, initial: widget.contractData),
       builder: (context, _) {
+        // registra validação uma única vez, no pós-frame
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _registerValidationOnce(context);
         });
 
         final c = context.watch<MainInformationController>();
-
         const pdfIconWidth = 98.0;
-        const gapBetweenPdfAndInputs = 12.0;
 
         return Scaffold(
           floatingActionButton: FloatingActionButton.extended(
             backgroundColor:
-                c.isBtnEnabled ? Colors.blue.shade300 : Colors.grey.shade400,
-            onPressed:
-                c.isEditable
-                    ? () => c.saveInformation(context, onSaved: widget.onSaved)
-                    : null,
-            icon:
-                c.isSaving
-                    ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                    : const Icon(Icons.save, color: Colors.white),
+            c.isBtnEnabled ? Colors.blue.shade300 : Colors.grey.shade400,
+            onPressed: c.isEditable
+                ? () => c.saveInformation(context, onSaved: widget.onSaved)
+                : null,
+            icon: c.isSaving
+                ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : const Icon(Icons.save, color: Colors.white),
             label: Text(
               c.isSaving
                   ? 'Salvando...'
@@ -169,36 +166,33 @@ class _MainInformationPageState extends State<MainInformationPage>
           backgroundColor: Colors.white,
           body: Stack(
             children: [
-              const BackgroundCleaner(),
+              const BackgroundClean(),
               LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
+                      constraints:
+                      BoxConstraints(minHeight: constraints.maxHeight),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Form(
                             key: c.formKey,
-                            autovalidateMode:
-                                c.showErrors
-                                    ? AutovalidateMode.always
-                                    : AutovalidateMode.disabled,
+                            autovalidateMode: c.showErrors
+                                ? AutovalidateMode.always
+                                : AutovalidateMode.disabled,
                             child: Column(
                               children: [
                                 const SizedBox(height: 12),
-                                const DividerText(
-                                  title: 'Informações da empresa',
-                                ),
+                                const DividerText(title: 'Informações da empresa'),
                                 const SizedBox(height: 12),
                                 CompanyInfoSection(controller: c),
+
                                 const SizedBox(height: 12),
                                 const DividerText(
-                                  title: 'Informações gerais do contrato',
-                                ),
+                                    title: 'Informações gerais do contrato'),
                                 const SizedBox(height: 12),
+
                                 Wrap(
                                   spacing: 12,
                                   runSpacing: 12,
@@ -217,10 +211,9 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         labelText: 'Status do contrato',
                                         items: ContractRules.statusTypes,
                                         controller: c.contractStatusCtrl,
-                                        onChanged:
-                                            (value) =>
-                                                c.contractData.contractStatus =
-                                                    value,
+                                        onChanged: (value) =>
+                                        c.contractData.contractStatus =
+                                            value,
                                       ),
                                     ),
                                     SizedBox(
@@ -236,10 +229,8 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         enabled: c.isEditable,
                                         labelText: 'Nº do processo',
                                         controller:
-                                            c.contractBiddingProcessNumberCtrl,
-                                        inputFormatters: [
-                                          processoMaskFormatter,
-                                        ],
+                                        c.contractBiddingProcessNumberCtrl,
+                                        inputFormatters: [processoMaskFormatter],
                                         keyboardType: TextInputType.number,
                                       ),
                                     ),
@@ -256,9 +247,7 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         enabled: c.isEditable,
                                         labelText: 'Nº do contrato',
                                         controller: c.contractNumberCtrl,
-                                        inputFormatters: [
-                                          contractMaskFormatter,
-                                        ],
+                                        inputFormatters: [contractMaskFormatter],
                                         keyboardType: TextInputType.number,
                                       ),
                                     ),
@@ -274,13 +263,13 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         enabled: c.isEditable,
                                         labelText: 'Valor contratado',
                                         controller:
-                                            c.initialValueOfContractCtrl,
+                                        c.initialValueOfContractCtrl,
                                         inputFormatters: [
                                           CurrencyInputFormatter(
                                             leadingSymbol: 'R\$',
                                             useSymbolPadding: true,
                                             thousandSeparator:
-                                                ThousandSeparator.Period,
+                                            ThousandSeparator.Period,
                                           ),
                                         ],
                                         validator: validateRequired,
@@ -316,7 +305,7 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         enabled: c.isEditable,
                                         labelText: 'Resumo do objeto',
                                         controller:
-                                            c.summarySubjectContractCtrl,
+                                        c.summarySubjectContractCtrl,
                                       ),
                                     ),
                                     SizedBox(
@@ -349,8 +338,7 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         controller: c.contractTextKmCtrl,
                                         inputFormatters: [
                                           ThreeDecimalTextInputFormatter(
-                                            decimalDigits: 3,
-                                          ),
+                                              decimalDigits: 3),
                                         ],
                                         keyboardType: TextInputType.number,
                                       ),
@@ -380,15 +368,12 @@ class _MainInformationPageState extends State<MainInformationPage>
                                       child: CustomDateField(
                                         controller: c.datapublicacaodoeCtrl,
                                         initialValue:
-                                            c.contractData.publicationDateDoe,
+                                        c.contractData.publicationDateDoe,
                                         labelText: 'Data de publicação do DOE',
                                         enabled: c.isEditable,
-                                        validator:
-                                            (_) => validateDate(
-                                              stringToDate(
-                                                c.datapublicacaodoeCtrl.text,
-                                              ),
-                                            ),
+                                        validator: (_) => validateDate(
+                                            stringToDate(
+                                                c.datapublicacaodoeCtrl.text)),
                                         onChanged: (date) {
                                           c.contractData.publicationDateDoe =
                                               date;
@@ -408,9 +393,9 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         validator: validateRequired,
                                         enabled: c.isEditable,
                                         labelText:
-                                            'Validade do contrato (Dias)',
+                                        'Validade do contrato (Dias)',
                                         controller:
-                                            c.initialValidityContractDaysCtrl,
+                                        c.initialValidityContractDaysCtrl,
                                         inputFormatters: [
                                           FilteringTextInputFormatter
                                               .digitsOnly,
@@ -431,9 +416,9 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         validator: validateRequired,
                                         enabled: c.isEditable,
                                         labelText:
-                                            'Validade da execução (Dias)',
+                                        'Validade da execução (Dias)',
                                         controller:
-                                            c.initialValidityExecutionDaysCtrl,
+                                        c.initialValidityExecutionDaysCtrl,
                                         inputFormatters: [
                                           FilteringTextInputFormatter
                                               .digitsOnly,
@@ -444,25 +429,28 @@ class _MainInformationPageState extends State<MainInformationPage>
                                     ),
                                   ],
                                 ),
+
                                 const SizedBox(height: 12),
+
+                                // PDF + Descrição
                                 Wrap(
                                   spacing: 12,
                                   runSpacing: 12,
                                   children: [
                                     if (c.contractData.id != null)
-                                      SizedBox(width: 12),
                                       SizedBox(
                                         width: pdfIconWidth,
                                         child: Column(
                                           children: [
-                                            SizedBox(height: 5),
-                                            PdfFileIconActionGeneric(
+                                            const SizedBox(height: 5),
+                                            WebPdfWidgetGeneric(
                                               type: PDFType.contract,
-                                              contractBloc: c.contractsBloc,
+                                              // ✅ seu widget precisa ter suporte a ContractStorageBloc
+                                              contractStorageBloc:
+                                              c.contractStorageBloc,
                                               contractData: c.contractData,
-                                              onUploadSaveToFirestore: (
-                                                  url,
-                                                  ) async {
+                                              onUploadSaveToFirestore:
+                                                  (url) async {
                                                 if (c.contractData.id != null) {
                                                   await c
                                                       .salvarUrlPdfDoContratoEAtualizarUI(
@@ -470,8 +458,7 @@ class _MainInformationPageState extends State<MainInformationPage>
                                                     contractId:
                                                     c.contractData.id!,
                                                     url: url,
-                                                    onSaved:
-                                                        (cd) => widget
+                                                    onSaved: (cd) => widget
                                                         .onSaved
                                                         ?.call(cd),
                                                   );
@@ -482,41 +469,12 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         ),
                                       ),
                                     SizedBox(
-                                      width: pdfIconWidth,
-                                      child: Column(
-                                        children: [
-                                          SizedBox(height: 5),
-                                          PdfFileIconActionGeneric(
-                                            type: PDFType.contract,
-                                            contractBloc: c.contractsBloc,
-                                            contractData: c.contractData,
-                                            onUploadSaveToFirestore: (
-                                                url,
-                                                ) async {
-                                              if (c.contractData.id != null) {
-                                                await c
-                                                    .salvarUrlPdfDoContratoEAtualizarUI(
-                                                  context,
-                                                  contractId:
-                                                  c.contractData.id!,
-                                                  url: url,
-                                                  onSaved:
-                                                      (cd) => widget.onSaved
-                                                      ?.call(cd),
-                                                );
-                                              }
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    SizedBox(
                                       width: responsiveInputWidth(
                                         context: context,
                                         itemsPerLine: 1,
                                         spacing: 12,
                                         margin: 12,
-                                        reservedWidth: 244
+                                        reservedWidth: pdfIconWidth + 12,
                                       ),
                                       child: CustomTextMaxLinesField(
                                         enabled: c.isEditable,
@@ -528,13 +486,12 @@ class _MainInformationPageState extends State<MainInformationPage>
                                         validator: validateRequired,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
                                   ],
                                 ),
+
                                 const SizedBox(height: 12),
                                 const DividerText(
-                                  title: 'Informações do gestor do contrato',
-                                ),
+                                    title: 'Informações do gestor do contrato'),
                                 const SizedBox(height: 12),
                                 ManagerInfoSection(controller: c),
                               ],

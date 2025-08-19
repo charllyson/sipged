@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_rules.dart';
 import 'package:sisged/_widgets/input/custom_date_field.dart';
 import 'package:sisged/_widgets/input/custom_text_field.dart';
 import 'package:sisged/_widgets/input/drop_down_botton_change.dart';
@@ -8,8 +10,9 @@ import 'package:sisged/_widgets/formats/input_formatters.dart';
 import 'package:sisged/_utils/responsive_utils.dart';
 import '../../../../../_widgets/mask_class.dart';
 import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../../../_widgets/archives/pdf/pdf_icon_action.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../_widgets/archives/pdf/web_pdf_controller.dart';
+import '../../../../_widgets/archives/pdf/web_pdf_widget.dart';
 
 class AdditiveFormSection extends StatelessWidget {
   final bool isEditable;
@@ -18,6 +21,8 @@ class AdditiveFormSection extends StatelessWidget {
   final AdditiveData? selectedAdditive;
   final String? currentAdditiveId;
   final ContractData contractData;
+  final AdditivesStorageBloc additivesStorageBloc;
+
 
   final TextEditingController orderController;
   final TextEditingController processController;
@@ -29,7 +34,6 @@ class AdditiveFormSection extends StatelessWidget {
 
   final VoidCallback onSave;
   final VoidCallback onClear;
-  final Future<void> Function(String url) onUploadSaveToFirestore;
 
   const AdditiveFormSection({
     super.key,
@@ -39,6 +43,7 @@ class AdditiveFormSection extends StatelessWidget {
     required this.selectedAdditive,
     required this.currentAdditiveId,
     required this.contractData,
+    required this.additivesStorageBloc,
     required this.orderController,
     required this.processController,
     required this.dateController,
@@ -48,7 +53,6 @@ class AdditiveFormSection extends StatelessWidget {
     required this.additionalDaysContractController,
     required this.onSave,
     required this.onClear,
-    required this.onUploadSaveToFirestore,
   });
 
   bool exibeValor() =>
@@ -110,12 +114,12 @@ class AdditiveFormSection extends StatelessWidget {
 
   Widget _buildPdfWidget() {
     if (currentAdditiveId == null || selectedAdditive == null) return const SizedBox.shrink();
-    return PdfFileIconActionGeneric(
+    return WebPdfWidgetGeneric(
       key: Key(currentAdditiveId!),
       type: PDFType.additives,
       contractData: contractData,
       specificData: selectedAdditive!,
-      onUploadSaveToFirestore: onUploadSaveToFirestore,
+      additivesStorageBloc: additivesStorageBloc,
     );
   }
 
@@ -143,7 +147,7 @@ class AdditiveFormSection extends StatelessWidget {
               width: getInputWidth(context),
               enabled: isEditable,
               labelText: 'Tipo de Aditivo',
-              items: AdditiveData.type,
+              items: AdditiveRules.type,
               controller: typeOfAdditiveCtrl,
               onChanged: (value) {
                 if (selectedAdditive != null) {

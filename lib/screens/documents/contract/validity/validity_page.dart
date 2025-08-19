@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_datas/documents/contracts/additive/additive_data.dart';
 import '../../../../_datas/documents/contracts/validity/validity_data.dart';
 import '../../../../../_widgets/timeline/timeline_class.dart';
@@ -71,8 +71,7 @@ class ValidityPage extends StatelessWidget {
                               isSaving: ctrl.isSaving,
                               formValidated: ctrl.formValidated,
                               contractData: ctrl.contract,
-                              contractsBloc: ctrl.contractsBloc,
-                              validityBloc: ctrl.validityBloc,
+                              validityStorageBloc: ctrl.validityStorageBloc,
                               onChangeDate: ctrl.onChangeDate,
                               onClear: ctrl.createNew,
                               onSaveOrUpdate: () async {

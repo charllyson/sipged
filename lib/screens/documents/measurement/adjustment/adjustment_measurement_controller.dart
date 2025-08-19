@@ -8,13 +8,13 @@ import 'package:sisged/_widgets/formats/format_field.dart';
 
 import '../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
 import '../../../../_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
-import '../../../../_blocs/documents/measurement/measurement_bloc.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../../../_datas/documents/measurement/measurement_data.dart';
+import '../../../../_blocs/documents/measurement/report/report_measurement_bloc.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
 import '../../../../_utils/handle_selection_utils.dart';
 
 class AdjustmentMeasurementController extends ChangeNotifier with FormValidationMixin {
-  final ReportsBloc _measurementBloc = ReportsBloc();
+  final ReportMeasurementBloc _measurementBloc = ReportMeasurementBloc();
   final AdditivesBloc _additivesBloc = AdditivesBloc();
   final ApostillesBloc _apostillesBloc = ApostillesBloc();
   final UserBloc _userBloc = UserBloc();
@@ -28,12 +28,12 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
   int? selectedLine;
 
   // dados carregados
-  List<ReportData> adjustments = [];
+  List<ReportMeasurementData> adjustments = [];
   double totalApostilles = 0.0;   // soma das apostilas
   double totalAdditives = 0.0;    // soma dos aditivos
 
   // seleção
-  ReportData? selectedAdjustment;
+  ReportMeasurementData? selectedAdjustment;
   String? currentAdjustmentId;
 
   // controllers de input
@@ -101,7 +101,7 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
     }
   }
 
-  void fillFields(ReportData data) {
+  void fillFields(ReportMeasurementData data) {
     selectedAdjustment = data;
     currentAdjustmentId = data.idAdjustmentMeasurement;
 
@@ -136,7 +136,7 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
     isSaving = true;
     notifyListeners();
 
-    final novo = ReportData(
+    final novo = ReportMeasurementData(
       contractId: contract.id!,
       idAdjustmentMeasurement: currentAdjustmentId,
       orderAdjustmentMeasurement: int.tryParse(orderCtrl.text),
@@ -175,7 +175,7 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
   }
 
   // ---------- Seleção (gráfico/tabela) ----------
-  void applySelectionList(List<ReportData> list) {
+  void applySelectionList(List<ReportMeasurementData> list) {
     // se quiser manter uma cópia; hoje usamos `adjustments` direto
   }
 
@@ -188,8 +188,8 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
     }
   }
 
-  void handleSelect(ReportData data) {
-    handleGenericSelection<ReportData>(
+  void handleSelect(ReportMeasurementData data) {
+    handleGenericSelection<ReportMeasurementData>(
       data: data,
       list: adjustments,
       getOrder: (e) => e.orderAdjustmentMeasurement,

@@ -1,21 +1,30 @@
+// lib/_controllers/documents/contracts/validity/validity_controller.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:sisged/_blocs/system/user_bloc.dart';
 import 'package:sisged/_provider/user/user_provider.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
 import '../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
-import '../../../../_blocs/documents/contracts/contracts/contracts_bloc.dart';
+import '../../../../_blocs/documents/contracts/contracts/contract_bloc.dart';
 import '../../../../_blocs/documents/contracts/validity/validity_bloc.dart';
+import '../../../../_blocs/documents/contracts/validity/validity_storage_bloc.dart';
 import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_datas/documents/contracts/validity/validity_data.dart';
 
 class ValidityController extends ChangeNotifier with FormValidationMixin {
-  final ContractsBloc _contractsBloc = ContractsBloc();
+  // Blocs Firestore
+  final ContractBloc _contractsBloc = ContractBloc();
   final AdditivesBloc _additivesBloc = AdditivesBloc();
   final ValidityBloc _validityBloc = ValidityBloc();
+
+  // Storage (‼️ novo)
+  final ValidityStorageBloc validityStorageBloc;
+
+  // Permissões
   final UserBloc _userBloc = UserBloc();
 
   final ContractData contract;
@@ -40,7 +49,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   final orderTypeCtrl = TextEditingController();
   final orderDateCtrl = TextEditingController();
 
-  ValidityController({required this.contract}) {
+  ValidityController({
+    required this.contract,
+    ValidityStorageBloc? storageBloc, // injetável
+  }) : validityStorageBloc = storageBloc ?? ValidityStorageBloc() {
     _init();
   }
 
@@ -66,7 +78,7 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   Future<void> _loadInitialData(String contractId) async {
     futureValidity = _validityBloc.getAllValidityOfContract(uidContract: contractId);
     futureAdditives = _additivesBloc.getAllAdditivesOfContract(uidContract: contractId);
-    futureContractList = _contractsBloc.getSpecificContract(uidContract: contractId).then((c) => [c]);
+    futureContractList = _contractsBloc.getSpecificContract(uidContract: contractId).then((c) => [c!]);
     notifyListeners();
   }
 
@@ -77,7 +89,11 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         .map((v) => int.tryParse(v.orderNumber?.toString() ?? ''))
         .whereType<int>()
         .toList();
-    final nextOrder = existingOrders.isEmpty ? 1 : (existingOrders.reduce((a, b) => a > b ? a : b) + 1);
+
+    final nextOrder = existingOrders.isEmpty
+        ? 1
+        : (existingOrders.reduce((a, b) => a > b ? a : b) + 1);
+
     final newOrdersAvailable = getRulesOrders(validities);
 
     orderCtrl.text = nextOrder.toString();
@@ -166,7 +182,9 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     currentValidityId = data.id;
 
     orderCtrl.text = data.orderNumber?.toString() ?? '';
-    orderDateCtrl.text = data.orderdate != null ? convertDateTimeToDDMMYYYY(data.orderdate!) : '';
+    orderDateCtrl.text = data.orderdate != null
+        ? convertDateTimeToDDMMYYYY(data.orderdate!)
+        : '';
     orderTypeCtrl.text = data.ordertype ?? '';
 
     if (data.ordertype != null && !availableOrders.contains(data.ordertype)) {
@@ -192,9 +210,25 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     notifyListeners();
   }
 
-  // Expor blocos para o PdfFileIconActionGeneric (mantém API das sections)
-  ContractsBloc get contractsBloc => _contractsBloc;
-  ValidityBloc get validityBloc => _validityBloc;
+
+  // ------- (Opcional) helper de upload + metadado usando o storage bloc -------
+  Future<void> uploadPdf({
+    required void Function(double) onProgress,
+  }) async {
+    if (contract.id == null || selectedValidityData?.id == null) return;
+    final c = contract;
+    final v = selectedValidityData!;
+    final url = await validityStorageBloc.uploadWithPicker(
+      contract: c,
+      validade: v,
+      onProgress: onProgress,
+    );
+    await validityStorageBloc.salvarUrlPdfDaValidade(
+      contractId: c.id!,
+      validadeId: v.id!,
+      url: url,
+    );
+  }
 
   @override
   void dispose() {

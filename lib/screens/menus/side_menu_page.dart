@@ -1,24 +1,23 @@
-// lib/screens/menus/side_menu_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_store.dart';
 
 import 'package:sisged/_provider/user/user_provider.dart';
 import 'package:sisged/screens/commons/listContracts/list_contract_page.dart';
 import 'package:sisged/screens/sectors/financial/dashboard/dashboard_financial_page.dart';
 import 'package:sisged/screens/sectors/financial/tab_bar_financial_page.dart';
 import 'package:sisged/screens/sectors/operation/desapropriation/desapropriation_page.dart';
-import 'package:sisged/screens/sectors/operation/schedule/physical_schedule.dart';
+import 'package:sisged/screens/sectors/operation/schedule/schedule_page.dart';
 import 'package:sisged/screens/sectors/planning/planning_dashboard.dart';
 import 'package:sisged/screens/sectors/planning/planning_registration_page.dart';
 import 'package:sisged/screens/menus/drawer_menu.dart';
-import 'package:sisged/screens/actives/oaes/records/modal_oaes_registration_page.dart';
-import 'package:sisged/screens/actives/roads/dashboard/modal_road_dashboard.dart';
-import 'package:sisged/screens/actives/roads/records/modal_road_registration_page.dart';
+import 'package:sisged/screens/actives/oaes/active_oaes_records_page.dart';
+import 'package:sisged/screens/actives/roads/active_roads_dashboard_page.dart';
+import 'package:sisged/screens/actives/roads/active_roads_records_page.dart';
 
 import 'package:sisged/_datas/system/pages_data.dart';
 import 'package:sisged/_widgets/buttons/float_button_menu.dart';
-import 'package:sisged/screens/actives/roads/network/modal_road_network_page.dart';
-import 'package:sisged/screens/actives/oaes/network/modal_oaes_network_page.dart';
+import 'package:sisged/screens/actives/oaes/active_oaes_network_page.dart';
 import 'package:sisged/screens/commons/listContracts/list_contracts_controller.dart';
 import 'package:sisged/screens/documents/contract/tab_bar_contract_page.dart';
 import 'package:sisged/screens/documents/measurement/tab_bar_measurement_page.dart';
@@ -28,7 +27,14 @@ import 'package:sisged/screens/sectors/traffic/accidents/accidents_page.dart';
 import 'package:sisged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
 import 'package:sisged/screens/sectors/traffic/infrations/infractions_page.dart';
 
+import '../../_blocs/system/user_bloc.dart';
+import '../../_datas/actives/oaes/active_oaes_store.dart';
+import '../../_datas/documents/contracts/additive/additive_store.dart';
+import '../../_datas/documents/contracts/apostilles/apostilles_store.dart';
 import '../../_datas/documents/contracts/contracts/contract_store.dart';
+import '../actives/oaes/active_oaes_controller.dart';
+import '../actives/oaes/active_oaes_dashboard.dart';
+import '../actives/roads/active_roads_network_page.dart';
 
 class SideMenuPage extends StatefulWidget {
   const SideMenuPage({super.key});
@@ -39,6 +45,7 @@ class SideMenuPage extends StatefulWidget {
 
 class _SideMenuPageState extends State<SideMenuPage> {
   MenuItem _selectedItem = MenuItem.documentsContractsRecords;
+  bool _didWarmup = false;
 
   void _onSelectPage(MenuItem item) {
     setState(() => _selectedItem = item);
@@ -48,7 +55,9 @@ class _SideMenuPageState extends State<SideMenuPage> {
   Widget _buildContractsListPage(ContractNavigationCallback onTap) {
     return ChangeNotifierProvider<ListContractsController>(
       create: (ctx) => ListContractsController.create(ctx),
-      child: ListContractsFilteredPage(onTapItem: onTap),
+      child: ListContractsFilteredPage(
+          onTapItem: onTap,
+      ),
     );
   }
 
@@ -57,9 +66,16 @@ class _SideMenuPageState extends State<SideMenuPage> {
     /// SETOR DE DOCUMENTOS ///
       case MenuItem.documentsContractsDashboard:
         return ChangeNotifierProvider(
-          create: (ctx) => DashboardController(
-            store: ctx.read<ContractsStore>(),  // ⭐️ injeta o STORE
-          )..initialize(),
+          create: (ctx) {
+            final ctrl = DashboardController(
+              store: ctx.read<ContractsStore>(),
+              additivesStore: ctx.read<AdditivesStore>(),
+              apostillesStore: ctx.read<ApostillesStore>(),
+              reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
+            );
+            WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.initialize());
+            return ctrl;
+          },
           child: const Scaffold(
             backgroundColor: Colors.white,
             body: DashboardBody(),
@@ -68,18 +84,28 @@ class _SideMenuPageState extends State<SideMenuPage> {
 
       case MenuItem.documentsContractsRecords:
         return _buildContractsListPage((context, contract) {
-          // 🔹 grava o selecionado no store e navega
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const TabBarContractPage()),
+            MaterialPageRoute(
+              builder: (_) => TabBarContractPage(
+                contractData: contract,
+              ),
+            ),
           );
         });
 
       case MenuItem.documentsMeasurementsDashboard:
         return ChangeNotifierProvider(
-          create: (ctx) => DashboardController(
-            store: ctx.read<ContractsStore>(),  // ⭐️ injeta o STORE
-          )..initialize(),
+          create: (ctx) {
+            final ctrl = DashboardController(
+              store: ctx.read<ContractsStore>(),
+              additivesStore: ctx.read<AdditivesStore>(),
+              apostillesStore: ctx.read<ApostillesStore>(),
+              reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
+            );
+            WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.initialize());
+            return ctrl;
+          },
           child: const Scaffold(
             backgroundColor: Colors.white,
             body: DashboardBody(),
@@ -90,7 +116,9 @@ class _SideMenuPageState extends State<SideMenuPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const TabBarMeasurementPage()),
+            MaterialPageRoute(builder: (_) => TabBarMeasurementPage(
+              contractData: contract,
+            )),
           );
         });
 
@@ -99,15 +127,24 @@ class _SideMenuPageState extends State<SideMenuPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PhysicalSchedule()),
+            MaterialPageRoute(builder: (_) => SchedulePage(
+              contractData: contract,
+            )),
           );
         });
 
       case MenuItem.operationExpropriationDashboard:
         return ChangeNotifierProvider(
-          create: (ctx) => DashboardController(
-            store: ctx.read<ContractsStore>(),  // ⭐️ injeta o STORE
-          )..initialize(),
+          create: (ctx) {
+            final ctrl = DashboardController(
+              store: ctx.read<ContractsStore>(),
+              additivesStore: ctx.read<AdditivesStore>(),
+              apostillesStore: ctx.read<ApostillesStore>(),
+              reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
+            );
+            WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.initialize());
+            return ctrl;
+          },
           child: const Scaffold(
             backgroundColor: Colors.white,
             body: DashboardBody(),
@@ -119,7 +156,7 @@ class _SideMenuPageState extends State<SideMenuPage> {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => DesapropriationPage(contractData: contract), // pode migrar p/ const + store depois
+              builder: (_) => DesapropriationPage(contractData: contract),
             ),
           );
         });
@@ -148,7 +185,9 @@ class _SideMenuPageState extends State<SideMenuPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const TabBarFinancialPage()),
+            MaterialPageRoute(builder: (_) => TabBarFinancialPage(
+              contractData: contract, // ✅ passa o contrato selecionado
+            )),
           );
         });
 
@@ -159,49 +198,63 @@ class _SideMenuPageState extends State<SideMenuPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const TabBarFinancialPage()),
+            MaterialPageRoute(builder: (_) => TabBarFinancialPage(
+              contractData: contract, // ✅ passa o contrato selecionado
+            )),
           );
         });
 
     /// ATIVOS DE RODOVIAS ///
       case MenuItem.activeRoadDashboard:
-        return const ModalRoadDashboardPage();
+        return const ActiveRoadsDashboardPage();
       case MenuItem.activeRoadNetwork:
-        return const ModalRoadNetworkPage();
+        return const ActiveRoadsNetworkPage();
       case MenuItem.activeRoadRegistration:
-        return const ModalRoadRegistrationPage();
+        return const ActiveRoadsRecordsPage();
 
     /// ATIVOS DE OAEs ///
       case MenuItem.activeOAEsDashboard:
-        return const ModalRoadDashboardPage();
+        return const ActiveOaesDashboardPage();
       case MenuItem.activesOAEsNetwork:
-        return const ModalOAEsNetworkPage();
+        return ChangeNotifierProvider(
+          create: (ctx) => ActiveOaesController(
+            store: ctx.read<ActiveOaesStore>(),
+            userBloc: ctx.read<UserBloc>(),
+          ),
+          child: const ActiveOAEsNetworkPage(),
+        );
       case MenuItem.activeOAEsRegistration:
-        return const ModalOaesRegistrationPage();
+        return ChangeNotifierProvider(
+          create: (ctx) => ActiveOaesController(
+            store: ctx.read<ActiveOaesStore>(),
+            userBloc: ctx.read<UserBloc>(),
+          ),
+          child: const ActiveOaesRecordsPage(),
+        );
 
     /// ATIVOS DE AEROPORTOS ///
       case MenuItem.activeAirportsDashboard:
-        return const ModalRoadDashboardPage();
+        return const ActiveRoadsDashboardPage();
       case MenuItem.activeAirportsNetwork:
-        return const ModalRoadNetworkPage();
+        return const ActiveRoadsNetworkPage();
       case MenuItem.activeAirportsRegistration:
-        return const ModalRoadRegistrationPage();
+        return const ActiveRoadsRecordsPage();
 
     /// ATIVOS DE FERROVIAS ///
       case MenuItem.activeRailwaysDashboard:
-        return const ModalRoadDashboardPage();
+        return const ActiveRoadsDashboardPage();
       case MenuItem.activeRailwaysNetwork:
-        return const ModalRoadNetworkPage();
+        return const ActiveRoadsNetworkPage();
       case MenuItem.activeRailwaysRegistration:
-        return const ModalRoadRegistrationPage();
+        return const ActiveRoadsRecordsPage();
 
     /// ATIVOS DE PORTOS ///
       case MenuItem.activePortsDashboard:
-        return const ModalRoadDashboardPage();
+        return const ActiveRoadsDashboardPage();
       case MenuItem.activePortsNetwork:
-        return const ModalRoadNetworkPage();
+        return const ActiveRoadsNetworkPage();
       case MenuItem.activeRegistrationPorts:
-        return const ModalRoadRegistrationPage();
+        return const ActiveRoadsRecordsPage();
     }
   }
 
@@ -218,8 +271,13 @@ class _SideMenuPageState extends State<SideMenuPage> {
           );
         }
 
-        // 🔹 garante a 1ª carga de contratos (idempotente)
-        context.read<ContractsStore>().warmup(userData);
+        // ✅ Agende apenas uma vez após o primeiro frame
+        if (!_didWarmup) {
+          _didWarmup = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            context.read<ContractsStore>().warmup(userData);
+          });
+        }
 
         return Scaffold(
           backgroundColor: Colors.white,

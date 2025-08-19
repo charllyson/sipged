@@ -1,21 +1,30 @@
+// lib/_controllers/documents/contracts/additives/additive_controller.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
+
 import 'package:sisged/_blocs/system/user_bloc.dart';
 import 'package:sisged/_provider/user/user_provider.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/formats/format_field.dart';
 import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
-import '../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
 import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/additive/additive_store.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_utils/handle_selection_utils.dart';
 
 class AdditiveController extends ChangeNotifier with FormValidationMixin {
-  final AdditivesBloc _additivesBloc = AdditivesBloc();
-  final UserBloc _userBloc = UserBloc();
+  // ✅ Injetados
+  final AdditivesStore store;
+  final UserBloc userBloc;
 
+  // Acesso ao bloc Firestore (se necessário em pontos específicos)
+  // Prefira usar os métodos do Store (saveOrUpdate/delete etc.)
   final ContractData contract;
+
+  final AdditivesStorageBloc additivesStorageBloc;
+
 
   // --- State
   late Future<List<AdditiveData>> futureAdditives;
@@ -39,7 +48,12 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
   final processCtrl = TextEditingController();
   final typeCtrl = TextEditingController();
 
-  AdditiveController({required this.contract}) {
+  AdditiveController({
+    required this.contract,
+    required this.store,
+    required this.userBloc,
+    AdditivesStorageBloc? storageBloc, // injetável
+  }) : additivesStorageBloc = storageBloc ?? AdditivesStorageBloc() {
     _init();
   }
 
@@ -64,7 +78,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
   Future<void> postFrameInit(BuildContext context) async {
     final user = Provider.of<UserProvider>(context, listen: false).userData;
     if (user != null) {
-      isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
+      isEditable = userBloc.getUserCreateEditPermissions(userData: user);
       notifyListeners();
     }
   }
@@ -72,11 +86,14 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
   // --------- LOADS ---------
   Future<List<AdditiveData>> _getAll() async {
     if (contract.id == null) return [];
-    return _additivesBloc.getAllAdditivesOfContract(uidContract: contract.id!);
+    await store.ensureFor(contract.id!);
+    return store.listFor(contract.id!);
   }
 
   Future<void> reload() async {
-    futureAdditives = _getAll();
+    if (contract.id == null) return;
+    await store.refreshFor(contract.id!);
+    futureAdditives = Future.value(store.listFor(contract.id!));
     notifyListeners();
   }
 
@@ -158,7 +175,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
 
   String _onlyDigits(String s) => s.replaceAll(RegExp(r'[^\d]'), '');
 
-  // --------- SAVE / UPDATE ---------
+  // --------- SAVE / UPDATE (Firestore via Store) ---------
   Future<void> saveOrUpdate(BuildContext context) async {
     if (contract.id == null) return;
 
@@ -176,8 +193,8 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
       typeOfAdditive: typeCtrl.text,
     );
 
-    await _additivesBloc.salvarOuAtualizarAditivo(novo, contract.id!);
-    futureAdditives = _getAll();
+    await store.saveOrUpdate(contract.id!, novo);
+    await reload();
     createNew();
 
     isSaving = false;
@@ -193,10 +210,10 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
-  // --------- DELETE ---------
+  // --------- DELETE (Firestore via Store) ---------
   Future<void> deleteAdditive(BuildContext context, String additiveId) async {
     if (contract.id == null) return;
-    await _additivesBloc.deleteAdditive(contract.id!, additiveId);
+    await store.delete(contract.id!, additiveId);
     await reload();
 
     if (context.mounted) {
@@ -208,7 +225,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
 
   // --------- TABLE / GRAPH SELECTION ---------
   void applySnapshot(List<AdditiveData> list) {
-    _lastSnapshotData = list;
+    _lastSnapshotData = list; // sem notify (evita rebuilds durante build)
   }
 
   void onSelectGraphIndex(int index) {
@@ -235,15 +252,31 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     );
   }
 
-  // --------- PDF ---------
-  Future<void> savePdfUrl(String url) async {
+  // --------- PDF (metadado via Store; upload via Store se desejar) ---------
+  Future<void> uploadValidityPdf({
+    required void Function(double) onProgress,
+  }) async {
     if (contract.id == null || selectedAdditive?.id == null) return;
-    await _additivesBloc.salvarUrlPdfDoAditivo(
-      contractId: contract.id!,
-      additiveId: selectedAdditive!.id!,
+    final c = contract;
+    final v = selectedAdditive!;
+    final url = await additivesStorageBloc.uploadWithPicker(
+      contract: c,
+      additive: v,
+      onProgress: onProgress,
+    );
+    await additivesStorageBloc.salvarUrlPdfDoAditivo(
+      contractId: c.id!,
+      additiveId: v.id!,
       url: url,
     );
   }
+
+  // Exemplo de uso de upload (chame da UI quando quiser):
+  // await store.uploadPdfWithProgress(
+  //   contract: contract,
+  //   additive: selectedAdditive!,
+  //   onProgress: (p) { /* setState progress */ },
+  // );
 
   // --------- DISPOSE ---------
   @override

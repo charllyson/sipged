@@ -1,41 +1,49 @@
 import 'package:flutter/material.dart';
+import 'schedule_lane_class.dart';
+import 'schedule_grid.dart';
 
-import 'highway_class.dart';
+class ScheduleLegend extends StatelessWidget {
+  const ScheduleLegend({
+    super.key,
+    required this.faixas,
+    required this.legendWidth,
+    required this.headerHeight,
+    required this.columnHeight,
+  });
 
-class Legend extends StatelessWidget {
-  final List<HighwayClass> faixas;
-
-  const Legend({super.key, required this.faixas});
+  final List<ScheduleLaneClass> faixas;
+  final double legendWidth;
+  final double headerHeight;
+  final double columnHeight;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        const SizedBox(height: 20),
-        ...faixas.map(
-              (faixa) => Container(
-            height: faixa.altura,
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 8),
-            child: SizedBox(
-              width: 100,
-              child: Text(
-                faixa.label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 1.0,
-                  fontWeight: FontWeight.w600,
-                  overflow: TextOverflow.ellipsis,
+    return SizedBox(
+      height: columnHeight, // 🔹 altura fixa
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: headerHeight),
+          for (final f in faixas)
+            SizedBox(
+              height: f.altura + ScheduleGrid.kCellVPad * 2,
+              width: legendWidth,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    vertical: ScheduleGrid.kCellVPad),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    f.nome,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                maxLines: 1,
-                textAlign: TextAlign.right,
               ),
             ),
-          ),
-        ),
-        const SizedBox(height: 20),
-      ],
+        ],
+      ),
     );
   }
 }

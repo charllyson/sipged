@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
 
-import '../../../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../../../../_datas/sectors/financial/payments/payments_revisions_data.dart';
+import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../../_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
 import '../../../../../_widgets/formats/format_field.dart';
 import '../../../../documents/footer_rows_generic.dart';
 

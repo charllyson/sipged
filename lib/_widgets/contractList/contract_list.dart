@@ -3,7 +3,7 @@ import 'package:sisged/_datas/documents/contracts/contracts/contract_style.dart'
 import 'package:sisged/_widgets/formats/format_field.dart';
 
 import '../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../screens/documents/contract/tab_bar_contract_page.dart';
 
 class ContractList extends StatelessWidget {

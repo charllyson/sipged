@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../../../_widgets/map/mapa_page.dart';
+import '../../../../_widgets/map/map_interactive.dart';
 import '../../../../_services/regional_geo_json_class.dart';
 import '../../../../_datas/sectors/transit/accidents/accidents_data.dart';
 
 class AccidentsMapSection extends StatefulWidget {
-  final List<RegionalPolygon> regionalPolygons;         // <- recebe os polígonos prontos
+  final List<RegionalPolygon> regionalPolygons; // polígonos prontos
   final List<String> selectedRegionNames;
   final void Function(String?) onRegionTap;
 
@@ -31,6 +31,24 @@ class AccidentsMapSection extends StatefulWidget {
 }
 
 class _AccidentsMapSectionState extends State<AccidentsMapSection> {
+  Future<void> _handleRegionTap(String? region) async {
+    // Propaga seleção para o chamador (sincroniza gráficos/filtros)
+    widget.onRegionTap(region);
+
+    // Se clicou fora/limpou seleção, não abre diálogo
+    if (region == null) return;
+
+    // Carrega e abre o diálogo
+    final dados = await widget.fetchCityData(region);
+    if (!mounted) return;
+
+    _showDialogCity(
+      context: context,
+      region: region,
+      dados: dados,
+    );
+  }
+
   void _showDialogCity({
     required BuildContext context,
     required String region,
@@ -120,12 +138,14 @@ class _AccidentsMapSectionState extends State<AccidentsMapSection> {
           child: Card(
             color: Colors.white,
             elevation: 6,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             clipBehavior: Clip.antiAlias,
-            child: MapaInterativoPage(
+            child: MapInteractivePage(
+              // ✅ usa o novo componente
               regionalPolygons: widget.regionalPolygons,
               selectedRegionNames: widget.selectedRegionNames,
-              onRegionTap: widget.onRegionTap,
+              onRegionTap: _handleRegionTap, // <- busca & abre diálogo
               activeMap: true,
               initialZoom: 8,
               minZoom: 8,
@@ -134,14 +154,10 @@ class _AccidentsMapSectionState extends State<AccidentsMapSection> {
               allowMultiSelect: false,
               showLegend: false,
 
-              getFirebaseData: (cidade, _) async {
-                final list = await widget.fetchCityData(cidade);
-                return list;
-              },
-              onShowDialog: (context, region, dados) {
-                final list = dados.cast<AccidentsData>();
-                _showDialogCity(context: context, region: region, dados: list);
-              },
+              // (se quiser polylines/markers, habilite aqui depois)
+              // tappablePolylines: ...,
+              // taggedMarkers: ...,
+              // clusterWidgetBuilder: ...,
             ),
           ),
         ),

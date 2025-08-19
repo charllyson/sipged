@@ -1,32 +1,42 @@
 import 'package:flutter/material.dart';
-import '../../../_blocs/documents/contracts/validity/validity_bloc.dart';
-import '../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import 'package:provider/provider.dart';
+
+import '../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../_datas/documents/contracts/additive/additive_store.dart';
+import '../../../_datas/documents/contracts/validity/validity_store.dart';
 
 class ContractValidityIcon extends StatelessWidget {
   final ContractData contract;
-  final ValidityBloc validityBloc;
 
   const ContractValidityIcon({
     super.key,
     required this.contract,
-    required this.validityBloc,
   });
 
   @override
   Widget build(BuildContext context) {
     final status = contract.contractStatus?.toUpperCase();
+
+    // Mostra ícone só para contratos em andamento ou a iniciar
     if (status != 'EM ANDAMENTO' && status != 'A INICIAR') {
       return const SizedBox.shrink();
     }
 
+    final validityStore = context.read<ValidityStore>();
+    final additivesStore = context.read<AdditivesStore>();
+
     return FutureBuilder<DateTime?>(
-      future: validityBloc.calcularDataFinalContrato(contract: contract),
+      future: validityStore.calcularDataFinalContrato(
+        contract: contract,
+        additivesStore: additivesStore,
+      ),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox.shrink();
 
-        final dias = snapshot.data!.difference(DateTime.now()).inDays;
+        final dataFinal = snapshot.data!;
+        final dias = dataFinal.difference(DateTime.now()).inDays;
 
-        if (dias < 15) {
+        if (dias < 0) {
           return Tooltip(
             message: 'Contrato vencido há ${-dias} dias',
             child: const Icon(Icons.access_alarm, color: Colors.redAccent),

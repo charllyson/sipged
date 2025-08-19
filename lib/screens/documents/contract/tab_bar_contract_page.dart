@@ -6,9 +6,9 @@ import 'package:sisged/screens/documents/contract/validity/validity_page.dart';
 
 import '../../../../_datas/system/user_data.dart';
 import '../../../../_widgets/buttons/back_circle_button.dart';
-import '../../../_blocs/documents/contracts/contracts/contracts_bloc.dart';
-import '../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../commons/popUpMenu/pup_up_menu.dart';
+import '../../../_blocs/documents/contracts/contracts/contract_bloc.dart';
+import '../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../commons/popUpMenu/pup_up_photo_menu.dart';
 import 'additive/additive_page.dart';
 import 'apostilles/apostilles_page.dart';
 import 'budget/budget_controller.dart';
@@ -18,7 +18,7 @@ import 'mainInformation/main_information_page.dart';
 class TabBarContractPage extends StatefulWidget {
   final UserData? userData;
   final ContractData? contractData;
-  final ContractsBloc? contractsBloc;
+  final ContractBloc? contractsBloc;
   final int initialTabIndex;
 
   const TabBarContractPage({
@@ -51,7 +51,7 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            const BackgroundCleaner(),
+            const BackgroundClean(),
             Builder(
               builder: (context) => Column(
                 children: [
@@ -79,7 +79,7 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
                             ],
                           ),
                         ),
-                        const PopUpMenu(),
+                        const PopUpPhotoMenu(),
                       ],
                     ),
                   ),

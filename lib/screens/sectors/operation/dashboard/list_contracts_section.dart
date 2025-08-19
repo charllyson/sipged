@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../_datas/documents/contracts/contracts/contract_store.dart';
-import '../../../../_datas/documents/measurement/measurement_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_widgets/cardChip/build_value_chip.dart';
 import '../../../documents/contract/tab_bar_contract_page.dart';
 
 class ListContractsSection extends StatelessWidget {
-  final List<ReportData> currentFiltered;
+  final List<ReportMeasurementData> currentFiltered;
   final int? selectedPointIndex;
   final String? selectedContractSummary;
 

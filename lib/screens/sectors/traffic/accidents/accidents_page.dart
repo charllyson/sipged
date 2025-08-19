@@ -33,7 +33,7 @@ class _AccidentsRecordsPageState extends State<AccidentsRecordsPage> {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            const BackgroundCleaner(),
+            const BackgroundClean(),
             Column(
               children: [
                 Expanded(

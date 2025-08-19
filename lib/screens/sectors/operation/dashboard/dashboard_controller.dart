@@ -1,39 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_store.dart';
 
 import '../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
 import '../../../../_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
-import '../../../../_blocs/documents/measurement/measurement_bloc.dart';
+import '../../../../_datas/documents/contracts/additive/additive_store.dart';
+import '../../../../_datas/documents/contracts/apostilles/apostilles_store.dart';
 import '../../../../_datas/documents/contracts/contracts/contract_rules.dart';
 import '../../../../_datas/documents/contracts/contracts/contract_store.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../../../_datas/documents/measurement/measurement_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_services/geo_json_manager.dart';
 
 class DashboardController extends ChangeNotifier {
   DashboardController({
-    required this.store,
+    required this.store,               // ContractsStore
+    required this.additivesStore,     // AdditivesStore
+    required this.apostillesStore,    // ApostillesStore
+    required this.reportsMeasurementStore,       // ⭐ ReportsStore
     AdditivesBloc? additivesBloc,
     ApostillesBloc? apostillesBloc,
-    ReportsBloc? measurementBloc,
     GeoJsonManager? geoManager,
   })  : additivesBloc = additivesBloc ?? AdditivesBloc(),
         apostillesBloc = apostillesBloc ?? ApostillesBloc(),
-        measurementBloc = measurementBloc ?? ReportsBloc(),
         geoManager = geoManager ?? GeoJsonManager();
 
   // --------- Dependências
-  final ContractsStore store;           // <- FONTE DA VERDADE para contratos
-  final ReportsBloc measurementBloc;
+  final ContractsStore store;
+  final AdditivesStore additivesStore;
+  final ApostillesStore apostillesStore;
+  final ReportsMeasurementStore reportsMeasurementStore;      // ⭐ agora usamos o store de medições
+
+  // (opcional) ainda úteis para ações diretas (upload/delete PDF, etc.)
   final AdditivesBloc additivesBloc;
   final ApostillesBloc apostillesBloc;
+
   final GeoJsonManager geoManager;
 
   // --------- Estado
   List<ContractData> allContracts = [];
   List<ContractData> filteredContracts = [];
 
-  List<ReportData> allMeasurements = [];
-  late Future<List<ReportData>> measurementsFuture = Future.value([]);
+  List<ReportMeasurementData> allMeasurements = [];
+  late Future<List<ReportMeasurementData>> measurementsFuture = Future.value([]);
 
   List<String> uniqueCompanies = [];
   List<String> selectedRegions = [];
@@ -73,20 +81,18 @@ class DashboardController extends ChangeNotifier {
 
   // --------- Ciclo de vida
   Future<void> initialize() async {
-    // limites/geo
     geoManager.loadLimitsRegionalsDERAL();
 
-    // Base de contratos vem do STORE (sem buscar no bloc aqui)
+    // Contratos a partir do store (com fallback de refresh)
     allContracts = store.all;
     if (allContracts.isEmpty && !store.loading) {
-      // se ainda não carregou (ex.: abriu o dashboard direto),
-      // tenta puxar do backend uma vez via store
       await store.refresh();
       allContracts = store.all;
     }
 
-    // measurements
-    allMeasurements = await measurementBloc.fetchAllMeasurements();
+    // Medições via ReportsStore (carrega uma vez o collectionGroup)
+    await reportsMeasurementStore.ensureAllLoaded();
+    allMeasurements = reportsMeasurementStore.all;
     measurementsFuture = Future.value(allMeasurements);
 
     filteredContracts = allContracts;
@@ -184,7 +190,6 @@ class DashboardController extends ChangeNotifier {
 
   // --------- Filtragem
   void filterContracts() {
-    // sempre parte da lista global do STORE (mantém sync com edits/upserts)
     final base = store.all;
 
     filteredContracts = base.where((c) {
@@ -220,12 +225,12 @@ class DashboardController extends ChangeNotifier {
     filterContracts();
 
     await _calcularTotaisIniciais();
-    await _calcularTotaisAditivos();
-    await _calcularTotaisApostilas();
+    await _calcularTotaisAditivos();    // via AdditivesStore
+    await _calcularTotaisApostilas();   // via ApostillesStore
 
-    await _calcularTotaisMedicoes();
-    await _calcularTotaisReajustes();
-    await _calcularTotaisRevisoes();
+    await _calcularTotaisMedicoes();    // via ReportsStore
+    await _calcularTotaisReajustes();   // via ReportsStore
+    await _calcularTotaisRevisoes();    // via ReportsStore
 
     _atualizarEmpresasComBaseNosContratos();
   }
@@ -254,19 +259,22 @@ class DashboardController extends ChangeNotifier {
 
   Future<void> _calcularTotaisAditivos() async {
     final contratosIds = filteredContracts.map((c) => c.id).whereType<String>().toSet();
-    final aditivos = await additivesBloc.getAdditivesByContractIds(contratosIds);
+    final aditivos = await additivesStore.getForContractIds(contratosIds);
 
     totaisStatusAditivos.clear();
     totaisEmpresaAditivos.clear();
     totaisRegiaoAditivos.clear();
 
-    for (final aditivo in aditivos) {
-      final contrato = filteredContracts
-          .firstWhere((c) => c.id == aditivo.contractId, orElse: () => ContractData());
+    final byId = { for (final c in filteredContracts.where((c) => c.id != null)) c.id!: c };
+
+    for (final ad in aditivos) {
+      final contrato = byId[ad.contractId];
+      if (contrato == null) continue;
+
       final status = contrato.contractStatus ?? 'SEM STATUS';
       final empresa = contrato.companyLeader ?? 'SEM EMPRESA';
       final regiao = contrato.regionOfState ?? 'SEM REGIÃO';
-      final valor  = aditivo.additiveValue ?? 0.0;
+      final valor  = ad.additiveValue ?? 0.0;
 
       totaisStatusAditivos[status]   = (totaisStatusAditivos[status]   ?? 0.0) + valor;
       totaisEmpresaAditivos[empresa] = (totaisEmpresaAditivos[empresa] ?? 0.0) + valor;
@@ -276,19 +284,22 @@ class DashboardController extends ChangeNotifier {
 
   Future<void> _calcularTotaisApostilas() async {
     final contratosIds = filteredContracts.map((c) => c.id).whereType<String>().toSet();
-    final apostilas = await apostillesBloc.getAdditivesByContractIds(contratosIds);
+    final apostilas = await apostillesStore.getForContractIds(contratosIds);
 
     totaisStatusApostilas.clear();
     totaisEmpresaApostilas.clear();
     totaisRegiaoApostilas.clear();
 
-    for (final apostila in apostilas) {
-      final contrato = filteredContracts
-          .firstWhere((c) => c.id == apostila.contractId, orElse: () => ContractData());
+    final byId = { for (final c in filteredContracts.where((c) => c.id != null)) c.id!: c };
+
+    for (final ap in apostilas) {
+      final contrato = byId[ap.contractId];
+      if (contrato == null) continue;
+
       final status = contrato.contractStatus ?? 'SEM STATUS';
       final empresa = contrato.companyLeader ?? 'SEM EMPRESA';
       final regiao = contrato.regionOfState ?? 'SEM REGIÃO';
-      final valor  = apostila.apostilleValue ?? 0.0;
+      final valor  = ap.apostilleValue ?? 0.0;
 
       totaisStatusApostilas[status]   = (totaisStatusApostilas[status]   ?? 0.0) + valor;
       totaisEmpresaApostilas[empresa] = (totaisEmpresaApostilas[empresa] ?? 0.0) + valor;
@@ -296,22 +307,22 @@ class DashboardController extends ChangeNotifier {
     }
   }
 
-  // --------- Métricas de medições
+  // --------- Métricas de medições (agora via ReportsStore)
   Future<void> _calcularTotaisMedicoes() async {
     final dados = await measurementsFuture;
-    _totalMedicoes = await measurementBloc.somarValorMedicoes(medicoes: dados);
+    _totalMedicoes = reportsMeasurementStore.sumMedicoes(dados);
     notifyListeners();
   }
 
   Future<void> _calcularTotaisReajustes() async {
     final dados = await measurementsFuture;
-    _totalReajustes = await measurementBloc.somarValorReajustes(medicoes: dados);
+    _totalReajustes = reportsMeasurementStore.sumReajustes(dados);
     notifyListeners();
   }
 
   Future<void> _calcularTotaisRevisoes() async {
     final dados = await measurementsFuture;
-    _totalRevisoes = await measurementBloc.somarValorRevisoes(medicoes: dados);
+    _totalRevisoes = reportsMeasurementStore.sumRevisoes(dados);
     notifyListeners();
   }
 

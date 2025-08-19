@@ -6,7 +6,7 @@ import '../../../../../_widgets/input/custom_text_field.dart';
 import '../../../../../_widgets/validates/form_validation_mixin.dart';
 
 import '../../../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_widgets/input/drop_down_botton_change.dart';
 import './main_information_controller.dart';
 

@@ -3,7 +3,7 @@ import 'package:sisged/_utils/date_utils.dart';
 
 import '../../_blocs/documents/contracts/validity/validity_bloc.dart';
 import '../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../_datas/documents/contracts/validity/validity_data.dart';
 
 class TimelineItem {

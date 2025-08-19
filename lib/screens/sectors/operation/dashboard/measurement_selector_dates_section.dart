@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/selectorDates/selectorDates.dart';
 
-import '../../../../_datas/documents/measurement/measurement_data.dart';
+import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
 
 class MeasurementSelectorDatesSection extends StatelessWidget {
-  final List<ReportData> allMeasurements;
+  final List<ReportMeasurementData> allMeasurements;
   final int? initialYear;
   final int? initialMonth;
   final ValueChanged<SelectorDatesFilterResult> onSelectionChanged;
@@ -19,13 +19,13 @@ class MeasurementSelectorDatesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectorDates<ReportData>(
+    return SelectorDates<ReportMeasurementData>(
       items: allMeasurements,
       getDate: (item) => item.dateReportMeasurement,
       initialYear: initialYear,
       initialMonth: initialMonth,
       onSelectionChanged: ({
-        List<ReportData>? filteredItems,
+        List<ReportMeasurementData>? filteredItems,
         int? selectedYear,
         int? selectedMonth,
       }) {
@@ -40,7 +40,7 @@ class MeasurementSelectorDatesSection extends StatelessWidget {
 }
 
 class SelectorDatesFilterResult {
-  final List<ReportData> filteredItems;
+  final List<ReportMeasurementData> filteredItems;
   final int? selectedYear;
   final int? selectedMonth;
 

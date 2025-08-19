@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
 import 'package:sisged/_widgets/input/custom_date_field.dart';
 import 'package:sisged/_widgets/input/custom_text_field.dart';
 import 'package:sisged/_widgets/formats/input_formatters.dart';
 import 'package:sisged/_utils/responsive_utils.dart';
-import 'package:sisged/_widgets/archives/pdf/pdf_icon_action.dart';
+import 'package:sisged/_widgets/archives/pdf/web_pdf_widget.dart';
 import '../../../../../_widgets/mask_class.dart';
 import '../../../../_datas/documents/contracts/apostilles/apostilles_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../_widgets/archives/pdf/web_pdf_controller.dart';
 
 class ApostilleFormSection extends StatelessWidget {
   final bool isEditable;
@@ -17,6 +19,7 @@ class ApostilleFormSection extends StatelessWidget {
   final ApostillesData? selectedApostille;
   final String? currentApostilleId;
   final ContractData contractData;
+  final ApostillesStorageBloc apostillesStorageBloc;
 
   final TextEditingController orderController;
   final TextEditingController processController;
@@ -25,7 +28,6 @@ class ApostilleFormSection extends StatelessWidget {
 
   final VoidCallback onSave;
   final VoidCallback onClear;
-  final Future<void> Function(String url) onUploadSaveToFirestore;
 
   const ApostilleFormSection({
     super.key,
@@ -35,13 +37,13 @@ class ApostilleFormSection extends StatelessWidget {
     required this.selectedApostille,
     required this.currentApostilleId,
     required this.contractData,
+    required this.apostillesStorageBloc,
     required this.orderController,
     required this.processController,
     required this.dateController,
     required this.valueController,
     required this.onSave,
     required this.onClear,
-    required this.onUploadSaveToFirestore,
   });
 
   double getInputWidth(BuildContext context) {
@@ -96,12 +98,12 @@ class ApostilleFormSection extends StatelessWidget {
 
   Widget _buildPdfWidget() {
     if (currentApostilleId == null || selectedApostille == null) return const SizedBox.shrink();
-    return PdfFileIconActionGeneric(
+    return WebPdfWidgetGeneric(
       key: Key(currentApostilleId!),
       type: PDFType.apostilles,
       contractData: contractData,
       specificData: selectedApostille!,
-      onUploadSaveToFirestore: onUploadSaveToFirestore,
+      apostillesStorageBloc: apostillesStorageBloc,
     );
   }
 

@@ -1,69 +1,100 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_datas/system/user_data.dart';
-import '../../../_blocs/documents/contracts/contracts/contracts_bloc.dart';
 import '../../../_blocs/documents/contracts/validity/validity_bloc.dart';
-import '../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../_datas/documents/contracts/contracts/contract_data.dart';
+import 'list_contracts_controller.dart';
 import 'list_contracts_table_widget.dart';
 
-class ContractStatusWidget extends StatelessWidget {
-  final ContractsBloc contractsBloc;
-  final ValidityBloc validityBloc;
-  final UserData currentUser;
-  final String statusLabel;
-  final String statusFilter;
-  final BoxConstraints constraints;
-  final TextEditingController statusCtrl;
-  final TextEditingController searchCtrl;
-  final Map<String, List<ContractData>> cachedContracts;
+typedef ContractNavigationCallback = void Function(BuildContext context, ContractData contract);
 
+class ContractStatusExpandable extends StatelessWidget {
+  const ContractStatusExpandable({
+    super.key,
+    required this.title,
+    required this.statusKey,
+    required this.items,
+    // props da tabela
+    required this.constraints,
+    required this.sortColumnIndex,
+    required this.isAscending,
+    required this.onSort,
+    required this.onDelete,
+    required this.onTapItem,
+
+    // compat (não usados p/ estado)
+    this.initiallyExpanded = false,
+    this.onExpansionChanged,
+  });
+
+  final String title;
+  final String statusKey;
+  final List<ContractData> items;
+
+  final BoxConstraints constraints;
   final int? sortColumnIndex;
   final bool isAscending;
-  final void Function(int columnIndex, String Function(ContractData))? onSort;
-  final VoidCallback? onRefresh;
-  final ContractNavigationCallback? onTapItem;
+  final void Function(int, String Function(ContractData)) onSort;
+  final Future<void> Function(ContractData) onDelete;
+  final ContractNavigationCallback onTapItem;
 
-  const ContractStatusWidget({
-    super.key,
-    required this.contractsBloc,
-    required this.validityBloc,
-    required this.currentUser,
-    required this.statusLabel,
-    required this.statusFilter,
-    required this.constraints,
-    required this.statusCtrl,
-    required this.searchCtrl,
-    required this.cachedContracts,
-    this.sortColumnIndex,
-    this.isAscending = true,
-    this.onSort,
-    this.onRefresh,
-    this.onTapItem,
-  });
+  final bool initiallyExpanded;
+  final ValueChanged<bool>? onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
-    final contratos = cachedContracts[statusFilter] ?? [];
+    final controller = ListContractsController.of(context);
+    final k = statusKey.trim().toUpperCase();
+    final total = items.length;
+    final expandedNow = controller.isExpanded(k);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ContractsTableWidget(
-          listContractData: contratos,
-          validityBloc: validityBloc,
-          constraints: constraints,
-          statusLabel: statusLabel,
-          statusFilter: statusFilter,
-          sortColumnIndex: sortColumnIndex,
-          isAscending: isAscending,
-          onSort: onSort ?? (int _, String Function(ContractData) __) {},
-          onDelete: (item) {
-            contractsBloc.deleteContract(item.id!);
-            onRefresh?.call();
-          },
-          onTapItem: onTapItem!, // ✅ aqui é o ponto mais importante
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        // 🔒 key estável (não depende do estado)
+        key: ValueKey('tile_$k'),
+        controller: controller.tileControllerFor(k), // deve ser estável por k
+        initiallyExpanded: expandedNow,
+        // mantém subárvore viva mesmo recolhida
+        maintainState: true,
+
+        onExpansionChanged: (open) {
+          controller.setExpanded(k, open); // não recrie controller aqui
+          onExpansionChanged?.call(open);
+        },
+
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        childrenPadding: const EdgeInsets.only(bottom: 12),
+
+        title: Row(
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.blue.withOpacity(0.10),
+              ),
+              child: Text('$total'),
+            ),
+          ],
         ),
 
-      ],
+        children: [
+          ContractsTableWidget(
+            // ✅ key de PageStorage estável
+            key: PageStorageKey<String>('table_scroll_$k'),
+            listContractData: items,
+            constraints: constraints,
+            statusLabel: title,
+            statusFilter: k,
+            sortColumnIndex: sortColumnIndex,
+            isAscending: isAscending,
+            onSort: onSort,
+            onDelete: (item) async => onDelete(item),
+            onTapItem: onTapItem,
+          ),
+        ],
+      ),
     );
   }
 }

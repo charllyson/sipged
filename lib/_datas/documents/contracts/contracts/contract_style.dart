@@ -4,8 +4,8 @@ class ContractStyle {
 
   static List<(String, String)> statusMenu = [
     ('🚜 Demandas em andamento', 'EM ANDAMENTO'),
-    ('✅ Demandas concluídas', 'CONCLUÍDO'),
     ('⏳ Demandas a iniciar', 'A INICIAR'),
+    ('✅ Demandas concluídas', 'CONCLUÍDO'),
     ('🔧 Demandas em projeto', 'EM PROJETO'),
     ('🚫 Demandas paralisadas', 'PARALISADO'),
     ('❌ Demandas canceladas', 'CANCELADO'),

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_datas/documents/contracts/contracts/contracts_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
 import 'package:sisged/_widgets/background/background_cleaner.dart';
+import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
+import '../../../../_datas/documents/contracts/budget/budget_store.dart';
 import 'budget_controller.dart' as bc;
-import 'budget_repository.dart';
 
 class BudgetPage extends StatefulWidget {
   const BudgetPage({super.key, required this.contractData});
@@ -41,9 +42,6 @@ class _BudgetPageState extends State<BudgetPage> {
   int? _editCol;
   final TextEditingController _cellController = TextEditingController();
   final FocusNode _cellFocus = FocusNode();
-
-  // Repo
-  late final BudgetRepository _repo = BudgetRepository();
 
   // Auto-load
   bool _didAutoLoad = false;
@@ -104,8 +102,9 @@ class _BudgetPageState extends State<BudgetPage> {
       );
       return;
     }
+    final store = context.read<BudgetStore>();
     try {
-      await _repo.saveBudgetNested(
+      await store.saveBudget(
         contractId: widget.contractData.id!,
         headers: ctrl.headers,
         colTypes: ctrl.colTypesAsString,
@@ -129,21 +128,20 @@ class _BudgetPageState extends State<BudgetPage> {
     if (_didAutoLoad) return;
     _didAutoLoad = true;
 
+    final store = context.read<BudgetStore>();
     setState(() => _isLoading = true);
     try {
-      final snap = await _repo.loadBudgetNested(widget.contractData.id!);
+      final id = widget.contractData.id!;
+      await store.ensureFor(id);
+      final snap = store.cacheFor(id);
       if (!mounted) return;
 
-      if (!snap.isEmpty) {
+      if (snap != null && !snap.isEmpty) {
         ctrl.loadFromSnapshot(
           table: snap.tableData,
           colTypesAsString: snap.colTypes,
           widths: snap.colWidths,
         );
-        // Feedback opcional (silencioso se preferir)
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   const SnackBar(content: Text('Planilha carregada do Firestore.')),
-        // );
       }
     } catch (e) {
       if (!mounted) return;
@@ -173,7 +171,6 @@ class _BudgetPageState extends State<BudgetPage> {
     final c = _editCol!;
     final raw = _cellController.text;
 
-    // Evita commit em coluna inexistente
     if (c < 0 || c >= ctrl.colCount) {
       _editRow = _editCol = null;
       return;
@@ -185,7 +182,6 @@ class _BudgetPageState extends State<BudgetPage> {
     _editRow = _editCol = null;
     setState(() {});
   }
-
 
   bool _isUpperCase(String v) {
     final only = v.replaceAll(RegExp(r'[^A-Za-zÀ-ÿ]'), '');
@@ -204,17 +200,15 @@ class _BudgetPageState extends State<BudgetPage> {
           _autoLoadIfNeeded(ctrl);
         });
 
-        // Ajusta tamanhos auxiliares dependentes do dataset
-        if (ctrl.hasData) {
-          if (_headerKeysAZ.length != ctrl.colCount) {
-            _headerKeysAZ = List<GlobalKey>.generate(ctrl.colCount, (_) => GlobalKey());
-          }
+        // Ajusta âncoras A..Z conforme dataset
+        if (ctrl.hasData && _headerKeysAZ.length != ctrl.colCount) {
+          _headerKeysAZ = List<GlobalKey>.generate(ctrl.colCount, (_) => GlobalKey());
         }
 
         return Scaffold(
           body: Stack(
             children: [
-              const BackgroundCleaner(),
+              const BackgroundClean(),
               Column(
                 children: [
                   Expanded(
@@ -241,7 +235,8 @@ class _BudgetPageState extends State<BudgetPage> {
                                   children: List.generate(ctrl.colCount, (c) {
                                     final w = (c < ctrl.colWidths.length) ? ctrl.colWidths[c] : 120.0;
                                     final keyAZ = _headerKeysAZ[c];
-                                    final hasType = (c < ctrl.colTypes.length) && ctrl.colTypes[c] != bc.ColumnType.auto;
+                                    final hasType = (c < ctrl.colTypes.length) &&
+                                        ctrl.colTypes[c] != bc.ColumnType.auto;
 
                                     return Stack(
                                       clipBehavior: Clip.none,
@@ -274,7 +269,8 @@ class _BudgetPageState extends State<BudgetPage> {
                                               final ctx = keyAZ.currentContext;
                                               if (ctx == null) return;
                                               final box = ctx.findRenderObject() as RenderBox;
-                                              final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+                                              final overlay =
+                                              Overlay.of(context).context.findRenderObject() as RenderBox;
 
                                               final selected = await showMenu<bc.ColumnType>(
                                                 color: Colors.white,
@@ -320,7 +316,7 @@ class _BudgetPageState extends State<BudgetPage> {
                                           ),
                                         ),
 
-                                        // handle de redimensionamento + auto-fit no double tap
+                                        // handle de resize + auto-fit
                                         Positioned(
                                           right: -_resizeHandleWidth / 2,
                                           top: 0,
@@ -357,7 +353,7 @@ class _BudgetPageState extends State<BudgetPage> {
                         ),
                         const SizedBox(height: _gap),
 
-                        // CORPO: gutter 1..N + gap + grade principal
+                        // CORPO: gutter 1..N + gap + grade
                         Expanded(
                           child: Row(
                             children: [
@@ -421,9 +417,7 @@ class _BudgetPageState extends State<BudgetPage> {
                                             ? Colors.grey.shade100
                                             : Colors.white;
 
-                                        final bg = (!isFirstRow && isEditingRow)
-                                            ? Colors.yellow.shade100
-                                            : baseBg;
+                                        final bg = (!isFirstRow && isEditingRow) ? Colors.yellow.shade100 : baseBg;
 
                                         final baseText = isFirstRow
                                             ? const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
@@ -457,14 +451,11 @@ class _BudgetPageState extends State<BudgetPage> {
                                                     : (isNumericCol ? TextAlign.right : TextAlign.left),
                                                 maxLines: 1,
                                                 keyboardType: isNumericCol
-                                                    ? const TextInputType.numberWithOptions(
-                                                    decimal: true, signed: true)
+                                                    ? const TextInputType.numberWithOptions(decimal: true, signed: true)
                                                     : TextInputType.text,
                                                 inputFormatters: isNumericCol
                                                     ? <TextInputFormatter>[
-                                                  FilteringTextInputFormatter.allow(
-                                                    RegExp(r'[0-9\.\,\-\sRr\$]'),
-                                                  ),
+                                                  FilteringTextInputFormatter.allow(RegExp(r'[0-9\.\,\-\sRr\$]')),
                                                 ]
                                                     : null,
                                                 onSubmitted: (_) => _commitEdit(),
@@ -511,31 +502,36 @@ class _BudgetPageState extends State<BudgetPage> {
                       ],
                     ),
                   ),
+                  const FootBar()
                 ],
               ),
 
-              // TOPO DIREITO: colar / salvar (sem botão de carregar)
+              // TOPO DIREITO: colar / salvar
               Positioned(
                 top: 72,
                 right: 16,
-                child: Column(
-                  children: [
-                    FloatingActionButton.small(
-                      backgroundColor: Colors.white,
-                      heroTag: 'pasteExcel',
-                      tooltip: 'Colar do Excel (Ctrl+V)',
-                      onPressed: () => context.read<bc.BudgetController>().pasteFromClipboard(),
-                      child: const Icon(Icons.paste),
-                    ),
-                    const SizedBox(height: 12),
-                    FloatingActionButton.small(
-                      backgroundColor: Colors.white,
-                      heroTag: 'saveBudget',
-                      tooltip: 'Salvar orçamento no Firestore',
-                      onPressed: () => _onSaveBudget(ctrl),
-                      child: const Icon(Icons.save),
-                    ),
-                  ],
+                child: Consumer<bc.BudgetController>(
+                  builder: (_, ctrl, __) {
+                    return Column(
+                      children: [
+                        FloatingActionButton.small(
+                          backgroundColor: Colors.white,
+                          heroTag: 'pasteExcel',
+                          tooltip: 'Colar do Excel (Ctrl+V)',
+                          onPressed: () => ctrl.pasteFromClipboard(),
+                          child: const Icon(Icons.paste),
+                        ),
+                        const SizedBox(height: 12),
+                        FloatingActionButton.small(
+                          backgroundColor: Colors.white,
+                          heroTag: 'saveBudget',
+                          tooltip: 'Salvar orçamento no Firestore',
+                          onPressed: () => _onSaveBudget(ctrl),
+                          child: const Icon(Icons.save),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],

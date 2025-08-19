@@ -47,33 +47,45 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final isEnabled = widget.enabled ?? true;
 
     return SizedBox(
-      width: widget.width ?? 100,
+      width: widget.width ?? 160, // um pouco maior evita apertos desnecessários
       child: DropdownButtonFormField<String>(
         isDense: true,
+        isExpanded: true, // ✅ evita overflow horizontal
         menuMaxHeight: 200,
         validator: widget.validator,
         dropdownColor: Colors.white,
-        value: selectedTypes, // <-- Corrigido
+        value: selectedTypes,
+
+        // ✅ garante truncamento do item selecionado
+        selectedItemBuilder: (ctx) => widget.items
+            .map((v) => Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            v,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+          ),
+        ))
+            .toList(),
+
         items: widget.items.map((value) {
           return DropdownMenuItem<String>(
             value: value,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 240),
-              child: Text(
-                value,
-                overflow: TextOverflow.fade,
-                softWrap: false,
-                maxLines: 1,
-              ),
+            child: Text(
+              value,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              softWrap: false,
             ),
           );
         }).toList(),
+
         onChanged: isEnabled
             ? (selected) {
           setState(() {
@@ -83,19 +95,26 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
           widget.onChanged?.call(selected);
         }
             : null,
+
+        iconSize: 20, // (opcional) diminui o espaço do ícone
         decoration: InputDecoration(
           fillColor: isEnabled ? Colors.white : Colors.grey.shade200,
           filled: true,
           labelText: widget.labelText,
-          labelStyle: TextStyle(color: isEnabled ? Colors.grey : Colors.grey.shade500),
-          hintStyle: TextStyle(color: isEnabled ? Colors.grey : Colors.grey.shade400),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          labelStyle: TextStyle(
+              color: isEnabled ? Colors.grey : Colors.grey.shade500),
+          hintStyle:
+          TextStyle(color: isEnabled ? Colors.grey : Colors.grey.shade400),
+          contentPadding:
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 14), // ↓
           enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: isEnabled ? Colors.grey : Colors.grey.shade400),
+            borderSide:
+            BorderSide(color: isEnabled ? Colors.grey : Colors.grey.shade400),
             borderRadius: BorderRadius.circular(10),
           ),
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: isEnabled ? Colors.blue : Colors.grey.shade400),
+            borderSide:
+            BorderSide(color: isEnabled ? Colors.blue : Colors.grey.shade400),
             borderRadius: BorderRadius.circular(10),
           ),
           errorBorder: OutlineInputBorder(
@@ -114,5 +133,4 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
       ),
     );
   }
-
 }

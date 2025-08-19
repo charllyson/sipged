@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sisged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
 import 'package:sisged/_widgets/input/custom_date_field.dart';
 import 'package:sisged/_widgets/input/custom_text_field.dart';
 import 'package:sisged/_widgets/input/drop_down_botton_change.dart';
 import 'package:sisged/_utils/responsive_utils.dart';
-import '../../../../../_widgets/archives/pdf/pdf_icon_action.dart';
+import '../../../../../_widgets/archives/pdf/web_pdf_widget.dart';
 import '../../../../../_widgets/formats/format_field.dart';
 import '../../../../../_widgets/validates/form_validation_mixin.dart';
-import '../../../../_blocs/documents/contracts/contracts/contracts_bloc.dart';
+import '../../../../_blocs/documents/contracts/contracts/contract_bloc.dart';
 import '../../../../_blocs/documents/contracts/validity/validity_bloc.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_datas/documents/contracts/validity/validity_data.dart';
+import '../../../../_widgets/archives/pdf/web_pdf_controller.dart';
 
 class ValidityFormSection extends StatefulWidget {
   final TextEditingController orderCtrl;
@@ -25,8 +27,7 @@ class ValidityFormSection extends StatefulWidget {
   final VoidCallback onClear;
   final Function(DateTime?) onChangeDate;
   final ContractData? contractData;
-  final ContractsBloc contractsBloc;
-  final ValidityBloc validityBloc;
+  final ValidityStorageBloc validityStorageBloc;
 
   const ValidityFormSection({
     super.key,
@@ -42,8 +43,7 @@ class ValidityFormSection extends StatefulWidget {
     required this.onClear,
     required this.onChangeDate,
     required this.contractData,
-    required this.contractsBloc,
-    required this.validityBloc,
+    required this.validityStorageBloc,
   });
 
   @override
@@ -107,12 +107,12 @@ class _ValidityFormSectionState extends State<ValidityFormSection> with FormVali
         final pdfWidget = widget.selectedValidityData?.id != null
             ? SizedBox(
           width: 100,
-          child: PdfFileIconActionGeneric<ValidityData>(
+          child: WebPdfWidgetGeneric<ValidityData>(
             key: Key(widget.selectedValidityData!.id!),
             type: PDFType.validity,
             contractData: widget.contractData!,
             specificData: widget.selectedValidityData,
-            validityBloc: widget.validityBloc,
+            validityStorageBloc: widget.validityStorageBloc,
           ),
         )
             : const SizedBox.shrink();

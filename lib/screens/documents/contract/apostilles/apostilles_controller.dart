@@ -1,25 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
 import 'package:sisged/_blocs/system/user_bloc.dart';
 import 'package:sisged/_provider/user/user_provider.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/formats/format_field.dart';
 import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
-import '../../../../_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
+import '../../../../_datas/documents/contracts/apostilles/apostilles_store.dart';
 import '../../../../_datas/documents/contracts/apostilles/apostilles_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_utils/handle_selection_utils.dart';
 
 class ApostillesController extends ChangeNotifier with FormValidationMixin {
-  final ApostillesBloc _apostillesBloc = ApostillesBloc();
-  final UserBloc _userBloc = UserBloc();
+  final ApostillesStore store;
+  final UserBloc userBloc;
   final ContractData contract;
 
   // Estado
   late Future<List<ApostillesData>> futureApostilles;
   List<ApostillesData> _lastSnapshot = [];
   ApostillesData? selectedApostille;
+
+  final ApostillesStorageBloc apostillesStorageBloc;
 
   bool isSaving = false;
   bool editingMode = false;
@@ -35,7 +38,12 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
   final valueCtrl = TextEditingController();
   final processCtrl = TextEditingController();
 
-  ApostillesController({required this.contract}) {
+  ApostillesController({
+    required this.store,
+    required this.userBloc,
+    required this.contract,
+    ApostillesStorageBloc? storageBloc, // injetável
+  }) : apostillesStorageBloc = storageBloc ?? ApostillesStorageBloc() {
     _init();
   }
 
@@ -48,7 +56,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
   Future<void> postFrameInit(BuildContext context) async {
     final user = Provider.of<UserProvider>(context, listen: false).userData;
     if (user != null) {
-      isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
+      isEditable = userBloc.getUserCreateEditPermissions(userData: user);
       notifyListeners();
     }
   }
@@ -56,11 +64,14 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
   // Loads
   Future<List<ApostillesData>> _getAll() async {
     if (contract.id == null) return [];
-    return _apostillesBloc.getAllApostillesOfContract(uidContract: contract.id!);
+    await store.ensureFor(contract.id!);
+    return store.listFor(contract.id!);
   }
 
   Future<void> reload() async {
-    futureApostilles = _getAll();
+    if (contract.id == null) return;
+    await store.refreshFor(contract.id!);
+    futureApostilles = Future.value(store.listFor(contract.id!));
     notifyListeners();
   }
 
@@ -79,7 +90,8 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
   // Fill / Clear
   Future<void> _setNextOrder() async {
     if (contract.id == null) return;
-    final list = await _getAll();
+    await store.ensureFor(contract.id!);
+    final list = store.listFor(contract.id!);
     final last = list.map((e) => e.apostilleOrder ?? 0).fold(0, (a, b) => a > b ? a : b);
     orderCtrl.text = (last + 1).toString();
     notifyListeners();
@@ -91,7 +103,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     currentApostilleId = data.id;
 
     orderCtrl.text = (data.apostilleOrder ?? '').toString();
-    dateCtrl.text = convertDateTimeToDDMMYYYY(data.apostilleData);
+    dateCtrl.text = data.apostilleData != null ? convertDateTimeToDDMMYYYY(data.apostilleData!) : '';
     valueCtrl.text = priceToString(data.apostilleValue);
     processCtrl.text = data.apostilleNumberProcess ?? '';
 
@@ -128,8 +140,8 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
       apostilleNumberProcess: processCtrl.text,
     );
 
-    await _apostillesBloc.saveOrUpdateApostille(novo, contract.id!);
-    futureApostilles = _getAll();
+    await store.saveOrUpdate(contract.id!, novo);
+    futureApostilles = Future.value(store.listFor(contract.id!));
     createNew();
 
     isSaving = false;
@@ -148,7 +160,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
   // Delete
   Future<void> deleteApostille(BuildContext context, String id) async {
     if (contract.id == null) return;
-    await _apostillesBloc.deletarApostille(contract.id!, id);
+    await store.delete(contract.id!, id);
     await reload();
 
     if (context.mounted) {
@@ -185,12 +197,21 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     );
   }
 
-  // PDF
-  Future<void> savePdfUrl(String url) async {
+  // ------- (Opcional) helper de upload + metadado usando o storage bloc -------
+  Future<void> uploadPdf({
+    required void Function(double) onProgress,
+  }) async {
     if (contract.id == null || selectedApostille?.id == null) return;
-    await _apostillesBloc.salvarUrlPdfDaApostila(
-      contractId: contract.id!,
-      apostilleId: selectedApostille!.id!,
+    final c = contract;
+    final v = selectedApostille!;
+    final url = await apostillesStorageBloc.uploadWithPicker(
+      contract: c,
+      apostille: v,
+      onProgress: onProgress,
+    );
+    await apostillesStorageBloc.salvarUrlPdfDaApostila(
+      contractId: c.id!,
+      apostilleId: v.id!,
       url: url,
     );
   }

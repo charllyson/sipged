@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_datas/documents/contracts/apostilles/apostilles_data.dart';
+import '../../../../_datas/documents/contracts/apostilles/apostilles_store.dart';
+import '../../../../_blocs/system/user_bloc.dart';
 import 'apostilles_controller.dart';
 import 'apostilles_form_section.dart';
 import 'apostilles_graph_section.dart';
@@ -17,7 +19,11 @@ class ApostillesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ApostillesController(contract: contractData),
+      create: (ctx) => ApostillesController(
+        store: ctx.read<ApostillesStore>(),
+        userBloc: ctx.read<UserBloc>(),
+        contract: contractData,
+      ),
       builder: (context, _) {
         final c = context.read<ApostillesController>();
         WidgetsBinding.instance.addPostFrameCallback((_) => c.postFrameInit(context));
@@ -48,13 +54,13 @@ class ApostillesPage extends StatelessWidget {
                                       selectedApostille: ctrl.selectedApostille,
                                       currentApostilleId: ctrl.currentApostilleId,
                                       contractData: ctrl.contract,
+                                      apostillesStorageBloc: ctrl.apostillesStorageBloc,
                                       orderController: ctrl.orderCtrl,
                                       processController: ctrl.processCtrl,
                                       dateController: ctrl.dateCtrl,
                                       valueController: ctrl.valueCtrl,
                                       onSave: () => ctrl.saveOrUpdate(context),
                                       onClear: ctrl.createNew,
-                                      onUploadSaveToFirestore: ctrl.savePdfUrl,
                                     ),
                                   ),
                                   const DividerText(title: 'Gráfico dos apostilamentos'),

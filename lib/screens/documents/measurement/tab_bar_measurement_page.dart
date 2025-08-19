@@ -3,17 +3,17 @@ import 'package:sisged/_widgets/background/background_cleaner.dart';
 import 'package:sisged/screens/documents/measurement/revision/revision_measurement_page.dart';
 import '../../../../_datas/system/user_data.dart';
 import '../../../../_widgets/buttons/back_circle_button.dart';
-import '../../../_blocs/documents/contracts/contracts/contracts_bloc.dart';
-import '../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../commons/popUpMenu/pup_up_menu.dart';
-import '../measurement/reports/reports_measurement_page.dart';
+import '../../../_blocs/documents/contracts/contracts/contract_bloc.dart';
+import '../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../commons/popUpMenu/pup_up_photo_menu.dart';
+import '../measurement/report/report_measurement_page.dart';
 import 'adjustment/adjustment_measurement_page.dart';
 
 class TabBarMeasurementPage extends StatefulWidget {
 
   final UserData? userData;
   final ContractData? contractData;
-  final ContractsBloc? contractsBloc;
+  final ContractBloc? contractsBloc;
   final int initialTabIndex;
 
   const TabBarMeasurementPage({
@@ -46,7 +46,7 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            BackgroundCleaner(),
+            BackgroundClean(),
             Builder(
               builder:
                   (context) => Column(
@@ -73,7 +73,7 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
                                 ],
                               ),
                             ),
-                            PopUpMenu(),
+                            PopUpPhotoMenu(),
                           ],
                         ),
                       ),
@@ -104,7 +104,7 @@ class _TabBarMeasurementPageState extends State<TabBarMeasurementPage> {
                           physics:
                               const NeverScrollableScrollPhysics(), // impede o swipe
                           children: [
-                            ReportsMeasurement(
+                            ReportMeasurement(
                                 contractData: widget.contractData!
                             ),
                             _wrapWithBlocker(

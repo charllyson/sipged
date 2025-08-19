@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../../../../../_blocs/system/system_bloc.dart';
 import '../../../../../_widgets/charts/line_chart_changed.dart';
 import '../../../../../_widgets/formats/format_field.dart';
-import '../../../../_datas/documents/measurement/measurement_data.dart';
+import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
 
 class MeasurementContractSection extends StatelessWidget {
-  final List<ReportData> filteredMeasurements;
+  final List<ReportMeasurementData> filteredMeasurements;
   final int? selectedIndex;
   final void Function(int index)? onPointTap;
 

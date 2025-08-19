@@ -7,13 +7,13 @@ import 'package:sisged/_widgets/formats/format_field.dart';
 import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
 import '../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
-import '../../../../_blocs/documents/measurement/measurement_bloc.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../../../_datas/documents/measurement/measurement_data.dart';
+import '../../../../_blocs/documents/measurement/report/report_measurement_bloc.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
 import '../../../../_utils/handle_selection_utils.dart';
 
 class RevisionMeasurementController extends ChangeNotifier with FormValidationMixin {
-  final ReportsBloc _measurementBloc = ReportsBloc();
+  final ReportMeasurementBloc _measurementBloc = ReportMeasurementBloc();
   final AdditivesBloc _additivesBloc = AdditivesBloc();
   final UserBloc _userBloc = UserBloc();
 
@@ -26,12 +26,12 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
   int? selectedLine;
 
   // dados carregados (universo completo)
-  List<ReportData> revision = [];
+  List<ReportMeasurementData> revision = [];
 
   // paginação
   final int _itemsPerPage = 50;
-  List<ReportData> selectorUniverse = []; // pode receber filtros no futuro
-  List<ReportData> pageItems = [];        // página atual
+  List<ReportMeasurementData> selectorUniverse = []; // pode receber filtros no futuro
+  List<ReportMeasurementData> pageItems = [];        // página atual
   int currentPage = 1;
   int totalPages = 1;
 
@@ -39,7 +39,7 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
   double totalAditivos = 0.0;
 
   // seleção
-  ReportData? selectedRevision;
+  ReportMeasurementData? selectedRevision;
   String? currentRevisionId;
 
   // controllers de input
@@ -140,7 +140,7 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
     }
   }
 
-  void fillFields(ReportData data) {
+  void fillFields(ReportMeasurementData data) {
     selectedRevision = data;
     currentRevisionId = data.idRevisionMeasurement;
 
@@ -179,7 +179,7 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
     notifyListeners();
 
     try {
-      final novo = ReportData(
+      final novo = ReportMeasurementData(
         idRevisionMeasurement: currentRevisionId,
         contractId: contract.id!,
         orderRevisionMeasurement: int.tryParse(orderCtrl.text),
@@ -243,8 +243,8 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
     }
   }
 
-  void handleSelect(ReportData data) {
-    handleGenericSelection<ReportData>(
+  void handleSelect(ReportMeasurementData data) {
+    handleGenericSelection<ReportMeasurementData>(
       data: data,
       list: selectorUniverse,
       getOrder: (e) => e.orderRevisionMeasurement,

@@ -1,57 +1,57 @@
-// payments_revision_controller.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_blocs/sectors/financial/payments/payments_revision_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:sisged/_blocs/system/user_bloc.dart';
-
-import 'package:sisged/_provider/user/user_provider.dart';
-import 'package:sisged/_datas/system/user_data.dart';
-
-import 'package:sisged/_datas/documents/contracts/contracts/contracts_data.dart';
-import 'package:sisged/_datas/sectors/financial/payments/payments_revisions_data.dart';
-
+import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
 import 'package:sisged/_utils/date_utils.dart'
     show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
-import 'package:sisged/_widgets/formats/format_field.dart'
-    show parseCurrencyToDouble, priceToString;
 
-class PaymentsRevisionController extends ChangeNotifier {
-  // --- Blocs/Deps ---
-  final PaymentsRevisionBloc paymentsBloc;
-  final AdditivesBloc additivesBloc;
-  final UserBloc userBloc;
+import '../../../../../_provider/user/user_provider.dart';
+import '../../../../../_blocs/system/user_bloc.dart';
+import '../../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
+import '../../../../../_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
 
-  // --- Contexto do contrato (opcional) ---
-  final ContractData? contract;
+import '../../../../../_datas/system/user_data.dart';
+import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../../_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
 
-  PaymentsRevisionController({this.contract})
-      : paymentsBloc = PaymentsRevisionBloc(),
-        additivesBloc = AdditivesBloc(),
-        userBloc = UserBloc();
+class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin {
+  PaymentsRevisionController({
+    PaymentRevisionBloc? paymentRevisionBloc,
+    AdditivesBloc? additivesBloc,
+    UserBloc? userBloc,
+  })  : _paymentRevisionBloc = paymentRevisionBloc ?? PaymentRevisionBloc(),
+        _additivesBloc = additivesBloc ?? AdditivesBloc(),
+        _userBloc = userBloc ?? UserBloc();
 
-  // --- Estado de tela/form ---
+  // --- Dependências
+  final PaymentRevisionBloc _paymentRevisionBloc;
+  final AdditivesBloc _additivesBloc;
+  final UserBloc _userBloc;
+
+  // Expor bloc (apenas se um widget legado exigir)
+  PaymentRevisionBloc get bloc => _paymentRevisionBloc;
+
+  // --- Contexto
+  UserData? currentUser;
+  ContractData? contract;
+
+  // --- Dados
+  List<PaymentsRevisionsData> _revisions = <PaymentsRevisionsData>[];
+  PaymentsRevisionsData? _selected;
+  String? _currentId;
+
+  // --- Estado UI
+  int? selectedIndex;
   bool isEditable = false;
-  bool formValidated = false;
   bool isSaving = false;
+  bool formValidated = false;
 
-  // --- Seleção ---
-  PaymentsRevisionsData? selectedItem;
-  String? currentPaymentRevisionId;
+  // --- Totais
+  double _valorInicial = 0.0;
+  double _valorAditivos = 0.0;
 
-  // --- Dados/Paginação ---
-  final int _itemsPerPage = 50;
-  List<PaymentsRevisionsData> _universe = [];
-  List<PaymentsRevisionsData> pageItems = [];
-  int currentPage = 1;
-  int totalPages = 1;
-
-  // --- Totais ---
-  double valorInicial = 0.0;
-  double valorAditivos = 0.0;
-
-  // --- Controllers de formulário ---
+  // --- Controllers de formulário
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -63,37 +63,60 @@ class PaymentsRevisionController extends ChangeNotifier {
   final fontCtrl = TextEditingController();
   final taxCtrl = TextEditingController();
 
-  // --- Getters úteis (gráfico e resumos) ---
+  // --- Getters para UI
+  List<PaymentsRevisionsData> get revisions => _revisions;
+  PaymentsRevisionsData? get selected => _selected;
+  String? get currentPaymentRevisionId => _currentId;
+
   List<String> get chartLabels =>
-      _universe.map((e) => (e.orderPaymentRevision ?? 0).toString()).toList();
+      _revisions.map((e) => (e.orderPaymentRevision ?? 0).toString()).toList();
+
   List<double> get chartValues =>
-      _universe.map((e) => e.valuePaymentRevision ?? 0.0).toList();
+      _revisions.map((e) => e.valuePaymentRevision ?? 0.0).toList();
 
   double get totalMedicoes =>
-      chartValues.fold(0.0, (a, b) => a + b);
+      chartValues.fold<double>(0.0, (a, b) => a + b);
 
-  double get valorTotal => valorInicial + valorAditivos;
+  double get valorTotal => _valorInicial + _valorAditivos;
   double get saldo => valorTotal - totalMedicoes;
 
-  // ========== LIFECYCLE ==========
-  Future<void> postFrameInit(BuildContext context) async {
-    // Permissões
-    try {
-      final UserData? user =
-          Provider.of<UserProvider>(context, listen: false).userData;
-      if (user != null) {
-        isEditable = userBloc.getUserCreateEditPermissions(userData: user);
-      }
-    } catch (_) {
-      isEditable = false;
-    }
+  // ajudar página/tabela
+  double get valorInicialBase => _valorInicial;
+  double get valorAditivosTotal => _valorAditivos;
 
-    // Carrega dados do contrato (se houver)
-    await _reloadAll();
+  // --- Init/Dispose
+  Future<void> init(BuildContext context, {required ContractData? contractData}) async {
+    contract = contractData;
+    if (contract?.id == null) return;
+
+    currentUser = Provider.of<UserProvider>(context, listen: false).userData;
+    isEditable = _userBloc.getUserCreateEditPermissions(userData: currentUser ?? UserData());
+
+    setupValidation([
+      orderCtrl,
+      processCtrl,
+      valueCtrl,
+      dateCtrl,
+    ], _validateFormInternal);
+
+    await _loadInitial();
   }
 
   @override
   void dispose() {
+    removeValidation([
+      orderCtrl,
+      processCtrl,
+      valueCtrl,
+      dateCtrl,
+      stateCtrl,
+      observationCtrl,
+      bankCtrl,
+      electronicTicketCtrl,
+      fontCtrl,
+      taxCtrl,
+    ], _validateFormInternal);
+
     orderCtrl.dispose();
     processCtrl.dispose();
     valueCtrl.dispose();
@@ -107,75 +130,70 @@ class PaymentsRevisionController extends ChangeNotifier {
     super.dispose();
   }
 
-  // ========== LOAD / REFRESH ==========
-  Future<void> _reloadAll() async {
-    final id = contract?.id;
-    if (id == null || id.isEmpty) {
-      _universe = [];
-      _refreshPagination();
-      return;
-    }
+  // --- Core
+  Future<void> _loadInitial() async {
+    if (contract?.id == null) return;
 
-    valorInicial = contract?.initialValueContract ?? 0.0;
-    valorAditivos = await additivesBloc.getAllAdditivesValue(id);
+    _valorInicial = contract?.initialValueContract ?? 0.0;
+    _valorAditivos = await _additivesBloc.getAllAdditivesValue(contract!.id!);
 
-    _universe = await paymentsBloc.getAllReportPaymentsOfContract(
-      contractId: id,
-    );
+    _revisions = await _paymentRevisionBloc
+        .getAllReportPaymentsOfContract(contractId: contract!.id!);
 
-    // Sugerir próxima ordem
-    final lastOrder = _universe.isNotEmpty
-        ? _universe
-        .map((e) => e.orderPaymentRevision ?? 0)
-        .reduce((a, b) => a > b ? a : b)
+    final last = _revisions.isNotEmpty
+        ? _revisions.map((e) => e.orderPaymentRevision ?? 0).reduce((a, b) => a > b ? a : b)
         : 0;
-    orderCtrl.text = (lastOrder + 1).toString();
+    orderCtrl.text = (last + 1).toString();
 
-    currentPage = 1;
-    _refreshPagination();
-  }
-
-  void _refreshPagination() {
-    final total = _universe.length;
-    totalPages = (total == 0) ? 1 : ((total - 1) ~/ _itemsPerPage + 1);
-    final start = (currentPage - 1) * _itemsPerPage;
-    final end = (start + _itemsPerPage > total) ? total : (start + _itemsPerPage);
-    pageItems = (start < end) ? _universe.sublist(start, end) : [];
     notifyListeners();
   }
 
-  Future<void> loadPage(int page) async {
-    if (page < 1 || page > totalPages) return;
-    currentPage = page;
-    _refreshPagination();
+  void _validateFormInternal() {
+    final valid = areFieldsFilled([
+      orderCtrl,
+      processCtrl,
+      valueCtrl,
+      dateCtrl,
+    ], minLength: 1);
+
+    if (formValidated != valid) {
+      formValidated = valid;
+      notifyListeners();
+    }
   }
 
-  // ========== TABLE -> FORM ==========
-  void selectFromTable(PaymentsRevisionsData item, int indexInPage) {
-    selectedItem = item;
-    currentPaymentRevisionId = item.idRevisionPayment;
+  // --- Ações UI
+  void selectRow(PaymentsRevisionsData data) {
+    final idx = _revisions.indexOf(data);
+    if (idx == -1) return;
 
-    orderCtrl.text = (item.orderPaymentRevision ?? '').toString();
-    processCtrl.text = item.processPaymentRevision ?? '';
-    valueCtrl.text = priceToString(item.valuePaymentRevision);
-    dateCtrl.text = item.datePaymentRevision != null
-        ? convertDateTimeToDDMMYYYY(item.datePaymentRevision!)
+    selectedIndex = idx;
+    _selected = data;
+    _currentId = data.idRevisionPayment;
+
+    orderCtrl.text = (data.orderPaymentRevision ?? '').toString();
+    processCtrl.text = data.processPaymentRevision ?? '';
+    valueCtrl.text = priceToString(data.valuePaymentRevision);
+    dateCtrl.text = data.datePaymentRevision != null
+        ? convertDateTimeToDDMMYYYY(data.datePaymentRevision!)
         : '';
-    stateCtrl.text = item.statePaymentRevision ?? '';
-    observationCtrl.text = item.observationPaymentRevision ?? '';
-    bankCtrl.text = item.orderBankPaymentRevision ?? '';
-    electronicTicketCtrl.text = item.electronicTicketPaymentRevision ?? '';
-    fontCtrl.text = item.fontPaymentRevision ?? '';
-    taxCtrl.text = priceToString(item.taxPaymentRevision);
+    stateCtrl.text = data.statePaymentRevision ?? '';
+    observationCtrl.text = data.observationPaymentRevision ?? '';
+    bankCtrl.text = data.orderBankPaymentRevision ?? '';
+    electronicTicketCtrl.text = data.electronicTicketPaymentRevision ?? '';
+    fontCtrl.text = data.fontPaymentRevision ?? '';
+    taxCtrl.text = priceToString(data.taxPaymentRevision);
 
-    _revalidate();
     notifyListeners();
   }
 
   void createNew() {
-    selectedItem = null;
-    currentPaymentRevisionId = null;
+    final last = _revisions.map((e) => e.orderPaymentRevision ?? 0).fold(0, (a, b) => a > b ? a : b);
+    selectedIndex = null;
+    _selected = null;
+    _currentId = null;
 
+    orderCtrl.text = (last + 1).toString();
     processCtrl.clear();
     valueCtrl.clear();
     dateCtrl.clear();
@@ -186,127 +204,134 @@ class PaymentsRevisionController extends ChangeNotifier {
     fontCtrl.clear();
     taxCtrl.clear();
 
-    // próxima ordem sugerida
-    final lastOrder = _universe.isNotEmpty
-        ? _universe
-        .map((e) => e.orderPaymentRevision ?? 0)
-        .reduce((a, b) => a > b ? a : b)
-        : 0;
-    orderCtrl.text = (lastOrder + 1).toString();
-
-    _revalidate();
     notifyListeners();
   }
 
-  // ========== SAVE / DELETE ==========
-  Future<void> saveOrUpdate(BuildContext context) async {
-    final idContract = contract?.id;
-    if (idContract == null || idContract.isEmpty) {
-      _snack(context, 'Contrato inválido.');
-      return;
-    }
+  Future<bool> saveOrUpdate({
+    required Future<bool> Function() onConfirm,
+    VoidCallback? onSuccessSnack,
+    VoidCallback? onErrorSnack,
+  }) async {
+    if (contract?.id == null) return false;
 
-    // validação simples
-    _revalidate();
-    if (!formValidated) {
-      _snack(context, 'Preencha os campos obrigatórios.');
-      return;
-    }
-
-    final ok = await confirm(context, 'Deseja salvar este pagamento de reajuste?');
-    if (ok != true) return;
-
-    isSaving = true;
-    notifyListeners();
+    final confirmed = await onConfirm();
+    if (!confirmed) return false;
 
     try {
-      final model = PaymentsRevisionsData(
-        contractId: idContract,
-        idRevisionPayment: currentPaymentRevisionId,
-        orderPaymentRevision: int.tryParse(orderCtrl.text.trim()),
-        processPaymentRevision: _nz(processCtrl.text),
+      isSaving = true;
+      notifyListeners();
+
+      final data = PaymentsRevisionsData(
+        contractId: contract!.id!,
+        idRevisionPayment: _currentId,
+        orderPaymentRevision: int.tryParse(orderCtrl.text),
+        processPaymentRevision: processCtrl.text,
         valuePaymentRevision: parseCurrencyToDouble(valueCtrl.text),
         datePaymentRevision: convertDDMMYYYYToDateTime(dateCtrl.text),
-        statePaymentRevision: _nz(stateCtrl.text),
-        observationPaymentRevision: _nz(observationCtrl.text),
-        orderBankPaymentRevision: _nz(bankCtrl.text),
-        electronicTicketPaymentRevision: _nz(electronicTicketCtrl.text),
-        fontPaymentRevision: _nz(fontCtrl.text),
+        statePaymentRevision: stateCtrl.text,
+        observationPaymentRevision: observationCtrl.text,
+        orderBankPaymentRevision: bankCtrl.text,
+        electronicTicketPaymentRevision: electronicTicketCtrl.text,
+        fontPaymentRevision: fontCtrl.text,
         taxPaymentRevision: parseCurrencyToDouble(taxCtrl.text),
       );
 
-      await paymentsBloc.saveOrUpdatePayment(model);
+      await _paymentRevisionBloc.saveOrUpdatePayment(data);
 
-      // recarrega, reposiciona e limpa form
-      await _reloadAll();
-      _snack(context, 'Pagamento salvo com sucesso.');
+      _revisions = await _paymentRevisionBloc
+          .getAllReportPaymentsOfContract(contractId: contract!.id!);
+
       createNew();
-    } catch (e) {
-      _snack(context, 'Erro ao salvar: $e');
+      onSuccessSnack?.call();
+      return true;
+    } catch (_) {
+      onErrorSnack?.call();
+      return false;
     } finally {
       isSaving = false;
       notifyListeners();
     }
   }
 
-  Future<void> deletePayment(BuildContext context, String idPaymentRevision) async {
-    final idContract = contract?.id;
-    if (idContract == null || idContract.isEmpty) return;
-
-    final ok = await confirm(context, 'Deseja apagar este pagamento de reajuste?');
-    if (ok != true) return;
-
-    isSaving = true;
-    notifyListeners();
+  /// ImportExcel: salva exatamente o objeto recebido.
+  Future<void> saveExact(
+      PaymentsRevisionsData data, {
+        VoidCallback? onSuccess,
+        VoidCallback? onError,
+      }) async {
+    if (contract?.id == null) return;
 
     try {
-      await paymentsBloc.deletarPayment(idContract, idPaymentRevision);
-      await _reloadAll();
-      if (currentPaymentRevisionId == idPaymentRevision) createNew();
-      _snack(context, 'Pagamento de reajuste removido.');
-    } catch (e) {
-      _snack(context, 'Erro ao remover: $e');
+      isSaving = true;
+      notifyListeners();
+
+      final toSave = PaymentsRevisionsData(
+        contractId: contract!.id!,
+        idRevisionPayment: data.idRevisionPayment,
+        orderPaymentRevision: data.orderPaymentRevision,
+        processPaymentRevision: data.processPaymentRevision,
+        valuePaymentRevision: data.valuePaymentRevision,
+        datePaymentRevision: data.datePaymentRevision,
+        statePaymentRevision: data.statePaymentRevision,
+        observationPaymentRevision: data.observationPaymentRevision,
+        orderBankPaymentRevision: data.orderBankPaymentRevision,
+        electronicTicketPaymentRevision: data.electronicTicketPaymentRevision,
+        fontPaymentRevision: data.fontPaymentRevision,
+        taxPaymentRevision: data.taxPaymentRevision,
+      );
+
+      await _paymentRevisionBloc.saveOrUpdatePayment(toSave);
+
+      _revisions = await _paymentRevisionBloc
+          .getAllReportPaymentsOfContract(contractId: contract!.id!);
+
+      createNew();
+      onSuccess?.call();
+    } catch (_) {
+      onError?.call();
     } finally {
       isSaving = false;
       notifyListeners();
     }
   }
 
-  // ========== HELPERS ==========
-  void _revalidate() {
-    final requiredFilled =
-        orderCtrl.text.trim().isNotEmpty &&
-            processCtrl.text.trim().isNotEmpty &&
-            valueCtrl.text.trim().isNotEmpty &&
-            dateCtrl.text.trim().isNotEmpty;
-    if (formValidated != requiredFilled) {
-      formValidated = requiredFilled;
+  Future<void> deleteById(
+      String idPaymentRevision, {
+        VoidCallback? onSuccessSnack,
+        VoidCallback? onErrorSnack,
+      }) async {
+    if (contract?.id == null) return;
+    try {
+      await _paymentRevisionBloc.deletarPayment(contract!.id!, idPaymentRevision);
+      _revisions = await _paymentRevisionBloc
+          .getAllReportPaymentsOfContract(contractId: contract!.id!);
+      selectedIndex = null;
+      onSuccessSnack?.call();
+    } catch (_) {
+      onErrorSnack?.call();
+    } finally {
+      notifyListeners();
     }
   }
 
-  String? _nz(String? s) {
-    final t = (s ?? '').trim();
-    return t.isEmpty ? null : t;
+  Future<void> savePdfUrl(String url) async {
+    if (_selected?.idRevisionPayment == null || contract?.id == null) return;
+    await _paymentRevisionBloc.salvarUrlPdfDePayment(
+      contractId: contract!.id!,
+      paymentId: _selected!.idRevisionPayment!,
+      url: url,
+    );
   }
 
-  Future<bool> confirm(BuildContext context, String message) async {
-    final res = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmação'),
-        content: Text(message),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
-        ],
-      ),
-    );
-    return res ?? false;
-  }
-
-  void _snack(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
+  // ordenação/substituição externa opcional
+  void overwriteList(List<PaymentsRevisionsData> newList) {
+    _revisions = newList;
+    final last = _revisions.isNotEmpty
+        ? _revisions.map((e) => e.orderPaymentRevision ?? 0).reduce((a, b) => a > b ? a : b)
+        : 0;
+    if (selectedIndex == null) {
+      orderCtrl.text = (last + 1).toString();
+    }
+    notifyListeners();
   }
 }

@@ -3,14 +3,13 @@ import 'package:sisged/_datas/documents/contracts/contracts/contract_style.dart'
 import '../../../../../_widgets/table/simple_table_changed.dart';
 import '../../../_blocs/documents/contracts/validity/validity_bloc.dart';
 import '../../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../_datas/documents/contracts/contracts/contract_data.dart';
 import 'list_contracts_validity_icon.dart';
 
 typedef ContractNavigationCallback = void Function(BuildContext context, ContractData contract);
 
 class ContractsTableWidget extends StatelessWidget {
   final List<ContractData> listContractData;
-  final ValidityBloc validityBloc;
   final BoxConstraints constraints;
   final String statusLabel;
   final String statusFilter;
@@ -23,7 +22,6 @@ class ContractsTableWidget extends StatelessWidget {
   const ContractsTableWidget({
     super.key,
     required this.listContractData,
-    required this.validityBloc,
     required this.constraints,
     required this.statusLabel,
     required this.statusFilter,
@@ -55,7 +53,6 @@ class ContractsTableWidget extends StatelessWidget {
           SimpleTableChanged<ContractData>(
             listData: sortedContracts,
             constraints: constraints,
-            status: statusLabel,
             sortColumnIndex: sortColumnIndex,
             isAscending: isAscending,
             sortField: (d) => d.contractNumber ?? '',
@@ -64,14 +61,13 @@ class ContractsTableWidget extends StatelessWidget {
             onDelete: onDelete,
             leadingCell: (data) => ContractValidityIcon(
               contract: data,
-              validityBloc: validityBloc,
             ),
             columnTitles: const [
               'CONTRATO', 'OBRA', 'REGIÃO', 'EMPRESA', 'Nº PROCESSO',
             ],
-            columnWidths: [100, 130, 200, 110, 100, 200],
+            columnWidths: [130, 130, 200, 110, 100, 200],
             columnTextAligns: List.filled(6, TextAlign.center),
-            groupLabel: 'SERVIÇO:',
+            groupLabel: 'SERVIÇO',
             //statusFilter: statusFilter,
             leadingCellTitle: 'VALIDADE',
             columnGetters: [

@@ -14,10 +14,15 @@ class BudgetController extends ChangeNotifier {
   List<bool> numericCols = [];
   List<ColumnType> colTypes = [];
 
-  // --------- Constantes de layout/largura (coesas à lógica) ----------
+  // --------- Constantes de layout/largura ----------
   static const double minColWidth = 80;
   static const double maxColWidthNonNumeric = 380;
   final double cellPadHorizontal;
+
+  // --------- PROPRIEDADES P/ UI ----------
+  int get rowCount => tableData.isEmpty ? 0 : tableData.length;
+  int get colCount => tableData.isEmpty ? 0 : tableData.first.length;
+  bool get hasData => tableData.isNotEmpty;
 
   // --------- COLAR DO EXCEL ----------
   Future<void> pasteFromClipboard() async {
@@ -33,11 +38,6 @@ class BudgetController extends ChangeNotifier {
     colWidths = computeColWidths(rows);
     notifyListeners();
   }
-
-  // --------- PROPRIEDADES P/ UI ----------
-  int get rowCount => tableData.isEmpty ? 0 : tableData.length;
-  int get colCount => tableData.isEmpty ? 0 : tableData.first.length;
-  bool get hasData => tableData.isNotEmpty;
 
   String excelColName(int index) {
     int n = index;
@@ -265,168 +265,7 @@ class BudgetController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --------- Firestore (save/load) ----------
-  CollectionReference<Map<String, dynamic>> _rowsCol(FirebaseFirestore db, String contractId) =>
-      db.collection('contracts').doc(contractId).collection('budget').doc('meta').collection('rows');
-
-  DocumentReference<Map<String, dynamic>> _metaDoc(FirebaseFirestore db, String contractId) =>
-      db.collection('contracts').doc(contractId).collection('budget').doc('meta');
-
-  void _ensureColTypesLength(int cols) {
-    if (colTypes.length != cols) {
-      if (colTypes.isEmpty) {
-        colTypes = List.filled(cols, ColumnType.auto);
-      } else if (colTypes.length < cols) {
-        colTypes = [
-          ...colTypes,
-          for (int i = colTypes.length; i < cols; i++) ColumnType.auto,
-        ];
-      } else {
-        colTypes = colTypes.sublist(0, cols);
-      }
-    }
-  }
-
-  void _ensureColWidthsLength(int cols) {
-    if (colWidths.length != cols) {
-      if (colWidths.isEmpty) {
-        colWidths = List.filled(cols, 120);
-      } else if (colWidths.length < cols) {
-        colWidths = [
-          ...colWidths,
-          for (int i = colWidths.length; i < cols; i++) 120.0,
-        ];
-      } else {
-        colWidths = colWidths.sublist(0, cols);
-      }
-    }
-  }
-
-  List<List<String>> _normalizeRowsToWidth(List<List<String>> rows, int width) {
-    return rows.map((r) {
-      if (r.length == width) return List<String>.from(r);
-      if (r.length < width) {
-        return [...r, for (int i = r.length; i < width; i++) ''];
-      }
-      return r.sublist(0, width);
-    }).toList();
-  }
-
-  /// Salva no Firestore:
-  /// - contracts/{contractId}/budget/meta
-  /// - contracts/{contractId}/budget/rows/{autoId}
-  Future<void> saveToFirestore({
-    required String contractId,
-    FirebaseFirestore? dbInstance,
-  }) async {
-    if (!hasData) return;
-
-    final db = dbInstance ?? FirebaseFirestore.instance;
-
-    final headers = this.headers;
-    final cols = headers.length;
-
-    _ensureColTypesLength(cols);
-    _ensureColWidthsLength(cols);
-
-    final normalizedTable = _normalizeRowsToWidth(tableData, cols);
-
-    numericCols = List.generate(cols, (c) => isNumericEffective(c, normalizedTable));
-
-    await _metaDoc(db, contractId).set({
-      'headers': headers,
-      'colTypes': colTypesAsString,
-      'colWidths': colWidths,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'version': 1,
-    }, SetOptions(merge: true));
-
-    final rowsCol = _rowsCol(db, contractId);
-
-    // delete-all (simples; pode virar diff depois)
-    final existing = await rowsCol.get();
-    {
-      WriteBatch? batch;
-      var count = 0;
-      for (final d in existing.docs) {
-        batch ??= db.batch();
-        batch.delete(d.reference);
-        if (++count >= 450) {
-          await batch.commit();
-          batch = null;
-          count = 0;
-        }
-      }
-      if (batch != null) await batch.commit();
-    }
-
-    // create-all (pula header)
-        {
-      WriteBatch? batch;
-      var count = 0;
-      for (int r = 1; r < normalizedTable.length; r++) {
-        final ref = rowsCol.doc();
-        batch ??= db.batch();
-        batch.set(ref, {
-          'index': r,
-          'values': normalizedTable[r],
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-        if (++count >= 450) {
-          await batch.commit();
-          batch = null;
-          count = 0;
-        }
-      }
-      if (batch != null) await batch.commit();
-    }
-  }
-
-  /// Carrega do Firestore e atualiza o controller
-  Future<void> loadFromFirestore({
-    required String contractId,
-    FirebaseFirestore? dbInstance,
-  }) async {
-    final db = dbInstance ?? FirebaseFirestore.instance;
-
-    final metaSnap = await _metaDoc(db, contractId).get();
-    if (!metaSnap.exists) {
-      tableData = [];
-      colTypes = [];
-      colWidths = [];
-      numericCols = [];
-      notifyListeners();
-      return;
-    }
-
-    final meta = metaSnap.data()!;
-    final headers = (meta['headers'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? <String>[];
-    final colTypesStr = (meta['colTypes'] as List?)?.map((e) => e?.toString() ?? 'auto').toList() ?? <String>[];
-    final colWidthsVal = (meta['colWidths'] as List?)?.map((e) {
-      if (e is int) return e.toDouble();
-      if (e is num) return e.toDouble();
-      return 120.0;
-    }).toList() ?? <double>[];
-
-    final rowsSnap = await _rowsCol(db, contractId).orderBy('index').get();
-    final rows = <List<String>>[];
-    for (final d in rowsSnap.docs) {
-      final values = (d['values'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? <String>[];
-      rows.add(values);
-    }
-
-    final table = <List<String>>[headers, ...rows];
-    final cols = headers.length;
-    final tableNorm = _normalizeRowsToWidth(table, cols);
-
-    loadFromSnapshot(
-      table: tableNorm,
-      colTypesAsString: colTypesStr.isEmpty ? List.filled(cols, 'auto') : colTypesStr,
-      widths: colWidthsVal.isEmpty ? List.filled(cols, 120.0) : colWidthsVal,
-    );
-  }
-
-  // --------- Helpers internos (detecção/format) ----------
+  // --------- Helpers (detecção/format) ----------
   bool _isNumericBR(String s) {
     final v = s.trim();
     if (v.isEmpty) return false;

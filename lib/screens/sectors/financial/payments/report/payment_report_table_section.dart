@@ -1,0 +1,139 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:sisged/_utils/date_utils.dart';
+import 'package:sisged/_widgets/table/simple_table_changed.dart';
+import 'package:sisged/screens/sectors/financial/payments/report/payment_report_controller.dart';
+
+import '../../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
+import '../../../../../_datas/sectors/financial/payments/reports/payments_reports_data.dart';
+import '../../../../../_widgets/formats/format_field.dart';
+import '../../../../documents/footer_rows_generic.dart';
+
+class PaymentReportTableSection extends StatelessWidget {
+  const PaymentReportTableSection({
+    super.key,
+    required this.reportData, // ainda pode vir de fora se precisar comparar com medições
+  });
+
+  final List<ReportMeasurementData> reportData;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<PaymentsReportController>();
+
+    final paymentReportData = c.reports;
+    final selectedPaymentReport = c.selected;
+
+    // totais
+    final totalPaymentReports = paymentReportData.fold<double>(
+      0.0,
+          (prev, item) => prev + (item.valuePaymentReport ?? 0.0),
+    );
+    final totalReports = reportData.fold<double>(
+      0.0,
+          (prev, item) => prev + (item.valueReportMeasurement ?? 0.0),
+    );
+
+    final valorTotal = c.valorTotal;
+    final saldo = c.saldo;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              const SizedBox(width: 12),
+              ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: SimpleTableChanged<PaymentsReportData>(
+                  constraints: constraints,
+                  listData: paymentReportData,
+                  selectedItem: selectedPaymentReport,
+                  columnTitles: const [
+                    'ORDEM',
+                    'Nº PROCESSO DA MEDIÇÃO',
+                    'DATA DO PAGAMENTO DO BOLETIM DE MEDIÇÃO',
+                    'VALOR DO PAGAMENTO DO BOLETIM DE MEDIÇÃO',
+                  ],
+                  columnGetters: [
+                        (a) => '${a.orderPaymentReport ?? '-'}',
+                        (a) => a.processPaymentReport ?? '-',
+                        (a) => convertDateTimeToDDMMYYYY(
+                      a.datePaymentReport ?? DateTime.now(),
+                    ),
+                        (a) => priceToString(a.valuePaymentReport),
+                  ],
+                  onTapItem: (data) => c.selectRow(data),
+                  onDelete: (data) async {
+                    final id = data.idPaymentReport;
+                    if (id == null) return;
+
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Confirmação'),
+                        content: const Text('Deseja apagar este pagamento?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancelar'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Apagar'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      await c.deleteById(
+                        id,
+                        onSuccessSnack: () => ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Medição apagada com sucesso.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  columnWidths: const [100, 220, 220, 220],
+                  columnTextAligns: const [
+                    TextAlign.center,
+                    TextAlign.center,
+                    TextAlign.center,
+                    TextAlign.center,
+                  ],
+                  footerRows: FooterRowsGeneric(
+                    mostrarColunaExcluir: true,
+                    linhas: [
+                      FooterResumo(
+                        label: 'TOTAL DOS PAGAMENTOS',
+                        value: totalPaymentReports,
+                        backgroundColor: Colors.grey.shade200,
+                      ),
+                      FooterResumo.empty(),
+                      FooterResumo(
+                        label: 'TOTAL DAS MEDIÇÕES',
+                        value: totalReports,
+                        backgroundColor: Colors.white,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      FooterResumo(
+                        label: 'SALDO DO CONTRATO',
+                        value: saldo,
+                        backgroundColor: Colors.blue.shade100,
+                      ),
+                    ],
+                  ).rows,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

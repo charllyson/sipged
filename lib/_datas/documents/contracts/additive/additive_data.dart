@@ -21,14 +21,6 @@ class AdditiveData extends ChangeNotifier {
   DateTime? deletedAt;
   String? deletedBy;
 
-  static List<String> type = [
-    'VALOR',
-    'PRAZO',
-    'REEQUILÍBRIO',
-    'RATIFICAÇÃO',
-    'RENOVAÇÃO'
-  ];
-
   AdditiveData({
     this.id,
     this.contractId,

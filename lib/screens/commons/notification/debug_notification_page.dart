@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../_blocs/documents/contracts/additives/additives_bloc.dart';
 import '../../../_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
-import '../../../_blocs/documents/measurement/measurement_bloc.dart';
+import '../../../_blocs/documents/measurement/report/report_measurement_bloc.dart';
 import '../../../_widgets/registers/register_class.dart';
 
 class DebugNotificacoesPage extends StatefulWidget {
@@ -17,7 +17,7 @@ class DebugNotificacoesPage extends StatefulWidget {
 class _DebugNotificacoesPageState extends State<DebugNotificacoesPage> {
   late Future<List<Registro>> _futureRegistros;
 
-  late final ReportsBloc measurementBloc = ReportsBloc();
+  late final ReportMeasurementBloc measurementBloc = ReportMeasurementBloc();
   late final AdditivesBloc additivesBloc = AdditivesBloc();
   late final ApostillesBloc apostillesBloc = ApostillesBloc();
 

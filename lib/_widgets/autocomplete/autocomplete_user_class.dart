@@ -85,7 +85,7 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
                   controller: textController,
                   focusNode: focusNode,
                   labelText: widget.label,
-                  hint: widget.hint,
+                  hintText: widget.hint,
                 );
               },
               optionsViewBuilder: (context, onSelected, options) {

@@ -1,20 +1,28 @@
+// lib/screens/commons/listContracts/list_contracts_filtered_page.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import 'package:sisged/_blocs/system/user_bloc.dart';
 import 'package:sisged/_datas/documents/contracts/contracts/contract_style.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_provider/user/user_provider.dart';
 
-import 'package:sisged/_widgets/background/background_cleaner.dart';
-import 'package:sisged/screens/commons/footBar/foot_bar.dart';
-import 'package:sisged/screens/commons/upBar/up_bar.dart';
-
-import '../../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../../_provider/user/user_provider.dart';
-import '../../../_widgets/buttons/contract_add_button.dart';
 import '../../documents/contract/tab_bar_contract_page.dart';
-import 'list_contracts_controller.dart'; // <— o controller acima
-import 'package:sisged/screens/commons/listContracts/list_contracts_status_widget.dart';
+import '../currentUser/user_greeting.dart';
+import '../footBar/foot_bar.dart';
+import '../upBar/up_bar.dart';
+import '../../../_widgets/background/background_cleaner.dart';
+import '../../../_widgets/buttons/contract_add_button.dart';
+import '../../../_widgets/search/search_widget.dart';
 
-typedef ContractNavigationCallback = void Function(BuildContext context, ContractData contract);
+import 'list_contracts_controller.dart';
+import 'list_contracts_status_widget.dart';
+
+typedef ContractNavigationCallback = void Function(
+    BuildContext context,
+    ContractData contract,
+    );
 
 class ListContractsFilteredPage extends StatelessWidget {
   const ListContractsFilteredPage({
@@ -26,69 +34,77 @@ class ListContractsFilteredPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = ListContractsController.of(context); // listen: true (default)
+    final controller = ListContractsController.of(context); // listen: true
+    final User? firebaseUser = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          const BackgroundCleaner(),
+          const BackgroundClean(),
           Consumer<UserProvider>(
             builder: (context, userProvider, _) {
               final currentUser = userProvider.userData;
               if (currentUser == null) {
                 return const Center(child: CircularProgressIndicator());
               }
-
-              // garante init apenas quando há usuário
               controller.initIfNeeded(currentUser);
 
               return LayoutBuilder(
                 builder: (context, constraints) {
-                  // primeira carga: se mapa vazio e não está carregando,
-                  // aplica filtros (defensivo para cenários sem init)
                   if (!controller.loading && controller.cachedByStatus.isEmpty) {
-                    // microtask para não disparar no meio do build
                     Future.microtask(() => controller.applyFilters());
                   }
 
                   return SingleChildScrollView(
                     child: ConstrainedBox(
                       constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      // A mágica: IntrinsicHeight + Expanded antes do FootBar
                       child: IntrinsicHeight(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             UpBar(
-                              onSearch: controller.onSearchChanged,
+                              actions: [
+                                SearchAction(onSearch: controller.onSearchChanged),
+                                UserGreeting(
+                                  userBloc: UserBloc(),
+                                  firebaseUser: firebaseUser,
+                                ),
+                              ],
                             ),
 
-                            // Seções por status (mantém a mesma API do seu widget atual)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: ContractStyle.statusMenu.map((status) {
-                                final label = status.$1;
-                                final filter = status.$2;
-                                return ContractStatusWidget(
-                                  contractsBloc: controller.contractsBloc,
-                                  validityBloc: controller.validityBloc,
-                                  currentUser: currentUser,
-                                  statusLabel: label,
-                                  statusFilter: filter,
-                                  constraints: constraints,
-                                  statusCtrl: controller.statusCtrl,
-                                  searchCtrl: controller.searchCtrl,
-                                  cachedContracts: controller.cachedByStatus,
-                                  sortColumnIndex: controller.sortColumnIndex,
-                                  isAscending: controller.isAscending,
-                                  onSort: (index, getter) => controller.handleSort(index),
-                                  onRefresh: controller.refresh,
-                                  onTapItem: onTapItem,
-                                );
-                              }).toList(),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: ContractStyle.statusMenu.map((status) {
+                                  final label = status.$1;      // título visível
+                                  final rawKey = status.$2;     // chave de filtro/config
+                                  final k = rawKey.trim().toUpperCase();
+                                  final items = controller.cachedByStatus[k] ?? const <ContractData>[];
+
+                                  return ContractStatusExpandable(
+                                    title: label,
+                                    statusKey: k,
+                                    items: items,
+                                    constraints: constraints,
+                                    sortColumnIndex: controller.sortColumnIndex,
+                                    isAscending: controller.isAscending,
+                                    onSort: (index, getter) => controller.handleSort(index),
+                                    onDelete: (item) async {
+                                      controller.contractsBloc.deleteContract(item.id!);
+                                      await controller.refresh();
+                                    },
+                                    onTapItem: onTapItem,
+                                  );
+                                }).toList(),
+                              ),
                             ),
 
-                            const SizedBox(height: 40),
-                            const Spacer(),
+                            // Espaço flexível que empurra o rodapé para o fim
+                            const SizedBox(height: 24),
+                            const Expanded(child: SizedBox()),
                             const FootBar(),
                           ],
                         ),
@@ -105,7 +121,9 @@ class ListContractsFilteredPage extends StatelessWidget {
         isEditable: controller.isEditable,
         onAdd: () async {
           final result = await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const TabBarContractPage()),
+            MaterialPageRoute(
+              builder: (_) => TabBarContractPage(contractData: ContractData()),
+            ),
           );
           if (result == true) {
             await controller.refresh();

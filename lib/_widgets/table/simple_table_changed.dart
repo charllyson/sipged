@@ -52,35 +52,36 @@ class SimpleTableChanged<T> extends StatelessWidget {
     this.selectedItem,
   });
 
+  // ---- helpers de colunas ----
+  int get _leadingCols =>
+      (leadingCell != null && (leadingCellTitle?.isNotEmpty ?? false)) ? 1 : 0;
+  int get _deleteCols => onDelete != null ? 1 : 0;
+  int get _totalColumns => _leadingCols + columnTitles.length + _deleteCols;
+
   @override
   Widget build(BuildContext context) {
-    List<T> data = List.from(listData);
+    // cópia da lista para ordenação
+    List<T> data = List<T>.from(listData);
+
     if (sortField != null && sortColumnIndex != null) {
       data.sort((a, b) {
-        final aValue = sortField!(a).toLowerCase();
-        final bValue = sortField!(b).toLowerCase();
-        return isAscending ? aValue.compareTo(bValue) : bValue.compareTo(aValue);
+        final av = sortField!(a);
+        final bv = sortField!(b);
+        final r = _smartCompare(av, bv);
+        return isAscending ? r : -r;
       });
     }
 
-    final grouped = listData.isEmpty ? <String, List<T>>{} : _groupBy(data);
+    final grouped = data.isEmpty ? <String, List<T>>{} : _groupBy(data);
 
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (status != null || listData.isEmpty)
+          if (data.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                '$status - (${listData.length}) registros',
-                style: const TextStyle(fontSize: 20),
-              ),
-            ),
-          if (listData.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 20.0),
+              padding: const EdgeInsets.only(left: 20.0, top: 8.0, bottom: 8.0),
               child: Text(
                 'Nenhum registro encontrado.',
                 style: TextStyle(
@@ -90,26 +91,23 @@ class SimpleTableChanged<T> extends StatelessWidget {
                 ),
               ),
             ),
-          if (listData.isNotEmpty)
+          if (data.isNotEmpty)
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: constraints.maxWidth - 24),
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
                 child: Table(
                   border: TableBorder.all(
                     borderRadius: BorderRadius.circular(10),
                     color: Colors.grey.shade200,
                   ),
                   columnWidths: {
-                    for (int i = 0;
-                    i <
-                        columnTitles.length +
-                            (leadingCell != null && (leadingCellTitle?.isNotEmpty ?? false) ? 2 : 1);
-                    i++)
+                    for (int i = 0; i < _totalColumns; i++)
                       i: FixedColumnWidth(
-                          (columnWidths != null && i < columnWidths!.length)
-                              ? columnWidths![i]
-                              : 150.0),
+                        (columnWidths != null && i < columnWidths!.length)
+                            ? columnWidths![i]
+                            : 150.0,
+                      ),
                   },
                   children: [
                     _buildHeaderRow(),
@@ -121,7 +119,8 @@ class SimpleTableChanged<T> extends StatelessWidget {
                         if (groupBy != null && groupLabel != null)
                           _buildGroupRow(groupKey),
                         ...items.map((item) {
-                          final isSelected = selectedItem != null && item == selectedItem;
+                          final isSelected =
+                              selectedItem != null && item == selectedItem;
                           return _buildDataRow(context, item, isSelected);
                         }),
                       ];
@@ -136,17 +135,18 @@ class SimpleTableChanged<T> extends StatelessWidget {
     );
   }
 
+  // ---------- Header ----------
   TableRow _buildHeaderRow() {
     return TableRow(
       decoration: BoxDecoration(color: colorHeadTable),
       children: [
-        if (leadingCell != null && (leadingCellTitle?.isNotEmpty ?? false))
-          _buildHeader(leadingCellTitle!, 0, (d) => ''),
+        if (_leadingCols == 1)
+          _buildHeader(leadingCellTitle ?? '', 0, (d) => ''),
         ...List.generate(columnTitles.length, (index) {
-          final adjustedIndex = (leadingCell != null && (leadingCellTitle?.isNotEmpty ?? false)) ? index + 1 : index;
-          return _buildHeader(columnTitles[index], adjustedIndex, columnGetters[index]);
+          final colIndex = index + _leadingCols;
+          return _buildHeader(columnTitles[index], colIndex, columnGetters[index]);
         }),
-        if (onDelete != null)
+        if (_deleteCols == 1)
           Center(
             child: Padding(
               padding: const EdgeInsets.all(8),
@@ -163,38 +163,88 @@ class SimpleTableChanged<T> extends StatelessWidget {
     );
   }
 
-  TableRow _buildGroupRow(String groupKey) {
-    return TableRow(
-      decoration: BoxDecoration(color: Colors.grey.shade200),
+  Widget _sortIcon(int columnIndex) {
+    if (sortColumnIndex == columnIndex) {
+      return Icon(
+        isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+        size: 16,
+        color: Colors.redAccent,
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _headerLabel(String title, int columnIndex) {
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 4,
+      alignment: WrapAlignment.center,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            groupLabel!,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.end,
+        Text(
+          title,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: colorHeadTableText,
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            groupKey,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-          ),
-        ),
-        ...List.generate(columnTitles.length - 1, (_) => Container()),
-        if (onDelete != null) Container(),
+        _sortIcon(columnIndex),
       ],
     );
   }
 
+  Widget _headerBody(String title, int columnIndex, String Function(T) getter) {
+    return InkWell(
+      onTap: () => onSort?.call(columnIndex, getter),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: _headerLabel(title, columnIndex),
+      ),
+    );
+  }
+
+  Widget _buildHeader(String title, int columnIndex, String Function(T) getter) {
+    return Tooltip(
+      message: 'Ordenar por $title',
+      child: _headerBody(title, columnIndex, getter),
+    );
+  }
+
+  // ---------- Group Row ----------
+  TableRow _buildGroupRow(String groupKey) {
+    final List<Widget> cells = [];
+
+    // 1ª célula (label + valor) — independente de leading/delete existir
+    cells.add(
+      Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Text(
+          (groupLabel ?? 'Grupo') + (groupKey.isNotEmpty ? ': $groupKey' : ''),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+
+    // Preenche o restante até total de colunas
+    while (cells.length < _totalColumns) {
+      cells.add(Container());
+    }
+
+    return TableRow(
+      decoration: BoxDecoration(color: Colors.grey.shade200),
+      children: cells,
+    );
+  }
+
+  // ---------- Data Row ----------
   TableRow _buildDataRow(BuildContext context, T item, bool isSelected) {
     return TableRow(
       decoration: BoxDecoration(
         color: isSelected ? Colors.green.shade100 : Colors.white,
       ),
       children: [
-        if (leadingCell != null && (leadingCellTitle?.isNotEmpty ?? false))
+        if (_leadingCols == 1)
           TableCell(
             verticalAlignment: TableCellVerticalAlignment.middle,
             child: InkWell(
@@ -205,14 +255,16 @@ class SimpleTableChanged<T> extends StatelessWidget {
               ),
             ),
           ),
-        ...List.generate(columnGetters.length, (index) => _buildCell(
-          columnGetters[index](item),
-          item,
-          textAlign: (columnTextAligns != null && index < columnTextAligns!.length)
-              ? columnTextAligns![index]
-              : TextAlign.left,
-        )),
-        if (onDelete != null)
+        ...List.generate(columnGetters.length, (index) {
+          return _buildCell(
+            columnGetters[index](item),
+            item,
+            textAlign: (columnTextAligns != null && index < columnTextAligns!.length)
+                ? columnTextAligns![index]
+                : TextAlign.left,
+          );
+        }),
+        if (_deleteCols == 1)
           TableCell(
             child: IconButton(
               tooltip: 'Apagar',
@@ -233,11 +285,15 @@ class SimpleTableChanged<T> extends StatelessWidget {
           padding: const EdgeInsets.all(8.0),
           child: Align(
             alignment: _getAlignment(textAlign),
-            child: Text(
-              text ?? '',
-              overflow: TextOverflow.ellipsis,
-              textAlign: textAlign,
-              maxLines: 2,
+            child: Semantics(
+              button: true,
+              label: text ?? '',
+              child: Text(
+                text ?? '',
+                overflow: TextOverflow.ellipsis,
+                textAlign: textAlign,
+                maxLines: 2,
+              ),
             ),
           ),
         ),
@@ -257,40 +313,7 @@ class SimpleTableChanged<T> extends StatelessWidget {
     }
   }
 
-  Widget _buildHeader(String title, int columnIndex, String Function(T) getter) {
-    return Tooltip(
-      message: 'Ordenar por $title',
-      child: InkWell(
-        onTap: () => onSort?.call(columnIndex, getter),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 4,
-            alignment: WrapAlignment.center,
-            children: [
-              Text(
-                title,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: colorHeadTableText,
-                ),
-              ),
-              if (sortColumnIndex == columnIndex)
-                Icon(
-                  isAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                  size: 16,
-                  color: Colors.redAccent,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
+  // ---------- Diálogo de exclusão ----------
   void _confirmarExclusao(BuildContext context, T item) {
     showDialog(
       context: context,
@@ -299,8 +322,9 @@ class SimpleTableChanged<T> extends StatelessWidget {
         content: const Text('Deseja realmente excluir este item?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
@@ -313,6 +337,7 @@ class SimpleTableChanged<T> extends StatelessWidget {
     );
   }
 
+  // ---------- Agrupamento ----------
   Map<String, List<T>> _groupBy(List<T> data) {
     final Map<String, List<T>> grouped = {};
     for (final item in data) {
@@ -320,5 +345,32 @@ class SimpleTableChanged<T> extends StatelessWidget {
       grouped.putIfAbsent(key, () => []).add(item);
     }
     return grouped;
+  }
+
+  // ---------- Comparador inteligente ----------
+  int _smartCompare(String? a, String? b) {
+    if (a == null && b == null) return 0;
+    if (a == null) return 1; // nulos no fim
+    if (b == null) return -1;
+
+    // número (aceita vírgula como decimal)
+    final an = num.tryParse(a.replaceAll(',', '.'));
+    final bn = num.tryParse(b.replaceAll(',', '.'));
+    if (an != null && bn != null) return an.compareTo(bn);
+
+    // data
+    DateTime? ad, bd;
+    try {
+      ad = DateTime.tryParse(a);
+    } catch (_) {}
+    try {
+      bd = DateTime.tryParse(b);
+    } catch (_) {}
+    if (ad != null && bd != null) return ad.compareTo(bd);
+
+    // string normalizada
+    final na = a.toLowerCase();
+    final nb = b.toLowerCase();
+    return na.compareTo(nb);
   }
 }

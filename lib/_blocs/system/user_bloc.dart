@@ -1,9 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
-import '../../_datas/documents/contracts/contracts/contracts_data.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_bloc.dart';
+import '../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../_datas/system/user_data.dart';
 import 'package:rxdart/rxdart.dart';
+
+import '../../_widgets/registers/register_class.dart';
+import '../documents/contracts/additives/additives_bloc.dart';
+import '../documents/contracts/apostilles/apostilles_bloc.dart';
+import '../documents/contracts/validity/validity_bloc.dart';
 
 class UserBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -81,7 +87,7 @@ class UserBloc extends BlocBase {
     await _db.collection('users').doc(uid).collection('notifications').doc(notificationId).update({'seen': true});
   }
 
-  /*Stream<List<Registro>> getNotificacoesRecentesStream({required String tipo}) {
+  Stream<List<Registro>> getNotificacoesRecentesStream({required String tipo}) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return const Stream.empty();
 
@@ -98,11 +104,11 @@ class UserBloc extends BlocBase {
           .map((doc) => Registro.fromNotificationDocument(doc))
           .toList();
     });
-  }*/
+  }
 
-  /*Stream<List<Registro>> getNotificacoesRecentesStreamAgrupado() {
+  Stream<List<Registro>> getNotificacoesRecentesStreamAgrupado() {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    final measurementBloc = MeasurementBloc();
+    final measurementBloc = ReportMeasurementBloc();
     final additivesBloc = AdditivesBloc();
     final apostillesBloc = ApostillesBloc();
     final validityBloc = ValidityBloc();
@@ -121,7 +127,7 @@ class UserBloc extends BlocBase {
         ..sort((a, b) => b.data.compareTo(a.data));
       return todas;
     });
-  }*/
+  }
 
   bool getUserCreateEditPermissions({required UserData userData}) {
     return userData.baseProfile == 'Administrador' ||

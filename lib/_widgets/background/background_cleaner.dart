@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class BackgroundCleaner extends StatelessWidget {
-  const BackgroundCleaner({super.key});
+class BackgroundClean extends StatelessWidget {
+  const BackgroundClean({super.key});
 
   @override
   Widget build(BuildContext context) {

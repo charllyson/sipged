@@ -3,12 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../_datas/documents/contracts/additive/additive_data.dart';
+import '../../../../_datas/documents/contracts/additive/additive_store.dart';
+import '../../../../_blocs/system/user_bloc.dart';
+
 import 'additive_controller.dart';
 import 'additive_form_section.dart';
 import 'additive_graph_section.dart';
 import 'additive_table_section.dart';
-import '../../../../_datas/documents/contracts/additive/additive_data.dart';
 
 class AdditivePage extends StatelessWidget {
   const AdditivePage({super.key, required this.contractData});
@@ -17,9 +20,15 @@ class AdditivePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AdditiveController(contract: contractData),
+      // ✅ injeta o store e o userBloc vindos do Provider
+      create: (ctx) => AdditiveController(
+        contract: contractData,
+        store: ctx.read<AdditivesStore>(),
+        userBloc: ctx.read<UserBloc>(),
+      ),
       builder: (context, _) {
         final c = context.read<AdditiveController>();
+        // pós-frame: permissões etc.
         WidgetsBinding.instance.addPostFrameCallback((_) => c.postFrameInit(context));
 
         return Stack(
@@ -57,10 +66,12 @@ class AdditivePage extends StatelessWidget {
                                       additionalDaysContractController: ctrl.addDaysContractCtrl,
                                       onSave: () => ctrl.saveOrUpdate(context),
                                       onClear: ctrl.createNew,
-                                      onUploadSaveToFirestore: ctrl.savePdfUrl,
+                                      additivesStorageBloc: ctrl.additivesStorageBloc,
                                     ),
                                   ),
+
                                   const DividerText(title: 'Gráfico dos aditivos'),
+
                                   FutureBuilder<List<AdditiveData>>(
                                     future: ctrl.futureAdditives,
                                     builder: (context, snapshot) {
@@ -71,10 +82,14 @@ class AdditivePage extends StatelessWidget {
                                         );
                                       }
                                       final additives = snapshot.data!;
-                                      ctrl.applySnapshot(additives);
+                                      ctrl.applySnapshot(additives); // sem notify
 
-                                      final values = additives.map((e) => e.additiveValue ?? 0.0).toList();
-                                      final labels = additives.map((e) => (e.additiveOrder ?? '').toString()).toList();
+                                      final values = additives
+                                          .map((e) => e.additiveValue ?? 0.0)
+                                          .toList(growable: false);
+                                      final labels = additives
+                                          .map((e) => (e.additiveOrder ?? '').toString())
+                                          .toList(growable: false);
 
                                       return AdditiveGraphSection(
                                         labels: labels,
@@ -84,12 +99,14 @@ class AdditivePage extends StatelessWidget {
                                       );
                                     },
                                   ),
+
                                   const DividerText(title: 'Aditivos cadastrados no sistema'),
                                   AdditiveTableSection(
                                     onTapItem: (a) => context.read<AdditiveController>().handleAdditiveSelection(a),
                                     onDelete: (id) => context.read<AdditiveController>().deleteAdditive(context, id),
                                     futureAdditive: context.read<AdditiveController>().futureAdditives,
                                   ),
+
                                   const SizedBox(height: 20),
                                 ],
                               );
@@ -103,6 +120,8 @@ class AdditivePage extends StatelessWidget {
                 const FootBar(),
               ],
             ),
+
+            // overlay de salvamento
             Consumer<AdditiveController>(
               builder: (_, ctrl, __) => ctrl.isSaving
                   ? Stack(

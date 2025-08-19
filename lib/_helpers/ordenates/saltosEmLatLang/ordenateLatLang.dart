@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../_datas/actives/roads/road_data.dart';
+import '../../../_datas/actives/roads/active_roads_data.dart';
 
 
 /*
@@ -106,7 +106,7 @@ List<LatLng> ordenarPontosPorSequenciaMaisProxima(List<LatLng> pontos) {
 }
 
 /// Aplica a ordenação por proximidade e salva no Firestore
-Future<void> ordenarESalvarPontosDaRodovia(RoadData road) async {
+Future<void> ordenarESalvarPontosDaRodovia(ActiveRoadsData road) async {
   if (road.points == null || road.points!.isEmpty || road.id == null) return;
 
   final pontosOrdenados = ordenarPontosPorSequenciaMaisProxima(road.points!);

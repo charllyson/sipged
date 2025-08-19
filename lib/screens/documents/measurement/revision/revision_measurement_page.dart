@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import 'revision_measurement_controller.dart';
 import 'revision_measurement_form_section.dart';
 import 'revision_measurement_graph_section.dart';

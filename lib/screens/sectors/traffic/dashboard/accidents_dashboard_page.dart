@@ -49,7 +49,7 @@ class _AccidentsDashboardScaffoldState extends State<_AccidentsDashboardScaffold
           backgroundColor: Colors.white,
           body: Stack(
             children: [
-              const BackgroundCleaner(),
+              const BackgroundClean(),
               Column(
                 children: [
                   Expanded(

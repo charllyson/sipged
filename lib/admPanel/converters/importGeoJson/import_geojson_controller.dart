@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import '../../../_blocs/actives/road_bloc.dart';
+import '../../../_blocs/actives/active_road_bloc.dart';
 import 'geojson_preview_dialog.dart';
 
 class ImportGeoJsonController {
@@ -40,7 +40,7 @@ class ImportGeoJsonController {
           return GeoJsonPreviewDialog(
             features: parsedFeatures,
             onSalvar: (linhas, tipos, subcolecoes) async {
-              final roadsBloc = RoadsBloc();
+              final roadsBloc = ActiveRoadsBloc();
               await roadsBloc.importarRodoviasComCoordenadas(
                 linhasPrincipais: linhas,
                 subcolecoes: subcolecoes,

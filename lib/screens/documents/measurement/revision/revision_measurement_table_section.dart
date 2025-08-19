@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
 import '../../../../../_widgets/formats/format_field.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../../../_datas/documents/measurement/measurement_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
 import '../../footer_rows_generic.dart';
 
 class RevisionMeasurementTableSection extends StatelessWidget {
-  final void Function(ReportData) onTapItem;
+  final void Function(ReportMeasurementData) onTapItem;
   final void Function(String additiveId) onDelete;
-  final List<ReportData> measurementsData;
-  final ReportData? selectedMeasurement;
+  final List<ReportMeasurementData> measurementsData;
+  final ReportMeasurementData? selectedMeasurement;
   final ContractData? contractData;
 
   final double valorInicial;
@@ -43,7 +43,7 @@ class RevisionMeasurementTableSection extends StatelessWidget {
               const SizedBox(width: 12),
               ConstrainedBox(
                 constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: SimpleTableChanged<ReportData>(
+                child: SimpleTableChanged<ReportMeasurementData>(
                   constraints: constraints,
                   listData: measurementsData,
                   columnTitles: [

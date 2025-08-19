@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
-import '../../../../../_datas/documents/contracts/contracts/contracts_data.dart';
-import '../../../../../_datas/sectors/financial/payments/payments_adjustments_data.dart';
+
+import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import '../../../../../_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
 import '../../../../../_widgets/formats/format_field.dart';
 import '../../../../documents/footer_rows_generic.dart';
 
@@ -33,7 +34,10 @@ class PaymentAdjustmentTableSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalAdjustments = paymentAdjustmentData.fold<double>(0.0, (prev, item) => prev + (item.valuePaymentAdjustment ?? 0.0),);
+    final totalAdjustments = paymentAdjustmentData.fold<double>(
+      0.0,
+          (prev, item) => prev + (item.valuePaymentAdjustment ?? 0.0),
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -47,7 +51,7 @@ class PaymentAdjustmentTableSection extends StatelessWidget {
                 child: SimpleTableChanged<PaymentsAdjustmentsData>(
                   constraints: constraints,
                   listData: paymentAdjustmentData,
-                  columnTitles: [
+                  columnTitles: const [
                     'ORDEM DO REAJUSTE',
                     'Nº PROCESSO',
                     'DATA DO PAGAMENTO DO REAJUSTE',
@@ -57,7 +61,9 @@ class PaymentAdjustmentTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.orderPaymentAdjustment ?? '-'}',
                         (a) => a.processPaymentAdjustment ?? '-',
-                        (a) => convertDateTimeToDDMMYYYY(a.datePaymentAdjustment ?? DateTime.now()),
+                        (a) => convertDateTimeToDDMMYYYY(
+                      a.datePaymentAdjustment ?? DateTime.now(),
+                    ),
                         (a) => priceToString(a.valuePaymentAdjustment),
                   ],
                   onTapItem: onTapItem,
@@ -103,7 +109,6 @@ class PaymentAdjustmentTableSection extends StatelessWidget {
                       ),
                     ],
                   ).rows,
-
                 ),
               ),
             ],

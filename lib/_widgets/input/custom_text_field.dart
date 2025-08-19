@@ -6,7 +6,6 @@ class CustomTextField extends StatelessWidget {
     super.key,
     this.autofillHints,
     this.stream,
-    this.hint,
     this.initialValue,
     this.valueColor,
     this.prefix,
@@ -27,12 +26,13 @@ class CustomTextField extends StatelessWidget {
     this.onFieldSubmitted,
     this.fillCollor,
     this.width,
+    this.hintText
   });
 
   final List<String>? autofillHints;
   final Stream<String>? stream;
   final TextEditingController? controller;
-  final String? hint;
+  final String? hintText;
   final String? initialValue;
   final Widget? prefix;
   final Widget? suffix;
@@ -40,7 +40,7 @@ class CustomTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
   final String? Function(String?)? validator;
-  final Function(String?)? onChanged;
+  final void Function(String)? onChanged;
   final Function(String?)? onSaved;
   final bool? enabled;
   final Color? valueColor;

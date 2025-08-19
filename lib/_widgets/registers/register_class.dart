@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../_datas/documents/contracts/additive/additive_data.dart';
 import '../../_datas/documents/contracts/apostilles/apostilles_data.dart';
-import '../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../_datas/documents/contracts/validity/validity_data.dart';
-import '../../_datas/documents/measurement/measurement_data.dart';
+import '../../_datas/documents/measurement/reports/report_measurement_data.dart';
 
 class Registro {
   final String? id;
@@ -38,8 +38,8 @@ class Registro {
           '${data.year}';
 
   String get titulo {
-    if (original is ReportData) {
-      final m = original as ReportData;
+    if (original is ReportMeasurementData) {
+      final m = original as ReportMeasurementData;
       return '${m.orderReportMeasurement}ª Medição';
     } else if (original is AdditiveData) {
       final a = original as AdditiveData;

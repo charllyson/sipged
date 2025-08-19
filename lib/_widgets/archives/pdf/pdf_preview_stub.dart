@@ -6,8 +6,17 @@ class PdfPreviewWeb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Visualização de PDF disponível apenas na Web'),
+    // Fallback para plataformas que não são Web
+    return SizedBox(
+      width: 600,
+      height: 400,
+      child: Center(
+        child: Text(
+          'Pré-visualização de PDF indisponível nesta plataforma.\n'
+              'URL: $pdfUrl',
+          textAlign: TextAlign.center,
+        ),
+      ),
     );
   }
 }

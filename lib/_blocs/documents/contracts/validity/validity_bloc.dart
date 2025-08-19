@@ -1,198 +1,67 @@
+// lib/_blocs/documents/contracts/validity/validity_bloc.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 import '../../../../_datas/documents/contracts/validity/validity_data.dart';
+import '../../../../_widgets/registers/register_class.dart';
 import '../../../system/user_bloc.dart';
 
+/// BLoC responsável por TUDO que é **Firestore** do módulo de validades.
+/// (Upload/Storage foi movido para ValidityStorageBloc.)
 class ValidityBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final UserBloc userBloc = UserBloc();
 
   ValidityBloc();
 
-  ///Recuperando todos os contratos
-  Future<List<ContractData>> getAllContracts() {
-    return _db.collection('contracts').get().then((snapshot) {
-      return snapshot.docs.map((doc) {
-        return ContractData.fromDocument(snapshot: doc);
-      }).toList();
-    });
+  // ---------------------------------------------------------------------------
+  // CONTRATOS (apoio)
+  // ---------------------------------------------------------------------------
+
+  /// Recupera todos os contratos.
+  Future<List<ContractData>> getAllContracts() async {
+    final snapshot = await _db.collection('contracts').get();
+    return snapshot.docs.map((doc) {
+      return ContractData.fromDocument(snapshot: doc);
+    }).toList();
   }
 
+  /// Recupera um contrato específico.
   Future<ContractData?> getSpecificContract({required String uid}) async {
-    final snapshot = await FirebaseFirestore.instance.collection('contracts').doc(uid).get();
-
-    if (!snapshot.exists) {
-      return null;
-    }
-
+    final snapshot = await _db.collection('contracts').doc(uid).get();
+    if (!snapshot.exists) return null;
     return ContractData.fromDocument(snapshot: snapshot);
   }
 
-  Future<bool> verificarSePdfDeValidadeExiste({
-    required ContractData contract,
-    required ValidityData validade,
-  }) async {
-    final contractNumber = contract.contractNumber ?? 'contrato';
-    final fileName = '$contractNumber-${validade.orderNumber}-${validade.ordertype}.pdf';
-
-    final ref = FirebaseStorage.instance.ref(
-      'contracts/${contract.id}/orders/${validade.id}/$fileName',
-    );
-
-    try {
-      await ref.getMetadata();
-      return true;
-    } catch (_) {
-      return false;
-    }
+  /// Apoio para carregar um contrato pelo ID (usado em notificações).
+  Future<ContractData?> buscarContrato(String contractId) async {
+    final snapshot = await _db.collection('contracts').doc(contractId).get();
+    if (!snapshot.exists) return null;
+    return ContractData.fromDocument(snapshot: snapshot);
   }
 
-  Future<String?> getPdfUrlDaValidade({
-    required ContractData contract,
-    required ValidityData validade,
-  }) async {
-    final contractNumber = contract.contractNumber ?? 'contrato';
-    final fileName = '$contractNumber-${validade.orderNumber}-${validade.ordertype}.pdf';
+  // ---------------------------------------------------------------------------
+  // CRUD de Validades
+  // ---------------------------------------------------------------------------
 
-    final ref = FirebaseStorage.instance.ref(
-      'contracts/${contract.id}/orders/${validade.id}/$fileName',
-    );
-
-    try {
-      return await ref.getDownloadURL();
-    } catch (e) {
-      debugPrint('Erro ao obter URL do PDF da validade: $e');
-      return null;
-    }
-  }
-
-  Future<void> selecionarEPdfDeValidadeComProgresso({
-    required String contractId,
-    required ValidityData validadeData,
-    required void Function(double progress) onProgress,
-    required void Function(bool success) onComplete,
-  }) async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        withData: true,
-      );
-
-      if (result != null && result.files.single.bytes != null) {
-        final Uint8List fileBytes = result.files.single.bytes!;
-
-        final contractSnap = await FirebaseFirestore.instance
-            .collection('contracts')
-            .doc(contractId)
-            .get();
-        final contractNumber = contractSnap.data()?['contractnumber'] ?? 'contrato';
-
-        final fileName = '$contractNumber-${validadeData.orderNumber}-${validadeData.ordertype}.pdf';
-
-        final ref = FirebaseStorage.instance.ref(
-          'contracts/$contractId/orders/${validadeData.id}/$fileName',
-        );
-        final metadata = SettableMetadata(contentType: 'application/pdf');
-
-        final uploadTask = ref.putData(fileBytes, metadata);
-        uploadTask.snapshotEvents.listen((snapshot) {
-          final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-          onProgress(progress);
-        });
-
-        await uploadTask;
-        final url = await ref.getDownloadURL();
-
-        await FirebaseFirestore.instance
-            .collection('contracts')
-            .doc(contractId)
-            .collection('orders')
-            .doc(validadeData.id)
-            .update({'pdfUrl': url});
-
-        onComplete(true);
-      } else {
-        onComplete(false);
-      }
-    } catch (e) {
-      debugPrint('Erro ao enviar PDF da validade: $e');
-      onComplete(false);
-    }
-  }
-
-  Future<bool> deletarPdfDaValidade({
-    required String contractId,
-    required ValidityData validade,
-  }) async {
-    try {
-      final contractSnap = await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(contractId)
-          .get();
-      final contractNumber = contractSnap.data()?['contractnumber'] ?? 'contrato';
-
-      final fileName = '$contractNumber-${validade.orderNumber}-${validade.ordertype}.pdf';
-      final path = 'contracts/$contractId/orders/${validade.id}/$fileName';
-
-      await FirebaseStorage.instance.ref(path).delete();
-
-      await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(contractId)
-          .collection('orders')
-          .doc(validade.id)
-          .update({'pdfUrl': FieldValue.delete()});
-
-      return true;
-    } catch (e) {
-      debugPrint('Erro ao deletar PDF da validade: $e');
-      return false;
-    }
-  }
-
-  Future<void> salvarUrlPdfDaValidade({
-    required String contractId,
-    required String validadeId,
-    required String url,
-  }) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(contractId)
-          .collection('orders') // subcoleção de validades
-          .doc(validadeId)
-          .update({
-        'pdfUrl': url,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-      });
-    } catch (e) {
-      debugPrint('Erro ao salvar URL do PDF da validade no Firestore: $e');
-    }
-  }
-
+  /// Cria/atualiza uma validade no Firestore (mantém createdAt/createdBy).
   Future<void> salvarOuAtualizarValidade(ValidityData data) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
-
     final uidContract = data.uidContract;
     if (uidContract == null) {
       throw Exception("Contrato não informado");
     }
 
-    final ref = FirebaseFirestore.instance
+    final ref = _db
         .collection('contracts')
         .doc(uidContract)
         .collection('orders');
 
-    final docRef = data.id != null ? ref.doc(data.id) : ref.doc();
+    final docRef = (data.id != null) ? ref.doc(data.id) : ref.doc();
     data.id ??= docRef.id;
 
     final json = data.toJson()
@@ -202,6 +71,7 @@ class ValidityBloc extends BlocBase {
         'contractId': uidContract,
       });
 
+    // Preserve createdAt/createdBy quando já existir
     final snapshot = await docRef.get();
     final hasCreatedAt = snapshot.exists && snapshot.data()?['createdAt'] != null;
 
@@ -212,12 +82,75 @@ class ValidityBloc extends BlocBase {
 
     await docRef.set(json, SetOptions(merge: true));
 
-    // ✅ Notificação
+    // Notificar interessados
     await notificarUsuariosSobreValidade(data, uidContract);
   }
 
-  /*Stream<List<Registro>> getNotificacoesRecentesStream(String uid) {
-    return FirebaseFirestore.instance
+  /// Deleta uma validade.
+  Future<void> deletarValidade(String uidContract, String uidValidade) async {
+    await _db
+        .collection('contracts')
+        .doc(uidContract)
+        .collection('orders')
+        .doc(uidValidade)
+        .delete();
+  }
+
+  /// Lista todas as validades do contrato (ordenadas por ordernumber).
+  Future<List<ValidityData>> getAllValidityOfContract({
+    required String uidContract,
+  }) async {
+    final snapshot = await _db
+        .collection('contracts')
+        .doc(uidContract)
+        .collection('orders')
+        .orderBy('ordernumber')
+        .get();
+
+    return snapshot.docs
+        .map((doc) => ValidityData.fromDocument(snapshot: doc))
+        .toList();
+  }
+
+
+
+  // ---------------------------------------------------------------------------
+  // Notificações (users/{uid}/notifications)
+  // ---------------------------------------------------------------------------
+
+  /// Escreve uma notificação simples do tipo "validade" para os UIDs definidos.
+  Future<void> notificarUsuariosSobreValidade(
+      ValidityData validade, String contractId) async {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUid == null) return;
+
+    // Personalize esta lista conforme sua regra de negócio.
+    final List<String> uidsParaNotificar = [currentUid];
+
+    final batch = _db.batch();
+    for (final uid in uidsParaNotificar) {
+      final ref = _db
+          .collection('users')
+          .doc(uid)
+          .collection('notifications')
+          .doc();
+
+      batch.set(ref, {
+        'tipo': 'validade',
+        'titulo': validade.ordertype,
+        'contractId': contractId,
+        'validityId': validade.id,
+        'createdAt': FieldValue.serverTimestamp(),
+        'seen': false,
+      });
+    }
+    await batch.commit();
+  }
+
+  /// Stream de últimas notificações convertidas em `Registro`,
+  /// resolvendo o objeto original (ValidityData) e o ContractData.
+  Stream<List<Registro>> getNotificacoesRecentesStream(String uid) {
+    return _db
         .collection('users')
         .doc(uid)
         .collection('notifications')
@@ -234,7 +167,7 @@ class ValidityBloc extends BlocBase {
         final idOriginal = data['validityId'];
 
         if (tipo == 'validade') {
-          final originalSnap = await FirebaseFirestore.instance
+          final originalSnap = await _db
               .collection('contracts')
               .doc(contractId)
               .collection('orders')
@@ -243,80 +176,31 @@ class ValidityBloc extends BlocBase {
 
           if (originalSnap.exists) {
             final original = ValidityData.fromDocument(snapshot: originalSnap);
-
-            registros.add(Registro(
-              id: doc.id,
-              tipo: tipo,
-              data: data['createdAt']?.toDate() ?? DateTime.now(),
-              original: original,
-              contractData: await _buscarContrato(contractId),
-            ));
+            registros.add(
+              Registro(
+                id: doc.id,
+                tipo: tipo,
+                data: data['createdAt']?.toDate() ?? DateTime.now(),
+                original: original,
+                contractData: await buscarContrato(contractId),
+              ),
+            );
           }
         }
       }
-
       return registros;
     });
-  }*/
-
-
-  ///deletando uma validade
-  Future<void> deletarValidade(String uidContract, String uidValidade) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(uidContract)
-          .collection('orders')
-          .doc(uidValidade)
-          .delete();
-    } catch (e) {
-      throw Exception('Erro ao deletar validade: $e');
-    }
   }
 
-  Future<List<ValidityData>> getAllValidityOfContract({required String uidContract}) async {
-    final snapshot = await _db
-        .collection('contracts')
-        .doc(uidContract)
-        .collection('orders')
-        .orderBy('ordernumber')
-        .get();
+  // ---------------------------------------------------------------------------
+  // Cálculos de prazo (contrato e execução)
+  // ---------------------------------------------------------------------------
 
-    final list = snapshot.docs.map((doc) {
-      return ValidityData.fromDocument(snapshot: doc);
-    }).toList();
-
-    return list;
-  }
-
-  Future<void> notificarUsuariosSobreValidade(ValidityData validade, String contractId) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    final List<String> uidsParaNotificar = [uid];
-    final batch = FirebaseFirestore.instance.batch();
-
-    for (final uid in uidsParaNotificar) {
-      final ref = FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('notifications')
-          .doc();
-
-      batch.set(ref, {
-        'tipo': 'validade', // padronizado
-        'titulo': validade.ordertype,
-        'contractId': contractId,
-        'validityId': validade.id,
-        'createdAt': FieldValue.serverTimestamp(),
-        'seen': false,
-      });
-    }
-
-    await batch.commit();
-  }
-
-  Future<DateTime?> calcularDataFinalContrato({required ContractData contract}) async {
+  /// Data final da **validade do contrato**:
+  /// publicationDateDoe + initialValidityContractDays + soma(aditivos.contractDays)
+  Future<DateTime?> calcularDataFinalContrato({
+    required ContractData contract,
+  }) async {
     if (contract.id == null || contract.publicationDateDoe == null) return null;
 
     final additives = await _buscarAditivos(contract.id!);
@@ -327,12 +211,14 @@ class ValidityBloc extends BlocBase {
     );
 
     final totalDias = diasValidadeInicial + diasAditivos;
-
     return contract.publicationDateDoe!.add(Duration(days: totalDias));
   }
 
-
-  Future<DateTime?> calcularDataFinalExecucao({required ContractData contract}) async {
+  /// Data final da **execução**:
+  /// data da ordem de INÍCIO + initialValidityExecutionDays + soma(aditivos.executionDays) + diasParalisados
+  Future<DateTime?> calcularDataFinalExecucao({
+    required ContractData contract,
+  }) async {
     if (contract.id == null) return null;
 
     final additives = await _buscarAditivos(contract.id!);
@@ -351,11 +237,13 @@ class ValidityBloc extends BlocBase {
       0, (soma, a) => soma + (a.additiveValidityExecutionDays ?? 0),
     );
 
-    final totalDiasExecucao = diasExecucaoInicial + diasExecucaoAditivos + diasParalisados;
+    final totalDiasExecucao =
+        diasExecucaoInicial + diasExecucaoAditivos + diasParalisados;
 
     return ordemInicio.add(Duration(days: totalDiasExecucao));
   }
 
+  /// Soma de dias entre PARALISA e REINÍCIO.
   int calcularDiasParalisados(List<ValidityData> validities) {
     int diasParalisados = 0;
     for (int i = 0; i < validities.length; i++) {
@@ -365,15 +253,20 @@ class ValidityBloc extends BlocBase {
         if ((anterior.ordertype?.toUpperCase() ?? '').contains('PARALISA') &&
             atual.orderdate != null &&
             anterior.orderdate != null) {
-          diasParalisados += atual.orderdate!.difference(anterior.orderdate!).inDays;
+          diasParalisados +=
+              atual.orderdate!.difference(anterior.orderdate!).inDays;
         }
       }
     }
     return diasParalisados;
   }
 
+  // ---------------------------------------------------------------------------
+  // Apoio interno
+  // ---------------------------------------------------------------------------
+
   Future<List<AdditiveData>> _buscarAditivos(String contractId) async {
-    final snap = await FirebaseFirestore.instance
+    final snap = await _db
         .collection('contracts')
         .doc(contractId)
         .collection('additives')
@@ -384,6 +277,12 @@ class ValidityBloc extends BlocBase {
         .toList();
   }
 
+  // ---------------------------------------------------------------------------
+  // Dispose
+  // ---------------------------------------------------------------------------
 
-
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

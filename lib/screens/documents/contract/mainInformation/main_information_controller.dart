@@ -2,32 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:sisged/_blocs/system/user_bloc.dart';
+import 'package:sisged/_provider/user/user_provider.dart';
+import 'package:sisged/_datas/system/user_data.dart';
+
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/formats/format_field.dart';
 
-import '../../../../../_provider/user/user_provider.dart';
-import '../../../../../_datas/system/user_data.dart';
-
-import '../../../../_blocs/documents/contracts/contracts/contracts_bloc.dart';
-import '../../../../_datas/documents/contracts/contracts/contracts_data.dart';
+import '../../../../_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
+import '../../../../_blocs/documents/contracts/contracts/contract_bloc.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_store.dart';
+import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
 
 class MainInformationController extends ChangeNotifier {
   // ==== Injeções ====
-  final ContractsBloc contractsBloc;
+  final ContractsStore contractsStore;          // <- CRUD Firestore via store/bloc
+  final ContractStorageBloc contractStorageBloc; // <- Storage (upload/url/delete)
   final UserBloc userBloc;
 
-  /// Chave do módulo usada para checar permissões em `user.modulePermissions[moduleKey]`
+  /// Chave do módulo usada para checar permissões
   final String moduleKey;
 
   /// Se informado, força o estado de edição (ignora permissões)
   final bool? forceEditable;
 
   MainInformationController({
-    required this.contractsBloc,
+    required this.contractsStore,
+    required this.contractStorageBloc,
     required this.userBloc,
     this.moduleKey = 'contracts',
     this.forceEditable,
   });
+
+  /// Acesso conveniente ao bloc de Firestore se precisar
+  ContractBloc get contractsBloc => contractsStore.bloc;
 
   // ==== Estado geral ====
   final formKey = GlobalKey<FormState>();
@@ -71,32 +78,22 @@ class MainInformationController extends ChangeNotifier {
   // ==== Getters auxiliares ====
   bool get isBtnEnabled => isEditable && !isSaving;
 
-  /// Desabilita um módulo caso não tenha create/edit; protege nulo.
   bool isDisabled(String module) {
     final perms = _currentUser?.modulePermissions[module] ?? {};
     return !(perms['create'] == true || perms['edit'] == true);
   }
 
   // ==== Ciclo de vida ====
-  /// Chame no pós-frame do initState da página.
   Future<void> init(BuildContext context, {ContractData? initial}) async {
-    // Carrega usuários
     await Provider.of<UserProvider>(context, listen: false).loadAllUsers();
-
-    // Pega usuário atual
     _currentUser = Provider.of<UserProvider>(context, listen: false).userData;
 
-    // Define se pode editar
     if (forceEditable != null) {
       isEditable = forceEditable!;
     } else if (_currentUser != null) {
-      // Se quiser usar o UserBloc:
-      // isEditable = userBloc.getUserCreateEditPermissions(userData: _currentUser!);
-      // Ou diretamente do modulePermissions:
       final perms = _currentUser!.modulePermissions[moduleKey] ?? {};
       isEditable = (perms['create'] == true) || (perms['edit'] == true);
     } else {
-      // Fallback: permitir edição durante criação (sem id)
       isEditable = (initial?.id == null);
     }
 
@@ -185,7 +182,8 @@ class MainInformationController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      contractData = await contractsBloc.salvarOuAtualizarContrato(contractData);
+      // ✅ Salva no Firestore (não é Storage!)
+      contractData = await contractsStore.saveOrUpdate(contractData);
       onSaved?.call(contractData);
 
       await _refreshByIdIfNeeded();
@@ -203,6 +201,7 @@ class MainInformationController extends ChangeNotifier {
     }
   }
 
+  /// Após upload no Storage (feito fora), salvar a URL no Firestore e atualizar UI.
   Future<void> salvarUrlPdfDoContratoEAtualizarUI(
       BuildContext context, {
         required String contractId,
@@ -210,10 +209,13 @@ class MainInformationController extends ChangeNotifier {
         void Function(ContractData)? onSaved,
       }) async {
     try {
-      await contractsBloc.salvarUrlPdfDoContrato(contractId, url);
+      // ✅ grava metadado no Firestore
+      await contractsStore.salvarUrlPdfDoContrato(contractId, url);
+
       await _refreshByIdIfNeeded();
       _preencherCampos();
       notifyListeners();
+
       onSaved?.call(contractData);
       _showSnack(context, 'Contrato salvo com sucesso!', Colors.green);
     } catch (e) {
@@ -223,7 +225,13 @@ class MainInformationController extends ChangeNotifier {
 
   Future<void> _refreshByIdIfNeeded() async {
     if (contractData.id != null) {
-      final atualizado = await contractsBloc.getContractById(contractData.id!);
+      ContractData? atualizado;
+      try {
+        atualizado = await contractsStore.getById(contractData.id!);
+      } catch (_) {}
+
+      atualizado ??= await contractsStore.bloc.getContractById(contractData.id!);
+
       if (atualizado != null) {
         contractData = atualizado;
       }
