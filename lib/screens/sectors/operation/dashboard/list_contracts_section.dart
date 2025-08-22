@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contract_store.dart';
-import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_widgets/cardChip/build_value_chip.dart';
-import '../../../documents/contract/tab_bar_contract_page.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_store.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_widgets/chip/build_value_chip.dart';
+import 'package:sisged/screens/documents/contract/tab_bar_contract_page.dart';
 
 class ListContractsSection extends StatelessWidget {
   final List<ReportMeasurementData> currentFiltered;
@@ -92,9 +92,10 @@ class ListContractsSection extends StatelessWidget {
                             avatar: const Icon(Icons.onetwothree_rounded, size: 18),
                             backgroundColor: Colors.grey.shade100,
                           ),
-                          BuildValueChip('Medição', selected.valueReportMeasurement ?? 0.0, Icons.bar_chart),
+                          BuildValueChip('Medição',  selected.valueReportMeasurement ?? 0.0, Icons.bar_chart),
                           BuildValueChip('Reajuste', selected.valueAdjustmentMeasurement ?? 0.0, Icons.trending_up),
-                          BuildValueChip('Revisão', selected.valueRevisionMeasurement ?? 0.0, Icons.change_circle),
+                          BuildValueChip('Revisão',  selected.valueRevisionMeasurement ?? 0.0, Icons.change_circle),
+
                         ],
                       ),
                     ],

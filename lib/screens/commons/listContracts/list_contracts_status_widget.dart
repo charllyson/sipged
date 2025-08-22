@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../_blocs/documents/contracts/validity/validity_bloc.dart';
-import '../../../_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
 import 'list_contracts_controller.dart';
 import 'list_contracts_table_widget.dart';
 

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/registers/register_class.dart';
+import 'package:sisged/screens/commons/popUpMenu/pup_up_photo_menu.dart';
 import 'package:sisged/screens/commons/toast/show_stacked_toast.dart';
-import '../popUpMenu/pup_up_photo_menu.dart';
 import 'dart:math' as math;
 
 class UpBar extends StatelessWidget implements PreferredSizeWidget {

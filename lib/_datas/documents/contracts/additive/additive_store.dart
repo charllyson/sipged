@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
-import '../../../../_blocs/documents/contracts/additives/additives_storage_bloc.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
 import 'additive_data.dart';
-import '../../../documents/contracts/contracts/contract_data.dart';
 
 /// Store em memória dos ADITIVOS, indexado por `contractId`.
 /// - Firestore via [AdditivesBloc]

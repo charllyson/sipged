@@ -2,21 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
 import 'package:sisged/_datas/documents/measurement/reports/report_measurement_store.dart';
 
-import '../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
-import '../../../../_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
-import '../../../../_datas/documents/contracts/additive/additive_store.dart';
-import '../../../../_datas/documents/contracts/apostilles/apostilles_store.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_store.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_services/geo_json_manager.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_store.dart';
+import 'package:sisged/_datas/documents/contracts/apostilles/apostilles_store.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_rules.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_store.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_services/geo_json_manager.dart';
 
 class DashboardController extends ChangeNotifier {
   DashboardController({
-    required this.store,               // ContractsStore
-    required this.additivesStore,     // AdditivesStore
-    required this.apostillesStore,    // ApostillesStore
-    required this.reportsMeasurementStore,       // ⭐ ReportsStore
+    required this.store,
+    required this.additivesStore,
+    required this.apostillesStore,
+    required this.reportsMeasurementStore,
     AdditivesBloc? additivesBloc,
     ApostillesBloc? apostillesBloc,
     GeoJsonManager? geoManager,
@@ -28,12 +28,10 @@ class DashboardController extends ChangeNotifier {
   final ContractsStore store;
   final AdditivesStore additivesStore;
   final ApostillesStore apostillesStore;
-  final ReportsMeasurementStore reportsMeasurementStore;      // ⭐ agora usamos o store de medições
+  final ReportsMeasurementStore reportsMeasurementStore;
 
-  // (opcional) ainda úteis para ações diretas (upload/delete PDF, etc.)
   final AdditivesBloc additivesBloc;
   final ApostillesBloc apostillesBloc;
-
   final GeoJsonManager geoManager;
 
   // --------- Estado
@@ -41,7 +39,6 @@ class DashboardController extends ChangeNotifier {
   List<ContractData> filteredContracts = [];
 
   List<ReportMeasurementData> allMeasurements = [];
-  late Future<List<ReportMeasurementData>> measurementsFuture = Future.value([]);
 
   List<String> uniqueCompanies = [];
   List<String> selectedRegions = [];
@@ -79,29 +76,45 @@ class DashboardController extends ChangeNotifier {
 
   String tipoDeValorSelecionado = 'Somatório total';
 
+  // ---- Segurança de ciclo de vida / concorrência
+  bool _disposed = false;
+  int _applyRunId = 0;
+
+  void _safeNotify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   // --------- Ciclo de vida
   Future<void> initialize() async {
     geoManager.loadLimitsRegionalsDERAL();
 
-    // Contratos a partir do store (com fallback de refresh)
+    // Contratos
     allContracts = store.all;
     if (allContracts.isEmpty && !store.loading) {
       await store.refresh();
+      if (_disposed) return;
       allContracts = store.all;
     }
 
-    // Medições via ReportsStore (carrega uma vez o collectionGroup)
+    // Medições (collectionGroup carregado uma vez)
     await reportsMeasurementStore.ensureAllLoaded();
+    if (_disposed) return;
     allMeasurements = reportsMeasurementStore.all;
-    measurementsFuture = Future.value(allMeasurements);
 
     filteredContracts = allContracts;
     uniqueCompanies = _extractCompanies(filteredContracts);
 
     await aplicarFiltrosERecalcular();
 
+    if (_disposed) return;
     initialized = true;
-    notifyListeners();
+    _safeNotify();
   }
 
   // --------- Seletores / Interações
@@ -126,7 +139,6 @@ class DashboardController extends ChangeNotifier {
           .toList();
     }
     await aplicarFiltrosERecalcular();
-    notifyListeners();
   }
 
   Future<void> onCompanySelected(String company) async {
@@ -152,9 +164,7 @@ class DashboardController extends ChangeNotifier {
           .toSet()
           .toList();
     }
-
     await aplicarFiltrosERecalcular();
-    notifyListeners();
   }
 
   Future<void> onRegionSelected(String? region) async {
@@ -170,7 +180,6 @@ class DashboardController extends ChangeNotifier {
       selectedRegionIndex = ContractRules.regions
           .indexWhere((r) => r.toUpperCase() == region.toUpperCase());
     }
-
     await aplicarFiltrosERecalcular();
   }
 
@@ -202,8 +211,7 @@ class DashboardController extends ChangeNotifier {
       final matchStatus  = selectedStatus == null || status == selectedStatus!.toUpperCase();
       return matchCompany && matchRegion && matchStatus;
     }).toList();
-
-    notifyListeners();
+    // ❌ sem notify aqui; notificamos no final do ciclo
   }
 
   List<String> _extractCompanies(List<ContractData> data) {
@@ -220,26 +228,7 @@ class DashboardController extends ChangeNotifier {
     uniqueCompanies = _extractCompanies(filteredContracts);
   }
 
-  // --------- Recalcular totais
-  Future<void> aplicarFiltrosERecalcular() async {
-    filterContracts();
-
-    await _calcularTotaisIniciais();
-    await _calcularTotaisAditivos();    // via AdditivesStore
-    await _calcularTotaisApostilas();   // via ApostillesStore
-
-    await _calcularTotaisMedicoes();    // via ReportsStore
-    await _calcularTotaisReajustes();   // via ReportsStore
-    await _calcularTotaisRevisoes();    // via ReportsStore
-
-    _atualizarEmpresasComBaseNosContratos();
-  }
-
-  void onTipoDeValorSelecionado(String novoTipo) {
-    tipoDeValorSelecionado = novoTipo;
-    notifyListeners();
-  }
-
+  // --------- Recalcular totais (helpers não notificam)
   Future<void> _calcularTotaisIniciais() async {
     totaisStatusIniciais.clear();
     totaisEmpresaIniciais.clear();
@@ -260,6 +249,7 @@ class DashboardController extends ChangeNotifier {
   Future<void> _calcularTotaisAditivos() async {
     final contratosIds = filteredContracts.map((c) => c.id).whereType<String>().toSet();
     final aditivos = await additivesStore.getForContractIds(contratosIds);
+    if (_disposed) return;
 
     totaisStatusAditivos.clear();
     totaisEmpresaAditivos.clear();
@@ -285,6 +275,7 @@ class DashboardController extends ChangeNotifier {
   Future<void> _calcularTotaisApostilas() async {
     final contratosIds = filteredContracts.map((c) => c.id).whereType<String>().toSet();
     final apostilas = await apostillesStore.getForContractIds(contratosIds);
+    if (_disposed) return;
 
     totaisStatusApostilas.clear();
     totaisEmpresaApostilas.clear();
@@ -307,23 +298,53 @@ class DashboardController extends ChangeNotifier {
     }
   }
 
-  // --------- Métricas de medições (agora via ReportsStore)
   Future<void> _calcularTotaisMedicoes() async {
-    final dados = await measurementsFuture;
+    final dados = allMeasurements; // já carregados em initialize()
     _totalMedicoes = reportsMeasurementStore.sumMedicoes(dados);
-    notifyListeners();
   }
 
   Future<void> _calcularTotaisReajustes() async {
-    final dados = await measurementsFuture;
+    final dados = allMeasurements;
     _totalReajustes = reportsMeasurementStore.sumReajustes(dados);
-    notifyListeners();
   }
 
   Future<void> _calcularTotaisRevisoes() async {
-    final dados = await measurementsFuture;
+    final dados = allMeasurements;
     _totalRevisoes = reportsMeasurementStore.sumRevisoes(dados);
-    notifyListeners();
+  }
+
+  // --------- Orquestrador (uma notificação no fim + proteção de concorrência)
+  Future<void> aplicarFiltrosERecalcular() async {
+    final runId = ++_applyRunId;
+
+    filterContracts();
+
+    await _calcularTotaisIniciais();
+    if (_disposed || runId != _applyRunId) return;
+
+    await _calcularTotaisAditivos();
+    if (_disposed || runId != _applyRunId) return;
+
+    await _calcularTotaisApostilas();
+    if (_disposed || runId != _applyRunId) return;
+
+    await _calcularTotaisMedicoes();
+    if (_disposed || runId != _applyRunId) return;
+
+    await _calcularTotaisReajustes();
+    if (_disposed || runId != _applyRunId) return;
+
+    await _calcularTotaisRevisoes();
+    if (_disposed || runId != _applyRunId) return;
+
+    _atualizarEmpresasComBaseNosContratos();
+
+    _safeNotify();
+  }
+
+  void onTipoDeValorSelecionado(String novoTipo) {
+    tipoDeValorSelecionado = novoTipo;
+    _safeNotify();
   }
 
   // --------- Combinações p/ gráficos

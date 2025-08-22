@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../_blocs/system/login_bloc.dart';
+import 'package:sisged/_blocs/system/login/login_bloc.dart';
 
 class StreamButton extends StatelessWidget {
   final LoginBloc loginBloc;

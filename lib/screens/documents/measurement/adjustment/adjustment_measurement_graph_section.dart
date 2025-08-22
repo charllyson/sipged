@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import '../../../../../_widgets/charts/gauge_circular_percent.dart';
-import '../../../../../_widgets/charts/line_chart_changed.dart';
-import '../../../../_widgets/charts/pieGraph/pie_chart_changed.dart';
+import 'package:sisged/_widgets/charts/gauge_circular_percent.dart';
+import 'package:sisged/_widgets/charts/line_chart_changed.dart';
+import 'package:sisged/_widgets/charts/pieGraph/pie_chart_changed.dart';
 
 class AdjustmentMeasurementGraphSection extends StatelessWidget {
   final List<String> labels;

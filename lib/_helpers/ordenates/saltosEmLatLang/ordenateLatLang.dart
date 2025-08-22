@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../_datas/actives/roads/active_roads_data.dart';
+import 'package:sisged/_datas/actives/roads/active_roads_data.dart';
 
 
 /*

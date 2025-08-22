@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/background/background_cleaner.dart';
+import 'package:sisged/screens/commons/popUpMenu/pup_up_photo_menu.dart';
 import 'package:sisged/screens/sectors/financial/payments/adjustment/payments_adjustment_page.dart';
 import 'package:sisged/screens/sectors/financial/payments/report/payment_report_page.dart';
 import 'package:sisged/screens/sectors/financial/payments/revision/payments_revision_page.dart';
-import '../../../_blocs/documents/contracts/contracts/contract_bloc.dart';
-import '../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../_datas/system/user_data.dart';
-import '../../commons/popUpMenu/pup_up_photo_menu.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/system/user_data.dart';
 
 class TabBarFinancialPage extends StatefulWidget {
 

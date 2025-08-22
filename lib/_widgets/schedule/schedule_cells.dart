@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../_datas/sectors/operation/schedule/schedule_data.dart';
+import 'package:sisged/_datas/sectors/operation/schedule/schedule_data.dart';
+import 'package:sisged/_utils/date_utils.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
 
 class ScheduleCells extends StatelessWidget {
   final ScheduleData execucao;
@@ -11,11 +13,14 @@ class ScheduleCells extends StatelessWidget {
   final bool isSelected;
   final Color highlightColor;
 
-  // Tooltip estável (recomendado no Web durante arrasto)
+  // Tooltip
   final bool stableTooltip;
   final TooltipTriggerMode activeTooltipTrigger;
   final Duration waitDuration;
   final Duration showDuration;
+
+  /// Resolve UID → nome legível (string pronta para exibir)
+  final String Function(String? uid)? userLabelResolver;
 
   const ScheduleCells({
     super.key,
@@ -29,33 +34,73 @@ class ScheduleCells extends StatelessWidget {
     this.activeTooltipTrigger = TooltipTriggerMode.longPress,
     this.waitDuration = const Duration(milliseconds: 300),
     this.showDuration = const Duration(seconds: 4),
+    this.userLabelResolver,
   });
 
+  bool get _hasComment => (execucao.comentario?.trim().isNotEmpty ?? false);
+
+  bool get _hasPhotos {
+    final f = execucao.fotos;
+    if (f != null) return f.isNotEmpty;
+    final fm = execucao.fotosMeta;
+    return (fm != null && fm.isNotEmpty);
+  }
+
+  int get _photosCount {
+    final f = execucao.fotos;
+    if (f != null) return f.length;
+    final fm = execucao.fotosMeta;
+    return (fm?.length ?? 0);
+  }
+
   String _tooltipText() {
-    final data = execucao.timestamp;
-    final comentario = execucao.comentario;
-    final buf = StringBuffer()..writeln("Status: ${execucao.status}");
-    if (data != null) {
-      buf.writeln(
-          "Data: ${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}");
+    final status = (execucao.status ?? '').trim();
+
+    // Preferir "updatedBy" (última modificação), senão "createdBy"
+    final uid = (execucao.updatedBy?.isNotEmpty ?? false)
+        ? execucao.updatedBy
+        : execucao.createdBy;
+
+    final usuario = userLabelResolver?.call(uid) ?? '—';
+    final comentario = execucao.comentario?.trim();
+
+    String data = '—', hour = '—';
+    final dt = execucao.updatedAt ?? execucao.createdAt;
+    if (dt != null) {
+      try {
+        data = convertDateTimeToDDMMYYYY(dt);
+        hour = convertTimestampHHMM(dt);
+      } catch (_) {
+        data =
+        '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+        hour =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      }
     }
-    if (comentario != null && comentario.trim().isNotEmpty) {
-      buf.writeln("Comentário: $comentario");
+
+    final buf = StringBuffer()
+      ..writeln('Status: ${status.isEmpty ? "—" : status}')
+      ..writeln('Atualizado por: $usuario')
+      ..writeln('Data: $data às $hour');
+
+    if (_hasPhotos) buf.writeln('Fotos: $_photosCount');
+    if (comentario != null && comentario.isNotEmpty) {
+      buf.writeln('Comentário: $comentario');
     }
     return buf.toString().trim();
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasComment = (execucao.comentario?.trim().isNotEmpty ?? false);
+    final needsTooltip =
+    !((execucao.status?.isEmpty ?? true) || execucao.status == 'a iniciar');
 
-    // Conteúdo base da célula
     final base = GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.all(0.5), // 🔹 espaço entre quadrados
+        margin: const EdgeInsets.all(0.5),
         width: double.infinity,
-        height: altura, // 🔹 altura vem fechada do pai
+        height: altura,
         child: Stack(
           children: [
             Positioned.fill(
@@ -63,26 +108,36 @@ class ScheduleCells extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 decoration: BoxDecoration(
                   color: cor,
-                  border: isSelected
-                      ? Border.all(color: highlightColor, width: 2)
-                      : null,
+                  border: isSelected ? Border.all(color: highlightColor, width: 2) : null,
                 ),
               ),
             ),
-            if (hasComment)
-              const Positioned.fill(
+
+            // Ícones centrais: comentário / câmera (+badge)
+            if (_hasComment || _hasPhotos)
+              Positioned.fill(
                 child: Center(
-                  child: Icon(Icons.info_outline_rounded,
-                      size: 15, color: Colors.black38),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_hasComment)
+                        const Icon(Icons.info_outline_rounded, size: 15, color: Colors.black38),
+                      if (_hasComment && _hasPhotos) const SizedBox(width: 8),
+                      if (_hasPhotos)
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            const Icon(Icons.camera_alt, size: 16, color: Colors.black38),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               ),
           ],
         ),
       ),
     );
-
-    // Tooltip estável
-    final needsTooltip = !((execucao.status?.isEmpty ?? true) || execucao.status == 'a iniciar');
 
     return Tooltip(
       message: needsTooltip ? _tooltipText() : '',

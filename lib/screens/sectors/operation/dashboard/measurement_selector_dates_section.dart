@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/selectorDates/selectorDates.dart';
 
-import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
 
 class MeasurementSelectorDatesSection extends StatelessWidget {
   final List<ReportMeasurementData> allMeasurements;

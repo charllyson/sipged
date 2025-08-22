@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../admPanel/converters/importGeoJson/import_geojson_controller.dart';
+import 'package:sisged/admPanel/converters/importGeoJson/import_geojson_controller.dart';
 
 
 Future<void> handleImportGeoJson(BuildContext context) async {

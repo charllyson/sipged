@@ -1,12 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../_widgets/schedule/schedule_lane_class.dart';
 
 class ScheduleStyle {
-
-  /// Cor estável a partir do slug (hash -> hue)
+  /// Cor estável a partir do slug (hash -> hue). (mantido)
   static Color colorFromSlug(String slug, {double s = 0.55, double v = 0.85}) {
     int hash = 0;
     for (var i = 0; i < slug.length; i++) {
@@ -16,7 +12,7 @@ class ScheduleStyle {
     return HSVColor.fromAHSV(1.0, hue, s, v).toColor();
   }
 
-  /// Ícone padrão (pode vir de config depois)
+  /// Ícone padrão (pode vir de config depois) (mantido)
   static IconData iconFromSlug(String slug) => Icons.layers_outlined;
 
   // Paleta estável para serviços "desconhecidos"
@@ -33,22 +29,41 @@ class ScheduleStyle {
     Color(0xFF8D6E63), // 9  RESERVA — brown (fallback)
   ];
 
-  static String _norm(String s) => s.trim().toUpperCase();
+  static String _strip(String s) => s
+      .trim()
+      .toUpperCase()
+      .replaceAll('Á', 'A')
+      .replaceAll('À', 'A')
+      .replaceAll('Â', 'A')
+      .replaceAll('Ã', 'A')
+      .replaceAll('É', 'E')
+      .replaceAll('Ê', 'E')
+      .replaceAll('Í', 'I')
+      .replaceAll('Ó', 'O')
+      .replaceAll('Ô', 'O')
+      .replaceAll('Õ', 'O')
+      .replaceAll('Ú', 'U')
+      .replaceAll('Ç', 'C')
+      .replaceAll('|', ' ')
+      .replaceAll('/', ' ')
+      .replaceAll('-', ' ');
 
-  /// cor do botão para um serviço (dinâmico)
-  static Color buttonColor(String rawKey) {
-    final k = _norm(rawKey);
+  /// Cor do serviço a partir de key OU label (tolerante a variações).
+  static Color colorForService(String raw) {
+    final k = _strip(raw);
     if (k == 'GERAL') return Colors.black54;
-    if (k.contains('PRELIMINAR')) return _palette[0];
-    if (k.contains('TERRAPLEN')) return _palette[1];
-    if (k.contains('BASE') || k.contains('SUB-BASE')) return _palette[2];
-    if (k.contains('PAVIMENTA')) return _palette[3];
-    if (k.contains('ASFALT')) return _palette[4];
-    if (k.contains('SINALIZA')) return _palette[5];
-    if (k.contains('COMPLEMENT')) return _palette[6];
-    if (k.contains('DRENAGEM')) return _palette[7];
-    if (k.contains('ESPECIA')) return _palette[8];
 
+    bool has(String token) => k.contains(token);
+
+    if (has('PRELIMINAR') || has('PRELIMINARES')) return _palette[0];
+    if (has('TERRAPLEN')) return _palette[1];
+    if (has('BASE') || has('SUB BASE') || has('SUBBASE')) return _palette[2];
+    if (has('PAVIMENTA')) return _palette[3];
+    if (has('ASFALT') || has('CBUQ')) return _palette[4];
+    if (has('SINALIZA')) return _palette[5];
+    if (has('COMPLEMENT')) return _palette[6];
+    if (has('DRENAGEM') || has('DRENAGE')) return _palette[7];
+    if (has('OBRAS ESPECIAIS') || has('ESPECIA')) return _palette[8];
 
     // hash estável -> índice na paleta
     int hash = 0;
@@ -62,6 +77,9 @@ class ScheduleStyle {
     hash = 0x1fffffff & (hash + ((hash & 0x00003fff) << 15));
     return _palette[hash % _palette.length];
   }
+
+  /// Alias para retrocompatibilidade: mantém quem chama `buttonColor(...)`.
+  static Color buttonColor(String rawKey) => colorForService(rawKey);
 
   // ---------- Regras de cor por FAIXA (nome) ----------
   static Color colorForFaixa(String raw) {
@@ -78,17 +96,31 @@ class ScheduleStyle {
       return Colors.grey.shade600;         // Faixa atual/existente
     }
     if (any(['ACOST', 'ACOSTAMENTO'])) {
-      return Colors.grey.shade400;        // Acostamento
+      return Colors.grey.shade400;         // Acostamento
     }
     if (any(['CICLOVIA', 'BICIC', 'CICL'])) {
-      return Colors.green.shade600;       // Obras pontuais
+      return Colors.green.shade600;        // Ciclovia
     }
     if (any(['PASSEIO', 'CALÇADA'])) {
-      return Colors.blue.shade600;       // Obras pontuais
+      return Colors.blue.shade600;         // Passeio
     }
     if (any(['RETORNO', 'ALÇA', 'ALCA', 'ACESSO'])) {
       return Colors.purple.shade600;       // Obras pontuais
     }
     return Colors.grey.shade500;           // Padrão
+  }
+
+  static IconData pickIconForTitle(String title) {
+    final t = title.toUpperCase();
+    if (t.contains('SINALIZA')) return Icons.signal_cellular_alt;
+    if (t.contains('ESPECIA')) return Icons.car_repair;
+    if (t.contains('ASFALT') || t.contains('PAVIMENTA')) return Icons.directions_car;
+    if (t.contains('BASE')) return Icons.recycling;
+    if (t.contains('TERRAPLEN')) return Icons.terrain;
+    if (t.contains('COMPLEMENTAR')) return Icons.add_road;
+    if (t.contains('DRENAGE') || t.contains('DRENAGEM')) return Icons.water_drop;
+    if (t.contains('PRELIMIN')) return Icons.broadcast_on_personal_outlined;
+
+    return Icons.layers_outlined;
   }
 }

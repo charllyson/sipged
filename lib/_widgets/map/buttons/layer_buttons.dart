@@ -27,13 +27,10 @@ class LayerButtons extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Colors.black38,
                   borderRadius: BorderRadius.circular(100),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 12, spreadRadius: 4),
-                  ],
                 ),
-                child: const Icon(Icons.pin_drop, color: Colors.black),
+                child: const Icon(Icons.pin_drop, color: Colors.white),
               ),
             ),
           ),
@@ -46,13 +43,10 @@ class LayerButtons extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Colors.black38,
                   borderRadius: BorderRadius.circular(100),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 12, spreadRadius: 4),
-                  ],
                 ),
-                child: const Icon(Icons.map, color: Colors.black),
+                child: const Icon(Icons.map, color: Colors.white),
               ),
             ),
           ),

@@ -3,8 +3,7 @@ import 'dart:ui';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_rules.dart';
 
 class MapBloc extends BlocBase {
   String? _selectedRegionName;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../_datas/system/user_data.dart';
+import 'package:sisged/_datas/system/user_data.dart';
 
 class PhotoCircle extends StatelessWidget {
   final UserData? userData;

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:sisged/_widgets/schedule/schedule_cells.dart';
-import '../../_datas/sectors/operation/schedule/schedule_data.dart';
-import 'schedule_lane_class.dart';
+import 'package:sisged/_datas/sectors/operation/schedule/schedule_data.dart';
+import 'package:sisged/_datas/sectors/operation/schedule/schedule_lane_class.dart';
+import '../../_blocs/system/user_provider.dart';
 import 'schedule_grid.dart';
 
 class ScheduleUpLegendColumn extends StatelessWidget {
@@ -41,8 +43,14 @@ class ScheduleUpLegendColumn extends StatelessWidget {
       fontWeight: isMultiploDe10 ? FontWeight.bold : FontWeight.normal,
     );
 
+    // Assina mudanças do provider (atualiza nomes quando carregar)
+    final userProv = context.watch<UserProvider>();
+
+    // Resolver: UID -> rótulo legível (usa helper do provider)
+    String _resolveUser(String? uid) => userProv.labelFor(uid);
+
     return SizedBox(
-      height: columnHeight, // 🔹 altura fechada
+      height: columnHeight,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -50,12 +58,24 @@ class ScheduleUpLegendColumn extends StatelessWidget {
             height: headerHeight,
             child: Center(
               child: isMultiploDe10
-                  ? RotatedBox(quarterTurns: 3, child: Text('$estacaNumero', style: numeroStyle, overflow: TextOverflow.ellipsis,),)
-                  : Text('$estacaNumero', style: numeroStyle, overflow: TextOverflow.ellipsis),
+                  ? RotatedBox(
+                quarterTurns: 3,
+                child: Text(
+                  '$estacaNumero',
+                  style: numeroStyle,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              )
+                  : Text(
+                '$estacaNumero',
+                style: numeroStyle,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
           ...List.generate(faixas.length, (i) {
             final faixa = faixas[i];
+
             final exec = execucoes.firstWhere(
                   (e) => e.numero == estacaNumero && e.faixaIndex == i,
               orElse: () => ScheduleData(
@@ -63,7 +83,7 @@ class ScheduleUpLegendColumn extends StatelessWidget {
                 faixaIndex: i,
                 tipo: servicoSelecionado,
                 status: 'a iniciar',
-                timestamp: null,
+                createdAt: null,
                 comentario: null,
                 key: servicoSelecionado,
                 label: servicoSelecionado.toUpperCase(),
@@ -78,8 +98,7 @@ class ScheduleUpLegendColumn extends StatelessWidget {
             return SizedBox(
               height: faixa.altura + ScheduleGrid.kCellVPad * 2,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    vertical: ScheduleGrid.kCellVPad),
+                padding: const EdgeInsets.symmetric(vertical: ScheduleGrid.kCellVPad),
                 child: ScheduleCells(
                   execucao: exec,
                   altura: faixa.altura,
@@ -87,6 +106,7 @@ class ScheduleUpLegendColumn extends StatelessWidget {
                   onTap: () => onTapSquare(exec),
                   isSelected: isSelected,
                   highlightColor: highlightColor,
+                  userLabelResolver: _resolveUser,
                 ),
               ),
             );

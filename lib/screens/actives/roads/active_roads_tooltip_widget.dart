@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_datas/actives/roads/active_road_rules.dart';
-
-import '../../../_datas/actives/roads/active_roads_data.dart';
+import 'package:sisged/_datas/actives/roads/active_roads_data.dart';
 
 class ActiveRoadsTooltipWidget {
   static OverlayEntry? _currentOverlay;

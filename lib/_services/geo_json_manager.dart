@@ -1,9 +1,9 @@
 import 'geo_json_service.dart';
-import 'regional_geo_json_class.dart';
+import '../_datas/widgets/regional_geo_json_class.dart';
 
 class GeoJsonManager {
 
-  late List<RegionalPolygon> regionalPolygons = [];
+  late List<PolygonChanged> regionalPolygons = [];
 
 
   Future<void> loadLimitsRegionalsDERAL() async {

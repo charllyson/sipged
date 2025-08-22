@@ -10,7 +10,7 @@ import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
 import 'package:sisged/_blocs/documents/contracts/validity/validity_bloc.dart';
 import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
 
-import '../../../_datas/documents/contracts/contracts/contract_store.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_store.dart';
 
 const bool kExpansionDebug = true;
 
@@ -73,7 +73,7 @@ class ListContractsController extends ChangeNotifier {
 
   Future<void> dumpToConsole() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      await SharedPreferences.getInstance();
       if (kIsWeb) {
       }
     } catch (e) {

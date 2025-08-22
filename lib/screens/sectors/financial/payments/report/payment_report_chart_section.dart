@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/charts/line_chart_changed.dart';
 import 'package:sisged/_widgets/charts/pieGraph/pie_chart_changed.dart';
 
-import '../../../../../_widgets/charts/gauge_circular_percent.dart';
+import 'package:sisged/_widgets/charts/gauge_circular_percent.dart';
 
 class PaymentsReportChartsSection extends StatelessWidget {
   final int? selectedIndex;

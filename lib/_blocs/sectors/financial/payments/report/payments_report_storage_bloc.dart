@@ -5,8 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../../_datas/sectors/financial/payments/reports/payments_reports_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/sectors/financial/payments/reports/payments_reports_data.dart';
 
 /// Storage-only para PDFs de **Relatórios de Pagamento**.
 class PaymentsReportStorageBloc extends BlocBase {
@@ -142,8 +142,4 @@ class PaymentsReportStorageBloc extends BlocBase {
     required PaymentsReportData payment,
   }) => delete(contract, payment);
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

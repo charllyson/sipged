@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Tipos de coluna configuráveis (fonte única do enum)
 enum ColumnType { auto, text, number, money, boolean_, date }
@@ -295,7 +294,7 @@ class BudgetController extends ChangeNotifier {
     final parts = v.toStringAsFixed(2).split('.');
     final intPart = _formatThousands(parts[0]);
     final dec = parts[1];
-    return (isNeg ? '-R\$ ' : 'R\$ ') + intPart + ',' + dec;
+    return '${isNeg ? '-R\$ ' : 'R\$ '}$intPart,$dec';
   }
 
   String _formatNumberBR(double d, {int decimals = 2, bool trimZeros = true}) {
@@ -305,7 +304,7 @@ class BudgetController extends ChangeNotifier {
     if (trimZeros) s = s.replaceFirst(RegExp(r'\.?0*$'), '');
     if (!s.contains('.')) return (neg ? '-' : '') + _formatThousands(s);
     final parts = s.split('.');
-    return (neg ? '-' : '') + _formatThousands(parts[0]) + ',' + parts[1];
+    return '${neg ? '-' : ''}${_formatThousands(parts[0])},${parts[1]}';
   }
 
   bool _isNumericColumnAuto(List<List<String>> rows, int colIndex) {

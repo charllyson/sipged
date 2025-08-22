@@ -2,18 +2,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_blocs/system/user_bloc.dart';
-import 'package:sisged/_provider/user/user_provider.dart';
+import 'package:sisged/_blocs/system/user_provider.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
-import '../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
-import '../../../../_blocs/documents/contracts/contracts/contract_bloc.dart';
-import '../../../../_blocs/documents/contracts/validity/validity_bloc.dart';
-import '../../../../_blocs/documents/contracts/validity/validity_storage_bloc.dart';
-import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_datas/documents/contracts/validity/validity_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
+import 'package:sisged/_blocs/documents/contracts/validity/validity_bloc.dart';
+import 'package:sisged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/validity/validity_data.dart';
+import 'package:sisged/_datas/system/user_data.dart';
 
 class ValidityController extends ChangeNotifier with FormValidationMixin {
   // Blocs Firestore
@@ -21,11 +21,8 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   final AdditivesBloc _additivesBloc = AdditivesBloc();
   final ValidityBloc _validityBloc = ValidityBloc();
 
-  // Storage (‼️ novo)
+  // Storage
   final ValidityStorageBloc validityStorageBloc;
-
-  // Permissões
-  final UserBloc _userBloc = UserBloc();
 
   final ContractData contract;
 
@@ -67,32 +64,50 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   }
 
   Future<void> postFrameInit(BuildContext context) async {
-    final user = Provider.of<UserProvider>(context, listen: false).userData;
-    if (user != null) {
-      isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
-      notifyListeners();
+    final user = context.read<UserProvider>().userData;
+    isEditable = _canEditUser(user);
+    notifyListeners();
+  }
+
+  // ---- permissões (ajuste o nome do módulo se usar outro) ----
+  bool _canEditUser(UserData? user) {
+    if (user == null) return false;
+    final base = (user.baseProfile ?? '').toLowerCase();
+    if (base == 'administrador' || base == 'colaborador') return true;
+
+    // Permissão granular por módulo (opcional)
+    final perms = user.modulePermissions['validity']; // ex.: módulo "validity"
+    if (perms != null) {
+      return (perms['edit'] == true) || (perms['create'] == true);
     }
+    return false;
   }
 
   // Loads
   Future<void> _loadInitialData(String contractId) async {
-    futureValidity = _validityBloc.getAllValidityOfContract(uidContract: contractId);
-    futureAdditives = _additivesBloc.getAllAdditivesOfContract(uidContract: contractId);
-    futureContractList = _contractsBloc.getSpecificContract(uidContract: contractId).then((c) => [c!]);
+    futureValidity =
+        _validityBloc.getAllValidityOfContract(uidContract: contractId);
+    futureAdditives =
+        _additivesBloc.getAllAdditivesOfContract(uidContract: contractId);
+    futureContractList = _contractsBloc
+        .getSpecificContract(uidContract: contractId)
+        .then((c) => [c!]);
     notifyListeners();
   }
 
   Future<void> _loadValidityAndOrders() async {
     if (contract.id == null) return;
-    final validities = await _validityBloc.getAllValidityOfContract(uidContract: contract.id!);
+    final validities = await _validityBloc.getAllValidityOfContract(
+      uidContract: contract.id!,
+    );
+
     final existingOrders = validities
         .map((v) => int.tryParse(v.orderNumber?.toString() ?? ''))
         .whereType<int>()
         .toList();
 
-    final nextOrder = existingOrders.isEmpty
-        ? 1
-        : (existingOrders.reduce((a, b) => a > b ? a : b) + 1);
+    final nextOrder =
+    existingOrders.isEmpty ? 1 : (existingOrders.reduce((a, b) => a > b ? a : b) + 1);
 
     final newOrdersAvailable = getRulesOrders(validities);
 
@@ -142,38 +157,62 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     isSaving = true;
     notifyListeners();
 
-    final newValidity = ValidityData(
-      id: currentValidityId,
-      uidContract: contract.id,
-      orderNumber: int.tryParse(orderCtrl.text),
-      ordertype: orderTypeCtrl.text,
-      orderdate: convertDDMMYYYYToDateTime(orderDateCtrl.text),
-    );
-
-    await _validityBloc.salvarOuAtualizarValidade(newValidity);
-    await refreshAll();
-
-    currentValidityId = null;
-    selectedValidityData = null;
-    isSaving = false;
-    notifyListeners();
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ordem salva com sucesso!'), backgroundColor: Colors.green),
+    try {
+      final newValidity = ValidityData(
+        id: currentValidityId,
+        uidContract: contract.id,
+        orderNumber: int.tryParse(orderCtrl.text),
+        ordertype: orderTypeCtrl.text,
+        orderdate: convertDDMMYYYYToDateTime(orderDateCtrl.text),
       );
+
+      await _validityBloc.salvarOuAtualizarValidade(newValidity);
+      await refreshAll();
+
+      currentValidityId = null;
+      selectedValidityData = null;
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ordem salva com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar: $e')),
+        );
+      }
+    } finally {
+      isSaving = false;
+      notifyListeners();
     }
   }
 
   Future<void> deleteValidity(BuildContext context, String validityId) async {
     if (contract.id == null) return;
-    await _validityBloc.deletarValidade(contract.id!, validityId);
-    await refreshAll();
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ordem apagada com sucesso!'), backgroundColor: Colors.red),
-      );
+    try {
+      await _validityBloc.deletarValidade(contract.id!, validityId);
+      await refreshAll();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ordem apagada com sucesso!'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao apagar: $e')),
+        );
+      }
     }
   }
 
@@ -182,9 +221,8 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     currentValidityId = data.id;
 
     orderCtrl.text = data.orderNumber?.toString() ?? '';
-    orderDateCtrl.text = data.orderdate != null
-        ? convertDateTimeToDDMMYYYY(data.orderdate!)
-        : '';
+    orderDateCtrl.text =
+    data.orderdate != null ? convertDateTimeToDDMMYYYY(data.orderdate!) : '';
     orderTypeCtrl.text = data.ordertype ?? '';
 
     if (data.ordertype != null && !availableOrders.contains(data.ordertype)) {
@@ -210,22 +248,19 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     notifyListeners();
   }
 
-
-  // ------- (Opcional) helper de upload + metadado usando o storage bloc -------
+  // Upload + metadado (Storage)
   Future<void> uploadPdf({
     required void Function(double) onProgress,
   }) async {
     if (contract.id == null || selectedValidityData?.id == null) return;
-    final c = contract;
-    final v = selectedValidityData!;
     final url = await validityStorageBloc.uploadWithPicker(
-      contract: c,
-      validade: v,
+      contract: contract,
+      validade: selectedValidityData!,
       onProgress: onProgress,
     );
     await validityStorageBloc.salvarUrlPdfDaValidade(
-      contractId: c.id!,
-      validadeId: v.id!,
+      contractId: contract.id!,
+      validadeId: selectedValidityData!.id!,
       url: url,
     );
   }

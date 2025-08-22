@@ -2,9 +2,8 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_tappable_polyline/flutter_map_tappable_polyline.dart';
 import 'package:latlong2/latlong.dart';
-import 'regional_geo_json_class.dart';
+import '../_datas/widgets/regional_geo_json_class.dart';
 
 /// Constantes de chaves de propriedades
 const String kPropertyRegionName = 'Limite';
@@ -14,7 +13,7 @@ const String kPropertyRoadStatus = 'Superfície Estadual';
 
 
 class GeoJsonService {
-  static Future<List<RegionalPolygon>> loadPolygonsRegionsOfDERAL({
+  static Future<List<PolygonChanged>> loadPolygonsRegionsOfDERAL({
     required String assetPath,
     Color borderColor = Colors.black,
     double borderStrokeWidth = 1.5,
@@ -31,7 +30,7 @@ class GeoJsonService {
     );
   }
 
-  static Future<List<RegionalPolygon>> loadServicePolygonsOfCitiesAL({
+  static Future<List<PolygonChanged>> loadServicePolygonsOfCitiesAL({
     required String assetPath,
     Color borderColor = Colors.black,
     double borderStrokeWidth = 1.0,
@@ -48,7 +47,7 @@ class GeoJsonService {
     );
   }
 
-  static Future<List<RegionalPolygon>> _loadPolygons({
+  static Future<List<PolygonChanged>> _loadPolygons({
     required String assetPath,
     required String nomePropriedade,
     required Color fillColor,
@@ -61,7 +60,7 @@ class GeoJsonService {
       final Map<String, dynamic> geoJson = jsonDecode(data);
       final features = List<Map<String, dynamic>>.from(geoJson['features']);
 
-      final List<RegionalPolygon> polygons = [];
+      final List<PolygonChanged> polygons = [];
 
       for (final feature in features) {
         final geometry = feature['geometry'];
@@ -79,7 +78,7 @@ class GeoJsonService {
                 points.add(points.first);
               }
               polygons.add(
-                RegionalPolygon(
+                PolygonChanged(
                   regionName: nome,
                   polygon: Polygon(
                     points: points,

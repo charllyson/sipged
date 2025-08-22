@@ -7,11 +7,11 @@ import 'package:sisged/_widgets/input/custom_date_field.dart';
 import 'package:sisged/_widgets/input/custom_text_field.dart';
 import 'package:sisged/_widgets/mask_class.dart';
 
-import '../../../../../_widgets/archives/pdf/web_pdf_widget.dart';
-import '../../../../../_widgets/formats/input_formatters.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
-import '../../../../_widgets/archives/pdf/web_pdf_controller.dart';
+import 'package:sisged/_widgets/archives/pdf/web_pdf_widget.dart';
+import 'package:sisged/_widgets/formats/input_formatters.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_widgets/archives/pdf/web_pdf_controller.dart';
 
 class ReportMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
@@ -27,7 +27,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
   final TextEditingController valueAdjustmentController;
 
   final VoidCallback onSave;
-  final Future<void> Function() onClear;
+  final VoidCallback onClear; // ✅ agora é VoidCallback
 
   const ReportMeasurementFormSection({
     super.key,
@@ -42,7 +42,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
     required this.dateAdjustmentController,
     required this.valueAdjustmentController,
     required this.onSave,
-    required this.onClear,
+    required this.onClear, // ✅
   });
 
   double getInputWidth(BuildContext context) {
@@ -57,12 +57,16 @@ class ReportMeasurementFormSection extends StatelessWidget {
     );
   }
 
-  Widget _input(BuildContext context, TextEditingController controller, String label,
-      {bool enabled = true,
+  Widget _input(
+      BuildContext context,
+      TextEditingController controller,
+      String label, {
+        bool enabled = true,
         bool tooltip = false,
         bool money = false,
         bool date = false,
-        List<TextInputFormatter>? mask}) {
+        List<TextInputFormatter>? mask,
+      }) {
     List<TextInputFormatter> formatters = [];
 
     if (money) {
@@ -100,7 +104,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
         child: textField,
       );
     }
-
     return textField;
   }
 
@@ -114,19 +117,39 @@ class ReportMeasurementFormSection extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(context, orderAdjustmentController, 'Ordem da medição', enabled: false, tooltip: true),
-            _input(context, processNumberAdjustmentController, 'Nº processo da medição', mask: [processoMaskFormatter]),
+            _input(
+              context,
+              orderAdjustmentController,
+              'Ordem da medição',
+              enabled: false,
+              tooltip: true,
+            ),
+            _input(
+              context,
+              processNumberAdjustmentController,
+              'Nº processo da medição',
+              enabled: isEditable, // ✅ respeita permissão
+              mask: [processoMaskFormatter],
+            ),
             CustomDateField(
               width: getInputWidth(context),
-              enabled: isEditable,
+              enabled: isEditable, // ✅ respeita permissão
               controller: dateAdjustmentController,
               initialValue: selectedAdjustmentMeasurement?.dateReportMeasurement,
               labelText: 'Data da Medição',
               onChanged: (date) {
-                selectedAdjustmentMeasurement?.dateReportMeasurement = date;
+                if (selectedAdjustmentMeasurement != null) {
+                  selectedAdjustmentMeasurement!.dateReportMeasurement = date;
+                }
               },
             ),
-            _input(context, valueAdjustmentController, 'Valor da medição', money: true),
+            _input(
+              context,
+              valueAdjustmentController,
+              'Valor da medição',
+              enabled: isEditable, // ✅ respeita permissão
+              money: true,
+            ),
           ],
         );
 
@@ -143,7 +166,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
               TextButton.icon(
                 icon: const Icon(Icons.restore),
                 label: const Text('Limpar'),
-                onPressed: () async => await onClear(),
+                onPressed: onClear, // ✅ sem async/await
               ),
           ],
         );
@@ -168,7 +191,8 @@ class ReportMeasurementFormSection extends StatelessWidget {
               ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentAdjustmentMeasurementId != null && selectedAdjustmentMeasurement != null)
+              if (currentAdjustmentMeasurementId != null &&
+                  selectedAdjustmentMeasurement != null)
                 _buildPdfWidget(),
               const SizedBox(height: 12),
               corpo,
@@ -177,7 +201,8 @@ class ReportMeasurementFormSection extends StatelessWidget {
               : Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentAdjustmentMeasurementId != null && selectedAdjustmentMeasurement != null)
+              if (currentAdjustmentMeasurementId != null &&
+                  selectedAdjustmentMeasurement != null)
                 _buildPdfWidget(),
               const SizedBox(width: 12),
               Expanded(child: corpo),

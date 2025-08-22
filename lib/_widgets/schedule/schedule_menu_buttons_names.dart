@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../_datas/sectors/operation/schedule/schedule_style.dart';
+import 'package:sisged/_datas/sectors/operation/schedule/schedule_style.dart';
 
 class ScheduleMenuButtonsNames {
   final String key;        // ex.: "terraplenagem"
   final String label;      // rótulo original do orçamento (com acentos)
   final String collection; // ex.: schedules_terraplenagem
-  final Color color;       // cor estável a partir do slug
-  final IconData icon;     // ícone padrão (ou vindo de config)
+  final Color color;       // cor semântica (ex.: ASFALTO → paleta asfalto)
+  final IconData icon;     // ícone semântico (ex.: ASFALTO → carro)
 
   const ScheduleMenuButtonsNames({
     required this.key,
@@ -16,6 +16,22 @@ class ScheduleMenuButtonsNames {
     required this.color,
     required this.icon,
   });
+
+  ScheduleMenuButtonsNames copyWith({
+    String? key,
+    String? label,
+    String? collection,
+    Color? color,
+    IconData? icon,
+  }) {
+    return ScheduleMenuButtonsNames(
+      key: key ?? this.key,
+      label: label ?? this.label,
+      collection: collection ?? this.collection,
+      color: color ?? this.color,
+      icon: icon ?? this.icon,
+    );
+  }
 }
 
 /// Remove acentos (PT-BR) e normaliza
@@ -31,19 +47,21 @@ String slugFromTitle(String title) {
   final noAccents = _removeDiacritics(title);
   final lower = noAccents.toLowerCase();
   final cleaned = lower.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-  return cleaned.replaceAll(RegExp(r'^_+|_+$'), '_').replaceAll(RegExp(r'^_+|_+$'), '');
+  // remove underscores duplicados/iniciais/finais
+  final once = cleaned.replaceAll(RegExp(r'_+'), '_');
+  return once.replaceAll(RegExp(r'^_+|_+$'), '');
 }
 
-
-/// Cria a opção diretamente do título do orçamento
+/// Cria a opção diretamente do título do orçamento (⚠️ usa paleta semântica!)
 ScheduleMenuButtonsNames optionFromTitle(String title) {
   final slug = slugFromTitle(title);
+  final label = title.trim().isEmpty ? slug : title.trim();
   return ScheduleMenuButtonsNames(
     key: slug,
-    label: title.trim().isEmpty ? slug : title.trim(),
+    label: label,
     collection: 'schedules_$slug',
-    color: ScheduleStyle.colorFromSlug(slug),
-    icon: ScheduleStyle.iconFromSlug(slug),
+    color: ScheduleStyle.colorForService(label),  // 🎯 semântico por label
+    icon: ScheduleStyle.pickIconForTitle(label),  // 🎯 ícone semântico
   );
 }
 

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_datas/documents/contracts/contracts/contract_style.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_widgets/charts/barGraph/bar_chart_changed.dart';
-import '../../../../_widgets/charts/pieGraph/pie_chart_changed.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_rules.dart';
+import 'package:sisged/_widgets/charts/barGraph/bar_chart_changed.dart';
+import 'package:sisged/_widgets/charts/pieGraph/pie_chart_changed.dart';
 import 'dashboard_controller.dart';
 
 class ChartsContractSection extends StatelessWidget {

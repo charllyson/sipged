@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sisged/screens/commons/footBar/foot_bar.dart';
+import 'package:sisged/screens/commons/upBar/up_bar.dart';
 import 'package:sisged/screens/sectors/operation/dashboard/charts_contract_section.dart';
 import 'package:sisged/screens/sectors/operation/dashboard/resumed_measurement_card.dart';
 import 'package:sisged/screens/sectors/operation/dashboard/summary_contract_section.dart';
-import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
-import '../../../../_widgets/background/background_cleaner.dart';
-import '../../../../_widgets/contractList/contract_list.dart';
-import '../../../../_widgets/texts/divider_text.dart';
-import '../../../commons/footBar/foot_bar.dart';
-import '../../../commons/upBar/up_bar.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_widgets/background/background_cleaner.dart';
+import 'package:sisged/_widgets/contractList/contract_list.dart';
+import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'contract_type_filtered.dart';
 import 'dashboard_controller.dart';
 import 'list_contracts_section.dart';
@@ -75,30 +75,34 @@ class _DashboardBodyState extends State<DashboardBody> {
                         subtitle: '2018 - ${DateTime.now().year}',
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          ResumedMeasurementCards([
-                            controller.totaisMedicoes,
-                            controller.totaisReajustes,
-                            controller.totaisRevisoes
-                          ]),
-                          MeasurementSelectorDatesSection(
-                            allMeasurements: controller.allMeasurements,
-                            initialYear: controller.selectedYear,
-                            initialMonth: controller.selectedMonth,
-                            onSelectionChanged: (result) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                setState(() {
-                                  controller.selectedYear = result.selectedYear;
-                                  controller.selectedMonth = result.selectedMonth;
-                                  filteredMeasurements = result.filteredItems;
-                                  selectedPointIndex = null;
-                                  selectedContractSummary = null;
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            ResumedMeasurementCards([
+                              controller.totaisMedicoes,
+                              controller.totaisReajustes,
+                              controller.totaisRevisoes
+                            ]),
+                            MeasurementSelectorDatesSection(
+                              allMeasurements: controller.allMeasurements,
+                              initialYear: controller.selectedYear,
+                              initialMonth: controller.selectedMonth,
+                              onSelectionChanged: (result) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  setState(() {
+                                    controller.selectedYear = result.selectedYear;
+                                    controller.selectedMonth = result.selectedMonth;
+                                    filteredMeasurements = result.filteredItems;
+                                    selectedPointIndex = null;
+                                    selectedContractSummary = null;
+                                  });
                                 });
-                              });
-                            },
-                          ),
-                        ],
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 8),
                       MeasurementContractSection(

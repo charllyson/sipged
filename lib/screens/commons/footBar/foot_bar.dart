@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../_blocs/system/system_bloc.dart';
-import '../../../_widgets/shimmer/shimmer_w60_h14.dart';
+import 'package:sisged/_blocs/system/system_bloc.dart';
+import 'package:sisged/_widgets/shimmer/shimmer_w60_h14.dart';
 
 class FootBar extends StatelessWidget {
   const FootBar({super.key});

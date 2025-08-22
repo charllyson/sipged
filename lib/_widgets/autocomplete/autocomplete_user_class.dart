@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_datas/system/user_data.dart';
 import 'package:sisged/_utils/responsive_utils.dart';
-import '../input/custom_text_field.dart';
+import 'package:sisged/_widgets/input/custom_text_field.dart';
 
 class AutocompleteUserClass extends StatefulWidget {
   final String? label;

@@ -11,6 +11,9 @@ class InfractionsFormSection extends StatelessWidget {
   final bool formValidated;
   final String? currentInfractionId;
 
+  /// Força número de itens por linha (ex.: 2 no desktop, 1 no mobile)
+  final int? itemsPerLineOverride;
+
   // Controllers principais
   final TextEditingController orderCtrl;
   final TextEditingController aitNumberCtrl;
@@ -51,11 +54,10 @@ class InfractionsFormSection extends StatelessWidget {
     required this.onClear,
     required this.onSave,
     required this.onGetLocation,
+    this.itemsPerLineOverride,
   });
 
-  double _w(BuildContext c) =>
-      responsiveInputWidth(context: c, itemsPerLine: 4, extraPadding: 12, reservedWidth: 12);
-
+  // Campo de texto padrão
   Widget _text(
       BuildContext c,
       TextEditingController ctrl,
@@ -66,175 +68,197 @@ class InfractionsFormSection extends StatelessWidget {
         TextInputType? keyboardType,
         String? hintText,
       }) {
+    return CustomTextField(
+      enabled: enabled,
+      controller: ctrl,
+      labelText: label,
+      hintText: hintText,
+      inputFormatters: mask,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+    );
+  }
+
+  // Envolve um campo para respeitar a largura calculada do grid
+  Widget _gridItem(double width, Widget child) => ConstrainedBox(
+    constraints: BoxConstraints.tightFor(width: width),
+    child: child,
+  );
+
+  // Cabeçalho de seção (linha inteira)
+  Widget _sectionHeader(double maxW, String title) {
     return SizedBox(
-      width: _w(c),
-      child: CustomTextField(
-        enabled: enabled,
-        controller: ctrl,
-        labelText: label,
-        hintText: hintText,
-        inputFormatters: mask,
-        keyboardType: keyboardType,
-        maxLength: maxLines,
+      width: maxW,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            const Expanded(child: Divider(thickness: 1, endIndent: 12, color: Colors.grey)),
+            Text(title, style: const TextStyle(fontSize: 16)),
+            const Expanded(child: Divider(thickness: 1, indent: 12, color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Bloco Localização (linha inteira)
+  Widget _localizacaoBlock(BuildContext context, double maxW) {
+    return SizedBox(
+      width: maxW,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Tooltip(
+            message: 'Usar localização atual do usuário',
+            child: InkWell(
+              onTap: onGetLocation,
+              child: const Column(
+                children: [
+                  Icon(Icons.my_location, color: Colors.blueAccent),
+                  SizedBox(height: 2),
+                  Text(
+                    'Obter\nlocalização',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.blueAccent, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // lat/long lado a lado usando largura disponível
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(child: _text(context, latitudeCtrl, 'Latitude', enabled: false)),
+                const SizedBox(width: 8),
+                Expanded(child: _text(context, longitudeCtrl, 'Longitude', enabled: false)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final campos = Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        // Localização
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            children: const [
-              Expanded(child: Divider(thickness: 1, endIndent: 12, color: Colors.grey)),
-              Text('Localização', style: TextStyle(fontSize: 16)),
-              Expanded(child: Divider(thickness: 1, indent: 12, color: Colors.grey)),
-            ],
-          ),
-        ),
-        SizedBox(
-          width: _w(context),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Tooltip(
-                message: 'Usar localização atual do usuário',
-                child: InkWell(
-                  onTap: onGetLocation,
-                  child: Column(
-                    children: const [
-                      Icon(Icons.my_location, color: Colors.blueAccent),
-                      Text(
-                        'Obter\nlocalização',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.blueAccent, fontSize: 10),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _text(
-                        context,
-                        latitudeCtrl,
-                        'Latitude',
-                        enabled: false,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _text(
-                        context,
-                        longitudeCtrl,
-                        'Longitude',
-                        enabled: false,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        _text(context, addressCtrl, 'Endereço da infração', maxLines: 2),
-        _text(context, bairroCtrl, 'Bairro'),
+    return LayoutBuilder(builder: (context, constraints) {
+      final maxW = constraints.maxWidth;
 
-        // Dados da infração
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            children: const [
-              Expanded(child: Divider(thickness: 1, endIndent: 12, color: Colors.grey)),
-              Text('Dados da infração', style: TextStyle(fontSize: 16)),
-              Expanded(child: Divider(thickness: 1, indent: 12, color: Colors.grey)),
-            ],
-          ),
-        ),
-        SizedBox(
-          width: _w(context),
-          child: Tooltip(
-            message: 'Este campo é calculado automaticamente.',
-            child: CustomTextField(
-              enabled: false,
-              controller: orderCtrl,
-              labelText: 'Ordem da infração',
+      // 2 por linha no desktop; pode forçar 1 no mobile (outra tela decide)
+      final itemsPerLine = itemsPerLineOverride ?? 2;
+      const spacing = 12.0;
+
+      final fieldW = responsiveInputWidth(
+        context: context,
+        itemsPerLine: itemsPerLine,
+        containerWidth: maxW,
+        spacing: spacing,
+        margin: 13, // mesmo ajuste do padrão dos acidentes
+        forceItemsPerLineOnSmall: true,
+      );
+
+      // -------- GRID --------
+      final gridWrap = Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        children: [
+          // ===== Localização (FULL WIDTH) =====
+          _sectionHeader(maxW, 'Localização'),
+          _localizacaoBlock(context, maxW),
+
+          // ===== Endereço (2 por linha) =====
+          _gridItem(fieldW, _text(context, addressCtrl, 'Endereço da infração', maxLines: 2)),
+          _gridItem(fieldW, _text(context, bairroCtrl, 'Bairro')),
+
+          // ===== Dados da infração =====
+          _sectionHeader(maxW, 'Dados da infração'),
+
+          _gridItem(
+            fieldW,
+            Tooltip(
+              message: 'Este campo é calculado automaticamente.',
+              child: CustomTextField(
+                enabled: false,
+                controller: orderCtrl,
+                labelText: 'Ordem da infração',
+              ),
             ),
           ),
-        ),
-        _text(
-          context,
-          aitNumberCtrl,
-          'Nº AIT',
-          mask: [FilteringTextInputFormatter.digitsOnly],
-          keyboardType: TextInputType.number,
-        ),
-        SizedBox(
-          width: _w(context),
-          child: CustomDateField(
-            enabled: isEditable,
-            controller: dateCtrl,
-            labelText: 'Data da infração',
+          _gridItem(
+            fieldW,
+            _text(
+              context,
+              aitNumberCtrl,
+              'Nº AIT',
+              mask: [FilteringTextInputFormatter.digitsOnly],
+              keyboardType: TextInputType.number,
+            ),
           ),
-        ),
-        _text(
-          context,
-          timeCtrl,
-          'Hora da infração',
-          hintText: 'HH:MM',
-          mask: [MaskedInputFormatter('##:##')],
-          keyboardType: TextInputType.datetime,
-        ),
-        _text(context, codeCtrl, 'Código da infração'),
-        _text(context, organCodeCtrl, 'Órgão (código)'),
-        _text(context, organAuthorityCtrl, 'Autoridade'),
-        _text(context, descriptionCtrl, 'Descrição da infração', maxLines: 3),
-      ],
-    );
+          _gridItem(
+            fieldW,
+            CustomDateField(
+              enabled: isEditable,
+              controller: dateCtrl,
+              labelText: 'Data da infração',
+            ),
+          ),
+          _gridItem(
+            fieldW,
+            _text(
+              context,
+              timeCtrl,
+              'Hora da infração',
+              hintText: 'HH:MM',
+              mask: [MaskedInputFormatter('##:##')],
+              keyboardType: TextInputType.datetime,
+            ),
+          ),
+          _gridItem(fieldW, _text(context, codeCtrl, 'Código da infração')),
+          _gridItem(fieldW, _text(context, organCodeCtrl, 'Órgão (código)')),
+          _gridItem(fieldW, _text(context, organAuthorityCtrl, 'Autoridade')),
+          _gridItem(fieldW, _text(context, descriptionCtrl, 'Descrição da infração', maxLines: 3)),
+        ],
+      );
 
-    final botoes = Align(
-      alignment: Alignment.centerRight,
-      child: Wrap(
-        spacing: 12,
-        children: [
-          TextButton.icon(
-            icon: const Icon(Icons.save),
-            label: Text(currentInfractionId != null ? 'Atualizar' : 'Salvar'),
-            onPressed: formValidated && isEditable ? onSave : null,
-          ),
-          if (currentInfractionId != null)
+      final actions = Align(
+        alignment: Alignment.centerRight,
+        child: Wrap(
+          spacing: 12,
+          children: [
             TextButton.icon(
-              icon: const Icon(Icons.restore),
-              label: const Text('Limpar'),
-              onPressed: () async => onClear(),
+              icon: const Icon(Icons.save),
+              label: Text(currentInfractionId != null ? 'Atualizar' : 'Salvar'),
+              onPressed: formValidated && isEditable ? onSave : null,
             ),
-        ],
-      ),
-    );
+            if (currentInfractionId != null)
+              TextButton.icon(
+                icon: const Icon(Icons.restore),
+                label: const Text('Limpar'),
+                onPressed: () async => onClear(),
+              ),
+          ],
+        ),
+      );
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          campos,
-          const SizedBox(height: 16),
-          botoes,
-        ],
-      ),
-    );
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            gridWrap,
+            const SizedBox(height: 16),
+            actions,
+          ],
+        ),
+      );
+    });
   }
 }

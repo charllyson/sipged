@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
-import '../../../../_blocs/documents/contracts/budget/budget_bloc.dart';
+import 'package:sisged/_blocs/documents/contracts/budget/budget_bloc.dart';
 
 class BudgetCache {
   final List<List<String>> tableData;

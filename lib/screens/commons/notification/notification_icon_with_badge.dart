@@ -1,16 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
+
 import 'package:sisged/_widgets/registers/register_class.dart';
-import '../../../_blocs/system/notification_bloc.dart';
-import '../../../_blocs/system/user_bloc.dart';
+import 'package:sisged/_blocs/system/notification_bloc.dart';
 import 'notification_dialog.dart';
 
 class NotificationIconWithBadge extends StatelessWidget {
   final BehaviorSubject<int> badgeSubject;
   final BehaviorSubject<List<Registro>> notificacoesSubject;
   final NotificationBloc notificationBloc;
-  final UserBloc userBloc;
   final User? firebaseUser;
   final Set<String> idsVistos;
   final void Function(Set<String>) onUpdateVistos;
@@ -20,7 +19,6 @@ class NotificationIconWithBadge extends StatelessWidget {
     required this.badgeSubject,
     required this.notificacoesSubject,
     required this.notificationBloc,
-    required this.userBloc,
     required this.firebaseUser,
     required this.idsVistos,
     required this.onUpdateVistos,
@@ -49,7 +47,6 @@ class NotificationIconWithBadge extends StatelessWidget {
                   context: context,
                   builder: (_) => NotificationDialog(
                     registros: todos,
-                    userBloc: userBloc,
                   ),
                 );
 

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_utils/date_utils.dart';
 
-import '../../_blocs/documents/contracts/validity/validity_bloc.dart';
-import '../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../_datas/documents/contracts/validity/validity_data.dart';
+import 'package:sisged/_blocs/documents/contracts/validity/validity_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/validity/validity_data.dart';
 
 class TimelineItem {
   final String title;

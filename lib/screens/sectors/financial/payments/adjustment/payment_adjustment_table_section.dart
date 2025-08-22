@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
 
-import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../../_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
-import '../../../../../_widgets/formats/format_field.dart';
-import '../../../../documents/footer_rows_generic.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/screens/documents/footer_rows_generic.dart';
 
 class PaymentAdjustmentTableSection extends StatelessWidget {
   final void Function(PaymentsAdjustmentsData) onTapItem;

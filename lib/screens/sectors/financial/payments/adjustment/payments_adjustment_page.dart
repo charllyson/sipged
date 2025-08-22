@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
 import 'payment_adjustment_controller.dart';
 
-import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../../_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
-import '../../../../../../_widgets/texts/divider_text.dart';
-import '../../../../../admPanel/converters/importExcel/import_excel_page.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
+import 'package:sisged/_widgets/texts/divider_text.dart';
+import 'package:sisged/admPanel/converters/importExcel/import_excel_page.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
 import 'payment_adjustment_chart_section.dart';
@@ -19,13 +21,14 @@ class PaymentsAdjustmentPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) =>
-      PaymentsAdjustmentController()..init(context, contractData: contractData),
+    return ChangeNotifierProvider<PaymentsAdjustmentController>(
+      create: (ctx) => PaymentsAdjustmentController(
+        paymentAdjustmentBloc: ctx.read<PaymentAdjustmentBloc>(),
+        additivesBloc: ctx.read<AdditivesBloc>(),
+      )..init(ctx, contractData: contractData),
       builder: (context, _) {
         final c = context.watch<PaymentsAdjustmentController>();
 
-        // loading simples enquanto não inicializa/conhece contrato
         if (c.contract?.id == null) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -33,10 +36,10 @@ class PaymentsAdjustmentPage extends StatelessWidget {
         final labels = c.chartLabels;
         final values = c.chartValues;
         final totalMedicoes = c.totalMedicoes;
-        final valorTotal = c.valorTotal;            // inicial + aditivos
+        final valorTotal = c.valorTotal;
         final saldo = c.saldo;
-        final valorInicial = c.valorInicialBase;    // getter
-        final valorAditivos = c.valorAditivosTotal; // getter
+        final valorInicial = c.valorInicialBase;
+        final valorAditivos = c.valorAditivosTotal;
 
         return Stack(
           children: [
@@ -57,7 +60,7 @@ class PaymentsAdjustmentPage extends StatelessWidget {
                           totalMedicoes: totalMedicoes,
                           selectedIndex: c.selectedIndex,
                           onSelectIndex: (index) {
-                            if (index == null || index < 0 || index >= c.payments.length) return;
+                            if (index < 0 || index >= c.payments.length) return;
                             c.selectRow(c.payments[index]);
                           },
                         ),
@@ -66,7 +69,6 @@ class PaymentsAdjustmentPage extends StatelessWidget {
                         const DividerText(title: 'Cadastrar pagamento de reajuste no sistema'),
                         const SizedBox(height: 12),
 
-                        // Form pega tudo do controller
                         const PaymentAdjustmentFormSection(),
 
                         const SizedBox(height: 12),
@@ -75,12 +77,9 @@ class PaymentsAdjustmentPage extends StatelessWidget {
                           isSend: true,
                         ),
 
-                        // Import Excel - salva exatamente o objeto importado
                         ImportExcelPage(
                           firstCollection: c.contract?.id ?? '',
-                          onFinished: () async {
-                            await c.init(context, contractData: c.contract);
-                          },
+                          onFinished: () async => c.init(context, contractData: c.contract),
                           onSave: (dados) async {
                             final data = PaymentsAdjustmentsData.fromMap(dados);
                             await c.saveExact(
@@ -97,7 +96,7 @@ class PaymentsAdjustmentPage extends StatelessWidget {
 
                         const SizedBox(height: 12),
                         PaymentAdjustmentTableSection(
-                          onTapItem: (data) => c.selectRow(data),
+                          onTapItem: c.selectRow,
                           onDelete: (id) => c.deleteById(
                             id,
                             onSuccessSnack: () => ScaffoldMessenger.of(context).showSnackBar(
@@ -137,4 +136,5 @@ class PaymentsAdjustmentPage extends StatelessWidget {
       },
     );
   }
+
 }

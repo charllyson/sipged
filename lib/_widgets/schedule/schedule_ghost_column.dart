@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
+import 'package:sisged/_datas/sectors/operation/schedule/schedule_lane_class.dart';
 
-import '../../_datas/sectors/operation/schedule/schedule_style.dart';
+import 'package:sisged/_datas/sectors/operation/schedule/schedule_style.dart';
 
 class ScheduleGhostColumn extends StatelessWidget {
 

@@ -1,28 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
-import 'package:sisged/_blocs/system/user_bloc.dart';
-import 'package:sisged/_provider/user/user_provider.dart';
+
+import 'package:sisged/_blocs/system/user_provider.dart';
+import 'package:sisged/_datas/system/user_data.dart';
+
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/formats/format_field.dart';
 import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
-import '../../../../_datas/documents/contracts/apostilles/apostilles_store.dart';
-import '../../../../_datas/documents/contracts/apostilles/apostilles_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_utils/handle_selection_utils.dart';
+import 'package:sisged/_datas/documents/contracts/apostilles/apostilles_store.dart';
+import 'package:sisged/_datas/documents/contracts/apostilles/apostilles_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_utils/handle_selection_utils.dart';
+import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
 
 class ApostillesController extends ChangeNotifier with FormValidationMixin {
   final ApostillesStore store;
-  final UserBloc userBloc;
   final ContractData contract;
+
+  final ApostillesStorageBloc apostillesStorageBloc;
 
   // Estado
   late Future<List<ApostillesData>> futureApostilles;
   List<ApostillesData> _lastSnapshot = [];
   ApostillesData? selectedApostille;
-
-  final ApostillesStorageBloc apostillesStorageBloc;
 
   bool isSaving = false;
   bool editingMode = false;
@@ -40,25 +41,35 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
 
   ApostillesController({
     required this.store,
-    required this.userBloc,
     required this.contract,
     ApostillesStorageBloc? storageBloc, // injetável
   }) : apostillesStorageBloc = storageBloc ?? ApostillesStorageBloc() {
     _init();
   }
 
-  Future<void> _init() async {
+  void _init() {
     futureApostilles = _getAll();
     _setNextOrder();
     setupValidation([dateCtrl, valueCtrl, processCtrl], _validateForm);
   }
 
   Future<void> postFrameInit(BuildContext context) async {
-    final user = Provider.of<UserProvider>(context, listen: false).userData;
-    if (user != null) {
-      isEditable = userBloc.getUserCreateEditPermissions(userData: user);
-      notifyListeners();
+    final user = context.read<UserProvider>().userData;
+    isEditable = _canEditUser(user);
+    notifyListeners();
+  }
+
+  // Permissões (ajuste a chave do módulo se necessário)
+  bool _canEditUser(UserData? user) {
+    if (user == null) return false;
+    final base = (user.baseProfile ?? '').toLowerCase();
+    if (base == 'administrador' || base == 'colaborador') return true;
+
+    final perms = user.modulePermissions['apostilles']; // <— nome do módulo
+    if (perms != null) {
+      return (perms['edit'] == true) || (perms['create'] == true);
     }
+    return false;
   }
 
   // Loads
@@ -103,7 +114,9 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     currentApostilleId = data.id;
 
     orderCtrl.text = (data.apostilleOrder ?? '').toString();
-    dateCtrl.text = data.apostilleData != null ? convertDateTimeToDDMMYYYY(data.apostilleData!) : '';
+    dateCtrl.text = data.apostilleData != null
+        ? convertDateTimeToDDMMYYYY(data.apostilleData!)
+        : '';
     valueCtrl.text = priceToString(data.apostilleValue);
     processCtrl.text = data.apostilleNumberProcess ?? '';
 
@@ -132,28 +145,40 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     isSaving = true;
     notifyListeners();
 
-    final novo = ApostillesData(
-      id: currentApostilleId,
-      apostilleOrder: int.tryParse(orderCtrl.text),
-      apostilleData: convertDDMMYYYYToDateTime(dateCtrl.text),
-      apostilleValue: stringToDouble(valueCtrl.text),
-      apostilleNumberProcess: processCtrl.text,
-    );
-
-    await store.saveOrUpdate(contract.id!, novo);
-    futureApostilles = Future.value(store.listFor(contract.id!));
-    createNew();
-
-    isSaving = false;
-    notifyListeners();
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(editingMode ? 'Apostilamento atualizado com sucesso!' : 'Apostilamento salvo com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
+    try {
+      final novo = ApostillesData(
+        id: currentApostilleId,
+        apostilleOrder: int.tryParse(orderCtrl.text),
+        apostilleData: convertDDMMYYYYToDateTime(dateCtrl.text),
+        apostilleValue: stringToDouble(valueCtrl.text),
+        apostilleNumberProcess: processCtrl.text,
       );
+
+      await store.saveOrUpdate(contract.id!, novo);
+      futureApostilles = Future.value(store.listFor(contract.id!));
+      createNew();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              editingMode
+                  ? 'Apostilamento atualizado com sucesso!'
+                  : 'Apostilamento salvo com sucesso!',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar: $e')),
+        );
+      }
+    } finally {
+      isSaving = false;
+      notifyListeners();
     }
   }
 
@@ -165,7 +190,10 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Apostilamento removido com sucesso!'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Apostilamento removido com sucesso!'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -197,21 +225,19 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     );
   }
 
-  // ------- (Opcional) helper de upload + metadado usando o storage bloc -------
+  // Upload + metadado (Storage)
   Future<void> uploadPdf({
     required void Function(double) onProgress,
   }) async {
     if (contract.id == null || selectedApostille?.id == null) return;
-    final c = contract;
-    final v = selectedApostille!;
     final url = await apostillesStorageBloc.uploadWithPicker(
-      contract: c,
-      apostille: v,
+      contract: contract,
+      apostille: selectedApostille!,
       onProgress: onProgress,
     );
     await apostillesStorageBloc.salvarUrlPdfDaApostila(
-      contractId: c.id!,
-      apostilleId: v.id!,
+      contractId: contract.id!,
+      apostilleId: selectedApostille!.id!,
       url: url,
     );
   }

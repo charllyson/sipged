@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sisged/_datas/actives/oaes/active_oaes_data.dart';
+import 'package:sisged/_widgets/loading/loading_progress.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
-
-import '../../../../../_widgets/loading/loading_progress.dart';
-import '../../../../_datas/actives/oaes/active_oaes_data.dart';
 
 class ActiveOaesRecordsTableSection extends StatelessWidget {
   final void Function(ActiveOaesData) onTapItem;
@@ -63,19 +62,19 @@ class ActiveOaesRecordsTableSection extends StatelessWidget {
                           columnGetters: [
                                 (a) => '${a.order ?? '-'}',
                                 (a) => '${a.score ?? '-'}',
-                                (a) => '${a.state ?? '-'}',
-                                (a) => '${a.region ?? '-'}',
-                                (a) => '${a.identificationName ?? '-'}',
+                                (a) => a.state ?? '-',
+                                (a) => a.region ?? '-',
+                                (a) => a.identificationName ?? '-',
                                 (a) => '${a.extension ?? '-'}',
                                 (a) => '${a.width ?? '-'}',
                                 (a) => '${a.area ?? '-'}',
-                                (a) => '${a.structureType ?? '-'}',
-                                (a) => '${a.relatedContracts ?? '-'}',
+                                (a) => a.structureType ?? '-',
+                                (a) => a.relatedContracts ?? '-',
                                 (a) => '${a.valueIntervention ?? '-'}',
                                 (a) => '${a.linearCostMedia ?? '-'}',
                                 (a) => '${a.costEstimate ?? '-'}',
                                 (a) => '${a.lastDateIntervention ?? '-'}',
-                                (a) => '${a.companyBuild ?? '-'}',
+                                (a) => a.companyBuild ?? '-',
                                 (a) => '${a.latitude ?? '-'}',
                                 (a) => '${a.longitude ?? '-'}',
                                 (a) => '${a.altitude ?? '-'}',

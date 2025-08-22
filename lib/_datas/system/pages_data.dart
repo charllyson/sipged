@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../screens/menus/drawer_menu.dart';
+import 'menu_drawer_item.dart';
+import 'menu_drawer_sub_item.dart';
 
 
 enum MenuItem {
@@ -92,27 +93,27 @@ class PagesData {
     'active-ports-network',
   ];
 
-  static List<DrawerItemModel> drawerDocuments = [
-    DrawerItemModel(
+  static List<MenuDrawerItemModel> drawerDocuments = [
+    MenuDrawerItemModel(
       label: 'CONTRATOS',
       icon: Icons.document_scanner,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.documentsContractsDashboard,
           permissionModule: 'documents-contracts-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'CONTRATOS',
           menuItem: MenuItem.documentsContractsRecords,
           permissionModule: 'documents-contracts-records',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.documentsMeasurementsDashboard,
           permissionModule: 'documents-measurements-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'MEDIÇÕES',
           menuItem: MenuItem.documentsMeasurementsRecords,
           permissionModule: 'documents-measurements-records',
@@ -121,90 +122,90 @@ class PagesData {
     ),
   ];
 
-  static List<DrawerItemModel> drawerDepartments = [
-    DrawerItemModel(
+  static List<MenuDrawerItemModel> drawerDepartments = [
+    MenuDrawerItemModel(
       label: 'DOIRC',
       icon: Icons.engineering_outlined,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'CRONOGRAMA\nFÍSICO',
           menuItem: MenuItem.operationMonitoringWork,
           permissionModule: 'operation-work-timeline',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.operationExpropriationDashboard,
           permissionModule: 'operation-expropriation-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'DESAPROPRIAÇÃO',
           menuItem: MenuItem.operationExpropriationRecords,
           permissionModule: 'operation-expropriation-records',
         ),
       ],
     ),
-    DrawerItemModel(
+    MenuDrawerItemModel(
       label: 'DIPLA',
       icon: Icons.bar_chart,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.planningDashboard,
           permissionModule: 'planning-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PROJETOS',
           menuItem: MenuItem.planningRegistration,
           permissionModule: 'planning-records',
         ),
       ],
     ),
-    DrawerItemModel(
+    MenuDrawerItemModel(
       label: 'DTT',
       icon: Icons.traffic,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.trafficAccidentsDashboard,
           permissionModule: 'traffic-accidents-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'ACIDENTES',
           menuItem: MenuItem.trafficAccidentsRecords,
           permissionModule: 'traffic-accidents-records',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.trafficInfractionsDashboard,
           permissionModule: 'traffic-infractions-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'INFRAÇÕES',
           menuItem: MenuItem.trafficInfractionsRecords,
           permissionModule: 'traffic-infractions-records',
         ),
       ],
     ),
-    DrawerItemModel(
+    MenuDrawerItemModel(
       label: 'DIF',
       icon: Icons.attach_money,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.financialPaymentsDashboard,
           permissionModule: 'financial-payments-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAGAMENTOS',
           menuItem: MenuItem.financialPaymentsRecords,
           permissionModule: 'financial-payments-records',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.financialCommitmentDashboard,
           permissionModule: 'financial-commitment-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'EMPENHOS',
           menuItem: MenuItem.financialCommitmentRecords,
           permissionModule: 'financial-commitment-records',
@@ -213,106 +214,106 @@ class PagesData {
     ),
   ];
 
-  static List<DrawerItemModel> drawerModals = [
-    DrawerItemModel(
+  static List<MenuDrawerItemModel> drawerModals = [
+    MenuDrawerItemModel(
       label: 'RODOVIAS',
       icon: Icons.alt_route,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.activeRoadDashboard,
           permissionModule: 'active-road-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'MALHA RODOVIÁRIA',
           menuItem: MenuItem.activeRoadNetwork,
           permissionModule: 'active-road-network',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'SISTEMA RODOVIÁRIO',
           menuItem: MenuItem.activeRoadRegistration,
           permissionModule: 'active-road-records',
         ),
       ],
     ),
-    DrawerItemModel(
+    MenuDrawerItemModel(
       label: 'PONTES',
       icon: Icons.car_repair,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.activeOAEsDashboard,
           permissionModule: 'active-oaes-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'MALHA OAEs',
           menuItem: MenuItem.activesOAEsNetwork,
           permissionModule: 'active-oaes-network',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'LEVANTAMENTO',
           menuItem: MenuItem.activeOAEsRegistration,
           permissionModule: 'active-oaes-records',
         ),
       ],
     ),
-    DrawerItemModel(
+    MenuDrawerItemModel(
       label: 'AEROPORTOS',
       icon: Icons.local_airport,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.activeAirportsDashboard,
           permissionModule: 'active-airports-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'MALHA AEROPORTUÁRIA',
           menuItem: MenuItem.activeAirportsNetwork,
           permissionModule: 'active-airports-network',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'LEVANTAMENTO',
           menuItem: MenuItem.activeAirportsRegistration,
           permissionModule: 'active-airports-records',
         ),
       ],
     ),
-    DrawerItemModel(
+    MenuDrawerItemModel(
       label: 'FERROVIAS',
       icon: Icons.train,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.activeRailwaysDashboard,
           permissionModule: 'active-railways-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'MALHA FERROVIÁRIA',
           menuItem: MenuItem.activeRailwaysNetwork,
           permissionModule: 'active-railways-network',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'LEVANTAMENTO',
           menuItem: MenuItem.activeRailwaysRegistration,
           permissionModule: 'active-railways-records',
         ),
       ],
     ),
-    DrawerItemModel(
+    MenuDrawerItemModel(
       label: 'PORTOS E BALSAS',
       icon: Icons.directions_boat,
       subItems: [
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.activePortsDashboard,
           permissionModule: 'active-ports-dashboard',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'MALHA PORTUÁRIA',
           menuItem: MenuItem.activePortsNetwork,
           permissionModule: 'active-ports-network',
         ),
-        DrawerSubItem(
+        MenuDrawerSubItem(
           label: 'LEVANTAMENTO',
           menuItem: MenuItem.activeRegistrationPorts,
           permissionModule: 'active-ports-records',

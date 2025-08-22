@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-import '../../../../_widgets/map/map_interactive.dart';
-import '../../../../_widgets/map/shimmer/map_loading_shimmer.dart';
-import '../../commons/footBar/foot_bar.dart';
-import '../../commons/upBar/up_bar.dart';
-
+import 'package:sisged/_widgets/map/map_interactive.dart';
+import 'package:sisged/_widgets/map/shimmer/map_loading_shimmer.dart';
+import 'package:sisged/screens/commons/footBar/foot_bar.dart';
+import 'package:sisged/screens/commons/upBar/up_bar.dart';
 import 'active_roads_controller.dart';
 
 class ActiveRoadsNetworkPage extends StatefulWidget {
@@ -35,7 +33,7 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
 
     // Anexa o overlay para tooltips
     final overlay = Overlay.of(context);
-    if (overlay != null) controller.attachOverlay(overlay);
+    controller.attachOverlay(overlay);
 
     // Carrega dados se necessário
     if (controller.roadDataMap.isEmpty && !controller.loading) {

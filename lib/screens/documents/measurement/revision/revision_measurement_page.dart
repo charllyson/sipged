@@ -3,7 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+
+// ⬇️ blocos injetados no controller
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_bloc.dart';
+
+// controller + seções
 import 'revision_measurement_controller.dart';
 import 'revision_measurement_form_section.dart';
 import 'revision_measurement_graph_section.dart';
@@ -20,8 +26,14 @@ class RevisionMeasurement extends StatelessWidget {
         title: const Text('Confirmação'),
         content: Text(msg),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
         ],
       ),
     ) ??
@@ -30,11 +42,17 @@ class RevisionMeasurement extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => RevisionMeasurementController(contract: contractData),
+    return ChangeNotifierProvider<RevisionMeasurementController>(
+      create: (_) => RevisionMeasurementController(
+        measurementBloc: ReportMeasurementBloc(),
+        additivesBloc: AdditivesBloc(),
+      ),
       builder: (context, _) {
         final c = context.read<RevisionMeasurementController>();
-        WidgetsBinding.instance.addPostFrameCallback((_) => c.postFrameInit(context));
+        // Inicializa com o contrato atual (controller usa `late ContractData contract`)
+        WidgetsBinding.instance.addPostFrameCallback(
+              (_) => c.init(context, contractData: contractData),
+        );
 
         return Stack(
           children: [
@@ -48,6 +66,7 @@ class RevisionMeasurement extends StatelessWidget {
                       final total = ctrl.totalMedicoes;
                       final totalDisponivel = ctrl.valorTotalDisponivel;
                       final saldo = ctrl.saldo;
+
                       return SingleChildScrollView(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,7 +79,7 @@ class RevisionMeasurement extends StatelessWidget {
                               values: values,
                               valorTotal: totalDisponivel,
                               totalMedicoes: total,
-                              selectedIndex: ctrl.selectedLine,
+                              selectedIndex: ctrl.selectedIndex,
                               onSelectIndex: ctrl.onSelectGraphIndex,
                             ),
                             const SizedBox(height: 12),
@@ -73,16 +92,28 @@ class RevisionMeasurement extends StatelessWidget {
                                 formValidated: ctrl.formValidated,
                                 selectedAdjustmentMeasurement: ctrl.selectedRevision,
                                 currentAdjustmentMeasurementId: ctrl.currentRevisionId,
-                                contractData: ctrl.contract,
+                                contractData: ctrl.contract, // não-nulo (late) no controller
                                 orderAdjustmentController: ctrl.orderCtrl,
                                 processNumberAdjustmentController: ctrl.processCtrl,
                                 dateAdjustmentController: ctrl.dateCtrl,
                                 valueAdjustmentController: ctrl.valueCtrl,
                                 onSave: () async {
-                                  final ok = await _confirm(context, 'Deseja salvar esta medição?');
-                                  if (ok) await ctrl.saveOrUpdate(context);
+                                  await ctrl.saveOrUpdate(
+                                    onConfirm: () => _confirm(context, 'Deseja salvar esta medição?'),
+                                    onSuccessSnack: () => ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Medição salva com sucesso!'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    ),
+                                    onErrorSnack: () => ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Erro ao salvar a medição.'),
+                                      ),
+                                    ),
+                                  );
                                 },
-                                onClear: ctrl.createNew,
+                                onClear: ctrl.createNew, // ✅ passa a função, não o resultado
                                 onUploadSaveToFirestore: ctrl.savePdfUrl,
                               ),
                             ),
@@ -90,17 +121,35 @@ class RevisionMeasurement extends StatelessWidget {
                             const DividerText(title: 'Medições cadastradas no sistema'),
                             const SizedBox(height: 12),
                             RevisionMeasurementTableSection(
-                              onTapItem: ctrl.handleSelect,
+                              onTapItem: ctrl.selectRow,
                               onDelete: (id) async {
-                                final ok = await _confirm(context, 'Deseja realmente apagar esta medição?');
-                                if (ok) await ctrl.deleteReport(context, id);
+                                final ok = await _confirm(
+                                  context,
+                                  'Deseja realmente apagar esta medição?',
+                                );
+                                if (ok) {
+                                  await ctrl.deleteById(
+                                    id,
+                                    onSuccessSnack: () => ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Medição apagada com sucesso.'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    ),
+                                    onErrorSnack: () => ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Erro ao remover a medição.'),
+                                      ),
+                                    ),
+                                  );
+                                }
                               },
                               measurementsData: ctrl.revision,
                               valorInicial: ctrl.valorInicialContrato,
                               valorAditivos: ctrl.totalAditivos,
                               valorTotal: totalDisponivel,
                               saldo: saldo,
-                              contractData: ctrl.contract,
+                              contractData: ctrl.contract, // não-nulo
                               selectedMeasurement: ctrl.selectedRevision,
                             ),
                             const SizedBox(height: 20),
@@ -117,7 +166,10 @@ class RevisionMeasurement extends StatelessWidget {
               builder: (_, ctrl, __) => ctrl.isSaving
                   ? Stack(
                 children: [
-                  ModalBarrier(dismissible: false, color: Colors.black.withOpacity(0.4)),
+                  ModalBarrier(
+                    dismissible: false,
+                    color: Colors.black.withOpacity(0.4),
+                  ),
                   const Center(child: CircularProgressIndicator()),
                 ],
               )

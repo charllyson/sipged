@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../_widgets/map/map_interactive.dart';
-import '../../../../_services/regional_geo_json_class.dart';
+import '../../../../_datas/widgets/regional_geo_json_class.dart';
 import '../../../../_datas/sectors/transit/accidents/accidents_data.dart';
 
 class AccidentsMapSection extends StatefulWidget {
-  final List<RegionalPolygon> regionalPolygons; // polígonos prontos
+  final List<PolygonChanged> regionalPolygons; // polígonos prontos
   final List<String> selectedRegionNames;
   final void Function(String?) onRegionTap;
 
@@ -142,7 +142,6 @@ class _AccidentsMapSectionState extends State<AccidentsMapSection> {
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             clipBehavior: Clip.antiAlias,
             child: MapInteractivePage(
-              // ✅ usa o novo componente
               regionalPolygons: widget.regionalPolygons,
               selectedRegionNames: widget.selectedRegionNames,
               onRegionTap: _handleRegionTap, // <- busca & abre diálogo
@@ -153,11 +152,6 @@ class _AccidentsMapSectionState extends State<AccidentsMapSection> {
               regionColors: widget.regionColors, // calculado no controller
               allowMultiSelect: false,
               showLegend: false,
-
-              // (se quiser polylines/markers, habilite aqui depois)
-              // tappablePolylines: ...,
-              // taggedMarkers: ...,
-              // clusterWidgetBuilder: ...,
             ),
           ),
         ),

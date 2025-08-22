@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_style.dart';
-import '../../../../../_widgets/table/simple_table_changed.dart';
-import '../../../_blocs/documents/contracts/validity/validity_bloc.dart';
-import '../../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../../_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_widgets/table/simple_table_changed.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_rules.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
 import 'list_contracts_validity_icon.dart';
 
 typedef ContractNavigationCallback = void Function(BuildContext context, ContractData contract);

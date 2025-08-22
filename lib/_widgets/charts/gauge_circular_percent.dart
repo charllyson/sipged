@@ -5,6 +5,7 @@ import 'package:sisged/_widgets/formats/format_field.dart';
 class GaugeCircularPercent extends StatelessWidget {
   final double percent; // de 0 a 1
   final String label;
+  final String? subTitle;
   final double? larguraGrafico;
   final Color? progressColor;
   final Color? backgroundColor;
@@ -12,6 +13,7 @@ class GaugeCircularPercent extends StatelessWidget {
   final double centerFontSize;
   final double footerFontSize;
   final List<double>? values;
+  final bool? financial;
 
   const GaugeCircularPercent({
     super.key,
@@ -24,6 +26,8 @@ class GaugeCircularPercent extends StatelessWidget {
     this.centerFontSize = 20.0,
     this.footerFontSize = 14.0,
     this.values,
+    this.financial = false,
+    this.subTitle,
   });
 
   @override
@@ -37,10 +41,10 @@ class GaugeCircularPercent extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: RepaintBoundary(
           child: SizedBox(
-            height: 220,
+            height: 255,
             width: larguraGrafico ?? double.infinity,
             child: Tooltip(
-              message: 'Total: ${priceToString(values?.fold(0.0, (a, b) => a! + b))}',
+              message: financial == true ? '${priceToString(values?.fold(0.0, (a, b) => a! + b))} ' : '${values?.fold(0.0, (a, b) => a + b)}',
               child: CircularPercentIndicator(
                 radius: radius,
                 lineWidth: 20.0,
@@ -53,10 +57,18 @@ class GaugeCircularPercent extends StatelessWidget {
                     fontSize: centerFontSize,
                   ),
                 ),
+                header: Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text(
+                    label,
+                    style: TextStyle(fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
                 footer: Padding(
                   padding: const EdgeInsets.only(top: 8.0),
                   child: Text(
-                    label,
+                    subTitle ?? '',
                     style: TextStyle(fontSize: footerFontSize),
                     textAlign: TextAlign.center,
                   ),

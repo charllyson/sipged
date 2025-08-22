@@ -1,25 +1,27 @@
 import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
 
-import '../../../_datas/actives/oaes/active_oaes_data.dart';
-import '../../../_datas/actives/oaes/active_oaes_store.dart';
-import '../../../_blocs/system/user_bloc.dart';
-import '../../../_datas/system/user_data.dart';
-import '../../../_widgets/map/markers/tagged_marker.dart';
+import 'package:sisged/_datas/actives/oaes/active_oaes_data.dart';
+import 'package:sisged/_datas/actives/oaes/active_oaes_store.dart';
+import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_widgets/map/markers/tagged_marker.dart';
 
 class ActiveOaesController extends ChangeNotifier {
   ActiveOaesController({
     required ActiveOaesStore store,
-    UserBloc? userBloc,
+    required UserData currentUser, // ✅ injete o usuário atual
   })  : _store = store,
-        _userBloc = userBloc ?? UserBloc() {
+        _currentUser = currentUser {
     _storeListener = () => _syncFromStore();
     _store.addListener(_storeListener);
-    _syncFromStore(); // sincroniza estado inicial do store
+    _syncFromStore(); // estado inicial
+    // define ordem inicial
+    form.order = _nextOrder();
+    _isEditable = _canEditUser(_currentUser);
+    _validateForm();
   }
 
   final ActiveOaesStore _store;
-  final UserBloc _userBloc;
   late final VoidCallback _storeListener;
 
   // ---- STATE ----
@@ -28,13 +30,12 @@ class ActiveOaesController extends ChangeNotifier {
   bool _formValid = false;
   bool _isEditable = false;
 
-  // espelho do store (para facilitar bindings na UI)
   bool _loading = false;
   List<ActiveOaesData> _all = const [];
   List<TaggedChangedMarker<ActiveOaesData>> _markers = const [];
 
   int? _selectedIndex;
-  UserData? _currentUser;
+  UserData _currentUser;
 
   ActiveOaesData form = ActiveOaesData();
 
@@ -48,17 +49,13 @@ class ActiveOaesController extends ChangeNotifier {
   List<TaggedChangedMarker<ActiveOaesData>> get markers => _markers;
   int? get selectedIndex => _selectedIndex;
 
-  // ---- INIT / PERMISSIONS ----
+  // ---- INIT/REFRESH ----
   Future<void> init(UserData user) async {
-    if (_currentUser?.id == user.id && _store.initialized) return;
-
+    if (_currentUser.id == user.id && _store.initialized) return;
     _currentUser = user;
-    _isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
-
-    await _store.ensureAllLoaded(); // O store já gerencia notify pós-frame
+    _isEditable = _canEditUser(_currentUser);
+    await _store.ensureAllLoaded();
     _syncFromStore();
-
-    // define próxima ordem se não estiver editando
     if (!_editingMode) {
       form.order = _nextOrder();
       _validateForm();
@@ -66,7 +63,6 @@ class ActiveOaesController extends ChangeNotifier {
     }
   }
 
-  // ---- LOAD/REFRESH ----
   Future<void> load() async {
     await _store.refresh();
     _syncFromStore();
@@ -81,7 +77,6 @@ class ActiveOaesController extends ChangeNotifier {
     _loading = _store.loading;
     _all = _store.all;
 
-    // log de ordens duplicadas (silencioso na UI)
     final duplicated = groupBy(_all, (ActiveOaesData d) => d.order ?? -1)
         .entries
         .where((e) => e.value.length > 1 && e.key != -1)
@@ -96,7 +91,6 @@ class ActiveOaesController extends ChangeNotifier {
         .whereType<TaggedChangedMarker<ActiveOaesData>>()
         .toList(growable: false);
 
-    // mantém seleção válida após mudanças
     if (_selectedIndex != null && (_selectedIndex! < 0 || _selectedIndex! >= _all.length)) {
       _selectedIndex = null;
       _editingMode = false;
@@ -132,11 +126,10 @@ class ActiveOaesController extends ChangeNotifier {
 
     _saving = true;
     notifyListeners();
-
     try {
-      await _store.saveOrUpdate(form.toData()); // upsert local + persist
+      await _store.saveOrUpdate(form.toData());
       clearSelectionAndReset();
-      return null; // sucesso
+      return null;
     } catch (e) {
       return 'Erro ao salvar: $e';
     } finally {
@@ -150,7 +143,7 @@ class ActiveOaesController extends ChangeNotifier {
     _saving = true;
     notifyListeners();
     try {
-      await _store.delete(id); // remove local + persist
+      await _store.delete(id);
       if (_selectedIndex != null) {
         clearSelectionAndReset();
       }
@@ -181,6 +174,14 @@ class ActiveOaesController extends ChangeNotifier {
     if (_all.isEmpty) return 1;
     final last = _all.map((e) => e.order ?? 0).fold<int>(0, (a, b) => a > b ? a : b);
     return last + 1;
+  }
+
+  // ---- PERMISSÃO ----
+  bool _canEditUser(UserData user) {
+    final base = (user.baseProfile ?? '').toLowerCase();
+    if (base == 'administrador' || base == 'colaborador') return true;
+    final perms = user.modulePermissions['oaes']; // ajuste o nome do módulo se for diferente
+    return (perms?['edit'] == true) || (perms?['create'] == true);
   }
 
   @override

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../../../_blocs/system/system_bloc.dart';
-import '../../../../../_widgets/charts/line_chart_changed.dart';
-import '../../../../../_widgets/formats/format_field.dart';
-import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_blocs/system/system_bloc.dart';
+import 'package:sisged/_widgets/charts/line_chart_changed.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
 
 class MeasurementContractSection extends StatelessWidget {
   final List<ReportMeasurementData> filteredMeasurements;

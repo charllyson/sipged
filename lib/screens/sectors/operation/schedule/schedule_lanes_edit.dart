@@ -1,14 +1,15 @@
+// COMPLETO (puro)
 import 'package:flutter/material.dart';
 import 'package:sisged/_datas/sectors/operation/schedule/schedule_style.dart';
-import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
+import 'package:sisged/_datas/sectors/operation/schedule/schedule_lane_class.dart';
+import 'package:sisged/_datas/sectors/operation/schedule/schedule_lane_row_data.dart';
 
-import 'lane_row.dart';
-import 'lane_row_data.dart';
+import 'schedule_lane_row.dart';
 
 class ScheduleLanesEdit extends StatefulWidget {
   const ScheduleLanesEdit({
     super.key,
-    required this.initialRows, // lista já estruturada (pos/nome/altura)
+    required this.initialRows,
   });
 
   final List<ScheduleLaneClass> initialRows;
@@ -18,16 +19,15 @@ class ScheduleLanesEdit extends StatefulWidget {
 }
 
 class _ScheduleLanesEditState extends State<ScheduleLanesEdit> {
-  final List<LaneRowData> _rows = [];
-  final Set<String> _lockedIds = {}; // IDs das 3 faixas-base originais
+  final List<ScheduleLaneRowData> _rows = [];
+  final Set<String> _lockedIds = {}; // 3 faixas-base
 
   @override
   void initState() {
     super.initState();
 
-    // monta linhas com IDs estáveis
     for (final r in widget.initialRows) {
-      _rows.add(LaneRowData(
+      _rows.add(ScheduleLaneRowData(
         id: UniqueKey().toString(),
         posCtrl: TextEditingController(text: r.pos),
         nameCtrl: TextEditingController(text: r.nome),
@@ -36,7 +36,6 @@ class _ScheduleLanesEditState extends State<ScheduleLanesEdit> {
       ));
     }
 
-    // trava SEM olhar nome: seleciona as 3 faixas centrais existentes no início
     if (_rows.isNotEmpty) {
       final lockCount = _rows.length < 3 ? _rows.length : 3;
       final start = (_rows.length - lockCount) ~/ 2;
@@ -45,11 +44,10 @@ class _ScheduleLanesEditState extends State<ScheduleLanesEdit> {
       }
     }
 
-    // se não veio nada, cria 3 linhas padrão (todas travadas)
     if (_rows.isEmpty) {
       for (final pos in const ['','','']) {
         final id = UniqueKey().toString();
-        _rows.add(LaneRowData(
+        _rows.add(ScheduleLaneRowData(
           id: id,
           posCtrl: TextEditingController(text: pos),
           nameCtrl: TextEditingController(text: ''),
@@ -71,15 +69,15 @@ class _ScheduleLanesEditState extends State<ScheduleLanesEdit> {
   }
 
   bool _canRemoveIndex(int i) {
-    if (_rows.length <= 3) return false;          // mantém no mínimo 3
-    return !_lockedIds.contains(_rows[i].id);     // só se não for base
+    if (_rows.length <= 3) return false;
+    return !_lockedIds.contains(_rows[i].id);
   }
 
   void _addAbove() {
     setState(() {
       _rows.insert(
         0,
-        LaneRowData(
+        ScheduleLaneRowData(
           id: UniqueKey().toString(),
           posCtrl: TextEditingController(text: ''),
           nameCtrl: TextEditingController(text: ''),
@@ -93,7 +91,7 @@ class _ScheduleLanesEditState extends State<ScheduleLanesEdit> {
   void _addBelow() {
     setState(() {
       _rows.add(
-        LaneRowData(
+        ScheduleLaneRowData(
           id: UniqueKey().toString(),
           posCtrl: TextEditingController(text: ''),
           nameCtrl: TextEditingController(text: ''),
@@ -145,7 +143,7 @@ class _ScheduleLanesEditState extends State<ScheduleLanesEdit> {
               const SizedBox(height: 12),
 
               for (int i = 0; i < _rows.length; i++) ...[
-                LaneRow(
+                ScheduleLaneRow(
                   index: i,
                   data: _rows[i],
                   canRemove: _canRemoveIndex(i),

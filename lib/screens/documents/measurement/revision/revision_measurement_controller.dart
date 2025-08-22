@@ -1,88 +1,132 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/_blocs/system/user_bloc.dart';
-import 'package:sisged/_provider/user/user_provider.dart';
-import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
-import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
-import '../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
-import '../../../../_blocs/documents/measurement/report/report_measurement_bloc.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
-import '../../../../_utils/handle_selection_utils.dart';
+import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_utils/date_utils.dart'
+    show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
+
+import 'package:sisged/_blocs/system/user_provider.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_bloc.dart';
+
+import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_utils/handle_selection_utils.dart';
 
 class RevisionMeasurementController extends ChangeNotifier with FormValidationMixin {
-  final ReportMeasurementBloc _measurementBloc = ReportMeasurementBloc();
-  final AdditivesBloc _additivesBloc = AdditivesBloc();
-  final UserBloc _userBloc = UserBloc();
+  RevisionMeasurementController({
+    required ReportMeasurementBloc measurementBloc,
+    required AdditivesBloc additivesBloc,
+  })  : _measurementBloc = measurementBloc,
+        _additivesBloc = additivesBloc;
 
-  final ContractData contract;
+  // --- Dependências
+  final ReportMeasurementBloc _measurementBloc;
+  final AdditivesBloc _additivesBloc;
 
-  // estado
+  // --- Contexto
+  late ContractData contract; // não-nulo
+  UserData? currentUser;
+
+  // --- Estado UI
   bool isEditable = false;
   bool isSaving = false;
   bool formValidated = false;
-  int? selectedLine;
+  int? selectedIndex;
 
-  // dados carregados (universo completo)
-  List<ReportMeasurementData> revision = [];
+  // --- Dados
+  List<ReportMeasurementData> _all = <ReportMeasurementData>[];
+  List<ReportMeasurementData> _selectorUniverse = <ReportMeasurementData>[];
 
-  // paginação
+  // --- Paginação
   final int _itemsPerPage = 50;
-  List<ReportMeasurementData> selectorUniverse = []; // pode receber filtros no futuro
-  List<ReportMeasurementData> pageItems = [];        // página atual
-  int currentPage = 1;
-  int totalPages = 1;
+  int _currentPage = 1;
+  int _totalPages = 1;
+  List<ReportMeasurementData> _pageItems = <ReportMeasurementData>[];
 
-  double valorInicialContrato = 0.0;
-  double totalAditivos = 0.0;
+  // --- Seleção
+  ReportMeasurementData? _selected;
+  String? _currentId;
 
-  // seleção
-  ReportMeasurementData? selectedRevision;
-  String? currentRevisionId;
+  // --- Totais
+  double _valorInicialContrato = 0.0;
+  double _totalAditivos = 0.0;
 
-  // controllers de input
+  // --- Controllers de formulário
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
   final dateCtrl = TextEditingController();
 
-  RevisionMeasurementController({required this.contract}) {
-    _init();
-  }
+  // === Getters usados pela UI ===
+  List<ReportMeasurementData> get revision => _all;
+  List<ReportMeasurementData> get selectorUniverse => _selectorUniverse;
+  List<ReportMeasurementData> get pageItems => _pageItems;
 
-  void _init() {
+  ReportMeasurementData? get selectedRevision => _selected;
+  String? get currentRevisionId => _currentId;
+
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+
+  double get valorInicialContrato => _valorInicialContrato;
+  double get totalAditivos => _totalAditivos;
+
+  List<String> get labels =>
+      _selectorUniverse.map((m) => (m.orderRevisionMeasurement ?? 0).toString()).toList();
+
+  List<double> get values =>
+      _selectorUniverse.map((m) => m.valueRevisionMeasurement ?? 0.0).toList();
+
+  double get totalMedicoes => values.fold<double>(0.0, (a, b) => a + b);
+  double get valorTotalDisponivel => _valorInicialContrato + _totalAditivos;
+  double get saldo => valorTotalDisponivel - totalMedicoes;
+
+  // === Init/Dispose ===
+  Future<void> init(BuildContext context, {required ContractData contractData}) async {
+    contract = contractData; // garantido não-nulo
+    currentUser = context.read<UserProvider>().userData;
+    isEditable = _canEditUser(currentUser);
+
     setupValidation(
       [orderCtrl, processCtrl, valueCtrl, dateCtrl],
-      _validateForm,
+      _validateFormInternal,
     );
+
+    await _loadInitial();
   }
 
-  Future<void> postFrameInit(BuildContext context) async {
-    final user = Provider.of<UserProvider>(context, listen: false).userData;
-    if (user != null) {
-      isEditable = _userBloc.getUserCreateEditPermissions(userData: user);
-    }
-    await loadInitialData();
+  @override
+  void dispose() {
+    removeValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateFormInternal);
+    orderCtrl.dispose();
+    processCtrl.dispose();
+    valueCtrl.dispose();
+    dateCtrl.dispose();
+    super.dispose();
   }
 
-  // ---------- LOAD ----------
-  Future<void> loadInitialData() async {
-    if (contract.id == null) {
-      revision = [];
-      selectorUniverse = [];
-      _refreshPagination();
-      notifyListeners();
-      return;
-    }
+  // === Permissões (ajuste se usar módulo/granular) ===
+  bool _canEditUser(UserData? user) {
+    if (user == null) return false;
+    final base = (user.baseProfile ?? '').toLowerCase();
+    if (base == 'administrador' || base == 'colaborador') return true;
 
-    valorInicialContrato = contract.initialValueContract ?? 0.0;
-    totalAditivos        = await _additivesBloc.getAllAdditivesValue(contract.id!);
-    revision             = await _measurementBloc.getAllMeasurementsOfContract(uidContract: contract.id!);
+    final perms = user.modulePermissions['measurement_revision'];
+    if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
+    return false;
+  }
 
-    // ordena por ordem, fallback por data de revisão
-    revision.sort((a, b) {
+  // === Load ===
+  Future<void> _loadInitial() async {
+    _valorInicialContrato = contract.initialValueContract ?? 0.0;
+    _totalAditivos = await _additivesBloc.getAllAdditivesValue(contract.id!);
+
+    _all = await _measurementBloc.getAllMeasurementsOfContract(uidContract: contract.id!);
+
+    _all.sort((a, b) {
       final ao = a.orderRevisionMeasurement ?? -1;
       final bo = b.orderRevisionMeasurement ?? -1;
       if (ao != bo) return ao.compareTo(bo);
@@ -91,96 +135,121 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
       return ad.compareTo(bd);
     });
 
-    selectorUniverse = List.of(revision);
+    _selectorUniverse = List<ReportMeasurementData>.from(_all);
 
-    // sugere próxima ordem
-    final last = selectorUniverse.isNotEmpty
-        ? selectorUniverse.map((e) => e.orderRevisionMeasurement ?? 0).reduce((a, b) => a > b ? a : b)
+    // Sugerir próxima ordem
+    final last = _selectorUniverse.isNotEmpty
+        ? _selectorUniverse
+        .map((e) => e.orderRevisionMeasurement ?? 0)
+        .reduce((a, b) => a > b ? a : b)
         : 0;
     orderCtrl.text = (last + 1).toString();
 
-    currentPage = 1;
+    _currentPage = 1;
     _refreshPagination();
     notifyListeners();
   }
 
-  // ---------- PAGINAÇÃO ----------
   void _refreshPagination() {
-    final total = selectorUniverse.length;
-    totalPages = (total == 0) ? 1 : ((total - 1) ~/ _itemsPerPage + 1);
-    final start = (currentPage - 1) * _itemsPerPage;
+    final total = _selectorUniverse.length;
+    _totalPages = (total == 0) ? 1 : ((total - 1) ~/ _itemsPerPage + 1);
+    final start = (_currentPage - 1) * _itemsPerPage;
     final end = (start + _itemsPerPage > total) ? total : start + _itemsPerPage;
-    pageItems = (start < end) ? selectorUniverse.sublist(start, end) : [];
+    _pageItems = (start < end) ? _selectorUniverse.sublist(start, end) : <ReportMeasurementData>[];
   }
 
   Future<void> loadPage(int page) async {
-    if (page < 1 || page > totalPages) return;
-    currentPage = page;
+    if (page < 1 || page > _totalPages) return;
+    _currentPage = page;
     _refreshPagination();
     notifyListeners();
   }
 
-  // ---------- DERIVADOS p/ gráficos/tabela ----------
-  List<String> get labels =>
-      selectorUniverse.map((m) => (m.orderRevisionMeasurement ?? 0).toString()).toList();
-
-  List<double> get values =>
-      selectorUniverse.map((m) => m.valueRevisionMeasurement ?? 0.0).toList();
-
-  double get totalMedicoes => values.fold(0.0, (a, b) => a + b);
-  double get valorTotalDisponivel => valorInicialContrato + totalAditivos;
-  double get saldo => valorTotalDisponivel - totalMedicoes;
-
-  // ---------- FORM ----------
-  void _validateForm() {
-    final ok = areFieldsFilled([orderCtrl, processCtrl, valueCtrl, dateCtrl], minLength: 1);
-    if (formValidated != ok) {
-      formValidated = ok;
+  // === Form/Validação ===
+  void _validateFormInternal() {
+    final valid = areFieldsFilled([orderCtrl, processCtrl, valueCtrl, dateCtrl], minLength: 1);
+    if (formValidated != valid) {
+      formValidated = valid;
       notifyListeners();
     }
   }
 
-  void fillFields(ReportMeasurementData data) {
-    selectedRevision = data;
-    currentRevisionId = data.idRevisionMeasurement;
+  // === Seleção (gráfico/tabela) ===
+  void onSelectGraphIndex(int index) {
+    selectedIndex = index;
+    if (index >= 0 && index < _selectorUniverse.length) {
+      handleSelect(_selectorUniverse[index]);
+    } else {
+      notifyListeners();
+    }
+  }
 
-    orderCtrl.text   = (data.orderRevisionMeasurement ?? '').toString();
+  void selectRow(ReportMeasurementData data) {
+    final idx = _selectorUniverse.indexOf(data);
+    if (idx == -1) return;
+
+    selectedIndex = idx;
+    _selected = data;
+    _currentId = data.idRevisionMeasurement;
+
+    orderCtrl.text = (data.orderRevisionMeasurement ?? '').toString();
     processCtrl.text = data.numberRevisionProcessMeasurement ?? '';
-    valueCtrl.text   = priceToString(data.valueRevisionMeasurement);
-    dateCtrl.text    = convertDateTimeToDDMMYYYY(data.dateRevisionMeasurement);
+    valueCtrl.text = priceToString(data.valueRevisionMeasurement);
+    dateCtrl.text = convertDateTimeToDDMMYYYY(data.dateRevisionMeasurement);
 
-    _validateForm();
+    _validateFormInternal();
     notifyListeners();
   }
 
-  Future<void> createNew() async {
-    selectedLine = null;
-    selectedRevision = null;
-    currentRevisionId = null;
+  void handleSelect(ReportMeasurementData data) {
+    handleGenericSelection<ReportMeasurementData>(
+      data: data,
+      list: _selectorUniverse,
+      getOrder: (e) => e.orderRevisionMeasurement,
+      onSetState: (index) {
+        selectedIndex = index;
+        _selected = data;
+        _currentId = data.idRevisionMeasurement;
+        selectRow(data); // preenche campos
+      },
+    );
+  }
 
-    final last = selectorUniverse.isNotEmpty
-        ? selectorUniverse.map((e) => e.orderRevisionMeasurement ?? 0).reduce((a, b) => a > b ? a : b)
+  void createNew() {
+    final last = _selectorUniverse.isNotEmpty
+        ? _selectorUniverse
+        .map((e) => e.orderRevisionMeasurement ?? 0)
+        .reduce((a, b) => a > b ? a : b)
         : 0;
+
+    selectedIndex = null;
+    _selected = null;
+    _currentId = null;
 
     orderCtrl.text = (last + 1).toString();
     processCtrl.clear();
     valueCtrl.clear();
     dateCtrl.clear();
 
-    _validateForm();
+    _validateFormInternal();
     notifyListeners();
   }
 
-  // ---------- CRUD ----------
-  Future<void> saveOrUpdate(BuildContext context) async {
-    if (contract.id == null) return;
-
-    isSaving = true;
-    notifyListeners();
+  // === CRUD ===
+  Future<bool> saveOrUpdate({
+    required Future<bool> Function() onConfirm,
+    VoidCallback? onSuccessSnack,
+    VoidCallback? onErrorSnack,
+  }) async {
+    final confirmed = await onConfirm();
+    if (!confirmed) return false;
 
     try {
+      isSaving = true;
+      notifyListeners();
+
       final novo = ReportMeasurementData(
-        idRevisionMeasurement: currentRevisionId,
+        idRevisionMeasurement: _currentId,
         contractId: contract.id!,
         orderRevisionMeasurement: int.tryParse(orderCtrl.text),
         numberRevisionProcessMeasurement: processCtrl.text,
@@ -189,91 +258,74 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
       );
 
       await _measurementBloc.saveOrUpdateMeasurement(novo);
+      await _loadInitial(); // recarrega lista/paginação
+      createNew();
 
-      // recarrega lista e mantém paginação
-      await loadInitialData();
-      formValidated = true;
-      await createNew();
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Medição salva com sucesso!'), backgroundColor: Colors.green),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
-        );
-      }
+      onSuccessSnack?.call();
+      return true;
+    } catch (_) {
+      onErrorSnack?.call();
+      return false;
     } finally {
       isSaving = false;
       notifyListeners();
     }
   }
 
-  Future<void> deleteReport(BuildContext context, String id) async {
-    if (contract.id == null) return;
+  Future<void> saveExact(
+      ReportMeasurementData data, {
+        VoidCallback? onSuccess,
+        VoidCallback? onError,
+      }) async {
     try {
-      await _measurementBloc.deletarMedicao(contract.id!, id);
-      await loadInitialData();
-      selectedLine = null;
+      isSaving = true;
+      notifyListeners();
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Medição apagada com sucesso.'), backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao remover: $e')),
-        );
-      }
-    }
-  }
+      final toSave = ReportMeasurementData(
+        idRevisionMeasurement: data.idRevisionMeasurement,
+        contractId: contract.id!,
+        orderRevisionMeasurement: data.orderRevisionMeasurement,
+        numberRevisionProcessMeasurement: data.numberRevisionProcessMeasurement,
+        valueRevisionMeasurement: data.valueRevisionMeasurement,
+        dateRevisionMeasurement: data.dateRevisionMeasurement,
+      );
 
-  // ---------- Seleção (gráfico/tabela) ----------
-  void onSelectGraphIndex(int index) {
-    selectedLine = index;
-    if (index >= 0 && index < selectorUniverse.length) {
-      handleSelect(selectorUniverse[index]);
-    } else {
+      await _measurementBloc.saveOrUpdateMeasurement(toSave);
+      await _loadInitial();
+      createNew();
+      onSuccess?.call();
+    } catch (_) {
+      onError?.call();
+    } finally {
+      isSaving = false;
       notifyListeners();
     }
   }
 
-  void handleSelect(ReportMeasurementData data) {
-    handleGenericSelection<ReportMeasurementData>(
-      data: data,
-      list: selectorUniverse,
-      getOrder: (e) => e.orderRevisionMeasurement,
-      onSetState: (index) {
-        selectedLine = index;
-        selectedRevision = data;
-        currentRevisionId = data.idRevisionMeasurement;
-        fillFields(data);
-      },
-    );
+  Future<void> deleteById(
+      String idRevisionMeasurement, {
+        VoidCallback? onSuccessSnack,
+        VoidCallback? onErrorSnack,
+      }) async {
+    try {
+      await _measurementBloc.deletarMedicao(contract.id!, idRevisionMeasurement);
+      await _loadInitial();
+      selectedIndex = null;
+      onSuccessSnack?.call();
+    } catch (_) {
+      onErrorSnack?.call();
+    } finally {
+      notifyListeners();
+    }
   }
 
-  // ---------- PDF ----------
+  // === PDF ===
   Future<void> savePdfUrl(String url) async {
-    if (contract.id == null || selectedRevision?.idRevisionMeasurement == null) return;
+    if (_selected?.idRevisionMeasurement == null) return;
     await _measurementBloc.salvarUrlPdfDaMedicao(
       contractId: contract.id!,
-      measurementId: selectedRevision!.idRevisionMeasurement!,
+      measurementId: _selected!.idRevisionMeasurement!,
       url: url,
     );
-  }
-
-  @override
-  void dispose() {
-    removeValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateForm);
-    orderCtrl.dispose();
-    processCtrl.dispose();
-    valueCtrl.dispose();
-    dateCtrl.dispose();
-    super.dispose();
   }
 }

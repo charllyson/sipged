@@ -26,7 +26,8 @@ class CustomTextField extends StatelessWidget {
     this.onFieldSubmitted,
     this.fillCollor,
     this.width,
-    this.hintText
+    this.hintText,
+    this.maxLines = 1,
   });
 
   final List<String>? autofillHints;
@@ -52,12 +53,14 @@ class CustomTextField extends StatelessWidget {
   final Function(String)? onFieldSubmitted;
   final Color? fillCollor;
   final double? width;
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
       child: TextFormField(
+        maxLines: maxLines,
         onFieldSubmitted: onFieldSubmitted,
         autocorrect: autoCorrect,
         textInputAction: textInputAction,

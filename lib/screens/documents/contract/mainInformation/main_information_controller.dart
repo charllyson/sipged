@@ -1,23 +1,22 @@
+// lib/_controllers/documents/contracts/main_information_controller.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_blocs/system/user_bloc.dart';
-import 'package:sisged/_provider/user/user_provider.dart';
+import 'package:sisged/_blocs/system/user_provider.dart';
 import 'package:sisged/_datas/system/user_data.dart';
 
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/formats/format_field.dart';
 
-import '../../../../_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
-import '../../../../_blocs/documents/contracts/contracts/contract_bloc.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_store.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_store.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
 
 class MainInformationController extends ChangeNotifier {
   // ==== Injeções ====
-  final ContractsStore contractsStore;          // <- CRUD Firestore via store/bloc
+  final ContractsStore contractsStore;           // <- CRUD Firestore via store/bloc
   final ContractStorageBloc contractStorageBloc; // <- Storage (upload/url/delete)
-  final UserBloc userBloc;
 
   /// Chave do módulo usada para checar permissões
   final String moduleKey;
@@ -28,7 +27,6 @@ class MainInformationController extends ChangeNotifier {
   MainInformationController({
     required this.contractsStore,
     required this.contractStorageBloc,
-    required this.userBloc,
     this.moduleKey = 'contracts',
     this.forceEditable,
   });
@@ -79,21 +77,24 @@ class MainInformationController extends ChangeNotifier {
   bool get isBtnEnabled => isEditable && !isSaving;
 
   bool isDisabled(String module) {
-    final perms = _currentUser?.modulePermissions[module] ?? {};
+    final perms = _currentUser?.modulePermissions[module] ?? const {};
     return !(perms['create'] == true || perms['edit'] == true);
   }
 
   // ==== Ciclo de vida ====
   Future<void> init(BuildContext context, {ContractData? initial}) async {
-    await Provider.of<UserProvider>(context, listen: false).loadAllUsers();
+    // Carrega/garante usuários do provider (sem UserBloc)
+    await Provider.of<UserProvider>(context, listen: false).ensureLoaded();
     _currentUser = Provider.of<UserProvider>(context, listen: false).userData;
 
+    // Define editabilidade
     if (forceEditable != null) {
       isEditable = forceEditable!;
     } else if (_currentUser != null) {
-      final perms = _currentUser!.modulePermissions[moduleKey] ?? {};
+      final perms = _currentUser!.modulePermissions[moduleKey] ?? const {};
       isEditable = (perms['create'] == true) || (perms['edit'] == true);
     } else {
+      // Sem usuário carregado: permite edição somente em criação
       isEditable = (initial?.id == null);
     }
 

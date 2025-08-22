@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../../_utils/responsive_utils.dart';
-import '../../../../../_widgets/input/custom_text_field.dart';
-import '../../../../../_widgets/validates/form_validation_mixin.dart';
+import 'package:sisged/_utils/responsive_utils.dart';
+import 'package:sisged/_widgets/input/custom_text_field.dart';
+import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_widgets/input/drop_down_botton_change.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_rules.dart';
+import 'package:sisged/_widgets/input/drop_down_botton_change.dart';
 import './main_information_controller.dart';
 
 /// Seção isolada com os campos de "Informações da empresa".

@@ -6,34 +6,27 @@ import 'package:sisged/_widgets/formats/format_field.dart';
 import 'package:sisged/_utils/date_utils.dart'
     show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-import '../../../../../_provider/user/user_provider.dart';
-import '../../../../../_blocs/system/user_bloc.dart';
-import '../../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
-import '../../../../../_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
+import 'package:sisged/_blocs/system/user_provider.dart';
+// ❌ REMOVER: '../../../../../_blocs/system/user_repository.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
 
-import '../../../../../_datas/system/user_data.dart';
-import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../../_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
+import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
 
-/// Controller da PaymentsAdjustmentPage:
-/// - Orquestra blocos
-/// - Mantém TextEditingControllers e validação
-/// - Expõe getters para gráficos/tabela e ações (salvar, excluir, selecionar etc.)
 class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMixin {
   PaymentsAdjustmentController({
-    PaymentAdjustmentBloc? paymentAdjustmentBloc,
-    AdditivesBloc? additivesBloc,
-    UserBloc? userBloc,
-  })  : _paymentAdjustmentBloc = paymentAdjustmentBloc ?? PaymentAdjustmentBloc(),
-        _additivesBloc = additivesBloc ?? AdditivesBloc(),
-        _userBloc = userBloc ?? UserBloc();
+    required PaymentAdjustmentBloc paymentAdjustmentBloc,
+    required AdditivesBloc additivesBloc,
+  })  : _paymentAdjustmentBloc = paymentAdjustmentBloc,
+        _additivesBloc = additivesBloc;
 
-  // ---- dependências ----
+  // ---- dependências (injetadas) ----
   final PaymentAdjustmentBloc _paymentAdjustmentBloc;
   final AdditivesBloc _additivesBloc;
-  final UserBloc _userBloc;
 
-  /// Expor bloc para widgets legados (ex.: PdfFileIconActionGeneric)
+  // Expor bloc (se widget legado precisar)
   PaymentAdjustmentBloc get bloc => _paymentAdjustmentBloc;
 
   // ---- contexto/entidades ----
@@ -77,9 +70,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
       _payments.map((e) => e.valuePaymentAdjustment ?? 0.0).toList();
 
   double get totalMedicoes => chartValues.fold<double>(0.0, (a, b) => a + b);
-
   double get valorTotal => _valorInicial + _valorAditivos;
-
   double get saldo => valorTotal - totalMedicoes;
 
   double get valorInicialBase => _valorInicial;
@@ -90,33 +81,20 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     contract = contractData;
     if (contract?.id == null) return;
 
-    currentUser = Provider.of<UserProvider>(context, listen: false).userData;
-    isEditable = _userBloc.getUserCreateEditPermissions(userData: currentUser!);
+    currentUser = context.read<UserProvider>().userData;
+    isEditable = _canEditUser(currentUser);
 
-    setupValidation([
-      orderCtrl,
-      processCtrl,
-      valueCtrl,
-      dateCtrl,
-    ], _validateFormInternal);
-
+    setupValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateFormInternal);
     await _loadInitial();
   }
 
   @override
   void dispose() {
-    removeValidation([
-      orderCtrl,
-      processCtrl,
-      valueCtrl,
-      dateCtrl,
-      stateCtrl,
-      observationCtrl,
-      bankCtrl,
-      electronicTicketCtrl,
-      fontCtrl,
-      taxCtrl,
-    ], _validateFormInternal);
+    removeValidation(
+      [orderCtrl, processCtrl, valueCtrl, dateCtrl, stateCtrl, observationCtrl,
+        bankCtrl, electronicTicketCtrl, fontCtrl, taxCtrl],
+      _validateFormInternal,
+    );
 
     orderCtrl.dispose();
     processCtrl.dispose();
@@ -129,6 +107,16 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     fontCtrl.dispose();
     taxCtrl.dispose();
     super.dispose();
+  }
+
+  // ---- permissão (ajuste ao seu modelo) ----
+  bool _canEditUser(UserData? user) {
+    if (user == null) return false;
+    final base = (user.baseProfile ?? '').toLowerCase();
+    if (base == 'administrador' || base == 'colaborador') return true;
+    final perms = user.modulePermissions['payments_adjustment']; // nome do módulo
+    if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
+    return false;
   }
 
   // ---- core ----
@@ -149,13 +137,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   }
 
   void _validateFormInternal() {
-    final valid = areFieldsFilled([
-      orderCtrl,
-      processCtrl,
-      valueCtrl,
-      dateCtrl,
-    ], minLength: 1);
-
+    final valid = areFieldsFilled([orderCtrl, processCtrl, valueCtrl, dateCtrl], minLength: 1);
     if (formValidated != valid) {
       formValidated = valid;
       notifyListeners();
@@ -207,7 +189,6 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     notifyListeners();
   }
 
-  /// Salva/atualiza usando os dados dos controllers (fluxo do formulário).
   Future<bool> saveOrUpdate({
     required Future<bool> Function() onConfirm,
     VoidCallback? onSuccessSnack,
@@ -254,7 +235,6 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     }
   }
 
-  /// Salva exatamente o objeto recebido (útil no Import Excel).
   Future<void> saveExact(
       PaymentsAdjustmentsData data, {
         VoidCallback? onSuccess,
@@ -315,7 +295,6 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     }
   }
 
-  // ---- utilitário opcional para ordenação/substituição externa ----
   void overwriteList(List<PaymentsAdjustmentsData> newList) {
     _payments = newList;
     final last = _payments.isNotEmpty

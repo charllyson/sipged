@@ -5,7 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sisged/_datas/oaes/active_oaes_data.dart';
-import '../../../../_class/map/tagged_marker.dart';
+import 'package:sisged/package:sisged/_class/map/tagged_marker.dart';
 import 'package:flutter_map/flutter_map.dart' show AnchorAlign, AnchorPos;
 
 

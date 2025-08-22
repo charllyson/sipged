@@ -5,7 +5,9 @@ class MapLegendLayer extends StatelessWidget {
 
   const MapLegendLayer({
     super.key,
-    this.regionColors = const {},
+    this.regionColors = const {
+
+    },
   });
 
   @override

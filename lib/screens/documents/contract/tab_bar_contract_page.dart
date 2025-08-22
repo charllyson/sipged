@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:sisged/_widgets/background/background_cleaner.dart';
+import 'package:sisged/screens/commons/popUpMenu/pup_up_photo_menu.dart';
 import 'package:sisged/screens/documents/contract/validity/validity_page.dart';
 
-import '../../../../_datas/system/user_data.dart';
-import '../../../../_widgets/buttons/back_circle_button.dart';
-import '../../../_blocs/documents/contracts/contracts/contract_bloc.dart';
-import '../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../commons/popUpMenu/pup_up_photo_menu.dart';
+import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_widgets/buttons/back_circle_button.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
 import 'additive/additive_page.dart';
 import 'apostilles/apostilles_page.dart';
 import 'budget/budget_controller.dart';

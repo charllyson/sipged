@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/registers/register_class.dart';
-import '../../../_widgets/formats/format_field.dart';
-import '../../../_widgets/toast/slide_transition_toast.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_widgets/toast/slide_transition_toast.dart';
 
 class StackedToastNotification extends StatelessWidget {
   final Registro registro;

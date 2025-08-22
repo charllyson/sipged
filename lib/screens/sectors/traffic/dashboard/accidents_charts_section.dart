@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sisged/_widgets/charts/gauge_circular_percent.dart';
 import '../../../../_widgets/charts/barGraph/bar_chart_changed.dart';
 import '../../../../_widgets/charts/pieGraph/pie_chart_changed.dart';
 
@@ -7,7 +8,8 @@ class AccidentsChartsSection extends StatelessWidget {
   final List<double> valuesType;
   final List<String> labelsRegiao;
   final List<double> valuesRegiao;
-
+  final double valorTotal;
+  final double totalAccidents;
   final int? selectedIndexType;
   final int? selectedIndexRegiao;
 
@@ -24,6 +26,8 @@ class AccidentsChartsSection extends StatelessWidget {
     this.selectedIndexRegiao,
     this.onTypeSelected,
     this.onRegionTap,
+    required this.valorTotal,
+    required this.totalAccidents,
   });
 
   @override
@@ -33,6 +37,15 @@ class AccidentsChartsSection extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
+
+          GaugeCircularPercent(
+            percent: valorTotal == 0 ? 0 : totalAccidents / valorTotal,
+            label: 'Total em sinistros ',
+            subTitle: '${totalAccidents.toString()} de ${valorTotal.toString()}',
+            radius: 90,
+            larguraGrafico: 255,
+            values: totalAccidents.isNaN ? null : [totalAccidents],
+          ),
           const SizedBox(width: 12),
           PieChartChanged(
             key: ValueKey('tipo_${labelsType.join()}_${valuesType.join()}'),

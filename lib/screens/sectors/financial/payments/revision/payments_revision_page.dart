@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sisged/screens/sectors/financial/payments/revision/payment_revision_controller.dart';
 
-import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../../_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
-import '../../../../../../_widgets/texts/divider_text.dart';
-import '../../../../../admPanel/converters/importExcel/import_excel_page.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
+import 'package:sisged/_widgets/texts/divider_text.dart';
+import 'package:sisged/admPanel/converters/importExcel/import_excel_page.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
 import 'payment_revision_chart_section.dart';
@@ -14,12 +16,18 @@ import 'payment_revision_table_section.dart';
 
 class PaymentsRevisionPage extends StatelessWidget {
   const PaymentsRevisionPage({super.key, this.contractData});
+
   final ContractData? contractData;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => PaymentsRevisionController()..init(context, contractData: contractData),
+    return ChangeNotifierProvider<PaymentsRevisionController>(
+      create: (ctx) =>
+      PaymentsRevisionController(
+        paymentRevisionBloc: ctx.read<PaymentRevisionBloc>(),
+        additivesBloc: ctx.read<AdditivesBloc>(),
+      )
+        ..init(ctx, contractData: contractData),
       builder: (context, _) {
         final c = context.watch<PaymentsRevisionController>();
 
@@ -42,7 +50,8 @@ class PaymentsRevisionPage extends StatelessWidget {
                     child: Column(
                       children: [
                         const SizedBox(height: 12),
-                        const DividerText(title: 'Gráfico dos pagamentos da revisão'),
+                        const DividerText(
+                            title: 'Gráfico dos pagamentos da revisão'),
                         const SizedBox(height: 12),
                         PaymentsRevisionChartsSection(
                           labels: labels,
@@ -51,15 +60,17 @@ class PaymentsRevisionPage extends StatelessWidget {
                           totalMedicoes: totalMedicoes,
                           selectedIndex: c.selectedIndex,
                           onSelectIndex: (index) {
-                            if (index == null || index < 0 || index >= c.revisions.length) return;
+                            if (index < 0 ||
+                                index >= c.revisions.length) return;
                             c.selectRow(c.revisions[index]);
                           },
                         ),
                         const SizedBox(height: 12),
-                        const DividerText(title: 'Cadastrar pagamento (revisão) no sistema'),
+                        const DividerText(
+                            title: 'Cadastrar pagamento (revisão) no sistema'),
                         const SizedBox(height: 12),
 
-                        // Form enxuto (pega o controller pelo Provider)
+                        // Form consome o controller via Provider
                         const PaymentRevisionFormSection(),
 
                         const SizedBox(height: 12),
@@ -71,35 +82,39 @@ class PaymentsRevisionPage extends StatelessWidget {
                         // Import Excel usando saveExact
                         ImportExcelPage(
                           firstCollection: c.contract?.id ?? '',
-                          onFinished: () async {
-                            await c.init(context, contractData: c.contract);
-                          },
+                          onFinished: () async =>
+                              c.init(context, contractData: c.contract),
                           onSave: (dados) async {
                             final data = PaymentsRevisionsData.fromMap(dados);
                             await c.saveExact(
                               data,
-                              onError: () => ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Erro ao importar pagamento da revisão.'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              ),
+                              onError: () =>
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Erro ao importar pagamento da revisão.'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  ),
                             );
                           },
                         ),
 
                         const SizedBox(height: 12),
                         PaymentRevisionTableSection(
-                          onTapItem: (data) => c.selectRow(data),
-                          onDelete: (id) => c.deleteById(
-                            id,
-                            onSuccessSnack: () => ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Pagamento da revisão apagado com sucesso.'),
-                                backgroundColor: Colors.red,
+                          onTapItem: c.selectRow,
+                          onDelete: (id) =>
+                              c.deleteById(
+                                id,
+                                onSuccessSnack: () =>
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                            'Pagamento da revisão apagado com sucesso.'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    ),
                               ),
-                            ),
-                          ),
                           paymentsRevisionsData: c.revisions,
                           selectedPaymentsRevisionsData: c.selected,
                           valorInicial: c.valorInicialBase,
@@ -121,7 +136,8 @@ class PaymentsRevisionPage extends StatelessWidget {
             if (c.isSaving)
               Stack(
                 children: [
-                  ModalBarrier(dismissible: false, color: Colors.black.withOpacity(0.4)),
+                  ModalBarrier(
+                      dismissible: false, color: Colors.black.withOpacity(0.4)),
                   const Center(child: CircularProgressIndicator()),
                 ],
               ),

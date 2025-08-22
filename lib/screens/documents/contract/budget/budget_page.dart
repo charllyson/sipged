@@ -6,7 +6,7 @@ import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
 import 'package:sisged/_widgets/background/background_cleaner.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
-import '../../../../_datas/documents/contracts/budget/budget_store.dart';
+import 'package:sisged/_datas/documents/contracts/budget/budget_store.dart';
 import 'budget_controller.dart' as bc;
 
 class BudgetPage extends StatefulWidget {

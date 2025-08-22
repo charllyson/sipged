@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:sisged/_blocs/actives/active_road_bloc.dart';
 
-import '../../../_widgets/map/polylines/tappable_changed_polyline.dart';
-import '../../../_datas/actives/roads/active_roads_data.dart';
+import 'package:sisged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sisged/_datas/actives/roads/active_roads_data.dart';
 
 /// Store de Rodovias:
 /// - Cache em memória (lista e mapa por id)

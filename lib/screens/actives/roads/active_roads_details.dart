@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
-
-import '../../../_datas/actives/roads/active_roads_data.dart';
-import '../../../_utils/responsive_utils.dart';
-import '../../../_widgets/input/custom_text_field.dart';
+import 'package:sisged/_datas/actives/roads/active_roads_data.dart';
+import 'package:sisged/_utils/responsive_utils.dart';
+import 'package:sisged/_widgets/input/custom_text_field.dart';
 
 class ActiveRoadsDetails extends StatefulWidget {
   final ActiveRoadsData road;

@@ -45,7 +45,7 @@ class InfractionsTableSection extends StatelessWidget {
       totalPages: totalPages,
       onPageChange: (p) async => onPageChange(p),
 
-      // colunas
+      // colunas (alinhadas ao seu modelo)
       columns: [
         PagedColumnSpec<InfractionsData>(
           title: 'AIT',
@@ -55,20 +55,26 @@ class InfractionsTableSection extends StatelessWidget {
         ),
         PagedColumnSpec<InfractionsData>(
           title: 'DATA',
-          getter: (d) => d.dateInfraction == null
-              ? ''
-              : '${d.dateInfraction!.day.toString().padLeft(2, '0')}/'
-              '${d.dateInfraction!.month.toString().padLeft(2, '0')}/'
-              '${d.dateInfraction!.year}',
+          getter: (d) {
+            final dt = d.dateInfraction;
+            if (dt == null) return '';
+            final dd = dt.day.toString().padLeft(2, '0');
+            final mm = dt.month.toString().padLeft(2, '0');
+            final yy = dt.year.toString();
+            return '$dd/$mm/$yy';
+          },
           textAlign: TextAlign.center,
           maxWidth: 110,
         ),
         PagedColumnSpec<InfractionsData>(
           title: 'HORA',
-          getter: (d) => d.dateInfraction == null
-              ? ''
-              : '${d.dateInfraction!.hour.toString().padLeft(2, '0')}:'
-              '${d.dateInfraction!.minute.toString().padLeft(2, '0')}',
+          getter: (d) {
+            final dt = d.dateInfraction;
+            if (dt == null) return '';
+            final hh = dt.hour.toString().padLeft(2, '0');
+            final mi = dt.minute.toString().padLeft(2, '0');
+            return '$hh:$mi';
+          },
           textAlign: TextAlign.center,
           maxWidth: 90,
         ),

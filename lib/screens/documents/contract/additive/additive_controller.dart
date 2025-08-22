@@ -1,30 +1,25 @@
 // lib/_controllers/documents/contracts/additives/additive_controller.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
 
-import 'package:sisged/_blocs/system/user_bloc.dart';
-import 'package:sisged/_provider/user/user_provider.dart';
+import 'package:sisged/_blocs/system/user_provider.dart';
+import 'package:sisged/_datas/system/user_data.dart';
+
+import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/formats/format_field.dart';
 import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
-import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/additive/additive_store.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_utils/handle_selection_utils.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_store.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_utils/handle_selection_utils.dart';
 
 class AdditiveController extends ChangeNotifier with FormValidationMixin {
   // ✅ Injetados
   final AdditivesStore store;
-  final UserBloc userBloc;
-
-  // Acesso ao bloc Firestore (se necessário em pontos específicos)
-  // Prefira usar os métodos do Store (saveOrUpdate/delete etc.)
   final ContractData contract;
-
   final AdditivesStorageBloc additivesStorageBloc;
-
 
   // --- State
   late Future<List<AdditiveData>> futureAdditives;
@@ -51,7 +46,6 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
   AdditiveController({
     required this.contract,
     required this.store,
-    required this.userBloc,
     AdditivesStorageBloc? storageBloc, // injetável
   }) : additivesStorageBloc = storageBloc ?? AdditivesStorageBloc() {
     _init();
@@ -62,25 +56,29 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     futureAdditives = _getAll();
     _setNextOrder();
     setupValidation(
-      [
-        dateCtrl,
-        valueCtrl,
-        addDaysExecCtrl,
-        addDaysContractCtrl,
-        processCtrl,
-        typeCtrl,
-      ],
+      [dateCtrl, valueCtrl, addDaysExecCtrl, addDaysContractCtrl, processCtrl, typeCtrl],
       _validateForm,
     );
   }
 
   // Chamar após inserir no widget tree (tem BuildContext)
   Future<void> postFrameInit(BuildContext context) async {
-    final user = Provider.of<UserProvider>(context, listen: false).userData;
-    if (user != null) {
-      isEditable = userBloc.getUserCreateEditPermissions(userData: user);
-      notifyListeners();
+    final user = context.read<UserProvider>().userData;
+    isEditable = _canEditUser(user);
+    notifyListeners();
+  }
+
+  // Permissões (ajuste a chave do módulo se necessário)
+  bool _canEditUser(UserData? user) {
+    if (user == null) return false;
+    final base = (user.baseProfile ?? '').toLowerCase();
+    if (base == 'administrador' || base == 'colaborador') return true;
+
+    final perms = user.modulePermissions['additives']; // ← módulo
+    if (perms != null) {
+      return (perms['edit'] == true) || (perms['create'] == true);
     }
+    return false;
   }
 
   // --------- LOADS ---------
@@ -108,11 +106,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
 
   // --------- VALIDATION ---------
   void _validateForm() {
-    final obrig = <TextEditingController>[
-      dateCtrl,
-      processCtrl,
-      typeCtrl,
-    ];
+    final obrig = <TextEditingController>[dateCtrl, processCtrl, typeCtrl];
 
     final tipo = typeCtrl.text.toUpperCase();
     if (tipo == 'VALOR' || tipo == 'REEQUILÍBRIO') {
@@ -138,7 +132,9 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
 
     typeCtrl.text = data.typeOfAdditive ?? '';
     orderCtrl.text = (data.additiveOrder ?? '').toString();
-    dateCtrl.text = data.additiveDate != null ? convertDateTimeToDDMMYYYY(data.additiveDate!) : '';
+    dateCtrl.text = data.additiveDate != null
+        ? convertDateTimeToDDMMYYYY(data.additiveDate!)
+        : '';
     valueCtrl.text = data.additiveValue != null ? priceToString(data.additiveValue) : '';
     addDaysExecCtrl.text = data.additiveValidityExecutionDays?.toString() ?? '';
     addDaysContractCtrl.text = data.additiveValidityContractDays?.toString() ?? '';
@@ -182,31 +178,41 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     isSaving = true;
     notifyListeners();
 
-    final novo = AdditiveData(
-      id: currentAdditiveId,
-      additiveNumberProcess: processCtrl.text,
-      additiveOrder: int.tryParse(orderCtrl.text),
-      additiveDate: convertDDMMYYYYToDateTime(dateCtrl.text),
-      additiveValue: stringToDouble(valueCtrl.text),
-      additiveValidityContractDays: int.tryParse(_onlyDigits(addDaysContractCtrl.text)),
-      additiveValidityExecutionDays: int.tryParse(_onlyDigits(addDaysExecCtrl.text)),
-      typeOfAdditive: typeCtrl.text,
-    );
-
-    await store.saveOrUpdate(contract.id!, novo);
-    await reload();
-    createNew();
-
-    isSaving = false;
-    notifyListeners();
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(editingMode ? 'Aditivo atualizado com sucesso!' : 'Aditivo salvo com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
+    try {
+      final novo = AdditiveData(
+        id: currentAdditiveId,
+        additiveNumberProcess: processCtrl.text,
+        additiveOrder: int.tryParse(orderCtrl.text),
+        additiveDate: convertDDMMYYYYToDateTime(dateCtrl.text),
+        additiveValue: stringToDouble(valueCtrl.text),
+        additiveValidityContractDays: int.tryParse(_onlyDigits(addDaysContractCtrl.text)),
+        additiveValidityExecutionDays: int.tryParse(_onlyDigits(addDaysExecCtrl.text)),
+        typeOfAdditive: typeCtrl.text,
       );
+
+      await store.saveOrUpdate(contract.id!, novo);
+      await reload();
+      createNew();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              editingMode ? 'Aditivo atualizado com sucesso!' : 'Aditivo salvo com sucesso!',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar: $e')),
+        );
+      }
+    } finally {
+      isSaving = false;
+      notifyListeners();
     }
   }
 
@@ -252,31 +258,22 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     );
   }
 
-  // --------- PDF (metadado via Store; upload via Store se desejar) ---------
+  // --------- PDF (upload + salvar URL via StorageBloc) ---------
   Future<void> uploadValidityPdf({
     required void Function(double) onProgress,
   }) async {
     if (contract.id == null || selectedAdditive?.id == null) return;
-    final c = contract;
-    final v = selectedAdditive!;
     final url = await additivesStorageBloc.uploadWithPicker(
-      contract: c,
-      additive: v,
+      contract: contract,
+      additive: selectedAdditive!,
       onProgress: onProgress,
     );
     await additivesStorageBloc.salvarUrlPdfDoAditivo(
-      contractId: c.id!,
-      additiveId: v.id!,
+      contractId: contract.id!,
+      additiveId: selectedAdditive!.id!,
       url: url,
     );
   }
-
-  // Exemplo de uso de upload (chame da UI quando quiser):
-  // await store.uploadPdfWithProgress(
-  //   contract: contract,
-  //   additive: selectedAdditive!,
-  //   onProgress: (p) { /* setState progress */ },
-  // );
 
   // --------- DISPOSE ---------
   @override

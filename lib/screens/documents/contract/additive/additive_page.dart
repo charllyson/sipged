@@ -3,10 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/additive/additive_store.dart';
-import '../../../../_blocs/system/user_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_store.dart';
 
 import 'additive_controller.dart';
 import 'additive_form_section.dart';
@@ -24,7 +23,6 @@ class AdditivePage extends StatelessWidget {
       create: (ctx) => AdditiveController(
         contract: contractData,
         store: ctx.read<AdditivesStore>(),
-        userBloc: ctx.read<UserBloc>(),
       ),
       builder: (context, _) {
         final c = context.read<AdditiveController>();

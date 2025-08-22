@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
 
-import '../../../../../_widgets/formats/format_field.dart';
-import '../../../../../_widgets/loading/loading_progress.dart';
-import '../../../../_datas/documents/contracts/apostilles/apostilles_data.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_widgets/loading/loading_progress.dart';
+import 'package:sisged/_datas/documents/contracts/apostilles/apostilles_data.dart';
 
 class ApostilleTableSection extends StatelessWidget {
   final void Function(ApostillesData) onTapItem;

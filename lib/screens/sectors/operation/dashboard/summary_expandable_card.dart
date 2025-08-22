@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_utils/responsive_utils.dart';
 import 'package:sisged/_widgets/formats/format_field.dart';
-import '../../../../../_widgets/shimmer/shimmer_w60_h14.dart';
+import 'package:sisged/_widgets/shimmer/shimmer_w60_h14.dart';
 
 class SummaryExpandableCard extends StatelessWidget {
   final String title;

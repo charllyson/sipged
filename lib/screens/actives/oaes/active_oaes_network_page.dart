@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../_blocs/system/user_bloc.dart';
-import '../../../_datas/actives/oaes/active_oaes_data.dart';
-import '../../../_datas/actives/oaes/active_oaes_store.dart'; // ⬅️ importa o store
-import '../../../_datas/actives/oaes/active_oaes_style.dart';
-import '../../../_widgets/map/markers/animated_cluster_marker_widget.dart';
-import '../../../_widgets/map/map_interactive.dart';
-import '../../../_widgets/map/shimmer/map_loading_shimmer.dart';
-import '../../commons/footBar/foot_bar.dart';
-import '../../commons/upBar/up_bar.dart';
-import '../../../_provider/user/user_provider.dart';
+import 'package:sisged/_datas/actives/oaes/active_oaes_data.dart';
+import 'package:sisged/_datas/actives/oaes/active_oaes_store.dart'; // ⬅️ store
+import 'package:sisged/_datas/actives/oaes/active_oaes_style.dart';
+import 'package:sisged/_widgets/map/markers/animated_cluster_marker_widget.dart';
+import 'package:sisged/_widgets/map/map_interactive.dart';
+import 'package:sisged/_widgets/map/shimmer/map_loading_shimmer.dart';
+import 'package:sisged/_blocs/system/user_provider.dart';
+import 'package:sisged/screens/commons/footBar/foot_bar.dart';
+import 'package:sisged/screens/commons/upBar/up_bar.dart';
+
 import 'active_oaes_controller.dart';
 
 class ActiveOAEsNetworkPage extends StatefulWidget {
@@ -36,8 +36,8 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<ActiveOaesController>(
       create: (ctx) => ActiveOaesController(
-        store: ctx.read<ActiveOaesStore>(),     // ⬅️ injeta o store
-        userBloc: ctx.read<UserBloc>(),   // (opcional) permissões
+        store: ctx.read<ActiveOaesStore>(), // ✅ apenas o store (sem UserBloc)
+        currentUser: context.read<UserProvider>().userData!, // ✅ apenas o Store (sem UserBloc)
       ),
       builder: (context, _) {
         final ctrl = context.watch<ActiveOaesController>();
@@ -46,7 +46,9 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
           _didInit = true;
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             final user = context.read<UserProvider>().userData;
-            if (user != null) await context.read<ActiveOaesController>().init(user);
+            if (user != null) {
+              await context.read<ActiveOaesController>().init(user);
+            }
           });
         }
 
@@ -57,7 +59,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
               OverlayEntry(
                 builder: (context) => Column(
                   children: [
-                    UpBar(),
+                    const UpBar(),
                     Expanded(
                       child: ctrl.loading
                           ? const MapLoadingShimmer()

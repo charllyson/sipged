@@ -3,18 +3,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_blocs/system/user_bloc.dart';
 import 'package:sisged/_datas/documents/contracts/contracts/contract_style.dart';
 import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_provider/user/user_provider.dart';
-
-import '../../documents/contract/tab_bar_contract_page.dart';
-import '../currentUser/user_greeting.dart';
-import '../footBar/foot_bar.dart';
-import '../upBar/up_bar.dart';
-import '../../../_widgets/background/background_cleaner.dart';
-import '../../../_widgets/buttons/contract_add_button.dart';
-import '../../../_widgets/search/search_widget.dart';
+import 'package:sisged/_blocs/system/user_provider.dart';
+import 'package:sisged/_widgets/background/background_cleaner.dart';
+import 'package:sisged/_widgets/buttons/contract_add_button.dart';
+import 'package:sisged/_widgets/search/search_widget.dart';
+import 'package:sisged/screens/commons/currentUser/user_greeting.dart';
+import 'package:sisged/screens/commons/footBar/foot_bar.dart';
+import 'package:sisged/screens/commons/upBar/up_bar.dart';
+import 'package:sisged/screens/documents/contract/tab_bar_contract_page.dart';
 
 import 'list_contracts_controller.dart';
 import 'list_contracts_status_widget.dart';
@@ -68,7 +66,6 @@ class ListContractsFilteredPage extends StatelessWidget {
                               actions: [
                                 SearchAction(onSearch: controller.onSearchChanged),
                                 UserGreeting(
-                                  userBloc: UserBloc(),
                                   firebaseUser: firebaseUser,
                                 ),
                               ],

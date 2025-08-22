@@ -6,30 +6,27 @@ import 'package:sisged/_widgets/formats/format_field.dart';
 import 'package:sisged/_utils/date_utils.dart'
     show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-import '../../../../../_provider/user/user_provider.dart';
-import '../../../../../_blocs/system/user_bloc.dart';
-import '../../../../../_blocs/documents/contracts/additives/additives_bloc.dart';
-import '../../../../../_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
+import 'package:sisged/_blocs/system/user_provider.dart';
+// ❌ REMOVER: '../../../../../_blocs/system/user_repository.dart'; // não usamos UserBloc aqui
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
 
-import '../../../../../_datas/system/user_data.dart';
-import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../../_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
+import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
 
 class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin {
   PaymentsRevisionController({
-    PaymentRevisionBloc? paymentRevisionBloc,
-    AdditivesBloc? additivesBloc,
-    UserBloc? userBloc,
-  })  : _paymentRevisionBloc = paymentRevisionBloc ?? PaymentRevisionBloc(),
-        _additivesBloc = additivesBloc ?? AdditivesBloc(),
-        _userBloc = userBloc ?? UserBloc();
+    required PaymentRevisionBloc paymentRevisionBloc,
+    required AdditivesBloc additivesBloc,
+  })  : _paymentRevisionBloc = paymentRevisionBloc,
+        _additivesBloc = additivesBloc;
 
-  // --- Dependências
+  // --- Dependências injetadas
   final PaymentRevisionBloc _paymentRevisionBloc;
   final AdditivesBloc _additivesBloc;
-  final UserBloc _userBloc;
 
-  // Expor bloc (apenas se um widget legado exigir)
+  // Expor bloc (se algum widget legado precisar)
   PaymentRevisionBloc get bloc => _paymentRevisionBloc;
 
   // --- Contexto
@@ -74,13 +71,11 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
   List<double> get chartValues =>
       _revisions.map((e) => e.valuePaymentRevision ?? 0.0).toList();
 
-  double get totalMedicoes =>
-      chartValues.fold<double>(0.0, (a, b) => a + b);
+  double get totalMedicoes => chartValues.fold<double>(0.0, (a, b) => a + b);
 
   double get valorTotal => _valorInicial + _valorAditivos;
   double get saldo => valorTotal - totalMedicoes;
 
-  // ajudar página/tabela
   double get valorInicialBase => _valorInicial;
   double get valorAditivosTotal => _valorAditivos;
 
@@ -89,33 +84,24 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     contract = contractData;
     if (contract?.id == null) return;
 
-    currentUser = Provider.of<UserProvider>(context, listen: false).userData;
-    isEditable = _userBloc.getUserCreateEditPermissions(userData: currentUser ?? UserData());
+    currentUser = context.read<UserProvider>().userData;
+    isEditable = _canEditUser(currentUser);
 
-    setupValidation([
-      orderCtrl,
-      processCtrl,
-      valueCtrl,
-      dateCtrl,
-    ], _validateFormInternal);
+    setupValidation(
+      [orderCtrl, processCtrl, valueCtrl, dateCtrl],
+      _validateFormInternal,
+    );
 
     await _loadInitial();
   }
 
   @override
   void dispose() {
-    removeValidation([
-      orderCtrl,
-      processCtrl,
-      valueCtrl,
-      dateCtrl,
-      stateCtrl,
-      observationCtrl,
-      bankCtrl,
-      electronicTicketCtrl,
-      fontCtrl,
-      taxCtrl,
-    ], _validateFormInternal);
+    removeValidation(
+      [orderCtrl, processCtrl, valueCtrl, dateCtrl, stateCtrl, observationCtrl,
+        bankCtrl, electronicTicketCtrl, fontCtrl, taxCtrl],
+      _validateFormInternal,
+    );
 
     orderCtrl.dispose();
     processCtrl.dispose();
@@ -128,6 +114,17 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     fontCtrl.dispose();
     taxCtrl.dispose();
     super.dispose();
+  }
+
+  // --- Permissão (ajuste conforme sua modelagem)
+  bool _canEditUser(UserData? user) {
+    if (user == null) return false;
+    final base = (user.baseProfile ?? '').toLowerCase();
+    if (base == 'administrador' || base == 'colaborador') return true;
+    // opcional: checar permissões granulares do módulo, ex.: "payments_revision"
+    final perms = user.modulePermissions['payments_revision'];
+    if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
+    return false;
   }
 
   // --- Core
@@ -149,13 +146,10 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
   }
 
   void _validateFormInternal() {
-    final valid = areFieldsFilled([
-      orderCtrl,
-      processCtrl,
-      valueCtrl,
-      dateCtrl,
-    ], minLength: 1);
-
+    final valid = areFieldsFilled(
+      [orderCtrl, processCtrl, valueCtrl, dateCtrl],
+      minLength: 1,
+    );
     if (formValidated != valid) {
       formValidated = valid;
       notifyListeners();
@@ -253,7 +247,6 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     }
   }
 
-  /// ImportExcel: salva exatamente o objeto recebido.
   Future<void> saveExact(
       PaymentsRevisionsData data, {
         VoidCallback? onSuccess,
@@ -323,7 +316,6 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     );
   }
 
-  // ordenação/substituição externa opcional
   void overwriteList(List<PaymentsRevisionsData> newList) {
     _revisions = newList;
     final last = _revisions.isNotEmpty

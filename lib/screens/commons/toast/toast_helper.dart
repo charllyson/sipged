@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/registers/register_class.dart';
 import 'package:sisged/_widgets/toast/slide_transition_toast.dart';
-import '../../../_widgets/formats/format_field.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
 
 class ToastHelper {
   static void showStackedToast({

@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../_widgets/map/markers/tagged_marker.dart';
+import 'package:sisged/_widgets/map/markers/tagged_marker.dart';
 
 class ActiveOaesData extends ChangeNotifier {
   String? id;

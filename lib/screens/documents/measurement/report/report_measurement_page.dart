@@ -4,7 +4,7 @@ import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 import 'package:sisged/screens/documents/measurement/report/report_measurement_controller.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
 import 'report_measurement_form_section.dart';
 import 'report_measurement_graph_section.dart';
 import 'report_measurement_table_section.dart';

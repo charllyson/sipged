@@ -38,7 +38,6 @@ class BarChartShimmerWidget extends StatelessWidget {
     );
 
     // largura total (igual ao cálculo do chart real)
-    final totalWidth = barsCount * (barWidth + spacing);
 
     return Card(
       color: bg,

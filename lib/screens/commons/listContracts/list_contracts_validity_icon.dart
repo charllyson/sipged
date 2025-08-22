@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../_datas/documents/contracts/additive/additive_store.dart';
-import '../../../_datas/documents/contracts/validity/validity_store.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_store.dart';
+import 'package:sisged/_datas/documents/contracts/validity/validity_store.dart';
 
 class ContractValidityIcon extends StatelessWidget {
   final ContractData contract;

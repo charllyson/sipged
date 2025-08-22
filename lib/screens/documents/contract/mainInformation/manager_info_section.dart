@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../../_provider/user/user_provider.dart';
-import '../../../../../_utils/responsive_utils.dart';
-import '../../../../../_widgets/autocomplete/autocomplete_user_class.dart';
-import '../../../../../_widgets/input/custom_text_field.dart';
-import '../../../../../_widgets/mask_class.dart';
-import '../../../../../_widgets/validates/form_validation_mixin.dart';
+import 'package:sisged/_blocs/system/user_provider.dart';
+import 'package:sisged/_utils/responsive_utils.dart';
+import 'package:sisged/_widgets/autocomplete/autocomplete_user_class.dart';
+import 'package:sisged/_widgets/input/custom_text_field.dart';
+import 'package:sisged/_widgets/mask_class.dart';
+import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
 
 import './main_information_controller.dart';
 

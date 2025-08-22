@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
-import '../../../../../_widgets/formats/format_field.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
-import '../../footer_rows_generic.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/screens/documents/footer_rows_generic.dart';
 
 class AdjustmentMeasurementTableSection extends StatelessWidget {
   final void Function(ReportMeasurementData) onTapItem;

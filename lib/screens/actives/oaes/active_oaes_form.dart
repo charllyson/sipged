@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 
-import '../../../_widgets/input/custom_text_field.dart';
-import '../../../_widgets/mask_class.dart';
+import 'package:sisged/_widgets/input/custom_text_field.dart';
+import 'package:sisged/_widgets/mask_class.dart';
 import 'active_oaes_controller.dart';
 
 class ActiveOaesForm extends StatefulWidget {
@@ -183,9 +183,7 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
             final err = await c.saveOrUpdate();
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(err == null
-                  ? (c.editingMode ? 'OAE atualizado com sucesso!' : 'OAE salvo com sucesso!')
-                  : err),
+              content: Text(err ?? (c.editingMode ? 'OAE atualizado com sucesso!' : 'OAE salvo com sucesso!')),
               backgroundColor: err == null ? Colors.green : Colors.orange,
             ));
           } : null,

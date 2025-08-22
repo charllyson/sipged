@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../_widgets/cardChip/build_value_card.dart';
+import 'package:sisged/_widgets/chip/build_value_card.dart';
 
 class ResumedMeasurementCards extends StatelessWidget {
   // agora aceita nulos

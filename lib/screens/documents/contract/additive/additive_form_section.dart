@@ -8,11 +8,11 @@ import 'package:sisged/_widgets/input/custom_text_field.dart';
 import 'package:sisged/_widgets/input/drop_down_botton_change.dart';
 import 'package:sisged/_widgets/formats/input_formatters.dart';
 import 'package:sisged/_utils/responsive_utils.dart';
-import '../../../../../_widgets/mask_class.dart';
-import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_widgets/archives/pdf/web_pdf_controller.dart';
-import '../../../../_widgets/archives/pdf/web_pdf_widget.dart';
+import 'package:sisged/_widgets/mask_class.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_widgets/archives/pdf/web_pdf_controller.dart';
+import 'package:sisged/_widgets/archives/pdf/web_pdf_widget.dart';
 
 class AdditiveFormSection extends StatelessWidget {
   final bool isEditable;

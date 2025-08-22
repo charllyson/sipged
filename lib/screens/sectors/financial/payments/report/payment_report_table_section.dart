@@ -4,10 +4,9 @@ import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
 import 'package:sisged/screens/sectors/financial/payments/report/payment_report_controller.dart';
 
-import '../../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
-import '../../../../../_datas/sectors/financial/payments/reports/payments_reports_data.dart';
-import '../../../../../_widgets/formats/format_field.dart';
-import '../../../../documents/footer_rows_generic.dart';
+import 'package:sisged/_datas/sectors/financial/payments/reports/payments_reports_data.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/screens/documents/footer_rows_generic.dart';
 
 class PaymentReportTableSection extends StatelessWidget {
   const PaymentReportTableSection({
@@ -15,7 +14,7 @@ class PaymentReportTableSection extends StatelessWidget {
     required this.reportData, // ainda pode vir de fora se precisar comparar com medições
   });
 
-  final List<ReportMeasurementData> reportData;
+  final List<PaymentsReportData> reportData;
 
   @override
   Widget build(BuildContext context) {
@@ -31,10 +30,9 @@ class PaymentReportTableSection extends StatelessWidget {
     );
     final totalReports = reportData.fold<double>(
       0.0,
-          (prev, item) => prev + (item.valueReportMeasurement ?? 0.0),
+          (prev, item) => prev + (item.valuePaymentReport ?? 0.0),
     );
 
-    final valorTotal = c.valorTotal;
     final saldo = c.saldo;
 
     return LayoutBuilder(

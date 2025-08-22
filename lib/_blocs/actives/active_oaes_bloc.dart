@@ -3,7 +3,7 @@ import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../_datas/actives/oaes/active_oaes_data.dart';
+import 'package:sisged/_datas/actives/oaes/active_oaes_data.dart';
 
 class ActiveOaesBloc extends BlocBase {
   ActiveOaesBloc();

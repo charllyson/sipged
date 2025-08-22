@@ -4,15 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../../_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
-import '../../../../system/user_bloc.dart';
+import 'package:sisged/_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
 
 /// Firestore-only para **Revisões de Pagamento**.
 /// (Upload/Storage ficou no PaymentRevisionStorageBloc.)
 class PaymentRevisionBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final UserBloc userBloc = UserBloc();
 
   PaymentRevisionBloc();
 

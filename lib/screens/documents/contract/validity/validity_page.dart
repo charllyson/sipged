@@ -3,10 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/validity/validity_data.dart';
-import '../../../../../_widgets/timeline/timeline_class.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_widgets/timeline/timeline_class.dart';
 import 'validity_controller.dart';
 import 'validity_form_section.dart';
 import 'validity_table_section.dart';

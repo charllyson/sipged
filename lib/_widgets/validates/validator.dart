@@ -1,5 +1,5 @@
 
-import '../formats/format_field.dart';
+import 'package:sisged/_widgets/formats/format_field.dart';
 
 mixin Validator {
 

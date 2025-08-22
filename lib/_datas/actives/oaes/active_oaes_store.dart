@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../_blocs/actives/active_oaes_bloc.dart';
+import 'package:sisged/_blocs/actives/active_oaes_bloc.dart';
 import 'active_oaes_data.dart';
 
 /// Store para OAEs (Obras de Arte Especiais).

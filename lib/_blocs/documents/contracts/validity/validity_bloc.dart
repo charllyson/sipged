@@ -1,20 +1,17 @@
 // lib/_blocs/documents/contracts/validity/validity_bloc.dart
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../../_datas/documents/contracts/additive/additive_data.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../_datas/documents/contracts/validity/validity_data.dart';
-import '../../../../_widgets/registers/register_class.dart';
-import '../../../system/user_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/validity/validity_data.dart';
+import 'package:sisged/_widgets/registers/register_class.dart';
 
 /// BLoC responsável por TUDO que é **Firestore** do módulo de validades.
 /// (Upload/Storage foi movido para ValidityStorageBloc.)
 class ValidityBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final UserBloc userBloc = UserBloc();
 
   ValidityBloc();
 

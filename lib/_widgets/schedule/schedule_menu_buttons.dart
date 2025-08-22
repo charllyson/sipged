@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/screens/sectors/operation/schedule/schedule_controller.dart'
-    show ServiceOption;
-import '../../_datas/sectors/operation/schedule/schedule_data.dart';
-import '../buttons/button_flutuante_hover.dart';
+import 'package:sisged/_datas/sectors/operation/schedule/schedule_data.dart';
+import 'package:sisged/_widgets/buttons/button_flutuante_hover.dart';
 
 class ScheduleMenuButtons extends StatelessWidget {
   const ScheduleMenuButtons({

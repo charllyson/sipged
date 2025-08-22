@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../_blocs/system/user_bloc.dart';
-import '../../../_widgets/registers/register_class.dart';
+import 'package:sisged/_widgets/registers/register_class.dart';
 import 'notification_list_tile.dart';
 
 class NotificationDialog extends StatelessWidget {
   final List<Registro> registros;
-  final UserBloc userBloc;
 
   const NotificationDialog({
     super.key,
     required this.registros,
-    required this.userBloc,
   });
 
   @override
@@ -25,7 +22,6 @@ class NotificationDialog extends StatelessWidget {
           itemBuilder: (context, index) {
             return NotificationListTile(
               registro: registros[index],
-              userBloc: userBloc,
             );
           },
         ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../_blocs/actives/active_road_bloc.dart';
-import '../../../../_datas/actives/roads/active_roads_data.dart';
-import '../../../../_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sisged/_blocs/actives/active_road_bloc.dart';
+import 'package:sisged/_datas/actives/roads/active_roads_data.dart';
+import 'package:sisged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'active_roads_details.dart';
 import 'active_roads_tooltip_widget.dart';
 

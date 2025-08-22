@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sisged/screens/sectors/financial/payments/report/payment_report_controller.dart';
 
-import '../../../../../_datas/documents/contracts/contracts/contract_data.dart';
-import '../../../../../_datas/documents/measurement/reports/report_measurement_data.dart';
-import '../../../../../_datas/sectors/financial/payments/reports/payments_reports_data.dart';
-import '../../../../../../_widgets/texts/divider_text.dart';
-import '../../../../../admPanel/converters/importExcel/import_excel_page.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_datas/sectors/financial/payments/reports/payments_reports_data.dart';
+import 'package:sisged/_widgets/texts/divider_text.dart';
+import 'package:sisged/admPanel/converters/importExcel/import_excel_page.dart';
 import 'package:sisged/screens/commons/footBar/foot_bar.dart';
 
 import 'payment_report_chart_section.dart';
@@ -25,12 +27,14 @@ class PaymentsReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => PaymentsReportController()..init(context, contractData: contractData),
+    return ChangeNotifierProvider<PaymentsReportController>(
+      create: (ctx) => PaymentsReportController(
+        paymentReportBloc: ctx.read<PaymentReportBloc>(),
+        additivesBloc: ctx.read<AdditivesBloc>(),
+      )..init(ctx, contractData: contractData),
       builder: (context, _) {
         final c = context.watch<PaymentsReportController>();
 
-        // loading simples enquanto não inicializa/conhece contrato
         if (c.contract?.id == null) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -39,7 +43,6 @@ class PaymentsReportPage extends StatelessWidget {
         final values = c.chartValues;
         final total = c.totalMedicoes;
         final valorTotal = c.valorTotal;
-        final saldo = c.saldo;
 
         return Stack(
           children: [
@@ -59,7 +62,7 @@ class PaymentsReportPage extends StatelessWidget {
                           totalMedicoes: total,
                           selectedIndex: c.selectedIndex,
                           onSelectIndex: (index) {
-                            if (index == null || index < 0 || index >= c.reports.length) return;
+                            if (index < 0 || index >= c.reports.length) return;
                             c.selectRow(c.reports[index]);
                           },
                         ),
@@ -142,10 +145,8 @@ class PaymentsReportPage extends StatelessWidget {
                           },
                           onSave: (dados) async {
                             final data = PaymentsReportData.fromMap(dados);
-                            // ⭐ salva exatamente o objeto importado
                             await c.saveExact(
                               data,
-                              onSuccess: null,
                               onError: () => ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Erro ao importar pagamento.'),
@@ -157,8 +158,9 @@ class PaymentsReportPage extends StatelessWidget {
                         ),
 
                         const SizedBox(height: 12),
+                        // Dica: se quiser listar o que o controller já carregou, use c.reports
                         PaymentReportTableSection(
-                          reportData: reportData, // ⭐ veio por prop (ou use [])
+                          reportData: c.reports, // ← em vez do prop externo, se preferir
                         ),
                         const SizedBox(height: 20),
                       ],

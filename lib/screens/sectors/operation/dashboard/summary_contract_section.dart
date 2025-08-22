@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sisged/_datas/documents/contracts/contracts/contract_style.dart';
 import 'package:sisged/screens/sectors/operation/dashboard/summary_expandable_card.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_rules.dart';
-import '../../../../_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_datas/documents/contracts/contracts/contract_rules.dart';
 import 'dashboard_controller.dart';
 
 class SummaryContractSection extends StatelessWidget {

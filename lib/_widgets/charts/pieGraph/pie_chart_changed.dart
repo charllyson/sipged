@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/loading/loading_progress.dart';
 import 'pie_chart_shimmer_widget.dart';
 import 'pie_chart_legend.dart';
 

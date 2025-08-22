@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sisged/_datas/documents/contracts/contracts/contract_style.dart';
 import 'package:sisged/_services/geo_json_manager.dart';
 
-import '../../../../_widgets/map/map_interactive.dart';
+import 'package:sisged/_widgets/map/map_interactive.dart';
 
 class MapContractSection extends StatelessWidget {
   final GeoJsonManager geoManager;
@@ -36,28 +36,14 @@ class MapContractSection extends StatelessWidget {
             ),
             clipBehavior: Clip.antiAlias,
             child: MapInteractivePage(
-              // 🔹 polígonos regionais vindos do GeoJsonManager
               regionalPolygons: geoManager.regionalPolygons,
-
-              // 🔹 seleção/controladores externos
               selectedRegionNames: selectedRegionNames,
               onRegionTap: onRegionTap,
-
-              // 🔹 mapa/zoom/legenda
-              activeMap: true,
-              initialZoom: 7.6,
+                activeMap: true,
+              initialZoom: 7.3,
               allowMultiSelect: false,
               showLegend: true,
-
-              // 🔹 coloração por região (mantém seu ContractStyle)
-              regionColors: ContractStyle.regionsColors,
-
-              // (opcionais) se usar polylines/markers no futuro:
-              // tappablePolylines: ...,
-              // onSelectPolyline: ...,
-              // onShowPolylineTooltip: ...,
-              // taggedMarkers: ...,
-              // clusterWidgetBuilder: ...,
+              regionColors: ContractStyle.regionsColors
             ),
           ),
         ),

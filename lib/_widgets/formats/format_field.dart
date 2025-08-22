@@ -71,23 +71,23 @@ double parseCurrencyToDouble(String text) {
   return double.tryParse(cleaned) ?? 0.0;
 }
 
-String yearToString(DateTime datetime) {
+String convertTimestampYYYY(DateTime datetime) {
   return DateFormat('yyyy', 'pt-br',).format(datetime);
 }
 
-String hourToString(DateTime datetime) {
+String convertTimestampHHMM(DateTime datetime) {
   return DateFormat('HH:mm', 'pt-br',).format(datetime);
 }
 
-String onlyHourToString(DateTime datetime) {
+String convertTimestampHH(DateTime datetime) {
   return DateFormat('HH', 'pt-br',).format(datetime);
 }
 
-String onlyMinutesToString(DateTime datetime) {
+String convertTimestampMM(DateTime datetime) {
   return DateFormat('mm', 'pt-br',).format(datetime);
 }
 
-String nameOfDayToString(DateTime datetime) {
+String convertTimestampNameDay(DateTime datetime) {
   return DateFormat('EE', 'pt-br',).format(datetime);
 }
 
