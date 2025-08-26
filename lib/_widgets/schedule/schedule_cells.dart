@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_data.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
 import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
 
 class ScheduleCells extends StatelessWidget {
   final ScheduleData execucao;
@@ -50,7 +50,7 @@ class ScheduleCells extends StatelessWidget {
     final f = execucao.fotos;
     if (f != null) return f.length;
     final fm = execucao.fotosMeta;
-    return (fm?.length ?? 0);
+    return (fm.length ?? 0);
   }
 
   String _tooltipText() {

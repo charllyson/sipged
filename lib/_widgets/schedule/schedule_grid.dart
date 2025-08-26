@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 
 import 'package:sisged/_widgets/schedule/schedule_up_legend_column.dart';
 import 'package:sisged/_widgets/schedule/schedule_legend.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_data.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_style.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_lane_class.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_style.dart';
+import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
 
 class ScheduleGrid extends StatelessWidget {
   const ScheduleGrid({

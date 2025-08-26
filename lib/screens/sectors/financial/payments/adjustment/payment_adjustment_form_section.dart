@@ -9,11 +9,11 @@ import 'payment_adjustment_controller.dart';
 
 import 'package:sisged/_widgets/input/custom_date_field.dart';
 import 'package:sisged/_widgets/input/custom_text_field.dart';
-import 'package:sisged/_widgets/mask_class.dart';
-import 'package:sisged/_widgets/formats/input_formatters.dart';
+import 'package:sisged/_utils/mask_class.dart';
+import 'package:sisged/_utils/formats/input_formatters.dart';
 import 'package:sisged/_widgets/archives/pdf/web_pdf_widget.dart';
 
-import 'package:sisged/_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 
 class PaymentAdjustmentFormSection extends StatelessWidget {
   const PaymentAdjustmentFormSection({super.key});

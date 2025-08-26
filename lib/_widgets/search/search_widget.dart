@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:sisged/screens/commons/search/search_overlay_manager.dart';
+import 'package:sisged/_widgets/search/search_overlay_manager.dart';
 /// =============================================================
 /// 2) ACTION: Botão de busca com overlay (isolado)
 /// =============================================================

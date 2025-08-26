@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/carousel/photo_gallery_dialog.dart';
 import 'package:sisged/_widgets/carousel/photo_item.dart';
 import 'package:sisged/_widgets/carousel/photo_thumb.dart';
-import 'package:sisged/_datas/widgets/pickedPhoto/carousel_photo_theme.dart';
-import '../../_datas/widgets/pickedPhoto/carousel_metadata.dart' as pm;
-import '../../_datas/widgets/pickedPhoto/carousel_photo.dart';
+import 'package:sisged/_blocs/widgets/carousel/carousel_photo_theme.dart';
+import '../../_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import '../../_blocs/widgets/carousel/carousel_photo.dart';
 
 class PhotoCarousel extends StatelessWidget {
   /// Item extra à esquerda (ex.: botão "Adicionar foto")

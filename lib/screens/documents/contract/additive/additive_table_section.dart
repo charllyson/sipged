@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
 import 'package:sisged/_widgets/loading/loading_progress.dart';
-import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_data.dart';
 
 class AdditiveTableSection extends StatelessWidget {
   final void Function(AdditiveData) onTapItem;

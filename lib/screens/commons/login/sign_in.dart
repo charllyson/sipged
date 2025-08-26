@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:sisged/_blocs/system/login/login_bloc.dart';
 import 'package:sisged/_widgets/background/background.dart';
 import 'package:sisged/_widgets/background/sisgeo_logo.dart';
@@ -12,7 +13,7 @@ class SignIn extends StatefulWidget {
   const SignIn({super.key});
 
   @override
-  _SignInState createState() => _SignInState();
+  State<SignIn> createState() => _SignInState();
 }
 
 class _SignInState extends State<SignIn> {
@@ -29,16 +30,13 @@ class _SignInState extends State<SignIn> {
     _emailController = TextEditingController();
     _passController = TextEditingController();
     _loginBloc = Provider.of<LoginBloc>(context, listen: false);
+
     _emailController.addListener(() {
-      setState(() {
-        _hasEmail = _emailController.text.isNotEmpty;
-      });
+      setState(() => _hasEmail = _emailController.text.isNotEmpty);
     });
 
     _passController.addListener(() {
-      setState(() {
-        _hasPass = _passController.text.isNotEmpty;
-      });
+      setState(() => _hasPass = _passController.text.isNotEmpty);
     });
   }
 
@@ -57,15 +55,18 @@ class _SignInState extends State<SignIn> {
         stream: _loginBloc.outState,
         builder: (context, snapshot) {
           final isLoading = snapshot.data == LoginState.loading;
+
           return Stack(
             children: <Widget>[
+              // background com constraints finitas
               Background(),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  Column(
+              // conteúdo rolável
+              SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 32),
+                  child: Column(
                     children: [
-                      SisGedLogo(),
+                      const SisGedLogo(),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           double maxWidth;
@@ -77,7 +78,9 @@ class _SignInState extends State<SignIn> {
                             maxWidth = constraints.maxWidth * 0.75;
                           }
                           return Padding(
-                            padding: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.05),
+                            padding: EdgeInsets.only(
+                              top: MediaQuery.of(context).size.height * 0.05,
+                            ),
                             child: Align(
                               alignment: Alignment.topCenter,
                               child: ConstrainedBox(
@@ -97,7 +100,7 @@ class _SignInState extends State<SignIn> {
                                           padding: const EdgeInsets.symmetric(horizontal: 32),
                                           child: CustomTextField(
                                             controller: _emailController,
-                                            autofillHints: [AutofillHints.username],
+                                            autofillHints: const [AutofillHints.username],
                                             stream: _loginBloc.outEmail,
                                             labelText: 'E-mail',
                                             prefix: const Icon(Icons.account_circle),
@@ -108,19 +111,17 @@ class _SignInState extends State<SignIn> {
                                                 ? CustomIconButton(
                                               radius: 32,
                                               iconData: Icons.clear,
-                                              onTap: () {
-                                                _emailController.clear();
-                                              },
+                                              onTap: _emailController.clear,
                                             )
                                                 : null,
                                           ),
                                         ),
-                                        SizedBox(height: 16),
+                                        const SizedBox(height: 16),
                                         Padding(
                                           padding: const EdgeInsets.symmetric(horizontal: 32),
                                           child: CustomTextField(
                                             controller: _passController,
-                                            autofillHints: [AutofillHints.password],
+                                            autofillHints: const [AutofillHints.password],
                                             labelText: 'Senha',
                                             prefix: const Icon(Icons.lock),
                                             obscure: _inputObscure,
@@ -130,13 +131,13 @@ class _SignInState extends State<SignIn> {
                                             suffix: _hasPass
                                                 ? IconButton(
                                               icon: Icon(
-                                                _inputObscure ? Icons.visibility_off : Icons.visibility,
+                                                _inputObscure
+                                                    ? Icons.visibility_off
+                                                    : Icons.visibility,
                                               ),
-                                              onPressed: () {
-                                                setState(() {
-                                                  _inputObscure = !_inputObscure;
-                                                });
-                                              },
+                                              onPressed: () => setState(
+                                                    () => _inputObscure = !_inputObscure,
+                                              ),
                                             )
                                                 : null,
                                           ),
@@ -153,7 +154,7 @@ class _SignInState extends State<SignIn> {
                                             ),
                                           ),
                                         ),
-                                        StreamButton(loginBloc: _loginBloc), // Corrigido nome do widget
+                                        StreamButton(loginBloc: _loginBloc),
                                         if (snapshot.data == LoginState.fail)
                                           const Padding(
                                             padding: EdgeInsets.only(top: 8.0),
@@ -173,48 +174,25 @@ class _SignInState extends State<SignIn> {
                       ),
                     ],
                   ),
-                  /*Container(
-                    color: Colors.white,
-                    height: 30,
-                    child: Row(
+                ),
+              ),
+
+              // overlay de loading
+              if (isLoading)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black54,
+                    child: const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
+                      children: [
+                        LoadingProgress(),
+                        SizedBox(height: 12),
                         Text(
-                          'Ainda não tem conta?',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // TODO: Implementar cadastro
-                          },
-                          child: Text(
-                            'Cadastre-se',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
+                          "Entrando...",
+                          style: TextStyle(color: Colors.white, fontSize: 20),
                         ),
                       ],
                     ),
-                  ),*/
-                ],
-              ),
-              if (isLoading)
-                Container(
-                  color: Colors.black54,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      LoadingProgress(),
-                      const Text(
-                        "Entrando...",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
             ],

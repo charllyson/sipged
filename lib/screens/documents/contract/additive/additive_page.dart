@@ -1,11 +1,13 @@
+// ==============================
+// lib/screens/contracts/additives/additive_page.dart
+// ==============================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sisged/_widgets/footBar/foot_bar.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/screens/commons/footBar/foot_bar.dart';
-
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
-import 'package:sisged/_datas/documents/contracts/additive/additive_store.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_store.dart';
 
 import 'additive_controller.dart';
 import 'additive_form_section.dart';
@@ -19,14 +21,12 @@ class AdditivePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      // ✅ injeta o store e o userBloc vindos do Provider
       create: (ctx) => AdditiveController(
         contract: contractData,
         store: ctx.read<AdditivesStore>(),
       ),
       builder: (context, _) {
         final c = context.read<AdditiveController>();
-        // pós-frame: permissões etc.
         WidgetsBinding.instance.addPostFrameCallback((_) => c.postFrameInit(context));
 
         return Stack(

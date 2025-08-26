@@ -1,27 +1,35 @@
-// lib/_controllers/documents/contracts/additives/additive_controller.dart
+// ==============================
+// lib/screens/contracts/additives/additive_controller.dart
+// ==============================
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
 
-import 'package:sisged/_blocs/system/user_provider.dart';
-import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
 
 import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
 import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
-import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:sisged/_utils/validates/form_validation_mixin.dart';
 
-import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
-import 'package:sisged/_datas/documents/contracts/additive/additive_store.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_store.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:sisged/_utils/handle_selection_utils.dart';
 
 class AdditiveController extends ChangeNotifier with FormValidationMixin {
-  // ✅ Injetados
+  // Injetados
   final AdditivesStore store;
   final ContractData contract;
   final AdditivesStorageBloc additivesStorageBloc;
 
-  // --- State
+  // User (via UserBloc)
+  StreamSubscription<UserState>? _userSub;
+  UserData? _currentUser;
+
+  // State
   late Future<List<AdditiveData>> futureAdditives;
   List<AdditiveData> _lastSnapshotData = [];
   AdditiveData? selectedAdditive;
@@ -34,7 +42,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
   String? currentAdditiveId;
   int? selectedLine;
 
-  // --- Controllers
+  // Controllers
   final orderCtrl = TextEditingController();
   final dateCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -46,42 +54,61 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
   AdditiveController({
     required this.contract,
     required this.store,
-    AdditivesStorageBloc? storageBloc, // injetável
+    AdditivesStorageBloc? storageBloc,
   }) : additivesStorageBloc = storageBloc ?? AdditivesStorageBloc() {
     _init();
   }
 
-  // --------- INIT ---------
+  // INIT
   Future<void> _init() async {
     futureAdditives = _getAll();
     _setNextOrder();
+
     setupValidation(
       [dateCtrl, valueCtrl, addDaysExecCtrl, addDaysContractCtrl, processCtrl, typeCtrl],
       _validateForm,
     );
+
+    // 🔧 Rebuild imediato quando o tipo muda (PRAZO, VALOR, RENOVAÇÃO, etc.)
+    typeCtrl.addListener(_onTypeChanged);
   }
 
-  // Chamar após inserir no widget tree (tem BuildContext)
-  Future<void> postFrameInit(BuildContext context) async {
-    final user = context.read<UserProvider>().userData;
-    isEditable = _canEditUser(user);
+  void _onTypeChanged() {
+    _validateForm();
     notifyListeners();
   }
 
-  // Permissões (ajuste a chave do módulo se necessário)
+  // Pós-frame: depende de BuildContext
+  Future<void> postFrameInit(BuildContext context) async {
+    final userBloc = context.read<UserBloc>();
+    _currentUser = userBloc.state.current;
+    isEditable = _canEditUser(_currentUser);
+    notifyListeners();
+
+    _userSub?.cancel();
+    _userSub = userBloc.stream.listen((st) {
+      final newEditable = _canEditUser(st.current);
+      if (newEditable != isEditable) {
+        isEditable = newEditable;
+        _currentUser = st.current;
+        notifyListeners();
+      }
+    });
+  }
+
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
     final base = (user.baseProfile ?? '').toLowerCase();
     if (base == 'administrador' || base == 'colaborador') return true;
 
-    final perms = user.modulePermissions['additives']; // ← módulo
+    final perms = user.modulePermissions['additives'];
     if (perms != null) {
       return (perms['edit'] == true) || (perms['create'] == true);
     }
     return false;
   }
 
-  // --------- LOADS ---------
+  // LOADS
   Future<List<AdditiveData>> _getAll() async {
     if (contract.id == null) return [];
     await store.ensureFor(contract.id!);
@@ -95,7 +122,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     notifyListeners();
   }
 
-  // --------- UI HELPERS ---------
+  // UI helpers
   bool exibeValor() =>
       ['VALOR', 'REEQUILÍBRIO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
           .contains(typeCtrl.text.toUpperCase());
@@ -104,7 +131,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
       ['PRAZO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
           .contains(typeCtrl.text.toUpperCase());
 
-  // --------- VALIDATION ---------
+  // VALIDATION
   void _validateForm() {
     final obrig = <TextEditingController>[dateCtrl, processCtrl, typeCtrl];
 
@@ -124,7 +151,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
-  // --------- FILL / CLEAR ---------
+  // FILL / CLEAR
   void fillFields(AdditiveData data) {
     selectedAdditive = data;
     editingMode = true;
@@ -171,7 +198,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
 
   String _onlyDigits(String s) => s.replaceAll(RegExp(r'[^\d]'), '');
 
-  // --------- SAVE / UPDATE (Firestore via Store) ---------
+  // SAVE / UPDATE
   Future<void> saveOrUpdate(BuildContext context) async {
     if (contract.id == null) return;
 
@@ -216,7 +243,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
-  // --------- DELETE (Firestore via Store) ---------
+  // DELETE
   Future<void> deleteAdditive(BuildContext context, String additiveId) async {
     if (contract.id == null) return;
     await store.delete(contract.id!, additiveId);
@@ -229,9 +256,9 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
-  // --------- TABLE / GRAPH SELECTION ---------
+  // TABLE / GRAPH selection
   void applySnapshot(List<AdditiveData> list) {
-    _lastSnapshotData = list; // sem notify (evita rebuilds durante build)
+    _lastSnapshotData = list; // sem notify
   }
 
   void onSelectGraphIndex(int index) {
@@ -258,7 +285,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     );
   }
 
-  // --------- PDF (upload + salvar URL via StorageBloc) ---------
+  // PDF (upload + salvar URL)
   Future<void> uploadValidityPdf({
     required void Function(double) onProgress,
   }) async {
@@ -275,9 +302,10 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     );
   }
 
-  // --------- DISPOSE ---------
   @override
   void dispose() {
+    _userSub?.cancel();
+    typeCtrl.removeListener(_onTypeChanged);
     removeValidation(
       [dateCtrl, valueCtrl, addDaysExecCtrl, addDaysContractCtrl, processCtrl, typeCtrl],
       _validateForm,

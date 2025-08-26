@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../_widgets/map/map_interactive.dart';
-import '../../../../_datas/widgets/regional_geo_json_class.dart';
-import '../../../../_datas/sectors/transit/accidents/accidents_data.dart';
+import '../../../../_blocs/widgets/map/regional_geo_json_class.dart';
+import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
 
 class AccidentsMapSection extends StatefulWidget {
   final List<PolygonChanged> regionalPolygons; // polígonos prontos

@@ -477,7 +477,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
     if (valor is bool) return 'boolean';
     if (valor is Timestamp || valor is DateTime) return 'timestamp';
     if (valor is List) return 'list';
-    if (valor is Map) return 'map';
+    if (valor is Map) return 'network';
     return 'string';
   }
 
@@ -676,7 +676,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
         }
         return Timestamp.now();
       case 'list': return valor is List ? valor.map((e) => e.toString()).toList() : [valor];
-      case 'map': return valor is Map ? valor.map((k, v) => MapEntry(k.toString(), v.toString())) : {};
+      case 'network': return valor is Map ? valor.map((k, v) => MapEntry(k.toString(), v.toString())) : {};
       default: return valor;
     }
   }
@@ -724,7 +724,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                       child: Text('Timestamp'),
                     ),
                     DropdownMenuItem(value: 'list', child: Text('List')),
-                    DropdownMenuItem(value: 'map', child: Text('Map')),
+                    DropdownMenuItem(value: 'network', child: Text('Map')),
                   ],
                   onChanged:
                       (value) => setState(

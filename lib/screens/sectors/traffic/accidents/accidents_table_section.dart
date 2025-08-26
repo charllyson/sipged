@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/table/paged_table_changed.dart';
-import '../../../../_datas/sectors/transit/accidents/accidents_data.dart';
+import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
 import '../../../../_utils/date_utils.dart';
-import '../../../../_widgets/formats/format_field.dart'; // convertDateTimeToDDMMYYYY, hourToString
+import '../../../../_utils/formats/format_field.dart'; // convertDateTimeToDDMMYYYY, hourToString
 
 class AccidentsTableSection extends StatelessWidget {
   final List<AccidentsData> listData;

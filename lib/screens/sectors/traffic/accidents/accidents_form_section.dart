@@ -6,7 +6,7 @@ import '../../../../_utils/responsive_utils.dart';
 import '../../../../_widgets/input/custom_date_field.dart';
 import '../../../../_widgets/input/custom_text_field.dart';
 import '../../../../_widgets/input/drop_down_botton_change.dart';
-import '../../../../_datas/sectors/transit/accidents/accidents_data.dart';
+import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
 
 class AccidentsFormSection extends StatelessWidget {
   final bool isEditable;

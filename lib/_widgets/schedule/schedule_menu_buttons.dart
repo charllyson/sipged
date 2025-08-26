@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_data.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
 import 'package:sisged/_widgets/buttons/button_flutuante_hover.dart';
 
 class ScheduleMenuButtons extends StatelessWidget {

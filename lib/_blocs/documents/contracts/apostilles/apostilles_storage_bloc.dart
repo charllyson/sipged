@@ -7,8 +7,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/documents/contracts/apostilles/apostilles_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
 
 /// Responsável APENAS por Storage (upload/getUrl/exists/delete) de PDFs de **apostilamentos**.
 class ApostillesStorageBloc extends BlocBase {
@@ -24,7 +24,7 @@ class ApostillesStorageBloc extends BlocBase {
 
   String fileName(ContractData c, ApostillesData a) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
-    final ordem    = (a.apostilleOrder ?? '0').toString();
+    final ordem    = ((a.apostilleOrder ?? 0)).toString().padLeft(3, '0');
     final proc     = _sanitize(a.apostilleNumberProcess ?? 'processo');
     return '$contrato-$ordem-$proc.pdf';
   }

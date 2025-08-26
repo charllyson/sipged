@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
 import 'package:sisged/_widgets/registers/register_class.dart';
 
 class ReportMeasurementBloc extends BlocBase {

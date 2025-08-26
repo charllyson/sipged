@@ -2,8 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:sisged/_widgets/registers/register_class.dart';
 
 class AdditivesBloc extends BlocBase {

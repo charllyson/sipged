@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:sisged/_widgets/schedule/schedule_cells.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_data.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_lane_class.dart';
-import '../../_blocs/system/user_provider.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
+import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
 import 'schedule_grid.dart';
+
+// Bloc de Usuário
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_event.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
 
 class ScheduleUpLegendColumn extends StatelessWidget {
   final int estacaNumero;
@@ -43,11 +49,20 @@ class ScheduleUpLegendColumn extends StatelessWidget {
       fontWeight: isMultiploDe10 ? FontWeight.bold : FontWeight.normal,
     );
 
-    // Assina mudanças do provider (atualiza nomes quando carregar)
-    final userProv = context.watch<UserProvider>();
+    // Estado atual do UserBloc
+    final userState = context.watch<UserBloc>().state;
 
-    // Resolver: UID -> rótulo legível (usa helper do provider)
-    String _resolveUser(String? uid) => userProv.labelFor(uid);
+    // Se ainda não carregamos a lista de usuários, pedimos pós-frame.
+    if (!userState.initialized && userState.all.isEmpty) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.read<UserBloc>().add(const UsersEnsureLoadedRequested(listenRealtime: true));
+        }
+      });
+    }
+
+    // Resolver: UID -> rótulo legível (usa helper do estado)
+    String _resolveUser(String? uid) => userState.labelFor(uid);
 
     return SizedBox(
       height: columnHeight,
@@ -60,17 +75,9 @@ class ScheduleUpLegendColumn extends StatelessWidget {
               child: isMultiploDe10
                   ? RotatedBox(
                 quarterTurns: 3,
-                child: Text(
-                  '$estacaNumero',
-                  style: numeroStyle,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: Text('$estacaNumero', style: numeroStyle, overflow: TextOverflow.ellipsis),
               )
-                  : Text(
-                '$estacaNumero',
-                style: numeroStyle,
-                overflow: TextOverflow.ellipsis,
-              ),
+                  : Text('$estacaNumero', style: numeroStyle, overflow: TextOverflow.ellipsis),
             ),
           ),
           ...List.generate(faixas.length, (i) {

@@ -1,22 +1,22 @@
-// lib/_controllers/documents/contracts/main_information_controller.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
 
-import 'package:sisged/_blocs/system/user_provider.dart';
-import 'package:sisged/_datas/system/user_data.dart';
-
+import 'package:sisged/_blocs/system/user/user_data.dart';
 import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
 
 import 'package:sisged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
 import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_store.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_store.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 class MainInformationController extends ChangeNotifier {
   // ==== Injeções ====
-  final ContractsStore contractsStore;           // <- CRUD Firestore via store/bloc
-  final ContractStorageBloc contractStorageBloc; // <- Storage (upload/url/delete)
+  final ContractsStore contractsStore;           // CRUD Firestore via store/bloc
+  final ContractStorageBloc contractStorageBloc; // Storage (upload/url/delete)
 
   /// Chave do módulo usada para checar permissões
   final String moduleKey;
@@ -31,7 +31,6 @@ class MainInformationController extends ChangeNotifier {
     this.forceEditable,
   });
 
-  /// Acesso conveniente ao bloc de Firestore se precisar
   ContractBloc get contractsBloc => contractsStore.bloc;
 
   // ==== Estado geral ====
@@ -41,6 +40,9 @@ class MainInformationController extends ChangeNotifier {
   bool showErrors = false;
 
   ContractData contractData = ContractData();
+
+  // ==== User (via UserBloc) ====
+  StreamSubscription<UserState>? _userSub;
   UserData? _currentUser;
 
   // ==== Controllers de texto ====
@@ -83,11 +85,10 @@ class MainInformationController extends ChangeNotifier {
 
   // ==== Ciclo de vida ====
   Future<void> init(BuildContext context, {ContractData? initial}) async {
-    // Carrega/garante usuários do provider (sem UserBloc)
-    await Provider.of<UserProvider>(context, listen: false).ensureLoaded();
-    _currentUser = Provider.of<UserProvider>(context, listen: false).userData;
+    // 👇 lê usuário do UserBloc e calcula permissão
+    final userBloc = context.read<UserBloc>();
+    _currentUser = userBloc.state.current;
 
-    // Define editabilidade
     if (forceEditable != null) {
       isEditable = forceEditable!;
     } else if (_currentUser != null) {
@@ -97,6 +98,21 @@ class MainInformationController extends ChangeNotifier {
       // Sem usuário carregado: permite edição somente em criação
       isEditable = (initial?.id == null);
     }
+
+    // 👇 assina mudanças do usuário para refletir permissões em tempo real
+    _userSub?.cancel();
+    _userSub = userBloc.stream.listen((st) {
+      final prevId = _currentUser?.id;
+      _currentUser = st.current;
+      final nowId = _currentUser?.id;
+
+      final perms = _currentUser?.modulePermissions[moduleKey] ?? const {};
+      final newEditable = forceEditable ?? ((perms['create'] == true) || (perms['edit'] == true));
+      if (newEditable != isEditable || prevId != nowId) {
+        isEditable = newEditable;
+        notifyListeners();
+      }
+    });
 
     contractData = initial ?? ContractData();
     _preencherCampos();
@@ -108,7 +124,7 @@ class MainInformationController extends ChangeNotifier {
   String _getText(TextEditingController c) => c.text.trim();
   double? _getDouble(TextEditingController c) => stringToDouble(c.text.trim());
 
-  // ==== Sincronização Data <-> Controllers ====
+  // ==== Data <-> Controllers ====
   void _preencherCampos() {
     _setText(contractStatusCtrl, contractData.contractStatus);
     _setText(initialValueOfContractCtrl, priceToString(contractData.initialValueContract));
@@ -183,7 +199,6 @@ class MainInformationController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // ✅ Salva no Firestore (não é Storage!)
       contractData = await contractsStore.saveOrUpdate(contractData);
       onSaved?.call(contractData);
 
@@ -202,7 +217,6 @@ class MainInformationController extends ChangeNotifier {
     }
   }
 
-  /// Após upload no Storage (feito fora), salvar a URL no Firestore e atualizar UI.
   Future<void> salvarUrlPdfDoContratoEAtualizarUI(
       BuildContext context, {
         required String contractId,
@@ -210,9 +224,7 @@ class MainInformationController extends ChangeNotifier {
         void Function(ContractData)? onSaved,
       }) async {
     try {
-      // ✅ grava metadado no Firestore
       await contractsStore.salvarUrlPdfDoContrato(contractId, url);
-
       await _refreshByIdIfNeeded();
       _preencherCampos();
       notifyListeners();
@@ -248,6 +260,8 @@ class MainInformationController extends ChangeNotifier {
   // ==== Dispose ====
   @override
   void dispose() {
+    _userSub?.cancel(); // 👈 importante
+
     contractStatusCtrl.dispose();
     initialValueOfContractCtrl.dispose();
 

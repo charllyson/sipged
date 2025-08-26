@@ -1,21 +1,23 @@
-// lib/screens/sectors/traffic/accidents/controllers/accidents_controller.dart
 import 'dart:math' as math;
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
 
 import 'package:sisged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
-import 'package:sisged/_blocs/system/system_bloc.dart';
-import 'package:sisged/_datas/sectors/transit/accidents/accidents_data.dart';
-import 'package:sisged/_datas/system/user_data.dart';
-import 'package:sisged/_blocs/system/user_provider.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_blocs/system/info/system_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
 
-import 'package:sisged/_blocs/widgets/map_bloc.dart';
-import 'package:sisged/_datas/widgets/regional_geo_json_class.dart';
-import 'package:sisged/_services/geo_json_service.dart';
+import 'package:sisged/_blocs/sectors/transit/accidents/accidents_data.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
+
+import 'package:sisged/_blocs/widgets/map/geo_json_service.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
+
+import 'package:sisged/_blocs/widgets/map/map_bloc.dart';
+import 'package:sisged/_blocs/widgets/map/regional_geo_json_class.dart';
 
 /// Controlador unificado: formulário + paginação + filtros globais + gráficos/mapa.
 class AccidentsController extends ChangeNotifier {
@@ -111,7 +113,6 @@ class AccidentsController extends ChangeNotifier {
   // gráficos
   Map<String, double> _totaisPorCidade = {};
   Map<String, double> _totaisPorTipo = {};
-  Map<String, double> _mortesPorCidade = {};
   List<String> labelsRegiao = [];
   List<double> valuesRegiao = [];
   List<String> labelsType = [];
@@ -142,7 +143,8 @@ class AccidentsController extends ChangeNotifier {
     if (initRan) return;
     initRan = true;
 
-    final user = context.read<UserProvider>().userData;
+    // 👇 pega usuário atual via UserBloc (não usa mais UserProvider)
+    final UserData? user = context.read<UserBloc>().state.current;
     if (user != null) isEditable = _canEditUser(user);
 
     _setLoading(true);
@@ -152,7 +154,7 @@ class AccidentsController extends ChangeNotifier {
       // Carrega tudo
       _all = await _accidentsBloc.getAllAccidents();
 
-      // Filtro padrão: ano atual (como era o AccidentsController)
+      // Filtro padrão: ano atual
       yearFilter = DateTime.now().year;
       monthFilter = null;
 
@@ -226,7 +228,6 @@ class AccidentsController extends ChangeNotifier {
   }
 
   Future<void> onSelectorChanged({int? year, int? month}) async {
-    // Atualiza filtros globais e refaz tudo
     _setLoading(true);
     try {
       yearFilter = year;
@@ -248,10 +249,12 @@ class AccidentsController extends ChangeNotifier {
     }
   }
 
-  Future<void> _sliceAndCalcPagination({required bool resetToFirstPage, required bool allowReset}) async {
+  Future<void> _sliceAndCalcPagination({
+    required bool resetToFirstPage,
+    required bool allowReset,
+  }) async {
     isFiltering = true;
     try {
-      // Para a tabela, usamos _view (pós filtros locais)
       _filtered = List<AccidentsData>.from(_view)
         ..sort((a, b) {
           final ad = a.date ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -289,7 +292,9 @@ class AccidentsController extends ChangeNotifier {
       return;
     }
     final start = (currentPage - 1) * limitPerPage;
-    final end = (start + limitPerPage) > _filtered.length ? _filtered.length : (start + limitPerPage);
+    final end = (start + limitPerPage) > _filtered.length
+        ? _filtered.length
+        : (start + limitPerPage);
     pageItems = _filtered.sublist(start, end);
   }
 
@@ -426,7 +431,10 @@ class AccidentsController extends ChangeNotifier {
 
     // Recarrega bases (tudo e período) para manter dashboard + tabela coerentes
     _all = await _accidentsBloc.getAllAccidents();
-    _byYearMonth = await _accidentsBloc.getAllAccidents(year: yearFilter, month: monthFilter);
+    _byYearMonth = await _accidentsBloc.getAllAccidents(
+      year: yearFilter,
+      month: monthFilter,
+    );
 
     selectorUniverse = List<AccidentsData>.from(_all);
     _allUniverse = List<AccidentsData>.from(selectorUniverse);
@@ -441,7 +449,10 @@ class AccidentsController extends ChangeNotifier {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Acidente salvo com sucesso!'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Acidente salvo com sucesso!'),
+          backgroundColor: Colors.green,
+        ),
       );
     }
 
@@ -461,7 +472,10 @@ class AccidentsController extends ChangeNotifier {
     await _accidentsBloc.deletarAccident(id: id, year: year);
 
     _all = await _accidentsBloc.getAllAccidents();
-    _byYearMonth = await _accidentsBloc.getAllAccidents(year: yearFilter, month: monthFilter);
+    _byYearMonth = await _accidentsBloc.getAllAccidents(
+      year: yearFilter,
+      month: monthFilter,
+    );
 
     selectorUniverse = List<AccidentsData>.from(_all);
     _allUniverse = List<AccidentsData>.from(selectorUniverse);
@@ -474,7 +488,10 @@ class AccidentsController extends ChangeNotifier {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Acidente apagado com sucesso.'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Acidente apagado com sucesso.'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
 
@@ -526,8 +543,14 @@ class AccidentsController extends ChangeNotifier {
         title: const Text('Confirmação'),
         content: Text(msg),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
         ],
       ),
     ) ??
@@ -557,8 +580,8 @@ class AccidentsController extends ChangeNotifier {
       await _recalcChartsAndSummary();
       _safeNotify();
     } else {
-      selectedIndexType =
-          labelsType.indexWhere((t) => t.toUpperCase() == selectedAccidentType?.toUpperCase());
+      selectedIndexType = labelsType
+          .indexWhere((t) => t.toUpperCase() == selectedAccidentType?.toUpperCase());
       _safeNotify();
     }
   }
@@ -629,7 +652,6 @@ class AccidentsController extends ChangeNotifier {
   Future<void> _recalcularGraficos() async {
     _totaisPorCidade = await _accidentsBloc.getValoresPorCidade(_view);
     _totaisPorTipo   = await _accidentsBloc.getTotaisPorTipoAcidente(_view);
-    _mortesPorCidade = await _accidentsBloc.getMortesPorCidade(_view);
 
     labelsRegiao = _totaisPorCidade.entries.where((e) => e.value > 0).map((e) => e.key).toList();
     valuesRegiao = _totaisPorCidade.entries.where((e) => e.value > 0).map((e) => e.value).toList();

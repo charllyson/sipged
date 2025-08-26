@@ -1,44 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/_datas/documents/measurement/reports/report_measurement_store.dart';
 
-import 'package:sisged/_blocs/system/user_provider.dart';
-import 'package:sisged/screens/commons/listContracts/list_contract_page.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_store.dart';
+
+import 'package:sisged/_widgets/listContracts/list_contracts_controller.dart';
+import 'package:sisged/screens/actives/oaes/network/active_oaes_network_page.dart';
 import 'package:sisged/screens/sectors/financial/dashboard/dashboard_financial_page.dart';
 import 'package:sisged/screens/sectors/financial/tab_bar_financial_page.dart';
 import 'package:sisged/screens/sectors/operation/desapropriation/desapropriation_page.dart';
 import 'package:sisged/screens/sectors/operation/schedule/schedule_page.dart';
-import 'package:sisged/screens/sectors/planning/planning_dashboard.dart';
-import 'package:sisged/screens/sectors/planning/planning_registration_page.dart';
+import 'package:sisged/screens/sectors/planning/environment/planning_environment_dashboard.dart';
+import 'package:sisged/screens/sectors/planning/projects/planning_projects_dashboard.dart';
+import 'package:sisged/screens/sectors/planning/projects/planning_projects_registration_page.dart';
 import 'package:sisged/screens/menus/menu_drawer.dart';
-import 'package:sisged/screens/actives/oaes/active_oaes_records_page.dart';
-import 'package:sisged/screens/actives/roads/active_roads_dashboard_page.dart';
-import 'package:sisged/screens/actives/roads/active_roads_records_page.dart';
+import 'package:sisged/screens/actives/oaes/records/active_oaes_records_page.dart';
+import 'package:sisged/screens/actives/roads/records/active_roads_records_page.dart';
 
-import 'package:sisged/_datas/system/pages_data.dart';
+import 'package:sisged/_blocs/system/pages/pages_data.dart';
 import 'package:sisged/_widgets/buttons/float_button_menu.dart';
-import 'package:sisged/screens/actives/oaes/active_oaes_network_page.dart';
-import 'package:sisged/screens/commons/listContracts/list_contracts_controller.dart';
 import 'package:sisged/screens/documents/contract/tab_bar_contract_page.dart';
 import 'package:sisged/screens/documents/measurement/tab_bar_measurement_page.dart';
-import 'package:sisged/screens/sectors/operation/dashboard/dashboard_body.dart';
-import 'package:sisged/screens/sectors/operation/dashboard/dashboard_controller.dart';
+import 'package:sisged/screens/sectors/planning/rightOfWay/planning_right_of_way_dashboard.dart';
+import 'package:sisged/screens/sectors/planning/rightOfWay/planning_right_of_way_registration_page.dart';
 import 'package:sisged/screens/sectors/traffic/accidents/accidents_records_page.dart';
 import 'package:sisged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
 import 'package:sisged/screens/sectors/traffic/infrations/infractions_records_page.dart';
 
 import 'package:sisged/_blocs/sectors/operation/schedule_bloc.dart';
-import 'package:sisged/_datas/actives/oaes/active_oaes_store.dart';
-import 'package:sisged/_datas/documents/contracts/additive/additive_store.dart';
-import 'package:sisged/_datas/documents/contracts/apostilles/apostilles_store.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_store.dart';
-import 'package:sisged/screens/actives/oaes/active_oaes_controller.dart';
-import 'package:sisged/screens/actives/oaes/active_oaes_dashboard.dart';
-import 'package:sisged/screens/actives/roads/active_roads_network_page.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_store.dart';
+import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_store.dart';
+import 'package:sisged/screens/actives/roads/network/active_roads_network_page.dart';
 
-import '../../_repository/sectors/operation/schedule_repository.dart';
+import '../../_blocs/sectors/operation/schedule_repository.dart';
+import '../../_widgets/listContracts/list_contract_page.dart';
+import '../documents/contract/dashboard/dashboard_contracts_body.dart';
+import '../../_blocs/documents/contracts/contracts/contracts_controller.dart';
 import '../sectors/traffic/infractions-dashboard/infractions_dashboard_page.dart';
+
+// BLoC de usuário
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_event.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
 
 class MenuListPage extends StatefulWidget {
   const MenuListPage({super.key});
@@ -48,8 +53,9 @@ class MenuListPage extends StatefulWidget {
 }
 
 class _MenuListPageState extends State<MenuListPage> {
-  MenuItem _selectedItem = MenuItem.trafficAccidentsRecords;
-  bool _didWarmup = false;
+  MenuItem _selectedItem = MenuItem.documentsContractsDashboard;
+  bool _didWarmupUserBloc = false;   // warmup do UserBloc
+  bool _didWarmupStores = false;     // warmup do ContractsStore
 
   void _onSelectPage(MenuItem item) {
     setState(() => _selectedItem = item);
@@ -59,19 +65,17 @@ class _MenuListPageState extends State<MenuListPage> {
   Widget _buildContractsListPage(ContractNavigationCallback onTap) {
     return ChangeNotifierProvider<ListContractsController>(
       create: (ctx) => ListContractsController.create(ctx),
-      child: ListContractsFilteredPage(
-          onTapItem: onTap,
-      ),
+      child: ListContractsFilteredPage(onTapItem: onTap),
     );
   }
 
-  Widget _getPage(MenuItem item) {
+  Widget _getPage(MenuItem item, UserData currentUser) {
     switch (item) {
     /// SETOR DE DOCUMENTOS ///
       case MenuItem.documentsContractsDashboard:
         return ChangeNotifierProvider(
           create: (ctx) {
-            final ctrl = DashboardController(
+            final ctrl = ContractsController(
               store: ctx.read<ContractsStore>(),
               additivesStore: ctx.read<AdditivesStore>(),
               apostillesStore: ctx.read<ApostillesStore>(),
@@ -91,9 +95,7 @@ class _MenuListPageState extends State<MenuListPage> {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => TabBarContractPage(
-                contractData: contract,
-              ),
+              builder: (_) => TabBarContractPage(contractData: contract),
             ),
           );
         });
@@ -101,7 +103,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case MenuItem.documentsMeasurementsDashboard:
         return ChangeNotifierProvider(
           create: (ctx) {
-            final ctrl = DashboardController(
+            final ctrl = ContractsController(
               store: ctx.read<ContractsStore>(),
               additivesStore: ctx.read<AdditivesStore>(),
               apostillesStore: ctx.read<ApostillesStore>(),
@@ -120,9 +122,9 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => TabBarMeasurementPage(
-              contractData: contract,
-            )),
+            MaterialPageRoute(
+              builder: (_) => TabBarMeasurementPage(contractData: contract),
+            ),
           );
         });
 
@@ -146,7 +148,7 @@ class _MenuListPageState extends State<MenuListPage> {
       case MenuItem.operationExpropriationDashboard:
         return ChangeNotifierProvider(
           create: (ctx) {
-            final ctrl = DashboardController(
+            final ctrl = ContractsController(
               store: ctx.read<ContractsStore>(),
               additivesStore: ctx.read<AdditivesStore>(),
               apostillesStore: ctx.read<ApostillesStore>(),
@@ -172,10 +174,18 @@ class _MenuListPageState extends State<MenuListPage> {
         });
 
     /// SETOR DE PLANEJAMENTO ///
-      case MenuItem.planningDashboard:
-        return const PlanningDashboardPage();
-      case MenuItem.planningRegistration:
-        return const PlanningRegistrationPage();
+      case MenuItem.planningProjectDashboard:
+        return const PlanningProjectsDashboardPage();
+      case MenuItem.planningProjectRegistration:
+        return const PlanningProjectsRegistrationPage();
+      case MenuItem.planningRightOfWayDashboard:
+        return const PlanningRightOfWayDashboard();
+      case MenuItem.planningRightOfWayRecords:
+        return const PlanningRightOfWayRegistrationPage();
+      case MenuItem.planningEnvironmentDashboard:
+        return const PlanningEnvironmentDashboardPage();
+      case MenuItem.planningEnvironmentRecords:
+        return const PlanningEnvironmentDashboardPage();
 
     /// SETOR DE TRANSPORTE ///
       case MenuItem.trafficAccidentsDashboard:
@@ -195,9 +205,9 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => TabBarFinancialPage(
-              contractData: contract, // ✅ passa o contrato selecionado
-            )),
+            MaterialPageRoute(
+              builder: (_) => TabBarFinancialPage(contractData: contract),
+            ),
           );
         });
 
@@ -208,61 +218,37 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => TabBarFinancialPage(
-              contractData: contract, // ✅ passa o contrato selecionado
-            )),
+            MaterialPageRoute(
+              builder: (_) => TabBarFinancialPage(contractData: contract),
+            ),
           );
         });
 
     /// ATIVOS DE RODOVIAS ///
-      case MenuItem.activeRoadDashboard:
-        return const ActiveRoadsDashboardPage();
       case MenuItem.activeRoadNetwork:
         return const ActiveRoadsNetworkPage();
       case MenuItem.activeRoadRegistration:
         return const ActiveRoadsRecordsPage();
 
     /// ATIVOS DE OAEs ///
-      case MenuItem.activeOAEsDashboard:
-        return const ActiveOaesDashboardPage();
       case MenuItem.activesOAEsNetwork:
-        return ChangeNotifierProvider(
-          create: (ctx) => ActiveOaesController(
-            store: ctx.read<ActiveOaesStore>(),
-            currentUser: ctx.read<UserProvider>().userData!, // já garantido antes
-          ),
-          child: const ActiveOAEsNetworkPage(),
-        );
-
+        return const ActiveOAEsNetworkPage();
       case MenuItem.activeOAEsRegistration:
-        return ChangeNotifierProvider(
-          create: (ctx) => ActiveOaesController(
-            store: ctx.read<ActiveOaesStore>(),
-            currentUser: ctx.read<UserProvider>().userData!,
-          ),
-          child: const ActiveOaesRecordsPage(),
-        );
-
+        return const ActiveOaesRecordsPage();
 
     /// ATIVOS DE AEROPORTOS ///
-      case MenuItem.activeAirportsDashboard:
-        return const ActiveRoadsDashboardPage();
       case MenuItem.activeAirportsNetwork:
         return const ActiveRoadsNetworkPage();
       case MenuItem.activeAirportsRegistration:
         return const ActiveRoadsRecordsPage();
 
     /// ATIVOS DE FERROVIAS ///
-      case MenuItem.activeRailwaysDashboard:
-        return const ActiveRoadsDashboardPage();
       case MenuItem.activeRailwaysNetwork:
         return const ActiveRoadsNetworkPage();
       case MenuItem.activeRailwaysRegistration:
         return const ActiveRoadsRecordsPage();
 
     /// ATIVOS DE PORTOS ///
-      case MenuItem.activePortsDashboard:
-        return const ActiveRoadsDashboardPage();
       case MenuItem.activePortsNetwork:
         return const ActiveRoadsNetworkPage();
       case MenuItem.activeRegistrationPorts:
@@ -272,22 +258,37 @@ class _MenuListPageState extends State<MenuListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<UserProvider>(
-      builder: (context, userProvider, _) {
-        final userData = userProvider.userData;
+    // Dispara warmup do UserBloc uma única vez
+    if (!_didWarmupUserBloc) {
+      _didWarmupUserBloc = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<UserBloc>().add(const UserWarmupRequested(
+          listenRealtime: true,
+          bindCurrentUser: true,
+        ));
+      });
+    }
 
-        if (userData == null) {
+    return BlocBuilder<UserBloc, UserState>(
+      buildWhen: (prev, curr) =>
+      prev.current != curr.current || prev.isLoadingUsers != curr.isLoadingUsers,
+      builder: (context, userState) {
+        final currentUser = userState.current;
+
+        if (currentUser == null) {
           return const Scaffold(
             backgroundColor: Colors.white,
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // ✅ Agende apenas uma vez após o primeiro frame
-        if (!_didWarmup) {
-          _didWarmup = true;
+        // Warmup dos stores dependentes do usuário — uma vez
+        if (!_didWarmupStores) {
+          _didWarmupStores = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            context.read<ContractsStore>().warmup(userData);
+            context.read<ContractsStore>().warmup(currentUser);
+            // Se houver outros stores que dependem do usuário, faça aqui também.
+            // ex: context.read<AdditivesStore>().warmup(currentUser);
           });
         }
 
@@ -295,7 +296,10 @@ class _MenuListPageState extends State<MenuListPage> {
           backgroundColor: Colors.white,
           drawer: DrawerMenu(onTap: _onSelectPage),
           body: Stack(
-            children: [_getPage(_selectedItem), const FloatButtonMenu()],
+            children: [
+              _getPage(_selectedItem, currentUser),
+              const FloatButtonMenu(),
+            ],
           ),
         );
       },

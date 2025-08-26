@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/actives/active_road_bloc.dart';
+import 'package:sisged/_blocs/actives/roads/active_road_bloc.dart';
 import 'geojson_preview_dialog.dart';
 
 class ImportGeoJsonController {

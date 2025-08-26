@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
 
 class BuildValueChip extends StatelessWidget {
   final String title;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/table/paged_table_changed.dart';
-import '../../../../_datas/sectors/transit/infractions/infractions_data.dart';
+import '../../../../_blocs/sectors/transit/infractions/infractions_data.dart';
 
 class InfractionsTableSection extends StatelessWidget {
   final List<InfractionsData> listData;

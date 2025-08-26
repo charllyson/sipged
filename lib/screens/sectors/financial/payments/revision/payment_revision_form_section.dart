@@ -8,11 +8,11 @@ import 'package:sisged/screens/sectors/financial/payments/revision/payment_revis
 import 'package:sisged/_widgets/archives/pdf/web_pdf_controller.dart';
 import 'package:sisged/_widgets/input/custom_date_field.dart';
 import 'package:sisged/_widgets/input/custom_text_field.dart';
-import 'package:sisged/_widgets/mask_class.dart';
-import 'package:sisged/_widgets/formats/input_formatters.dart';
+import 'package:sisged/_utils/mask_class.dart';
+import 'package:sisged/_utils/formats/input_formatters.dart';
 import 'package:sisged/_widgets/archives/pdf/web_pdf_widget.dart';
 
-import 'package:sisged/_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 
 class PaymentRevisionFormSection extends StatelessWidget {
   const PaymentRevisionFormSection({super.key});

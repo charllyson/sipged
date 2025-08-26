@@ -9,7 +9,7 @@ import 'package:sisged/_blocs/documents/measurement/report/report_measurement_st
 import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
 import 'package:sisged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
 import 'package:sisged/_blocs/sectors/financial/payments/revision/payment_revision_storage_bloc.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 class WebPdfWidgetGeneric<T> extends StatefulWidget {
   const WebPdfWidgetGeneric({

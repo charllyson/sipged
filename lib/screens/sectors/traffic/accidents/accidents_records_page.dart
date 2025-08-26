@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:sisged/_blocs/sectors/transit/accidents/accidents_controller.dart';
 
 import 'package:sisged/_widgets/background/background_cleaner.dart';
+import 'package:sisged/_widgets/footBar/foot_bar.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/screens/commons/footBar/foot_bar.dart';
-import 'package:sisged/screens/commons/upBar/up_bar.dart';
+import 'package:sisged/_widgets/upBar/up_bar.dart';
 import 'package:sisged/_widgets/map/map_interactive.dart';
 
 // SEÇÕES

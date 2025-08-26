@@ -1,4 +1,3 @@
-// lib/main.dart
 import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
@@ -7,10 +6,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ************ IMPORTS via package: ************
-import 'package:sisged/_blocs/actives/active_road_bloc.dart';
-import 'package:sisged/_blocs/actives/active_oaes_bloc.dart';
+import 'package:sisged/_blocs/actives/roads/active_road_bloc.dart';
+import 'package:sisged/_blocs/actives/oaes/active_oaes_bloc.dart';
 
 import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
@@ -33,29 +33,35 @@ import 'package:sisged/_blocs/sectors/transit/accidents/accidents_controller.dar
 import 'package:sisged/_blocs/sectors/transit/infractions/infractions_bloc.dart';
 import 'package:sisged/_blocs/sectors/transit/infractions/infractions_controller.dart';
 
-import 'package:sisged/_blocs/system/admin_bloc.dart';
+import 'package:sisged/_blocs/system/user/admin_bloc.dart';
 import 'package:sisged/_blocs/system/login/login_bloc.dart';
-import 'package:sisged/_blocs/system/system_bloc.dart';
-import 'package:sisged/_blocs/system/user_provider.dart';
+import 'package:sisged/_blocs/system/info/system_bloc.dart';
 
-import 'package:sisged/_datas/actives/oaes/active_oaes_store.dart';
-import 'package:sisged/_datas/actives/roads/active_roads_store.dart';
-import 'package:sisged/_datas/documents/contracts/additive/additive_store.dart';
-import 'package:sisged/_datas/documents/contracts/apostilles/apostilles_store.dart';
-import 'package:sisged/_datas/documents/contracts/budget/budget_store.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_store.dart';
-import 'package:sisged/_datas/documents/contracts/validity/validity_store.dart';
-import 'package:sisged/_datas/documents/measurement/reports/report_measurement_store.dart';
+import 'package:sisged/_blocs/actives/roads/active_roads_store.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_store.dart';
+import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
+import 'package:sisged/_blocs/documents/contracts/budget/budget_store.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_store.dart';
+import 'package:sisged/_blocs/documents/contracts/validity/validity_store.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_store.dart';
 
-import 'package:sisged/_repository/system/user_repository.dart';
-
+import 'package:sisged/_blocs/system/user/user_repository.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contracts_controller.dart';
 import 'package:sisged/siged_page.dart';
+
+// OAEs
+import '_blocs/actives/oaes/active_oaes_repository.dart';
+import '_blocs/actives/oaes/active_oaes_event.dart'; // para ActiveOaesWarmupRequested
+
+// User
+import '_blocs/system/user/user_bloc.dart';
+import '_blocs/system/user/user_event.dart';
+import '_blocs/system/user/user_state.dart';
 
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // Handlers de erro mais "seguros" pro Web (evita travar hot-restart)
     FlutterError.onError = (details) {
       if (kIsWeb) {
         debugPrint('FlutterError (web): ${details.exceptionAsString()}');
@@ -69,7 +75,7 @@ void main() {
     PlatformDispatcher.instance.onError = (error, stack) {
       debugPrint('PlatformDispatcher error: $error');
       debugPrint(stack.toString());
-      return true; // impede crash em release/web
+      return true;
     };
 
     await initializeDateFormatting('pt_BR');
@@ -88,7 +94,6 @@ void main() {
           : null,
     );
 
-    // Provider antigo pode acusar tipos Web/JS — desliga checagem
     Provider.debugCheckInvalidValueType = null;
 
     runApp(
@@ -101,13 +106,13 @@ void main() {
 
           /// ======= User =======
           Provider<UserRepository>(create: (_) => UserRepository()),
-          ChangeNotifierProvider<UserProvider>(
-            create: (ctx) {
-              final up = UserProvider(repo: ctx.read<UserRepository>());
-              Future.microtask(() => up.ensureLoaded(listenRealtime: true));
-              up.bindCurrentUser();
-              return up;
-            },
+          Provider<UserBloc>(
+            create: (ctx) => UserBloc(ctx.read<UserRepository>())
+              ..add(const UserWarmupRequested(
+                listenRealtime: true,
+                bindCurrentUser: true,
+              )),
+            dispose: (_, b) => b.close(),
           ),
 
           /// ======= Contract =======
@@ -163,20 +168,17 @@ void main() {
             create: (ctx) => BudgetStore(bloc: ctx.read<BudgetBloc>()),
           ),
 
-          /// ======= Oaes =======
-          Provider<ActiveOaesBloc>(create: (_) => ActiveOaesBloc()),
-          ChangeNotifierProvider<ActiveOaesStore>(
-            create: (ctx) => ActiveOaesStore(ctx.read<ActiveOaesBloc>()),
-          ),
+          /// ======= OAEs =======
+          Provider<ActiveOaesRepository>(create: (_) => ActiveOaesRepository()),
 
-          /// ======= Roads =======
+          /// ======= Roads (removido duplicado) =======
           Provider<ActiveRoadsBloc>(create: (_) => ActiveRoadsBloc()),
           ChangeNotifierProvider<ActiveRoadsStore>(
             create: (ctx) => ActiveRoadsStore(bloc: ctx.read<ActiveRoadsBloc>()),
           ),
 
           /// ======= Accidents =======
-          Provider<AccidentsBloc>(create: (_) => AccidentsBloc(), dispose: (_, b) => b.dispose(),),
+          Provider<AccidentsBloc>(create: (_) => AccidentsBloc(), dispose: (_, b) => b.dispose()),
           ChangeNotifierProxyProvider2<AccidentsBloc, SystemBloc, AccidentsController>(
             create: (ctx) => AccidentsController(
               accidentsBloc: ctx.read<AccidentsBloc>(),
@@ -186,26 +188,49 @@ void main() {
           ),
 
           /// ======= Infractions =======
-          Provider<InfractionsBloc>(create: (_) => InfractionsBloc(), dispose: (_, b) => b.dispose(),),
+          Provider<InfractionsBloc>(create: (_) => InfractionsBloc(), dispose: (_, b) => b.dispose()),
           ChangeNotifierProxyProvider<InfractionsBloc, InfractionsController>(
-            create: (ctx) => InfractionsController(
-              bloc: ctx.read<InfractionsBloc>(),
-            ),
+            create: (ctx) => InfractionsController(bloc: ctx.read<InfractionsBloc>()),
             update: (_, iBloc, ctrl) => ctrl!..updateDeps(iBloc),
           ),
 
-          /// ======= Payments Report =======
+          /// ======= Dashboard =======
+          ChangeNotifierProvider<ContractsController>(
+            create: (ctx) => ContractsController(
+              store: ctx.read<ContractsStore>(),
+              additivesStore: ctx.read<AdditivesStore>(),
+              apostillesStore: ctx.read<ApostillesStore>(),
+              reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
+            )..initialize(),
+          ),
+
+          /// ======= Payments =======
           Provider<PaymentReportBloc>(create: (_) => PaymentReportBloc()),
           Provider<PaymentsReportStorageBloc>(create: (_) => PaymentsReportStorageBloc()),
-
-          /// ======= Payments Revision =======
           Provider<PaymentRevisionBloc>(create: (_) => PaymentRevisionBloc()),
-
-          /// ======= Payments Adjustment =======
           Provider<PaymentAdjustmentBloc>(create: (_) => PaymentAdjustmentBloc()),
-
         ],
-        child: const SisGed(),
+        // ⚠️ Use 'builder' para injetar o ActiveOaesBloc após o User estar pronto
+        builder: (context, _) {
+          return BlocBuilder<UserBloc, UserState>(
+            buildWhen: (a, b) => a.current != b.current,
+            builder: (context, userState) {
+              // Árvore base da app
+              final app = const SisGed();
+
+              // Sem usuário ainda? não injeta o OAEsBloc (evita provider "vazio")
+              if (userState.current == null) {
+                return app;
+              }
+
+              // Quando houver usuário, envolve a app com o BlocProvider de OAEs
+              return BlocProvider<ActiveOaesBloc>(
+                create: (_) => ActiveOaesBloc()..add(const ActiveOaesWarmupRequested()),
+                child: app,
+              );
+            },
+          );
+        },
       ),
     );
   }, (error, stack) {

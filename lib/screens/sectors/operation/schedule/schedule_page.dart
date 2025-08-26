@@ -6,14 +6,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 // UI base
 import 'package:sisged/_widgets/background/background_cleaner.dart';
-import 'package:sisged/screens/commons/footBar/foot_bar.dart';
-import 'package:sisged/screens/commons/upBar/up_bar.dart';
+import 'package:sisged/_widgets/footBar/foot_bar.dart';
+import 'package:sisged/_widgets/upBar/up_bar.dart';
 
 // Domínio / dados
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_data.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_lane_class.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_modal_result_class.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
+import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_modal_result_class.dart';
 
 // Widgets do Schedule
 import 'package:sisged/_widgets/schedule/schedule_header.dart';
@@ -22,18 +22,18 @@ import 'package:sisged/_widgets/schedule/schedule_menu_buttons.dart';
 import 'package:sisged/_widgets/schedule/schedule_sub_header.dart';
 
 // Editor de faixas e Modal de resultado
-import 'package:sisged/screens/sectors/operation/schedule/schedule_lanes_edit.dart';
-import 'package:sisged/screens/sectors/operation/schedule/schedule_modal_result.dart';
+import 'package:sisged/screens/sectors/operation/schedule/schedule_lanes_edit_section.dart';
+import 'package:sisged/screens/sectors/operation/schedule/schedule_modal_section.dart';
 
 // Bloc + Repo
 import 'package:sisged/_blocs/sectors/operation/schedule_bloc.dart';
 import 'package:sisged/_blocs/sectors/operation/schedule_event.dart';
 import 'package:sisged/_blocs/sectors/operation/schedule_state.dart';
-import 'package:sisged/_repository/sectors/operation/schedule_repository.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_repository.dart';
 
 // Controller ÚNICO de UI
 import 'package:sisged/_widgets/schedule/schedule_status.dart';
-import 'package:sisged/screens/sectors/operation/schedule/schedule_ui_controller.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_controller.dart';
 
 class SchedulePage extends StatefulWidget {
   final ContractData? contractData;
@@ -274,7 +274,7 @@ class _SchedulePageState extends State<SchedulePage> {
       _modalOpen = true;
 
       // Controller do modal — TODA a lógica fica nele
-      final ctrl = ScheduleUiController(
+      final ctrl = ScheduleController(
         initialStatus: ScheduleStatusX.fromString(e.status),
         initialComment: e.comentario,
         initialDate: DateTime.now(),
@@ -287,7 +287,7 @@ class _SchedulePageState extends State<SchedulePage> {
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
-        builder: (_) => ScheduleModalResult(
+        builder: (_) => ScheduleModalSection(
           title: _titleForHeader(state),
           count: 1,
           controller: ctrl, // UI boba + controller com a lógica
@@ -388,7 +388,7 @@ class _SchedulePageState extends State<SchedulePage> {
     _modalOpen = true;
 
     // Controller do modal (batch)
-    final ctrl = ScheduleUiController(
+    final ctrl = ScheduleController(
       initialStatus: ScheduleStatus.aIniciar,
       initialComment: '',
       initialDate: DateTime.now(),
@@ -398,7 +398,7 @@ class _SchedulePageState extends State<SchedulePage> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => ScheduleModalResult(
+      builder: (_) => ScheduleModalSection(
         title: _titleForHeader(state),
         count: _selectedKeys.length,
         controller: ctrl,

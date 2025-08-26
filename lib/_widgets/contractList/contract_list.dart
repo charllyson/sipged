@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_style.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_style.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
 
-import 'package:sisged/_datas/documents/contracts/contracts/contract_rules.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:sisged/screens/documents/contract/tab_bar_contract_page.dart';
 
 class ContractList extends StatelessWidget {

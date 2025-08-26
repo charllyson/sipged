@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sisged/_datas/documents/contracts/budget/budget_data.dart';
+import 'package:sisged/_blocs/documents/contracts/budget/budget_data.dart';
 
 class BudgetBloc {
   CollectionReference<Map<String, dynamic>> _base(String contractId) =>
@@ -8,7 +8,7 @@ class BudgetBloc {
           .doc(contractId)
           .collection('budget');
 
-  /// ---------- SAVE (aninhado) ----------
+  // ---------- SAVE (aninhado) ----------
   Future<void> saveBudgetNested({
     required String contractId,
     required List<String> headers,
@@ -117,7 +117,7 @@ class BudgetBloc {
     }
   }
 
-  /// ---------- LOAD (aninhado) ----------
+  // ---------- LOAD (aninhado) ----------
   Future<BudgetData> loadBudgetNested(String contractId) async {
     final metaRef = _base(contractId).doc('meta');
     final metaSnap = await metaRef.get();
@@ -156,10 +156,7 @@ class BudgetBloc {
         table.add(sectionRow);
       }
 
-      final items = await g.reference
-          .collection('items')
-          .orderBy('index')
-          .get();
+      final items = await g.reference.collection('items').orderBy('index').get();
 
       for (final it in items.docs) {
         final data = it.data();
@@ -175,4 +172,7 @@ class BudgetBloc {
       colWidths: colWidths,
     );
   }
+
+  /// Como não há streams/timers, o dispose é no-op — existe só para Provider aceitar `dispose:`.
+  void dispose() {}
 }

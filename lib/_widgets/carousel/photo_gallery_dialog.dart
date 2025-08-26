@@ -8,7 +8,7 @@ import 'dart:js_util' as jsu;
 import 'package:sisged/_widgets/carousel/photo_item.dart';
 import 'package:sisged/_utils/images/web_fetch_bytes.dart' show fetchBytesWeb;
 import 'package:sisged/_utils/images/heic_web_convert.dart' show convertHeicBytesToJpegWeb;
-import 'package:sisged/_datas/widgets/pickedPhoto/carousel_metadata.dart' as pm;
+import 'package:sisged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
 import 'photo_metadata_overlay.dart';
 

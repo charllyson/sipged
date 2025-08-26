@@ -4,9 +4,9 @@ import 'package:sisged/_utils/date_utils.dart';
 import 'package:sisged/_widgets/table/simple_table_changed.dart';
 import 'package:sisged/screens/sectors/financial/payments/report/payment_report_controller.dart';
 
-import 'package:sisged/_datas/sectors/financial/payments/reports/payments_reports_data.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
-import 'package:sisged/screens/documents/footer_rows_generic.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:sisged/_widgets/totalTableRows/footer_rows_generic.dart';
 
 class PaymentReportTableSection extends StatelessWidget {
   const PaymentReportTableSection({

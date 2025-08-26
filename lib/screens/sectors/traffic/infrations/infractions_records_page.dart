@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sisged/_widgets/footBar/foot_bar.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
+import 'package:sisged/_widgets/upBar/up_bar.dart';
 
 import '../../../../_blocs/sectors/transit/infractions/infractions_bloc.dart';
 import '../../../../_widgets/background/background_cleaner.dart';
-import '../../../commons/footBar/foot_bar.dart';
-import '../../../commons/upBar/up_bar.dart';
 import '../../../../_blocs/sectors/transit/infractions/infractions_controller.dart';
 
 // SEÇÕES

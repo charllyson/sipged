@@ -1,19 +1,24 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
 
-import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_utils/validates/form_validation_mixin.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
 import 'package:sisged/_utils/date_utils.dart'
     show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-import 'package:sisged/_blocs/system/user_provider.dart';
-// ❌ REMOVA: '../../../../../_blocs/system/user_repository.dart';
+// REMOVER:
+/// import 'package:sisged/_blocs/system/user/user_provider.dart';
+
 import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:sisged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
 
-import 'package:sisged/_datas/system/user_data.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/sectors/financial/payments/reports/payments_reports_data.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 
 class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   PaymentsReportController({
@@ -25,6 +30,9 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   // ---- dependências (injetadas) ----
   final PaymentReportBloc _paymentReportBloc;
   final AdditivesBloc _additivesBloc;
+
+  // 👇 assinatura do UserBloc
+  StreamSubscription<UserState>? _userSub;
 
   // ---- contexto/entidades ----
   UserData? currentUser;
@@ -75,8 +83,24 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     contract = contractData;
     if (contract?.id == null) return;
 
-    currentUser = context.read<UserProvider>().userData;
+    // pega o usuário atual do UserBloc e calcula permissão
+    final userBloc = context.read<UserBloc>();
+    currentUser = userBloc.state.current;
     isEditable = _canEditUser(currentUser);
+
+    // assina para reagir a mudanças do usuário atual/perfis
+    _userSub?.cancel();
+    _userSub = userBloc.stream.listen((st) {
+      final prevId = currentUser?.id;
+      currentUser = st.current;
+      final nowId = currentUser?.id;
+
+      final newEditable = _canEditUser(currentUser);
+      if (newEditable != isEditable || prevId != nowId) {
+        isEditable = newEditable;
+        notifyListeners();
+      }
+    });
 
     setupValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateFormInternal);
     await _loadInitial();
@@ -84,6 +108,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
 
   @override
   void dispose() {
+    _userSub?.cancel(); // 👈 importante
+
     removeValidation([
       orderCtrl, processCtrl, valueCtrl, dateCtrl, stateCtrl, observationCtrl,
       bankCtrl, electronicTicketCtrl, fontCtrl, taxCtrl,
@@ -107,7 +133,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     if (user == null) return false;
     final base = (user.baseProfile ?? '').toLowerCase();
     if (base == 'administrador' || base == 'colaborador') return true;
-    final perms = user.modulePermissions['payments_report']; // nome do módulo que você preferir
+    final perms = user.modulePermissions['payments_report']; // módulo
     if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
     return false;
   }

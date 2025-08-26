@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import 'package:sisged/_widgets/charts/gauge_circular_percent.dart';
-import 'package:sisged/_widgets/charts/line_chart_changed.dart';
-import 'package:sisged/_widgets/charts/pieGraph/pie_chart_changed.dart';
+import 'package:sisged/_widgets/charts/gauges/gauge_circular_percent.dart';
+import 'package:sisged/_widgets/charts/lines/line_chart_changed.dart';
+import 'package:sisged/_widgets/charts/pies/pie_chart_changed.dart';
 
 class AdjustmentMeasurementGraphSection extends StatelessWidget {
   final List<String> labels;
@@ -31,8 +31,8 @@ class AdjustmentMeasurementGraphSection extends StatelessWidget {
         children: [
           const SizedBox(width: 12),
           GaugeCircularPercent(
-            percent: valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
-            label: 'Execução dos Reajustes',
+            centerTitle: valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
+            headerTitle: 'Execução dos Reajustes',
             radius: 70,
             larguraGrafico: 200,
             values: totalMedicoes.isNaN ? null : [totalMedicoes],

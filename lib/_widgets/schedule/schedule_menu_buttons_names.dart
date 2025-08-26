@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_style.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_style.dart';
 
 class ScheduleMenuButtonsNames {
   final String key;        // ex.: "terraplenagem"

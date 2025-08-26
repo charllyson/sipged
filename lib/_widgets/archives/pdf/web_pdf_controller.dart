@@ -11,14 +11,14 @@ import 'package:sisged/_blocs/sectors/financial/payments/report/payments_report_
 import 'package:sisged/_blocs/sectors/financial/payments/revision/payment_revision_storage_bloc.dart';
 
 // DATAS
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
-import 'package:sisged/_datas/documents/contracts/apostilles/apostilles_data.dart';
-import 'package:sisged/_datas/documents/contracts/validity/validity_data.dart';
-import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
-import 'package:sisged/_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
-import 'package:sisged/_datas/sectors/financial/payments/reports/payments_reports_data.dart';
-import 'package:sisged/_datas/sectors/financial/payments/revisions/payments_revisions_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_data.dart';
+import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
+import 'package:sisged/_blocs/documents/contracts/validity/validity_data.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 
 // VIEWER
 import 'package:sisged/_widgets/archives/pdf/pdf_preview_web.dart';

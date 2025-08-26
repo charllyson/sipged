@@ -1,19 +1,22 @@
 // lib/_controllers/documents/contracts/validity/validity_controller.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
 
-import 'package:sisged/_blocs/system/user_provider.dart';
 import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
+import 'package:sisged/_utils/validates/form_validation_mixin.dart';
 
 import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
 import 'package:sisged/_blocs/documents/contracts/validity/validity_bloc.dart';
 import 'package:sisged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
-import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/documents/contracts/validity/validity_data.dart';
-import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/validity/validity_data.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
 
 class ValidityController extends ChangeNotifier with FormValidationMixin {
   // Blocs Firestore
@@ -35,6 +38,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   bool isSaving = false;
   bool formValidated = false;
   bool isEditable = false;
+
+  // ==== User (via UserBloc) ====
+  StreamSubscription<UserState>? _userSub;
+  UserData? _currentUser;
 
   // Dados selecionados
   String? currentValidityId;
@@ -64,9 +71,25 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   }
 
   Future<void> postFrameInit(BuildContext context) async {
-    final user = context.read<UserProvider>().userData;
-    isEditable = _canEditUser(user);
+    // 👇 lê usuário atual e calcula permissão
+    final userBloc = context.read<UserBloc>();
+    _currentUser = userBloc.state.current;
+    isEditable = _canEditUser(_currentUser);
     notifyListeners();
+
+    // 👇 assina mudanças do UserBloc para refletir permissões em tempo real
+    _userSub?.cancel();
+    _userSub = userBloc.stream.listen((st) {
+      final prevId = _currentUser?.id;
+      _currentUser = st.current;
+      final nowId = _currentUser?.id;
+
+      final newEditable = _canEditUser(_currentUser);
+      if (newEditable != isEditable || prevId != nowId) {
+        isEditable = newEditable;
+        notifyListeners();
+      }
+    });
   }
 
   // ---- permissões (ajuste o nome do módulo se usar outro) ----
@@ -267,6 +290,7 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
 
   @override
   void dispose() {
+    _userSub?.cancel(); // 👈 importante
     removeValidation([orderTypeCtrl, orderDateCtrl], _validateForm);
     orderCtrl.dispose();
     orderTypeCtrl.dispose();

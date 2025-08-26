@@ -1,7 +1,7 @@
 // COMPLETO (puro)
 import 'package:flutter/material.dart';
 import 'package:sisged/_widgets/input/custom_text_field.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_lane_row_data.dart';
+import 'package:sisged/_widgets/schedule/schedule_lane_row_data.dart';
 
 class ScheduleLaneRow extends StatelessWidget {
   const ScheduleLaneRow({

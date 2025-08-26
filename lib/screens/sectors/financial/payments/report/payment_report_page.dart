@@ -4,12 +4,12 @@ import 'package:sisged/screens/sectors/financial/payments/report/payment_report_
 
 import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:sisged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
-import 'package:sisged/_datas/sectors/financial/payments/reports/payments_reports_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 import 'package:sisged/_widgets/texts/divider_text.dart';
 import 'package:sisged/admPanel/converters/importExcel/import_excel_page.dart';
-import 'package:sisged/screens/commons/footBar/foot_bar.dart';
+import 'package:sisged/_widgets/footBar/foot_bar.dart';
 
 import 'payment_report_chart_section.dart';
 import 'payment_report_form_section.dart';

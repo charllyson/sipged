@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:sisged/_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 
 /// Firestore-only para Ajustes de Pagamento.
 /// (Upload/Storage ficou no PaymentsAdjustmentStorageBloc.)

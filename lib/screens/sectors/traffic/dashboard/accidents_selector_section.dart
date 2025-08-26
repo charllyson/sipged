@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../_datas/sectors/transit/accidents/accidents_data.dart';
+import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
 import '../../../../_widgets/selectorDates/selectorDates.dart';
 import '../../../../_widgets/selectorDates/selector_dates_shimmer.dart';
 

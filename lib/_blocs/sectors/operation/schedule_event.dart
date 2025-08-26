@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_lane_class.dart';
+import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
 
 // Metadados de foto
-import 'package:sisged/_datas/widgets/pickedPhoto/carousel_metadata.dart' as pm;
+import 'package:sisged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
 abstract class ScheduleEvent extends Equatable {
   const ScheduleEvent();

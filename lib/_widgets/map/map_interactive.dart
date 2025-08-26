@@ -1,4 +1,5 @@
 // lib/_widgets/map/map_interactive.dart
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
@@ -6,13 +7,13 @@ import 'package:latlong2/latlong.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_datas/widgets/regional_geo_json_class.dart';
+import 'package:sisged/_blocs/widgets/map/regional_geo_json_class.dart';
 import 'package:sisged/_widgets/map/markers/tagged_marker.dart';
 import 'package:sisged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'package:sisged/_widgets/map/polylines/tappable_changed_polyline_layer.dart';
-import 'package:sisged/_datas/widgets/mapa/map_layer.dart';
-import 'package:sisged/_blocs/system/system_bloc.dart';
-import '../paint/paint_overlay.dart';
+import 'package:sisged/_blocs/widgets/map/map_layer.dart';
+import 'package:sisged/_blocs/system/info/system_bloc.dart';
+
 import 'buttons/layer_buttons.dart';
 import 'legend/map_legend_widget.dart';
 
@@ -24,11 +25,10 @@ class MapInteractivePage<T> extends StatefulWidget {
   final bool activeMap;
   final bool showLegend;
 
-  /// Base custom (ex.: Mapbox, WMS)
-  /// IMPORTANTE: retorne um **LayerWidget** do flutter_map (ex.: TileLayer/WMSLayer).
+  /// Base custom (ex.: Mapbox, WMS) — retorne um **LayerWidget** (TileLayer/WMSLayer).
   final Widget Function()? baseTileLayerBuilder;
 
-  /// Overlay de UI (ex.: editor de pintura) — fica **fora** do FlutterMap.
+  /// Overlay de UI (ex.: editor) — fica **fora** do FlutterMap.
   final Widget Function(MapController mapController, GlobalKey captureKey)? overlayBuilder;
 
   // Polylines
@@ -41,7 +41,7 @@ class MapInteractivePage<T> extends StatefulWidget {
   required Object? tag,
   })? onShowPolylineTooltip;
 
-  // Markers/Cluster — a função deve retornar um **LayerWidget** (ex.: MarkerLayer/MarkerClusterLayer)
+  // Markers/Cluster — deve retornar **LayerWidget**
   final List<TaggedChangedMarker<T>>? taggedMarkers;
   final Widget Function(
       List<TaggedChangedMarker<T>> taggedMarkers,
@@ -49,13 +49,13 @@ class MapInteractivePage<T> extends StatefulWidget {
       ValueChanged<TaggedChangedMarker<T>> onMarkerSelected,
       )? clusterWidgetBuilder;
 
-  // Polígonos (retrocompat)
+  // Polígonos (retro)
   final List<Polygon>? polygon;
 
   // Polígonos regionais (preferível)
   final List<PolygonChanged>? regionalPolygons;
 
-  // Cores por região (usa a chave normalizada)
+  // Cores por região
   final Map<String, Color>? regionColors;
 
   // Seleção de regiões
@@ -107,6 +107,9 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   // seleção interna (chave normalizada)
   final List<String> _selectedRegions = [];
 
+  // controla quando podemos montar o TileLayer
+  bool _mapReady = false;
+
   String _norm(String s) =>
       removeDiacritics(s).replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
 
@@ -129,7 +132,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         ..addAll(widget.selectedRegionNames!.map(_norm));
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _kickstartTiles());
+    // Não chamamos mais kickstarts aqui; só após onMapReady/hot-reload
   }
 
   @override
@@ -141,7 +144,15 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   @override
   void reassemble() {
     super.reassemble();
-    _kickstartTiles();
+    // Hot reload no web: um move simples para “acordar” o mapa
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (!mounted) return;
+      try {
+        final c = _mapController.camera.center;
+        final z = _mapController.camera.zoom;
+        _mapController.move(c, z);
+      } catch (_) {}
+    });
   }
 
   @override
@@ -163,19 +174,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     super.dispose();
   }
 
-  Future<void> _kickstartTiles() async {
-    await Future<void>.delayed(const Duration(milliseconds: 0));
-    if (!mounted) return;
-    try {
-      final center = _mapController.camera.center;
-      final zoom = _mapController.camera.zoom;
-      _mapController.move(center, zoom + 0.000001);
-      await Future<void>.delayed(const Duration(milliseconds: 16));
-      if (!mounted) return;
-      _mapController.move(center, zoom);
-    } catch (_) {}
-  }
-
   Future<void> _handleMyLocationTap() async {
     final location = await _systemBloc.getUserCurrentLocation();
     if (!mounted) return;
@@ -189,7 +187,14 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     setState(() {
       _indexSelectedMap = (_indexSelectedMap + 1) % MapLayer.mapBase.length;
     });
-    _kickstartTiles();
+    // opcional: um move simples para forçar redraw em alguns navegadores
+    Future.microtask(() {
+      try {
+        final c = _mapController.camera.center;
+        final z = _mapController.camera.zoom;
+        _mapController.move(c, z);
+      } catch (_) {}
+    });
   }
 
   Future<void> _handlePolylineTap(
@@ -217,8 +222,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       final xi = pts[i].latitude, yi = pts[i].longitude;
       final xj = pts[j].latitude, yj = pts[j].longitude;
       final intersect = ((yi > p.longitude) != (yj > p.longitude)) &&
-          (p.latitude <
-              (xj - xi) * (p.longitude - yi) / (yj - yi + 0.0) + xi);
+          (p.latitude < (xj - xi) * (p.longitude - yi) / (yj - yi + 0.0) + xi);
       if (intersect) inside = !inside;
     }
     return inside;
@@ -270,47 +274,28 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   List<Widget> _buildMapLayers() {
     final List<Widget> layers = [];
 
-    if (widget.activeMap) {
+    if (widget.activeMap && _mapReady) {
       if (widget.baseTileLayerBuilder != null) {
-        // deve retornar um LayerWidget (ex.: TileLayer)
-        layers.add(widget.baseTileLayerBuilder!());
+        layers.add(widget.baseTileLayerBuilder!()); // deve ser LayerWidget
       } else if (MapLayer.mapBase[_indexSelectedMap].url.isNotEmpty) {
+        final tileProvider = kIsWeb
+            ? NetworkTileProvider()          // web: não-cancelável
+            : CancellableNetworkTileProvider();    // mobile: cancelável
+
         layers.add(
           TileLayer(
             key: ValueKey(_indexSelectedMap),
-            tileProvider: CancellableNetworkTileProvider(),
+            tileProvider: tileProvider,
             urlTemplate: MapLayer.mapBase[_indexSelectedMap].url,
             subdomains: const ['a', 'b', 'c'],
             userAgentPackageName: 'com.example.sisgeo',
             keepBuffer: 3,
+            // ajustes que ajudam a estabilidade
+            maxNativeZoom: 19,
+            minNativeZoom: 0,
           ),
         );
       }
-    }
-
-    final lines = widget.tappablePolylines;
-    if (lines != null && lines.isNotEmpty) {
-      layers.add(
-        MapTappablePolylineLayer(
-          polylines: lines,
-          onTap: _handlePolylineTap,
-          polylineCulling: false,
-        ),
-      );
-    }
-
-    final markers = widget.taggedMarkers;
-    if (markers != null &&
-        markers.isNotEmpty &&
-        widget.clusterWidgetBuilder != null) {
-      // IMPORTANTE: clusterWidgetBuilder deve devolver um **LayerWidget**
-      layers.add(
-        widget.clusterWidgetBuilder!(
-          markers,
-          _selectedMarkerPosition,
-              (marker) => setState(() => _selectedMarkerPosition = marker.point),
-        ),
-      );
     }
 
     final regional = _regionalPolys;
@@ -346,6 +331,32 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
+    final lines = widget.tappablePolylines;
+    if (lines != null && lines.isNotEmpty) {
+      layers.add(
+        MapTappablePolylineLayer(
+          polylines: lines,
+          onTap: _handlePolylineTap,
+          polylineCulling: false,
+        ),
+      );
+    }
+
+    final markers = widget.taggedMarkers;
+    if (markers != null &&
+        markers.isNotEmpty &&
+        widget.clusterWidgetBuilder != null) {
+      layers.add(
+        widget.clusterWidgetBuilder!(
+          markers,
+          _selectedMarkerPosition,
+              (marker) => setState(() => _selectedMarkerPosition = marker.point),
+        ),
+      );
+    }
+
+
+
     if (_userLocation != null) {
       layers.add(
         MarkerLayer(
@@ -380,13 +391,13 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-    // 👇️ NÃO adicione `Align/Positioned/Widgets comuns` aqui.
-    return layers;
+    return layers; // somente layers (LayerWidget)
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasLegend = widget.showLegend && (widget.regionColors?.isNotEmpty ?? false);
+    final hasLegend =
+        widget.showLegend && (widget.regionColors?.isNotEmpty ?? false);
 
     return Stack(
       children: [
@@ -403,9 +414,11 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                         backgroundColor: Colors.white,
                         initialCenter: const LatLng(-9.65, -36.7),
                         initialZoom: widget.initialZoom ?? 9,
-                        maxZoom: widget.maxZoom ?? 18,
-                        minZoom: widget.minZoom ?? 5,
-                        onMapReady: _kickstartTiles,
+                        maxZoom: widget.maxZoom ?? 18.4,
+                        minZoom: widget.minZoom ?? 5.0,
+                        onMapReady: () {
+                          if (mounted) setState(() => _mapReady = true);
+                        },
                         onTap: _onTapMap,
                         interactionOptions: const InteractionOptions(
                           flags: InteractiveFlag.pinchZoom |
@@ -418,25 +431,29 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                       children: _buildMapLayers(),
                     ),
 
-                    // Overlay opcional (ex.: pintura) — fica FORA do FlutterMap
+                    // Overlay opcional (ex.: pintura) — FORA do FlutterMap
                     if (widget.overlayBuilder != null)
                       Positioned.fill(
-                        child: widget.overlayBuilder!(_mapController, _captureKey),
+                        child:
+                        widget.overlayBuilder!(_mapController, _captureKey),
                       ),
 
-                    // 👇️ Legenda — também FORA do FlutterMap
-                    if (hasLegend)
-                      Positioned(
-                        left: 8,
-                        bottom: 8,
-                        child: MapLegendLayer(regionColors: widget.regionColors!),
-                      ),
+                    // Placeholder; a legenda vai em outro Positioned
+                    if (hasLegend) const SizedBox.shrink(),
                   ],
                 ),
               ),
             ),
           ],
         ),
+
+        // Legenda ancorada (fora do mapa para evitar constraints infinitas)
+        if (hasLegend)
+          Positioned(
+            left: 8,
+            bottom: 8,
+            child: MapLegendLayer(regionColors: widget.regionColors!),
+          ),
 
         // Botões de camada / localização — fora do mapa
         LayerButtons(

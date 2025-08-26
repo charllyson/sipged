@@ -2,11 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_data.dart';
-import 'package:sisged/_datas/sectors/operation/schedule/schedule_style.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_style.dart';
 import 'package:sisged/_widgets/schedule/schedule_menu_buttons_names.dart'; // slugFromTitle
 
-import 'package:sisged/_repository/sectors/operation/schedule_repository.dart';
+import 'package:sisged/_blocs/sectors/operation/schedule_repository.dart';
 import 'schedule_event.dart';
 import 'schedule_state.dart';
 

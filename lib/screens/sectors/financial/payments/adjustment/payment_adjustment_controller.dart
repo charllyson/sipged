@@ -1,19 +1,22 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
 
-import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_utils/validates/form_validation_mixin.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
 import 'package:sisged/_utils/date_utils.dart'
     show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-import 'package:sisged/_blocs/system/user_provider.dart';
-// ❌ REMOVER: '../../../../../_blocs/system/user_repository.dart';
 import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
 
-import 'package:sisged/_datas/system/user_data.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/sectors/financial/payments/adjustments/payments_adjustments_data.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+
+import '../../../../../_blocs/system/user/user_bloc.dart';
+import '../../../../../_blocs/system/user/user_state.dart';
 
 class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMixin {
   PaymentsAdjustmentController({
@@ -25,6 +28,9 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   // ---- dependências (injetadas) ----
   final PaymentAdjustmentBloc _paymentAdjustmentBloc;
   final AdditivesBloc _additivesBloc;
+
+  // ---- assinatura do UserBloc ----
+  StreamSubscription<UserState>? _userSub; // 👈 novo
 
   // Expor bloc (se widget legado precisar)
   PaymentAdjustmentBloc get bloc => _paymentAdjustmentBloc;
@@ -81,8 +87,24 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     contract = contractData;
     if (contract?.id == null) return;
 
-    currentUser = context.read<UserProvider>().userData;
+    // 👇 pega o usuário atual do UserBloc
+    final userBloc = context.read<UserBloc>();
+    currentUser = userBloc.state.current;
     isEditable = _canEditUser(currentUser);
+
+    // 👇 reage a futuras mudanças de autenticação/perfil
+    _userSub?.cancel();
+    _userSub = userBloc.stream.listen((st) {
+      final prevId = currentUser?.id;
+      currentUser = st.current;
+      final nowId = currentUser?.id;
+
+      final newEditable = _canEditUser(currentUser);
+      if (newEditable != isEditable || prevId != nowId) {
+        isEditable = newEditable;
+        notifyListeners();
+      }
+    });
 
     setupValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateFormInternal);
     await _loadInitial();
@@ -90,6 +112,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
 
   @override
   void dispose() {
+    _userSub?.cancel(); // 👈 importante
     removeValidation(
       [orderCtrl, processCtrl, valueCtrl, dateCtrl, stateCtrl, observationCtrl,
         bankCtrl, electronicTicketCtrl, fontCtrl, taxCtrl],

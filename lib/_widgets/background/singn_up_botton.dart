@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:sisged/_blocs/system/login/login_bloc.dart';
-import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
 
 class SignUpBotton extends StatelessWidget {
   const SignUpBotton({

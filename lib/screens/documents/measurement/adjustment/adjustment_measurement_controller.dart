@@ -1,18 +1,21 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
 
-import 'package:sisged/_blocs/system/user_provider.dart';
 import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_utils/validates/form_validation_mixin.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
 
 import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
 import 'package:sisged/_blocs/documents/measurement/report/report_measurement_bloc.dart';
 
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
-import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
 import 'package:sisged/_utils/handle_selection_utils.dart';
 
 class AdjustmentMeasurementController extends ChangeNotifier
@@ -23,6 +26,10 @@ class AdjustmentMeasurementController extends ChangeNotifier
   final ApostillesBloc _apostillesBloc = ApostillesBloc();
 
   final ContractData contract;
+
+  // 👇 assinatura do UserBloc
+  StreamSubscription<UserState>? _userSub;
+  UserData? _currentUser;
 
   // ---- estado UI ----
   bool isEditable = false;
@@ -57,8 +64,25 @@ class AdjustmentMeasurementController extends ChangeNotifier
   }
 
   Future<void> postFrameInit(BuildContext context) async {
-    final user = context.read<UserProvider>().userData;
-    isEditable = _canEditUser(user);
+    // 👇 lê usuário atual do UserBloc
+    final userBloc = context.read<UserBloc>();
+    _currentUser = userBloc.state.current;
+    isEditable = _canEditUser(_currentUser);
+
+    // 👇 assina mudanças para manter isEditable sincronizado
+    _userSub?.cancel();
+    _userSub = userBloc.stream.listen((st) {
+      final prevId = _currentUser?.id;
+      _currentUser = st.current;
+      final nowId = _currentUser?.id;
+
+      final newEditable = _canEditUser(_currentUser);
+      if (newEditable != isEditable || prevId != nowId) {
+        isEditable = newEditable;
+        notifyListeners();
+      }
+    });
+
     await loadInitialData();
   }
 
@@ -88,11 +112,9 @@ class AdjustmentMeasurementController extends ChangeNotifier
       return;
     }
 
-    totalApostilles =
-    await _apostillesBloc.getAllApostillesValue(contract.id!);
-    totalAdditives =
-    await _additivesBloc.getAllAdditivesValue(contract.id!);
-    adjustments = await _measurementBloc
+    totalApostilles = await _apostillesBloc.getAllApostillesValue(contract.id!);
+    totalAdditives  = await _additivesBloc.getAllAdditivesValue(contract.id!);
+    adjustments     = await _measurementBloc
         .getAllMeasurementsOfContract(uidContract: contract.id!);
 
     // define próxima ordem
@@ -276,6 +298,7 @@ class AdjustmentMeasurementController extends ChangeNotifier
 
   @override
   void dispose() {
+    _userSub?.cancel(); // 👈 não esquecer
     removeValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateForm);
     orderCtrl.dispose();
     processCtrl.dispose();

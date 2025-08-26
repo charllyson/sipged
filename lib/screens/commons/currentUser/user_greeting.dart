@@ -1,44 +1,59 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_blocs/system/user_provider.dart';
-import 'package:sisged/_datas/system/user_data.dart';
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_event.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
 
-class UserGreeting extends StatelessWidget {
+class UserGreeting extends StatefulWidget {
   final User? firebaseUser;
 
-  const UserGreeting({
-    super.key,
-    required this.firebaseUser,
-  });
+  const UserGreeting({super.key, required this.firebaseUser});
+
+  @override
+  State<UserGreeting> createState() => _UserGreetingState();
+}
+
+class _UserGreetingState extends State<UserGreeting> {
+  bool _dispatched = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final fb = widget.firebaseUser;
+    if (fb == null || _dispatched) return;
+
+    // Se o usuário ainda não estiver no estado, dispara uma busca por id.
+    final state = context.read<UserBloc>().state;
+    final already =
+        (state.current?.id == fb.uid) || state.byId.containsKey(fb.uid);
+
+    if (!already) {
+      context.read<UserBloc>().add(UserFetchByIdRequested(fb.uid));
+    }
+    _dispatched = true;
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (firebaseUser == null) {
-      return const Text(
-        'Olá, Usuário',
-        style: TextStyle(color: Colors.white, fontSize: 12),
-      );
-    }
+    const style = TextStyle(color: Colors.white, fontSize: 12);
 
-    final uid = firebaseUser!.uid;
+    final fb = widget.firebaseUser;
+    if (fb == null) return const Text('Olá, Usuário', style: style);
 
-    return FutureBuilder<UserData?>(
-      // 1) tenta o current do provider; 2) se null, busca por id (com cache interno)
-      future: () async {
-        final prov = context.read<UserProvider>();
-        final current = prov.userData;
-        if (current?.id == uid) return current;
-        return prov.fetchById(uid);
-      }(),
-      builder: (context, snap) {
-        final user = snap.data;
-        final name = (user?.name?.isNotEmpty ?? false) ? user!.name! : 'Usuário';
-        return Text(
-          'Olá, $name',
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-        );
+    return BlocSelector<UserBloc, UserState, UserData?>(
+      selector: (state) {
+        // Prioriza o "current"; se não for o mesmo uid, tenta o cache byId.
+        if (state.current?.id == fb.uid) return state.current;
+        return state.byId[fb.uid];
+      },
+      builder: (context, user) {
+        final name = (user?.name?.trim().isNotEmpty ?? false)
+            ? user!.name!.trim()
+            : 'Usuário';
+        return Text('Olá, $name', style: style);
       },
     );
   }

@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:sisged/_datas/sectors/financial/payments/reports/payments_reports_data.dart';
+import 'package:sisged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 
 /// Firestore-only para Relatórios de Pagamento.
 /// (Upload/Storage ficou no PaymentsReportStorageBloc.)

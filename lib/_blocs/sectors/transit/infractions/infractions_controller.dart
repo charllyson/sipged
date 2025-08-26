@@ -4,7 +4,7 @@ import 'package:geocoding/geocoding.dart' as geo;
 import 'package:geolocator/geolocator.dart';
 
 import 'infractions_bloc.dart';
-import '../../../../_datas/sectors/transit/infractions/infractions_data.dart';
+import 'infractions_data.dart';
 
 class InfractionsController extends ChangeNotifier {
   InfractionsController({required InfractionsBloc bloc}) : _bloc = bloc;

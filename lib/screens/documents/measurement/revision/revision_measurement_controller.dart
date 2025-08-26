@@ -1,18 +1,21 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
+import 'package:sisged/_blocs/system/user/user_bloc.dart';
+import 'package:sisged/_blocs/system/user/user_state.dart';
 
-import 'package:sisged/_widgets/validates/form_validation_mixin.dart';
-import 'package:sisged/_widgets/formats/format_field.dart';
+import 'package:sisged/_utils/validates/form_validation_mixin.dart';
+import 'package:sisged/_utils/formats/format_field.dart';
 import 'package:sisged/_utils/date_utils.dart'
     show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-import 'package:sisged/_blocs/system/user_provider.dart';
 import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:sisged/_blocs/documents/measurement/report/report_measurement_bloc.dart';
 
-import 'package:sisged/_datas/system/user_data.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_datas/documents/measurement/reports/report_measurement_data.dart';
+import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
 import 'package:sisged/_utils/handle_selection_utils.dart';
 
 class RevisionMeasurementController extends ChangeNotifier with FormValidationMixin {
@@ -25,6 +28,9 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
   // --- Dependências
   final ReportMeasurementBloc _measurementBloc;
   final AdditivesBloc _additivesBloc;
+
+  // 👇 assinatura do UserBloc
+  StreamSubscription<UserState>? _userSub;
 
   // --- Contexto
   late ContractData contract; // não-nulo
@@ -87,19 +93,33 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
   // === Init/Dispose ===
   Future<void> init(BuildContext context, {required ContractData contractData}) async {
     contract = contractData; // garantido não-nulo
-    currentUser = context.read<UserProvider>().userData;
+
+    // 👇 pega o usuário atual do UserBloc e calcula permissão
+    final userBloc = context.read<UserBloc>();
+    currentUser = userBloc.state.current;
     isEditable = _canEditUser(currentUser);
 
-    setupValidation(
-      [orderCtrl, processCtrl, valueCtrl, dateCtrl],
-      _validateFormInternal,
-    );
+    // 👇 assina mudanças do UserBloc para refletir permissões em tempo real
+    _userSub?.cancel();
+    _userSub = userBloc.stream.listen((st) {
+      final prevId = currentUser?.id;
+      currentUser = st.current;
+      final nowId = currentUser?.id;
 
+      final newEditable = _canEditUser(currentUser);
+      if (newEditable != isEditable || prevId != nowId) {
+        isEditable = newEditable;
+        notifyListeners();
+      }
+    });
+
+    setupValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateFormInternal);
     await _loadInitial();
   }
 
   @override
   void dispose() {
+    _userSub?.cancel(); // 👈 importante
     removeValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateFormInternal);
     orderCtrl.dispose();
     processCtrl.dispose();

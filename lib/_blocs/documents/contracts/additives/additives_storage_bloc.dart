@@ -8,8 +8,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:sisged/_datas/documents/contracts/additive/additive_data.dart';
-import 'package:sisged/_datas/documents/contracts/contracts/contract_data.dart';
+import 'package:sisged/_blocs/documents/contracts/additives/additive_data.dart';
+import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 /// Responsável APENAS por Storage (upload/getUrl/exists/delete) de PDFs de **aditivos**.
 class AdditivesStorageBloc extends BlocBase {
@@ -25,7 +25,7 @@ class AdditivesStorageBloc extends BlocBase {
 
   String fileName(ContractData c, AdditiveData a) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
-    final ordem    = (a.additiveOrder ?? '0').toString();
+    final ordem    = (a.additiveOrder ?? 0).toString().padLeft(3, '0');
     final proc     = _sanitize(a.additiveNumberProcess ?? 'processo');
     return '$contrato-$ordem-$proc.pdf';
   }

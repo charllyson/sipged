@@ -161,53 +161,50 @@ class _SelectorDatesState<T> extends State<SelectorDates<T>> {
     final selectedYear = selectedYearNotifier.value;
     final selectedMonth = selectedMonthNotifier.value;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // anos
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // anos
+        Row(
+          children: [
+            _buildSelectorAllDatesButton(
+              label: 'Todos os anos',
+              selected: selectedYear == null,
+              onTap: () {
+                selectedYearNotifier.value = null;
+                selectedMonthNotifier.value = null;
+              },
+            ),
+            ...years.map((y) => _buildSelectorButton(
+              label: y.toString(),
+              selected: y == selectedYear,
+              onTap: () {
+                selectedYearNotifier.value = y;
+                selectedMonthNotifier.value = null;
+              },
+            )),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // meses
+        if (selectedYear != null)
           Row(
             children: [
               _buildSelectorAllDatesButton(
-                label: 'Todos os anos',
-                selected: selectedYear == null,
-                onTap: () {
-                  selectedYearNotifier.value = null;
-                  selectedMonthNotifier.value = null;
-                },
+                label: 'Todos os meses',
+                selected: selectedMonth == null,
+                onTap: () => selectedMonthNotifier.value = null,
               ),
-              ...years.map((y) => _buildSelectorButton(
-                label: y.toString(),
-                selected: y == selectedYear,
-                onTap: () {
-                  selectedYearNotifier.value = y;
-                  selectedMonthNotifier.value = null;
-                },
-              )),
+              ...?availableMonthsByYear[selectedYear]?.map(
+                    (month) => _buildSelectorButton(
+                  label: _nomeMes(month),
+                  selected: month == selectedMonth,
+                  onTap: () => selectedMonthNotifier.value = month,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          // meses
-          if (selectedYear != null)
-            Row(
-              children: [
-                _buildSelectorAllDatesButton(
-                  label: 'Todos os meses',
-                  selected: selectedMonth == null,
-                  onTap: () => selectedMonthNotifier.value = null,
-                ),
-                ...?availableMonthsByYear[selectedYear]?.map(
-                      (month) => _buildSelectorButton(
-                    label: _nomeMes(month),
-                    selected: month == selectedMonth,
-                    onTap: () => selectedMonthNotifier.value = month,
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
+      ],
     );
   }
 
