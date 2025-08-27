@@ -1,179 +1,276 @@
-import 'package:bloc_pattern/bloc_pattern.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:sisged/_blocs/actives/roads/active_road_rules.dart';
-import 'package:sisged/_blocs/actives/roads/active_road_style.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sisged/_blocs/actives/roads/active_roads_data.dart';
+import 'package:sisged/_blocs/actives/roads/active_roads_event.dart';
+import 'package:sisged/_blocs/actives/roads/active_roads_state.dart';
 
-class ActiveRoadsBloc extends BlocBase {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final Map<String, ActiveRoadsData> roadDataMap = {};
-  String? selectedPolylineId;
+/// =========================
+/// BLOC
+/// =========================
+class ActiveRoadsBloc extends Bloc<ActiveRoadsEvent, ActiveRoadsState> {
+  ActiveRoadsBloc() : super(const ActiveRoadsState()) {
+    // Loaders
+    on<ActiveRoadsWarmupRequested>(_onWarmup);
+    on<ActiveRoadsRefreshRequested>(_onRefresh);
 
-  ActiveRoadsBloc();
+    // Seleção/Filtros
+    on<ActiveRoadsSelectPolyline>(_onSelectPolyline);
+    on<ActiveRoadsRegionFilterChanged>(_onRegionFilterChanged);
+    on<ActiveRoadsSurfaceFilterChanged>(_onSurfaceFilterChanged);
+    on<ActiveRoadsPieFilterChanged>(_onPieFilterChanged);
 
-  Future<List<ActiveRoadsData>> getAllRoads() async {
-    final snapshot = await _db.collection('actives_roads').get();
-    return snapshot.docs.map((doc) => ActiveRoadsData.fromDocument(doc)).toList();
+    // CRUD/Import
+    on<ActiveRoadsUpsertRequested>(_onUpsert);
+    on<ActiveRoadsDeleteRequested>(_onDelete);
+    on<ActiveRoadsImportBatchRequested>(_onImportBatch);
   }
 
-  Future<void> saveOrUpdateRoad(ActiveRoadsData data) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final ref = _db.collection('actives_roads').doc(data.id ?? _db.collection('actives_roads').doc().id);
-    data.id = ref.id;
+  final _roadsRef = FirebaseFirestore.instance.collection('actives_roads');
 
-    final json = data.toMap()
-      ..addAll({
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': uid,
-      });
-
-    final doc = await ref.get();
-    if (!doc.exists) {
-      json['createdAt'] = FieldValue.serverTimestamp();
-      json['createdBy'] = uid;
+  // ===========================================================================
+  // Loaders
+  // ===========================================================================
+  Future<void> _onWarmup(
+      ActiveRoadsWarmupRequested e,
+      Emitter<ActiveRoadsState> emit,
+      ) async {
+    emit(state.copyWith(loadStatus: ActiveRoadsLoadStatus.loading, error: null));
+    try {
+      final list = await _fetchAllNormalized();
+      emit(state.copyWith(
+        initialized: true,
+        all: list,
+        loadStatus: ActiveRoadsLoadStatus.success,
+        error: null,
+      ));
+    } catch (err) {
+      emit(state.copyWith(
+        loadStatus: ActiveRoadsLoadStatus.failure,
+        error: err.toString(),
+      ));
     }
-
-    await ref.set(json, SetOptions(merge: true));
   }
 
-  Future<void> deleteRoad(String roadId) async {
-    await _db.collection('actives_roads').doc(roadId).delete();
+  Future<void> _onRefresh(
+      ActiveRoadsRefreshRequested e,
+      Emitter<ActiveRoadsState> emit,
+      ) async {
+    emit(state.copyWith(loadStatus: ActiveRoadsLoadStatus.loading, error: null));
+    try {
+      final list = await _fetchAllNormalized();
+      emit(state.copyWith(
+        all: list,
+        loadStatus: ActiveRoadsLoadStatus.success,
+        error: null,
+      ));
+    } catch (err) {
+      emit(state.copyWith(
+        loadStatus: ActiveRoadsLoadStatus.failure,
+        error: err.toString(),
+      ));
+    }
   }
 
-  /// 🆕 Importa várias rodovias com pontos diretamente em 'points'
-  Future<void> importarRodoviasComCoordenadas({
-    required List<Map<String, dynamic>> linhasPrincipais,
-    required List<Map<String, dynamic>> subcolecoes,
-  }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+  // ===========================================================================
+  // Seleção / Filtros
+  // ===========================================================================
+  void _onSelectPolyline(
+      ActiveRoadsSelectPolyline e,
+      Emitter<ActiveRoadsState> emit,
+      ) {
+    emit(state.copyWith(selectedPolylineId: e.polylineId));
+  }
 
-    for (int i = 0; i < linhasPrincipais.length; i++) {
-      final linha = linhasPrincipais[i];
-      final docRef = _db.collection('actives_roads').doc();
-      linha['id'] = docRef.id;
-      linha['createdAt'] = FieldValue.serverTimestamp();
-      linha['createdBy'] = uid;
-      linha['updatedAt'] = FieldValue.serverTimestamp();
-      linha['updatedBy'] = uid;
+  void _onRegionFilterChanged(
+      ActiveRoadsRegionFilterChanged e,
+      Emitter<ActiveRoadsState> emit,
+      ) {
+    emit(state.copyWith(selectedRegionFilter: e.region));
+  }
 
-      // 👉 Verifica e salva tipo de geometria (LineString ou MultiLineString)
-      if (i < subcolecoes.length) {
-        final sub = subcolecoes[i];
+  void _onSurfaceFilterChanged(
+      ActiveRoadsSurfaceFilterChanged e,
+      Emitter<ActiveRoadsState> emit,
+      ) {
+    emit(state.copyWith(selectedSurfaceFilter: e.code));
+  }
 
-        // 🟡 Se for MultiLineString, converte para LineString (lista única de pontos)
-        if (sub['geometryType'] == 'MultiLineString' && sub['points'] is List) {
-          final multiLinePoints = sub['points'] as List;
-          final flattenedPoints = multiLinePoints.expand((linha) => linha).toList();
-          sub['points'] = flattenedPoints;
-          sub['geometryType'] = 'LineString'; // força o tipo
-        }
+  void _onPieFilterChanged(
+      ActiveRoadsPieFilterChanged e,
+      Emitter<ActiveRoadsState> emit,
+      ) {
+    emit(state.copyWith(selectedPieIndexFilter: e.pieIndex));
+  }
 
-        final pontos = sub['points'] as List<dynamic>?;
-        final tipo = sub['geometryType'] ?? 'LineString'; // já vai pegar como 'LineString' após força
+  // ===========================================================================
+  // CRUD / Import
+  // ===========================================================================
+  Future<void> _onUpsert(
+      ActiveRoadsUpsertRequested e,
+      Emitter<ActiveRoadsState> emit,
+      ) async {
+    emit(state.copyWith(savingOrImporting: true, error: null));
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final data = e.data;
+      final ref = _roadsRef.doc(data.id ?? _roadsRef.doc().id);
+      data.id ??= ref.id;
 
-        linha['geometryType'] = tipo;
+      final json = data.toMap()
+        ..addAll({
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': uid,
+        });
 
-        if (pontos != null) {
-          linha['points'] = pontos.map((ponto) {
-            return GeoPoint(
-              (ponto['latitude'] as num).toDouble(),
-              (ponto['longitude'] as num).toDouble(),
-            );
-          }).toList();
-        }
+      final doc = await ref.get();
+      if (!doc.exists) {
+        json['createdAt'] = FieldValue.serverTimestamp();
+        json['createdBy'] = uid;
       }
 
+      await ref.set(json, SetOptions(merge: true));
 
-      await docRef.set(linha, SetOptions(merge: true));
-      print('✅ Rodovia salva com tipo $linha["geometryType"]: ${linha['id']}');
+      final list = await _fetchAllNormalized();
+      emit(state.copyWith(
+        all: list,
+        savingOrImporting: false,
+        error: null,
+      ));
+    } catch (err) {
+      emit(state.copyWith(savingOrImporting: false, error: err.toString()));
     }
   }
 
-  Map<String, dynamic> normalizeMultiLineToLineString(Map<String, dynamic> sub) {
-    final pontos = sub['points'];
+  Future<void> _onDelete(
+      ActiveRoadsDeleteRequested e,
+      Emitter<ActiveRoadsState> emit,
+      ) async {
+    emit(state.copyWith(savingOrImporting: true, error: null));
+    try {
+      await _roadsRef.doc(e.id).delete();
+      final filtered = [...state.all]..removeWhere((r) => r.id == e.id);
+      emit(state.copyWith(all: filtered, savingOrImporting: false));
+    } catch (err) {
+      emit(state.copyWith(savingOrImporting: false, error: err.toString()));
+    }
+  }
 
-    if (sub['geometryType'] == 'MultiLineString' && pontos is List) {
-      List<List<Map<String, double>>> trechos = pontos
-          .map<List<Map<String, double>>>((linha) =>
-          linha.map<Map<String, double>>((p) => {
-            'latitude': (p['latitude'] as num).toDouble(),
-            'longitude': (p['longitude'] as num).toDouble(),
-          }).toList())
-          .toList();
+  Future<void> _onImportBatch(
+      ActiveRoadsImportBatchRequested e,
+      Emitter<ActiveRoadsState> emit,
+      ) async {
+    emit(state.copyWith(savingOrImporting: true, error: null));
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-      List<Map<String, double>> caminhoFinal = [];
+      for (int i = 0; i < e.linhasPrincipais.length; i++) {
+        final linha = Map<String, dynamic>.from(e.linhasPrincipais[i]);
+        final docRef = _roadsRef.doc();
+        linha['id'] = docRef.id;
+        linha['createdAt'] = FieldValue.serverTimestamp();
+        linha['createdBy'] = uid;
+        linha['updatedAt'] = FieldValue.serverTimestamp();
+        linha['updatedBy'] = uid;
 
-      for (var trecho in trechos) {
-        if (caminhoFinal.isEmpty) {
-          caminhoFinal.addAll(trecho);
-        } else {
-          final ultimoPonto = caminhoFinal.last;
-          final primeiro = trecho.first;
-          final ultimo = trecho.last;
+        if (i < e.subcolecoes.length) {
+          final sub = Map<String, dynamic>.from(e.subcolecoes[i]);
 
-          final distFirst = _dist(ultimoPonto, primeiro);
-          final distLast = _dist(ultimoPonto, ultimo);
+          // Se for MultiLineString, normaliza para LineString
+          if (sub['geometryType'] == 'MultiLineString' && sub['points'] is List) {
+            final multiLine = List<List<dynamic>>.from(sub['points']);
+            final flattened = _normalizeMultiLineToGeoPoints(multiLine);
+            sub['points'] = flattened;
+            sub['geometryType'] = 'LineString';
+          }
 
-          final trechoOrdenado = distLast < distFirst ? trecho.reversed.toList() : trecho;
-          caminhoFinal.addAll(trechoOrdenado);
+          final pontos = sub['points'] as List<dynamic>?;
+          final tipo = sub['geometryType'] ?? 'LineString';
+          linha['geometryType'] = tipo;
+
+          if (pontos != null) {
+            linha['points'] = pontos.map((p) {
+              if (p is GeoPoint) {
+                return p;
+              }
+              return GeoPoint(
+                (p['latitude'] as num).toDouble(),
+                (p['longitude'] as num).toDouble(),
+              );
+            }).toList();
+          }
         }
+
+        await docRef.set(linha, SetOptions(merge: true));
       }
 
-      sub['points'] = caminhoFinal;
-      sub['geometryType'] = 'LineString';
+      final list = await _fetchAllNormalized();
+      emit(state.copyWith(all: list, savingOrImporting: false, error: null));
+    } catch (err) {
+      emit(state.copyWith(savingOrImporting: false, error: err.toString()));
     }
-
-    return sub;
   }
 
-  double _dist(Map<String, double> p1, Map<String, double> p2) {
-    final dx = p1['longitude']! - p2['longitude']!;
-    final dy = p1['latitude']! - p2['latitude']!;
-    return dx * dx + dy * dy;
-  }
+  // ===========================================================================
+  // Firestore helpers
+  // ===========================================================================
+  Future<List<ActiveRoadsData>> _fetchAllNormalized() async {
+    final snap = await _roadsRef.get();
+    final result = <ActiveRoadsData>[];
 
+    for (final doc in snap.docs) {
+      final data = Map<String, dynamic>.from(doc.data());
 
+      // Corrige possíveis MultiLineString salvos como lista de listas
+      final needsFix = data['geometryType'] == 'MultiLineString' ||
+          (data['points'] is List &&
+              (data['points'].isNotEmpty && data['points'][0] is List));
 
-  Future<void> carregarRodoviasDoFirebase() async {
-    final firestore = FirebaseFirestore.instance;
-    final snapshot = await firestore.collection('actives_roads').get();
-    roadDataMap.clear();
-
-    for (var doc in snapshot.docs) {
-      final data = doc.data();
-
-      // 🟡 Verifica se os pontos ainda são uma lista de listas (MultiLine não normalizado)
-      if (data['geometryType'] == 'MultiLineString' ||
-          (data['points'] is List && (data['points'].isNotEmpty && data['points'][0] is List))) {
-
-        final List<List<dynamic>> multiPoints = List<List<dynamic>>.from(data['points']);
-        final flattened = _normalizeMultiLineFirestorePoints(multiPoints);
+      if (needsFix) {
+        final multiPoints = List<List<dynamic>>.from(data['points']);
+        final flattened = _normalizeMultiLineToGeoPoints(multiPoints);
 
         data['points'] = flattened;
-        data['geometryType'] = 'LineString'; // força correção
+        data['geometryType'] = 'LineString';
 
-        // ⚠️ Opcional: atualiza no banco com dados corrigidos
+        // opcional: persiste correção no banco
         await doc.reference.update({
           'points': flattened,
           'geometryType': 'LineString',
         });
       }
 
-      final normalizedRoad = ActiveRoadsData.fromMap(data);
-      if (normalizedRoad.id != null && normalizedRoad.points != null && normalizedRoad.points!.isNotEmpty) {
-        roadDataMap[normalizedRoad.id!] = normalizedRoad;
+      final rd = ActiveRoadsData.fromMap(data, id: doc.id);
+      if (rd.id != null && rd.points != null && rd.points!.isNotEmpty) {
+        result.add(rd);
       }
     }
+
+    // ordena por acrônimo + km inicial (coerente com Store)
+    result.sort((a, b) {
+      final aKey = '${a.acronym ?? ''}_${a.initialKm ?? 0}';
+      final bKey = '${b.acronym ?? ''}_${b.initialKm ?? 0}';
+      return aKey.compareTo(bKey);
+    });
+
+    return List.unmodifiable(result);
   }
 
-  List<GeoPoint> _normalizeMultiLineFirestorePoints(List<List<dynamic>> segmentos) {
+  List<GeoPoint> _normalizeMultiLineToGeoPoints(List<List<dynamic>> segmentos) {
     List<Map<String, double>> caminhoFinal = [];
+
+    double _dist(Map<String, double> p1, Map<String, double> p2) {
+      final dx = p1['longitude']! - p2['longitude']!;
+      final dy = p1['latitude']! - p2['latitude']!;
+      return dx * dx + dy * dy;
+    }
 
     for (var trecho in segmentos) {
       final pontos = trecho.map<Map<String, double>>((p) {
+        if (p is GeoPoint) {
+          return {'latitude': p.latitude, 'longitude': p.longitude};
+        }
         return {
           'latitude': (p['latitude'] as num).toDouble(),
           'longitude': (p['longitude'] as num).toDouble(),
@@ -199,44 +296,4 @@ class ActiveRoadsBloc extends BlocBase {
         .map((p) => GeoPoint(p['latitude']!, p['longitude']!))
         .toList();
   }
-
-
-  List<TappableChangedPolyline> gerarPolylinesEstilizadas({String? selectedId}) {
-    final List<TappableChangedPolyline> polylines = [];
-
-    for (final entry in roadDataMap.entries) {
-      final road = entry.value;
-      final tagId = road.id!;
-      final estilo = ActiveRoadsStyle.styleQGISParaStatus(road.stateSurface, 12);
-      final isSelected = tagId == selectedId;
-
-      final multilinha = estilo.asMap().entries.map((entry) {
-        final index = entry.key;
-        final camada = entry.value;
-
-        return TappableChangedPolyline(
-          isDotted: false,
-          points: ActiveRoadsRules.deslocarPontos(
-            road.points!,
-            deslocamentoOrtogonal: index * 0.00003,
-          ),
-          color: isSelected ? Colors.redAccent : camada.cor,
-          defaultColor: camada.cor,
-          strokeWidth: isSelected ? camada.width + 2 : camada.width,
-          tag: tagId,
-        );
-      });
-
-      polylines.addAll(multilinha);
-    }
-
-    return polylines;
-  }
-
-
-
-  void setSelectedPolyline(String? polylineId) {
-    selectedPolylineId = polylineId;
-  }
-
 }

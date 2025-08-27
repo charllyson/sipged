@@ -2,7 +2,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:provider/provider.dart';
@@ -278,10 +277,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       if (widget.baseTileLayerBuilder != null) {
         layers.add(widget.baseTileLayerBuilder!()); // deve ser LayerWidget
       } else if (MapLayer.mapBase[_indexSelectedMap].url.isNotEmpty) {
-        final tileProvider = kIsWeb
-            ? NetworkTileProvider()          // web: não-cancelável
-            : CancellableNetworkTileProvider();    // mobile: cancelável
-
+        final tileProvider = NetworkTileProvider();        // web: não-cancelável
         layers.add(
           TileLayer(
             key: ValueKey(_indexSelectedMap),
@@ -319,7 +315,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
               color: fill,
               borderColor: Colors.black,
               borderStrokeWidth: 0.3,
-              isFilled: true,
             );
           }).toList(),
         ),

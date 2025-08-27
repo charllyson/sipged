@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "dev":  "sisged-dev",
+    "stg":  "sisged-stg",
+    "prod": "sisged-prd"
+  }
+}

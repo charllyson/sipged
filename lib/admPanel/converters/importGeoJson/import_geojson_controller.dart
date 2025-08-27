@@ -41,10 +41,10 @@ class ImportGeoJsonController {
             features: parsedFeatures,
             onSalvar: (linhas, tipos, subcolecoes) async {
               final roadsBloc = ActiveRoadsBloc();
-              await roadsBloc.importarRodoviasComCoordenadas(
+             /* await roadsBloc.importarRodoviasComCoordenadas(
                 linhasPrincipais: linhas,
                 subcolecoes: subcolecoes,
-              );
+              );*/
               onFinished?.call(); // <- coloque aqui se quiser callback final
             },
           );

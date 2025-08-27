@@ -137,7 +137,6 @@ class _BarChartChangedState extends State<BarChartChanged> {
                         ),
                         barTouchData: BarTouchData(
                           touchTooltipData: BarTouchTooltipData(
-                            tooltipBgColor: Colors.black87,
                             tooltipPadding: const EdgeInsets.all(6),
                             tooltipMargin: 2,
                             fitInsideVertically: true,
