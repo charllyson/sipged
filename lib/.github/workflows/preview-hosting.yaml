@@ -1,0 +1,29 @@
+name: Preview Hosting
+on:
+  pull_request:
+    branches: [ main ]   # só roda quando abrir PR contra a branch main
+
+jobs:
+  build_and_preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+
+      - name: Build web (stg)
+        run: |
+          flutter pub get
+          flutter build web -t lib/main_stg.dart --dart-define=FLAVOR=stg
+
+      - name: Deploy to Firebase Hosting (preview)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_SISGED_STG }}"
+          projectId: sisged-stg
+          channelId: "pr-${{ github.event.pull_request.number }}"
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
