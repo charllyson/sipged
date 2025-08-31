@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_data.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
 
 abstract class ActiveOaesEvent extends Equatable {
   const ActiveOaesEvent();

@@ -5,19 +5,19 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sisged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
-import 'package:sisged/_blocs/system/info/system_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
+import 'package:siged/_blocs/system/info/system_bloc.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_state.dart';
 
-import 'package:sisged/_blocs/sectors/transit/accidents/accidents_data.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
-import 'package:sisged/_blocs/widgets/map/geo_json_service.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_blocs/widgets/map/geo_json_service.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
-import 'package:sisged/_blocs/widgets/map/map_bloc.dart';
-import 'package:sisged/_blocs/widgets/map/regional_geo_json_class.dart';
+import 'package:siged/_blocs/widgets/map/map_bloc.dart';
+import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
 
 /// Controlador unificado: formulário + paginação + filtros globais + gráficos/mapa.
 class AccidentsController extends ChangeNotifier {

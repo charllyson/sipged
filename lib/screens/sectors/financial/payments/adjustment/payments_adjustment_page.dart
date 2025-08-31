@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
 import 'payment_adjustment_controller.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/admPanel/converters/importExcel/import_excel_page.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/admPanel/converters/importExcel/import_excel_page.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 import 'payment_adjustment_chart_section.dart';
 import 'payment_adjustment_form_section.dart';

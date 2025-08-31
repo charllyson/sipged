@@ -2,11 +2,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 /// Store de contratos com:
 /// - Warmup idempotente por usuário

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
-import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_data.dart';
+import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
 class ScheduleCells extends StatelessWidget {
   final ScheduleData execucao;
@@ -19,7 +19,7 @@ class ScheduleCells extends StatelessWidget {
   final Duration waitDuration;
   final Duration showDuration;
 
-  /// Resolve UID → nome legível (string pronta para exibir)
+  /// Resolve UID → nome legível
   final String Function(String? uid)? userLabelResolver;
 
   const ScheduleCells({
@@ -39,24 +39,58 @@ class ScheduleCells extends StatelessWidget {
 
   bool get _hasComment => (execucao.comentario?.trim().isNotEmpty ?? false);
 
-  bool get _hasPhotos {
-    final f = execucao.fotos;
-    if (f != null) return f.isNotEmpty;
-    final fm = execucao.fotosMeta;
-    return (fm != null && fm.isNotEmpty);
-  }
+  // ✅ Somente URLs reais em `fotos` disparam o ícone da câmera
+  bool get _hasPhotos => execucao.fotos.any((u) => u.trim().isNotEmpty);
 
-  int get _photosCount {
-    final f = execucao.fotos;
-    if (f != null) return f.length;
-    final fm = execucao.fotosMeta;
-    return (fm.length ?? 0);
+  int get _photosCount => execucao.fotos.where((u) => u.trim().isNotEmpty).length;
+
+  /// Escolhe a melhor data para exibir (tooltip):
+  /// 1) takenAt da célula (doc.takenAtMs) -> execucao.takenAt
+  /// 2) mais recente das fotos (takenAt|takenAtMs|uploadedAtMs em fotos_meta)
+  /// 3) updatedAt / createdAt
+  DateTime? _primaryDate() {
+    // 1) do doc
+    if (execucao.takenAt != null) return execucao.takenAt;
+
+    // 2) mais recente das metas
+    DateTime? best;
+    for (final m in execucao.fotosMeta) {
+      DateTime? d;
+
+      final rawTaken = m['takenAt'] ?? m['takenAtMs'];
+      if (rawTaken is int) {
+        d = DateTime.fromMillisecondsSinceEpoch(rawTaken);
+      } else if (rawTaken is String) {
+        final asInt = int.tryParse(rawTaken);
+        if (asInt != null) {
+          d = DateTime.fromMillisecondsSinceEpoch(asInt);
+        } else {
+          try { d = DateTime.parse(rawTaken); } catch (_) {}
+        }
+      } else if (rawTaken is DateTime) {
+        d = rawTaken;
+      }
+
+      // fallback: uploadedAtMs
+      if (d == null) {
+        final up = m['uploadedAtMs'];
+        if (up is int) d = DateTime.fromMillisecondsSinceEpoch(up);
+        if (up is String) {
+          final asInt = int.tryParse(up);
+          if (asInt != null) d = DateTime.fromMillisecondsSinceEpoch(asInt);
+        }
+      }
+
+      if (d != null && (best == null || d.isAfter(best))) best = d;
+    }
+
+    // 3) updatedAt / createdAt
+    return best ?? execucao.updatedAt ?? execucao.createdAt;
   }
 
   String _tooltipText() {
     final status = (execucao.status ?? '').trim();
 
-    // Preferir "updatedBy" (última modificação), senão "createdBy"
     final uid = (execucao.updatedBy?.isNotEmpty ?? false)
         ? execucao.updatedBy
         : execucao.createdBy;
@@ -65,16 +99,17 @@ class ScheduleCells extends StatelessWidget {
     final comentario = execucao.comentario?.trim();
 
     String data = '—', hour = '—';
-    final dt = execucao.updatedAt ?? execucao.createdAt;
+    final dt = _primaryDate();
     if (dt != null) {
       try {
         data = convertDateTimeToDDMMYYYY(dt);
         hour = convertTimestampHHMM(dt);
       } catch (_) {
-        data =
-        '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-        hour =
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+        data = '${dt.day.toString().padLeft(2, '0')}/'
+            '${dt.month.toString().padLeft(2, '0')}/'
+            '${dt.year}';
+        hour = '${dt.hour.toString().padLeft(2, '0')}:'
+            '${dt.minute.toString().padLeft(2, '0')}';
       }
     }
 
@@ -84,9 +119,8 @@ class ScheduleCells extends StatelessWidget {
       ..writeln('Data: $data às $hour');
 
     if (_hasPhotos) buf.writeln('Fotos: $_photosCount');
-    if (comentario != null && comentario.isNotEmpty) {
-      buf.writeln('Comentário: $comentario');
-    }
+    if ((comentario ?? '').isNotEmpty) buf.writeln('Comentário: $comentario');
+
     return buf.toString().trim();
   }
 
@@ -108,12 +142,12 @@ class ScheduleCells extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 decoration: BoxDecoration(
                   color: cor,
-                  border: isSelected ? Border.all(color: highlightColor, width: 2) : null,
+                  border: isSelected
+                      ? Border.all(color: highlightColor, width: 2)
+                      : null,
                 ),
               ),
             ),
-
-            // Ícones centrais: comentário / câmera (+badge)
             if (_hasComment || _hasPhotos)
               Positioned.fill(
                 child: Center(
@@ -121,15 +155,12 @@ class ScheduleCells extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_hasComment)
-                        const Icon(Icons.info_outline_rounded, size: 15, color: Colors.black38),
+                        const Icon(Icons.info_outline_rounded,
+                            size: 15, color: Colors.black38),
                       if (_hasComment && _hasPhotos) const SizedBox(width: 8),
                       if (_hasPhotos)
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            const Icon(Icons.camera_alt, size: 16, color: Colors.black38),
-                          ],
-                        ),
+                        const Icon(Icons.camera_alt,
+                            size: 16, color: Colors.black38),
                     ],
                   ),
                 ),
@@ -141,7 +172,8 @@ class ScheduleCells extends StatelessWidget {
 
     return Tooltip(
       message: needsTooltip ? _tooltipText() : '',
-      triggerMode: needsTooltip ? activeTooltipTrigger : TooltipTriggerMode.manual,
+      triggerMode:
+      needsTooltip ? activeTooltipTrigger : TooltipTriggerMode.manual,
       waitDuration: waitDuration,
       showDuration: showDuration,
       child: base,

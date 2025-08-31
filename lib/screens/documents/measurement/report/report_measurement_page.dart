@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
-import 'package:sisged/screens/documents/measurement/report/report_measurement_controller.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_controller.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'report_measurement_form_section.dart';
 import 'report_measurement_graph_section.dart';
 import 'report_measurement_table_section.dart';
@@ -82,13 +82,13 @@ class ReportMeasurement extends StatelessWidget {
                               child: ReportMeasurementFormSection(
                                 isEditable: ctrl.isEditable,
                                 formValidated: ctrl.formValidated,
-                                selectedAdjustmentMeasurement: ctrl.selectedReport,
-                                currentAdjustmentMeasurementId: ctrl.currentReportId,
+                                selectedReportMeasurement: ctrl.selectedReport,
+                                currentReportMeasurementId: ctrl.currentReportId,
                                 contractData: ctrl.contract,
-                                orderAdjustmentController: ctrl.orderCtrl,
-                                processNumberAdjustmentController: ctrl.processCtrl,
-                                dateAdjustmentController: ctrl.dateCtrl,
-                                valueAdjustmentController: ctrl.valueCtrl,
+                                orderController: ctrl.orderCtrl,
+                                processNumberController: ctrl.processCtrl,
+                                dateController: ctrl.dateCtrl,
+                                valueController: ctrl.valueCtrl,
                                 reportMeasurementStorageBloc: ctrl.reportMeasurementStorageBloc,
                                 onClear: ctrl.createNew,
                                 onSave: () async {

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:sisged/_blocs/widgets/map/regional_geo_json_class.dart';
+import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
 
 /// Constantes de chaves de propriedades
 const String kPropertyRegionName = 'Limite';

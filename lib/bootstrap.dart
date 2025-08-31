@@ -8,7 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sisged/_blocs/actives/roads/active_road_bloc.dart';
+import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';
+import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
+import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
+import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_bloc.dart';
+import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_store.dart';
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_bloc.dart';
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
 
 import '_blocs/actives/roads/active_roads_event.dart';
 import 'firebase_options_flavors.dart';
@@ -19,43 +25,43 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 // ************ IMPORTS via package: ************
-import 'package:sisged/_blocs/actives/oaes/active_oaes_bloc.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
 
-import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/budget/budget_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/validity/validity_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_bloc.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/budget/budget_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_bloc.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
 
-import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
-import 'package:sisged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
-import 'package:sisged/_blocs/sectors/transit/accidents/accidents_controller.dart';
-import 'package:sisged/_blocs/sectors/transit/infractions/infractions_bloc.dart';
-import 'package:sisged/_blocs/sectors/transit/infractions/infractions_controller.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_controller.dart';
+import 'package:siged/_blocs/sectors/transit/infractions/infractions_bloc.dart';
+import 'package:siged/_blocs/sectors/transit/infractions/infractions_controller.dart';
 
-import 'package:sisged/_blocs/system/user/admin_bloc.dart';
-import 'package:sisged/_blocs/system/login/login_bloc.dart';
-import 'package:sisged/_blocs/system/info/system_bloc.dart';
+import 'package:siged/_blocs/system/user/admin_bloc.dart';
+import 'package:siged/_blocs/system/login/login_bloc.dart';
+import 'package:siged/_blocs/system/info/system_bloc.dart';
 
-import 'package:sisged/_blocs/documents/contracts/additives/additive_store.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
-import 'package:sisged/_blocs/documents/contracts/budget/budget_store.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_store.dart';
-import 'package:sisged/_blocs/documents/contracts/validity/validity_store.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_store.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
+import 'package:siged/_blocs/documents/contracts/budget/budget_store.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_store.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_store.dart';
 
-import 'package:sisged/_blocs/system/user/user_repository.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contracts_controller.dart';
-import 'package:sisged/siged_page.dart';
+import 'package:siged/_blocs/system/user/user_repository.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contracts_controller.dart';
+import 'package:siged/siged_page.dart';
 
 // OAEs
 import '_blocs/actives/oaes/active_oaes_event.dart';
@@ -187,6 +193,11 @@ Future<void> bootstrapAndRunApp() async {
             create: (_) => ActiveRoadsBloc()
               ..add(const ActiveRoadsWarmupRequested()),
           ),
+          /// ======= Railway =======
+          BlocProvider<ActiveRailwaysBloc>(
+            create: (_) => ActiveRailwaysBloc()
+              ..add(const ActiveRailwaysWarmupRequested()),
+          ),
 
           /// ======= Accidents =======
           Provider<AccidentsBloc>(create: (_) => AccidentsBloc(), dispose: (_, b) => b.dispose()),
@@ -212,8 +223,30 @@ Future<void> bootstrapAndRunApp() async {
               additivesStore: ctx.read<AdditivesStore>(),
               apostillesStore: ctx.read<ApostillesStore>(),
               reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
+              adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),   // 👈 novo
+              revisionsStore: ctx.read<RevisionsMeasurementStore>(),       // 👈 novo
             )..initialize(),
           ),
+
+          /// ======= Report Measurement =======
+          Provider<ReportMeasurementStorageBloc>(create: (_) => ReportMeasurementStorageBloc()),
+          Provider<ReportMeasurementBloc>(create: (_) => ReportMeasurementBloc(), dispose: (_, b) => b.dispose()),
+          ChangeNotifierProvider<ReportsMeasurementStore>(
+            create: (ctx) => ReportsMeasurementStore(ctx.read<ReportMeasurementBloc>()),
+          ),
+
+          /// ======= Adjustment Measurement =======  👈 ADICIONE
+          Provider<AdjustmentMeasurementBloc>(create: (_) => AdjustmentMeasurementBloc(), dispose: (_, b) => b.dispose()),
+          ChangeNotifierProvider<AdjustmentsMeasurementStore>(
+            create: (ctx) => AdjustmentsMeasurementStore(ctx.read<AdjustmentMeasurementBloc>()),
+          ),
+
+          /// ======= Revision Measurement =======    👈 ADICIONE
+          Provider<RevisionMeasurementBloc>(create: (_) => RevisionMeasurementBloc(), dispose: (_, b) => b.dispose()),
+          ChangeNotifierProvider<RevisionsMeasurementStore>(
+            create: (ctx) => RevisionsMeasurementStore(ctx.read<RevisionMeasurementBloc>()),
+          ),
+
 
           /// ======= Payments =======
           Provider<PaymentReportBloc>(create: (_) => PaymentReportBloc()),
@@ -225,7 +258,7 @@ Future<void> bootstrapAndRunApp() async {
           return BlocBuilder<UserBloc, UserState>(
             buildWhen: (a, b) => a.current != b.current,
             builder: (context, userState) {
-              final app = const SisGed();
+              final app = const SiGed();
 
               if (userState.current == null) {
                 // sem user: não injeta OAEs

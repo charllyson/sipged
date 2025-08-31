@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:sisged/_utils/monetary_utils.dart';
-import 'package:sisged/_widgets/charts/radar/radar_chart_shimmer.dart';
-import 'package:sisged/_widgets/charts/radar/radar_series_data.dart';
+import 'package:siged/_utils/monetary_utils.dart';
+import 'package:siged/_widgets/charts/radar/radar_chart_shimmer.dart';
+import 'package:siged/_widgets/charts/radar/radar_series_data.dart';
 
 class RadarChartChanged extends StatefulWidget {
   final List<String> labels;
@@ -65,7 +65,7 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
 
     if (widget.labels.isEmpty || widget.datasets.isEmpty || hasMismatch) {
       return RadarChartShimmer(
-        altura: 240,
+        altura: 275,
         largura: widget.larguraGrafico,
         cardWidth: widget.larguraCard,
         legendItems: widget.useExternalLegend ? widget.datasets.length : 0,

@@ -1,6 +1,6 @@
 // lib/_repository/geoJson/geo_json_manager.dart
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/widgets/map/regional_geo_json_class.dart';
+import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
 import 'geo_json_service.dart';
 
 class GeoJsonManager {

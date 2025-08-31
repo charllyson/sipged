@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:sisged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
 
 class DashboardFinancialPage extends StatefulWidget {
   const DashboardFinancialPage({super.key});

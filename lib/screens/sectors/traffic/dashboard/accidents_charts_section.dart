@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/charts/gauges/gauge_circular_percent.dart';
+import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
 import '../../../../_widgets/charts/bars/bar_chart_changed.dart';
 import '../../../../_widgets/charts/pies/pie_chart_changed.dart';
 

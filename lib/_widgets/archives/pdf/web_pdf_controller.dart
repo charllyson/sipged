@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
 
 // STORAGE BLOCS
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/revision/payment_revision_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_storage_bloc.dart';
 
 // DATAS
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additive_data.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
-import 'package:sisged/_blocs/documents/contracts/validity/validity_data.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additive_data.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_data.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
+import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 
-// VIEWER
-import 'package:sisged/_widgets/archives/pdf/pdf_preview_web.dart';
+// troque o import do stub por este:
+import 'package:siged/_widgets/archives/pdf/pdf_preview.dart';
 
 enum PDFType {
   contract,
@@ -239,7 +239,9 @@ class WebPdfControllerGeneric<T> extends ChangeNotifier {
 
     await showDialog(
       context: context,
-      builder: (_) => Dialog(child: PdfPreviewWeb(pdfUrl: url!)),
+      builder: (_) => Dialog(
+        child: PdfPreview(pdfUrl: url!), // ver seção 3 para o !
+      ),
     );
   }
 

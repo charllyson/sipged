@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'apostilles_data.dart';
 
 /// Store em memória de **apostilamentos**, indexado por `contractId`.

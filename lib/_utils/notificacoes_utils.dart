@@ -1,8 +1,8 @@
 /*
-import 'package:sisged/_blocs/measurementSection/report_measurement_bloc.dart';
-import 'package:sisged/_blocs/additives/additives_bloc.dart';
-import 'package:sisged/_blocs/apostilles/apostilles_bloc.dart';
-import 'package:sisged/_class/registers/register_class.dart';
+import 'package:siged/_blocs/measurementSection/report_measurement_bloc.dart';
+import 'package:siged/_blocs/additives/additives_bloc.dart';
+import 'package:siged/_blocs/apostilles/apostilles_bloc.dart';
+import 'package:siged/_class/registers/register_class.dart';
 
 Future<List<Registro>> getNotificacoesRecentesDoSistema({
   required MeasurementBloc measurementBloc,

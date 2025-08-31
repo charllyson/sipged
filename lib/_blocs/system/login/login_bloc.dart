@@ -4,8 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxdart/rxdart.dart';
 
-import 'package:sisged/_blocs/system/user/user_data.dart';
-import 'package:sisged/_utils/validates/login_validators.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_utils/validates/login_validators.dart';
 
 enum LoginState {
   idle,

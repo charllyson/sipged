@@ -1,16 +1,16 @@
+// lib/screens/documents/measurement/revision/revision_measurement_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_bloc.dart';
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_controller.dart';
 
-// ⬇️ blocos injetados no controller
-import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_bloc.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
 
-// controller + seções
-import 'revision_measurement_controller.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+
 import 'revision_measurement_form_section.dart';
 import 'revision_measurement_graph_section.dart';
 import 'revision_measurement_table_section.dart';
@@ -44,15 +44,14 @@ class RevisionMeasurement extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<RevisionMeasurementController>(
       create: (_) => RevisionMeasurementController(
-        measurementBloc: ReportMeasurementBloc(),
+        contract: contractData,                // ✅ passa o contrato no construtor
+        measurementBloc: RevisionMeasurementBloc(),
         additivesBloc: AdditivesBloc(),
       ),
       builder: (context, _) {
         final c = context.read<RevisionMeasurementController>();
-        // Inicializa com o contrato atual (controller usa `late ContractData contract`)
-        WidgetsBinding.instance.addPostFrameCallback(
-              (_) => c.init(context, contractData: contractData),
-        );
+        // inicializa dados e permissões
+        WidgetsBinding.instance.addPostFrameCallback((_) => c.init(context));
 
         return Stack(
           children: [
@@ -90,13 +89,13 @@ class RevisionMeasurement extends StatelessWidget {
                               child: RevisionMeasurementFormSection(
                                 isEditable: ctrl.isEditable,
                                 formValidated: ctrl.formValidated,
-                                selectedAdjustmentMeasurement: ctrl.selectedRevision,
-                                currentAdjustmentMeasurementId: ctrl.currentRevisionId,
-                                contractData: ctrl.contract, // não-nulo (late) no controller
-                                orderAdjustmentController: ctrl.orderCtrl,
-                                processNumberAdjustmentController: ctrl.processCtrl,
-                                dateAdjustmentController: ctrl.dateCtrl,
-                                valueAdjustmentController: ctrl.valueCtrl,
+                                selectedRevisionMeasurement: ctrl.selectedRevision,
+                                currentRevisionMeasurementId: ctrl.currentRevisionId,
+                                contractData: ctrl.contract, // ✅ já definido
+                                orderRevisionController: ctrl.orderCtrl,
+                                processNumberRevisionController: ctrl.processCtrl,
+                                dateRevisionController: ctrl.dateCtrl,
+                                valueRevisionController: ctrl.valueCtrl,
                                 onSave: () async {
                                   await ctrl.saveOrUpdate(
                                     onConfirm: () => _confirm(context, 'Deseja salvar esta medição?'),
@@ -113,7 +112,7 @@ class RevisionMeasurement extends StatelessWidget {
                                     ),
                                   );
                                 },
-                                onClear: ctrl.createNew, // ✅ passa a função, não o resultado
+                                onClear: ctrl.createNew,
                                 onUploadSaveToFirestore: ctrl.savePdfUrl,
                               ),
                             ),
@@ -149,7 +148,7 @@ class RevisionMeasurement extends StatelessWidget {
                               valorAditivos: ctrl.totalAditivos,
                               valorTotal: totalDisponivel,
                               saldo: saldo,
-                              contractData: ctrl.contract, // não-nulo
+                              contractData: ctrl.contract,
                               selectedMeasurement: ctrl.selectedRevision,
                             ),
                             const SizedBox(height: 20),
@@ -162,6 +161,8 @@ class RevisionMeasurement extends StatelessWidget {
                 const FootBar(),
               ],
             ),
+
+            // overlay de saving
             Consumer<RevisionMeasurementController>(
               builder: (_, ctrl, __) => ctrl.isSaving
                   ? Stack(

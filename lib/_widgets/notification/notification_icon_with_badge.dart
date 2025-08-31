@@ -2,8 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
 
-import 'package:sisged/_widgets/registers/register_class.dart';
-import 'package:sisged/_blocs/widgets/notifications/notification_bloc.dart';
+import 'package:siged/_widgets/registers/register_class.dart';
+import 'package:siged/_blocs/widgets/notifications/notification_bloc.dart';
 import 'notification_dialog.dart';
 
 class NotificationIconWithBadge extends StatelessWidget {

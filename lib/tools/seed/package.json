@@ -1,5 +1,5 @@
 {
-  "name": "sisged-seed",
+  "name": "siged-seed",
   "private": true,
   "type": "module",
   "dependencies": {

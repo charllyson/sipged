@@ -1,14 +1,14 @@
 // lib/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/_blocs/sectors/transit/accidents/accidents_controller.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_controller.dart';
 
-import 'package:sisged/_widgets/background/background_cleaner.dart';
-import 'package:sisged/screens/sectors/traffic/dashboard/accidents_selector_section.dart';
-import 'package:sisged/screens/sectors/traffic/dashboard/accidents_summary_section.dart';
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
-import 'package:sisged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/screens/sectors/traffic/dashboard/accidents_selector_section.dart';
+import 'package:siged/screens/sectors/traffic/dashboard/accidents_summary_section.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'accidents_charts_section.dart';
 import 'accident_map_section.dart';
 

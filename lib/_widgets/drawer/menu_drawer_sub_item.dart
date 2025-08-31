@@ -1,6 +1,6 @@
 
-import 'package:sisged/_blocs/system/pages/pages_data.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_blocs/system/pages/pages_data.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 class MenuDrawerSubItem {
   final String label;

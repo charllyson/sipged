@@ -48,7 +48,7 @@ class SimpleTableVirtualized<T> extends StatelessWidget {
   final double deleteColWidth;
 
   // grupo/leading
-  final String Function(T item)? groupBy; // usado apenas para flatten
+  final String Function(T item)? groupBy; // opcional
   final String? leadingCellTitle;
   final Widget Function(T item)? leadingCell;
 
@@ -117,100 +117,118 @@ class SimpleTableVirtualized<T> extends StatelessWidget {
       return true;
     }());
 
+    // dados achatados (se houver agrupamento)
     final grouped = _groupBy(listData);
     final flat = grouped.entries.expand<T>((e) => e.value).toList(growable: false);
 
-    final header = _buildHeaderStrip();
-    final aligns = _colAligns;
+    // medidas
     final widths = _colWidths;
     final totalWidth = widths.fold<double>(0, (s, w) => s + w);
+    final parentWidth = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : MediaQuery.of(context).size.width;
+    final needsScroll = totalWidth > parentWidth;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minWidth: constraints.maxWidth,
-          maxWidth: totalWidth,
-        ),
-        child: Column(
-          children: [
-            header,
-            const Divider(height: 1),
-            SizedBox(
-              height: bodyHeight,
-              child: ListView.builder(
-                itemCount: flat.length,
-                itemBuilder: (context, index) {
-                  final item = flat[index];
-                  final cells = List.generate(columnGetters.length, (i) {
-                    try {
-                      return columnGetters[i](item);
-                    } catch (_) {
-                      return '-';
-                    }
-                  }, growable: false);
+    // cabeçalho pronto
+    final header = _buildHeaderStrip();
 
-                  final isSelected = selectedItem != null && item == selectedItem;
+    // conteúdo da tabela (reutilizado nos dois ramos)
+    Widget content() {
+      final aligns = _colAligns;
 
-                  return InkWell(
-                    onTap: () => onTapItem?.call(item),
-                    child: Container(
-                      color: isSelected ? Colors.green.shade100 : Colors.white,
-                      child: Row(
-                        children: [
-                          if (_leadingCols == 1)
-                            SizedBox(
-                              width: widths[0],
-                              child: Padding(
-                                padding: rowPadding,
-                                child: Center(child: leadingCell!(item)),
-                              ),
+      return Column(
+        children: [
+          header,
+          const Divider(height: 1),
+          SizedBox(
+            height: bodyHeight,
+            child: ListView.builder(
+              itemCount: flat.length,
+              itemBuilder: (context, index) {
+                final item = flat[index];
+                final cells = List.generate(columnGetters.length, (i) {
+                  try {
+                    return columnGetters[i](item);
+                  } catch (_) {
+                    return '-';
+                  }
+                }, growable: false);
+
+                final isSelected = selectedItem != null && item == selectedItem;
+
+                return InkWell(
+                  onTap: () => onTapItem?.call(item),
+                  child: Container(
+                    color: isSelected ? Colors.green.shade100 : Colors.white,
+                    child: Row(
+                      children: [
+                        if (_leadingCols == 1)
+                          SizedBox(
+                            width: widths[0],
+                            child: Padding(
+                              padding: rowPadding,
+                              child: Center(child: leadingCell!(item)),
                             ),
-                          for (var c = 0; c < columnGetters.length; c++)
-                            SizedBox(
-                              width: widths[c + _leadingCols],
-                              child: Padding(
-                                padding: rowPadding,
-                                child: Align(
-                                  alignment: _toAlignment(aligns[c]),
-                                  child: Text(
-                                    cells[c],
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: aligns[c],
-                                  ),
+                          ),
+                        for (var c = 0; c < columnGetters.length; c++)
+                          SizedBox(
+                            width: widths[c + _leadingCols],
+                            child: Padding(
+                              padding: rowPadding,
+                              child: Align(
+                                alignment: _toAlignment(aligns[c]),
+                                child: Text(
+                                  cells[c],
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: aligns[c],
                                 ),
                               ),
                             ),
-                          if (_deleteCols == 1)
-                            SizedBox(
-                              width: widths.last,
-                              child: IconButton(
-                                tooltip: 'Apagar',
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () => _confirmarExclusao(context, item),
-                              ),
+                          ),
+                        if (_deleteCols == 1)
+                          SizedBox(
+                            width: widths.last,
+                            child: IconButton(
+                              tooltip: 'Apagar',
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _confirmarExclusao(context, item),
                             ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
-                  );
+                  ),
+                );
+              },
+            ),
+          ),
+          if (footerRows != null && footerRows!.isNotEmpty)
+            SizedBox(
+              width: totalWidth,
+              child: Table(
+                columnWidths: {
+                  for (int i = 0; i < _totalColumns; i++)
+                    i: FixedColumnWidth(widths[i]),
                 },
+                children: footerRows!,
               ),
             ),
-            if (footerRows != null && footerRows!.isNotEmpty)
-              SizedBox(
-                width: totalWidth,
-                child: Table(
-                  columnWidths: {
-                    for (int i = 0; i < _totalColumns; i++)
-                      i: FixedColumnWidth(widths[i]),
-                  },
-                  children: footerRows!,
-                ),
-              ),
-          ],
+        ],
+      );
+    }
+
+    // **AQUI** evitamos BoxConstraints inválidos e centralizamos.
+    return SizedBox(
+      width: parentWidth, // bound do viewport
+      child: needsScroll
+          ? SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Center( // mantém centralizado mesmo com rolagem
+          child: SizedBox(width: totalWidth, child: content()),
         ),
+      )
+          : Center( // sem rolagem: centralizado
+        child: SizedBox(width: totalWidth, child: content()),
       ),
     );
   }
@@ -303,7 +321,9 @@ class SimpleTableVirtualized<T> extends StatelessWidget {
 
   Widget _sortIcon(int columnIndex) {
     if (sortColumnIndex == columnIndex) {
-      return const Icon(Icons.arrow_upward, size: 16, color: Colors.redAccent);
+      // você pode usar isAscending para mudar o ícone se quiser
+      return Icon(isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+          size: 16, color: Colors.redAccent);
     }
     return const SizedBox.shrink();
   }

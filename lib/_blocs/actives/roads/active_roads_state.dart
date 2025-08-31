@@ -1,11 +1,11 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
-import 'package:sisged/_blocs/actives/roads/active_roads_data.dart';
-import 'package:sisged/_blocs/actives/roads/active_road_style.dart';
-import 'package:sisged/_blocs/actives/roads/active_road_rules.dart';
-import 'package:sisged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
+import 'package:siged/_blocs/actives/roads/active_road_style.dart';
+import 'package:siged/_blocs/actives/roads/active_road_rules.dart';
+import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
 
 enum ActiveRoadsLoadStatus { idle, loading, success, failure }
 
@@ -165,21 +165,6 @@ class ActiveRoadsState extends Equatable {
     return 'OUTRO';
   }
 
-  // paleta fixa pro pie (evita branco)
-  Color _colorForSurface(String code) {
-    switch (code) {
-      case 'DUP': return Colors.green.shade700;
-      case 'EOD': return Colors.orange.shade700;
-      case 'PAV': return Colors.green.shade400;
-      case 'EOP': return Colors.deepOrange.shade400;
-      case 'IMP': return Colors.blueGrey.shade600;
-      case 'EOI': return Colors.indigo.shade500;
-      case 'PLA': return Colors.purple.shade500;
-      case 'LEN': return Colors.brown.shade600;
-      default:    return Colors.grey.shade600;
-    }
-  }
-
   // ===========================================================================
   // PIE — soma de extensão (km) por superfície
   // ===========================================================================
@@ -197,7 +182,7 @@ class ActiveRoadsState extends Equatable {
     final sums = _sumExtBySurface;
     return _surfaceCodesOrder.map((code) {
       final km = (sums[code] ?? 0.0);
-      return (code: code, label: _labelForSurface(code), value: km, color: _colorForSurface(code));
+      return (code: code, label: _labelForSurface(code), value: km, color: ActiveRoadsStyle.colorForSurface(code));
     }).toList(growable: false);
   }
 

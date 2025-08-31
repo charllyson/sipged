@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_style.dart';
-import 'package:sisged/_blocs/widgets/map/geo_json_manager.dart';
-import 'package:sisged/_widgets/map/map_interactive.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_style.dart';
+import 'package:siged/_blocs/widgets/map/geo_json_manager.dart';
+import 'package:siged/_widgets/map/map_interactive.dart';
 
 class MapContractSection extends StatelessWidget {
   final GeoJsonManager geoManager;

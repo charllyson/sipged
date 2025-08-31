@@ -1,20 +1,31 @@
-// lib/_widgets/carousel/styles/carousel_photo_theme.dart
+// lib/_blocs/widgets/carousel/carousel_photo_theme.dart
 import 'package:flutter/material.dart';
 
 class CarouselPhotoTheme {
+  /// Tamanho (largura/altura) de cada miniatura
   final double itemSize;
+
+  /// Espaçamento horizontal entre itens
   final double spacing;
+
+  /// Padding da ListView horizontal
+  final EdgeInsets listPadding;
+
+  /// Raio de borda das miniaturas
   final BorderRadius borderRadius;
+
+  /// Fundo do “X” de remover (o erro estava aqui)
   final Color removerBg;
+
+  /// Cor do ícone “X” (o erro estava aqui)
   final Color removerIconColor;
-  final EdgeInsetsGeometry listPadding;
 
   const CarouselPhotoTheme({
     this.itemSize = 96,
-    this.spacing = 8,
-    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
-    this.removerBg = const Color(0x73000000),
-    this.removerIconColor = const Color(0xFFFFFFFF),
-    this.listPadding = const EdgeInsets.only(left: 8),
+    this.spacing = 10,
+    this.listPadding = const EdgeInsets.symmetric(horizontal: 12),
+    this.borderRadius = const BorderRadius.all(Radius.circular(10)),
+    this.removerBg = const Color(0xB3000000),        // preto com ~70% opacidade
+    this.removerIconColor = Colors.white,            // ícone branco
   });
 }

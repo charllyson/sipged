@@ -2,10 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_event.dart';
-import 'package:sisged/_blocs/system/user/user_state.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_event.dart';
+import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 class UserGreeting extends StatefulWidget {
   final User? firebaseUser;

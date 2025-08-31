@@ -1,7 +1,7 @@
 // lib/_widgets/carousel/models/photo_item.dart
 import 'dart:typed_data';
-import 'package:sisged/_blocs/widgets/carousel/carousel_photo.dart';
-import 'package:sisged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_blocs/widgets/carousel/carousel_photo.dart';
+import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
 /// Fonte unificada de foto: URL remota ou bytes locais.
 sealed class PhotoItem {

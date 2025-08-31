@@ -1,16 +1,14 @@
-// lib/_repository/sectors/operation/schedule_repository.dart
+// lib/_blocs/sectors/operation/schedule_repository.dart
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_style.dart';
-import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
-
-// Metadados de foto
-import 'package:sisged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_blocs/sectors/operation/schedule_data.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_style.dart';
+import 'package:siged/_widgets/schedule/schedule_lane_class.dart';
+import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
 class ScheduleRepository {
   ScheduleRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
@@ -20,6 +18,7 @@ class ScheduleRepository {
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
+  // ---------------- Helpers ----------------
   String _slug(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
   String _collectionForService(String key) => 'schedules_${_slug(key)}';
 
@@ -34,15 +33,23 @@ class ScheduleRepository {
     required String serviceKey,
     required int estaca,
     required int faixaIndex,
-  }) {
-    final folder = 'contracts/$contractId/schedules/${_slug(serviceKey)}/${estaca}_$faixaIndex';
-    return _storage.ref(folder);
+  }) =>
+      _storage.ref('contracts/$contractId/schedules/${_slug(serviceKey)}/${estaca}_$faixaIndex');
+
+  String _sanitizeName(String name) => name.replaceAll(RegExp(r'[^a-zA-Z0-9\\._-]'), '_');
+
+  String _guessContentType(String name, [String fallback = 'image/jpeg']) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.bmp')) return 'image/bmp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    return fallback;
   }
 
-  String _sanitizeName(String name) =>
-      name.replaceAll(RegExp(r'[^a-zA-Z0-9\.\-_]'), '_');
-
-  // ---------------- Serviços ----------------
+  // ---------------- Serviços (meta) ----------------
   Future<List<ScheduleData>> loadAvailableServicesFromBudget(String contractId) async {
     final List<ScheduleData> services = <ScheduleData>[
       ScheduleData(
@@ -51,7 +58,7 @@ class ScheduleRepository {
         key: 'geral',
         label: 'GERAL',
         icon: Icons.clear_all,
-        color: ScheduleStyle.buttonColor('GERAL'),
+        color: ScheduleStyle.colorForService('GERAL'),
       ),
     ];
     try {
@@ -78,7 +85,7 @@ class ScheduleRepository {
             key: key,
             label: rawTitle.toUpperCase(),
             icon: ScheduleStyle.pickIconForTitle(rawTitle),
-            color: ScheduleStyle.buttonColor(rawTitle),
+            color: ScheduleStyle.colorForService(rawTitle),
           ),
         );
       }
@@ -122,10 +129,9 @@ class ScheduleRepository {
         (data['lane_positions'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? <String>[];
     final names =
         (data['lane_names'] as List?)?.map((e) => e?.toString() ?? '').toList() ?? <String>[];
-    final alturas = (data['lane_alturas'] as List?)
-        ?.map((e) => (e is num) ? e.toDouble() : 20.0)
-        .toList() ??
-        <double>[];
+    final alturas =
+        (data['lane_alturas'] as List?)?.map((e) => (e is num) ? e.toDouble() : 20.0).toList() ??
+            <double>[];
 
     if (positions.isEmpty || names.isEmpty || positions.length != names.length) {
       return <ScheduleLaneClass>[];
@@ -156,27 +162,7 @@ class ScheduleRepository {
     }, SetOptions(merge: true));
   }
 
-  // ---------------- Execuções ----------------
-  String _normalizeStatus(String? v) {
-    var s = (v ?? '').trim().toLowerCase();
-    s = s
-        .replaceAll('á', 'a')
-        .replaceAll('à', 'a')
-        .replaceAll('â', 'a')
-        .replaceAll('ã', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('ê', 'e')
-        .replaceAll('í', 'i')
-        .replaceAll('ó', 'o')
-        .replaceAll('ô', 'o')
-        .replaceAll('õ', 'o')
-        .replaceAll('ú', 'u')
-        .replaceAll('ç', 'c');
-    if (s == 'concluido') return s;
-    if (s == 'em andamento') return s;
-    return 'a iniciar';
-  }
-
+  // ---------------- Execuções (fetch) ----------------
   Future<List<ScheduleData>> fetchExecucoes({
     required String contractId,
     required String selectedServiceKey,
@@ -191,26 +177,18 @@ class ScheduleRepository {
       final createdAt = (rawCreated is Timestamp) ? rawCreated.toDate() : rawCreated;
       final updatedAt = (rawUpdated is Timestamp) ? rawUpdated.toDate() : rawUpdated;
 
-      final numero =
-      (m['numero'] is num) ? (m['numero'] as num).toInt() : int.tryParse('${m['numero']}');
-      final faixaIndex = (m['faixa_index'] is num)
-          ? (m['faixa_index'] as num).toInt()
-          : int.tryParse('${m['faixa_index']}');
+      final fotos = List<String>.from(m['fotos'] ?? const []);
+      final statusRaw = (m['status'] as String?);
+      final status = (statusRaw == null || statusRaw.trim().isEmpty)
+          ? (fotos.isNotEmpty ? 'em_andamento' : 'a_iniciar')
+          : _canonStatus(statusRaw);
 
       final normalized = {
         ...m,
-        'numero': numero ?? 0,
-        'faixa_index': faixaIndex ?? 0,
-        'status': _normalizeStatus(m['status']?.toString()),
-        'fotos': (m['fotos'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[],
-        'fotos_meta': (m['fotos_meta'] as List?)
-            ?.map((e) => Map<String, dynamic>.from((e as Map)))
-            .toList() ??
-            const <Map<String, dynamic>>[],
         'createdAt': createdAt,
         'updatedAt': updatedAt,
+        'status': status, // canônico para UI
       };
-
       return ScheduleData.fromMap(normalized, meta: meta);
     }
 
@@ -222,337 +200,73 @@ class ScheduleRepository {
         ]);
         for (final snap in snaps) {
           for (final d in snap.docs) {
-            final m = d.data();
-            results.add(
-              _fromDoc({
-                ...m,
-                'key': 'geral',
-                'label': 'GERAL',
-                'color': Colors.black54.value,
-                'icon': Icons.clear_all.codePoint,
-              }),
-            );
+            results.add(_fromDoc(d.data(), meta: metaForSelected));
           }
         }
       }
     } else {
-      final snap = await _contractCol(contractId, _collectionForService(selectedServiceKey)).get();
+      final snap =
+      await _contractCol(contractId, _collectionForService(selectedServiceKey)).get();
       for (final d in snap.docs) {
         results.add(_fromDoc(d.data(), meta: metaForSelected));
       }
     }
 
+    // Deduplicar por (estaca, faixa) pegando o mais recente
     final map = <String, ScheduleData>{};
     for (final e in results) {
-      final k = '${e.numero}_${e.faixaIndex}';
-      final cur = map[k];
-      if (cur == null ||
-          (e.createdAt != null &&
-              (cur.createdAt == null || e.createdAt!.isAfter(cur.createdAt!)))) {
-        map[k] = e;
+      final key = '${e.numero}_${e.faixaIndex}';
+      final cur = map[key];
+      final timeE = e.updatedAt ?? e.createdAt;
+      final timeCur = cur?.updatedAt ?? cur?.createdAt;
+      if (cur == null || (timeE != null && (timeCur == null || timeE.isAfter(timeCur)))) {
+        map[key] = e;
       }
     }
     return map.values.toList();
   }
 
-  // ---------------- Upsert/Remove célula ----------------
-  Future<void> upsertSquare({
+  String _canonStatus(String? raw) {
+    var s = (raw ?? '').toLowerCase().trim();
+    s = s
+        .replaceAll('á', 'a')
+        .replaceAll('à', 'a')
+        .replaceAll('â', 'a')
+        .replaceAll('ã', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('ê', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ô', 'o')
+        .replaceAll('õ', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ç', 'c')
+        .replaceAll(RegExp(r'[\s\-_]+'), ' ');
+    if (s.contains('conclu')) return 'concluido';
+    if (s.contains('andament') || s.contains('progress')) return 'em_andamento';
+    if (s.contains('iniciar') || s.contains('todo')) return 'a_iniciar';
+    return s.isEmpty ? 'a_iniciar' : 'a_iniciar';
+  }
+
+  // ---------------- APPLY: status/comentário/data + uploads + exclusões + ordem final ----------------
+  Future<List<String>> applySquareChanges({
     required String contractId,
     required String serviceKey,
     required int estaca,
     required int faixaIndex,
     required String tipoLabel,
-    required String status,
+    required String status, // 'concluido' | 'em andamento' | 'a iniciar'
     String? comentario,
+    DateTime? takenAtForNew,
+    required List<String> finalPhotoUrls, // ordem final desejada (sem as novas)
+    required List<Uint8List> newFilesBytes, // novas fotos (bytes)
+    List<String>? newFileNames,
+    List<pm.CarouselMetadata> newPhotoMetas = const [],
     required String currentUserId,
-  }) async {
-    if (serviceKey == 'geral') return;
-
-    final col = _contractCol(contractId, _collectionForService(serviceKey));
-    final query = await col
-        .where('numero', isEqualTo: estaca)
-        .where('faixa_index', isEqualTo: faixaIndex)
-        .limit(1)
-        .get();
-
-    if (_normalizeStatus(status) == 'a iniciar') {
-      if (query.docs.isNotEmpty) {
-        await query.docs.first.reference.delete();
-      }
-      return;
-    }
-
-    final hasComment = (comentario?.trim().isNotEmpty ?? false);
-    final base = <String, dynamic>{
-      'numero': estaca,
-      'faixa_index': faixaIndex,
-      'tipo': tipoLabel,
-      'status': _normalizeStatus(status),
-    };
-
-    if (query.docs.isNotEmpty) {
-      await query.docs.first.reference.update({
-        ...base,
-        if (hasComment) 'comentario': comentario!.trim() else 'comentario': FieldValue.delete(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': currentUserId,
-      });
-    } else {
-      await col.add({
-        ...base,
-        if (hasComment) 'comentario': comentario!.trim(),
-        'fotos': <String>[],
-        'fotos_meta': <Map<String, dynamic>>[],
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': currentUserId,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': currentUserId,
-      });
-    }
-  }
-
-  // ---------------- Fotos ----------------
-  String _guessContentType(String name, [String fallback = 'image/jpeg']) {
-    final lower = name.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.gif')) return 'image/gif';
-    if (lower.endsWith('.bmp')) return 'image/bmp';
-    if (lower.endsWith('.heic')) return 'image/heic';
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
-    return fallback;
-  }
-
-  Future<void> deleteSquarePhoto({
-    required String contractId,
-    required String serviceKey,
-    required int estaca,
-    required int faixaIndex,
-    required String photoUrl,
-    required String currentUserId,
-  }) async {
-    if (serviceKey == 'geral') return;
-
-    try {
-      final ref = _storage.refFromURL(photoUrl);
-      await ref.delete();
-    } catch (_) {}
-
-    final col = _contractCol(contractId, _collectionForService(serviceKey));
-    final query = await col
-        .where('numero', isEqualTo: estaca)
-        .where('faixa_index', isEqualTo: faixaIndex)
-        .limit(1)
-        .get();
-
-    if (query.docs.isNotEmpty) {
-      final docRef = query.docs.first.reference;
-
-      final updates = <String, dynamic>{
-        'fotos': FieldValue.arrayRemove([photoUrl]),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': currentUserId,
-      };
-
-      try {
-        final snap = await docRef.get();
-        final data = snap.data();
-        final metaList = (data?['fotos_meta'] as List?)?.cast<Map>() ?? const [];
-        final metasToRemove = metaList
-            .where((m) => (m['url'] as String?) == photoUrl)
-            .map((m) => Map<String, dynamic>.from(m))
-            .toList();
-        if (metasToRemove.isNotEmpty) {
-          updates['fotos_meta'] = FieldValue.arrayRemove(metasToRemove);
-        }
-      } catch (_) {}
-
-      await docRef.update(updates);
-    }
-  }
-
-  Future<void> setSquarePhotos({
-    required String contractId,
-    required String serviceKey,
-    required int estaca,
-    required int faixaIndex,
-    required List<String> photoUrls,
-    required String currentUserId,
-    List<pm.CarouselMetadata> metas = const [],
-  }) async {
-    if (serviceKey == 'geral') return;
-
-    final docRef = await _getOrCreateSquareDocRef(
-      contractId: contractId,
-      serviceKey: serviceKey,
-      estaca: estaca,
-      faixaIndex: faixaIndex,
-      currentUserId: currentUserId,
-    );
-
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final metasByUrl = { for (final m in metas) if ((m.url ?? '').isNotEmpty) m.url!: m };
-
-    final metasToSave = <Map<String, dynamic>>[];
-    for (final u in photoUrls) {
-      final m = metasByUrl[u];
-      metasToSave.add({
-        'url': u,
-        'name': (m?.name) ?? u.split('/').last,
-        'takenAt': m?.takenAt?.millisecondsSinceEpoch,
-        'takenAtMs': m?.takenAt?.millisecondsSinceEpoch,
-        'lat': m?.lat,
-        'lng': m?.lng,
-        'make': m?.make,
-        'model': m?.model,
-        'orientation': m?.orientation,
-        'uploadedAtMs': m?.uploadedAtMs ?? now,
-        'uploadedBy': m?.uploadedBy ?? currentUserId,
-      });
-    }
-
-    await docRef.update({
-      'fotos': photoUrls,
-      'fotos_meta': metasToSave,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': currentUserId,
-    });
-  }
-
-  Future<DocumentReference<Map<String, dynamic>>> _getOrCreateSquareDocRef({
-    required String contractId,
-    required String serviceKey,
-    required int estaca,
-    required int faixaIndex,
-    required String currentUserId,
-  }) async {
-    final col = _contractCol(contractId, _collectionForService(serviceKey));
-    final query = await col
-        .where('numero', isEqualTo: estaca)
-        .where('faixa_index', isEqualTo: faixaIndex)
-        .limit(1)
-        .get();
-
-    if (query.docs.isNotEmpty) return query.docs.first.reference;
-
-    final doc = await col.add({
-      'numero': estaca,
-      'faixa_index': faixaIndex,
-      'fotos': <String>[],
-      'fotos_meta': <Map<String, dynamic>>[],
-      'createdAt': FieldValue.serverTimestamp(),
-      'createdBy': currentUserId,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'updatedBy': currentUserId,
-    });
-    return doc;
-  }
-
-  Future<List<String>> uploadSquarePhotos({
-    required String contractId,
-    required String serviceKey,
-    required int estaca,
-    required int faixaIndex,
-    required List<Uint8List> filesBytes,
-    List<String>? fileNames,
-    String contentType = 'image/jpeg',
-    required String currentUserId,
-    List<pm.CarouselMetadata> metasFromUi = const [],
-    DateTime? takenAt,
   }) async {
     if (serviceKey == 'geral') return const <String>[];
-    if (filesBytes.isEmpty) return const <String>[];
 
-    final docRef = await _getOrCreateSquareDocRef(
-      contractId: contractId,
-      serviceKey: serviceKey,
-      estaca: estaca,
-      faixaIndex: faixaIndex,
-      currentUserId: currentUserId,
-    );
-
-    final folderRef = _photosFolderRef(
-      contractId: contractId,
-      serviceKey: serviceKey,
-      estaca: estaca,
-      faixaIndex: faixaIndex,
-    );
-
-    final now = DateTime.now();
-    final nowMs = now.millisecondsSinceEpoch;
-
-    final urls = <String>[];
-    final metas = <Map<String, dynamic>>[];
-
-    for (int i = 0; i < filesBytes.length; i++) {
-      final suggestedName = (fileNames != null &&
-          i < fileNames.length &&
-          fileNames[i].trim().isNotEmpty)
-          ? _sanitizeName(fileNames[i])
-          : 'img_${nowMs}_$i.jpg';
-
-      final unique = '$suggestedName.${DateTime.now().microsecondsSinceEpoch}';
-      final fileRef = folderRef.child(unique);
-      final contentTypeToUse = _guessContentType(suggestedName);
-
-      if (kDebugMode) {
-        debugPrint('[UPLOAD] file[$i] name="$unique" ct="$contentTypeToUse"');
-      }
-
-      final uploadTask = await fileRef.putData(
-        filesBytes[i],
-        SettableMetadata(contentType: contentTypeToUse),
-      );
-      final url = await uploadTask.ref.getDownloadURL();
-      urls.add(url);
-
-      final m = (i < metasFromUi.length) ? metasFromUi[i] : const pm.CarouselMetadata();
-
-      if (kDebugMode) {
-        debugPrint('[UPLOAD] metasFromUi[$i] => ${m.toMap()}');
-      }
-
-      metas.add({
-        'url': url,
-        'name': m.name ?? unique,
-        'takenAt': (m.takenAt ?? takenAt)?.millisecondsSinceEpoch,
-        'takenAtMs': (m.takenAt ?? takenAt)?.millisecondsSinceEpoch,
-        'lat': m.lat,
-        'lng': m.lng,
-        'make': m.make,
-        'model': m.model,
-        'orientation': m.orientation,
-        'uploadedAtMs': m.uploadedAtMs ?? nowMs,
-        'uploadedBy': m.uploadedBy ?? currentUserId,
-      });
-    }
-
-    if (kDebugMode) {
-      debugPrint('[UPLOAD] to Firestore -> fotos=${urls.length} metas=${metas.length}');
-      for (var i = 0; i < metas.length; i++) {
-        debugPrint('[UPLOAD] meta[$i] ${metas[i]}');
-      }
-    }
-
-    if (urls.isNotEmpty) {
-      await docRef.update({
-        'fotos': FieldValue.arrayUnion(urls),
-        'fotos_meta': FieldValue.arrayUnion(metas),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': currentUserId,
-      });
-    }
-
-    return urls;
-  }
-
-  // ---------- Debug helper ----------
-  Future<void> debugPrintSquare({
-    required String contractId,
-    required String serviceKey,
-    required int estaca,
-    required int faixaIndex,
-  }) async {
+    // 1) Upsert básico (status/comentário + takenAtMs)
     final col = _contractCol(contractId, _collectionForService(serviceKey));
     final q = await col
         .where('numero', isEqualTo: estaca)
@@ -560,16 +274,231 @@ class ScheduleRepository {
         .limit(1)
         .get();
 
-    if (q.docs.isEmpty) {
-      debugPrint('[DEBUG SQUARE] não encontrado.');
-      return;
+    String _normalizeStatus(String status) {
+      switch (status.toLowerCase()) {
+        case 'concluido':
+          return 'concluido';
+        case 'em_andamento':
+        case 'em andamento':
+          return 'em_andamento';
+        case 'a_iniciar':
+        case 'a iniciar':
+          return 'a_iniciar';
+        default:
+          return 'a_iniciar';
+      }
     }
-    final data = q.docs.first.data();
-    debugPrint('[DEBUG SQUARE] fotos: ${(data['fotos'] as List?)?.length ?? 0}');
-    final metas = (data['fotos_meta'] as List?)?.cast<Map>() ?? const [];
-    debugPrint('[DEBUG SQUARE] fotos_meta: ${metas.length}');
-    for (var i = 0; i < metas.length; i++) {
-      debugPrint('  meta[$i] -> ${Map<String, dynamic>.from(metas[i])}');
+
+    final norm = _normalizeStatus(status);
+    final hasComment = (comentario?.trim().isNotEmpty ?? false);
+    final takenMs = takenAtForNew?.millisecondsSinceEpoch;
+
+    // Campos base SEM FieldValue.delete()
+    final base = <String, dynamic>{
+      'numero': estaca,
+      'faixa_index': faixaIndex,
+      'tipo': tipoLabel,
+      'status': norm,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': currentUserId,
+      if (takenMs != null) 'takenAtMs': takenMs, // grava a data do modal, se houver
+    };
+
+    DocumentReference<Map<String, dynamic>>? docRef;
+
+    // Regra: "a iniciar" remove a célula (e, por consequência, fotos e metas)
+    if (norm == 'a_iniciar') {
+      if (q.docs.isNotEmpty) {
+        // opcional: apagar fotos do storage antes de deletar o doc
+        try {
+          final data = q.docs.first.data();
+          final urls =
+          (data['fotos'] is List) ? List<String>.from(data['fotos'] as List) : const <String>[];
+          for (final u in urls) {
+            try {
+              await _storage.refFromURL(u).delete();
+            } catch (_) {}
+          }
+        } catch (_) {}
+        await q.docs.first.reference.delete();
+      }
+      return const <String>[];
     }
+
+    // CREATE/UPDATE (sem criar arrays vazios)
+    if (q.docs.isNotEmpty) {
+      docRef = q.docs.first.reference;
+      final updates = Map<String, dynamic>.from(base)
+        ..['comentario'] = hasComment ? comentario!.trim() : FieldValue.delete();
+      await docRef.update(updates);
+    } else {
+      final create = <String, dynamic>{
+        ...base,
+        if (hasComment) 'comentario': comentario!.trim(),
+        // ❌ não cria 'fotos' nem 'fotos_meta' vazios
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': currentUserId,
+      };
+      docRef = await col.add(create);
+    }
+
+    // 2) Upload de novas fotos (se houver)
+    final uploadedUrls = <String>[];
+    final uploadedMetas = <Map<String, dynamic>>[];
+
+    if (newFilesBytes.isNotEmpty) {
+      final folder = _photosFolderRef(
+        contractId: contractId,
+        serviceKey: serviceKey,
+        estaca: estaca,
+        faixaIndex: faixaIndex,
+      );
+      final now = DateTime.now();
+      final nowMs = now.millisecondsSinceEpoch;
+
+      for (int i = 0; i < newFilesBytes.length; i++) {
+        final suggested = (newFileNames != null &&
+            i < newFileNames.length &&
+            newFileNames[i].trim().isNotEmpty)
+            ? _sanitizeName(newFileNames[i])
+            : 'img_${nowMs}_$i.jpg';
+
+        final unique = '$suggested.${DateTime.now().microsecondsSinceEpoch}';
+        final contentType = _guessContentType(suggested);
+        final ref = folder.child(unique);
+
+        if (kDebugMode) {
+          debugPrint('[UPLOAD] $unique ($contentType)');
+        }
+
+        final task = await ref.putData(
+          newFilesBytes[i],
+          SettableMetadata(contentType: contentType),
+        );
+        final url = await task.ref.getDownloadURL();
+        uploadedUrls.add(url);
+
+        final m = (i < newPhotoMetas.length) ? newPhotoMetas[i] : const pm.CarouselMetadata();
+        final taken = m.takenAt ?? takenAtForNew; // pode ser null
+
+        uploadedMetas.add({
+          'url': url,
+          'name': m.name ?? unique,
+          'takenAt': taken?.millisecondsSinceEpoch,
+          'takenAtMs': taken?.millisecondsSinceEpoch,
+          'lat': m.lat,
+          'lng': m.lng,
+          'make': m.make,
+          'model': m.model,
+          'orientation': m.orientation,
+          'uploadedAtMs': m.uploadedAtMs ?? nowMs,
+          'uploadedBy': m.uploadedBy ?? currentUserId,
+        });
+      }
+
+      if (uploadedUrls.isNotEmpty) {
+        await docRef.update({
+          'fotos': FieldValue.arrayUnion(uploadedUrls),
+          'fotos_meta': FieldValue.arrayUnion(uploadedMetas),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': currentUserId,
+          if (takenMs != null) 'takenAtMs': takenMs, // reforça no update também
+        });
+      }
+    }
+
+    // 3) Sincronizar exclusões (X) e ler estado atual
+    final snap = await docRef.get();
+    final data = snap.data() ?? <String, dynamic>{};
+
+    final currentUrls =
+    (data['fotos'] is List) ? List<String>.from(data['fotos'] as List) : const <String>[];
+
+    // urls removidas (não estão na lista final nem entre as novas)
+    final removed =
+    currentUrls.where((u) => !finalPhotoUrls.contains(u) && !uploadedUrls.contains(u)).toList();
+
+    // Apaga do Storage
+    for (final url in removed) {
+      try {
+        await _storage.refFromURL(url).delete();
+      } catch (_) {}
+    }
+
+    if (removed.isNotEmpty) {
+      // remove também de fotos_meta
+      final rawMetaList = (data['fotos_meta'] is List) ? (data['fotos_meta'] as List) : const [];
+      final metaList = rawMetaList
+          .whereType<Object>()
+          .map((e) => (e is Map) ? Map<String, dynamic>.from(e as Map) : <String, dynamic>{})
+          .where((m) => m.isNotEmpty)
+          .toList();
+
+      final metasToRemove =
+      metaList.where((m) => removed.contains(m['url'] as String?)).map((m) => Map<String, dynamic>.from(m)).toList();
+
+      final updates = <String, dynamic>{
+        if (removed.isNotEmpty) 'fotos': FieldValue.arrayRemove(removed),
+        if (metasToRemove.isNotEmpty) 'fotos_meta': FieldValue.arrayRemove(metasToRemove),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': currentUserId,
+        if (takenMs != null) 'takenAtMs': takenMs,
+      };
+      await docRef.update(updates);
+    }
+
+    // 4) Setar ORDEM FINAL (lista final + novas no fim)
+    final newOrdered = <String>[
+      ...finalPhotoUrls, // ordem do UI após X/reorder
+      ...uploadedUrls, // novas entram por último
+    ];
+
+    if (newOrdered.isEmpty) {
+      // ✅ sem fotos: remova os campos (não deixe arrays vazios)
+      await docRef.update({
+        'fotos': FieldValue.delete(),
+        'fotos_meta': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': currentUserId,
+        if (takenMs != null) 'takenAtMs': takenMs,
+      });
+      return uploadedUrls;
+    }
+
+    // Reconstroi fotos_meta na mesma ordem
+    final metasAll = <Map<String, dynamic>>[];
+    try {
+      final snap2 = await docRef.get();
+      final d2 = snap2.data() ?? <String, dynamic>{};
+      final rawMetaList2 = (d2['fotos_meta'] is List) ? (d2['fotos_meta'] as List) : const [];
+      final metaList2 = rawMetaList2
+          .whereType<Object>()
+          .map((e) => (e is Map) ? Map<String, dynamic>.from(e as Map) : <String, dynamic>{})
+          .where((m) => m.isNotEmpty)
+          .toList();
+
+      final byUrl = <String, Map<String, dynamic>>{};
+      for (final m in metaList2) {
+        final url = (m['url'] as String?) ?? '';
+        if (url.isNotEmpty) byUrl[url] = m;
+      }
+
+      for (final u in newOrdered) {
+        final m = byUrl[u];
+        metasAll.add(m != null ? Map<String, dynamic>.from(m) : {'url': u, 'name': u.split('/').last});
+      }
+    } catch (_) {
+      metasAll.addAll(newOrdered.map((u) => {'url': u, 'name': u.split('/').last}));
+    }
+
+    await docRef.update({
+      'fotos': newOrdered,
+      'fotos_meta': metasAll,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': currentUserId,
+      if (takenMs != null) 'takenAtMs': takenMs,
+    });
+
+    return uploadedUrls;
   }
 }

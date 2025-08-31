@@ -1,13 +1,13 @@
 // lib/screens/sectors/traffic/accidents/accidents_records_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/_blocs/sectors/transit/accidents/accidents_controller.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_controller.dart';
 
-import 'package:sisged/_widgets/background/background_cleaner.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/_widgets/upBar/up_bar.dart';
-import 'package:sisged/_widgets/map/map_interactive.dart';
+import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/map/map_interactive.dart';
 
 // SEÇÕES
 import 'accidents_form_section.dart';
@@ -15,7 +15,7 @@ import 'accidents_selector_dates_section.dart';
 import 'accidents_table_section.dart';
 
 // OVERLAY MODULAR (toolbox vertical integrada)
-import 'package:sisged/_widgets/paint/paint_overlay.dart';
+import 'package:siged/_widgets/paint/paint_overlay.dart';
 
 class AccidentsRecordsPage extends StatefulWidget {
   const AccidentsRecordsPage({super.key});

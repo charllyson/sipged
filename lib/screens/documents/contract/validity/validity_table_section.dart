@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_widgets/table/simple_table_changed.dart';
+import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_widgets/table/simple_table_changed.dart';
 
-import 'package:sisged/_widgets/loading/loading_progress.dart';
-import 'package:sisged/_blocs/documents/contracts/validity/validity_data.dart';
+import 'package:siged/_widgets/loading/loading_progress.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_data.dart';
 
 class ValidityTableSection extends StatelessWidget {
   final void Function(ValidityData) onTapItem;

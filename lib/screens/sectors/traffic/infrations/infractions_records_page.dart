@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
 
 import '../../../../_blocs/sectors/transit/infractions/infractions_bloc.dart';
 import '../../../../_widgets/background/background_cleaner.dart';
@@ -14,8 +14,8 @@ import 'infractions_selector_dates_section.dart';
 import 'infractions_table_section.dart';
 
 // MAPA + OVERLAY (mesmo padrão usado em Acidentes)
-import 'package:sisged/_widgets/map/map_interactive.dart';
-import 'package:sisged/_widgets/paint/paint_overlay.dart';
+import 'package:siged/_widgets/map/map_interactive.dart';
+import 'package:siged/_widgets/paint/paint_overlay.dart';
 
 class InfractionsRecordsPage extends StatefulWidget {
   const InfractionsRecordsPage({super.key});

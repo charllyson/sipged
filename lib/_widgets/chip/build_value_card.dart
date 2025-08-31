@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
-import 'package:sisged/_widgets/shimmer/shimmer_w60_h14.dart';
+import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_widgets/shimmer/shimmer_w60_h14.dart';
 
 class BuildValueCard extends StatelessWidget {
   final String title;

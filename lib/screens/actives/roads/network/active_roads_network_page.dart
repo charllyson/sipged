@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sisged/_blocs/actives/roads/active_road_bloc.dart';
+import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
 
-import 'package:sisged/_widgets/upBar/up_bar.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
 
-import 'package:sisged/_blocs/actives/roads/active_roads_event.dart';
-import 'package:sisged/_blocs/actives/roads/active_roads_state.dart';
+import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
+import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
 
-import 'roads_left_map.dart';
-import 'roads_right_stats_panel.dart';
+import 'active_roads_map.dart';
+import 'active_roads_panel.dart';
 
 class ActiveRoadsNetworkPage extends StatefulWidget {
   const ActiveRoadsNetworkPage({super.key});
@@ -56,11 +56,6 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
             showPhotoMenu: true,
             actions: [
               IconButton(
-                tooltip: 'Recarregar',
-                icon: const Icon(Icons.refresh, color: Colors.white),
-                onPressed: _refresh,
-              ),
-              IconButton(
                 tooltip: 'Limpar filtros',
                 icon: const Icon(Icons.filter_alt_off, color: Colors.white),
                 onPressed: _clearFilters,
@@ -93,13 +88,13 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
                         children: [
                           Expanded(
                             flex: 1,
-                            child: RoadsLeftMap(state: state),
+                            child: ActiveRoadsMap(state: state),
                           ),
                           if (_showRightPanel) ...[
                             const VerticalDivider(width: 1),
                             const SizedBox(
                               width: 600,
-                              child: RoadsRightStatsPanel(),
+                              child: ActiveRoadsPanel(),
                             ),
                           ],
                         ],
@@ -108,12 +103,12 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
                       // Layout empilhado (mobile/tablet)
                       return Column(
                         children: [
-                          Expanded(child: RoadsLeftMap(state: state)),
+                          Expanded(child: ActiveRoadsMap(state: state)),
                           if (_showRightPanel) ...[
                             const Divider(height: 1),
                             const SizedBox(
                               height: 420,
-                              child: RoadsRightStatsPanel(),
+                              child: ActiveRoadsPanel(),
                             ),
                           ],
                         ],

@@ -2,8 +2,8 @@ import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/charts/lines/shimmer_line_chart.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_widgets/charts/lines/shimmer_line_chart.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
 
 class LineChartChanged extends StatefulWidget {

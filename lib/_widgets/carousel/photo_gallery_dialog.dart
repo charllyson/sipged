@@ -1,16 +1,12 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-import 'dart:js_util' as jsu;
 
-import 'package:sisged/_widgets/carousel/photo_item.dart';
-import 'package:sisged/_utils/images/web_fetch_bytes.dart' show fetchBytesWeb;
-import 'package:sisged/_utils/images/heic_web_convert.dart' show convertHeicBytesToJpegWeb;
-import 'package:sisged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/carousel/photo_item.dart';
+import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
-import 'photo_metadata_overlay.dart';
+// Adapter condicional
+import 'package:siged/_utils/images/image_adapter_loader.dart';
 
 enum _FitMode { cover, contain }
 
@@ -33,28 +29,25 @@ Future<void> showPhotoGalleryDialog(
   Future<Widget> _buildImage(PhotoItem item) async {
     Image img;
     if (item is PhotoBytesItem) {
-      img = Image.memory(item.bytes, fit: fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain);
+      img = Image.memory(
+        item.bytes,
+        fit: fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain,
+      );
     } else if (item is PhotoUrlItem) {
-      // WEB: sempre via bytes (converte HEIC se necessário)
       if (kIsWeb) {
         try {
-          final raw = await fetchBytesWeb(item.url);
-          final fmt = pm.sniffFormat(raw);
-          if (fmt == pm.ImgFmt.heic) {
-            if (!jsu.hasProperty(html.window, 'heic2any')) {
-              return Center(child: Text('HEIC sem conversor', style: const TextStyle(color: Colors.redAccent)));
-            }
-            final jpg = await convertHeicBytesToJpegWeb(raw);
-            if (_isJpeg(jpg)) {
-              img = Image.memory(jpg, fit: fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain);
-            } else {
-              img = Image.memory(_blank1x1Png(), fit: BoxFit.contain);
-            }
-          } else {
-            img = Image.memory(raw, fit: fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain);
-          }
+          final raw = await loadImageBytes(item.url);
+          final isHeic = pm.sniffFormat(raw) == pm.ImgFmt.heic || sniffIsHeic(raw);
+          final converted = isHeic ? await tryConvertHeicToJpeg(raw) : null;
+          final bytes = converted ?? raw;
+          img = Image.memory(
+            bytes,
+            fit: fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain,
+          );
         } catch (_) {
-          return const Center(child: Text('Falha ao carregar imagem', style: TextStyle(color: Colors.redAccent)));
+          return const Center(
+            child: Text('Falha ao carregar imagem', style: TextStyle(color: Colors.redAccent)),
+          );
         }
       } else {
         img = Image.network(
@@ -66,10 +59,12 @@ Future<void> showPhotoGalleryDialog(
         );
       }
     } else {
-      return const Center(child: Text('Tipo de foto desconhecido', style: TextStyle(color: Colors.redAccent)));
+      return const Center(
+        child: Text('Tipo de foto desconhecido', style: TextStyle(color: Colors.redAccent)),
+      );
     }
 
-    // Para “cover” não deixar sobras, certifica que ocupa totalmente:
+    // Para “cover”, ocupar totalmente:
     return Positioned.fill(child: img);
   }
 
@@ -104,7 +99,6 @@ Future<void> showPhotoGalleryDialog(
                                   return const Center(child: CircularProgressIndicator(strokeWidth: 2));
                                 }
                                 return Stack(children: [
-                                  // Imagem ocupa todo o espaço (sem “barras”).
                                   if (snap.data != null) snap.data!,
                                 ]);
                               },
@@ -125,12 +119,12 @@ Future<void> showPhotoGalleryDialog(
                         ),
                       ),
 
-                      // Metadados (do item atual)
+                      // Metadados (você já tem esse overlay em outro arquivo)
                       Positioned(
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        child: PhotoMetadataOverlay(meta: item.meta),
+                        child: _DefaultMetaOverlay(meta: item.meta),
                       ),
 
                       // Setas navegação
@@ -142,7 +136,10 @@ Future<void> showPhotoGalleryDialog(
                           child: Center(
                             child: IconButton(
                               onPressed: idx > 0
-                                  ? () => controller.previousPage(duration: const Duration(milliseconds: 200), curve: Curves.easeOut)
+                                  ? () => controller.previousPage(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                              )
                                   : null,
                               icon: const Icon(Icons.chevron_left, size: 42),
                               color: Colors.white.withOpacity(idx > 0 ? 0.9 : 0.3),
@@ -156,7 +153,10 @@ Future<void> showPhotoGalleryDialog(
                           child: Center(
                             child: IconButton(
                               onPressed: idx < items.length - 1
-                                  ? () => controller.nextPage(duration: const Duration(milliseconds: 200), curve: Curves.easeOut)
+                                  ? () => controller.nextPage(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOut,
+                              )
                                   : null,
                               icon: const Icon(Icons.chevron_right, size: 42),
                               color: Colors.white.withOpacity(idx < items.length - 1 ? 0.9 : 0.3),
@@ -188,4 +188,36 @@ Future<void> showPhotoGalleryDialog(
       );
     },
   );
+}
+
+/// Overlay de metadados simples para manter o exemplo autocontido
+class _DefaultMetaOverlay extends StatelessWidget {
+  final pm.CarouselMetadata? meta;
+  const _DefaultMetaOverlay({required this.meta});
+
+  @override
+  Widget build(BuildContext context) {
+    // Se você já tem PhotoMetadataOverlay, troque por ele aqui.
+    final m = meta;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [Color(0xCC000000), Color(0x66000000), Colors.transparent],
+          stops: [0, 0.5, 1],
+        ),
+      ),
+      child: DefaultTextStyle(
+        style: const TextStyle(color: Colors.white, fontSize: 12),
+        child: Text(
+          m == null ? '—' : [
+            if ((m.make ?? '').trim().isNotEmpty) m.make!,
+            if ((m.model ?? '').trim().isNotEmpty) m.model!,
+          ].join(' '),
+        ),
+      ),
+    );
+  }
 }

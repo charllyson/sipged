@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/charts/bars/bar_chart_changed.dart';
-import 'package:sisged/_widgets/charts/treemap/treemap_chart_changed.dart';
+import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
+import 'package:siged/_widgets/charts/treemap/treemap_chart_changed.dart';
 import '../../../../_blocs/documents/contracts/contracts/contracts_controller.dart';
 
 class DashboardContractsChartSecondSection extends StatelessWidget {

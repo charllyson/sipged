@@ -2,15 +2,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/screens/commons/login/sign_in.dart';
-import 'package:sisged/screens/menus/menu_list_page.dart';
+import 'package:siged/screens/commons/login/sign_in.dart';
+import 'package:siged/screens/menus/menu_list_page.dart';
 
 import '_blocs/system/login/login_bloc.dart';
 import '_blocs/system/user/user_repository.dart';
 import '_blocs/system/user/user_data.dart';
 
-class SisGed extends StatelessWidget {
-  const SisGed({super.key});
+class SiGed extends StatelessWidget {
+  const SiGed({super.key});
 
   @override
   Widget build(BuildContext context) {

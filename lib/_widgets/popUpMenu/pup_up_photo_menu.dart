@@ -3,11 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_blocs/system/login/login_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
-import 'package:sisged/_widgets/photoCircle/photo_circle.dart';
-import 'package:sisged/admPanel/settings_system_page.dart';
+import 'package:siged/_blocs/system/login/login_bloc.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_widgets/photoCircle/photo_circle.dart';
+import 'package:siged/admPanel/settings_system_page.dart';
 
 class PopUpPhotoMenu extends StatefulWidget {
   const PopUpPhotoMenu({super.key});

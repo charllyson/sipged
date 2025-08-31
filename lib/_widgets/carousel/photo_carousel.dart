@@ -1,29 +1,18 @@
-// lib/_widgets/carousel/carousel.dart
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/carousel/photo_gallery_dialog.dart';
-import 'package:sisged/_widgets/carousel/photo_item.dart';
-import 'package:sisged/_widgets/carousel/photo_thumb.dart';
-import 'package:sisged/_blocs/widgets/carousel/carousel_photo_theme.dart';
+import 'package:siged/_widgets/carousel/photo_gallery_dialog.dart';
+import 'package:siged/_widgets/carousel/photo_item.dart';
+import 'package:siged/_widgets/carousel/photo_thumb.dart';
+import 'package:siged/_blocs/widgets/carousel/carousel_photo_theme.dart';
 import '../../_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 import '../../_blocs/widgets/carousel/carousel_photo.dart';
 
 class PhotoCarousel extends StatelessWidget {
-  /// Item extra à esquerda (ex.: botão "Adicionar foto")
   final Widget? leading;
-
-  /// Itens existentes (URL) e/ou novos (bytes)
   final List<PhotoItem> items;
-
-  /// Callback para remover um item (índice na lista `items`)
   final void Function(int index)? onRemove;
-
-  /// Override da ação ao tocar (por item). Se não passar, abre a galeria.
   final void Function(BuildContext context, int index, PhotoItem item)? onTapItem;
-
-  /// Tema/estilo
   final CarouselPhotoTheme theme;
 
-  /// Helper para listas separadas (compat)
   factory PhotoCarousel.fromSeparated({
     Key? key,
     Widget? leading,
@@ -98,7 +87,6 @@ class PhotoCarousel extends StatelessWidget {
           final item = items[idx];
 
           Future<void> defaultTap() async {
-            // Abre a GALERIA com setas e imagem "cover" (sem bordas pretas)
             await showPhotoGalleryDialog(
               context,
               items: items,

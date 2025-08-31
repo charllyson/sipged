@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/map/polylines/tappable_polylines.dart'
+import 'package:siged/_widgets/map/polylines/tappable_polylines.dart'
     show TappablePolylineLayer, TaggedPolyline;
 import 'tappable_changed_polyline.dart';
 

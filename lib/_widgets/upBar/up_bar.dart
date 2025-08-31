@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/popUpMenu/pup_up_photo_menu.dart';
-import 'package:sisged/_widgets/registers/register_class.dart';
-import 'package:sisged/_widgets/toast/show_stacked_toast.dart';
 import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:siged/_widgets/popUpMenu/pup_up_photo_menu.dart';
+import 'package:siged/_widgets/registers/register_class.dart';
+import 'package:siged/_widgets/toast/show_stacked_toast.dart';
 
 class UpBar extends StatelessWidget implements PreferredSizeWidget {
   // Alturas das linhas
@@ -16,26 +16,33 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
 
   // Layout/itens fixos
   final Widget? leading;
-  final List<Widget> actions;          // ícones pequenos à direita
+  final List<Widget> actions;           // ícones pequenos à direita
   final bool showPhotoMenu;
   final Widget? photoMenu;
 
   // Insights (botão que abre/fecha seu painel de gráficos)
-  final bool showInsightsButton;              // sempre mostrar o botão?
-  final VoidCallback? onInsightsTap;          // callback ao tocar
-  final bool insightsOpen;                    // opcional: estado atual p/ tooltip
+  final bool showInsightsButton;
+  final VoidCallback? onInsightsTap;
+  final bool insightsOpen;
 
   // Espaçamentos
-  final double itemsSpacing;           // espaço entre widgets do título/subtítulo
-  final double sideGap;                // respiro mínimo nas bordas
+  final double itemsSpacing;
+  final double sideGap;
 
   // Estilo de fundo
   final BoxDecoration? decoration;
-  final List<Color> backgroundBar;     // <- lista de cores para gradient
+  final List<Color> backgroundBar;
+
+  // NOVO: controla se a barra deve reservar o espaço do status bar/notch
+  final bool includeSafeTop;
+
+  // NOVO: fallback para preferredSize (caso use como appBar sem contexto).
+  // No seu caso (sem AppBar), ignore.
+  final double safeTopFallback;
 
   const UpBar({
     super.key,
-    this.titleHeight = 72,
+    this.titleHeight = 56,                // altura visual da "faixa"
     this.subtitleHeight = 30,
     this.titleWidgets,
     this.subtitleWidgets = const [],
@@ -50,15 +57,30 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
     this.sideGap = 8,
     this.decoration,
     this.backgroundBar = const [Color(0xFF1B2031), Color(0xFF1B2039)],
+    this.includeSafeTop = true,
+    this.safeTopFallback = 0,
   });
 
+  /// Altura total calculada (safeTop + título + opcional subtítulo)
+  double totalHeight(BuildContext context) {
+    final safeTop = includeSafeTop ? MediaQuery.of(context).padding.top : 0.0;
+    final sub = (subtitleWidgets?.isNotEmpty ?? false) ? subtitleHeight : 0.0;
+    return safeTop + titleHeight + sub;
+  }
+
   @override
-  Size get preferredSize =>
-      Size.fromHeight(titleHeight + (subtitleWidgets!.isNotEmpty ? subtitleHeight : 0));
+  Size get preferredSize {
+    // preferredSize não tem acesso ao context.
+    // Usamos o fallback caso alguém use como AppBar.
+    final sub = (subtitleWidgets?.isNotEmpty ?? false) ? subtitleHeight : 0.0;
+    return Size.fromHeight(safeTopFallback + titleHeight + sub);
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Larguras “apertadas” para reservar espaço aos lados (sem 48x48 padrão)
+    final safeTop = includeSafeTop ? MediaQuery.of(context).padding.top : 0.0;
+
+    // Larguras “apertadas” para reservar espaço aos lados
     final leadingW  = leading != null ? 40.0 + 8.0 : sideGap; // botão/menu
     final avatarW   = showPhotoMenu ? 40.0 + 8.0 : 0.0;
 
@@ -85,85 +107,84 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
       color: Colors.transparent,
       child: Container(
         decoration: bg,
-        child: SafeArea(
-          top: true, bottom: false, left: false, right: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ---------------- Linha 1: título (sem wrap, sem scroll) ----------------
-              SizedBox(
-                height: titleHeight,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Centro — título como lista comprimida se necessário
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: sidePad),
-                      child: _OneLineRow(
-                        textColor: Colors.white,
-                        children: _withSpacing(titleWidgets ?? const [], itemsSpacing),
-                      ),
-                    ),
-
-                    // Esquerda — leading
-                    if (leading != null)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: _Tight(child: leading!),
-                      ),
-
-                    // Direita — actions + botão insights + foto
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (actions.isNotEmpty)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: _withSpacing(actions, 12),
-                            ),
-                          if (actions.isNotEmpty) const SizedBox(width: 8),
-
-                          // Botão insights SEMPRE visível (se habilitado)
-                          if (showInsightsButton)
-                            _Tight(
-                              child: IconButton(
-                                icon: const Icon(Icons.insights_rounded),
-                                tooltip: insightsOpen ? 'Fechar gráficos' : 'Abrir gráficos',
-                                onPressed: onInsightsTap,
-                              ),
-                            ),
-
-                          if (showInsightsButton) const SizedBox(width: 8),
-
-                          if (showPhotoMenu)
-                            _Tight(child: photoMenu ?? const PopUpPhotoMenu()),
-                          SizedBox(width: sideGap),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ---------------- Linha 2: subtítulo (sem wrap, sem scroll) ----------------
-              if (subtitleWidgets!.isNotEmpty)
-                SizedBox(
-                  height: subtitleHeight,
-                  child: Padding(
+        // 👉 Reservamos aqui o safeTop
+        padding: EdgeInsets.only(top: safeTop),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ---------------- Linha 1: título ----------------
+            SizedBox(
+              height: titleHeight,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Centro — título
+                  Padding(
                     padding: EdgeInsets.symmetric(horizontal: sidePad),
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: _OneLineRow(
-                        textColor: Colors.white,
-                        children: _withSpacing(subtitleWidgets ?? const [], itemsSpacing),
-                      ),
+                    child: _OneLineRow(
+                      textColor: Colors.white,
+                      children: _withSpacing(titleWidgets ?? const [], itemsSpacing),
+                    ),
+                  ),
+
+                  // Esquerda — leading
+                  if (leading != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _Tight(child: leading!),
+                    ),
+
+                  // Direita — actions + botão insights + foto
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (actions.isNotEmpty)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: _withSpacing(actions, 12),
+                          ),
+                        if (actions.isNotEmpty) const SizedBox(width: 8),
+
+                        if (showInsightsButton)
+                          _Tight(
+                            child: IconButton(
+                              icon: const Icon(Icons.insights_rounded),
+                              tooltip: insightsOpen ? 'Fechar gráficos' : 'Abrir gráficos',
+                              onPressed: onInsightsTap,
+                              color: Colors.white,
+                            ),
+                          ),
+
+                        if (showInsightsButton) const SizedBox(width: 8),
+
+                        if (showPhotoMenu)
+                          _Tight(child: photoMenu ?? const PopUpPhotoMenu()),
+                        SizedBox(width: sideGap),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ---------------- Linha 2: subtítulo ----------------
+            if (subtitleWidgets!.isNotEmpty)
+              SizedBox(
+                height: subtitleHeight,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: sidePad),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: _OneLineRow(
+                      textColor: Colors.white,
+                      children: _withSpacing(subtitleWidgets ?? const [], itemsSpacing),
                     ),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -181,7 +202,6 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 /// Uma linha única que NUNCA faz wrap nem scroll:
-/// se não couber, escala proporcionalmente para caber em uma linha.
 class _OneLineRow extends StatelessWidget {
   final List<Widget> children;
   final Color? textColor;
@@ -190,7 +210,6 @@ class _OneLineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // FittedBox scaleDown garante 1 linha sem overflow e sem wrap
     final row = DefaultTextStyle.merge(
       style: TextStyle(color: textColor),
       child: Row(mainAxisSize: MainAxisSize.min, children: children),
@@ -222,9 +241,7 @@ class _Tight extends StatelessWidget {
   }
 }
 
-/// =============================================================
-/// Helper pra toasts empilhados — reaproveita o seu
-/// =============================================================
+/// ======================= TOAST HELPERS =======================
 void showStackedToast(BuildContext context, Registro registro, int index) {
   final overlay = Overlay.of(context);
   final overlayEntry = OverlayEntry(

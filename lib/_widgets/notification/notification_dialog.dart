@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/notification/notification_list_tile.dart';
+import 'package:siged/_widgets/notification/notification_list_tile.dart';
 
-import 'package:sisged/_widgets/registers/register_class.dart';
+import 'package:siged/_widgets/registers/register_class.dart';
 
 class NotificationDialog extends StatelessWidget {
   final List<Registro> registros;

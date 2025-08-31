@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'additive_data.dart';
 
 /// Store em memória dos ADITIVOS, indexado por `contractId`.

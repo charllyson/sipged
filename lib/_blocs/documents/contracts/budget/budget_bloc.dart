@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sisged/_blocs/documents/contracts/budget/budget_data.dart';
+import 'package:siged/_blocs/documents/contracts/budget/budget_data.dart';
 
 class BudgetBloc {
   CollectionReference<Map<String, dynamic>> _base(String contractId) =>

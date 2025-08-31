@@ -1,16 +1,16 @@
-// lib/screens/actives/oaes/network/active_oaes_network_page.dart
+// lib/screens/actives/oaes/network/active_airports_network_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_blocs/actives/oaes/active_oaes_bloc.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_event.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_state.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_repository.dart';
-import 'package:sisged/_widgets/upBar/up_bar.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart'; // 👈 ajuste o path se necessário
+import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_repository.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart'; // 👈 ajuste o path se necessário
 
-import 'oaes_left_map.dart';
-import 'oaes_right_stats_panel.dart';
+import 'active_oaes_map.dart';
+import 'active_oaes_panel.dart';
 
 class ActiveOAEsNetworkPage extends StatefulWidget {
   const ActiveOAEsNetworkPage({super.key});
@@ -91,13 +91,13 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
                         children: [
                           Expanded(
                             flex: 1,
-                            child: OaesLeftMap(state: state),
+                            child: ActiveOaesMap(state: state),
                           ),
                           if (_showRightPanel) ...[
                             const VerticalDivider(width: 1),
                             SizedBox(
                               width: 600, // largura do painel direito
-                              child: OaesRightStatsPanel(
+                              child: ActiveOaesPanel(
                                 onClose: _toggleRightPanel,
                               ),
                             ),
@@ -109,13 +109,13 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
                       return Column(
                         children: [
                           Expanded(
-                            child: OaesLeftMap(state: state),
+                            child: ActiveOaesMap(state: state),
                           ),
                           if (_showRightPanel) ...[
                             const Divider(height: 1),
                             SizedBox(
                               height: 420,
-                              child: OaesRightStatsPanel(
+                              child: ActiveOaesPanel(
                                 onClose: _toggleRightPanel,
                               ),
                             ),

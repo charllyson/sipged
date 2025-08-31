@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_widgets/table/simple_table_changed.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
-import 'package:sisged/_widgets/totalTableRows/footer_rows_generic.dart';
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_data.dart';
+import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_widgets/table/simple_table_changed.dart';
+import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_widgets/totalTableRows/footer_rows_generic.dart';
 
 class RevisionMeasurementTableSection extends StatelessWidget {
-  final void Function(ReportMeasurementData) onTapItem;
+  final void Function(RevisionMeasurementData) onTapItem;
   final void Function(String additiveId) onDelete;
-  final List<ReportMeasurementData> measurementsData;
-  final ReportMeasurementData? selectedMeasurement;
+  final List<RevisionMeasurementData> measurementsData;
+  final RevisionMeasurementData? selectedMeasurement;
   final ContractData? contractData;
 
   final double valorInicial;
@@ -33,7 +34,7 @@ class RevisionMeasurementTableSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalReports = measurementsData.fold<double>(0.0, (prev, item) => prev + (item.valueRevisionMeasurement ?? 0.0),);
+    final totalReports = measurementsData.fold<double>(0.0, (prev, item) => prev + (item.value ?? 0.0),);
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -43,7 +44,7 @@ class RevisionMeasurementTableSection extends StatelessWidget {
               const SizedBox(width: 12),
               ConstrainedBox(
                 constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: SimpleTableChanged<ReportMeasurementData>(
+                child: SimpleTableChanged<RevisionMeasurementData>(
                   constraints: constraints,
                   listData: measurementsData,
                   columnTitles: [
@@ -54,13 +55,13 @@ class RevisionMeasurementTableSection extends StatelessWidget {
                   ],
                   selectedItem: selectedMeasurement,
                   columnGetters: [
-                        (a) => '${a.orderRevisionMeasurement ?? '-'}',
-                        (a) => a.numberRevisionProcessMeasurement ?? '-',
-                        (a) => convertDateTimeToDDMMYYYY(a.dateRevisionMeasurement ?? DateTime.now()),
-                        (a) => priceToString(a.valueRevisionMeasurement),
+                        (a) => '${a.order ?? '-'}',
+                        (a) => a.numberprocess ?? '-',
+                        (a) => convertDateTimeToDDMMYYYY(a.date ?? DateTime.now()),
+                        (a) => priceToString(a.value),
                   ],
                   onTapItem: onTapItem,
-                  onDelete: (item) => onDelete(item.idRevisionMeasurement!),
+                  onDelete: (item) => onDelete(item.id!),
                   columnWidths: const [100, 200, 150, 200],
                   columnTextAligns: const [
                     TextAlign.center,

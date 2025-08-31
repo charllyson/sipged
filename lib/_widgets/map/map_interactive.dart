@@ -5,13 +5,14 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import 'package:sisged/_blocs/widgets/map/regional_geo_json_class.dart';
-import 'package:sisged/_widgets/map/markers/tagged_marker.dart';
-import 'package:sisged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:sisged/_widgets/map/polylines/tappable_changed_polyline_layer.dart';
-import 'package:sisged/_blocs/widgets/map/map_layer.dart';
-import 'package:sisged/_blocs/system/info/system_bloc.dart';
+import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
+import 'package:siged/_widgets/map/markers/tagged_marker.dart';
+import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:siged/_widgets/map/polylines/tappable_changed_polyline_layer.dart';
+import 'package:siged/_blocs/widgets/map/map_layer.dart';
+import 'package:siged/_blocs/system/info/system_bloc.dart';
 
 import 'buttons/layer_buttons.dart';
 import 'legend/map_legend_widget.dart';
@@ -112,6 +113,11 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   String _norm(String s) =>
       removeDiacritics(s).replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
 
+  bool get _isOsmPublic {
+    final url = MapLayer.mapBase[_indexSelectedMap].url;
+    return url.contains('tile.openstreetmap.org');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -130,8 +136,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         ..clear()
         ..addAll(widget.selectedRegionNames!.map(_norm));
     }
-
-    // Não chamamos mais kickstarts aqui; só após onMapReady/hot-reload
   }
 
   @override
@@ -277,16 +281,15 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       if (widget.baseTileLayerBuilder != null) {
         layers.add(widget.baseTileLayerBuilder!()); // deve ser LayerWidget
       } else if (MapLayer.mapBase[_indexSelectedMap].url.isNotEmpty) {
-        final tileProvider = NetworkTileProvider();        // web: não-cancelável
+        final tileProvider = NetworkTileProvider(); // web: não-cancelável
         layers.add(
           TileLayer(
             key: ValueKey(_indexSelectedMap),
             tileProvider: tileProvider,
             urlTemplate: MapLayer.mapBase[_indexSelectedMap].url,
             subdomains: const ['a', 'b', 'c'],
-            userAgentPackageName: 'com.example.sisgeo',
+            userAgentPackageName: 'br.gov.al.siged', // <- IMPORTANTE
             keepBuffer: 3,
-            // ajustes que ajudam a estabilidade
             maxNativeZoom: 19,
             minNativeZoom: 0,
           ),
@@ -350,8 +353,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-
-
     if (_userLocation != null) {
       layers.add(
         MarkerLayer(
@@ -386,7 +387,24 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-    return layers; // somente layers (LayerWidget)
+    // Atribuição do OSM (apenas se usando tile público)
+    if (_isOsmPublic) {
+      layers.add(
+        RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution(
+              '© OpenStreetMap contributors',
+              onTap: () => launchUrl(
+                Uri.parse('https://www.openstreetmap.org/copyright'),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return layers; // somente layers (LayerWidget) + AttributionWidget
   }
 
   @override

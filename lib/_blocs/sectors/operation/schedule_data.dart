@@ -1,16 +1,27 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
 class ScheduleData {
   // --------- dados da célula ----------
   final int numero;                 // estaca (>=0)
   final int faixaIndex;             // índice da faixa (>=0)
   final String? tipo;
+
   final String? status;             // 'concluido' | 'em andamento' | 'a iniciar'
   final String? comentario;
 
   /// URLs das fotos anexadas
   final List<String> fotos;
   final List<Map<String, dynamic>> fotosMeta;
+
+  /// Data escolhida no modal (persistida como epoch ms)
+  final int? takenAtMs;
+  /// Conveniência para uso na UI/lógica
+  DateTime? get takenAt =>
+      takenAtMs == null ? null : DateTime.fromMillisecondsSinceEpoch(takenAtMs!);
 
   // --------- metadados de criação ----------
   final DateTime? createdAt;
@@ -23,6 +34,8 @@ class ScheduleData {
   // --------- metadados do serviço (UI) ----------
   final String key;                 // ex.: 'servicos-preliminares' | 'geral'
   final String label;               // ex.: 'SERVIÇOS PRELIMINARES' | 'GERAL'
+
+
   final IconData icon;
   final Color color;
 
@@ -42,6 +55,7 @@ class ScheduleData {
     required this.color,
     this.fotos = const <String>[],
     this.fotosMeta = const <Map<String, dynamic>>[],
+    this.takenAtMs,
   });
 
   /// Fábrica TOLERANTE: nunca usa `!`, preenche defaults e normaliza listas.
@@ -71,6 +85,9 @@ class ScheduleData {
       fotos: _asStringList(m['fotos']),
       fotosMeta: _asMapList(m['fotos_meta']),
 
+      // Data de execução (prioriza takenAtMs; aceita takenAt ISO/Timestamp)
+      takenAtMs: _parseTakenAtMs(m['takenAtMs'] ?? m['takenAt']),
+
       // meta opcional para ícone/cor/label da UI
       key: meta?.key ?? def.key,
       label: meta?.label ?? def.label,
@@ -87,13 +104,14 @@ class ScheduleData {
       'tipo': tipo,
       'status': status,
       'comentario': comentario,
-      // Obs.: se você preferir salvar Timestamp, converta no repositório
+      // Obs.: se preferir salvar como Timestamp, converta no repositório
       'createdAt': createdAt?.millisecondsSinceEpoch,
       'createdBy': createdBy,
       'updatedAt': updatedAt?.millisecondsSinceEpoch,
       'updatedBy': updatedBy,
       'fotos': fotos,
       'fotos_meta': fotosMeta,
+      if (takenAtMs != null) 'takenAtMs': takenAtMs,
     };
     if (includeMeta) {
       map.addAll({
@@ -123,6 +141,7 @@ class ScheduleData {
     Color? color,
     List<String>? fotos,
     List<Map<String, dynamic>>? fotosMeta,
+    int? takenAtMs,
   }) {
     return ScheduleData(
       numero: numero ?? this.numero,
@@ -140,6 +159,7 @@ class ScheduleData {
       color: color ?? this.color,
       fotos: fotos ?? this.fotos,
       fotosMeta: fotosMeta ?? this.fotosMeta,
+      takenAtMs: takenAtMs ?? this.takenAtMs,
     );
   }
 
@@ -179,6 +199,44 @@ class ScheduleData {
     if (v is String) {
       try { return DateTime.parse(v); } catch (_) {}
     }
+    if (v is Timestamp) return v.toDate();
     return null;
   }
+
+  static int? _parseTakenAtMs(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) {
+      final d = DateTime.tryParse(v);
+      return d?.millisecondsSinceEpoch;
+    }
+    if (v is DateTime) return v.millisecondsSinceEpoch;
+    if (v is Timestamp) return v.millisecondsSinceEpoch;
+    return null;
+  }
+}
+
+class ScheduleDraft {
+  final int estaca;
+  final int faixaIndex;
+  final String status;                // default aplicado no construtor (a iniciar)
+  final String? comentario;
+  final String currentUserId;
+  final List<Uint8List> filesBytes;
+  final List<String>? fileNames;
+  final List<pm.CarouselMetadata> photoMetas;
+  final DateTime? takenAt;            // fallback
+
+  ScheduleDraft({
+    required this.estaca,
+    required this.faixaIndex,
+    String? status,
+    this.comentario,
+    required this.currentUserId,
+    this.filesBytes = const [],
+    this.fileNames,
+    this.photoMetas = const [],
+    this.takenAt,
+  }) : status = (status == null || status.trim().isEmpty) ? 'a iniciar' : status;
 }

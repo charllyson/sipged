@@ -1,8 +1,8 @@
 // COMPLETO (puro)
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_style.dart';
-import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
-import 'package:sisged/_widgets/schedule/schedule_lane_row_data.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_style.dart';
+import 'package:siged/_widgets/schedule/schedule_lane_class.dart';
+import 'package:siged/_widgets/schedule/schedule_lane_row_data.dart';
 
 import 'schedule_lane_row.dart';
 

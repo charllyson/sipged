@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_widgets/background/background_cleaner.dart';
-import 'package:sisged/_widgets/charts/bars/bar_chart_changed.dart';
-import 'package:sisged/_widgets/charts/pies/pie_chart_changed.dart';
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
+import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 // BLoC de usuário
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_state.dart';
-import 'package:sisged/_blocs/system/user/user_event.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_event.dart';
 
 // BLoC de OAEs (já injetado no main)
-import 'package:sisged/_blocs/actives/oaes/active_oaes_bloc.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_event.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_state.dart';
-import 'package:sisged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
 
 import 'active_oaes_form.dart';
 import 'active_oaes_records_table_section.dart';

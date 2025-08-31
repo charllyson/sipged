@@ -1,9 +1,7 @@
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
-import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
-
-// Metadados de foto
-import 'package:sisged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/schedule/schedule_lane_class.dart';
+import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
 abstract class ScheduleEvent extends Equatable {
   const ScheduleEvent();
@@ -21,7 +19,6 @@ class ScheduleWarmupRequested extends ScheduleEvent {
     required this.totalEstacas,
     this.initialServiceKey = 'geral',
   });
-
   @override
   List<Object?> get props => [contractId, totalEstacas, initialServiceKey];
 }
@@ -35,7 +32,6 @@ class ScheduleRefreshRequested extends ScheduleEvent {
 class ScheduleServiceSelected extends ScheduleEvent {
   final String serviceKey;
   const ScheduleServiceSelected(this.serviceKey);
-
   @override
   List<Object?> get props => [serviceKey];
 }
@@ -44,7 +40,6 @@ class ScheduleServiceSelected extends ScheduleEvent {
 class ScheduleLanesSaveRequested extends ScheduleEvent {
   final List<ScheduleLaneClass> lanes;
   const ScheduleLanesSaveRequested(this.lanes);
-
   @override
   List<Object?> get props => [lanes];
 }
@@ -54,87 +49,45 @@ class ScheduleExecucoesReloadRequested extends ScheduleEvent {
   const ScheduleExecucoesReloadRequested();
 }
 
-/// Upsert célula
-class ScheduleSquareUpsertRequested extends ScheduleEvent {
+/// ---------------------------------------------------------------------------
+/// AÇÃO ÚNICA: Aplicar (status/comentário/data + novos uploads + exclusões + ordenação)
+/// ---------------------------------------------------------------------------
+class ScheduleSquareApplyRequested extends ScheduleEvent {
   final int estaca;
   final int faixaIndex;
+
+  // Metadados de célula
   final String tipoLabel;
-  final String status; // use ScheduleStatus.key
-  final String? comentario;
+  final String status;        // 'concluido' | 'em_andamento' | 'a_iniciar'
+  final String? comentario;   // null = limpar
+  final DateTime? takenAt;    // data do modal (fallback p/ novas fotos)
+
+  // Fotos (UI já traz as que restaram depois de clicar no "X" e reordenar)
+  final List<String> finalPhotoUrls;                // ordem final sem as novas
+  final List<Uint8List> newFilesBytes;              // novas fotos (0..n)
+  final List<String>? newFileNames;                 // nomes das novas (opcional)
+  final List<pm.CarouselMetadata> newPhotoMetas;    // metas alinhadas às novas (opcional)
+
+  // Usuário
   final String currentUserId;
-  const ScheduleSquareUpsertRequested({
+
+  const ScheduleSquareApplyRequested({
     required this.estaca,
     required this.faixaIndex,
     required this.tipoLabel,
     required this.status,
     this.comentario,
-    required this.currentUserId,
-  });
-
-  @override
-  List<Object?> get props =>
-      [estaca, faixaIndex, tipoLabel, status, comentario, currentUserId];
-}
-
-/// Upload fotos
-class ScheduleSquareUploadPhotosRequested extends ScheduleEvent {
-  final int estaca;
-  final int faixaIndex;
-  final List<Uint8List> filesBytes;
-  final List<String>? fileNames;
-  final String currentUserId;
-
-  /// Metadados EXIF alinhados com filesBytes/fileNames
-  final List<pm.CarouselMetadata> photoMetas;
-
-  /// Fallback de data (campo "Data" do modal)
-  final DateTime? takenAt;
-
-  const ScheduleSquareUploadPhotosRequested({
-    required this.estaca,
-    required this.faixaIndex,
-    required this.filesBytes,
-    this.fileNames,
-    required this.currentUserId,
-    this.photoMetas = const [],
     this.takenAt,
-  });
-
-  @override
-  List<Object?> get props =>
-      [estaca, faixaIndex, filesBytes, fileNames, currentUserId, photoMetas, takenAt];
-}
-
-/// Remover foto específica
-class ScheduleSquareDeletePhotoRequested extends ScheduleEvent {
-  final int estaca;
-  final int faixaIndex;
-  final String photoUrl;
-  final String currentUserId;
-  const ScheduleSquareDeletePhotoRequested({
-    required this.estaca,
-    required this.faixaIndex,
-    required this.photoUrl,
+    required this.finalPhotoUrls,
+    required this.newFilesBytes,
+    this.newFileNames,
+    this.newPhotoMetas = const [],
     required this.currentUserId,
   });
 
   @override
-  List<Object?> get props => [estaca, faixaIndex, photoUrl, currentUserId];
-}
-
-/// Substituir lista de fotos
-class ScheduleSquareSetPhotosRequested extends ScheduleEvent {
-  final int estaca;
-  final int faixaIndex;
-  final List<String> photoUrls;
-  final String currentUserId;
-  const ScheduleSquareSetPhotosRequested({
-    required this.estaca,
-    required this.faixaIndex,
-    required this.photoUrls,
-    required this.currentUserId,
-  });
-
-  @override
-  List<Object?> get props => [estaca, faixaIndex, photoUrls, currentUserId];
+  List<Object?> get props => [
+    estaca, faixaIndex, tipoLabel, status, comentario, takenAt,
+    finalPhotoUrls, newFilesBytes, newFileNames, newPhotoMetas, currentUserId
+  ];
 }
