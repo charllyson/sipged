@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/table/paged_table_changed.dart';
+import 'package:siged/_widgets/table/paged/paged_table_changed.dart';
 import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
 import '../../../../_utils/date_utils.dart';
 import '../../../../_utils/formats/format_field.dart'; // convertDateTimeToDDMMYYYY, hourToString

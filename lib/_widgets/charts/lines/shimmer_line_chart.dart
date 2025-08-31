@@ -2,10 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-/// Shimmer para o LineChart (estilo do seu BarChartShimmerWidget)
-import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:shimmer/shimmer.dart';
 
 class LineChartShimmerWidget extends StatelessWidget {
   final int pointsCount;

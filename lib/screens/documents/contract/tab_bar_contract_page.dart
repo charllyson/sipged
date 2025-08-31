@@ -11,7 +11,7 @@ import 'package:siged/_blocs/documents/contracts/contracts/contract_bloc.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'additive/additive_page.dart';
 import 'apostilles/apostilles_page.dart';
-import 'budget/budget_controller.dart';
+import '../../../_widgets/table/magic/magic_table_controller.dart';
 import 'budget/budget_page.dart';
 import 'mainInformation/main_information_page.dart';
 
@@ -122,7 +122,7 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
                         // 5) Planilha orçamentária (Provider local ao tab)
                         _wrapWithBlocker(
                           ChangeNotifierProvider(
-                            create: (_) => BudgetController(cellPadHorizontal: 24),
+                            create: (_) => MagicTableController(cellPadHorizontal: 24),
                             child: BudgetPage(
                               key: ValueKey(_contractData?.id),
                               contractData: _contractData!,

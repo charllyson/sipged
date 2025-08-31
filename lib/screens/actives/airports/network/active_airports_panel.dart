@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
 import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
@@ -25,8 +24,7 @@ class ActiveAirportsPanel extends StatelessWidget {
 
     const double kBarWidth = 50.0;
     const double kBarGap = 16.0;
-    const double kWideBreakpoint = 980; // ajuste se quiser
-    final bool isWide = MediaQuery.of(context).size.width >= kWideBreakpoint;
+// ajuste se quiser
 
     return Stack(
       children: [

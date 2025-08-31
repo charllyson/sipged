@@ -87,7 +87,6 @@ class ActiveRailwaysState extends Equatable {
   // =========================
   List<String> get regionLabels => ContractRules.regions;
 
-  String _stripDiacritics(String s) => ActiveRailwaysRules.stripDiacritics(s);
   String _canonRegion(String? s) =>
       ActiveRailwaysRules.canonRegion(s, regionLabels);
 

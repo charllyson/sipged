@@ -1,41 +1,34 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
-import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
+// ... imports iguais
 class ScheduleData {
   // --------- dados da célula ----------
-  final int numero;                 // estaca (>=0)
-  final int faixaIndex;             // índice da faixa (>=0)
+  final int numero;
+  final int faixaIndex;
   final String? tipo;
 
-  final String? status;             // 'concluido' | 'em andamento' | 'a iniciar'
+  /// Valor cru que vem/sai do banco:
+  /// 'concluido' | 'em_andamento' | 'a_iniciar' | variações com acento/espaços
+  final String? status;
   final String? comentario;
 
-  /// URLs das fotos anexadas
   final List<String> fotos;
   final List<Map<String, dynamic>> fotosMeta;
 
-  /// Data escolhida no modal (persistida como epoch ms)
   final int? takenAtMs;
-  /// Conveniência para uso na UI/lógica
   DateTime? get takenAt =>
       takenAtMs == null ? null : DateTime.fromMillisecondsSinceEpoch(takenAtMs!);
 
-  // --------- metadados de criação ----------
+  // auditoria
   final DateTime? createdAt;
   final String? createdBy;
-
-  // --------- metadados de última edição ----------
   final DateTime? updatedAt;
   final String? updatedBy;
 
-  // --------- metadados do serviço (UI) ----------
-  final String key;                 // ex.: 'servicos-preliminares' | 'geral'
-  final String label;               // ex.: 'SERVIÇOS PRELIMINARES' | 'GERAL'
-
-
+  // meta UI
+  final String key;
+  final String label;
   final IconData icon;
   final Color color;
 
@@ -58,8 +51,100 @@ class ScheduleData {
     this.takenAtMs,
   });
 
-  /// Fábrica TOLERANTE: nunca usa `!`, preenche defaults e normaliza listas.
-  /// Se `meta` não vier, cai para “GERAL”.
+  // ================= Helpers de status =================
+
+  /// Remove acentos e normaliza para comparar
+  static String _strip(String s) {
+    const from = 'ÀÁÂÃÄÅàáâãäåÈÉÊËèéêëÌÍÎÏìíîïÒÓÔÕÖòóôõöÙÚÛÜùúûüÇçÑñÝýÿ';
+    const to   = 'AAAAAAaaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNnYyy';
+    final map = { for (var i = 0; i < from.length; i++) from[i]: to[i] };
+    final noAccents = s.split('').map((c) => map[c] ?? c).join();
+    return noAccents.toLowerCase().trim().replaceAll(RegExp(r'\s+'), '_');
+  }
+
+  /// Canônico: 'concluido' | 'em_andamento' | 'a_iniciar'
+  String get statusCanonical {
+    final raw = status ?? '';
+    final s = _strip(raw);
+    if (s.contains('conclu')) return 'concluido';
+    if (s.contains('andamento') || s.contains('progress')) return 'em_andamento';
+    if (s.contains('iniciar') || s == 'a_iniciar' || s == 'a') return 'a_iniciar';
+    return 'a_iniciar';
+  }
+
+  /// Label bonitinha para UI
+  String get statusLabel {
+    switch (statusCanonical) {
+      case 'concluido':     return 'Concluído';
+      case 'em_andamento':  return 'Em andamento';
+      case 'a_iniciar':     return 'A iniciar';
+      default:              return (status ?? '').isEmpty ? 'A iniciar' : _titleCase(status!);
+    }
+  }
+
+  bool get isConcluido    => statusCanonical == 'concluido';
+  bool get isEmAndamento  => statusCanonical == 'em_andamento';
+  bool get isAIniciar     => statusCanonical == 'a_iniciar';
+
+  static String _titleCase(String s) {
+    final t = s.trim();
+    if (t.isEmpty) return t;
+    return t.split(RegExp(r'\s+')).map((p) {
+      if (p.isEmpty) return p;
+      final first = p.characters.first.toUpperCase();
+      final rest = p.characters.skip(1).toString().toLowerCase();
+      return '$first$rest';
+    }).join(' ');
+  }
+
+  // ================= Helpers de fotos/data (como antes) =================
+
+  bool get hasPhotos => fotos.any((u) => u.trim().isNotEmpty);
+  int get photosCount => fotos.where((u) => u.trim().isNotEmpty).length;
+
+  DateTime? get primaryDate {
+    if (takenAt != null) return takenAt;
+    final metaMax = _maxDateFromMetas();
+    if (metaMax != null) return metaMax;
+    return updatedAt ?? createdAt;
+  }
+
+  DateTime? _maxDateFromMetas() {
+    DateTime? best;
+    for (final m in fotosMeta) {
+      DateTime? d;
+      final rawTaken = m['takenAt'] ?? m['takenAtMs'];
+      if (rawTaken is int) {
+        d = DateTime.fromMillisecondsSinceEpoch(rawTaken);
+      } else if (rawTaken is String) {
+        final asInt = int.tryParse(rawTaken);
+        if (asInt != null) {
+          d = DateTime.fromMillisecondsSinceEpoch(asInt);
+        } else {
+          try { d = DateTime.parse(rawTaken); } catch (_) {}
+        }
+      } else if (rawTaken is DateTime) {
+        d = rawTaken;
+      } else if (rawTaken is Timestamp) {
+        d = rawTaken.toDate();
+      }
+      if (d == null) {
+        final up = m['uploadedAtMs'];
+        if (up is int) d = DateTime.fromMillisecondsSinceEpoch(up);
+        if (up is String) {
+          final asInt = int.tryParse(up);
+          if (asInt != null) d = DateTime.fromMillisecondsSinceEpoch(asInt);
+        } else if (up is Timestamp) {
+          d = up.toDate();
+        }
+      }
+      if (d != null && (best == null || d.isAfter(best))) best = d;
+    }
+    return best;
+  }
+
+  // ================= Factory / persistência (inalterado) =================
+
   factory ScheduleData.fromMap(Map<String, dynamic> m, {ScheduleData? meta}) {
     final def = ScheduleData(
       numero: 0,
@@ -67,28 +152,21 @@ class ScheduleData {
       key: 'geral',
       label: 'GERAL',
       icon: Icons.clear_all,
-      color: Colors.grey, // cor neutra
+      color: Colors.grey,
     );
-
     return ScheduleData(
       numero: _asInt(m['numero']) ?? 0,
       faixaIndex: _asInt(m['faixa_index']) ?? 0,
       tipo: _asString(m['tipo']),
       status: _asString(m['status']),
       comentario: _asString(m['comentario']),
-
       createdAt: _asDateTime(m['createdAt']),
       updatedAt: _asDateTime(m['updatedAt']),
       createdBy: _asString(m['createdBy']),
       updatedBy: _asString(m['updatedBy']),
-
       fotos: _asStringList(m['fotos']),
       fotosMeta: _asMapList(m['fotos_meta']),
-
-      // Data de execução (prioriza takenAtMs; aceita takenAt ISO/Timestamp)
       takenAtMs: _parseTakenAtMs(m['takenAtMs'] ?? m['takenAt']),
-
-      // meta opcional para ícone/cor/label da UI
       key: meta?.key ?? def.key,
       label: meta?.label ?? def.label,
       icon: meta?.icon ?? def.icon,
@@ -96,7 +174,6 @@ class ScheduleData {
     );
   }
 
-  /// Mapa para persistir (normalmente sem meta de UI)
   Map<String, dynamic> toDbMap({bool includeMeta = false}) {
     final map = <String, dynamic>{
       'numero': numero,
@@ -104,7 +181,6 @@ class ScheduleData {
       'tipo': tipo,
       'status': status,
       'comentario': comentario,
-      // Obs.: se preferir salvar como Timestamp, converta no repositório
       'createdAt': createdAt?.millisecondsSinceEpoch,
       'createdBy': createdBy,
       'updatedAt': updatedAt?.millisecondsSinceEpoch,
@@ -124,7 +200,6 @@ class ScheduleData {
     return map;
   }
 
-  // --------- copyWith ---------
   ScheduleData copyWith({
     int? numero,
     int? faixaIndex,
@@ -163,8 +238,7 @@ class ScheduleData {
     );
   }
 
-  // ---------------- parsers ----------------
-
+  // parsers
   static int? _asInt(dynamic v) {
     if (v == null) return null;
     if (v is int) return v;
@@ -172,37 +246,27 @@ class ScheduleData {
     if (v is String) return int.tryParse(v);
     return null;
   }
-
   static String? _asString(dynamic v) => v?.toString();
-
   static List<String> _asStringList(dynamic v) {
     if (v is List) {
       return v.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
     }
     return const <String>[];
   }
-
   static List<Map<String, dynamic>> _asMapList(dynamic v) {
     if (v is List) {
-      return v
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
+      return v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
     }
     return const <Map<String, dynamic>>[];
   }
-
   static DateTime? _asDateTime(dynamic v) {
     if (v == null) return null;
     if (v is DateTime) return v;
     if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
-    if (v is String) {
-      try { return DateTime.parse(v); } catch (_) {}
-    }
+    if (v is String) { try { return DateTime.parse(v); } catch (_) {} }
     if (v is Timestamp) return v.toDate();
     return null;
   }
-
   static int? _parseTakenAtMs(dynamic v) {
     if (v == null) return null;
     if (v is int) return v;
@@ -215,28 +279,4 @@ class ScheduleData {
     if (v is Timestamp) return v.millisecondsSinceEpoch;
     return null;
   }
-}
-
-class ScheduleDraft {
-  final int estaca;
-  final int faixaIndex;
-  final String status;                // default aplicado no construtor (a iniciar)
-  final String? comentario;
-  final String currentUserId;
-  final List<Uint8List> filesBytes;
-  final List<String>? fileNames;
-  final List<pm.CarouselMetadata> photoMetas;
-  final DateTime? takenAt;            // fallback
-
-  ScheduleDraft({
-    required this.estaca,
-    required this.faixaIndex,
-    String? status,
-    this.comentario,
-    required this.currentUserId,
-    this.filesBytes = const [],
-    this.fileNames,
-    this.photoMetas = const [],
-    this.takenAt,
-  }) : status = (status == null || status.trim().isEmpty) ? 'a iniciar' : status;
 }

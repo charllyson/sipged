@@ -92,7 +92,7 @@ class ActiveRoadsRepository {
           pts is List && pts.isNotEmpty && (pts.first is List || (gtype == 'MultiLineString'));
 
       if (isNested) {
-        final ml = (pts as List).cast<List>();
+        final ml = (pts).cast<List>();
         final flattened = _flattenMultiLinePoints(ml)
             .map((p) => GeoPoint(p['latitude']!, p['longitude']!))
             .toList();

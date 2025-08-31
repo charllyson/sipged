@@ -34,7 +34,6 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
     super.dispose();
   }
 
-  void _refresh() => _bloc.add(const ActiveRoadsRefreshRequested());
 
   void _clearFilters() {
     _bloc.add(const ActiveRoadsRegionFilterChanged(null));

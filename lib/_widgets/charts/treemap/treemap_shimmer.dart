@@ -87,7 +87,6 @@ class TreemapShimmer extends StatelessWidget {
                       .clamp(c.maxWidth, 4000.0),
                 );
 
-                final blocksAcross =
                 (baseWidth / targetCellSide).clamp(4, 20).round();
 
                 final grid = _Shimmer(
@@ -172,10 +171,6 @@ class _FakeTreemapGrid extends StatelessWidget {
           ? Colors.white.withOpacity(.10)
           : Colors.grey.shade300;
 
-  Color _accent(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark
-          ? Colors.white.withOpacity(.20)
-          : Colors.grey.shade200;
 }
 
 class _BlocksPainter extends CustomPainter {

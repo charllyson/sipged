@@ -230,8 +230,6 @@ class ContractsStore extends ChangeNotifier {
   bool _strEq(String? a, String? b) =>
       (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
 
-  bool _strContains(String? haystack, String? needle) =>
-      (haystack ?? '').toUpperCase().contains((needle ?? '').toUpperCase());
 
   bool _listContainsIgnoreCase(Iterable<String>? list, String? value) {
     if (list == null || value == null || value.isEmpty) return false;

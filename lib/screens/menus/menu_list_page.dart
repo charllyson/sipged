@@ -59,7 +59,7 @@ class MenuListPage extends StatefulWidget {
 }
 
 class _MenuListPageState extends State<MenuListPage> {
-  MenuItem _selectedItem = MenuItem.documentsContractsDashboard;
+  MenuItem _selectedItem = MenuItem.documentsContractsRecords;
   bool _didWarmupUserBloc = false;   // warmup do UserBloc
   bool _didWarmupStores = false;     // warmup do ContractsStore
 

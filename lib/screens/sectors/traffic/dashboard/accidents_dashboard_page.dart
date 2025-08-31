@@ -22,7 +22,7 @@ class AccidentsDashboardPage extends StatelessWidget {
 }
 
 class _AccidentsDashboardScaffold extends StatefulWidget {
-  const _AccidentsDashboardScaffold({super.key});
+  const _AccidentsDashboardScaffold();
 
   @override
   State<_AccidentsDashboardScaffold> createState() => _AccidentsDashboardScaffoldState();

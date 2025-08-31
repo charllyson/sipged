@@ -14,6 +14,7 @@ import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 
 import '../../../../_widgets/archives/pdf/web_pdf_controller.dart';
+import 'measurement_budget_page.dart';
 
 class ReportMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
@@ -49,6 +50,15 @@ class ReportMeasurementFormSection extends StatelessWidget {
     required this.onSave,
     required this.onClear,
   });
+
+  // helper p/ formato BR (sua lib exige String)
+  String currencyBR(num v) => toCurrencyString(
+    v.toString(),
+    leadingSymbol: 'R\$ ',
+    useSymbolPadding: true,
+    thousandSeparator: ThousandSeparator.Period,
+    mantissaLength: 2,
+  );
 
   double getInputWidth(BuildContext context) {
     return responsiveInputWidth(
@@ -155,6 +165,18 @@ class ReportMeasurementFormSection extends StatelessWidget {
               enabled: isEditable,
               money: true,
             ),
+            // Botão para abrir o modal de detalhamento
+            SizedBox(
+              width: getInputWidth(context),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.list_alt),
+                  label: const Text('Detalhar medição'),
+                  onPressed: isEditable ? () => _openDetalhamentoModal(context) : null,
+                ),
+              ),
+            ),
           ],
         );
 
@@ -220,12 +242,24 @@ class ReportMeasurementFormSection extends StatelessWidget {
     );
   }
 
+  void _openDetalhamentoModal(BuildContext context) async {
+    await Navigator.of(context).push<MeasurementBudgetPage>(
+      MaterialPageRoute(
+        builder: (_) => MeasurementBudgetPage(
+          contractData: contractData,
+        ),
+        fullscreenDialog: true, // opcional: efeito de "página de edição"
+      ),
+    );
+  }
+
+
   Widget _buildPdfWidget() {
     return WebPdfWidgetGeneric(
-      key: Key(currentReportMeasurementId!),       // 👈 usa o ID de report
-      type: PDFType.report,                        // 👈 tipo de report
+      key: Key(currentReportMeasurementId!), // 👈 usa o ID de report
+      type: PDFType.report, // 👈 tipo de report
       contractData: contractData,
-      specificData: selectedReportMeasurement!,    // 👈 objeto de report
+      specificData: selectedReportMeasurement!, // 👈 objeto de report
       reportMeasurementStorageBloc: reportMeasurementStorageBloc,
     );
   }

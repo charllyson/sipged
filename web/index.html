@@ -1,32 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SISGED</title>
 
-  <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
-  <meta name="google-signin-client_id" content="855464885227-jrpn4a465rnt9vkppqfsss838d5qqrc1.apps.googleusercontent.com">
+  <!-- Material Icons -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Material+Icons" />
 
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="SISGEO">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <!-- PWA -->
+  <link rel="icon" type="image/png" href="favicon_sisged.png" />
+  <link rel="apple-touch-icon" href="icons/Icon-192.png" />
+  <link rel="manifest" href="manifest.json" />
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <!-- heic2any deve estar carregado ANTES do Flutter -->
+  <script src="https://unpkg.com/heic2any/dist/heic2any.min.js"></script>
 
-  <title>SISGEO</title>
-  <link rel="manifest" href="manifest.json">
-  <!-- Firebase core and auth compat libs (v9 compat) -->
+  <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
 
   <script>
-    // Your web app's Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyDZh7jcJNO0XEW2eCXecWq3MdTvRFPzHJk",
       authDomain: "sisgeoderal.firebaseapp.com",
@@ -38,14 +35,12 @@
       measurementId: "G-EJBDWKRPQ8"
     };
 
-    // Initialize Firebase once
     firebase.initializeApp(firebaseConfig);
     firebase.analytics();
   </script>
-
 </head>
 <body>
-<script src="flutter.js" defer></script>
-<script src="main.dart.js" type="application/javascript"></script>
+<!-- Loader do Flutter (já injeta main.dart.js) -->
+<script src="main.dart.js" defer></script>
 </body>
 </html>

@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
-import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 
@@ -29,9 +27,9 @@ class ActiveAirportsRecordsPage extends StatefulWidget {
 }
 
 class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
-  int? _selectedLine;        // índice original (na lista st.all)
-  int? _selectedPieIndex;    // índice da fatia (0..5)
-  int? _selectedRegionIndex; // índice da barra de região
+// índice original (na lista st.all)
+// índice da fatia (0..5)
+// índice da barra de região
   bool _firedUserWarmup = false;
   bool _firedOaesWarmup = false;
 
@@ -84,12 +82,11 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
               );
             }
 
-            final labelsScore = st.pieLabelsForChart;  // labels semânticos (0..5)
-            final valuesScore = st.pieValuesForChart;  // contagem por nota
-            final colorsScore = st.pieColorsForChart;  // cores por nota
+// labels semânticos (0..5)
+// contagem por nota
+// cores por nota
 
             final labelsRegion = st.regionLabels;
-            final valuesRegion = st.regionCounts;
 
             return Stack(
               children: [
@@ -120,15 +117,13 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
                                 // espelha seleção no BLoC
                                 final originalIndex = st.all.indexWhere((e) => e.id == item.id);
                                 if (originalIndex != -1) {
-                                  _selectedLine = originalIndex;
                                   context
                                       .read<ActiveOaesBloc>()
                                       .add(ActiveOaesSelectByIndex(originalIndex));
                                 }
 
                                 // espelha no PIE: nota -> índice da fatia (0..5)
-                                final scoreIdx = ((item.score ?? -1).toInt()).clamp(0, 5);
-                                setState(() => _selectedPieIndex = scoreIdx);
+                                ((item.score ?? -1).toInt()).clamp(0, 5);
 
                                 // espelha na barra de região
                                 final r = (item.region ?? '').toUpperCase();
@@ -136,7 +131,6 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
                                       (lab) => lab.toUpperCase() == r,
                                 );
                                 if (idxRegion != -1) {
-                                  setState(() => _selectedRegionIndex = idxRegion);
                                 }
                               },
                               onDelete: (id) {

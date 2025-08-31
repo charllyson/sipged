@@ -1,6 +1,5 @@
-import 'dart:async';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:siged/_blocs/documents/contracts/budget/budget_bloc.dart';
 
@@ -34,7 +33,7 @@ class BudgetStore extends ChangeNotifier {
   Future<void> ensureFor(String contractId) async {
     if (contractId.isEmpty) return;
 
-    // Se já temos cache mas ele está vazio (talvez meta não existia na 1ª tentativa), force um refresh 1x.
+    // Se já temos cache:
     final cached = _byContract[contractId];
     if (cached != null) {
       if (cached.isEmpty && _loading[contractId] != true) {
@@ -46,12 +45,20 @@ class BudgetStore extends ChangeNotifier {
       return;
     }
 
+    // Evita chamadas concorrentes
     if (_loading[contractId] == true) {
       debugPrint('[BudgetStore] ensureFor($contractId): já carregando, saindo.');
       return;
     }
 
+    // >>> Sinaliza loading e NOTIFICA a UI imediatamente <<<
     _loading[contractId] = true;
+    _notifyAfterBuild(); // <- ESSENCIAL para o overlay aparecer
+
+    // (opcional) delay mínimo para UX mais suave
+    const int _minMs = 150;
+    final started = DateTime.now();
+
     debugPrint('[BudgetStore] ensureFor($contractId): chamando BudgetBloc.loadBudgetNested...');
     try {
       final snap = await _bloc.loadBudgetNested(contractId);
@@ -65,15 +72,27 @@ class BudgetStore extends ChangeNotifier {
       debugPrint('[BudgetStore] ensureFor($contractId) ERRO: $e');
       rethrow;
     } finally {
+      // aplica delay mínimo (evita "piscar")
+      final elapsed = DateTime.now().difference(started).inMilliseconds;
+      if (elapsed < _minMs) {
+        await Future.delayed(Duration(milliseconds: _minMs - elapsed));
+      }
       _loading[contractId] = false;
-      _notifyAfterBuild();
+      _notifyAfterBuild(); // notifica fim do loading
     }
   }
 
   Future<void> refreshFor(String contractId) async {
     if (contractId.isEmpty) return;
+
+    // Sinaliza loading e notifica ANTES da chamada async (já existia aqui)
     _loading[contractId] = true;
     _notifyAfterBuild();
+
+    // (opcional) delay mínimo para UX
+    const int _minMs = 150;
+    final started = DateTime.now();
+
     debugPrint('[BudgetStore] refreshFor($contractId): chamando BudgetBloc.loadBudgetNested...');
     try {
       final snap = await _bloc.loadBudgetNested(contractId);
@@ -87,6 +106,10 @@ class BudgetStore extends ChangeNotifier {
       debugPrint('[BudgetStore] refreshFor($contractId) ERRO: $e');
       rethrow;
     } finally {
+      final elapsed = DateTime.now().difference(started).inMilliseconds;
+      if (elapsed < _minMs) {
+        await Future.delayed(Duration(milliseconds: _minMs - elapsed));
+      }
       _loading[contractId] = false;
       _notifyAfterBuild();
     }

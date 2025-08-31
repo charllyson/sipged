@@ -430,7 +430,7 @@ class ScheduleRepository {
       final rawMetaList = (data['fotos_meta'] is List) ? (data['fotos_meta'] as List) : const [];
       final metaList = rawMetaList
           .whereType<Object>()
-          .map((e) => (e is Map) ? Map<String, dynamic>.from(e as Map) : <String, dynamic>{})
+          .map((e) => (e is Map) ? Map<String, dynamic>.from(e) : <String, dynamic>{})
           .where((m) => m.isNotEmpty)
           .toList();
 
@@ -473,7 +473,7 @@ class ScheduleRepository {
       final rawMetaList2 = (d2['fotos_meta'] is List) ? (d2['fotos_meta'] as List) : const [];
       final metaList2 = rawMetaList2
           .whereType<Object>()
-          .map((e) => (e is Map) ? Map<String, dynamic>.from(e as Map) : <String, dynamic>{})
+          .map((e) => (e is Map) ? Map<String, dynamic>.from(e) : <String, dynamic>{})
           .where((m) => m.isNotEmpty)
           .toList();
 

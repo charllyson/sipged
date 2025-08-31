@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_utils/date_utils.dart';
-import 'package:siged/_widgets/table/simple_table_changed.dart';
+import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/loading/loading_progress.dart';

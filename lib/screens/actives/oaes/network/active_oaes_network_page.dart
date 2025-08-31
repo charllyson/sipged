@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
-import 'package:siged/_blocs/actives/oaes/active_oaes_repository.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart'; // 👈 ajuste o path se necessário
 
@@ -26,7 +25,6 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   @override
   void initState() {
     super.initState();
-    final repo = ActiveOaesRepository();
     _bloc = ActiveOaesBloc()..add(const ActiveOaesWarmupRequested());
   }
 
@@ -36,7 +34,6 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     super.dispose();
   }
 
-  void _refresh() => _bloc.add(const ActiveOaesRefreshRequested());
 
   void _clearFilters() {
     _bloc.add(const ActiveOaesPieFilterChanged(null));

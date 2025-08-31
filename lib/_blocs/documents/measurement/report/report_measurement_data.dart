@@ -18,6 +18,9 @@ class ReportMeasurementData {
   DateTime? updatedAt;
   String? updatedBy;
 
+  // 🔹 novo: detalhamento (itens da medição)
+  Map<String, dynamic>? breakdown;
+
   ReportMeasurementData({
     this.id,
     this.order,
@@ -26,6 +29,7 @@ class ReportMeasurementData {
     this.value,
     this.contractId,
     this.pdfUrl,
+    this.breakdown, // <<<<<<
     this.createdAt,
     this.createdBy,
     this.updatedAt,

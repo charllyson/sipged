@@ -154,9 +154,6 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                   tickCount: widget.tickCount,
                   titlePositionPercentageOffset: titleOffset,
                   getTitle: (index, angle) {
-                    final align = (angle >= -math.pi / 2 && angle <= math.pi / 2)
-                        ? TextAlign.left
-                        : TextAlign.right;
                     return RadarChartTitle(
                       text: widget.labels[index],
                     );

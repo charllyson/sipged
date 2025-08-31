@@ -52,21 +52,6 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
   // Import / Delete helpers
   // =========================
 
-  /// Abre fluxo de importação do GeoJSON e dispara o evento de import.
-  /// Aqui você pode plugar seu file picker e preencher as listas.
-  void _onImportGeoJson(BuildContext context) async {
-    final linhasPrincipais = <Map<String, dynamic>>[];
-    final geometrias = <Map<String, dynamic>>[];
-
-    _bloc.add(ActiveRailwaysImportBatchRequested(
-      linhasPrincipais: linhasPrincipais,
-      geometrias: geometrias,
-    ));
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Processando importação de GeoJSON...')),
-    );
-  }
 
   /// Deleta todos os documentos atualmente carregados no estado.
   void _onDeleteCollection() async {

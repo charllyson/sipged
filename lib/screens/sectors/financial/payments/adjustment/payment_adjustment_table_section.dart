@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_utils/date_utils.dart';
-import 'package:siged/_widgets/table/simple_table_changed.dart';
+import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';

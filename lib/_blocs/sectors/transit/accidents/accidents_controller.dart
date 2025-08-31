@@ -8,7 +8,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
 import 'package:siged/_blocs/system/info/system_bloc.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
 
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';

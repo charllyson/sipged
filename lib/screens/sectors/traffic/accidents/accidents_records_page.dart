@@ -278,7 +278,7 @@ class _AccidentsRecordsPageState extends State<AccidentsRecordsPage> {
 
 /// Widget auxiliar para medir o tamanho do filho após o layout
 class _SizeReporter extends StatefulWidget {
-  const _SizeReporter({required this.child, required this.onSize, super.key});
+  const _SizeReporter({required this.child, required this.onSize});
   final Widget child;
   final ValueChanged<Size> onSize;
 

@@ -4,8 +4,8 @@ import 'package:siged/_utils/date_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
 class ScheduleCells extends StatelessWidget {
-  final ScheduleData execucao;
-  final double altura;
+  final ScheduleData scheduleData;
+  final double height;
   final Color cor;
   final VoidCallback onTap;
 
@@ -24,8 +24,8 @@ class ScheduleCells extends StatelessWidget {
 
   const ScheduleCells({
     super.key,
-    required this.execucao,
-    required this.altura,
+    required this.scheduleData,
+    required this.height,
     required this.cor,
     required this.onTap,
     this.isSelected = false,
@@ -37,12 +37,12 @@ class ScheduleCells extends StatelessWidget {
     this.userLabelResolver,
   });
 
-  bool get _hasComment => (execucao.comentario?.trim().isNotEmpty ?? false);
+  bool get _hasComment => (scheduleData.comentario?.trim().isNotEmpty ?? false);
 
   // ✅ Somente URLs reais em `fotos` disparam o ícone da câmera
-  bool get _hasPhotos => execucao.fotos.any((u) => u.trim().isNotEmpty);
+  bool get _hasPhotos => scheduleData.fotos.any((u) => u.trim().isNotEmpty);
 
-  int get _photosCount => execucao.fotos.where((u) => u.trim().isNotEmpty).length;
+  int get _photosCount => scheduleData.fotos.where((u) => u.trim().isNotEmpty).length;
 
   /// Escolhe a melhor data para exibir (tooltip):
   /// 1) takenAt da célula (doc.takenAtMs) -> execucao.takenAt
@@ -50,11 +50,11 @@ class ScheduleCells extends StatelessWidget {
   /// 3) updatedAt / createdAt
   DateTime? _primaryDate() {
     // 1) do doc
-    if (execucao.takenAt != null) return execucao.takenAt;
+    if (scheduleData.takenAt != null) return scheduleData.takenAt;
 
     // 2) mais recente das metas
     DateTime? best;
-    for (final m in execucao.fotosMeta) {
+    for (final m in scheduleData.fotosMeta) {
       DateTime? d;
 
       final rawTaken = m['takenAt'] ?? m['takenAtMs'];
@@ -85,18 +85,18 @@ class ScheduleCells extends StatelessWidget {
     }
 
     // 3) updatedAt / createdAt
-    return best ?? execucao.updatedAt ?? execucao.createdAt;
+    return best ?? scheduleData.updatedAt ?? scheduleData.createdAt;
   }
 
   String _tooltipText() {
-    final status = (execucao.status ?? '').trim();
+    final status = scheduleData.statusLabel;
 
-    final uid = (execucao.updatedBy?.isNotEmpty ?? false)
-        ? execucao.updatedBy
-        : execucao.createdBy;
+    final uid = (scheduleData.updatedBy?.isNotEmpty ?? false)
+        ? scheduleData.updatedBy
+        : scheduleData.createdBy;
 
     final usuario = userLabelResolver?.call(uid) ?? '—';
-    final comentario = execucao.comentario?.trim();
+    final comentario = scheduleData.comentario?.trim();
 
     String data = '—', hour = '—';
     final dt = _primaryDate();
@@ -127,14 +127,14 @@ class ScheduleCells extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final needsTooltip =
-    !((execucao.status?.isEmpty ?? true) || execucao.status == 'a iniciar');
+    !((scheduleData.status?.isEmpty ?? true) || scheduleData.status == 'a iniciar');
 
     final base = GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.all(0.5),
         width: double.infinity,
-        height: altura,
+        height: height,
         child: Stack(
           children: [
             Positioned.fill(

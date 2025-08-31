@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:siged/_utils/date_utils.dart';
-import 'package:siged/_widgets/table/simple_table_changed.dart';
+import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 import 'package:siged/_widgets/totalTableRows/footer_rows_generic.dart';
 
 class AdjustmentMeasurementTableSection extends StatelessWidget {

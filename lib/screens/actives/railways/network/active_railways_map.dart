@@ -58,10 +58,8 @@ class ActiveRailwaysMap extends StatelessWidget {
             orElse: () => null as dynamic,
           ),
         );
-        if (fer == null) return;
 
         final overlay = Overlay.of(context);
-        if (overlay == null) return;
 
         ActiveRailwaysTooltipWidget.show(
           overlayState: overlay,

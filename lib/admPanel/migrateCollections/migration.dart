@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:siged/admPanel/migrateCollections/migration_service.dart';
-import 'package:siged/admPanel/settings_system_page.dart';
 
 class MigrationCollections extends StatelessWidget {
   const MigrationCollections({super.key});

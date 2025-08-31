@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/sectors/operation/schedule_data.dart';
 import 'package:siged/_blocs/sectors/operation/schedule_style.dart';
-import 'package:siged/_widgets/schedule/schedule_lane_class.dart';
 
 import 'schedule_event.dart';
 import 'schedule_state.dart';
@@ -36,6 +35,7 @@ class ScheduleBloc extends Bloc<ScheduleEvent, ScheduleState> {
 
   // ================= helpers (paths/meta) =================
 
+  // ignore: unused_element
   String _slug(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
 
   // meta do serviço atual para cor/ícone/label da UI

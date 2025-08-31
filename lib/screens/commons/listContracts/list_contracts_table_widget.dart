@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/table/simple_table_changed.dart';
+import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'list_contracts_validity_icon.dart';

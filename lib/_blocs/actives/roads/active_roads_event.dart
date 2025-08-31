@@ -1,16 +1,7 @@
 // lib/_blocs/actives/roads/active_roads_bloc.dart
-import 'dart:math' as math;
-import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
-import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
-import 'package:siged/_blocs/actives/roads/active_road_style.dart';
-import 'package:siged/_blocs/actives/roads/active_road_rules.dart';
 
 /// =========================
 /// EVENTS (sem part/part of)

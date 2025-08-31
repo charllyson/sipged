@@ -6,7 +6,6 @@ import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_state.dart';
 
-import 'active_railway_data.dart';
 
 /// =========================
 /// BLOC — Ferrovias

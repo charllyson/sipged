@@ -102,7 +102,7 @@ class SubcollectionCleaner {
     final Map<String, Map<String, int>> overall = {};
 
     final colRef =
-    _db.collection(collectionPath) as CollectionReference<Map<String, dynamic>>;
+    _db.collection(collectionPath);
     final docs = await colRef.get();
 
     for (final d in docs.docs) {

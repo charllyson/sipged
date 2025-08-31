@@ -8,7 +8,6 @@ import 'package:siged/_utils/formats/format_field.dart';
 
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
 
 import '../upBar/up_bar.dart';
 

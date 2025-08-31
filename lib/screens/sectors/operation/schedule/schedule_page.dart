@@ -1,5 +1,4 @@
 // lib/screens/sectors/operation/schedule/schedule_page.dart
-import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,6 +18,7 @@ import 'package:siged/_widgets/schedule/schedule_header.dart';
 import 'package:siged/_widgets/schedule/schedule_grid.dart';
 import 'package:siged/_widgets/schedule/schedule_menu_buttons.dart';
 import 'package:siged/_widgets/schedule/schedule_sub_header.dart';
+import 'package:siged/screens/sectors/operation/schedule/schedule_modal_widget.dart';
 
 // Editor de faixas
 import 'package:siged/screens/sectors/operation/schedule/schedule_lanes_edit_section.dart';
@@ -32,7 +32,7 @@ import 'package:siged/_blocs/sectors/operation/schedule_state.dart';
 import 'package:siged/_widgets/schedule/schedule_status.dart';
 
 // Modal (single cell)
-import 'package:siged/screens/sectors/operation/schedule/schedule_square_modal.dart';
+import 'package:siged/screens/sectors/operation/schedule/schedule_modal_square.dart';
 
 // (opcional) metadados por URL p/ carrossel
 import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
@@ -300,9 +300,9 @@ class _SchedulePageState extends State<SchedulePage> {
         useSafeArea: true,
         builder: (_) => BlocProvider.value(
           value: context.read<ScheduleBloc>(),
-          child: ScheduleSquareModal(
+          child: ScheduleModalSquare(
             estaca: e.numero,
-            faixaIndex: e.faixaIndex,
+            trackIndex: e.faixaIndex,
             currentUserId: _uid,
             tipoLabel: state.titleForHeader,
             initialStatus: initialStatus,
@@ -379,11 +379,11 @@ class _SchedulePageState extends State<SchedulePage> {
 
     _modalOpen = true;
 
-    final res = await showModalBottomSheet<_BulkResult>(
+    final res = await showModalBottomSheet<ScheduleModalWidget>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _BulkStatusCommentSheet(count: _selectedKeys.length),
+      builder: (_) => BulkStatusCommentSheet(count: _selectedKeys.length),
     );
 
     _modalOpen = false;
@@ -453,7 +453,6 @@ class _SchedulePageState extends State<SchedulePage> {
   // ===================== Helpers de UI =====================
   void _toast(String msg) {
     final overlay = Overlay.of(context);
-    if (overlay == null) return;
     final entry = OverlayEntry(
       builder: (_) => Positioned(
         top: 70,
@@ -478,223 +477,3 @@ class _SchedulePageState extends State<SchedulePage> {
     Future.delayed(const Duration(seconds: 3), () => entry.remove());
   }
 }
-
-/// ======= Modal simples p/ APLICAÇÃO EM LOTE (status + comentário + data) =======
-
-class _BulkResult {
-  final ScheduleStatus status;
-  final String? comment;
-  final DateTime? takenAt;     // ⬅️ novo
-  const _BulkResult(this.status, this.comment, this.takenAt);
-}
-
-class _BulkStatusCommentSheet extends StatefulWidget {
-  final int count;
-  const _BulkStatusCommentSheet({required this.count});
-
-  @override
-  State<_BulkStatusCommentSheet> createState() => _BulkStatusCommentSheetState();
-}
-
-class _BulkStatusCommentSheetState extends State<_BulkStatusCommentSheet> {
-  ScheduleStatus _status = ScheduleStatus.aIniciar;
-  final _commentCtrl = TextEditingController();
-  DateTime? _selectedDate;                      // ⬅️ novo
-  bool _busy = false;
-
-  @override
-  void dispose() {
-    _commentCtrl.dispose();
-    super.dispose();
-  }
-
-  String _dateLabel(DateTime? d) {
-    if (d == null) return '—';
-    final dd = d.day.toString().padLeft(2, '0');
-    final mm = d.month.toString().padLeft(2, '0');
-    final yyyy = d.year.toString();
-    return '$dd/$mm/$yyyy';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isSingle = widget.count == 1;
-    final buttonLabel = isSingle ? 'Aplicar' : 'Aplicar em ${widget.count} célula(s)';
-    final buttonIcon = isSingle ? Icons.done : Icons.done_all;
-
-    return SafeArea(
-      top: false,
-      child: Material(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Icon(isSingle ? Icons.edit : Icons.select_all_rounded),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isSingle ? 'Editar célula' : 'Aplicar em lote',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _busy ? null : () => Navigator.pop(context, null),
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Fechar',
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 8),
-
-              // Status chips
-              _BulkStatusChips(
-                selected: _status,
-                onSelect: _busy ? null : (s) => setState(() => _status = s),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Data (opcional) — aplicada a TODAS as células selecionadas
-              Row(
-                children: [
-                  const Text('Data do serviço:', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(_dateLabel(_selectedDate)),
-                  ),
-                  TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () async {
-                      final init = _selectedDate ?? DateTime.now();
-                      final d = await showDatePicker(
-                        context: context,
-                        initialDate: init,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime.now().add(const Duration(days: 365)),
-                      );
-                      if (d != null) setState(() => _selectedDate = d);
-                    },
-                    child: Text(_selectedDate == null ? 'Definir' : 'Alterar'),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // Comentário
-              TextField(
-                controller: _commentCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Comentário (opcional)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Ações
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _busy ? null : () => Navigator.pop(context, null),
-                      child: const Text('Cancelar'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _busy
-                          ? null
-                          : () {
-                        Navigator.pop<_BulkResult>(
-                          context,
-                          _BulkResult(
-                            _status,
-                            _commentCtrl.text.trim().isEmpty
-                                ? null
-                                : _commentCtrl.text.trim(),
-                            _selectedDate, // ⬅️ novo
-                          ),
-                        );
-                      },
-                      icon: Icon(buttonIcon),
-                      label: Text(buttonLabel),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BulkStatusChips extends StatelessWidget {
-  final ScheduleStatus selected;
-  final ValueChanged<ScheduleStatus>? onSelect;
-  const _BulkStatusChips({required this.selected, required this.onSelect});
-
-  Widget _chip(BuildContext _, ScheduleStatus s) {
-    final sel = s == selected;
-    return Material(
-      color: sel ? s.color : Colors.grey.shade200,
-      shape: StadiumBorder(side: BorderSide(color: sel ? s.color : Colors.grey.shade300)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onSelect == null ? null : () => onSelect!(s),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(s.icon, size: 18, color: sel ? Colors.white : s.color),
-              const SizedBox(width: 8),
-              Text(
-                s.label,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: sel ? Colors.white : Colors.black87,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: [
-            _chip(context, ScheduleStatus.concluido),
-            const SizedBox(width: 8),
-            _chip(context, ScheduleStatus.emAndamento),
-            const SizedBox(width: 8),
-            _chip(context, ScheduleStatus.aIniciar),
-          ],
-        ),
-      ),
-    );
-  }
-}
-

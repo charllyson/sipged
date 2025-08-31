@@ -10,7 +10,6 @@ import 'schedule_grid.dart';
 // Bloc de Usuário
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
 
 class ScheduleUpLegendColumn extends StatelessWidget {
   final int estacaNumero;
@@ -107,8 +106,8 @@ class ScheduleUpLegendColumn extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: ScheduleGrid.kCellVPad),
                 child: ScheduleCells(
-                  execucao: exec,
-                  altura: faixa.altura,
+                  scheduleData: exec,
+                  height: faixa.altura,
                   cor: getSquareColor(exec),
                   onTap: () => onTapSquare(exec),
                   isSelected: isSelected,

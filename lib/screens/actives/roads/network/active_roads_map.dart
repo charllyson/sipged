@@ -54,10 +54,8 @@ class ActiveRoadsMap extends StatelessWidget {
             orElse: () => null as dynamic,
           ),
         );
-        if (road == null) return;
 
         final overlay = Overlay.of(context);
-        if (overlay == null) return;
 
         ActiveRoadsTooltipWidget.show(
           overlayState: overlay,
