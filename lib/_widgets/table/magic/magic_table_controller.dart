@@ -1,23 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Tipos de coluna configuráveis (fonte única do enum)
 enum ColumnType { auto, text, number, money, boolean_, date }
 
-// ====== NOVO: suporte a esquema/colunas derivadas ======
-typedef ComputeCell = String Function(
-    int row,
-    List<String> rowValues,
-    MagicTableController ctrl,
-    );
+typedef ComputeCell = String Function(int row, List<String> rowValues, MagicTableController ctrl);
 
 class ColumnMeta {
-  final String key;                // identificador estável (ex.: 'qtd_prev')
-  final String title;              // rótulo visível no header
+  final String key;
+  final String title;
   final ColumnType type;
   final bool editable;
-  final ComputeCell? compute;      // se não-null => coluna derivada (read-only)
-  final String? group;             // cabeçalho de 2º nível opcional
+  final ComputeCell? compute;
+  final String? group;
   final String Function(String raw)? normalizeOnCommit;
   final String Function(String raw)? formatter;
 
@@ -32,47 +26,34 @@ class ColumnMeta {
     this.formatter,
   });
 }
-// =======================================================
 
 class MagicTableController extends ChangeNotifier {
   MagicTableController({required this.cellPadHorizontal});
 
-  // --------- Estado dos dados/colunas ----------
   List<List<String>> tableData = [];
   List<double> colWidths = [];
   List<bool> numericCols = [];
   List<ColumnType> colTypes = [];
 
-  // ====== NOVO: esquema opcional ======
   List<ColumnMeta>? _schema;
   bool get hasSchema => _schema != null && _schema!.isNotEmpty;
   List<ColumnMeta> get columns => _schema ?? _columnsFromHeader();
-  // mapas para "Acumulado Anterior"
+
   Map<int,double> previousQtyByRow = {};
   Map<int,double> previousValByRow = {};
 
-  // --------- Constantes de layout/largura ----------
   static const double minColWidth = 80;
   static const double maxColWidthNonNumeric = 380;
   final double cellPadHorizontal;
 
-  // --------- PROPRIEDADES P/ UI ----------
   int get rowCount => tableData.isEmpty ? 0 : tableData.length;
   int get colCount => tableData.isEmpty ? 0 : tableData.first.length;
   bool get hasData => tableData.isNotEmpty;
 
-  // ====== NOVO: utilidades de esquema ======
   int colIndexByKey(String key) => columns.indexWhere((c) => c.key == key);
-  bool isDerived(int col) =>
-      hasSchema && col >= 0 && col < columns.length && columns[col].compute != null;
-  bool isEditable(int col) =>
-      !hasSchema
-          ? true
-          : (col >= 0 && col < columns.length ? columns[col].editable && columns[col].compute == null : true);
+  bool isDerived(int col) => hasSchema && col >= 0 && col < columns.length && columns[col].compute != null;
+  bool isEditable(int col) => !hasSchema ? true : (col >= 0 && col < columns.length ? columns[col].editable && columns[col].compute == null : true);
 
-  // ====== NOVO: definir esquema (opcional) ======
-  /// Define um esquema para a tabela. Se [setHeaderFromSchema] for true,
-  /// substitui a 1ª linha por titles do esquema.
   void setSchema({
     required List<ColumnMeta> schema,
     Map<int,double>? previousQty,
@@ -83,11 +64,9 @@ class MagicTableController extends ChangeNotifier {
     if (previousQty != null) previousQtyByRow = Map<int,double>.from(previousQty);
     if (previousVal != null) previousValByRow = Map<int,double>.from(previousVal);
 
-    // Garante shape
     if (tableData.isEmpty) tableData = [<String>[]];
     final cc = _schema!.length;
 
-    // Header
     if (setHeaderFromSchema) {
       final header = _schema!.map((c) => c.title).toList();
       if (tableData.isEmpty) {
@@ -103,58 +82,75 @@ class MagicTableController extends ChangeNotifier {
         }
       }
     } else {
-      // apenas garante número de colunas
       if (tableData.first.length < cc) {
-        tableData[0] = [
-          ...tableData.first,
-          ...List<String>.filled(cc - tableData.first.length, '')
-        ];
+        tableData[0] = [...tableData.first, ...List<String>.filled(cc - tableData.first.length, '')];
       }
     }
 
-    // Ajusta todas as linhas ao novo comprimento
     for (int r = 0; r < tableData.length; r++) {
       if (tableData[r].length < cc) {
-        tableData[r] = [
-          ...tableData[r],
-          ...List<String>.filled(cc - tableData[r].length, '')
-        ];
+        tableData[r] = [...tableData[r], ...List<String>.filled(cc - tableData[r].length, '')];
       } else if (tableData[r].length > cc) {
         tableData[r] = List<String>.from(tableData[r].take(cc));
       }
     }
 
-    // Tipos a partir do esquema (mantém compatibilidade)
     colTypes = _schema!.map((m) => m.type).toList(growable: true);
-
-    // Recalcula derivadas
     recomputeAll();
     _syncAfterShapeChange();
     notifyListeners();
   }
 
-  // --------- COLAR DO EXCEL ----------
+  /// Acrescenta colunas **à direita**. Se ainda não existir schema, cria um
+  /// a partir do header atual para habilitar colunas derivadas/editáveis.
+  void appendColumns(List<ColumnMeta> metas) {
+    if (metas.isEmpty) return;
+
+    if (!hasData) {
+      setSchema(schema: metas, setHeaderFromSchema: true);
+      return;
+    }
+
+    // Se ainda não há schema, criamos um com as colunas existentes (todas editáveis)
+    if (!hasSchema) {
+      final legacy = _columnsFromHeader(); // tipos atuais/auto; editáveis
+      _schema = [...legacy, ...metas];
+    } else {
+      _schema = [...columns, ...metas];
+    }
+
+    // 1) Header: acrescenta títulos
+    tableData[0] = [...tableData[0], ...metas.map((m) => m.title)];
+
+    // 2) Linhas: acrescenta células vazias
+    for (int r = 1; r < tableData.length; r++) {
+      tableData[r] = [...tableData[r], ...List<String>.filled(metas.length, '')];
+    }
+
+    // 3) Tipos
+    colTypes = _schema!.map((m) => m.type).toList(growable: true);
+
+    // 4) Recalcula derivadas e larguras
+    recomputeAll();
+    colWidths = computeColWidths(tableData);
+    numericCols = List<bool>.generate(colCount, (i) => isNumericEffective(i), growable: true);
+    notifyListeners();
+  }
+
+  // ====== Operações padrão ======
   Future<void> pasteFromClipboard() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final raw = data?.text;
     if (raw == null || raw.trim().isEmpty) return;
 
     final rows = raw.trimRight().split('\n').map((r) => r.split('\t')).toList();
-    final sanitized = rows
-        .map((r) => r.map(_singleLine).toList(growable: true))
-        .toList(growable: true);
+    final sanitized = rows.map((r) => r.map(_singleLine).toList(growable: true)).toList(growable: true);
 
     tableData = sanitized;
 
-    // sem esquema: tipos = auto; com esquema: tipos = do esquema (mantidos)
     if (!hasSchema) {
-      colTypes = List<ColumnType>.generate(
-        _getColCount(sanitized),
-            (_) => ColumnType.auto,
-        growable: true,
-      );
+      colTypes = List<ColumnType>.generate(_getColCount(sanitized), (_) => ColumnType.auto, growable: true);
     } else {
-      // garante shape com base no schema
       setSchema(schema: columns, setHeaderFromSchema: false);
     }
 
@@ -163,12 +159,8 @@ class MagicTableController extends ChangeNotifier {
   }
 
   String excelColName(int index) {
-    int n = index;
-    String name = '';
-    while (n >= 0) {
-      name = String.fromCharCode((n % 26) + 65) + name;
-      n = (n ~/ 26) - 1;
-    }
+    int n = index; String name = '';
+    while (n >= 0) { name = String.fromCharCode((n % 26) + 65) + name; n = (n ~/ 26) - 1; }
     return name;
   }
 
@@ -183,7 +175,6 @@ class MagicTableController extends ChangeNotifier {
     }
   }
 
-  // Coluna numérica efetiva (respeita tipo escolhido; senão auto)
   bool isNumericEffective(int col, [List<List<String>>? rows]) {
     if (hasSchema) {
       final t = columns[col].type;
@@ -199,14 +190,12 @@ class MagicTableController extends ChangeNotifier {
     return _isNumericColumnAuto(src, col);
   }
 
-  // Auto-ajuste de largura para a coluna c
   double autoFitColWidth(int c) {
     final maxW = isNumericEffective(c) ? double.infinity : maxColWidthNonNumeric;
     double w = minColWidth;
 
     bool isFirstRow(int r) => r == 0;
-    bool isIntegerRow(int r) =>
-        !isFirstRow(r) && tableData[r].isNotEmpty && int.tryParse(tableData[r][0]) != null;
+    bool isIntegerRow(int r) => !isFirstRow(r) && tableData[r].isNotEmpty && int.tryParse(tableData[r][0]) != null;
     bool isUpperCaseRow(int r) {
       if (isFirstRow(r) || tableData[r].length < 2) return false;
       final s = tableData[r][1];
@@ -219,10 +208,8 @@ class MagicTableController extends ChangeNotifier {
       final txt = _singleLine(raw);
       final style = isFirstRow(r)
           ? const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
-          : isIntegerRow(r)
-          ? const TextStyle(fontWeight: FontWeight.bold)
-          : isUpperCaseRow(r)
-          ? const TextStyle(fontStyle: FontStyle.italic)
+          : isIntegerRow(r) ? const TextStyle(fontWeight: FontWeight.bold)
+          : isUpperCaseRow(r) ? const TextStyle(fontStyle: FontStyle.italic)
           : const TextStyle();
       final needed = _measureCellWidth(txt, style);
       if (needed > w) w = needed;
@@ -231,24 +218,21 @@ class MagicTableController extends ChangeNotifier {
     return w;
   }
 
-  // Recalcula larguras respeitando tipos
   List<double> computeColWidths(List<List<String>> rows) {
     final colCount = _getColCount(rows);
     if (colCount == 0) return <double>[];
-
     final result = List<double>.filled(colCount, minColWidth, growable: true);
     const textStyle = TextStyle();
     const boldStyle = TextStyle(fontWeight: FontWeight.bold);
     const italicStyle = TextStyle(fontStyle: FontStyle.italic);
 
     bool isFirstRow(int r) => r == 0;
-    bool isIntegerRow(int r) =>
-        !isFirstRow(r) && rows[r].isNotEmpty && int.tryParse(rows[r][0]) != null;
+    bool isIntegerRow(int r) => !isFirstRow(r) && rows[r].isNotEmpty && int.tryParse(rows[r][0]) != null;
     bool isUpperCaseRow(int r) {
       if (isFirstRow(r) || rows[r].length < 2) return false;
       final s = rows[r][1];
-      final onlyLetters = s.replaceAll(RegExp(r'[^A-Za-zÀ-ÿ]'), '');
-      return onlyLetters.isNotEmpty && onlyLetters == onlyLetters.toUpperCase();
+      final only = s.replaceAll(RegExp(r'[^A-Za-zÀ-ÿ]'), '');
+      return only.isNotEmpty && only == only.toUpperCase();
     }
 
     final hasTypes = hasSchema ? true : colTypes.length == colCount;
@@ -263,12 +247,9 @@ class MagicTableController extends ChangeNotifier {
         final txt = _singleLine(raw);
         final style = isFirstRow(r)
             ? const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
-            : isIntegerRow(r)
-            ? boldStyle
-            : isUpperCaseRow(r)
-            ? italicStyle
+            : isIntegerRow(r) ? boldStyle
+            : isUpperCaseRow(r) ? italicStyle
             : textStyle;
-
         final needed = _measureCellWidth(txt, style);
         if (needed > maxWidth) maxWidth = needed;
         if (maxWidth > maxW) { maxWidth = maxW; break; }
@@ -279,32 +260,18 @@ class MagicTableController extends ChangeNotifier {
     return result;
   }
 
-  // --------- Serialização/Carregamento ----------
-  List<String> get headers =>
-      hasData ? List<String>.from(tableData.first) : <String>[];
+  List<String> get headers => hasData ? List<String>.from(tableData.first) : <String>[];
+  List<String> get colTypesAsString => (hasSchema ? columns.map((c) => c.type.name) : colTypes.map((t) => t.name)).toList();
 
-  List<String> get colTypesAsString =>
-      (hasSchema ? columns.map((c) => c.type.name) : colTypes.map((t) => t.name)).toList();
-
-  Map<String, dynamic> toMetaMap() => {
-    'headers': headers,
-    'colTypes': colTypesAsString,
-    'colWidths': colWidths,
-    'version': 1,
-  };
-
-  List<List<String>> get rowsWithoutHeader =>
-      hasData ? tableData.sublist(1) : <List<String>>[];
+  Map<String, dynamic> toMetaMap() => {'headers': headers, 'colTypes': colTypesAsString, 'colWidths': colWidths, 'version': 1};
+  List<List<String>> get rowsWithoutHeader => hasData ? tableData.sublist(1) : <List<String>>[];
 
   void loadFromSnapshot({
     required List<List<String>> table,
     required List<String> colTypesAsString,
     required List<double> widths,
   }) {
-    // sanitize
-    tableData = table
-        .map((r) => r.map(_singleLine).toList(growable: true))
-        .toList(growable: true);
+    tableData = table.map((r) => r.map(_singleLine).toList(growable: true)).toList(growable: true);
 
     if (!hasSchema) {
       colTypes = colTypesAsString.map((s) {
@@ -319,7 +286,6 @@ class MagicTableController extends ChangeNotifier {
         }
       }).toList(growable: true);
     } else {
-      // com esquema, os tipos vêm do schema
       colTypes = columns.map((m) => m.type).toList(growable: true);
     }
 
@@ -330,19 +296,13 @@ class MagicTableController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --------- Ações ----------
   void setColumnType(int colIndex, ColumnType selected) {
-    if (hasSchema) {
-      // com esquema, tipo é definido pelo schema; ignore UI de troca.
-      return;
-    }
+    if (hasSchema) return;
     if (colIndex < 0 || colIndex >= colCount) return;
 
     colTypes = List<ColumnType>.from(colTypes, growable: true);
     if (colTypes.length < colCount) {
-      colTypes.addAll(
-        List<ColumnType>.filled(colCount - colTypes.length, ColumnType.auto, growable: true),
-      );
+      colTypes.addAll(List<ColumnType>.filled(colCount - colTypes.length, ColumnType.auto, growable: true));
     }
 
     colTypes[colIndex] = selected;
@@ -352,9 +312,7 @@ class MagicTableController extends ChangeNotifier {
   }
 
   ColumnType _typeAt(int col) {
-    if (hasSchema) {
-      return columns[col].type;
-    }
+    if (hasSchema) return columns[col].type;
     if (col < 0) return ColumnType.auto;
     if (col >= colTypes.length) return ColumnType.auto;
     return colTypes[col];
@@ -364,24 +322,21 @@ class MagicTableController extends ChangeNotifier {
     String value = _singleLine(raw);
     if (col < 0 || col >= colCount) return value;
 
-    // se schema define normalizador específico
     if (hasSchema && columns[col].normalizeOnCommit != null) {
       return columns[col].normalizeOnCommit!(value);
     }
 
     switch (_typeAt(col)) {
       case ColumnType.money:
-        final d = _parseBR(value);
-        if (d != null) value = _formatMoneyBR(d);
+        final d = _parseBR(value); if (d != null) value = _formatMoneyBR(d);
         break;
       case ColumnType.number:
-        final d2 = _parseBR(value);
-        if (d2 != null) value = _formatNumberBR(d2, decimals: 2, trimZeros: true);
+        final d2 = _parseBR(value); if (d2 != null) value = _formatNumberBR(d2, decimals: 2, trimZeros: true);
         break;
       case ColumnType.boolean_:
         final v = value.toLowerCase();
-        if (['true', 't', 'sim', 's', '1'].contains(v)) value = 'true';
-        else if (['false', 'f', 'nao', 'não', 'n', '0'].contains(v)) value = 'false';
+        if (['true','t','sim','s','1'].contains(v)) value = 'true';
+        else if (['false','f','nao','não','n','0'].contains(v)) value = 'false';
         break;
       case ColumnType.date:
         DateTime? dt;
@@ -389,9 +344,7 @@ class MagicTableController extends ChangeNotifier {
           if (value.contains('/')) {
             final p = value.split('/');
             if (p.length == 3) {
-              final d = int.tryParse(p[0]);
-              final m = int.tryParse(p[1]);
-              final y = int.tryParse(p[2]);
+              final d = int.tryParse(p[0]); final m = int.tryParse(p[1]); final y = int.tryParse(p[2]);
               if (d != null && m != null && y != null) dt = DateTime(y, m, d);
             }
           } else if (value.contains('-')) {
@@ -414,36 +367,25 @@ class MagicTableController extends ChangeNotifier {
 
   void setCellValue(int row, int col, String value) {
     if (row < 0) return;
-
-    // trava edição em coluna derivada quando houver esquema
-    if (hasSchema && isDerived(col)) return;
+    if (hasSchema && isDerived(col)) return; // bloqueia edição em derivadas
 
     value = _singleLine(value);
 
     if (row >= tableData.length) {
-      tableData = [
-        ...tableData,
-        for (int i = tableData.length; i <= row; i++) <String>[]
-      ];
+      tableData = [...tableData, for (int i = tableData.length; i <= row; i++) <String>[]];
     }
     if (col >= tableData[row].length) {
-      tableData[row] = [
-        ...tableData[row],
-        for (int i = tableData[row].length; i <= col; i++) ''
-      ];
+      tableData[row] = [...tableData[row], for (int i = tableData[row].length; i <= col; i++) ''];
     }
     tableData[row][col] = value;
 
-    if (hasSchema && row > 0) recomputeRow(row); // recalcula derivadas da linha
+    if (hasSchema && row > 0) recomputeRow(row);
     _syncAfterShapeChange();
     notifyListeners();
   }
 
   void addEmptyColumnAtEnd() {
-    if (hasSchema) {
-      // com esquema, colunas são definidas pelo schema
-      return;
-    }
+    if (hasSchema) return;
     if (tableData.isEmpty) tableData = [<String>[]];
     for (int r = 0; r < tableData.length; r++) {
       tableData[r] = [...tableData[r], ''];
@@ -453,10 +395,7 @@ class MagicTableController extends ChangeNotifier {
   }
 
   void removeColumn(int col) {
-    if (hasSchema) {
-      // com esquema, remoção de coluna deve ser feita ajustando o schema externamente
-      return;
-    }
+    if (hasSchema) return;
     if (col < 0 || col >= colCount) return;
 
     for (var r = 0; r < tableData.length; r++) {
@@ -467,19 +406,19 @@ class MagicTableController extends ChangeNotifier {
       }
     }
 
-    colTypes    = List<ColumnType>.from(colTypes,   growable: true);
-    colWidths   = List<double>.from(colWidths,      growable: true);
-    numericCols = List<bool>.from(numericCols,      growable: true);
+    colTypes = List<ColumnType>.from(colTypes, growable: true);
+    colWidths = List<double>.from(colWidths, growable: true);
+    numericCols = List<bool>.from(numericCols, growable: true);
 
-    if (col < colTypes.length)     colTypes.removeAt(col);
-    if (col < colWidths.length)    colWidths.removeAt(col);
-    if (col < numericCols.length)  numericCols.removeAt(col);
+    if (col < colTypes.length) colTypes.removeAt(col);
+    if (col < colWidths.length) colWidths.removeAt(col);
+    if (col < numericCols.length) numericCols.removeAt(col);
 
     _syncAfterShapeChange();
     notifyListeners();
   }
 
-  // --------- Helpers (detecção/format) ----------
+  // ===== Helpers =====
   String _singleLine(String s) => s.replaceAll('\r', '').replaceAll('\n', '').trim();
 
   bool _isNumericBR(String s) {
@@ -527,10 +466,8 @@ class MagicTableController extends ChangeNotifier {
     return '${neg ? '-' : ''}${_formatThousands(parts[0])},${parts[1]}';
   }
 
-  /// **Correção**: auto-detecção conservadora.
   bool _isNumericColumnAuto(List<List<String>> rows, int colIndex) {
-    bool sawValue = false;
-    bool sawNonNumeric = false;
+    bool sawValue = false, sawNonNumeric = false;
     for (var r = 1; r < rows.length; r++) {
       if (colIndex >= rows[r].length) continue;
       final cell = _singleLine(rows[r][colIndex]);
@@ -541,20 +478,24 @@ class MagicTableController extends ChangeNotifier {
     return sawValue && !sawNonNumeric;
   }
 
+  // ---------- Helpers públicos para uso externo ----------
+  double? parseBR(String s) => _parseBR(s);
+
+  String formatNumberBR(double d, {int decimals = 2, bool trimZeros = true}) =>
+      _formatNumberBR(d, decimals: decimals, trimZeros: trimZeros);
+
+  String formatMoneyBR(double d) => _formatMoneyBR(d);
+
+
   double _measureCellWidth(String txt, TextStyle style) {
-    final tp = TextPainter(
-      text: TextSpan(text: txt, style: style),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-    )..layout();
+    final tp = TextPainter(text: TextSpan(text: txt, style: style), textDirection: TextDirection.ltr, maxLines: 1)..layout();
     return tp.width + cellPadHorizontal;
   }
 
-  int _getColCount(List<List<String>> rows) =>
-      rows.map((r) => r.length).fold<int>(0, (m, l) => l > m ? l : m);
+  int _getColCount(List<List<String>> rows) => rows.map((r) => r.length).fold<int>(0, (m, l) => l > m ? l : m);
 
   void _convertColumnValues(int col, ColumnType t) {
-    if (hasSchema) return; // com esquema, conversão é controlada por normalizeOnCommit/formatter
+    if (hasSchema) return;
     if (tableData.isEmpty) return;
     for (int r = 1; r < tableData.length; r++) {
       if (col >= tableData[r].length) continue;
@@ -562,20 +503,15 @@ class MagicTableController extends ChangeNotifier {
       if (raw.isEmpty) continue;
       switch (t) {
         case ColumnType.money:
-          final d = _parseBR(raw);
-          if (d != null) tableData[r][col] = _formatMoneyBR(d);
+          final d = _parseBR(raw); if (d != null) tableData[r][col] = _formatMoneyBR(d);
           break;
         case ColumnType.number:
-          final d2 = _parseBR(raw);
-          if (d2 != null) tableData[r][col] = _formatNumberBR(d2, decimals: 2, trimZeros: true);
+          final d2 = _parseBR(raw); if (d2 != null) tableData[r][col] = _formatNumberBR(d2, decimals: 2, trimZeros: true);
           break;
         case ColumnType.boolean_:
           final v = raw.toLowerCase();
-          if (['true', 't', 'sim', 's', '1'].contains(v)) {
-            tableData[r][col] = 'true';
-          } else if (['false', 'f', 'nao', 'não', 'n', '0'].contains(v)) {
-            tableData[r][col] = 'false';
-          }
+          if (['true','t','sim','s','1'].contains(v)) tableData[r][col] = 'true';
+          else if (['false','f','nao','não','n','0'].contains(v)) tableData[r][col] = 'false';
           break;
         case ColumnType.date:
           DateTime? dt;
@@ -583,18 +519,14 @@ class MagicTableController extends ChangeNotifier {
             if (raw.contains('/')) {
               final p = raw.split('/');
               if (p.length == 3) {
-                final d = int.tryParse(p[0]);
-                final m = int.tryParse(p[1]);
-                final y = int.tryParse(p[2]);
+                final d = int.tryParse(p[0]); final m = int.tryParse(p[1]); final y = int.tryParse(p[2]);
                 if (d != null && m != null && y != null) dt = DateTime(y, m, d);
               }
-            } else if (raw.contains('-')) {
-              dt = DateTime.tryParse(raw);
-            }
+            } else if (raw.contains('-')) { dt = DateTime.tryParse(raw); }
           } catch (_) {}
           if (dt != null) {
-            final dd = dt.day.toString().padLeft(2, '0');
-            final mm = dt.month.toString().padLeft(2, '0');
+            final dd = dt.day.toString().padLeft(2,'0');
+            final mm = dt.month.toString().padLeft(2,'0');
             final yy = dt.year.toString();
             tableData[r][col] = '$dd/$mm/$yy';
           }
@@ -613,12 +545,9 @@ class MagicTableController extends ChangeNotifier {
     if (!hasSchema) {
       colTypes = List<ColumnType>.from(colTypes, growable: true);
       if (colTypes.length < cc) {
-        colTypes.addAll(
-          List<ColumnType>.filled(cc - colTypes.length, ColumnType.auto, growable: true),
-        );
+        colTypes.addAll(List<ColumnType>.filled(cc - colTypes.length, ColumnType.auto, growable: true));
       }
     } else {
-      // tipos já vêm do schema
       if (colTypes.length != cc) {
         colTypes = columns.map((c) => c.type).toList(growable: true);
       }
@@ -628,12 +557,10 @@ class MagicTableController extends ChangeNotifier {
     colWidths = computeColWidths(tableData);
   }
 
-  // ====== NOVO: recomputes ======
   void recomputeRow(int r) {
     if (!hasSchema) return;
-    if (r <= 0 || r >= tableData.length) return; // ignora header
+    if (r <= 0 || r >= tableData.length) return;
     final row = tableData[r];
-
     for (var c = 0; c < columns.length; c++) {
       final meta = columns[c];
       if (meta.compute != null) {
@@ -650,7 +577,6 @@ class MagicTableController extends ChangeNotifier {
     }
   }
 
-  // ====== Auxiliar: construir schema a partir do header (modo legado) ======
   List<ColumnMeta> _columnsFromHeader() {
     if (!hasData) return <ColumnMeta>[];
     final hdr = headers;

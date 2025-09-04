@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'; // ⬅️ AQUI
 import 'package:provider/provider.dart';
 
 import 'package:siged/screens/commons/login/sign_in.dart';
@@ -20,6 +21,16 @@ class SiGed extends StatelessWidget {
     return MaterialApp(
       title: 'SIGED',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('pt', 'BR'),
+      supportedLocales: const [
+        Locale('pt', 'BR'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: StreamBuilder<LoginState>(
         stream: loginBloc.outState,
         initialData: LoginState.loading,
@@ -38,14 +49,12 @@ class SiGed extends StatelessWidget {
             return const SignIn();
           }
 
-          // Estados de sucesso
           if ([
             LoginState.successProfileCommom,
             LoginState.successProfileGovernment,
             LoginState.successProfileCollaborator,
             LoginState.successProfileCompany,
           ].contains(state)) {
-            // Busca o UserData no Firestore
             return FutureBuilder<UserData?>(
               future: userRepo.getById(firebaseUser.uid),
               builder: (context, userSnapshot) {
@@ -58,11 +67,9 @@ class SiGed extends StatelessWidget {
 
                 final userData = userSnapshot.data;
                 if (userData == null) {
-                  // usuário logado mas sem documento no Firestore
                   return const SignIn();
                 }
 
-                // Injeta UserData no subtree — simples e sem precisar de UserProvider
                 return Provider<UserData>.value(
                   value: userData,
                   child: const MenuListPage(),

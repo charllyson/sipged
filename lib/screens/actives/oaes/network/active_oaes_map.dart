@@ -1,4 +1,3 @@
-// lib/screens/actives/oaes/network/pages/active_airports_map.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -15,9 +14,16 @@ import '../../../../_blocs/actives/oaes/active_oaes_data.dart';
 import '../../../../_blocs/actives/oaes/active_oaes_style.dart';
 
 class ActiveOaesMap extends StatelessWidget {
-  const ActiveOaesMap({super.key, required this.state});
+  const ActiveOaesMap({
+    super.key,
+    required this.state,
+    this.onOpenDetails,
+  });
 
   final ActiveOaesState state;
+
+  /// callback para abrir o painel de detalhes na página pai
+  final void Function(TaggedChangedMarker<ActiveOaesData> marker)? onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -25,14 +31,12 @@ class ActiveOaesMap extends StatelessWidget {
       return const MapLoadingShimmer();
     }
 
-    // Marcadores já APLICANDO os filtros atuais (região/nota)
     final markers = state.filteredAll
         .map((o) => o.toTaggedMarker())
         .whereType<TaggedChangedMarker<ActiveOaesData>>()
         .toList(growable: false);
 
     return MapInteractivePage<ActiveOaesData>(
-      // --------- CLUSTER / MARCADORES ---------
       taggedMarkers: markers,
       clusterWidgetBuilder: (markers, selected, onSelect) {
         return AnimatedClusterMarkerLayer<ActiveOaesData>(
@@ -52,46 +56,34 @@ class ActiveOaesMap extends StatelessWidget {
                   width: 4,
                 ),
                 boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
+                  BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
                 ],
               ),
               child: Text(
                 order,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black),
               ),
             );
           },
           titleBuilder: (data) => data.identificationName ?? 'Sem nome',
           subTitleBuilder: (data) => data.state ?? 'Não identificado',
+
+          // >>> aqui só repassamos o clique "Ver detalhes" pra página pai
+          onViewDetails: (ctx, marker) => onOpenDetails?.call(marker),
         );
       },
 
-      // --------- REGIÕES (GEOJSON) ---------
-      regionalPolygons: state.regionalPolygons,                // polígonos do state
-      regionColors: state.regionColors,                        // cores por região
+      regionalPolygons: state.regionalPolygons,
+      regionColors: state.regionColors,
       allowMultiSelect: false,
-      selectedRegionNames: state.selectedRegionNamesForMap,    // espelha seleção atual
+      selectedRegionNames: state.selectedRegionNamesForMap,
 
-      // Toque na região → atualiza o filtro no BLoC (toggle)
       onRegionTap: (region) {
         final bloc = context.read<ActiveOaesBloc>();
         final current = state.selectedRegionFilter?.toUpperCase();
         final tapped  = region?.toUpperCase();
-
-        // se tocou na mesma, limpa; senão, aplica a nova
-        final newValue = (current != null && tapped != null && current == tapped)
-            ? null
-            : region;
-
+        final newValue = (current != null && tapped != null && current == tapped) ? null : region;
         bloc.add(ActiveOaesRegionFilterChanged(newValue));
       },
     );

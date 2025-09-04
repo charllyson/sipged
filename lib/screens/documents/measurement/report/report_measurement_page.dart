@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_controller.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_controller.dart';
 
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'report_measurement_form_section.dart';

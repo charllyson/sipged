@@ -44,7 +44,6 @@ import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_b
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
-import 'package:siged/_blocs/sectors/transit/accidents/accidents_controller.dart';
 import 'package:siged/_blocs/sectors/transit/infractions/infractions_bloc.dart';
 import 'package:siged/_blocs/sectors/transit/infractions/infractions_controller.dart';
 
@@ -199,14 +198,9 @@ Future<void> bootstrapAndRunApp() async {
               ..add(const ActiveRailwaysWarmupRequested()),
           ),
 
-          /// ======= Accidents =======
-          Provider<AccidentsBloc>(create: (_) => AccidentsBloc(), dispose: (_, b) => b.dispose()),
-          ChangeNotifierProxyProvider2<AccidentsBloc, SystemBloc, AccidentsController>(
-            create: (ctx) => AccidentsController(
-              accidentsBloc: ctx.read<AccidentsBloc>(),
-              systemBloc: ctx.read<SystemBloc>(),
-            ),
-            update: (_, aBloc, sBloc, ctrl) => ctrl!..updateDeps(aBloc, sBloc),
+          // ======= Accidents =======
+          BlocProvider<AccidentsBloc>(                     // ✅ TROCA para BlocProvider
+            create: (_) => AccidentsBloc(),
           ),
 
           /// ======= Infractions =======

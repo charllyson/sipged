@@ -151,6 +151,8 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
                 }
               },
               collectionPath: 'actives_railways', // <<< novo param
+              initiallyExpanded: true, // opcional
+              position: const GeoJsonActionsPosition.bottomLeft(), // ou .bottomRight()
             ),
 
           ],

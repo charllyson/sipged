@@ -66,79 +66,80 @@ class ActiveRailwaysPanel extends StatelessWidget {
                   st.indexOfRegionNormalized(st.selectedRegionFilter);
 
                   return SingleChildScrollView(
-                    padding: const EdgeInsets.all(8),
                     child: Column(
                       children: [
+                        const SizedBox(height: 12),
                         // ===== Gauge + Pie =====
-                        Wrap(
-                          spacing: kWrapSpacing,
-                          runSpacing: kWrapRunSpacing,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            // ---- GAUGE ----
-                            SizedBox(
-                              width: kGaugeBoxWidth,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final double side = constraints.maxWidth;
-                                  final double dynamicRadius = side * 0.35;
-                                  final double dynamicFontSize = dynamicRadius * 0.5;
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              // ---- GAUGE ----
+                              SizedBox(
+                                width: kGaugeBoxWidth,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final double side = constraints.maxWidth;
+                                    final double dynamicRadius = side * 0.35;
+                                    final double dynamicFontSize = dynamicRadius * 0.5;
 
-                                  return GaugeCircularPercent(
-                                    centerTitle: percent,
-                                    footerTitle: '$selLabel • ${_fmtKm(selValue)}',
-                                    headerMode: GaugeTextMode.number,
-                                    centerMode: GaugeTextMode.number,
-                                    values: [double.parse(selValue.toStringAsFixed(3))],
-                                    footerMode: GaugeTextMode.explicit,
-                                    radius: dynamicRadius,
-                                    larguraGrafico: side,
-                                    centerFontSize: dynamicFontSize,
-                                    footerFontSize: 12,
-                                  );
-                                },
+                                    return GaugeCircularPercent(
+                                      centerTitle: percent,
+                                      footerTitle: '$selLabel • ${_fmtKm(selValue)}',
+                                      headerMode: GaugeTextMode.number,
+                                      centerMode: GaugeTextMode.number,
+                                      values: [double.parse(selValue.toStringAsFixed(3))],
+                                      footerMode: GaugeTextMode.explicit,
+                                      radius: dynamicRadius,
+                                      larguraGrafico: side,
+                                      centerFontSize: dynamicFontSize,
+                                      footerFontSize: 12,
+                                    );
+                                  },
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 12),
+                              // ---- PIE (Status) — valores em km ----
+                              SizedBox(
+                                width: kPieBoxWidth,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final double side = constraints.maxWidth;
+                                    final double chartHeight =
+                                    (side * 0.85).clamp(160.0, 195.0);
+                                    final double maxOuter = (chartHeight / 2) - 12.0;
 
-                            // ---- PIE (Status) — valores em km ----
-                            SizedBox(
-                              width: kPieBoxWidth,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final double side = constraints.maxWidth;
-                                  final double chartHeight =
-                                  (side * 0.85).clamp(160.0, 195.0);
-                                  final double maxOuter = (chartHeight / 2) - 12.0;
+                                    final double baseSlice =
+                                    (side * 0.2).clamp(34.0, maxOuter);
+                                    final double hiSlice =
+                                    (baseSlice + 6.0).clamp(baseSlice, maxOuter);
+                                    final double centerHole =
+                                    (baseSlice * 0.58).clamp(18.0, baseSlice - 10.0);
 
-                                  final double baseSlice =
-                                  (side * 0.2).clamp(34.0, maxOuter);
-                                  final double hiSlice =
-                                  (baseSlice + 6.0).clamp(baseSlice, maxOuter);
-                                  final double centerHole =
-                                  (baseSlice * 0.58).clamp(18.0, baseSlice - 10.0);
-
-                                  return PieChartChanged(
-                                    colorCard: Colors.white,
-                                    valueFormatType: ValueFormatType.decimal,
-                                    labels: st.pieLabelsForChart,
-                                    values: st.pieValuesForChart, // km
-                                    coresPersonalizadas: st.pieColorsForChart,
-                                    selectedIndex: st.selectedPieIndexFilter,
-                                    larguraGrafico: side,
-                                    alturaCard: 295,
-                                    chartHeight: chartHeight,
-                                    sliceRadius: baseSlice,
-                                    sliceRadiusHighlighted: hiSlice,
-                                    centerSpaceRadius: centerHole,
-                                    sectionsSpace: 2,
-                                    onTouch: (idx) {
-                                      bloc.add(ActiveRailwaysPieFilterChanged(idx));
-                                    },
-                                  );
-                                },
+                                    return PieChartChanged(
+                                      colorCard: Colors.white,
+                                      valueFormatType: ValueFormatType.decimal,
+                                      labels: st.pieLabelsForChart,
+                                      values: st.pieValuesForChart, // km
+                                      coresPersonalizadas: st.pieColorsForChart,
+                                      selectedIndex: st.selectedPieIndexFilter,
+                                      larguraGrafico: side,
+                                      alturaCard: 295,
+                                      chartHeight: chartHeight,
+                                      sliceRadius: baseSlice,
+                                      sliceRadiusHighlighted: hiSlice,
+                                      centerSpaceRadius: centerHole,
+                                      sectionsSpace: 2,
+                                      onTouch: (idx) {
+                                        bloc.add(ActiveRailwaysPieFilterChanged(idx));
+                                      },
+                                    );
+                                  },
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 12),
+                            ],
+                          ),
                         ),
 
                         const SizedBox(height: 12),

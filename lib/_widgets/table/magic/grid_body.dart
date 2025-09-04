@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'magic_table_controller.dart' as bc;
+import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
 
 class MagicGridBody extends StatelessWidget {
   const MagicGridBody({
@@ -70,8 +70,6 @@ class MagicGridBody extends StatelessWidget {
                   ? Colors.grey.shade100
                   : Colors.white;
 
-              final bg = (!isFirstRow && isEditingRow) ? Colors.yellow.shade100 : baseBg;
-
               final baseText = isFirstRow
                   ? const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
                   : isIntegerRow
@@ -85,13 +83,27 @@ class MagicGridBody extends StatelessWidget {
                   ...List.generate(ctrl.colCount, (c) {
                     final cell = (c < ctrl.tableData[r].length) ? ctrl.tableData[r][c] : '';
                     final w = (c < ctrl.colWidths.length) ? ctrl.colWidths[c] : 120.0;
-                    final isHeaderCell = isFirstRow;              // header nunca numérico
+                    final isHeaderCell = isFirstRow;
                     final isNumericCol = !isHeaderCell && ctrl.isNumericEffective(c);
-                    final isEditing = (editRow == r && editCol == c);
+                    final canEdit = !isHeaderCell && ctrl.isEditable(c);
+                    final isEditing = canEdit && (editRow == r && editCol == c);
 
                     final textAlign = isHeaderCell
                         ? TextAlign.center
                         : (isNumericCol ? TextAlign.right : TextAlign.left);
+
+                    // fundo: mantém lógica existente, mas destaca read-only
+                    final rowBg = (!isFirstRow && isEditingRow)
+                        ? Colors.yellow.shade100
+                        : baseBg;
+
+                    // 🔧 NÃO mude a cor de linhas especiais (ex.: subtotal em cinza 200).
+                    // Aplique cinza clarinho apenas quando a linha teria fundo branco.
+                    final bool isReadOnly = !isHeaderCell && !canEdit;
+                    final cellBg = (isReadOnly && rowBg == Colors.white)
+                        ? Colors.grey.shade50   // destaque leve só em linhas "normais"
+                        : rowBg;
+
 
                     final content = isEditing
                         ? TextField(
@@ -118,12 +130,7 @@ class MagicGridBody extends StatelessWidget {
                       onTapOutside: (_) => onCommitEdit(),
                       style: baseText,
                     )
-                        : Text(
-                      cell,
-                      softWrap: true,
-                      textAlign: textAlign,
-                      style: baseText,
-                    );
+                        : Text(cell, softWrap: true, textAlign: textAlign, style: baseText);
 
                     final cellBox = Container(
                       width: w,
@@ -134,7 +141,7 @@ class MagicGridBody extends StatelessWidget {
                       padding: cellPad,
                       clipBehavior: Clip.hardEdge,
                       decoration: BoxDecoration(
-                        color: bg,
+                        color: cellBg,
                         border: Border(
                           right: BorderSide(color: Colors.grey.shade300, width: 1),
                           bottom: BorderSide(color: Colors.grey.shade300, width: 1),
@@ -143,24 +150,33 @@ class MagicGridBody extends StatelessWidget {
                       child: content,
                     );
 
+                    Widget clickable = cellBox;
+
+                    // tooltip para células bloqueadas
+                    if (isReadOnly) {
+                      clickable = Tooltip(
+                        message: 'Valor gerado automaticamente.',
+                        waitDuration: const Duration(milliseconds: 300),
+                        child: cellBox,
+                      );
+                    }
+
                     if (!isEditing) {
                       return GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: () => onStartEdit(r, c),
-                        onDoubleTap: () => onStartEdit(r, c),
-                        child: cellBox,
+                        onTap: canEdit ? () => onStartEdit(r, c) : null,
+                        onDoubleTap: canEdit ? () => onStartEdit(r, c) : null,
+                        child: clickable,
                       );
                     } else {
-                      return cellBox;
+                      return clickable;
                     }
                   }),
-
-                  // 👇 gap horizontal do lado direito (aparece só no fim da rolagem)
                   SizedBox(width: rightScrollGap, height: rowHeight),
                 ],
               );
             }),
-            SizedBox(height: bottomScrollGap), // 👈 gap visível só no final da rolagem vertical
+            SizedBox(height: bottomScrollGap),
           ],
         ),
       ),

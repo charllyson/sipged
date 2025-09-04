@@ -23,7 +23,7 @@ class ActiveRoadsState extends Equatable {
   final String? selectedPolylineId;
 
   /// >>> FILTROS <<<
-  final int? selectedPieIndexFilter;   // índice 0..N-1
+  final int? selectedPieIndexFilter;   // índice 0..N-1 (superfície)
   final String? selectedRegionFilter;  // rótulo da região
   final String? selectedSurfaceFilter; // fallback textual
 
@@ -102,22 +102,18 @@ class ActiveRoadsState extends Equatable {
   }
 
   /// Canoniza para um rótulo **oficial** (normalizado) de `regionLabels`.
-  /// Aceita apelidos/parciais como "MUNDAÚ"/"MUNDAU" ou "PARAÍBA"/"PARAIBA".
   String _canonRegion(String? s) {
     final n = _normRegion(s);
     if (n.isEmpty) return n;
 
-    // 1) bate com algum rótulo oficial?
     for (final label in regionLabels) {
       final ln = _normRegion(label);
       if (n == ln) return ln;
     }
 
-    // 2) aliases por substring
     if (n.contains('MUNDAU')) return _normRegion('VALE DO MUNDAÚ');
     if (n.contains('PARAIBA')) return _normRegion('VALE DO PARAÍBA');
 
-    // (poderia incluir mais aliases aqui, se necessário)
     return n;
   }
 
@@ -166,11 +162,28 @@ class ActiveRoadsState extends Equatable {
   }
 
   // ===========================================================================
-  // PIE — soma de extensão (km) por superfície
+  // Coleções derivadas para CHARTS (base já filtrada por REGIÃO)
   // ===========================================================================
-  Map<String, double> get _sumExtBySurface {
+  /// Lista base para gráficos: se houver região selecionada, filtra por ela;
+  /// caso contrário, usa todos.
+  List<ActiveRoadsData> get _baseForCharts {
+    final regionFilterC =
+    selectedRegionFilter == null ? null : _canonRegion(selectedRegionFilter);
+    if (regionFilterC == null) return all;
+
+    return all.where((r) {
+      final regRaw = (r.regional ?? r.metadata?['regional'] ?? '').toString();
+      return _canonRegion(regRaw) == regionFilterC;
+    }).toList(growable: false);
+  }
+
+  // ===========================================================================
+  // PIE — soma de extensão (km) por superfície (AGORA respeita REGIÃO)
+  // ===========================================================================
+  Map<String, double> get _sumExtBySurfaceInRegion {
+    final src = _baseForCharts;
     final map = <String, double>{for (final s in _surfaceCodesOrder) s: 0.0};
-    for (final r in all) {
+    for (final r in src) {
       final code = _surfaceCodeOf(r);
       final extKm = (r.extension ?? 0.0).toDouble();
       map[code] = (map[code] ?? 0.0) + extKm;
@@ -179,7 +192,7 @@ class ActiveRoadsState extends Equatable {
   }
 
   List<({String code, String label, double value, Color color})> get _pieItems {
-    final sums = _sumExtBySurface;
+    final sums = _sumExtBySurfaceInRegion;
     return _surfaceCodesOrder.map((code) {
       final km = (sums[code] ?? 0.0);
       return (code: code, label: _labelForSurface(code), value: km, color: ActiveRoadsStyle.colorForSurface(code));
@@ -198,21 +211,42 @@ class ActiveRoadsState extends Equatable {
   }
 
   // ===========================================================================
-  // GAUGE — percentual de km
+  // GAUGE — percentual de km (AGORA considera PIE + REGIÃO)
   // ===========================================================================
-  GaugeVM gaugeForPieSelection({int? selectedPieIndex}) {
-    final totalKm = pieTotal;
+  GaugeVM gaugeForCurrentFilters() {
+    final String? codeFilter = _surfaceFilterFromPieOrNull; // pode ser null
+    final String? regionFilterC =
+    selectedRegionFilter == null ? null : _canonRegion(selectedRegionFilter);
+
+    double _sumKm({String? regionC, String? surfaceCode}) {
+      return all.where((r) {
+        if (regionC != null) {
+          final regRaw = (r.regional ?? r.metadata?['regional'] ?? '').toString();
+          if (_canonRegion(regRaw) != regionC) return false;
+        }
+        if (surfaceCode != null) {
+          return _surfaceCodeOf(r) == surfaceCode;
+        }
+        return true;
+      }).fold<double>(0.0, (acc, r) => acc + (r.extension ?? 0.0));
+    }
+
+    // Total da região (ou total global, se região nula)
+    final double totalKm = _sumKm(regionC: regionFilterC);
+    // Foco (superfície selecionada no pie) dentro da região (se houver)
+    final double countKm = _sumKm(regionC: regionFilterC, surfaceCode: codeFilter);
+
     if (totalKm <= 0) {
       return const GaugeVM(label: 'Total', count: 0, total: 0, percent: 0);
     }
-    if (selectedPieIndex == null ||
-        selectedPieIndex < 0 ||
-        selectedPieIndex >= pieValuesForChart.length) {
-      return GaugeVM(label: 'Total', count: totalKm, total: totalKm, percent: 1.0);
-    }
-    final km = pieValuesForChart[selectedPieIndex];
-    final label = pieLabelsForChart[selectedPieIndex];
-    return GaugeVM(label: label, count: km, total: totalKm, percent: (km / totalKm).clamp(0.0, 1.0));
+
+    final String label = (codeFilter != null) ? _labelForSurface(codeFilter) : 'Total';
+    return GaugeVM(
+      label: label,
+      count: countKm,
+      total: totalKm,
+      percent: (countKm / totalKm).clamp(0.0, 1.0),
+    );
   }
 
   // ===========================================================================
@@ -346,7 +380,7 @@ class ActiveRoadsState extends Equatable {
 class GaugeVM {
   final String label;
   final double count; // km selecionados
-  final double total; // km total
+  final double total; // km total (da região, se houver)
   final double percent;
   const GaugeVM({
     required this.label,

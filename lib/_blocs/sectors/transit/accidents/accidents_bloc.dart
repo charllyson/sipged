@@ -1,360 +1,255 @@
-import 'dart:async';
-import 'package:bloc_pattern/bloc_pattern.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
-import 'accidents_data.dart';
+// lib/_blocs/sectors/transit/accidents/accidents_bloc.dart
+import 'package:flutter/foundation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-class PageResult<T> {
-  final List<T> items;
-  final QueryDocumentSnapshot? lastDoc; // cursor da página
-  PageResult(this.items, this.lastDoc);
-}
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_event.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_repository.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_state.dart';
 
-class AccidentsBloc extends BlocBase {
-  AccidentsBloc();
+class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
+  final AccidentsRepository _repo;
 
-  // ---------- Helpers ----------
-  int _yearFromDateTime(DateTime dt, {bool local = true}) =>
-      local ? dt.toLocal().year : dt.toUtc().year;
-
-  Future<DocumentReference<Map<String, dynamic>>> _getOrCreateYearRef(int year) async {
-    final db = FirebaseFirestore.instance;
-    final q = await db
-        .collection('trafficAccidents')
-        .where('year', isEqualTo: year)
-        .limit(1)
-        .get();
-    if (q.docs.isNotEmpty) return q.docs.first.reference;
-    return await db.collection('trafficAccidents').add({'year': year});
+  AccidentsBloc({AccidentsRepository? repository})
+      : _repo = repository ?? AccidentsRepository(),
+        super(const AccidentsState()) {
+    on<AccidentsWarmupRequested>(_onWarmup);
+    on<AccidentsFilterChanged>(_onFilterChanged);
+    on<AccidentsPageRequested>(_onPageRequested);
+    on<AccidentsSaveRequested>(_onSave);
+    on<AccidentsDeleteRequested>(_onDelete);
+    on<AccidentsRefreshRequested>(_onRefresh);
   }
 
-  Future<DocumentReference<Map<String, dynamic>>?> _getYearRef(int year) async {
-    final db = FirebaseFirestore.instance;
-    final q = await db
-        .collection('trafficAccidents')
-        .where('year', isEqualTo: year)
-        .limit(1)
-        .get();
-    return q.docs.isNotEmpty ? q.docs.first.reference : null;
-  }
-
-  // ---------- CRUD ----------
-  /// Delete direto por ano + id (mais simples e seguro).
-  Future<void> deletarAccident({
-    required String id,
-    required int year,
-  }) async {
-    final yearRef = await _getYearRef(year);
-    if (yearRef == null) return;
-    final doc = await yearRef.collection('records').doc(id).get();
-    if (doc.exists) await doc.reference.delete();
-  }
-
-  Future<void> saveOrUpdateAccident(AccidentsData data) async {
-    final db = FirebaseFirestore.instance;
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (data.date == null) {
-      throw Exception("Campo 'date' é obrigatório em AccidentsData.");
-    }
-
-    final year = _yearFromDateTime(data.date!, local: true);
-    final month = data.date!.toLocal().month;
-    final yearRef = await _getOrCreateYearRef(year);
-
-    final records = yearRef.collection('records');
-    final docRef = (data.id != null && data.id!.isNotEmpty)
-        ? records.doc(data.id)
-        : records.doc(); // id automático se null
-    data.id ??= docRef.id;
-
-    // popular denormalizações no modelo (útil pra filtros locais)
-    data.year = year;
-    data.month = month;
-    data.yearDocId = yearRef.id;
-    data.recordPath = docRef.path;
-
-    final json = data.toJson()
-      ..addAll({
-        // garantir/forçar denormalizações no Firestore também
-        'year': year,
-        'month': month,
-        'yearDocId': yearRef.id,
-        'recordPath': docRef.path,
-        'yearMonthKey': '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}',
-        'recordId': docRef.id, // útil para debug
-        'sourcePath': '${yearRef.path}/records/${docRef.id}',
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': user?.uid ?? '',
-      });
-
-    final snap = await docRef.get();
-    final isNew = !snap.exists || (snap.data()?['createdAt'] == null);
-    if (isNew) {
-      json['createdAt'] = FieldValue.serverTimestamp();
-      json['createdBy'] = user?.uid ?? '';
-    }
-
-    await db.runTransaction((tx) async {
-      tx.set(yearRef, {'year': year}, SetOptions(merge: true));  // garante o campo year no doc pai
-      tx.set(docRef, json, SetOptions(merge: true));
+  // ================= Helpers =================
+  List<AccidentsData> _sortDescByDate(List<AccidentsData> list) {
+    final cp = List<AccidentsData>.from(list);
+    cp.sort((a, b) {
+      final ad = a.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bd = b.date ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bd.compareTo(ad);
     });
+    return cp;
   }
 
-  // ---------- Consulta / Paginação ----------
-  /// Página de acidentes por ano/mês (se ano omitido, consulta todos via collectionGroup).
-  /// Retorna também o cursor (`lastDoc`) para a próxima página.
-  Future<PageResult<AccidentsData>> getAccidentsPage({
-    int? year,
-    int? month, // 1..12
-    QueryDocumentSnapshot? startAfter,
-    int limit = 15,
-    bool descending = true,
-  }) async {
-    final db = FirebaseFirestore.instance;
+  List<AccidentsData> _slice(List<AccidentsData> list, int page, int limit) {
+    if (list.isEmpty) return const [];
+    final start = (page - 1) * limit;
+    if (start >= list.length) return const [];
+    final end = (start + limit) > list.length ? list.length : (start + limit);
+    return list.sublist(start, end);
+  }
 
-    Query q;
-    if (year != null) {
-      final yearRef = await _getYearRef(year);
-      if (yearRef == null) return PageResult([], null);
+  int _calcTotalPages(int totalDocs, int limit) =>
+      totalDocs == 0 ? 1 : ((totalDocs + limit - 1) ~/ limit);
 
-      q = yearRef.collection('records').orderBy('date', descending: descending);
-
-      if (month != null) {
-        final start = DateTime(year, month, 1);
-        final end = DateTime(year, month + 1, 1);
-        q = q
-            .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-            .where('date', isLessThan: Timestamp.fromDate(end));
-        // Alternativa eficiente se criou índices em 'month':
-        // q = q.where('month', isEqualTo: month);
-      }
-    } else {
-      // Todos os anos
-      q = db.collectionGroup('records').orderBy('date', descending: descending);
-      // Alternativa: q = q.orderBy('year', descending: true).orderBy('month', descending: true);
+  Map<String, double> _resumeMap(List<AccidentsData> view) {
+    // mesmo shape esperado pelos cards do summary (tipo -> double)
+    final Map<String, double> out = {};
+    for (final a in view) {
+      final t = (a.typeOfAccident ?? '').trim().toUpperCase();
+      if (t.isEmpty) continue;
+      final key = AccidentsData.getTitleByAccidentType(t).toUpperCase() == 'OUTROS'
+          ? 'OUTROS'
+          : t;
+      out[key] = (out[key] ?? 0) + 1.0;
     }
-
-    if (startAfter != null) q = q.startAfterDocument(startAfter);
-    q = q.limit(limit);
-
-    final snap = await q.get();
-    final items = snap.docs.map((d) => AccidentsData.fromDocument(snapshot: d)).toList();
-    final last = snap.docs.isNotEmpty ? snap.docs.last : null;
-
-    return PageResult(items, last);
+    return out;
   }
 
-  /// Carrega todos os acidentes (cuidado com volume).
-  Future<List<AccidentsData>> getAllAccidents({int? year, int? month}) async {
-    final db = FirebaseFirestore.instance;
-    Query q;
-
-    if (year != null) {
-      final yearRef = await _getYearRef(year);
-      if (yearRef == null) return [];
-      q = yearRef.collection('records').orderBy('date');
-
-      if (month != null) {
-        final start = DateTime(year, month, 1);
-        final end = DateTime(year, month + 1, 1);
-        q = q
-            .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-            .where('date', isLessThan: Timestamp.fromDate(end));
-        // Ou: q = q.where('month', isEqualTo: month);
-      }
-    } else {
-      q = db.collectionGroup('records').orderBy('date');
-    }
-
-    final snap = await q.get();
-    return snap.docs.map((d) => AccidentsData.fromDocument(snapshot: d)).toList();
-  }
-
-  /// Atualiza/gera 'order' dentro de UM ano (crescente por data).
-  Future<void> updateOrderOfAccidents({required int year}) async {
-    final yearRef = await _getYearRef(year);
-    if (yearRef == null) return;
-
-    final q = await yearRef.collection('records').orderBy('date').get();
-
-    final batch = FirebaseFirestore.instance.batch();
-    int i = 0;
-    for (final d in q.docs) {
-      i++;
-      batch.update(d.reference, {'order': i});
-    }
-    await batch.commit();
-    // ignore: avoid_print
-    print('✅ Ordem atualizada no ano $year com sucesso!');
-  }
-
-  // ---------- Agregações utilitárias ----------
-  Map<String, int> contarTiposDeAcidente(List<AccidentsData> lista) {
-    final Map<String, int> mapa = {};
-    for (final a in lista) {
-      final tipo = AccidentsData.normalizarTipoAcidente(a.typeOfAccident ?? 'INDEFINIDO');
-      mapa[tipo] = (mapa[tipo] ?? 0) + 1;
-    }
-    return mapa;
-  }
-
-  Map<String, Map<String, int>> agruparTiposDeAcidentePorRodovia(List<AccidentsData> acidentes) {
-    final Map<String, Map<String, int>> dados = {};
-    for (final a in acidentes) {
-      final rodovia = (a.highway ?? 'INDEFINIDO').toUpperCase().trim();
-      final tipo = AccidentsData.normalizarTipoAcidente(a.typeOfAccident ?? 'INDEFINIDO');
-      dados.putIfAbsent(rodovia, () => {});
-      dados[rodovia]![tipo] = (dados[rodovia]![tipo] ?? 0) + 1;
-    }
-    return dados;
-  }
-
-  Future<Map<String, double>> getTotaisPorTipoAcidente(List<AccidentsData> acidentes) async {
-    final Map<String, double> totais = {
-      for (final tipo in AccidentsData.accidentTypes) tipo.toUpperCase(): 0.0,
-    };
-    for (final c in acidentes) {
-      final status = c.typeOfAccident?.toUpperCase();
-      if (status != null && totais.containsKey(status)) {
-        totais[status] = (totais[status]! + 1);
-      }
-    }
-    return totais;
-  }
-
-  Future<double> getValorPorTypeAccident(List<AccidentsData> accidents, String statusDesejado) async {
-    double total = 0.0;
-    for (final a in accidents) {
-      final status = a.typeOfAccident?.toUpperCase();
-      if (status == statusDesejado.toUpperCase()) total += 1;
-    }
-    return total;
-  }
-
-  Future<Map<String, double>> getValoresPorCidade(List<AccidentsData> acidentes) async {
-    final Map<String, double> totais = {};
-    for (final a in acidentes) {
-      final cidade = a.city?.trim().toUpperCase() ?? 'NÃO INFORMADO';
-      totais[cidade] = (totais[cidade] ?? 0.0) + 1.0;
-    }
-    return totais;
-  }
-
-  Future<Map<String, double>> getFeridosPorCidade(List<AccidentsData> acidentes) async {
-    final Map<String, double> totais = {};
-    for (final a in acidentes) {
-      final cidade = a.city?.trim().toUpperCase() ?? 'NÃO INFORMADO';
-      final feridos = a.scoresVictims ?? 0;
-      totais[cidade] = (totais[cidade] ?? 0.0) + feridos.toDouble();
-    }
-    return totais;
-  }
-
-  Future<Map<String, double>> getMortesPorCidade(List<AccidentsData> acidentes) async {
-    final Map<String, double> totais = {};
-    for (final a in acidentes) {
-      final cidade = a.city?.trim().toUpperCase() ?? 'NÃO INFORMADO';
-      final mortos = a.death ?? 0;
-      totais[cidade] = (totais[cidade] ?? 0.0) + mortos.toDouble();
-    }
-    return totais;
-  }
-
-  Future<Map<String, double>> getMortesTotaisAnoMes(List<AccidentsData> acidentes) async {
-    final Map<String, double> totais = {};
-    for (final a in acidentes) {
-      final dt = a.date;
-      if (dt != null) {
-        final chave =
-            '${dt.year.toString().padLeft(4, '0')}/${dt.month.toString().padLeft(2, '0')}';
-        final mortos = a.death ?? 0;
-        totais[chave] = (totais[chave] ?? 0.0) + mortos.toDouble();
-      }
-    }
-    return totais;
-  }
-  Future<List<AccidentsData>> getAccidentsByCity(String cityName) async {
-    final db = FirebaseFirestore.instance;
-    final snap = await db
-        .collectionGroup('records')
-        .where('city', isEqualTo: cityName)
-        .get();
-
-    return snap.docs.map((d) => AccidentsData.fromDocument(snapshot: d)).toList();
-  }
-
-  Future<Map<String, dynamic>> getAccidentsByCityWithTotal(String cityName) async {
-    final db = FirebaseFirestore.instance;
-    final snap = await db
-        .collectionGroup('records')
-        .where('city', isEqualTo: cityName)
-        .get();
-
-    final list = snap.docs.map((d) => AccidentsData.fromDocument(snapshot: d)).toList();
-    final total = list.length;
-
-    return {'total': total, 'lista': list};
-  }
-
-  // Retorna total e lista de acidentes de uma cidade (collectionGroup)
-  // dentro de AccidentsBloc
-  Future<List<AccidentsData>> getAccidentsByCityList({
-    required String cityName,
+  Future<void> _recomputeAndEmit({
+    required Emitter<AccidentsState> emit,
+    required int page,
+    List<AccidentsData>? allOverride,
     int? year,
     int? month,
+    String? city,
   }) async {
-    final db = FirebaseFirestore.instance;
+    final all = allOverride ?? state.all;
+    final view = _sortDescByDate(all);
+    final totalPages = _calcTotalPages(view.length, state.limitPerPage);
+    final curPage = page.clamp(1, totalPages);
+    final pageItems = _slice(view, curPage, state.limitPerPage);
 
-    // Usa collectionGroup('records') com filtros pela denormalização year/month
-    Query<Map<String, dynamic>> q = db
-        .collectionGroup('records')
-        .where('city', isEqualTo: cityName);
+    final totalsByCity = await _repo.getValoresPorCidade(view);
+    final totalsByType = await _repo.getTotaisPorTipoAcidente(view);
+    final resumeByType = _resumeMap(view);
 
-    if (year != null) {
-      q = q.where('year', isEqualTo: year);
-    }
-    if (month != null) {
-      q = q.where('month', isEqualTo: month);
-    }
-
-    // Opcional: ordenar por data
-    q = q.orderBy('date', descending: true);
-
-    final snap = await q.get();
-    return snap.docs
-        .map((d) => AccidentsData.fromDocument(snapshot: d))
-        .toList();
+    emit(state.copyWith(
+      loading: false,
+      year: year ?? state.year,
+      month: month ?? state.month,
+      city: city ?? state.city,
+      all: all,
+      view: view,
+      pageItems: pageItems,
+      currentPage: curPage,
+      totalPages: totalPages,
+      totalsByCity: totalsByCity,
+      totalsByType: totalsByType,
+      resumeByType: resumeByType,
+      error: null,
+      success: null,
+    ));
   }
 
+  // ================= Handlers =================
 
-  /// Atalho semântico p/ buscar filtrado por ano/mês (já existe getAllAccidents com filtros,
-  /// mas deixo esse nome mais autoexplicativo se preferir).
-  Future<List<AccidentsData>> getAccidentsFiltered({int? year, int? month}) {
-    return getAllAccidents(year: year, month: month);
+  Future<void> _onWarmup(
+      AccidentsWarmupRequested e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    emit(state.copyWith(
+      loading: true,
+      initialized: false,
+      year: e.initialYear ?? DateTime.now().year,
+      month: e.initialMonth,
+      city: (e.initialCity?.trim().isEmpty ?? true) ? null : e.initialCity!.trim(),
+      error: null,
+      success: null,
+    ));
+
+    try {
+      // Universo SEM filtros (para o seletor) — fica guardado
+      final universe = await _repo.getAllAccidents();
+
+      // Lista filtrada conforme filtros iniciais
+      final filtered = await _repo.getAllAccidents(
+        year: state.year,
+        month: state.month,
+        city: state.city,
+      );
+
+      // Primeira emissão: universe + placeholder para não piscar
+      emit(state.copyWith(universe: universe));
+
+      await _recomputeAndEmit(
+        emit: emit,
+        page: 1,
+        allOverride: filtered,
+      );
+
+      emit(state.copyWith(initialized: true));
+    } catch (err, st) {
+      debugPrint('Warmup error: $err\n$st');
+      emit(state.copyWith(loading: false, error: '$err'));
+    }
   }
 
-  // ---------- Utilitário legacy (converter strings para Timestamp) ----------
-  Future<void> corrigirDatasAcidentesCollectionGroup() async {
-    final db = FirebaseFirestore.instance;
-    final DateFormat formato = DateFormat('dd/MM/yyyy');
+  Future<void> _onFilterChanged(
+      AccidentsFilterChanged e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    emit(state.copyWith(loading: true, error: null, success: null));
+    try {
+      final nextYear = e.year;
+      final nextMonth = e.month;
+      final nextCity = (e.city?.trim().isEmpty ?? true) ? null : e.city!.trim();
 
-    final snap = await db.collectionGroup('records').get();
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final rawDate = data['date'];
-      if (rawDate is String) {
-        try {
-          final parsed = formato.parseStrict(rawDate);
-          await doc.reference.update({'date': Timestamp.fromDate(parsed)});
-          // ignore: avoid_print
-          print('✔️ ${doc.id} atualizado');
-        } catch (e) {
-          // ignore: avoid_print
-          print('❌ Erro ao converter ${doc.id}: $e');
-        }
-      }
+      // NUNCA mexe em state.universe aqui
+      final filtered = await _repo.getAllAccidents(
+        year: nextYear,
+        month: nextMonth,
+        city: nextCity,
+      );
+
+      await _recomputeAndEmit(
+        emit: emit,
+        page: 1,
+        allOverride: filtered,
+        year: nextYear,
+        month: nextMonth,
+        city: nextCity,
+      );
+    } catch (err, st) {
+      debugPrint('Filter error: $err\n$st');
+      emit(state.copyWith(loading: false, error: '$err'));
+    }
+  }
+
+  Future<void> _onPageRequested(
+      AccidentsPageRequested e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    // paginação é local — sem hits na rede
+    await _recomputeAndEmit(emit: emit, page: e.page);
+  }
+
+  Future<void> _onSave(
+      AccidentsSaveRequested e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    emit(state.copyWith(saving: true, error: null, success: null));
+    try {
+      await _repo.saveOrUpdateAccident(e.data);
+
+      // Recarrega universo (opcional) e filtrados (obrigatório)
+      // Se o volume for grande e você quiser economizar, pode pular o universo
+      final universe = await _repo.getAllAccidents();
+      final filtered = await _repo.getAllAccidents(
+        year: state.year,
+        month: state.month,
+        city: state.city,
+      );
+
+      emit(state.copyWith(universe: universe));
+      await _recomputeAndEmit(emit: emit, page: state.currentPage, allOverride: filtered);
+
+      emit(state.copyWith(saving: false, success: 'Acidente salvo com sucesso!'));
+    } catch (err, st) {
+      debugPrint('Save error: $err\n$st');
+      emit(state.copyWith(saving: false, error: '$err'));
+    }
+  }
+
+  Future<void> _onDelete(
+      AccidentsDeleteRequested e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    emit(state.copyWith(saving: true, error: null, success: null));
+    try {
+      final y = e.yearHint ?? state.year ?? DateTime.now().year;
+      await _repo.deleteAccident(id: e.id, year: y);
+
+      // Recarrega
+      final universe = await _repo.getAllAccidents();
+      final filtered = await _repo.getAllAccidents(
+        year: state.year,
+        month: state.month,
+        city: state.city,
+      );
+
+      emit(state.copyWith(universe: universe));
+      await _recomputeAndEmit(
+        emit: emit,
+        page: state.currentPage > 1 && _slice(filtered, state.currentPage, state.limitPerPage).isEmpty
+            ? state.currentPage - 1
+            : state.currentPage,
+        allOverride: filtered,
+      );
+
+      emit(state.copyWith(saving: false, success: 'Acidente apagado com sucesso.'));
+    } catch (err, st) {
+      debugPrint('Delete error: $err\n$st');
+      emit(state.copyWith(saving: false, error: '$err'));
+    }
+  }
+
+  Future<void> _onRefresh(
+      AccidentsRefreshRequested e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    emit(state.copyWith(loading: true, error: null, success: null));
+    try {
+      final filtered = await _repo.getAllAccidents(
+        year: state.year,
+        month: state.month,
+        city: state.city,
+      );
+      await _recomputeAndEmit(emit: emit, page: state.currentPage, allOverride: filtered);
+    } catch (err, st) {
+      debugPrint('Refresh error: $err\n$st');
+      emit(state.copyWith(loading: false, error: '$err'));
     }
   }
 }

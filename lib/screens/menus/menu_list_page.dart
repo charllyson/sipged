@@ -31,7 +31,7 @@ import 'package:siged/screens/sectors/planning/rightOfWay/planning_right_of_way_
 import 'package:siged/screens/sectors/planning/rightOfWay/planning_right_of_way_registration_page.dart';
 import 'package:siged/screens/sectors/traffic/accidents/accidents_records_page.dart';
 import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
-import 'package:siged/screens/sectors/traffic/infrations/infractions_records_page.dart';
+import 'package:siged/screens/sectors/traffic/infrations-records/infractions_records_page.dart';
 
 import 'package:siged/_blocs/sectors/operation/schedule_bloc.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';

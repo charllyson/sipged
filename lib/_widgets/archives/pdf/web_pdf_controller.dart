@@ -240,6 +240,8 @@ class WebPdfControllerGeneric<T> extends ChangeNotifier {
     await showDialog(
       context: context,
       builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.all(16),
         child: PdfPreview(pdfUrl: url!), // ver seção 3 para o !
       ),
     );

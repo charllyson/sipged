@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -18,6 +20,9 @@ class ClusterMarkerBuilder<T> {
   required List<MapEntry<String, String>> entries,
   })? onShowTooltipAcima;
 
+  /// Callback do botão "Ver detalhes" dentro do tooltip do pin
+  final void Function(BuildContext context, TaggedChangedMarker<T> marker)? onViewDetails;
+
   ClusterMarkerBuilder({
     required this.tagged,
     required this.selectedMarkerPosition,
@@ -27,6 +32,7 @@ class ClusterMarkerBuilder<T> {
     this.subTitleBuilder,
     this.onTooltipRequested,
     this.onShowTooltipAcima,
+    this.onViewDetails,
   });
 
   Marker build(BuildContext context) {
@@ -35,19 +41,31 @@ class ClusterMarkerBuilder<T> {
     final title = titleBuilder?.call(tagged.data);
     final subTitle = subTitleBuilder?.call(tagged.data);
 
+    // tamanhos
+    const double pinSize = 50;
+    const double gapAbovePin = 8;            // distância do tooltip ao pin
+    const double tooltipReservedHeight = 120; // reserva de altura total
+    final double screenW = MediaQuery.of(context).size.width;
+    final double tooltipWidth = (screenW * 0.45).clamp(180.0, 280.0);
+
     return Marker(
-      width: 50,
-      height: 50,
       point: point,
+      width: isSelected ? tooltipWidth : pinSize,
+      height: isSelected ? (pinSize + tooltipReservedHeight) : pinSize,
+      // 👇 corrige aqui
+
       child: GestureDetector(
-        onTapDown: (_) {
-          onTooltipRequested?.call(tagged.point, title ?? '');
-          onTooltipRequested?.call(tagged.point, subTitle ?? '');
+        behavior: HitTestBehavior.deferToChild,
+        onTap: () {
           onMarkerSelected(tagged);
+          if (title != null) onTooltipRequested?.call(tagged.point, title);
+          if (subTitle != null) onTooltipRequested?.call(tagged.point, subTitle);
+
           final entries = tagged.properties.entries
               .where((e) => e.value != null && e.value.toString().isNotEmpty)
               .map((e) => MapEntry(e.key, e.value.toString()))
               .toList();
+
           onShowTooltipAcima?.call(
             context: context,
             position: tagged.point,
@@ -60,6 +78,7 @@ class ClusterMarkerBuilder<T> {
           curve: Curves.easeOutBack,
           builder: (context, scale, child) {
             return Transform.scale(
+              alignment: Alignment.bottomCenter, // escala a partir da base
               scale: scale,
               child: AnimatedOpacity(
                 opacity: isSelected ? 1.0 : 0.85,
@@ -68,41 +87,174 @@ class ClusterMarkerBuilder<T> {
               ),
             );
           },
+          // 👇 agora o tooltip fica POSICIONADO logo acima do pin
           child: Stack(
             clipBehavior: Clip.none,
-            alignment: Alignment.center,
             children: [
-              if (isSelected && title != null)
+              // PIN na base da área
+              Positioned(
+                bottom: 0,
+                left: (isSelected ? (tooltipWidth - pinSize) / 2 : 0),
+                width: pinSize,
+                height: pinSize,
+                child: Center(child: markerBuilder(context, tagged)),
+              ),
+
+              if (isSelected && (title != null || subTitle != null))
                 Positioned(
-                  top: -36,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.85),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(color: Colors.white, fontSize: 9),
-                          softWrap: true,
-                        ),
-                        if (subTitle != null)
-                          Text(
-                          subTitle,
-                          style: const TextStyle(color: Colors.grey, fontSize: 7.5),
-                          softWrap: true,
-                        ),
-                      ],
+                  // imediatamente acima do pin
+                  bottom: pinSize + gapAbovePin,
+                  left: 0,
+                  right: 0,
+                  child: SizedBox(
+                    width: tooltipWidth,
+                    child: _TooltipCard(
+                      maxWidth: tooltipWidth,         // <<< trava o card p/ caber
+                      title: title,
+                      subTitle: subTitle,
+                      onDetails: onViewDetails == null
+                          ? null
+                          : () => onViewDetails!(context, tagged),
                     ),
                   ),
                 ),
-              markerBuilder(context, tagged),
             ],
           ),
         ),
       ),
     );
+  }
+
+}
+
+/// Cartão compacto do tooltip com botão "Ver detalhes"
+class _TooltipCard extends StatelessWidget {
+  const _TooltipCard({
+    required this.maxWidth,
+    this.title,
+    this.subTitle,
+    this.onDetails,
+  });
+
+  final double maxWidth;
+  final String? title;
+  final String? subTitle;
+  final VoidCallback? onDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTitle = (title != null && title!.trim().isNotEmpty);
+    final hasSub = (subTitle != null && subTitle!.trim().isNotEmpty);
+
+    const double maxCardHeight = 110; // limite vertical dentro da reserva
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // “triângulo” do balão
+        Transform.translate(
+          offset: const Offset(0, 6),
+          child: CustomPaint(
+            size: const Size(12, 6),
+            painter: TrianglePainter(color: Colors.black.withOpacity(0.90)),
+          ),
+        ),
+        Material(
+          elevation: 6,
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.90),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white12, width: 0.5),
+              ),
+              child: DefaultTextStyle(
+                style: const TextStyle(color: Colors.white, fontSize: 10, height: 1.15),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: maxCardHeight),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (hasTitle)
+                        Text(
+                          title!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      if (hasSub) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subTitle!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 9.5,
+                          ),
+                        ),
+                      ],
+                      if (onDetails != null) ...[
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          height: 28,
+                          child: TextButton.icon(
+                            onPressed: onDetails,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              backgroundColor: Colors.white.withOpacity(0.08),
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(0, 28),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            icon: const Icon(Icons.info_outline_rounded, size: 14),
+                            label: const Text(
+                              'Ver detalhes',
+                              overflow: TextOverflow.ellipsis, // segurança extra
+                              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class TrianglePainter extends CustomPainter {
+  final Color color;
+  TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = ui.Paint()..color = color;
+
+    final path = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant TrianglePainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }

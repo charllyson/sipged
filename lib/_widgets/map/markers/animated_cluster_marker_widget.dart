@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-
-// TROQUE os wrappers locais pelos do pacote PLUS:
 import 'package:flutter_map_marker_cluster_plus/flutter_map_marker_cluster_plus.dart';
-// Se você usa popups no cluster, há também o:
-// import 'package:flutter_map_marker_popup_plus/flutter_map_marker_popup_plus.dart';
 
 import 'cluster_marker_widget.dart';
 import 'tagged_marker.dart';
@@ -24,6 +20,9 @@ class AnimatedClusterMarkerLayer<T> extends StatelessWidget {
   required List<MapEntry<String, String>> entries,
   })? onShowTooltipAcima;
 
+  /// Repassa o callback do "Ver detalhes"
+  final void Function(BuildContext context, TaggedChangedMarker<T> marker)? onViewDetails;
+
   const AnimatedClusterMarkerLayer({
     super.key,
     required this.taggedMarkers,
@@ -34,21 +33,22 @@ class AnimatedClusterMarkerLayer<T> extends StatelessWidget {
     this.subTitleBuilder,
     this.onTooltipRequested,
     this.onShowTooltipAcima,
+    this.onViewDetails,
   });
 
   @override
   Widget build(BuildContext context) {
-    // GARANTA que cada ClusterMarkerBuilder.build retorne um Marker COM 'child'
     final markers = taggedMarkers
-        .map((tagged) => ClusterMarkerBuilder(
+        .map((tagged) => ClusterMarkerBuilder<T>(
       tagged: tagged,
       selectedMarkerPosition: selectedMarkerPosition,
       onMarkerSelected: onMarkerSelected,
-      markerBuilder: markerBuilder,         // deve produzir um Widget para o 'child'
+      markerBuilder: markerBuilder,
       titleBuilder: titleBuilder,
       subTitleBuilder: subTitleBuilder,
       onTooltipRequested: onTooltipRequested,
       onShowTooltipAcima: onShowTooltipAcima,
+      onViewDetails: onViewDetails,
     ).build(context))
         .toList();
 
@@ -59,21 +59,12 @@ class AnimatedClusterMarkerLayer<T> extends StatelessWidget {
         size: const Size(40, 40),
         zoomToBoundsOnClick: true,
         spiderfyCircleRadius: 100,
-        // 'forceIntegerZoomLevel' não é necessário no v8; remova se sua versão reclamar:
-        // forceIntegerZoomLevel: true,
-
-        // Se sua versão do PLUS expõe animações, mantenha; se não, comente:
-        // animationsOptions: const AnimationsOptions(
-        //   centerMarker: Duration(milliseconds: 200),
-        // ),
-
         showPolygon: true,
         polygonOptions: const PolygonOptions(
           borderColor: Colors.black26,
           color: Color(0x11000000),
           borderStrokeWidth: 1.0,
         ),
-
         builder: (context, cluster) => Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -83,10 +74,7 @@ class AnimatedClusterMarkerLayer<T> extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             '${cluster.length}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),
       ),

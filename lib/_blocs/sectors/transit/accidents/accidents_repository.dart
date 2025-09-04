@@ -1,14 +1,7 @@
-// lib/_repository/sectors/traffic/accidents_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
-
-class PageResult<T> {
-  final List<T> items;
-  final QueryDocumentSnapshot? lastDoc;
-  PageResult(this.items, this.lastDoc);
-}
 
 class AccidentsRepository {
   AccidentsRepository({FirebaseFirestore? firestore})
@@ -20,8 +13,7 @@ class AccidentsRepository {
       local ? dt.toLocal().year : dt.toUtc().year;
 
   Future<DocumentReference<Map<String, dynamic>>> _getOrCreateYearRef(int year) async {
-    final q = await _db
-        .collection('trafficAccidents')
+    final q = await _db.collection('trafficAccidents')
         .where('year', isEqualTo: year)
         .limit(1)
         .get();
@@ -30,15 +22,14 @@ class AccidentsRepository {
   }
 
   Future<DocumentReference<Map<String, dynamic>>?> _getYearRef(int year) async {
-    final q = await _db
-        .collection('trafficAccidents')
+    final q = await _db.collection('trafficAccidents')
         .where('year', isEqualTo: year)
         .limit(1)
         .get();
     return q.docs.isNotEmpty ? q.docs.first.reference : null;
   }
 
-  // ---------- CRUD ----------
+  // ========= CRUD =========
   Future<void> deleteAccident({required String id, required int year}) async {
     final yearRef = await _getYearRef(year);
     if (yearRef == null) return;
@@ -48,20 +39,20 @@ class AccidentsRepository {
 
   Future<void> saveOrUpdateAccident(AccidentsData data) async {
     final user = FirebaseAuth.instance.currentUser;
+
     if (data.date == null) {
       throw Exception("Campo 'date' é obrigatório em AccidentsData.");
     }
 
     final year = _yearFromDateTime(data.date!, local: true);
     final month = data.date!.toLocal().month;
-    final yearRef = await _getOrCreateYearRef(year);
 
+    final yearRef = await _getOrCreateYearRef(year);
     final records = yearRef.collection('records');
-    final docRef = (data.id != null && data.id!.isNotEmpty)
-        ? records.doc(data.id)
-        : records.doc();
+    final docRef = (data.id != null && data.id!.isNotEmpty) ? records.doc(data.id) : records.doc();
     data.id ??= docRef.id;
 
+    // denormalizações
     data.year = year;
     data.month = month;
     data.yearDocId = yearRef.id;
@@ -93,53 +84,10 @@ class AccidentsRepository {
     });
   }
 
-  // ---------- Consulta / Paginação ----------
-  Future<PageResult<AccidentsData>> getAccidentsPage({
-    int? year,
-    int? month,
-    String? city,
-    QueryDocumentSnapshot? startAfter,
-    int limit = 15,
-    bool descending = true,
-  }) async {
-    Query q;
-
-    if (year != null) {
-      final yearRef = await _getYearRef(year);
-      if (yearRef == null) return PageResult<AccidentsData>([], null);
-
-      q = yearRef.collection('records').orderBy('date', descending: descending);
-
-      if (month != null) {
-        final start = DateTime(year, month, 1);
-        final end = DateTime(year, month + 1, 1);
-        q = q
-            .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-            .where('date', isLessThan: Timestamp.fromDate(end));
-      }
-      if (city != null && city.trim().isNotEmpty) {
-        q = q.where('city', isEqualTo: city);
-      }
-    } else {
-      q = _db.collectionGroup('records').orderBy('date', descending: descending);
-      if (city != null && city.trim().isNotEmpty) {
-        q = q.where('city', isEqualTo: city);
-      }
-      if (month != null) q = q.where('month', isEqualTo: month);
-    }
-
-    if (startAfter != null) q = q.startAfterDocument(startAfter);
-    q = q.limit(limit);
-
-    final snap = await q.get();
-    final items = snap.docs.map((d) => AccidentsData.fromDocument(snapshot: d)).toList();
-    final last = snap.docs.isNotEmpty ? snap.docs.last : null;
-
-    return PageResult(items, last);
-  }
-
+  // ========= Consultas =========
   Future<List<AccidentsData>> getAllAccidents({int? year, int? month, String? city}) async {
     Query q;
+
     if (year != null) {
       final yearRef = await _getYearRef(year);
       if (yearRef == null) return [];
@@ -164,31 +112,7 @@ class AccidentsRepository {
     return snap.docs.map((d) => AccidentsData.fromDocument(snapshot: d)).toList();
   }
 
-  Future<void> updateOrderOfAccidents({required int year}) async {
-    final yearRef = await _getYearRef(year);
-    if (yearRef == null) return;
-    final q = await yearRef.collection('records').orderBy('date').get();
-
-    final batch = _db.batch();
-    int i = 0;
-    for (final d in q.docs) {
-      i++;
-      batch.update(d.reference, {'order': i});
-    }
-    await batch.commit();
-  }
-
-  // ---------- Agregações ----------
-  Map<String, int> contarTiposDeAcidente(List<AccidentsData> lista) {
-    final Map<String, int> mapa = {};
-    for (final a in lista) {
-      final tipo = AccidentsData.normalizarTipoAcidente(a.typeOfAccident ?? 'INDEFINIDO');
-      mapa[tipo] = (mapa[tipo] ?? 0) + 1;
-    }
-    return mapa;
-  }
-
-  /// Nova: totais por tipo de acidente como double (útil p/ gráficos)
+  // ========= Agregações para gráficos/resumos =========
   Future<Map<String, double>> getTotaisPorTipoAcidente(List<AccidentsData> acidentes) async {
     final Map<String, double> totais = {
       for (final t in AccidentsData.accidentTypes) t.toUpperCase(): 0.0,
@@ -212,46 +136,7 @@ class AccidentsRepository {
     return totais;
   }
 
-  Future<Map<String, double>> getFeridosPorCidade(List<AccidentsData> acidentes) async {
-    final Map<String, double> totais = {};
-    for (final a in acidentes) {
-      final cidade = a.city?.trim().toUpperCase() ?? 'NÃO INFORMADO';
-      final feridos = a.scoresVictims ?? 0;
-      totais[cidade] = (totais[cidade] ?? 0.0) + feridos.toDouble();
-    }
-    return totais;
-  }
-
-  Future<Map<String, double>> getMortesPorCidade(List<AccidentsData> acidentes) async {
-    final Map<String, double> totais = {};
-    for (final a in acidentes) {
-      final cidade = a.city?.trim().toUpperCase() ?? 'NÃO INFORMADO';
-      final mortos = a.death ?? 0;
-      totais[cidade] = (totais[cidade] ?? 0.0) + mortos.toDouble();
-    }
-    return totais;
-  }
-
-  // ---------- City helpers ----------
-  Future<List<AccidentsData>> getAccidentsByCityList({
-    required String cityName,
-    int? year,
-    int? month,
-  }) async {
-    Query<Map<String, dynamic>> q = _db
-        .collectionGroup('records')
-        .where('city', isEqualTo: cityName);
-
-    if (year != null) q = q.where('year', isEqualTo: year);
-    if (month != null) q = q.where('month', isEqualTo: month);
-
-    q = q.orderBy('date', descending: true);
-
-    final snap = await q.get();
-    return snap.docs.map((d) => AccidentsData.fromDocument(snapshot: d)).toList();
-  }
-
-  // ---------- Legacy fix ----------
+  // ========= utilitário legado (fix datas string → timestamp) =========
   Future<void> corrigirDatasAcidentesCollectionGroup() async {
     final DateFormat formato = DateFormat('dd/MM/yyyy');
     final snap = await _db.collectionGroup('records').get();
