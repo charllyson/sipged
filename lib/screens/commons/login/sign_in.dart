@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_blocs/system/login/login_bloc.dart';
-import 'package:sisged/_widgets/background/background.dart';
-import 'package:sisged/_widgets/background/sisgeo_logo.dart';
-import 'package:sisged/_widgets/buttons/stream_button_.dart';
-import 'package:sisged/_widgets/input/custom_icon_button.dart';
-import 'package:sisged/_widgets/input/custom_text_field.dart';
-import 'package:sisged/_widgets/loading/loading_progress.dart';
+import 'package:siged/_blocs/system/login/login_bloc.dart';
+import 'package:siged/_widgets/background/background.dart';
+import 'package:siged/_widgets/background/sisgeo_logo.dart';
+import 'package:siged/_widgets/buttons/stream_button_.dart';
+import 'package:siged/_widgets/input/custom_icon_button.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_widgets/loading/loading_progress.dart';
 
 class SignIn extends StatefulWidget {
   const SignIn({super.key});
@@ -66,7 +66,7 @@ class _SignInState extends State<SignIn> {
                   padding: const EdgeInsets.only(bottom: 32),
                   child: Column(
                     children: [
-                      const SisGedLogo(),
+                      const sigedLogo(),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           double maxWidth;

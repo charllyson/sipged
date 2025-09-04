@@ -1,49 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
-import 'package:sisged/_utils/responsive_utils.dart';
-import 'package:sisged/_widgets/input/custom_date_field.dart';
-import 'package:sisged/_widgets/input/custom_text_field.dart';
-import 'package:sisged/_utils/mask_class.dart';
 
-import 'package:sisged/_widgets/archives/pdf/web_pdf_widget.dart';
-import 'package:sisged/_utils/formats/input_formatters.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
-import 'package:sisged/_widgets/archives/pdf/web_pdf_controller.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
+import 'package:siged/_utils/responsive_utils.dart';
+import 'package:siged/_widgets/input/custom_date_field.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_utils/mask_class.dart';
+
+import 'package:siged/_widgets/archives/pdf/web_pdf_widget.dart';
+import 'package:siged/_utils/formats/input_formatters.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
+
+import '../../../../_widgets/archives/pdf/web_pdf_controller.dart';
+import 'measurement_budget_page.dart';
 
 class ReportMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
   final bool formValidated;
-  final ReportMeasurementData? selectedAdjustmentMeasurement;
-  final String? currentAdjustmentMeasurementId;
+
+  // 👇 agora com nomes de REPORT
+  final ReportMeasurementData? selectedReportMeasurement;
+  final String? currentReportMeasurementId;
+
   final ContractData contractData;
   final ReportMeasurementStorageBloc reportMeasurementStorageBloc;
 
-  final TextEditingController orderAdjustmentController;
-  final TextEditingController processNumberAdjustmentController;
-  final TextEditingController dateAdjustmentController;
-  final TextEditingController valueAdjustmentController;
+  final TextEditingController orderController;
+  final TextEditingController processNumberController;
+  final TextEditingController dateController;
+  final TextEditingController valueController;
 
   final VoidCallback onSave;
-  final VoidCallback onClear; // ✅ agora é VoidCallback
+  final VoidCallback onClear;
 
   const ReportMeasurementFormSection({
     super.key,
     required this.isEditable,
     required this.formValidated,
-    required this.selectedAdjustmentMeasurement,
-    required this.currentAdjustmentMeasurementId,
+    required this.selectedReportMeasurement,
+    required this.currentReportMeasurementId,
     required this.contractData,
     required this.reportMeasurementStorageBloc,
-    required this.orderAdjustmentController,
-    required this.processNumberAdjustmentController,
-    required this.dateAdjustmentController,
-    required this.valueAdjustmentController,
+    required this.orderController,
+    required this.processNumberController,
+    required this.dateController,
+    required this.valueController,
     required this.onSave,
-    required this.onClear, // ✅
+    required this.onClear,
   });
+
+  // helper p/ formato BR (sua lib exige String)
+  String currencyBR(num v) => toCurrencyString(
+    v.toString(),
+    leadingSymbol: 'R\$ ',
+    useSymbolPadding: true,
+    thousandSeparator: ThousandSeparator.Period,
+    mantissaLength: 2,
+  );
 
   double getInputWidth(BuildContext context) {
     return responsiveInputWidth(
@@ -119,36 +134,48 @@ class ReportMeasurementFormSection extends StatelessWidget {
           children: [
             _input(
               context,
-              orderAdjustmentController,
+              orderController,
               'Ordem da medição',
               enabled: false,
               tooltip: true,
             ),
             _input(
               context,
-              processNumberAdjustmentController,
+              processNumberController,
               'Nº processo da medição',
-              enabled: isEditable, // ✅ respeita permissão
+              enabled: isEditable,
               mask: [processoMaskFormatter],
             ),
             CustomDateField(
               width: getInputWidth(context),
-              enabled: isEditable, // ✅ respeita permissão
-              controller: dateAdjustmentController,
-              initialValue: selectedAdjustmentMeasurement?.dateReportMeasurement,
+              enabled: isEditable,
+              controller: dateController,
+              initialValue: selectedReportMeasurement?.date,
               labelText: 'Data da Medição',
               onChanged: (date) {
-                if (selectedAdjustmentMeasurement != null) {
-                  selectedAdjustmentMeasurement!.dateReportMeasurement = date;
+                if (selectedReportMeasurement != null) {
+                  selectedReportMeasurement!.date = date;
                 }
               },
             ),
             _input(
               context,
-              valueAdjustmentController,
+              valueController,
               'Valor da medição',
-              enabled: isEditable, // ✅ respeita permissão
+              enabled: isEditable,
               money: true,
+            ),
+            // Botão para abrir o modal de detalhamento
+            SizedBox(
+              width: getInputWidth(context),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.list_alt),
+                  label: const Text('Detalhar medição'),
+                  onPressed: isEditable ? () => _openDetalhamentoModal(context) : null,
+                ),
+              ),
             ),
           ],
         );
@@ -158,15 +185,15 @@ class ReportMeasurementFormSection extends StatelessWidget {
           children: [
             TextButton.icon(
               icon: const Icon(Icons.save),
-              label: Text(currentAdjustmentMeasurementId != null ? 'Atualizar' : 'Salvar'),
+              label: Text(currentReportMeasurementId != null ? 'Atualizar' : 'Salvar'),
               onPressed: formValidated ? (isEditable ? onSave : null) : null,
             ),
             const SizedBox(width: 12),
-            if (currentAdjustmentMeasurementId != null)
+            if (currentReportMeasurementId != null)
               TextButton.icon(
                 icon: const Icon(Icons.restore),
                 label: const Text('Limpar'),
-                onPressed: onClear, // ✅ sem async/await
+                onPressed: onClear,
               ),
           ],
         );
@@ -180,6 +207,10 @@ class ReportMeasurementFormSection extends StatelessWidget {
           ],
         );
 
+        final leftPdf = (currentReportMeasurementId != null && selectedReportMeasurement != null)
+            ? _buildPdfWidget()
+            : const SizedBox();
+
         final container = Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -191,9 +222,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
               ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentAdjustmentMeasurementId != null &&
-                  selectedAdjustmentMeasurement != null)
-                _buildPdfWidget(),
+              leftPdf,
               const SizedBox(height: 12),
               corpo,
             ],
@@ -201,9 +230,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
               : Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentAdjustmentMeasurementId != null &&
-                  selectedAdjustmentMeasurement != null)
-                _buildPdfWidget(),
+              leftPdf,
               const SizedBox(width: 12),
               Expanded(child: corpo),
             ],
@@ -215,12 +242,24 @@ class ReportMeasurementFormSection extends StatelessWidget {
     );
   }
 
+  void _openDetalhamentoModal(BuildContext context) async {
+    await Navigator.of(context).push<MeasurementBudgetPage>(
+      MaterialPageRoute(
+        builder: (_) => MeasurementBudgetPage(
+          contractData: contractData,
+        ),
+        fullscreenDialog: true, // opcional: efeito de "página de edição"
+      ),
+    );
+  }
+
+
   Widget _buildPdfWidget() {
     return WebPdfWidgetGeneric(
-      key: Key(currentAdjustmentMeasurementId!),
-      type: PDFType.report,
+      key: Key(currentReportMeasurementId!), // 👈 usa o ID de report
+      type: PDFType.report, // 👈 tipo de report
       contractData: contractData,
-      specificData: selectedAdjustmentMeasurement!,
+      specificData: selectedReportMeasurement!, // 👈 objeto de report
       reportMeasurementStorageBloc: reportMeasurementStorageBloc,
     );
   }

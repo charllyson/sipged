@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_blocs/system/user/user_data.dart';
-import 'package:sisged/_widgets/registers/register_class.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_widgets/registers/register_class.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_event.dart';
-import 'package:sisged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_event.dart';
 
 import '../upBar/up_bar.dart';
 

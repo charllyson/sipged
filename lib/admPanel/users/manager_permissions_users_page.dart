@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_blocs/system/pages/pages_data.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
-import 'package:sisged/_widgets/photoCircle/photo_circle.dart';
+import 'package:siged/_blocs/system/pages/pages_data.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_widgets/photoCircle/photo_circle.dart';
 
 // Bloc de usuário
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_event.dart';
-import 'package:sisged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_event.dart';
+import 'package:siged/_blocs/system/user/user_state.dart';
 
 class ManagerPermissionsUsersPage extends StatefulWidget {
   const ManagerPermissionsUsersPage({super.key});

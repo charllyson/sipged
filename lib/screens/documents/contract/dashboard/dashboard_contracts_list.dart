@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_store.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_widgets/chip/build_value_chip.dart';
-import 'package:sisged/screens/documents/contract/tab_bar_contract_page.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_data.dart';
+import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_store.dart';
+
+// REPORT (lista base do gráfico)
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
+
+// ADJUSTMENT / REVISION (novas stores separadas)
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_data.dart';
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
+
+import 'package:siged/_widgets/chip/build_value_chip.dart';
+import 'package:siged/screens/documents/contract/tab_bar_contract_page.dart';
 
 class ListContractsSection extends StatelessWidget {
   final List<ReportMeasurementData> currentFiltered;
@@ -28,6 +37,48 @@ class ListContractsSection extends StatelessWidget {
     }
 
     final selected = currentFiltered[selectedPointIndex!];
+    final contractId = selected.contractId;
+    final measurementId = selected.id;
+
+    // Lê as stores separadas
+    final adjStore = context.watch<AdjustmentsMeasurementStore>();
+    final revStore = context.watch<RevisionsMeasurementStore>();
+
+    // Busca valores no cache das stores
+    double _readAdjustment() {
+      if (contractId == null || measurementId == null) return 0.0;
+      final entry = adjStore.all.firstWhere(
+            (e) => e.measurementId == measurementId,
+        orElse: () => AdjustmentEntry(measurementId: '', order: 0, data: AdjustmentMeasurementData()),
+      );
+      if (entry.measurementId.isEmpty) {
+        // dispara carregamento assíncrono (lazy) sem bloquear o build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          adjStore.getById(contractId: contractId, measurementId: measurementId);
+        });
+        return 0.0;
+      }
+      return entry.data.value ?? 0.0;
+    }
+
+    double _readRevision() {
+      if (contractId == null || measurementId == null) return 0.0;
+      final entry = revStore.all.firstWhere(
+            (e) => e.measurementId == measurementId,
+        orElse: () => RevisionEntry(measurementId: '', order: 0, data: RevisionMeasurementData()),
+      );
+      if (entry.measurementId.isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          revStore.getById(contractId: contractId, measurementId: measurementId);
+        });
+        return 0.0;
+      }
+      return entry.data.value ?? 0.0;
+    }
+
+    final valorReport     = selected.value ?? 0.0; // do próprio ReportMeasurementData
+    final valorAdjustment = _readAdjustment();
+    final valorRevision   = _readRevision();
 
     return Column(
       children: [
@@ -38,7 +89,6 @@ class ListContractsSection extends StatelessWidget {
             width: double.infinity,
             child: InkWell(
               onTap: () async {
-                final contractId = selected.contractId;
                 if (contractId == null) return;
 
                 final store = context.read<ContractsStore>();
@@ -47,15 +97,15 @@ class ListContractsSection extends StatelessWidget {
                 final ContractData? contrato = await store.getById(contractId);
                 if (contrato == null) return;
 
-                // Deixa o selecionado disponível para telas que leem do store
                 store.select(contrato);
 
-                // Navega. Se sua TabBarContractPage já lê do store, dá pra tirar o contractData aqui.
+                // Navega (se TabBarContractPage já lê do store, 'contractData' é opcional)
+                // Troque a aba inicial conforme sua UI (4 era a aba de medições antes)
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => TabBarContractPage(
-                      contractData: contrato,   // opcional se já migrou pro store
+                      contractData: contrato,
                       initialTabIndex: 4,
                     ),
                   ),
@@ -88,14 +138,13 @@ class ListContractsSection extends StatelessWidget {
                         runSpacing: 12,
                         children: [
                           Chip(
-                            label: Text('Número: ${selected.orderReportMeasurement}'),
+                            label: Text('Número: ${selected.order}'),
                             avatar: const Icon(Icons.onetwothree_rounded, size: 18),
                             backgroundColor: Colors.grey.shade100,
                           ),
-                          BuildValueChip('Medição',  selected.valueReportMeasurement ?? 0.0, Icons.bar_chart),
-                          BuildValueChip('Reajuste', selected.valueAdjustmentMeasurement ?? 0.0, Icons.trending_up),
-                          BuildValueChip('Revisão',  selected.valueRevisionMeasurement ?? 0.0, Icons.change_circle),
-
+                          BuildValueChip('Medição',  valorReport,     Icons.bar_chart),
+                          BuildValueChip('Reajuste', valorAdjustment, Icons.trending_up),
+                          BuildValueChip('Revisão',  valorRevision,   Icons.change_circle),
                         ],
                       ),
                     ],

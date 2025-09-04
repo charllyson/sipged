@@ -1,44 +1,31 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
-import 'package:sisged/_widgets/registers/register_class.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_widgets/registers/register_class.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 
 class ReportMeasurementBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  ReportMeasurementBloc();
-
-  // ---------------------------------------------------------------------------
-  // Listagens / consultas
-  // ---------------------------------------------------------------------------
+  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
+      _db.collection('contracts').doc(contractId).collection(ReportMeasurementData.collectionName);
 
   Future<List<ReportMeasurementData>> getAllMeasurementsOfContract({
     required String uidContract,
   }) async {
-    final snapshot = await _db
-        .collection('contracts')
-        .doc(uidContract)
-        .collection('measurements')
-        .orderBy('measurementorder')
-        .get();
-
-    return snapshot.docs
-        .map((doc) => ReportMeasurementData.fromDocument(snapshot: doc))
-        .toList();
+    final snapshot = await _col(uidContract).orderBy('order').get();
+    return snapshot.docs.map((doc) => ReportMeasurementData.fromDocument(doc)).toList();
   }
 
   Future<List<ReportMeasurementData>> fetchAllMeasurements() async {
-    final query = await _db.collectionGroup('measurements').get();
+    final query = await _db.collectionGroup(ReportMeasurementData.collectionName).get();
     return query.docs.map((doc) {
-      final m = ReportMeasurementData.fromJson(doc.data());
-      final pathSegments = doc.reference.path.split('/');
-      if (pathSegments.length >= 3) {
-        m.contractId = pathSegments[pathSegments.length - 3];
-      }
+      final m = ReportMeasurementData.fromMap(doc.data());
+      m.contractId = doc.reference.parent.parent?.id;
+      m.id = doc.id;
       return m;
     }).toList();
   }
@@ -49,165 +36,94 @@ class ReportMeasurementBloc extends BlocBase {
     return ContractData.fromDocument(snapshot: snap);
   }
 
-  // ---------------------------------------------------------------------------
-  // CRUD + regras derivadas
-  // ---------------------------------------------------------------------------
+  // -------------------------- CRUD: REPORT --------------------------
+  Future<void> saveOrUpdateReport(ReportMeasurementData report) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final contractId = report.contractId;
+    if (contractId == null) throw Exception('contractId é obrigatório');
 
-  Future<void> saveOrUpdateMeasurement(ReportMeasurementData data) async {
-    final firebaseUser = FirebaseAuth.instance.currentUser;
-    final contractId = data.contractId!;
-    final ref = _db.collection('contracts').doc(contractId).collection('measurements');
+    final ref = _col(contractId);
+    final docRef = (report.id != null) ? ref.doc(report.id) : ref.doc();
+    report.id ??= docRef.id;
 
-    final docRef = (data.idReportMeasurement != null)
-        ? ref.doc(data.idReportMeasurement)
-        : ref.doc();
-    data.idReportMeasurement ??= docRef.id;
-
-    // 🔢 Somatório das medições existentes
-    final measurementsSnap = await ref.get();
-    double totalMedicoes = 0.0;
-    for (final doc in measurementsSnap.docs) {
-      final m = doc.data();
-      totalMedicoes += (m['measurementInitialValue'] ?? 0).toDouble()
-          + (m['measurementAdjustmentValue'] ?? 0).toDouble()
-          + (m['measurementValueRevisionsAdjustments'] ?? 0).toDouble();
-    }
-
-    // 🔢 Valor base = contrato inicial + aditivos + apostilas
-    final contractSnap = await _db.collection('contracts').doc(contractId).get();
-    final contract = contractSnap.data();
-    final initialValue = (contract?['initialContractValue'] ?? 0).toDouble();
-
-    final additivesSnap = await _db
-        .collection('contracts').doc(contractId).collection('additives').get();
-    double totalAditivos = 0.0;
-    for (final doc in additivesSnap.docs) {
-      totalAditivos += (doc.data()['additiveValue'] ?? 0).toDouble();
-    }
-
-    final apostillesSnap = await _db
-        .collection('contracts').doc(contractId).collection('apostilles').get();
-    double totalApostilles = 0.0;
-    for (final doc in apostillesSnap.docs) {
-      totalApostilles += (doc.data()['apostilleValue'] ?? 0).toDouble();
-    }
-
-    final totalBase = initialValue + totalAditivos + totalApostilles;
-    final financialPercentage =
-    totalBase > 0 ? (totalMedicoes / totalBase) * 100 : 0.0;
-
-    final json = data.toJson()
+    final data = report.toFirestore()
       ..addAll({
         'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': firebaseUser?.uid ?? '',
-        'financialPercentage': financialPercentage,
+        'updatedBy': user?.uid ?? '',
+        'contractId': contractId,
       });
 
-    // preserva createdAt/createdBy
     final existing = await docRef.get();
     final hasCreatedAt = existing.exists && existing.data()?['createdAt'] != null;
     if (!hasCreatedAt) {
-      json['createdAt'] = FieldValue.serverTimestamp();
-      json['createdBy'] = firebaseUser?.uid ?? '';
+      data['createdAt'] = FieldValue.serverTimestamp();
+      data['createdBy'] = user?.uid ?? '';
     }
 
-    await docRef.set(json, SetOptions(merge: true));
-
-    // 🔔 Notificação
-    await notificarUsuariosSobreMedicao(data, contractId);
+    await docRef.set(data, SetOptions(merge: true));
+    await _recalcularFinancialPercentage(contractId);
+    await _notificar(report, contractId);
   }
 
   Future<void> deletarMedicao(String uidContract, String uidMedicao) async {
-    final ref = _db
-        .collection('contracts')
-        .doc(uidContract)
-        .collection('measurements')
-        .doc(uidMedicao);
-    await ref.delete();
+    await _col(uidContract).doc(uidMedicao).delete();
   }
 
-  // ---------------------------------------------------------------------------
-  // Metadado de PDF (apenas URL no Firestore)
-  //  → upload/exists/getUrl/delete ficam no ReportsStorageBloc
-  // ---------------------------------------------------------------------------
-
+  // -------------------------- PDF URL (só metadado) --------------------------
   Future<void> salvarUrlPdfDaMedicao({
     required String contractId,
     required String measurementId,
     required String url,
   }) async {
     try {
-      await _db
-          .collection('contracts')
-          .doc(contractId)
-          .collection('measurements')
-          .doc(measurementId)
-          .update({
+      await _col(contractId).doc(measurementId).update({
         'pdfUrl': url,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
     } catch (e) {
-      debugPrint('Erro ao salvar URL do PDF da medição: $e');
+      debugPrint('Erro ao salvar URL do PDF (report): $e');
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Notificações
-  // ---------------------------------------------------------------------------
-
-  Future<void> notificarUsuariosSobreMedicao(
-      ReportMeasurementData medicao, String contractId) async {
+  // -------------------------- Notificações --------------------------
+  Future<void> _notificar(ReportMeasurementData report, String contractId) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final List<String> uidsParaNotificar = [uid];
     final batch = _db.batch();
-
-    for (final userId in uidsParaNotificar) {
-      final ref = _db.collection('users').doc(userId).collection('notifications').doc();
-
-      batch.set(ref, {
-        'tipo': 'medicao',
-        'titulo': 'Nova medição nº ${medicao.orderReportMeasurement}',
-        'contractId': contractId,
-        'measurementId': medicao.idReportMeasurement,
-        'createdAt': FieldValue.serverTimestamp(),
-        'seen': false,
-      });
-    }
-
+    final ref = _db.collection('users').doc(uid).collection('notifications').doc();
+    batch.set(ref, {
+      'tipo': 'medicao',
+      'titulo': 'Nova medição nº ${report.order}',
+      'contractId': contractId,
+      'measurementId': report.id,
+      'createdAt': FieldValue.serverTimestamp(),
+      'seen': false,
+    });
     await batch.commit();
   }
 
   Stream<List<Registro>> getNotificacoesRecentesStream(String uid) {
     return _db
-        .collection('users')
-        .doc(uid)
-        .collection('notifications')
-        .orderBy('createdAt', descending: true)
-        .limit(10)
+        .collection('users').doc(uid).collection('notifications')
+        .orderBy('createdAt', descending: true).limit(10)
         .snapshots()
         .asyncMap((snapshot) async {
-      final List<Registro> registros = [];
-
+      final List<Registro> out = [];
       for (final doc in snapshot.docs) {
         final data = doc.data();
         if (data['tipo'] != 'medicao') continue;
 
         final contractId = data['contractId'];
         final idOriginal = data['measurementId'];
-
         final originalSnap = await _db
-            .collection('contracts')
-            .doc(contractId)
-            .collection('measurements')
-            .doc(idOriginal)
-            .get();
+            .collection('contracts').doc(contractId)
+            .collection(ReportMeasurementData.collectionName).doc(idOriginal).get();
 
         if (originalSnap.exists) {
-          final original = ReportMeasurementData.fromDocument(snapshot: originalSnap);
-          registros.add(Registro(
+          final original = ReportMeasurementData.fromDocument(originalSnap);
+          out.add(Registro(
             id: doc.id,
             tipo: 'medicao',
             data: data['createdAt']?.toDate() ?? DateTime.now(),
@@ -216,65 +132,69 @@ class ReportMeasurementBloc extends BlocBase {
           ));
         }
       }
-      return registros;
+      return out;
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // Agregações
-  // ---------------------------------------------------------------------------
-
+  // -------------------------- Agregações simples (Report) --------------------------
   Future<double> somarValorMedicoes({
     required List<ReportMeasurementData> medicoes,
   }) async {
-    return medicoes.fold<double>(
-        0.0, (s, m) => s + (m.valueReportMeasurement ?? 0.0));
+    return medicoes.fold<double>(0.0, (s, m) => s + (m.value ?? 0.0));
   }
 
-  Future<double> somarValorReajustes({
-    required List<ReportMeasurementData> medicoes,
-  }) async {
-    return medicoes.fold<double>(
-        0.0, (s, m) => s + (m.valueAdjustmentMeasurement ?? 0.0));
-  }
+  // -------------------------- Util: recalcular % financeiro --------------------------
+  Future<void> _recalcularFinancialPercentage(String contractId) async {
+    double total = 0.0;
 
-  Future<double> somarValorRevisoes({
-    required List<ReportMeasurementData> medicoes,
-  }) async {
-    return medicoes.fold<double>(
-        0.0, (s, m) => s + (m.valueRevisionMeasurement ?? 0.0));
-  }
-
-  Future<List<double>> calcularTotais(List<ReportMeasurementData> dados) async {
-    return Future.wait([
-      somarValorMedicoes(medicoes: dados),
-      somarValorReajustes(medicoes: dados),
-      somarValorRevisoes(medicoes: dados),
-    ]);
-  }
-
-  // ---------------------------------------------------------------------------
-
-  Future<void> adicionarContractIdNasMedicoes() async {
-    final contratosSnapshot = await _db.collection('contracts').get();
-
-    for (final contratoDoc in contratosSnapshot.docs) {
-      final contractId = contratoDoc.id;
-      final measurementsRef = contratoDoc.reference.collection('measurements');
-      final measurementsSnapshot = await measurementsRef.get();
-
-      for (final medicaoDoc in measurementsSnapshot.docs) {
-        final data = medicaoDoc.data();
-        if (data.containsKey('contractId')) continue;
-        await medicaoDoc.reference.update({'contractId': contractId});
-      }
+    final reps = await _db.collection('contracts').doc(contractId)
+        .collection('reportsMeasurement').get();
+    for (final d in reps.docs) {
+      final v = (d.data()['value'] ?? 0);
+      total += (v is num) ? v.toDouble() : 0.0;
     }
 
-    debugPrint('✔️ Processo finalizado para medições.');
+    final adjs = await _db.collection('contracts').doc(contractId)
+        .collection('adjustmentsMeasurement').get();
+    for (final d in adjs.docs) {
+      final v = (d.data()['value'] ?? 0);
+      total += (v is num) ? v.toDouble() : 0.0;
+    }
+
+    final revs = await _db.collection('contracts').doc(contractId)
+        .collection('revisionsMeasurement').get();
+    for (final d in revs.docs) {
+      final v = (d.data()['value'] ?? 0);
+      total += (v is num) ? v.toDouble() : 0.0;
+    }
+
+    final contractSnap = await _db.collection('contracts').doc(contractId).get();
+    final initialValue = (contractSnap.data()?['initialContractValue'] ?? 0);
+    final baseInicial = (initialValue is num) ? initialValue.toDouble() : 0.0;
+
+    final adds = await _db.collection('contracts').doc(contractId).collection('additives').get();
+    double totAdd = 0.0;
+    for (final a in adds.docs) {
+      final v = (a.data()['additiveValue'] ?? 0);
+      totAdd += (v is num) ? v.toDouble() : 0;
+    }
+
+    final apos = await _db.collection('contracts').doc(contractId).collection('apostilles').get();
+    double totApo = 0.0;
+    for (final ap in apos.docs) {
+      final v = (ap.data()['apostilleValue'] ?? 0);
+      totApo += (v is num) ? v.toDouble() : 0;
+    }
+
+    final totalBase = baseInicial + totAdd + totApo;
+    final percent = totalBase > 0 ? (total / totalBase) * 100.0 : 0.0;
+
+    await _db.collection('contracts').doc(contractId).set({
+      'financialPercentage': percent,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   @override
-  void dispose() {
-    super.dispose();
-  }
+  void dispose() { super.dispose(); }
 }

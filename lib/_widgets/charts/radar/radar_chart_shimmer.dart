@@ -142,7 +142,7 @@ class _RadarSkeletonPainter extends CustomPainter {
 class RadarChartShimmer extends StatelessWidget {
   const RadarChartShimmer({
     super.key,
-    this.altura = 260,
+    this.altura = 270,
     this.largura,
     this.cardWidth,
     this.legendItems = 0,   // sem legenda no esqueleto do print

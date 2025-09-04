@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_repository.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_blocs/system/user/user_repository.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'user_event.dart';
 import 'user_state.dart';

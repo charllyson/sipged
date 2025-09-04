@@ -1,7 +1,9 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '12.0'
+# Alvo mínimo — mantenha 15.0 se já definiu assim no projeto
+platform :ios, '15.0'
 
-# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+use_frameworks! :linkage => :static
+
+# Evita latência de métricas do CocoaPods
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -28,9 +30,12 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks!
+  # Recomendado p/ Firebase + plugins Flutter modernos
+  use_frameworks! :linkage => :static
+  # (alternativa em projetos legados) use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
   target 'RunnerTests' do
     inherit! :search_paths
   end
@@ -39,5 +44,16 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      # Bitcode não é mais suportado
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
+      # Garante alinhamento com o topo do arquivo
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
+  end
+
+  # Opcional: reduz ruído de warnings de headers em alguns pods
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
   end
 end

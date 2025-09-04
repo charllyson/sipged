@@ -1,13 +1,13 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
-import 'package:sisged/_blocs/actives/oaes/active_oaes_data.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_rules.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_style.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_style.dart';
 
 // 👇 GeoJSON
-import 'package:sisged/_blocs/widgets/map/regional_geo_json_class.dart';
-import 'package:sisged/_blocs/widgets/map/geo_json_manager.dart';
+import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
+import 'package:siged/_blocs/widgets/map/geo_json_manager.dart';
 
 enum ActiveOaesLoadStatus { idle, loading, success, failure }
 

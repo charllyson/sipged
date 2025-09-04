@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/charts/treemap/treemap_shimmer.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_widgets/charts/treemap/treemap_shimmer.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
 class TreemapItem {
   final String label;

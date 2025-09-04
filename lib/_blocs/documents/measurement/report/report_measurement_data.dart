@@ -1,163 +1,133 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
 
-class ReportMeasurementData extends ChangeNotifier {
-  ///Informações de medições
+class ReportMeasurementData {
+  static const String collectionName = 'reportsMeasurement';
+
+  // dados principais
+  String? id;
+  int? order;
+  String? numberprocess;
+  DateTime? date;
+  double? value;
+
+  // meta
   String? contractId;
-
-  String? idReportMeasurement;
-  int? orderReportMeasurement;
-  String? numberProcessReportMeasurement;
-  DateTime? dateReportMeasurement;
-  double? valueReportMeasurement;
-
-  ///Informações de reajustes de medições
-  String? idAdjustmentMeasurement;
-  int? orderAdjustmentMeasurement;
-  String? numberAdjustmentProcessMeasurement;
-  DateTime? dateAdjustmentMeasurement;
-  double? valueAdjustmentMeasurement;
-
-  ///Informações de revisões de medições
-  String? idRevisionMeasurement;
-  int? orderRevisionMeasurement;
-  String? numberRevisionProcessMeasurement;
-  DateTime? dateRevisionMeasurement;
-  double? valueRevisionMeasurement;
-
-
+  String? pdfUrl;
   DateTime? createdAt;
   String? createdBy;
   DateTime? updatedAt;
   String? updatedBy;
-  DateTime? deletedAt;
-  String? deletedBy;
 
+  // 🔹 novo: detalhamento (itens da medição)
+  Map<String, dynamic>? breakdown;
 
   ReportMeasurementData({
+    this.id,
+    this.order,
+    this.numberprocess,
+    this.date,
+    this.value,
     this.contractId,
-
-    this.idReportMeasurement,
-    this.orderReportMeasurement,
-    this.numberProcessReportMeasurement,
-    this.dateReportMeasurement,
-    this.valueReportMeasurement,
-
-    this.idAdjustmentMeasurement,
-    this.orderAdjustmentMeasurement,
-    this.numberAdjustmentProcessMeasurement,
-    this.dateAdjustmentMeasurement,
-    this.valueAdjustmentMeasurement,
-
-    this.idRevisionMeasurement,
-    this.orderRevisionMeasurement,
-    this.numberRevisionProcessMeasurement,
-    this.dateRevisionMeasurement,
-    this.valueRevisionMeasurement,
-
+    this.pdfUrl,
+    this.breakdown, // <<<<<<
     this.createdAt,
     this.createdBy,
     this.updatedAt,
     this.updatedBy,
-    this.deletedAt,
-    this.deletedBy,
-});
+  });
 
-  ///Recuperando informações no banco de dados
-  factory ReportMeasurementData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) {
-      throw Exception("Medição não encontrada");
-    }
+  // ---------- helpers ----------
+  static double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.replaceAll(',', '.'));
+    return null;
+  }
 
-    final data = snapshot.data() as Map<String, dynamic>?;
+  static int? _toInt(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
+  }
 
-    if (data == null) {
-      throw Exception("Os dados da medição estão vazios");
-    }
+  static DateTime? _toDate(dynamic v) {
+    if (v == null) return null;
+    if (v is DateTime) return v;
+    if (v is Timestamp) return v.toDate();
+    if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
+    if (v is String) return DateTime.tryParse(v);
+    return null;
+  }
 
-    final contractId = snapshot.reference.parent.parent?.id; // 👈 Captura o ID do contrato pai
+  // ---------- Firestore path helpers ----------
+  static CollectionReference<Map<String, dynamic>> col(
+      FirebaseFirestore db,
+      String contractId,
+      ) {
+    return db.collection('contracts').doc(contractId).collection(collectionName);
+  }
+
+  static DocumentReference<Map<String, dynamic>> docRef(
+      FirebaseFirestore db, {
+        required String contractId,
+        required String id,
+      }) {
+    return col(db, contractId).doc(id);
+  }
+
+  // ---------- from/to ----------
+  factory ReportMeasurementData.fromDocument(DocumentSnapshot snap) {
+    final data = (snap.data() as Map<String, dynamic>?) ?? {};
+    final contractId = snap.reference.parent.parent?.id;
 
     return ReportMeasurementData(
+      // novos nomes
+      id: data['id'] as String? ?? snap.id,
+      order: _toInt(data['order'] ?? data['measurementorder']),
+      numberprocess: data['numberprocess'] as String? ?? data['measurementnumberprocess'] as String?,
+      date: _toDate(data['date'] ?? data['measurementdata']),
+      value: _toDouble(data['value'] ?? data['measurementinitialvalue']),
+      pdfUrl: data['pdfUrl'] as String?,
+      // meta
       contractId: contractId,
-
-      idReportMeasurement: snapshot.id,
-      orderReportMeasurement: (data['measurementorder'] as num?)?.toInt(),
-      numberProcessReportMeasurement: data['measurementnumberprocess'],
-      dateReportMeasurement: (data['measurementdata'] as Timestamp?)?.toDate(),
-      valueReportMeasurement: (data['measurementinitialvalue'] as num?)?.toDouble() ?? 0.0,
-
-      idAdjustmentMeasurement: data['measurementadjustment'],
-      orderAdjustmentMeasurement: data['measurementadjustmentorder'],
-      numberAdjustmentProcessMeasurement: data['measurementadjustmentnumberprocess'],
-      dateAdjustmentMeasurement: (data['measurementadjustmentdate'] as Timestamp?)?.toDate(),
-      valueAdjustmentMeasurement: (data['measurementadjustmentvalue'] as num?)?.toDouble() ?? 0.0,
-
-      idRevisionMeasurement: data['measurementrevision'],
-      orderRevisionMeasurement: data['measurementrevisionorder'],
-      numberRevisionProcessMeasurement: data['measurementrevisionnumberprocess'],
-      dateRevisionMeasurement: (data['measurementrevisiondate'] as Timestamp?)?.toDate(),
-      valueRevisionMeasurement: (data['measurementvaluerevisionsadjustments'] as num?)?.toDouble() ?? 0.0,
-
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-      createdBy: data['createdBy'] ?? '',
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
-      updatedBy: data['updatedBy'] ?? '',
-      deletedAt: (data['deletedAt'] as Timestamp?)?.toDate(),
-      deletedBy: data['deletedBy'] ?? '',
+      createdAt: _toDate(data['createdAt']),
+      createdBy: data['createdBy'] as String?,
+      updatedAt: _toDate(data['updatedAt']),
+      updatedBy: data['updatedBy'] as String?,
     );
   }
 
-
-  Map<String, dynamic> toJson() {
-
-    return {
-      'report': idReportMeasurement,
-      'measurementorder': orderReportMeasurement,
-      'measurementnumberprocess': numberProcessReportMeasurement,
-      'measurementdata': dateReportMeasurement,
-      'measurementinitialvalue': valueReportMeasurement,
-
-      'measurementadjustment': idAdjustmentMeasurement,
-      'measurementadjustmentorder': orderAdjustmentMeasurement,
-      'measurementadjustmentnumberprocess': numberAdjustmentProcessMeasurement,
-      'measurementadjustmentdate': dateAdjustmentMeasurement,
-      'measurementadjustmentvalue': valueAdjustmentMeasurement,
-
-      'measurementrevision': idRevisionMeasurement,
-      'measurementrevisionorder': orderRevisionMeasurement,
-      'measurementrevisionnumberprocess': numberRevisionProcessMeasurement,
-      'measurementrevisiondate': dateRevisionMeasurement,
-      'measurementvaluerevisionsadjustments': valueRevisionMeasurement,
-
-    };
-  }
-
-  factory ReportMeasurementData.fromJson(Map<String, dynamic> json) {
+  factory ReportMeasurementData.fromMap(Map<String, dynamic> json) {
     return ReportMeasurementData(
-      orderReportMeasurement: json['measurementorder'] is int
-          ? json['measurementorder']
-          : int.tryParse(json['measurementorder']?.toString() ?? ''),
-      dateReportMeasurement: (json['measurementdata'] as Timestamp?)?.toDate(),
-      numberProcessReportMeasurement: json['measurementnumberprocess'],
-      valueReportMeasurement: json['measurementinitialvalue'] is double
-          ? json['measurementinitialvalue']
-          : double.tryParse(json['measurementinitialvalue']?.toString() ?? ''),
-
-      dateAdjustmentMeasurement: (json['measurementadjustmentdate'] as Timestamp?)?.toDate(),
-      numberAdjustmentProcessMeasurement: json['measurementadjustmentnumberprocess'],
-      valueAdjustmentMeasurement: json['measurementadjustmentvalue'],
-
-      dateRevisionMeasurement: (json['measurementrevisiondate'] as Timestamp?)?.toDate(),
-      numberRevisionProcessMeasurement: json['measurementrevisionnumberprocess'],
-      valueRevisionMeasurement: json['measurementvaluerevisionsadjustments'],
-
-      createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
-      createdBy: json['createdBy'] ?? '',
-      updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
-      updatedBy: json['updatedBy'] ?? '',
-      deletedAt: (json['deletedAt'] as Timestamp?)?.toDate(),
-      deletedBy: json['deletedBy'] ?? '',
+      id: json['id'] as String?,
+      order: _toInt(json['order'] ?? json['measurementorder']),
+      numberprocess: json['numberprocess'] as String? ?? json['measurementnumberprocess'] as String?,
+      date: _toDate(json['date'] ?? json['measurementdata']),
+      value: _toDouble(json['value'] ?? json['measurementinitialvalue']),
+      pdfUrl: json['pdfUrl'] as String?,
+      contractId: json['contractId'] as String?,
+      createdAt: _toDate(json['createdAt']),
+      createdBy: json['createdBy'] as String?,
+      updatedAt: _toDate(json['updatedAt']),
+      updatedBy: json['updatedBy'] as String?,
     );
   }
 
+  Map<String, dynamic> toFirestore() {
+    return {
+      'id': id,
+      'order': order,
+      'numberprocess': numberprocess,
+      'date': date,       // Firestore aceita DateTime
+      'value': value,
+      'pdfUrl': pdfUrl,
+      // meta (opcional manter)
+      'contractId': contractId,
+      'createdAt': createdAt,
+      'createdBy': createdBy,
+      'updatedAt': updatedAt,
+      'updatedBy': updatedBy,
+    }..removeWhere((k, v) => v == null);
+  }
 }

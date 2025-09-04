@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_utils/firebase_utils.dart';
-import 'package:sisged/admPanel/users/manager_permissions_users_page.dart';
+import 'package:siged/_utils/firebase_utils.dart';
+import 'package:siged/admPanel/cleanup_subcollections/cleanup_subcollections_tile.dart';
+import 'package:siged/admPanel/cleanup_subcollections/selective_delete_tile.dart';
+import 'package:siged/admPanel/migrateCollections/migration.dart';
+import 'package:siged/admPanel/users/manager_permissions_users_page.dart';
+import 'cleanup_subcollections/nofilter_tile.dart';
 import 'converters/generic_import_excel_page.dart';
 import 'converters/importExcel/excel_import_controller.dart';
 import 'migrateDocForSubCollection/migrateDocForSubCollection.dart';
@@ -227,6 +231,14 @@ class _SettingsSystemPageState extends State<SettingsSystemPage> {
                 subtitle: Text(''),
                 trailing: Icon(Icons.arrow_forward_ios),
               ),
+              /// MIGRANDO COLEÇÕES
+              MigrationCollections(),
+              /// DELETANDO COLEÇÕES
+              const CleanUpSubcollectionsTile(),
+              /// DELETANDO DOCUMENTOS
+              SelectiveDeleteSubcollectionTile(),
+              /// DELETANDO CAMPOS EM SUBCOLEÇÕES
+              const DeleteFieldInSubcollectionTile(),
             ],
           ),
         ),

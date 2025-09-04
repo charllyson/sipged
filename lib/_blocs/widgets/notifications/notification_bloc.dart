@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sisged/_widgets/registers/register_class.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_widgets/registers/register_class.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 class NotificationBloc {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -29,8 +29,8 @@ class NotificationBloc {
     String id;
     try {
       // tenta alguns campos comuns que costumam ser id do objeto original
-      id = (registro.original as dynamic)?.idReportMeasurement ??
-          (registro.original as dynamic)?.idAdjustmentMeasurement ??
+      id = (registro.original as dynamic)?.id ??
+          (registro.original as dynamic)?.id ??
           (registro.original as dynamic)?.id ??
           registro.id ??
           '';

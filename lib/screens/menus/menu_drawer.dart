@@ -2,16 +2,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/_widgets/drawer/menu_drawer_sub_item.dart';
-import 'package:sisged/_blocs/system/pages/pages_data.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
-import 'package:sisged/_widgets/background/sisgeo_logo.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/_widgets/drawer/menu_drawer_sub_item.dart';
+import 'package:siged/_blocs/system/pages/pages_data.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_widgets/background/sisgeo_logo.dart';
 
 // BLoC
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_event.dart';
-import 'package:sisged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_event.dart';
+import 'package:siged/_blocs/system/user/user_state.dart';
 
 /// Estrutura interna para mesclar "PAINEL" com o próximo subitem de página.
 class MergedSubItem {
@@ -79,7 +79,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
             children: [
               const Padding(
                 padding: EdgeInsets.all(16),
-                child: SisGedLogo(fontSize: 40, heightLogo: 30, widthLogo: 30),
+                child: sigedLogo(fontSize: 40, heightLogo: 30, widthLogo: 30),
               ),
               const SizedBox(height: 20),
 

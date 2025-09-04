@@ -3,10 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:sisged/_blocs/documents/contracts/validity/validity_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additive_store.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'validity_data.dart';
 
 class ValidityStore extends ChangeNotifier {

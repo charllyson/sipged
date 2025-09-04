@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 import 'pie_chart_changed.dart'; // para usar o enum ValueFormatType
 
 class PieChartLegend extends StatelessWidget {

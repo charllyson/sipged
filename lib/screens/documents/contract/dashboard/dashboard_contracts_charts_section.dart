@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_style.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_rules.dart';
-import 'package:sisged/_widgets/charts/bars/bar_chart_changed.dart';
-import 'package:sisged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_style.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
+import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
 import '../../../../_blocs/documents/contracts/contracts/contracts_controller.dart';
 import '../../../../_widgets/charts/radar/radar_chart_changed_widget.dart';
 

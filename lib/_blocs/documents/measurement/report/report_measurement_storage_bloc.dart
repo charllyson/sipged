@@ -1,4 +1,3 @@
-// lib/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart
 import 'dart:typed_data';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,10 +6,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 
-/// Responsável APENAS por Storage (upload/getUrl/exists/delete) de PDFs de **medições**.
+/// Storage de PDFs da **medição (report)**.
 class ReportMeasurementStorageBloc extends BlocBase {
   final FirebaseStorage _storage;
   ReportMeasurementStorageBloc({FirebaseStorage? storage})
@@ -19,20 +18,19 @@ class ReportMeasurementStorageBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // ---------- Utils ----------
-  String _sanitize(String s) =>
-      s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+  String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
   String fileName(ContractData c, ReportMeasurementData m) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
-    final ordem    = (m.orderReportMeasurement ?? '0').toString();
-    final proc     = _sanitize(m.numberAdjustmentProcessMeasurement ?? 'processo');
-    return '$contrato-$ordem-$proc.pdf';
+    final ordem    = (m.order ?? 0).toString();
+    final proc     = _sanitize(m.numberprocess ?? 'processo');
+    return 'report-$contrato-$ordem-$proc.pdf';
   }
 
   String pathFor(ContractData c, ReportMeasurementData m) =>
-      'contracts/${c.id}/measurements/${m.idReportMeasurement}/${fileName(c, m)}';
+      'contracts/${c.id}/measurements/${m.id}/${fileName(c, m)}';
 
-  // ---------- Operações principais ----------
+  // ---------- Operações ----------
   Future<bool> exists(ContractData c, ReportMeasurementData m) async {
     try {
       await _storage.ref(pathFor(c, m)).getMetadata();
@@ -46,12 +44,11 @@ class ReportMeasurementStorageBloc extends BlocBase {
     try {
       return await _storage.ref(pathFor(c, m)).getDownloadURL();
     } catch (e) {
-      debugPrint('ReportsStorageBloc.getUrl erro: $e');
+      debugPrint('ReportMeasurementStorageBloc.getUrl erro: $e');
       return null;
     }
   }
 
-  /// Upload via seletor (Web/desktop). Retorna URL https.
   Future<String> uploadWithPicker({
     required ContractData contract,
     required ReportMeasurementData reportMeasurement,
@@ -71,7 +68,6 @@ class ReportMeasurementStorageBloc extends BlocBase {
     );
   }
 
-  /// Upload a partir de bytes; retorna URL https.
   Future<String> uploadBytes({
     required ContractData contract,
     required ReportMeasurementData measurement,
@@ -79,10 +75,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
     void Function(double progress)? onProgress,
   }) async {
     final ref = _storage.ref(pathFor(contract, measurement));
-    final task = ref.putData(
-      bytes,
-      SettableMetadata(contentType: 'application/pdf'),
-    );
+    final task = ref.putData(bytes, SettableMetadata(contentType: 'application/pdf'));
     if (onProgress != null) {
       task.snapshotEvents.listen((e) {
         if (e.totalBytes > 0) onProgress(e.bytesTransferred / e.totalBytes);
@@ -97,7 +90,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
       await _storage.ref(pathFor(c, m)).delete();
       return true;
     } catch (e) {
-      debugPrint('ReportsStorageBloc.delete erro: $e');
+      debugPrint('ReportMeasurementStorageBloc.delete erro: $e');
       return false;
     }
   }
@@ -124,7 +117,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
     if (c == null) throw Exception('Contrato nulo ao enviar PDF da medição.');
     if (m == null) throw Exception('Medição nula ao enviar PDF.');
     if (c.id == null) throw Exception('ContractData sem id.');
-    if (m.idReportMeasurement == null) {
+    if (m.id == null) {
       throw Exception('ReportMeasurementData sem idReportMeasurement.');
     }
 
@@ -133,40 +126,29 @@ class ReportMeasurementStorageBloc extends BlocBase {
       reportMeasurement: m,
       onProgress: onProgress,
     );
-    if (onUploaded != null) {
-      await onUploaded(url);
-    }
+    if (onUploaded != null) await onUploaded(url);
   }
 
-  // ---------------------------------------------------------------------------
-  // Metadado de PDF (somente URL no Firestore)
-  //  → Upload/exists/getUrl/delete ficam no ValidityStorageBloc
-  // ---------------------------------------------------------------------------
-
-  /// Salva a URL https do PDF da validade no Firestore.
+  // ---------- Metadado (Firestore) ----------
   Future<void> salvarUrlPdfDaReportMeasurement({
     required String contractId,
-    required String reportMeasuremnetId,
+    required String reportMeasurementId,
     required String url,
   }) async {
     try {
       await _db
-          .collection('contracts')
-          .doc(contractId)
-          .collection('orders')
-          .doc(reportMeasuremnetId)
+          .collection('contracts').doc(contractId)
+          .collection('measurements').doc(reportMeasurementId)
           .update({
         'pdfUrl': url,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
     } catch (e) {
-      debugPrint('Erro ao salvar URL do PDF da validade no Firestore: $e');
+      debugPrint('Erro ao salvar URL do PDF da medição no Firestore: $e');
     }
   }
 
   @override
-  void dispose() {
-    super.dispose();
-  }
+  void dispose() { super.dispose(); }
 }

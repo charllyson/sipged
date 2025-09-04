@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sisged/_widgets/map/markers/tagged_marker.dart';
+import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 
 class ActiveOaesData extends ChangeNotifier {
   String? id;
@@ -20,11 +20,11 @@ class ActiveOaesData extends ChangeNotifier {
 
   String? structureType;
   String? relatedContracts;
-  double? valueIntervention;   // ⚠️ garantir ida/volta
+  double? valueIntervention;
   double? linearCostMedia;
   double? costEstimate;
 
-  DateTime? lastDateIntervention; // ⚠️ padronizar serialização
+  DateTime? lastDateIntervention;
   String? companyBuild;
 
   double? latitude;

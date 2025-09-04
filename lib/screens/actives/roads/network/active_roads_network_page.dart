@@ -1,106 +1,125 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:sisged/_widgets/map/map_interactive.dart';
-import 'package:sisged/_widgets/map/shimmer/map_loading_shimmer.dart';import 'package:sisged/_widgets/footBar/foot_bar.dart';
-import 'package:sisged/_widgets/upBar/up_bar.dart';
-import '../../../../_blocs/actives/roads/active_roads_controller.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
+
+import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
+
+import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
+import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
+
+import 'active_roads_map.dart';
+import 'active_roads_panel.dart';
 
 class ActiveRoadsNetworkPage extends StatefulWidget {
-  final List<String>? selectedRegionNames;
-  final void Function(String?)? onRegionTap;
-  final double? height;
-
-  const ActiveRoadsNetworkPage({
-    super.key,
-    this.selectedRegionNames,
-    this.onRegionTap,
-    this.height = 320,
-  });
+  const ActiveRoadsNetworkPage({super.key});
 
   @override
   State<ActiveRoadsNetworkPage> createState() => _ActiveRoadsNetworkPageState();
 }
 
 class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
-  bool _bootstrapped = false;
+  late final ActiveRoadsBloc _bloc;
+  bool _showRightPanel = false;
 
-  Future<void> _bootstrapOnce(BuildContext context) async {
-    if (_bootstrapped) return;
-    _bootstrapped = true;
+  @override
+  void initState() {
+    super.initState();
+    _bloc = ActiveRoadsBloc()..add(const ActiveRoadsWarmupRequested());
+  }
 
-    final controller = context.read<ActiveRoadsController>();
+  @override
+  void dispose() {
+    _bloc.close();
+    super.dispose();
+  }
 
-    // Anexa o overlay para tooltips
-    final overlay = Overlay.of(context);
-    controller.attachOverlay(overlay);
 
-    // Carrega dados se necessário
-    if (controller.roadDataMap.isEmpty && !controller.loading) {
-      await controller.load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Rodovias carregadas com sucesso')),
-      );
-    }
+  void _clearFilters() {
+    _bloc.add(const ActiveRoadsRegionFilterChanged(null));
+    _bloc.add(const ActiveRoadsSurfaceFilterChanged(null));
+  }
+
+  void _toggleRightPanel() {
+    setState(() => _showRightPanel = !_showRightPanel);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ActiveRoadsController(),
-      builder: (context, _) {
-        // Executa bootstrap após o primeiro frame
-        WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrapOnce(context));
-
-        return Scaffold(
-          backgroundColor: Colors.white,
-          body: Stack(
-            children: [
-              Consumer<ActiveRoadsController>(
-                builder: (context, controller, __) {
-                  return Column(
-                    children: [
-                      const UpBar(),
-                      Expanded(
-                        child: controller.loading
-                            ? const MapLoadingShimmer()
-                            : ValueListenableBuilder<String?>(
-                          valueListenable: controller.selectedPolylineId,
-                          builder: (context, selectedId, _) {
-                            final styledPolylines = controller.buildStyledPolylines();
-                            return MapInteractivePage(
-                              tappablePolylines: styledPolylines,
-                              onClearPolylineSelection: () async => controller.clearSelection(),
-                              onSelectPolyline: (poly) async =>
-                                  controller.selectPolylineByTag(poly.tag?.toString()),
-                              onShowPolylineTooltip: ({
-                                required BuildContext context,
-                                required Offset position,
-                                required Object? tag,
-                              }) async {
-                                final strTag = tag?.toString();
-                                if (strTag != null) {
-                                  controller.showPolylineTooltip(
-                                    context: context,
-                                    position: position,
-                                    tag: strTag,
-                                  );
-                                }
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                      const FootBar(),
-                    ],
-                  );
-                },
+    return BlocProvider.value(
+      value: _bloc,
+      child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(74),
+          child: UpBar(
+            showPhotoMenu: true,
+            actions: [
+              IconButton(
+                tooltip: 'Limpar filtros',
+                icon: const Icon(Icons.filter_alt_off, color: Colors.white),
+                onPressed: _clearFilters,
               ),
-              // seus fab/overlays adicionais aqui
+              IconButton(
+                tooltip: _showRightPanel ? 'Ocultar painel' : 'Mostrar painel',
+                icon: Icon(
+                  _showRightPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                  color: Colors.white,
+                ),
+                onPressed: _toggleRightPanel,
+              ),
             ],
           ),
-        );
-      },
+        ),
+
+        bottomNavigationBar: const FootBar(),
+
+        body: Stack(
+          children: [
+            BlocBuilder<ActiveRoadsBloc, ActiveRoadsState>(
+              builder: (context, state) {
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final bool isWide = constraints.maxWidth >= 980;
+
+                    if (isWide) {
+                      // Layout lado a lado
+                      return Row(
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: ActiveRoadsMap(state: state),
+                          ),
+                          if (_showRightPanel) ...[
+                            const VerticalDivider(width: 1),
+                            const SizedBox(
+                              width: 600,
+                              child: ActiveRoadsPanel(),
+                            ),
+                          ],
+                        ],
+                      );
+                    } else {
+                      // Layout empilhado (mobile/tablet)
+                      return Column(
+                        children: [
+                          Expanded(child: ActiveRoadsMap(state: state)),
+                          if (_showRightPanel) ...[
+                            const Divider(height: 1),
+                            const SizedBox(
+                              height: 420,
+                              child: ActiveRoadsPanel(),
+                            ),
+                          ],
+                        ],
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

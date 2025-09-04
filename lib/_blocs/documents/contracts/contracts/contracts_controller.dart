@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_store.dart';
 
-import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additive_store.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_rules.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_store.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/widgets/map/geo_json_manager.dart';
-import 'package:sisged/_widgets/charts/radar/radar_series_data.dart';
-import 'package:sisged/_widgets/charts/treemap/treemap_chart_changed.dart';
+// ===== Measurements (separados) =====
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_store.dart';
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
+import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_store.dart';
 
-import '../../../../_widgets/charts/radar/radar_chart_changed_widget.dart';
+// ===== Contracts / Additives / Apostilles =====
+import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+
+// ===== Map/Charts =====
+import 'package:siged/_blocs/widgets/map/geo_json_manager.dart';
+import 'package:siged/_widgets/charts/radar/radar_series_data.dart';
+import 'package:siged/_widgets/charts/treemap/treemap_chart_changed.dart';
 
 class ContractsController extends ChangeNotifier {
   ContractsController({
@@ -21,6 +26,8 @@ class ContractsController extends ChangeNotifier {
     required this.additivesStore,
     required this.apostillesStore,
     required this.reportsMeasurementStore,
+    required this.adjustmentsStore,
+    required this.revisionsStore,
     AdditivesBloc? additivesBloc,
     ApostillesBloc? apostillesBloc,
     GeoJsonManager? geoManager,
@@ -32,7 +39,11 @@ class ContractsController extends ChangeNotifier {
   final ContractsStore store;
   final AdditivesStore additivesStore;
   final ApostillesStore apostillesStore;
+
+  /// Stores separados
   final ReportsMeasurementStore reportsMeasurementStore;
+  final AdjustmentsMeasurementStore adjustmentsStore;
+  final RevisionsMeasurementStore revisionsStore;
 
   final AdditivesBloc additivesBloc;
   final ApostillesBloc apostillesBloc;
@@ -42,6 +53,7 @@ class ContractsController extends ChangeNotifier {
   List<ContractData> allContracts = [];
   List<ContractData> filteredContracts = [];
 
+  // Lista de medições (REPORT); para Adjustment/Revision usamos as stores específicas.
   List<ReportMeasurementData> allMeasurements = [];
 
   List<String> uniqueCompanies = []; // <- sempre baseada em allContracts
@@ -108,9 +120,12 @@ class ContractsController extends ChangeNotifier {
       allContracts = store.all;
     }
 
-    // Medições (collectionGroup carregado uma vez)
+    // Medições (carrega as três stores)
     await reportsMeasurementStore.ensureAllLoaded();
+    await adjustmentsStore.ensureAllLoaded();
+    await revisionsStore.ensureAllLoaded();
     if (_disposed) return;
+
     allMeasurements = reportsMeasurementStore.all;
 
     // Estado inicial
@@ -126,7 +141,7 @@ class ContractsController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ---------- Recarregar “geral” quando quiser forçar atualização de tudo
+  // ---------- Recarregar “geral”
   Future<void> refreshAndRecalc() async {
     final runId = ++_applyRunId;
     allContracts = store.all;
@@ -137,7 +152,6 @@ class ContractsController extends ChangeNotifier {
     await aplicarFiltrosERecalcular();
   }
 
-  /// Útil para ser chamado do widget em `reassemble()` ou após hot-reload.
   Future<void> onHotReload() => refreshAndRecalc();
 
   // --------- Seletores / Interações
@@ -258,7 +272,7 @@ class ContractsController extends ChangeNotifier {
     uniqueCompanies = _extractCompanies(allContracts);
   }
 
-  // --------- Helpers de ID (corrigem o problema dos aditivos/apostilas)
+  // --------- Helpers de ID
   String? _idToString(Object? id) {
     if (id == null) return null;
     try {
@@ -371,20 +385,22 @@ class ContractsController extends ChangeNotifier {
   }
 
   Future<void> _calcularTotaisReajustes() async {
-    allMeasurements = reportsMeasurementStore.all;
-    _totalReajustes = reportsMeasurementStore.sumReajustes(allMeasurements);
+    // usa a store específica de ajustes
+    final entries = adjustmentsStore.all;
+    _totalReajustes = adjustmentsStore.sumAdjustments(entries);
   }
 
   Future<void> _calcularTotaisRevisoes() async {
-    allMeasurements = reportsMeasurementStore.all;
-    _totalRevisoes = reportsMeasurementStore.sumRevisoes(allMeasurements);
+    // usa a store específica de revisões
+    final entries = revisionsStore.all;
+    _totalRevisoes = revisionsStore.sumRevisions(entries);
   }
 
-  // --------- Orquestrador (uma notificação no fim + proteção de concorrência)
+  // --------- Orquestrador
   Future<void> aplicarFiltrosERecalcular() async {
     final runId = ++_applyRunId;
 
-    // 🔄 Garanta dados mais recentes antes de qualquer cálculo
+    // 🔄 Garanta dados mais recentes
     allContracts = store.all;
     allMeasurements = reportsMeasurementStore.all;
 
@@ -419,7 +435,7 @@ class ContractsController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // --------- Combinações p/ gráficos (Status/Região/Empresa)
+  // --------- Combinações p/ gráficos
   Map<String, double> get totaisStatusAtuais {
     switch (tipoDeValorSelecionado) {
       case 'Valor contratado':
@@ -517,7 +533,6 @@ class ContractsController extends ChangeNotifier {
   // --------- Gráfico de empresas
   List<String> get labelsEmpresa => uniqueCompanies;
 
-  // 🔧 nunca retorna null (barra vira 0.0 e aparece cinza)
   List<double> get valuesEmpresa =>
       uniqueCompanies.map((e) => totaisEmpresaAtuais[e] ?? 0.0).toList();
 
@@ -643,8 +658,6 @@ class ContractsController extends ChangeNotifier {
   }
 
   // ================== TREEMAP POR RODOVIA ==================
-  /// Agrupa os contratos filtrados por `mainContractHighway` somando o valor contratado.
-  /// Retorna uma lista de `TreemapItem` pronta para o TreemapChanged.
   List<TreemapItem> get treemapRodovias {
     final mapa = <String, double>{};
 
@@ -652,19 +665,16 @@ class ContractsController extends ChangeNotifier {
       final rodovia = (contrato.mainContractHighway ?? 'SEM RODOVIA').trim();
       if (rodovia.isEmpty) continue;
 
-      // Usa o mesmo "tipoDeValorSelecionado" se quiser deixar dinâmico
       double valor;
       switch (tipoDeValorSelecionado) {
         case 'Valor contratado':
           valor = contrato.initialValueContract ?? 0.0;
           break;
         case 'Total em aditivos':
-        // opcional: somar via AdditivesStore por contrato
-          valor = 0.0;
+          valor = 0.0; // opcional: somar via AdditivesStore por contrato
           break;
         case 'Total em apostilas':
-        // opcional: somar via ApostillesStore por contrato
-          valor = 0.0;
+          valor = 0.0; // opcional: somar via ApostillesStore por contrato
           break;
         case 'Somatório total':
         default:
@@ -676,24 +686,13 @@ class ContractsController extends ChangeNotifier {
       mapa[rodovia] = (mapa[rodovia] ?? 0.0) + valor;
     }
 
-    // Ordena rodovias por valor desc (opcional, útil para cores)
     final ordenado = mapa.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Paleta simples cíclica
     final colors = <Color>[
-      Colors.blue,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.red,
-      Colors.teal,
-      Colors.indigo,
-      Colors.brown,
-      Colors.cyan,
-      Colors.deepOrange,
-      Colors.pink,
-      Colors.lime,
+      Colors.blue, Colors.green, Colors.orange, Colors.purple,
+      Colors.red, Colors.teal, Colors.indigo, Colors.brown,
+      Colors.cyan, Colors.deepOrange, Colors.pink, Colors.lime,
     ];
 
     int i = 0;

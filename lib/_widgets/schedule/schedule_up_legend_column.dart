@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_widgets/schedule/schedule_cells.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
-import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
+import 'package:siged/_widgets/schedule/schedule_cells.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_data.dart';
+import 'package:siged/_widgets/schedule/schedule_lane_class.dart';
 import 'schedule_grid.dart';
 
 // Bloc de Usuário
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_event.dart';
-import 'package:sisged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_event.dart';
 
 class ScheduleUpLegendColumn extends StatelessWidget {
   final int estacaNumero;
@@ -107,8 +106,8 @@ class ScheduleUpLegendColumn extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: ScheduleGrid.kCellVPad),
                 child: ScheduleCells(
-                  execucao: exec,
-                  altura: faixa.altura,
+                  scheduleData: exec,
+                  height: faixa.altura,
                   cor: getSquareColor(exec),
                   onTap: () => onTapSquare(exec),
                   isSelected: isSelected,

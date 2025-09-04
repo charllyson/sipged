@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_utils/date_utils.dart';
-import 'package:sisged/_widgets/table/simple_table_changed.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
-import 'package:sisged/_widgets/totalTableRows/footer_rows_generic.dart';
+import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
+import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_widgets/totalTableRows/footer_rows_generic.dart';
 
 class ReportMeasurementTableSection extends StatelessWidget {
   final void Function(ReportMeasurementData) onTapItem;
@@ -33,7 +33,7 @@ class ReportMeasurementTableSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalReports = measurementsData.fold<double>(0.0, (prev, item) => prev + (item.valueReportMeasurement ?? 0.0),);
+    final totalReports = measurementsData.fold<double>(0.0, (prev, item) => prev + (item.value ?? 0.0),);
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -54,13 +54,13 @@ class ReportMeasurementTableSection extends StatelessWidget {
                   ],
                   selectedItem: selectedMeasurement,
                   columnGetters: [
-                        (a) => '${a.orderReportMeasurement ?? '-'}',
-                        (a) => a.numberProcessReportMeasurement ?? '-',
-                        (a) => convertDateTimeToDDMMYYYY(a.dateReportMeasurement ?? DateTime.now()),
-                        (a) => priceToString(a.valueReportMeasurement),
+                        (a) => '${a.order ?? '-'}',
+                        (a) => a.numberprocess ?? '-',
+                        (a) => convertDateTimeToDDMMYYYY(a.date ?? DateTime.now()),
+                        (a) => priceToString(a.value),
                   ],
                   onTapItem: onTapItem,
-                  onDelete: (item) => onDelete(item.idReportMeasurement!),
+                  onDelete: (item) => onDelete(item.id!),
                   columnWidths: const [100, 200, 150, 200],
                   columnTextAligns: const [
                     TextAlign.center,

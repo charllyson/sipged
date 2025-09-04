@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/summary/summary_expandable_card.dart';
+import 'package:siged/_widgets/summary/summary_expandable_card.dart';
 import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
 
 class AccidentsSummarySection extends StatelessWidget {

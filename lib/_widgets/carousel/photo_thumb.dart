@@ -1,17 +1,13 @@
 import 'dart:typed_data';
-
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/carousel/photo_item.dart';
-import 'package:sisged/_blocs/widgets/carousel/carousel_photo_theme.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:html' as html;
-import 'dart:js_util' as jsu;
-import 'package:sisged/_utils/images/web_fetch_bytes.dart' show fetchBytesWeb;
-import 'package:sisged/_utils/images/heic_web_convert.dart' show convertHeicBytesToJpegWeb;
-import 'package:sisged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:flutter/material.dart';
 
-import '../../_utils/images/web_fetch_bytes.dart';
+import 'package:siged/_widgets/carousel/photo_item.dart';
+import 'package:siged/_blocs/widgets/carousel/carousel_photo_theme.dart';
+import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+
+// IMPORTE o loader condicional (ele puxa web/io certo):
+import 'package:siged/_utils/images/image_adapter_loader.dart';
 
 class PhotoThumb extends StatelessWidget {
   final PhotoItem item;
@@ -66,7 +62,7 @@ class PhotoThumb extends StatelessWidget {
   }
 
   Widget _buildImage(double size) {
-    // ⚠️ Placeholder só para HEIC em BYTES locais (não para URL)
+    // Placeholder para HEIC em BYTES locais
     if (item is PhotoBytesItem && item.looksHeic) {
       return _heicPlaceholder(size);
     }
@@ -75,7 +71,12 @@ class PhotoThumb extends StatelessWidget {
       final url = (item as PhotoUrlItem).url;
 
       if (!kIsWeb) {
-        // Mobile/desktop nativo pode usar network direto
+        // Mobile/Desktop nativo pode usar network direto
+        final looksHeicUrl = url.toLowerCase().endsWith('.heic') || url.toLowerCase().endsWith('.heif');
+        if (looksHeicUrl) {
+          // Android pode não renderizar HEIC -> mostre placeholder
+          return _heicPlaceholder(size);
+        }
         return Image.network(
           url,
           width: size,
@@ -86,19 +87,14 @@ class PhotoThumb extends StatelessWidget {
         );
       }
 
-      // WEB: sempre carrega por BYTES e converte HEIC se necessário
+      // WEB: baixar bytes + converter HEIC se possível
       return FutureBuilder<Uint8List>(
         future: () async {
-          final raw = await fetchBytesWeb(url);
-          final fmt = pm.sniffFormat(raw);
-          if (fmt == pm.ImgFmt.heic) {
-            if (!jsu.hasProperty(html.window, 'heic2any')) {
-              // sem conversor -> devolve PNG 1x1 p/ não quebrar layout
-              return Uint8List.fromList([137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,1,0,0,0,1,8,6,0,0,0,31,21,196,137,0,0,0,10,73,68,65,84,120,156,99,0,1,0,0,5,0,1,13,10,45,66,0,0,0,0,73,69,78,68,174,66,96,130]);
-            }
-            final jpg = await convertHeicBytesToJpegWeb(raw);
-            final isJpeg = jpg.length >= 2 && jpg[0] == 0xFF && jpg[1] == 0xD8;
-            return isJpeg ? jpg : raw; // se falhar conversão, pelo menos não explode
+          final raw = await loadImageBytes(url);
+          final isHeic = pm.sniffFormat(raw) == pm.ImgFmt.heic || sniffIsHeic(raw);
+          if (isHeic) {
+            final jpg = await tryConvertHeicToJpeg(raw);
+            return jpg ?? raw; // se não converter, usa raw
           }
           return raw; // jpg/png/webp...
         }(),
@@ -130,7 +126,6 @@ class PhotoThumb extends StatelessWidget {
     return _errorBox(size);
   }
 
-
   Widget _heicPlaceholder(double size) {
     return Container(
       width: size,
@@ -161,10 +156,7 @@ class PhotoThumb extends StatelessWidget {
       child: const SizedBox(
         width: 18,
         height: 18,
-        child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2
-        ),
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
     );
   }

@@ -1,115 +1,106 @@
-name: sisgeo
+name: siged
 description: "Your new database center for roads!"
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.1
 
 environment:
-  sdk: ^3.7.2
+  sdk: ">=3.7.2 <4.0.0"   # ou o range que você estiver usando
 
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:   # ⬅️ AQUI dentro de dependencies
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
 
-  #FIREBASE
-  firebase_core: ^3.13.0 #1.17.1 #1.10.0 #^0.4.5
-  firebase_storage: ^12.4.5 #10.2.17 #10.1.0 #8.0.0 #^3.1.6 #Armazenamento de arquivos no firebase
-  firebase_auth: ^5.5.2 #3.3.19 #3.3.3 #1.0.0 #^0.16.1 #Autenticação do usuário via firebase
-  cloud_firestore: ^5.6.8 #5.6.6 #3.1.17 #3.1.0 #1.0.0 #^0.13.7 #Armazenamento de de dados no firebase
+  # FIREBASE
+  firebase_core: ^4.0.0
+  firebase_storage: ^13.0.0
+  firebase_auth: ^6.0.0
+  cloud_firestore: ^6.0.0
 
-  #CONECTORES
-  bloc_pattern: ^3.0.1 #3.0.0 #2.5.1 #^1.5.2 #Cria blocos para fazer o screens.common.login do usuario com seguranca
-  rxdart: ^0.28.0 #0.26.0 #^0.25.0 #Streams e futures
-  scoped_model: ^2.0.0 #1.1.0 #Permite que eu acesse os dados do usuario em qualquer pagina
-  #flutter_modular: ^6.3.2
+  # LOCAL
+  shared_preferences: ^2.5.3
 
-  #LOCALIZAÇÃO
-  geolocator: ^13.0.4 #8.0.0 #^7.7.1 #7.0.0 #6.2.1 #Recupera os ads no mapa
-  #geocoder2: ^1.4.0
+  # CONECTORES
+  bloc_pattern: ^3.0.1
+  flutter_bloc: ^9.1.1
+  rxdart: ^0.28.0
+  scoped_model: ^2.0.0
+  intl: ^0.20.2
+  provider: ^6.1.5
 
-  #DRAW
-  image_picker: ^1.1.2 #0.8.4+4 #0.7.0 #^0.6.7+22 #Recupera imagem da camera e galeria
-  fl_chart: ^0.63.0
-  url_launcher: ^6.2.5
-
-  cpf_cnpj_validator: ^2.0.0 #^1.0.5 #Validador de CPF e CNPJ
-  brasil_fields: 1.15.0 #1.0.0 #0.6.1 #Adaptar valores para o formato de moeda brasileira
-  diacritic: ^0.1.3
-  intl: ^0.19.0
-  lucide_icons: ^0.255.0
-  #file_picker: ^6.1.1
-  provider: ^6.1.1
-  rive: ^0.13.20
-  open_file: ^3.3.2
-  file_picker: ^10.2.0
-  open_filex: ^4.4.0
-  vector_math: ^2.1.4
-  web: ^1.1.0
-  http: ^1.2.1
-  path_provider: ^2.1.2
-  permission_handler: ^11.3.1
-  datetime_picker_formfield: 2.0.0 #1.0.0 #Formulário de input tipo date
-  mask_text_input_formatter: ^2.4.0
-  flutter_multi_formatter: ^2.9.0  # ou a versão mais recente
-
-  flutter_map: ^6.2.1
-  #geojson: ^1.0.0
+  # COORDENADAS
+  geolocator: ^14.0.2
   latlong2: ^0.9.1
-  flutter_map_tappable_polyline: ^6.0.0
-  flutter_map_cancellable_tile_provider: ^1.0.0
+  geocoding: ^4.0.0
 
+  # MAPAS
+  flutter_map: ^8.2.1
+  flutter_map_marker_cluster_plus: ^1.4.2
+
+  # GRÁFICOS
+  fl_chart: ^1.0.0
+  percent_indicator: ^4.2.3
+
+  # ACESSO AO DISPOSITIVO
+  file_picker: ^10.2.0
+  exif: ^3.3.0
+  image: ^4.0.2
+  flutter_image_compress: ^2.4.0
+  syncfusion_flutter_pdfviewer: ^28.2.7
+  pdfx: ^2.6.0
+
+  # IMAGENS
+  image_picker: ^1.2.0
+  image_cropper: ^9.1.0
+
+  # ANIMAÇÕES
+  shimmer: ^3.0.0
+
+  # MÁSCARAS
+  flutter_multi_formatter: ^2.9.0
+  cpf_cnpj_validator: ^2.0.0
+  brasil_fields: ^1.18.0
+  mask_text_input_formatter: ^2.4.0
+  diacritic: ^0.1.3
+
+  # DATE INPUT
+  datetime_picker_formfield: 2.0.1
+
+  # CONECTORES
+  excel: ^4.0.6
+  url_launcher: ^6.3.2
+  flutter_launcher_icons: ^0.14.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
+  uses-material-design: true
+
   fonts:
     - family: Halter
       fonts:
         - asset: assets/fonts/halter.ttf
 
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
-  uses-material-design: true
-
-  # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/roads/all-roads.geojson
+    - assets/geojson/roads/state_roads.geojson
+    - assets/geojson/limits/limites_regionais_der_al.geojson
+    - assets/geojson/limits/limites_cidades_al.geojson
+    - assets/geojson/roads/state_bridges.geojson
     - assets/logos/deral/logo-deral.png
     - assets/images/default_avatar.png
-    - assets/logos/sisgeo/sisgeo.png
-    - assets/icons/map.png
+    - assets/logos/siged/siged.png
     - assets/icons/pdf-file-format.png
     - assets/icons/wait-to-up-file.png
 
-  # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
-
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
-
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
-  #         weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/to/font-from-package
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/system/info/system_bloc.dart';
-import 'package:sisged/_widgets/charts/lines/line_chart_changed.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/system/info/system_bloc.dart';
+import 'package:siged/_widgets/charts/lines/line_chart_changed.dart';
+import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 
 class MeasurementContractSection extends StatelessWidget {
   final List<ReportMeasurementData> filteredMeasurements;
@@ -26,8 +26,8 @@ class MeasurementContractSection extends StatelessWidget {
         child: LineChartChanged(
           larguraGrafico: systemBloc.calcularLarguraDinamica(filteredMeasurements.length),
           alturaGrafico: 300,
-          labels: filteredMeasurements.map((m) => dayAndMonthToString(m.dateReportMeasurement!)).toList(),
-          values: filteredMeasurements.map((m) => m.valueReportMeasurement ?? 0.0).toList(),
+          labels: filteredMeasurements.map((m) => dayAndMonthToString(m.date!)).toList(),
+          values: filteredMeasurements.map((m) => m.value ?? 0.0).toList(),
           selectedIndex: selectedIndex,
           onPointTap: (index) {
             onPointTap?.call(index);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
 enum GaugeTextMode { explicit, percent, number, money }
 

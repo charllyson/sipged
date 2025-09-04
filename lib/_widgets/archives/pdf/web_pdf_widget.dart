@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_widgets/archives/pdf/web_pdf_controller.dart';
+import 'package:siged/_widgets/archives/pdf/web_pdf_controller.dart';
 
-import 'package:sisged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/revision/payment_revision_storage_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 class WebPdfWidgetGeneric<T> extends StatefulWidget {
   const WebPdfWidgetGeneric({

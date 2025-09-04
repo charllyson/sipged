@@ -4,16 +4,16 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_blocs/system/user/user_data.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
-import 'package:sisged/_widgets/input/custom_date_field.dart';
-import 'package:sisged/_widgets/input/custom_text_field.dart';
-import 'package:sisged/_utils/validates/login_validators.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_widgets/input/custom_date_field.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_utils/validates/login_validators.dart';
 
-import 'package:sisged/_blocs/system/login/login_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_event.dart';
-import 'package:sisged/_blocs/system/user/user_repository.dart';
+import 'package:siged/_blocs/system/login/login_bloc.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_event.dart';
+import 'package:siged/_blocs/system/user/user_repository.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key, required this.userData});

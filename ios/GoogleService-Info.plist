@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyCtjKZ8OBkHSzBipIUlqXgiZ1Wh8FkMQAs</string>
+	<key>GCM_SENDER_ID</key>
+	<string>769410863294</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>sisgeo.charllyson.com</string>
+	<key>PROJECT_ID</key>
+	<string>sisgeoderal</string>
+	<key>STORAGE_BUCKET</key>
+	<string>sisgeoderal.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:769410863294:ios:50708a33732f3d504b0eef</string>
+	<key>DATABASE_URL</key>
+	<string>https://sisgeoderal-default-rtdb.firebaseio.com</string>
+</dict>
+</plist>

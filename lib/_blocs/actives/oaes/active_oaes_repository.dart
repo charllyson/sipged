@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:sisged/_blocs/actives/oaes/active_oaes_data.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
 
 class ActiveOaesRepository {
   final _ref = FirebaseFirestore.instance.collection('actives_oaes');

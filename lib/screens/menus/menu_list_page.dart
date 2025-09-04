@@ -1,49 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_store.dart';
 
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_store.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_store.dart';
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
+import 'package:siged/screens/actives/airports/network/active_airports_network_page.dart';
+import 'package:siged/screens/actives/airports/records/active_airports_records_page.dart';
+import 'package:siged/screens/actives/railways/network/active_railways_network_page.dart';
+import 'package:siged/screens/actives/railways/records/active_railways_records_page.dart';
 
-import 'package:sisged/_widgets/listContracts/list_contracts_controller.dart';
-import 'package:sisged/screens/actives/oaes/network/active_oaes_network_page.dart';
-import 'package:sisged/screens/sectors/financial/dashboard/dashboard_financial_page.dart';
-import 'package:sisged/screens/sectors/financial/tab_bar_financial_page.dart';
-import 'package:sisged/screens/sectors/operation/desapropriation/desapropriation_page.dart';
-import 'package:sisged/screens/sectors/operation/schedule/schedule_page.dart';
-import 'package:sisged/screens/sectors/planning/environment/planning_environment_dashboard.dart';
-import 'package:sisged/screens/sectors/planning/projects/planning_projects_dashboard.dart';
-import 'package:sisged/screens/sectors/planning/projects/planning_projects_registration_page.dart';
-import 'package:sisged/screens/menus/menu_drawer.dart';
-import 'package:sisged/screens/actives/oaes/records/active_oaes_records_page.dart';
-import 'package:sisged/screens/actives/roads/records/active_roads_records_page.dart';
+import 'package:siged/screens/commons/listContracts/list_contracts_controller.dart';
+import 'package:siged/screens/actives/oaes/network/active_oaes_network_page.dart';
+import 'package:siged/screens/sectors/financial/dashboard/dashboard_financial_page.dart';
+import 'package:siged/screens/sectors/financial/tab_bar_financial_page.dart';
+import 'package:siged/screens/sectors/operation/desapropriation/desapropriation_page.dart';
+import 'package:siged/screens/sectors/operation/schedule/schedule_page.dart';
+import 'package:siged/screens/sectors/planning/environment/planning_environment_dashboard.dart';
+import 'package:siged/screens/sectors/planning/projects/planning_projects_dashboard.dart';
+import 'package:siged/screens/sectors/planning/projects/planning_projects_registration_page.dart';
+import 'package:siged/screens/menus/menu_drawer.dart';
+import 'package:siged/screens/actives/oaes/records/active_oaes_records_page.dart';
+import 'package:siged/screens/actives/roads/records/active_roads_records_page.dart';
 
-import 'package:sisged/_blocs/system/pages/pages_data.dart';
-import 'package:sisged/_widgets/buttons/float_button_menu.dart';
-import 'package:sisged/screens/documents/contract/tab_bar_contract_page.dart';
-import 'package:sisged/screens/documents/measurement/tab_bar_measurement_page.dart';
-import 'package:sisged/screens/sectors/planning/rightOfWay/planning_right_of_way_dashboard.dart';
-import 'package:sisged/screens/sectors/planning/rightOfWay/planning_right_of_way_registration_page.dart';
-import 'package:sisged/screens/sectors/traffic/accidents/accidents_records_page.dart';
-import 'package:sisged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
-import 'package:sisged/screens/sectors/traffic/infrations/infractions_records_page.dart';
+import 'package:siged/_blocs/system/pages/pages_data.dart';
+import 'package:siged/_widgets/buttons/float_button_menu.dart';
+import 'package:siged/screens/documents/contract/tab_bar_contract_page.dart';
+import 'package:siged/screens/documents/measurement/tab_bar_measurement_page.dart';
+import 'package:siged/screens/sectors/planning/rightOfWay/planning_right_of_way_dashboard.dart';
+import 'package:siged/screens/sectors/planning/rightOfWay/planning_right_of_way_registration_page.dart';
+import 'package:siged/screens/sectors/traffic/accidents/accidents_records_page.dart';
+import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
+import 'package:siged/screens/sectors/traffic/infrations-records/infractions_records_page.dart';
 
-import 'package:sisged/_blocs/sectors/operation/schedule_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additive_store.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_store.dart';
-import 'package:sisged/screens/actives/roads/network/active_roads_network_page.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
+import 'package:siged/screens/actives/roads/network/active_roads_network_page.dart';
 
 import '../../_blocs/sectors/operation/schedule_repository.dart';
-import '../../_widgets/listContracts/list_contract_page.dart';
-import '../documents/contract/dashboard/dashboard_contracts_body.dart';
+import '../commons/listContracts/list_contract_page.dart';
+import '../documents/contract/dashboard/dashboard_contracts_page.dart';
 import '../../_blocs/documents/contracts/contracts/contracts_controller.dart';
 import '../sectors/traffic/infractions-dashboard/infractions_dashboard_page.dart';
 
 // BLoC de usuário
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_event.dart';
-import 'package:sisged/_blocs/system/user/user_state.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_event.dart';
+import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 class MenuListPage extends StatefulWidget {
   const MenuListPage({super.key});
@@ -53,7 +59,7 @@ class MenuListPage extends StatefulWidget {
 }
 
 class _MenuListPageState extends State<MenuListPage> {
-  MenuItem _selectedItem = MenuItem.documentsContractsDashboard;
+  MenuItem _selectedItem = MenuItem.documentsContractsRecords;
   bool _didWarmupUserBloc = false;   // warmup do UserBloc
   bool _didWarmupStores = false;     // warmup do ContractsStore
 
@@ -73,6 +79,7 @@ class _MenuListPageState extends State<MenuListPage> {
     switch (item) {
     /// SETOR DE DOCUMENTOS ///
       case MenuItem.documentsContractsDashboard:
+      // documentsContractsDashboard
         return ChangeNotifierProvider(
           create: (ctx) {
             final ctrl = ContractsController(
@@ -80,15 +87,18 @@ class _MenuListPageState extends State<MenuListPage> {
               additivesStore: ctx.read<AdditivesStore>(),
               apostillesStore: ctx.read<ApostillesStore>(),
               reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
+              adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),   // 👈 novo
+              revisionsStore: ctx.read<RevisionsMeasurementStore>(),       // 👈 novo
             );
             WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.initialize());
             return ctrl;
           },
           child: const Scaffold(
             backgroundColor: Colors.white,
-            body: DashboardBody(),
+            body: DashboardContractPage(),
           ),
         );
+
 
       case MenuItem.documentsContractsRecords:
         return _buildContractsListPage((context, contract) {
@@ -102,19 +112,17 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case MenuItem.documentsMeasurementsDashboard:
         return ChangeNotifierProvider(
-          create: (ctx) {
-            final ctrl = ContractsController(
-              store: ctx.read<ContractsStore>(),
-              additivesStore: ctx.read<AdditivesStore>(),
-              apostillesStore: ctx.read<ApostillesStore>(),
-              reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
-            );
-            WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.initialize());
-            return ctrl;
-          },
+          create: (ctx) => ContractsController(
+            store: ctx.read<ContractsStore>(),
+            additivesStore: ctx.read<AdditivesStore>(),
+            apostillesStore: ctx.read<ApostillesStore>(),
+            reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
+            adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(), // 👈
+            revisionsStore: ctx.read<RevisionsMeasurementStore>(),     // 👈
+          )..initialize(),
           child: const Scaffold(
             backgroundColor: Colors.white,
-            body: DashboardBody(),
+            body: DashboardContractPage(),
           ),
         );
 
@@ -137,29 +145,29 @@ class _MenuListPageState extends State<MenuListPage> {
               builder: (_) => RepositoryProvider(
                 create: (_) => ScheduleRepository(),
                 child: BlocProvider(
-                  create: (ctx) => ScheduleBloc(ctx.read<ScheduleRepository>()),
-                  child: SchedulePage(contractData: contract),
+                  create: (ctx) => ScheduleBloc(),
+                  child: SchedulePage(contractData: contract), // 👈 importante
                 ),
               ),
             ),
           );
         });
 
+
+
       case MenuItem.operationExpropriationDashboard:
         return ChangeNotifierProvider(
-          create: (ctx) {
-            final ctrl = ContractsController(
-              store: ctx.read<ContractsStore>(),
-              additivesStore: ctx.read<AdditivesStore>(),
-              apostillesStore: ctx.read<ApostillesStore>(),
-              reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
-            );
-            WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.initialize());
-            return ctrl;
-          },
+          create: (ctx) => ContractsController(
+            store: ctx.read<ContractsStore>(),
+            additivesStore: ctx.read<AdditivesStore>(),
+            apostillesStore: ctx.read<ApostillesStore>(),
+            reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
+            adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(), // 👈
+            revisionsStore: ctx.read<RevisionsMeasurementStore>(),     // 👈
+          )..initialize(),
           child: const Scaffold(
             backgroundColor: Colors.white,
-            body: DashboardBody(),
+            body: DashboardContractPage(),
           ),
         );
 
@@ -238,15 +246,15 @@ class _MenuListPageState extends State<MenuListPage> {
 
     /// ATIVOS DE AEROPORTOS ///
       case MenuItem.activeAirportsNetwork:
-        return const ActiveRoadsNetworkPage();
+        return const ActiveAirportsNetworkPage();
       case MenuItem.activeAirportsRegistration:
-        return const ActiveRoadsRecordsPage();
+        return const ActiveAirportsRecordsPage();
 
     /// ATIVOS DE FERROVIAS ///
       case MenuItem.activeRailwaysNetwork:
-        return const ActiveRoadsNetworkPage();
+        return const ActiveRailwaysNetworkPage();
       case MenuItem.activeRailwaysRegistration:
-        return const ActiveRoadsRecordsPage();
+        return const ActiveRailwaysRecordsPage();
 
     /// ATIVOS DE PORTOS ///
       case MenuItem.activePortsNetwork:

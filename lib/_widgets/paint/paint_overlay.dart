@@ -2,7 +2,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -115,8 +114,8 @@ class _PaintOverlayState extends State<PaintOverlay> {
 
   LatLng? _toLatLng(Offset localPos) {
     try {
-      final pt = math.Point<double>(localPos.dx, localPos.dy);
-      return widget.mapController.camera.pointToLatLng(pt);
+      // v8: usa diretamente Offset <-> LatLng
+      return widget.mapController.camera.screenOffsetToLatLng(localPos);
     } catch (_) {
       return null;
     }
@@ -347,7 +346,7 @@ class _PaintOverlayState extends State<PaintOverlay> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Bloqueando a edição o  mapa pode ser arrastado/zoomado livremente',
+          'Bloqueando a edição o mapa pode ser arrastado/zoomado livremente',
           style: TextStyle(fontSize: 12, color: Colors.white70),
         ),
       ],
@@ -506,8 +505,8 @@ class StrokesPainter extends CustomPainter {
       Offset? last;
 
       for (final latLng in s.points) {
-        final p = camera.latLngToScreenPoint(latLng);
-        final o = Offset(p.x.toDouble(), p.y.toDouble());
+        // v8: converte LatLng -> Offset de tela
+        final o = camera.latLngToScreenOffset(latLng);
         if (last == null) {
           path.moveTo(o.dx, o.dy);
         } else {

@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:sisged/_blocs/documents/contracts/additives/additive_data.dart';
-import 'package:sisged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/documents/contracts/validity/validity_data.dart';
-import 'package:sisged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additive_data.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_data.dart';
+import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 
 class Registro {
   final String? id;
@@ -40,7 +40,7 @@ class Registro {
   String get titulo {
     if (original is ReportMeasurementData) {
       final m = original as ReportMeasurementData;
-      return '${m.orderReportMeasurement}ª Medição';
+      return '${m.order}ª Medição';
     } else if (original is AdditiveData) {
       final a = original as AdditiveData;
       return '${a.additiveOrder}° Aditivo';

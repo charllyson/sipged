@@ -7,8 +7,8 @@ class PieChartShimmerWidget extends StatelessWidget {
 
   const PieChartShimmerWidget({
     super.key,
-    this.largura = 260,
-    this.altura = 260,
+    this.largura = 290,
+    this.altura = 290,
   });
 
   @override
@@ -18,7 +18,7 @@ class PieChartShimmerWidget extends StatelessWidget {
       elevation: 4,
       child: SizedBox(
         width: 260,
-        height: 260,
+        height: 290,
         child: Center(
           child: Stack(
             children: [

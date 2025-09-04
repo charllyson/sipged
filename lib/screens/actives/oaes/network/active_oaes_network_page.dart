@@ -1,16 +1,19 @@
-// lib/screens/actives/oaes/network/active_oaes_network_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sisged/_blocs/actives/oaes/active_oaes_bloc.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_event.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_state.dart';
-import 'package:sisged/_blocs/actives/oaes/active_oaes_repository.dart';
-import 'package:sisged/_widgets/upBar/up_bar.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart'; // 👈 ajuste o path se necessário
+import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
 
-import 'oaes_left_map.dart';
-import 'oaes_right_stats_panel.dart';
+import 'active_oaes_map.dart';
+import 'active_oaes_panel.dart';
+import 'active_oaes_details.dart';
+import 'package:siged/_widgets/map/markers/tagged_marker.dart';
+import '../../../../_blocs/actives/oaes/active_oaes_data.dart';
+
+enum _RightPanelMode { none, analytics, details }
 
 class ActiveOAEsNetworkPage extends StatefulWidget {
   const ActiveOAEsNetworkPage({super.key});
@@ -21,12 +24,13 @@ class ActiveOAEsNetworkPage extends StatefulWidget {
 
 class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   late final ActiveOaesBloc _bloc;
-  bool _showRightPanel = false;
+
+  _RightPanelMode _mode = _RightPanelMode.none;
+  TaggedChangedMarker<ActiveOaesData>? _detailsMarker;
 
   @override
   void initState() {
     super.initState();
-    final repo = ActiveOaesRepository();
     _bloc = ActiveOaesBloc()..add(const ActiveOaesWarmupRequested());
   }
 
@@ -36,19 +40,40 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     super.dispose();
   }
 
-  void _refresh() => _bloc.add(const ActiveOaesRefreshRequested());
-
   void _clearFilters() {
     _bloc.add(const ActiveOaesPieFilterChanged(null));
     _bloc.add(const ActiveOaesRegionFilterChanged(null));
   }
 
-  void _toggleRightPanel() {
-    setState(() => _showRightPanel = !_showRightPanel);
+  void _toggleAnalyticsPanel() {
+    setState(() {
+      if (_mode == _RightPanelMode.analytics) {
+        _mode = _RightPanelMode.none;
+      } else {
+        _mode = _RightPanelMode.analytics;
+        _detailsMarker = null; // fecha detalhes se estiver aberto
+      }
+    });
+  }
+
+  void _openDetails(TaggedChangedMarker<ActiveOaesData> marker) {
+    setState(() {
+      _mode = _RightPanelMode.details;
+      _detailsMarker = marker;
+    });
+  }
+
+  void _closePanel() {
+    setState(() {
+      _mode = _RightPanelMode.none;
+      _detailsMarker = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool showRightPanel = _mode != _RightPanelMode.none;
+
     return BlocProvider.value(
       value: _bloc,
       child: Scaffold(
@@ -63,71 +88,86 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
                 onPressed: _clearFilters,
               ),
               IconButton(
-                tooltip: _showRightPanel ? 'Ocultar painel' : 'Mostrar painel',
+                tooltip: showRightPanel ? 'Ocultar painel' : 'Mostrar painel (métricas)',
                 icon: Icon(
-                  _showRightPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                  showRightPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
                   color: Colors.white,
                 ),
-                onPressed: _toggleRightPanel,
+                onPressed: _toggleAnalyticsPanel,
               ),
             ],
           ),
         ),
 
-        // 👉 FootBar fixado no fim
         bottomNavigationBar: const FootBar(),
 
-        body: Stack(
-          children: [
-            BlocBuilder<ActiveOaesBloc, ActiveOaesState>(
-              builder: (context, state) {
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final bool isWide = constraints.maxWidth >= 980;
+        body: BlocBuilder<ActiveOaesBloc, ActiveOaesState>(
+          builder: (context, state) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isWide = constraints.maxWidth >= 980;
 
-                    if (isWide) {
-                      // Layout lado a lado
-                      return Row(
-                        children: [
-                          Expanded(
-                            flex: 1,
-                            child: OaesLeftMap(state: state),
-                          ),
-                          if (_showRightPanel) ...[
-                            const VerticalDivider(width: 1),
-                            SizedBox(
-                              width: 600, // largura do painel direito
-                              child: OaesRightStatsPanel(
-                                onClose: _toggleRightPanel,
-                              ),
-                            ),
-                          ],
-                        ],
-                      );
-                    } else {
-                      // Layout empilhado (mobile/tablet)
-                      return Column(
-                        children: [
-                          Expanded(
-                            child: OaesLeftMap(state: state),
-                          ),
-                          if (_showRightPanel) ...[
-                            const Divider(height: 1),
-                            SizedBox(
-                              height: 420,
-                              child: OaesRightStatsPanel(
-                                onClose: _toggleRightPanel,
-                              ),
-                            ),
-                          ],
-                        ],
+                Widget? rightPane;
+                switch (_mode) {
+                  case _RightPanelMode.none:
+                    rightPane = null;
+                    break;
+                  case _RightPanelMode.analytics:
+                    rightPane = ActiveOaesPanel(onClose: _closePanel);
+                    break;
+                  case _RightPanelMode.details:
+                    final marker = _detailsMarker;
+                    if (marker != null) {
+                      rightPane = ActiveOaesDetails(
+                        marker: marker,
+                        onClose: _closePanel,
                       );
                     }
-                  },
-                );
+                    break;
+                }
+
+                if (isWide) {
+                  // side-by-side
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: ActiveOaesMap(
+                          state: state,
+                          onOpenDetails: _openDetails, // <<< vem do Map
+                        ),
+                      ),
+                      if (rightPane != null) ...[
+                        const VerticalDivider(width: 1),
+                        SizedBox(
+                          width: 560, // ajuste conforme seu layout
+                          child: rightPane,
+                        ),
+                      ],
+                    ],
+                  );
+                } else {
+                  // stacked (mobile/tablet)
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: ActiveOaesMap(
+                          state: state,
+                          onOpenDetails: _openDetails,
+                        ),
+                      ),
+                      if (rightPane != null) ...[
+                        const Divider(height: 1),
+                        SizedBox(
+                          height: 460,
+                          child: rightPane,
+                        ),
+                      ],
+                    ],
+                  );
+                }
               },
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

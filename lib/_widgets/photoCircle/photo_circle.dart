@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 class PhotoCircle extends StatelessWidget {
   final UserData? userData;
@@ -10,16 +10,24 @@ class PhotoCircle extends StatelessWidget {
   Widget build(BuildContext context) {
     final photoUrl = userData?.urlPhoto;
 
-    return ClipOval(
-      child: (photoUrl != null && photoUrl.isNotEmpty)
-          ? Image.network(
-        photoUrl,
-        width: 40,
-        height: 40,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _defaultAvatar(),
-      )
-          : _defaultAvatar(),
+    return Container(
+      width: 44, // 40 + 2px de borda em cada lado
+      height: 44,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 1), // borda branca
+      ),
+      child: ClipOval(
+        child: (photoUrl != null && photoUrl.isNotEmpty)
+            ? Image.network(
+          photoUrl,
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _defaultAvatar(),
+        )
+            : _defaultAvatar(),
+      ),
     );
   }
 

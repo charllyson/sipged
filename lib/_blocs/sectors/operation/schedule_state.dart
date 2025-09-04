@@ -1,9 +1,8 @@
-// lib/blocs/schedule/schedule_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
-import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_style.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_data.dart';
+import 'package:siged/_widgets/schedule/schedule_lane_class.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_style.dart';
 
 enum ScheduleStatusLoad { idle, loading, success, failure }
 
@@ -82,7 +81,7 @@ class ScheduleState extends Equatable {
     error,
   ];
 
-  // --------- Derivados (mantendo o que você tinha no Store) ---------
+  // --------- Derivados ---------
 
   int get totalEsperado => totalEstacas * lanes.length;
 
@@ -119,8 +118,122 @@ class ScheduleState extends Equatable {
   double get pctAndamento => totalEsperado == 0 ? 0 : andamento  / totalEsperado * 100.0;
   double get pctAIniciar  => totalEsperado == 0 ? 0 : aIniciar   / totalEsperado * 100.0;
 
+  // ================== Helpers expostos p/ SchedulePage ==================
+
+  /// Metadado do serviço atual (UI).
+  ScheduleData get currentServiceMeta {
+    if (services.isEmpty) {
+      return const ScheduleData(
+        numero: 0,
+        faixaIndex: 0,
+        key: 'geral',
+        label: 'GERAL',
+        icon: Icons.clear_all,
+        color: Colors.grey,
+      );
+    }
+    return services.firstWhere(
+          (o) => o.key == currentServiceKey,
+      orElse: () => services.first,
+    );
+  }
+
+  /// Título do header (label/key em UPPERCASE).
+  String get titleForHeader {
+    final meta = currentServiceMeta;
+    return (meta.label.isNotEmpty ? meta.label : meta.key).toUpperCase();
+  }
+
+  /// Cor da tarja do header.
+  Color get colorForHeader => currentServiceMeta.color;
+
+  /// Pode editar célula individual? (não permite quando está em "geral")
+  bool get canEditSingleCell => currentServiceKey != 'geral';
+
+  /// Pode aplicar em lote? (mesma regra de cima; lógica extra pode ser adicionada depois)
+  bool get canBulkApply => currentServiceKey != 'geral';
+
+  /// Seleção retangular entre dois pontos (estaca/faixa) → chaves "e_f".
+  Set<String> selectionBetween(int estacaA, int faixaA, int estacaB, int faixaB) {
+    final e0 = estacaA <= estacaB ? estacaA : estacaB;
+    final e1 = estacaA <= estacaB ? estacaB : estacaA;
+    final f0 = faixaA <= faixaB ? faixaA : faixaB;
+    final f1 = faixaA <= faixaB ? faixaB : faixaA;
+
+    final sel = <String>{};
+    for (int e = e0; e <= e1; e++) {
+      for (int f = f0; f <= f1; f++) {
+        sel.add('${e}_$f');
+      }
+    }
+    return sel;
+  }
+
+  /// Fotos atuais da célula (se existir).
+  List<String> fotosAtuaisFor(int estaca, int faixa) {
+    final idx = execucoes.indexWhere((x) => x.numero == estaca && x.faixaIndex == faixa);
+    return idx == -1 ? const <String>[] : List<String>.from(execucoes[idx].fotos);
+  }
+
+  // ================== Sombreamento relativo por recência ==================
+
+  // Quão clara a mais antiga pode ficar (0.0 = sem clarear; 0.8 = clareia muito).
+  static const double _kMaxWhiteBlendOldest = 0.60; // 60% de branco na mais antiga
+
+  /// Data de referência de uma célula (prioriza a escolhida no modal).
+  DateTime? _dateForShade(ScheduleData e) {
+    final dtTaken = e.takenAt ??
+        (e.takenAtMs != null ? DateTime.fromMillisecondsSinceEpoch(e.takenAtMs!) : null);
+    return dtTaken ?? e.updatedAt ?? e.createdAt;
+  }
+
+  /// Mistura linear de uma cor com branco.
+  Color _blendWithWhite(Color base, double amount) {
+    amount = amount.clamp(0.0, 1.0);
+    int _mix(int c, int w, double a) => (c + ((w - c) * a)).round().clamp(0, 255);
+    final r = _mix(base.red,   255, amount);
+    final g = _mix(base.green, 255, amount);
+    final b = _mix(base.blue,  255, amount);
+    return Color.fromARGB(base.alpha, r, g, b);
+  }
+
+  /// Clareia a cor base **relativamente** ao intervalo [minDate, maxDate] das execuções:
+  /// - data == minDate  → blend = _kMaxWhiteBlendOldest (mais clara)
+  /// - data == maxDate  → blend = 0.0 (sem clarear)
+  /// - valores no meio  → interpolação linear
+  Color _shadeRelative(Color base, DateTime? dt) {
+    if (dt == null) return base;
+
+    // calcula min e max entre execuções que têm data
+    DateTime? minD, maxD;
+    for (final ex in execucoes) {
+      final d = _dateForShade(ex);
+      if (d == null) continue;
+      if (minD == null || d.isBefore(minD)) minD = d;
+      if (maxD == null || d.isAfter(maxD))  maxD = d;
+    }
+
+    if (minD == null || maxD == null) return base;
+    final totalMs = maxD.millisecondsSinceEpoch - minD.millisecondsSinceEpoch;
+    if (totalMs <= 0) return base; // todas as datas iguais → sem variação
+
+    final posMs = dt.millisecondsSinceEpoch - minD.millisecondsSinceEpoch;
+    final t = (posMs / totalMs).clamp(0.0, 1.0); // 0 = mais antiga, 1 = mais recente
+
+    // Blend maior para as antigas (t=0), zero para as recentes (t=1)
+    final blend = _kMaxWhiteBlendOldest * (1.0 - t);
+    return _blendWithWhite(base, blend);
+  }
+
+  /// Falha segura: se vier sem status mas com foto, considere "em_andamento" para colorir.
+  /// Regras originais mantidas; depois aplica o sombreamento relativo.
   Color squareColor(ScheduleData e) {
-    final t = _canonStatus(e.status);
+    final hasPhotos = e.fotos.isNotEmpty;
+    final raw = (e.status ?? '').trim();
+    final t = raw.isEmpty && hasPhotos ? 'em_andamento' : _canonStatus(raw);
+
+    // 1) Cor base pelas regras existentes
+    Color base;
     if (currentServiceKey == 'geral') {
       if (t == 'concluido' || t == 'em_andamento') {
         final tag = (e.tipo != null && e.tipo!.trim().isNotEmpty)
@@ -128,17 +241,22 @@ class ScheduleState extends Equatable {
             : ((e.key.isNotEmpty && e.key.toLowerCase() != 'geral')
             ? e.key
             : (e.label.isNotEmpty ? e.label : ''));
-        return (tag.isNotEmpty)
+        base = (tag.isNotEmpty)
             ? ScheduleStyle.colorForService(tag)
             : Colors.blueGrey.shade300;
+      } else {
+        base = Colors.grey.shade300;
       }
-      return Colors.grey.shade300;
     } else {
       switch (t) {
-        case 'concluido':    return Colors.green;
-        case 'em_andamento': return Colors.orange;
-        default:             return Colors.grey.shade300;
+        case 'concluido':     base = Colors.green;   break;
+        case 'em_andamento':  base = Colors.orange;  break;
+        default:              base = Colors.grey.shade300;
       }
     }
+
+    // 2) Aplica sombreamento relativo (mais antiga = mais clara; mais recente = mais escura)
+    final dt = _dateForShade(e);
+    return _shadeRelative(base, dt);
   }
 }

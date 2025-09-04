@@ -1,43 +1,44 @@
 // lib/screens/sectors/operation/schedule/schedule_page.dart
-import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // UI base
-import 'package:sisged/_widgets/background/background_cleaner.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
-import 'package:sisged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
 
 // Domínio / dados
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_data.dart';
-import 'package:sisged/_widgets/schedule/schedule_lane_class.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_modal_result_class.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_data.dart';
+import 'package:siged/_widgets/schedule/schedule_lane_class.dart';
 
 // Widgets do Schedule
-import 'package:sisged/_widgets/schedule/schedule_header.dart';
-import 'package:sisged/_widgets/schedule/schedule_grid.dart';
-import 'package:sisged/_widgets/schedule/schedule_menu_buttons.dart';
-import 'package:sisged/_widgets/schedule/schedule_sub_header.dart';
+import 'package:siged/_widgets/schedule/schedule_header.dart';
+import 'package:siged/_widgets/schedule/schedule_grid.dart';
+import 'package:siged/_widgets/schedule/schedule_menu_buttons.dart';
+import 'package:siged/_widgets/schedule/schedule_sub_header.dart';
+import 'package:siged/screens/sectors/operation/schedule/schedule_modal_widget.dart';
 
-// Editor de faixas e Modal de resultado
-import 'package:sisged/screens/sectors/operation/schedule/schedule_lanes_edit_section.dart';
-import 'package:sisged/screens/sectors/operation/schedule/schedule_modal_section.dart';
+// Editor de faixas
+import 'package:siged/screens/sectors/operation/schedule/schedule_lanes_edit_section.dart';
 
-// Bloc + Repo
-import 'package:sisged/_blocs/sectors/operation/schedule_bloc.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_event.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_state.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_repository.dart';
+// BLoC
+import 'package:siged/_blocs/sectors/operation/schedule_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_event.dart';
+import 'package:siged/_blocs/sectors/operation/schedule_state.dart';
 
-// Controller ÚNICO de UI
-import 'package:sisged/_widgets/schedule/schedule_status.dart';
-import 'package:sisged/_blocs/sectors/operation/schedule_controller.dart';
+// Status enum
+import 'package:siged/_widgets/schedule/schedule_status.dart';
+
+// Modal (single cell)
+import 'package:siged/screens/sectors/operation/schedule/schedule_modal_square.dart';
+
+// (opcional) metadados por URL p/ carrossel
+import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
 class SchedulePage extends StatefulWidget {
   final ContractData? contractData;
-
   const SchedulePage({super.key, this.contractData});
 
   @override
@@ -45,7 +46,7 @@ class SchedulePage extends StatefulWidget {
 }
 
 class _SchedulePageState extends State<SchedulePage> {
-  // ===== Constantes de layout =====
+  // ===== Constantes de layout (UI-only) =====
   static const double kLegendWidth = 100.0;
   static const double kEstacaWidth = 22.5;
   static const double kHeaderHeight = 40.0;
@@ -64,17 +65,10 @@ class _SchedulePageState extends State<SchedulePage> {
   void initState() {
     super.initState();
 
-    // Garantias (injete Repository/Bloc acima desta página)
-    if (context.read<ScheduleRepository?>() == null) {
-      throw FlutterError(
-        'ScheduleRepository não encontrado no contexto. '
-            'Envolva SchedulePage com RepositoryProvider(create: (_) => ScheduleRepository()).',
-      );
-    }
     if (context.read<ScheduleBloc?>() == null) {
       throw FlutterError(
         'ScheduleBloc não encontrado no contexto. '
-            'Envolva SchedulePage com BlocProvider(create: (ctx) => ScheduleBloc(ctx.read<ScheduleRepository>())).',
+            'Envolva SchedulePage com BlocProvider(create: (_) => ScheduleBloc()).',
       );
     }
 
@@ -138,9 +132,10 @@ class _SchedulePageState extends State<SchedulePage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Título e cor vêm do próprio State (getters)
                         ScheduleHeader(
-                          title: _titleForHeader(state),
-                          colorStripe: _colorForHeader(state),
+                          title: state.titleForHeader,
+                          colorStripe: state.colorForHeader,
                           leftPadding: 80,
                         ),
                         const SizedBox(height: 6),
@@ -154,11 +149,10 @@ class _SchedulePageState extends State<SchedulePage> {
                       ],
                     ),
                   ),
-
                   // Conteúdo
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.only(left: 12.0, right: 75.0, top: 12.0),
+                      padding: const EdgeInsets.only(left: 12.0, right: 12.0),
                       child: Container(
                         color: Colors.white,
                         child: _gridOrPlaceholder(state),
@@ -241,13 +235,13 @@ class _SchedulePageState extends State<SchedulePage> {
       legendWidth: kLegendWidth,
       estacaWidth: kEstacaWidth,
 
-      // Cor calculada pelo próprio estado
+      // Cor calculada pelo próprio estado (com shade por recência)
       getSquareColor: state.squareColor,
 
-      // Interações
+      // Interações (UI-only)
       onTapSquare: (ScheduleData e) => _onTapSquare(e, state),
       onDragStart: (int e, int f) => _onDragStart(e, f),
-      onDragUpdate: (int e, int f) => _onDragUpdate(e, f),
+      onDragUpdate: (int e, int f) => _onDragUpdate(e, f, state),
       onDragEnd: _onDragEnd,
 
       selectedKeys: _selectedKeys,
@@ -257,12 +251,12 @@ class _SchedulePageState extends State<SchedulePage> {
     );
   }
 
-  // ===================== Interações =====================
+  // ===================== Interações (UI-only) =====================
 
   Future<void> _onTapSquare(ScheduleData e, ScheduleState state) async {
     if (_isDragging || _modalOpen || _bulkApplying) return;
 
-    if (state.currentServiceKey == 'geral') {
+    if (!state.canEditSingleCell) {
       _toast('Para editar, selecione um serviço específico.');
       return;
     }
@@ -273,64 +267,68 @@ class _SchedulePageState extends State<SchedulePage> {
     try {
       _modalOpen = true;
 
-      // Controller do modal — TODA a lógica fica nele
-      final ctrl = ScheduleController(
-        initialStatus: ScheduleStatusX.fromString(e.status),
-        initialComment: e.comentario,
-        initialDate: DateTime.now(),
-        existingPhotoUrls: e.fotos,
-        // Se você tiver o mapa de metadados por URL, passe aqui:
-        // existingMetaByUrl: {...},
-      );
+      // ----- monta metadados por URL (para o carrossel) -----
+      final metaByUrl = <String, pm.CarouselMetadata>{};
+      for (final m in e.fotosMeta) {
+        final url = m['url']?.toString() ?? '';
+        if (url.isEmpty) continue;
+        metaByUrl[url] = pm.CarouselMetadata(
+          name: m['name']?.toString(),
+          takenAt: (m['takenAtMs'] is num)
+              ? DateTime.fromMillisecondsSinceEpoch((m['takenAtMs'] as num).toInt())
+              : ((m['takenAt'] is num)
+              ? DateTime.fromMillisecondsSinceEpoch((m['takenAt'] as num).toInt())
+              : null),
+          lat: (m['lat'] as num?)?.toDouble(),
+          lng: (m['lng'] as num?)?.toDouble(),
+          make: m['make']?.toString(),
+          model: m['model']?.toString(),
+          orientation: (m['orientation'] is num)
+              ? (m['orientation'] as num).toInt()
+              : int.tryParse(m['orientation']?.toString() ?? ''),
+          url: url,
+        );
+      }
 
-      final res = await showModalBottomSheet<ScheduleModalResultClass>(
+      // status inicial para o modal
+      final initialStatus = _statusFromString(e.status);
+
+      // Modal — usa o mesmo BLoC da página
+      await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
-        builder: (_) => ScheduleModalSection(
-          title: _titleForHeader(state),
-          count: 1,
-          controller: ctrl, // UI boba + controller com a lógica
+        builder: (_) => BlocProvider.value(
+          value: context.read<ScheduleBloc>(),
+          child: ScheduleModalSquare(
+            estaca: e.numero,
+            trackIndex: e.faixaIndex,
+            currentUserId: _uid,
+            tipoLabel: state.titleForHeader,
+            initialStatus: initialStatus,
+            existingUrls: e.fotos,
+            existingMetaByUrl: metaByUrl,
+            initialTakenAt: e.takenAt,
+          )
         ),
       );
 
-      if (res != null) {
-        // 1) status/comentário
-        context.read<ScheduleBloc>().add(
-          ScheduleSquareUpsertRequested(
-            estaca: e.numero,
-            faixaIndex: e.faixaIndex,
-            tipoLabel: _titleForHeader(state),
-            status: res.statusKey,
-            comentario: (res.comment?.trim().isEmpty ?? true)
-                ? null
-                : res.comment!.trim(),
-            currentUserId: _uid,
-          ),
-        );
-
-        // 2) fotos (se houver)
-        if (res.hasPhotos) {
-          context.read<ScheduleBloc>().add(
-            ScheduleSquareUploadPhotosRequested(
-              estaca: e.numero,
-              faixaIndex: e.faixaIndex,
-              filesBytes: res.photosBytes,
-              fileNames: res.photoNames,
-              currentUserId: _uid,
-              takenAt: res.date,
-            ),
-          );
-        }
-
-        _toast('Célula atualizada com sucesso!');
-      }
+      // Recarrega execuções após fechar o modal
+      context.read<ScheduleBloc>().add(const ScheduleExecucoesReloadRequested());
+      _toast('Célula atualizada com sucesso!');
     } catch (err) {
       _toast('Falha ao salvar a célula: $err');
     } finally {
       _modalOpen = false;
       if (mounted) setState(() => _selectedKeys.clear());
     }
+  }
+
+  ScheduleStatus _statusFromString(String? s) {
+    final t = (s ?? '').toLowerCase();
+    if (t.contains('conclu')) return ScheduleStatus.concluido;
+    if (t.contains('andament') || t.contains('progress')) return ScheduleStatus.emAndamento;
+    return ScheduleStatus.aIniciar;
   }
 
   void _onDragStart(int estaca, int faixa) {
@@ -345,18 +343,12 @@ class _SchedulePageState extends State<SchedulePage> {
     });
   }
 
-  void _onDragUpdate(int estaca, int faixa) {
+  void _onDragUpdate(int estaca, int faixa, ScheduleState state) {
     if (!_isDragging || _anchorEstaca == null || _anchorFaixa == null) return;
-    final aE = _anchorEstaca!, aF = _anchorFaixa!;
-    final e0 = math.min(aE, estaca), e1 = math.max(aE, estaca);
-    final f0 = math.min(aF, faixa), f1 = math.max(aF, faixa);
 
-    final sel = <String>{};
-    for (int e = e0; e <= e1; e++) {
-      for (int f = f0; f <= f1; f++) {
-        sel.add('${e}_$f');
-      }
-    }
+    // Delega ao State o cálculo das keys selecionadas (parâmetros posicionais)
+    final sel = state.selectionBetween(_anchorEstaca!, _anchorFaixa!, estaca, faixa);
+
     setState(() {
       _selectedKeys
         ..clear()
@@ -379,7 +371,7 @@ class _SchedulePageState extends State<SchedulePage> {
     final state = context.read<ScheduleBloc>().state;
 
     if (_modalOpen || _bulkApplying) return;
-    if (state.currentServiceKey == 'geral') {
+    if (!state.canBulkApply) {
       _toast('Selecione um serviço específico para editar em lote.');
       return;
     }
@@ -387,22 +379,11 @@ class _SchedulePageState extends State<SchedulePage> {
 
     _modalOpen = true;
 
-    // Controller do modal (batch)
-    final ctrl = ScheduleController(
-      initialStatus: ScheduleStatus.aIniciar,
-      initialComment: '',
-      initialDate: DateTime.now(),
-    );
-
-    final res = await showModalBottomSheet<ScheduleModalResultClass>(
+    final res = await showModalBottomSheet<ScheduleModalWidget>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => ScheduleModalSection(
-        title: _titleForHeader(state),
-        count: _selectedKeys.length,
-        controller: ctrl,
-      ),
+      builder: (_) => BulkStatusCommentSheet(count: _selectedKeys.length),
     );
 
     _modalOpen = false;
@@ -415,40 +396,34 @@ class _SchedulePageState extends State<SchedulePage> {
     setState(() => _bulkApplying = true);
     try {
       for (final key in _selectedKeys) {
+        // parse simples "e_f"
         final parts = key.split('_');
         if (parts.length != 2) continue;
         final estaca = int.tryParse(parts[0]);
         final faixa = int.tryParse(parts[1]);
         if (estaca == null || faixa == null) continue;
 
-        // 1) status/comentário
+        // Fotos atuais: helper do State
+        final fotosAtuais = state.fotosAtuaisFor(estaca, faixa);
+
         context.read<ScheduleBloc>().add(
-          ScheduleSquareUpsertRequested(
+          ScheduleSquareApplyRequested(
             estaca: estaca,
             faixaIndex: faixa,
-            tipoLabel: _titleForHeader(state),
-            status: res.statusKey,
-            comentario: (res.comment?.trim().isEmpty ?? true)
-                ? null
-                : res.comment!.trim(),
+            tipoLabel: state.titleForHeader,
+            status: res.status.key,
+            comentario: (res.comment?.trim().isEmpty ?? true) ? null : res.comment!.trim(),
+            takenAt: res.takenAt,                // ⬅️ aplica a mesma data p/ todas
+            finalPhotoUrls: fotosAtuais,         // preserva as fotos existentes
+            newFilesBytes: const [],             // sem novos uploads
+            newFileNames: const [],
+            newPhotoMetas: const [],
             currentUserId: _uid,
           ),
         );
-
-        // 2) fotos (se houver)
-        if (res.hasPhotos) {
-          context.read<ScheduleBloc>().add(
-            ScheduleSquareUploadPhotosRequested(
-              estaca: estaca,
-              faixaIndex: faixa,
-              filesBytes: res.photosBytes,
-              fileNames: res.photoNames,
-              currentUserId: _uid,
-              takenAt: res.date,
-            ),
-          );
-        }
       }
+
+      context.read<ScheduleBloc>().add(const ScheduleExecucoesReloadRequested());
       _toast('Atualizado em lote: ${_selectedKeys.length} célula(s).');
     } catch (e) {
       _toast('Falha ao aplicar em lote: $e');
@@ -476,38 +451,8 @@ class _SchedulePageState extends State<SchedulePage> {
   }
 
   // ===================== Helpers de UI =====================
-  String _titleForHeader(ScheduleState state) {
-    final meta = _metaForService(state);
-    return meta.label.isNotEmpty ? meta.label.toUpperCase() : meta.key.toUpperCase();
-    // meta é um ScheduleData dentro de state.services
-  }
-
-  Color _colorForHeader(ScheduleState state) {
-    final meta = _metaForService(state);
-    return meta.color;
-  }
-
-  ScheduleData _metaForService(ScheduleState state) {
-    final services = state.services;
-    if (services.isEmpty) {
-      return const ScheduleData(
-        numero: 0,
-        faixaIndex: 0,
-        key: 'geral',
-        label: 'GERAL',
-        icon: Icons.clear_all,
-        color: Colors.grey,
-      );
-    }
-    return services.firstWhere(
-          (o) => o.key == state.currentServiceKey,
-      orElse: () => services.first,
-    );
-  }
-
   void _toast(String msg) {
     final overlay = Overlay.of(context);
-
     final entry = OverlayEntry(
       builder: (_) => Positioned(
         top: 70,
@@ -528,7 +473,6 @@ class _SchedulePageState extends State<SchedulePage> {
         ),
       ),
     );
-
     overlay.insert(entry);
     Future.delayed(const Duration(seconds: 3), () => entry.remove());
   }

@@ -2,14 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 usar bloc
-import 'package:sisged/_blocs/system/user/user_bloc.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
-import 'package:sisged/_utils/responsive_utils.dart';
-import 'package:sisged/_widgets/autocomplete/autocomplete_user_class.dart';
-import 'package:sisged/_widgets/input/custom_text_field.dart';
-import 'package:sisged/_utils/mask_class.dart';
-import 'package:sisged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/responsive_utils.dart';
+import 'package:siged/_widgets/autocomplete/autocomplete_user_class.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_utils/mask_class.dart';
+import 'package:siged/_utils/validates/form_validation_mixin.dart';
 
 import './main_information_controller.dart';
 

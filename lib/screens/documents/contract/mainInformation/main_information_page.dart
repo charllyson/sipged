@@ -4,25 +4,25 @@ import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_widgets/background/background_cleaner.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
-import 'package:sisged/_widgets/archives/pdf/web_pdf_widget.dart';
-import 'package:sisged/_utils/responsive_utils.dart';
-import 'package:sisged/_widgets/input/custom_date_field.dart';
-import 'package:sisged/_widgets/input/custom_text_field.dart';
-import 'package:sisged/_widgets/input/drop_down_botton_change.dart';
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/_utils/validates/form_validation_mixin.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_store.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_rules.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_widgets/archives/pdf/web_pdf_controller.dart';
-import 'package:sisged/_utils/formats/input_formatters.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';import 'package:sisged/_widgets/footBar/foot_bar.dart';
-import 'package:sisged/screens/documents/contract/mainInformation/main_company_section.dart';
-import 'package:sisged/screens/documents/contract/mainInformation/main_information_controller.dart';
-import 'package:sisged/screens/documents/contract/mainInformation/main_manager_section.dart';
+import 'package:siged/_widgets/archives/pdf/web_pdf_widget.dart';
+import 'package:siged/_utils/responsive_utils.dart';
+import 'package:siged/_widgets/input/custom_date_field.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_widgets/archives/pdf/web_pdf_controller.dart';
+import 'package:siged/_utils/formats/input_formatters.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/screens/documents/contract/mainInformation/main_company_section.dart';
+import 'package:siged/screens/documents/contract/mainInformation/main_information_controller.dart';
+import 'package:siged/screens/documents/contract/mainInformation/main_manager_section.dart';
 
 class MainInformationPage extends StatefulWidget {
   final void Function(ContractData)? onSaved;

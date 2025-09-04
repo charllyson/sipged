@@ -1,3 +1,4 @@
+// lib/flavors.dart
 class Flavor {
   static String name = const String.fromEnvironment('FLAVOR', defaultValue: 'dev');
   static bool get isDev => name == 'dev';

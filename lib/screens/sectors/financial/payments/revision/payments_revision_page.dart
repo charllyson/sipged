@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sisged/screens/sectors/financial/payments/revision/payment_revision_controller.dart';
+import 'package:siged/screens/sectors/financial/payments/revision/payment_revision_controller.dart';
 
-import 'package:sisged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
-import 'package:sisged/_widgets/texts/divider_text.dart';
-import 'package:sisged/admPanel/converters/importExcel/import_excel_page.dart';
-import 'package:sisged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/admPanel/converters/importExcel/import_excel_page.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 import 'payment_revision_chart_section.dart';
 import 'payment_revision_form_section.dart';

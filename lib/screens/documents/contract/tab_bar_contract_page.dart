@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sisged/_widgets/background/background_cleaner.dart';
-import 'package:sisged/_widgets/popUpMenu/pup_up_photo_menu.dart';
-import 'package:sisged/screens/documents/contract/validity/validity_page.dart';
+import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_widgets/popUpMenu/pup_up_photo_menu.dart';
+import 'package:siged/screens/documents/contract/validity/validity_page.dart';
 
-import 'package:sisged/_blocs/system/user/user_data.dart';
-import 'package:sisged/_widgets/buttons/back_circle_button.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_widgets/buttons/back_circle_button.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'additive/additive_page.dart';
 import 'apostilles/apostilles_page.dart';
-import 'budget/budget_controller.dart';
+import '../../../_widgets/table/magic/magic_table_controller.dart';
 import 'budget/budget_page.dart';
 import 'mainInformation/main_information_page.dart';
 
@@ -44,6 +44,11 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
 
   @override
   Widget build(BuildContext context) {
+    // ======= lógica da UpBar: safeTop + altura visual da barra =======
+    final double safeTop = MediaQuery.of(context).padding.top; // iOS notch/Android status bar (no web = 0)
+    const double barHeight = 72.0;                              // sua faixa azul
+    final double topBarTotal = safeTop + barHeight;
+
     return DefaultTabController(
       length: 5,
       initialIndex: widget.initialTabIndex,
@@ -52,38 +57,12 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
         body: Stack(
           children: [
             const BackgroundClean(),
-            Builder(
-              builder: (context) => Column(
-                children: [
-                  Container(
-                    height: 72,
-                    color: const Color(0xFF1B2033),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 12),
-                        const BackCircleButton(),
-                        const Expanded(
-                          child: TabBar(
-                            isScrollable: true,
-                            dividerHeight: 0,
-                            physics: NeverScrollableScrollPhysics(),
-                            labelColor: Colors.white,
-                            indicatorColor: Colors.white,
-                            unselectedLabelColor: Colors.grey,
-                            tabs: [
-                              Tab(text: 'Processo licitatório'),
-                              Tab(text: 'Vigências'),
-                              Tab(text: 'Aditivos'),
-                              Tab(text: 'Apostilamentos'),
-                              Tab(text: 'Planilha orçamentária'),
-                            ],
-                          ),
-                        ),
-                        const PopUpPhotoMenu(),
-                      ],
-                    ),
-                  ),
 
+            // Conteúdo deslocado para baixo da barra (safeTop + 72)
+            Padding(
+              padding: EdgeInsets.only(top: topBarTotal),
+              child: Column(
+                children: [
                   // Banner com resumo (se houver)
                   if ((_contractData?.summarySubjectContract?.trim().isNotEmpty ?? false))
                     Container(
@@ -100,6 +79,7 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
                       ),
                     ),
 
+                  // Conteúdo das abas
                   Expanded(
                     child: TabBarView(
                       physics: const NeverScrollableScrollPhysics(),
@@ -142,7 +122,7 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
                         // 5) Planilha orçamentária (Provider local ao tab)
                         _wrapWithBlocker(
                           ChangeNotifierProvider(
-                            create: (_) => BudgetController(cellPadHorizontal: 24),
+                            create: (_) => MagicTableController(cellPadHorizontal: 24),
                             child: BudgetPage(
                               key: ValueKey(_contractData?.id),
                               contractData: _contractData!,
@@ -153,6 +133,52 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
                     ),
                   ),
                 ],
+              ),
+            ),
+
+            // ======= Barra azul estilo UpBar (reserva safeTop internamente) =======
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: topBarTotal,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF1B2031), Color(0xFF1B2039)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.white, width: 1),
+                  ),
+                ),
+                padding: EdgeInsets.only(top: safeTop), // << UpBar logic aqui
+                child: Row(
+                  children: const [
+                    SizedBox(width: 12),
+                    BackCircleButton(),
+                    Expanded(
+                      child: TabBar(
+                        isScrollable: true,
+                        dividerHeight: 0,
+                        physics: NeverScrollableScrollPhysics(),
+                        labelColor: Colors.white,
+                        indicatorColor: Colors.white,
+                        unselectedLabelColor: Colors.grey,
+                        tabs: [
+                          Tab(text: 'Processo licitatório'),
+                          Tab(text: 'Vigências'),
+                          Tab(text: 'Aditivos'),
+                          Tab(text: 'Apostilamentos'),
+                          Tab(text: 'Planilha orçamentária'),
+                        ],
+                      ),
+                    ),
+                    PopUpPhotoMenu(),
+                    SizedBox(width: 12),
+                  ],
+                ),
               ),
             ),
           ],

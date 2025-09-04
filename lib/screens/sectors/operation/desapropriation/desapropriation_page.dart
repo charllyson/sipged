@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 class DesapropriationPage extends StatelessWidget {
 

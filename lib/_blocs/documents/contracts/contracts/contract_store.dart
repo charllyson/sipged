@@ -2,11 +2,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_bloc.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 /// Store de contratos com:
 /// - Warmup idempotente por usuário
@@ -230,8 +230,6 @@ class ContractsStore extends ChangeNotifier {
   bool _strEq(String? a, String? b) =>
       (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
 
-  bool _strContains(String? haystack, String? needle) =>
-      (haystack ?? '').toUpperCase().contains((needle ?? '').toUpperCase());
 
   bool _listContainsIgnoreCase(Iterable<String>? list, String? value) {
     if (list == null || value == null || value.isEmpty) return false;

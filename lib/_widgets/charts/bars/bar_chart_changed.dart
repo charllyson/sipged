@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
 import 'bar_chart_shimmer_widget.dart';
 
@@ -137,7 +137,6 @@ class _BarChartChangedState extends State<BarChartChanged> {
                         ),
                         barTouchData: BarTouchData(
                           touchTooltipData: BarTouchTooltipData(
-                            tooltipBgColor: Colors.black87,
                             tooltipPadding: const EdgeInsets.all(6),
                             tooltipMargin: 2,
                             fitInsideVertically: true,

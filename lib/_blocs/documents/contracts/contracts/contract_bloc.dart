@@ -4,10 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:rxdart/rxdart.dart';
 
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_rules.dart';
-import 'package:sisged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:sisged/_blocs/system/user/user_data.dart';
-import 'package:sisged/_utils/formats/format_field.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
 /// BLoC responsável por TUDO que é **Firestore** do módulo de contratos.
 /// (Upload/Storage foi movido para ContractStorageBloc.)

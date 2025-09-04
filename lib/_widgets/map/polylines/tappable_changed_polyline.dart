@@ -6,8 +6,11 @@ class TappableChangedPolyline {
   final dynamic tag;
   final bool isDotted;
   final Color color;
-  final Color? defaultColor; // novo campo
+  final Color? defaultColor;
   final double strokeWidth;
+
+  /// 🔹 Se `false`, essa polyline não participa do hit-test (não “clica”)
+  final bool hitTestable;
 
   TappableChangedPolyline({
     required this.points,
@@ -16,6 +19,7 @@ class TappableChangedPolyline {
     this.defaultColor,
     required this.strokeWidth,
     this.isDotted = false,
+    this.hitTestable = true, // default: clicável
   });
 
   TappableChangedPolyline copyWith({
@@ -25,6 +29,7 @@ class TappableChangedPolyline {
     Color? color,
     double? strokeWidth,
     Color? defaultColor,
+    bool? hitTestable,
   }) {
     return TappableChangedPolyline(
       points: points ?? this.points,
@@ -33,21 +38,31 @@ class TappableChangedPolyline {
       color: color ?? this.color,
       defaultColor: defaultColor ?? this.defaultColor,
       strokeWidth: strokeWidth ?? this.strokeWidth,
+      hitTestable: hitTestable ?? this.hitTestable,
     );
   }
-
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is TappableChangedPolyline &&
         other.tag == tag &&
+        other.isDotted == isDotted &&
+        other.color == color &&
+        other.defaultColor == defaultColor &&
+        other.strokeWidth == strokeWidth &&
+        other.hitTestable == hitTestable &&
         _listEquals(other.points, points);
   }
 
   @override
   int get hashCode => Object.hash(
     tag,
+    isDotted,
+    color,
+    defaultColor,
+    strokeWidth,
+    hitTestable,
     Object.hashAll(points.map((p) => Object.hash(p.latitude, p.longitude))),
   );
 

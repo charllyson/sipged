@@ -1,22 +1,12 @@
+// lib/_widgets/archives/pdf/pdf_preview_stub.dart
 import 'package:flutter/material.dart';
 
-class PdfPreviewWeb extends StatelessWidget {
+class PdfPreview extends StatelessWidget {
   final String pdfUrl;
-  const PdfPreviewWeb({super.key, required this.pdfUrl});
+  const PdfPreview({super.key, required this.pdfUrl});
 
   @override
   Widget build(BuildContext context) {
-    // Fallback para plataformas que não são Web
-    return SizedBox(
-      width: 600,
-      height: 400,
-      child: Center(
-        child: Text(
-          'Pré-visualização de PDF indisponível nesta plataforma.\n'
-              'URL: $pdfUrl',
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
+    return const Center(child: Text('PDF Preview indisponível nesta plataforma.'));
   }
 }

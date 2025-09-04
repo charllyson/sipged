@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-class SisGedLogo extends StatelessWidget {
+class sigedLogo extends StatelessWidget {
 
   final double? fontSize;
   final double? heightLogo;
   final double? widthLogo;
 
-  const SisGedLogo({
+  const sigedLogo({
     super.key,
     this.fontSize = 80,
     this.heightLogo = 50,
@@ -35,7 +35,7 @@ class SisGedLogo extends StatelessWidget {
               width: widthLogo,
               child: Image(
                 image: AssetImage(
-                  'assets/logos/sisgeo/sisgeo.png',
+                  'assets/logos/siged/siged.png',
                 ),
               ),
             ),
