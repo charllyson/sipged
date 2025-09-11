@@ -14,6 +14,7 @@ import 'apostilles/apostilles_page.dart';
 import '../../../_widgets/table/magic/magic_table_controller.dart';
 import 'budget/budget_page.dart';
 import 'mainInformation/main_information_page.dart';
+import 'mainInformation/main_manager_section.dart';
 
 class TabBarContractPage extends StatefulWidget {
   final UserData? userData;
@@ -84,8 +85,8 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
                     child: TabBarView(
                       physics: const NeverScrollableScrollPhysics(),
                       children: [
-                        // 1) Processo licitatório (informações principais)
-                        MainInformationPage(
+                        // 1) Processo licitatório
+                        MainManagerSection(
                           key: ValueKey(_contractData?.id),
                           contractData: _contractData,
                           onSaved: (updated) {
@@ -97,15 +98,15 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
 
                         // 2) Vigências
                         _wrapWithBlocker(
-                          ValidityPage(
+                              () => ValidityPage(
                             key: ValueKey(_contractData?.id),
-                            contractData: _contractData!,
+                            contractData: _contractData!, // <- seguro: só é avaliado quando há id
                           ),
                         ),
 
                         // 3) Aditivos
                         _wrapWithBlocker(
-                          AdditivePage(
+                              () => AdditivePage(
                             key: ValueKey(_contractData?.id),
                             contractData: _contractData!,
                           ),
@@ -113,15 +114,15 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
 
                         // 4) Apostilamentos
                         _wrapWithBlocker(
-                          ApostillesPage(
+                              () => ApostillesPage(
                             key: ValueKey(_contractData?.id),
                             contractData: _contractData!,
                           ),
                         ),
 
-                        // 5) Planilha orçamentária (Provider local ao tab)
+                        // 5) Planilha orçamentária
                         _wrapWithBlocker(
-                          ChangeNotifierProvider(
+                              () => ChangeNotifierProvider(
                             create: (_) => MagicTableController(cellPadHorizontal: 24),
                             child: BudgetPage(
                               key: ValueKey(_contractData?.id),
@@ -132,6 +133,7 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
                       ],
                     ),
                   ),
+
                 ],
               ),
             ),
@@ -188,8 +190,9 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
   }
 
   /// Bloqueia a aba quando o contrato ainda não foi salvo (id nulo)
-  Widget _wrapWithBlocker(Widget child) {
-    if (_contractData?.id == null) {
+  Widget _wrapWithBlocker(Widget Function() childBuilder) {
+    final hasId = _contractData?.id != null;
+    if (!hasId) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -201,6 +204,8 @@ class _TabBarContractPageState extends State<TabBarContractPage> {
         ),
       );
     }
-    return child;
+    // Só constrói o conteúdo quando há ID (evita avaliar _contractData!)
+    return childBuilder();
   }
+
 }

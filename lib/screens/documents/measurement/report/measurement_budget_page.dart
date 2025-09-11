@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_widgets/buttons/back_button_circle.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
@@ -9,6 +10,7 @@ import 'package:siged/_blocs/documents/contracts/budget/budget_store.dart';
 
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
 import 'package:siged/_widgets/table/magic/magic_table_changed.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
 
 class MeasurementBudgetPage extends StatefulWidget {
   const MeasurementBudgetPage({super.key, required this.contractData});
@@ -104,11 +106,16 @@ class _MeasurementBudgetPageState extends State<MeasurementBudgetPage> {
           body: Stack(
             children: [
               const Positioned.fill(child: BackgroundClean()),
-
               // Conteúdo principal com rodapé de botões
               Positioned.fill(
                 child: Column(
                   children: [
+                    const UpBar(
+                      leading: Padding(
+                        padding: EdgeInsets.only(left: 12.0),
+                        child: BackButtonCircle(),
+                      ),
+                    ),
                     Expanded(
                       child: MagicTableChanged(
                         selectAllOnEdit: false,

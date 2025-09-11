@@ -7,11 +7,15 @@ import 'package:siged/_utils/validates/form_validation_mixin.dart';
 
 import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import './main_information_controller.dart';
+
+// ⬇️ antes: main_information_controller.dart
+// import '.../main_information_controller.dart';
+// ⬇️ agora: ContractsController unificado
+import 'package:siged/_blocs/documents/contracts/contracts/contracts_controller.dart';
 
 /// Seção isolada com os campos de "Informações da empresa".
 class CompanyInfoSection extends StatefulWidget {
-  final MainInformationController controller;
+  final ContractsController controller; // ⬅️ trocado
 
   const CompanyInfoSection({
     super.key,

@@ -8,7 +8,7 @@ class BackButtonCircle extends StatelessWidget {
   const BackButtonCircle({
     super.key,
     this.onPressed,
-    this.backgroundColor = const Color(0xFFE0E0E0),
+    this.backgroundColor = Colors.white,
     this.iconColor = Colors.black,
   });
 

@@ -29,14 +29,14 @@ class PhotoCarousel extends StatelessWidget {
       ...existingUrls.map((u) => PhotoUrlItem(u, meta: existingMetaByUrl?[u])),
       ...List.generate(newPhotos.length, (i) {
         final p = newPhotos[i];
-        final meta = i < newMetas.length ? newMetas[i] : null;
+        final meta = (i < newMetas.length) ? newMetas[i] : null;
         return PhotoBytesItem.fromPicked(p, meta: meta);
       }),
     ];
 
     void Function(int)? onRemove;
     if (onRemoveExisting != null || onRemoveNew != null) {
-      onRemove = (idx) {
+      onRemove = (int idx) {
         final existingCount = existingUrls.length;
         if (idx < existingCount) {
           onRemoveExisting?.call(idx);
@@ -80,24 +80,34 @@ class PhotoCarousel extends StatelessWidget {
         separatorBuilder: (_, __) => SizedBox(width: theme.spacing),
         itemBuilder: (context, globalIndex) {
           if (hasLeading && globalIndex == 0) {
-            return SizedBox(width: theme.itemSize, height: theme.itemSize, child: leading!);
+            return SizedBox(
+              width: theme.itemSize,
+              height: theme.itemSize,
+              child: leading!,
+            );
           }
 
-          final idx = hasLeading ? globalIndex - 1 : globalIndex;
+          final idx = hasLeading ? (globalIndex - 1) : globalIndex;
+          if (idx < 0 || idx >= items.length) {
+            // Defesa extra caso algo desincronize
+            return const SizedBox.shrink();
+          }
           final item = items[idx];
 
           Future<void> defaultTap() async {
             await showPhotoGalleryDialog(
               context,
               items: items,
-              initialIndex: idx,
+              initialIndex: idx, // int garantido
             );
           }
 
           return PhotoThumb(
             item: item,
             theme: theme,
-            onTap: onTapItem == null ? defaultTap : () => onTapItem!(context, idx, item),
+            onTap: onTapItem == null
+                ? defaultTap
+                : () => onTapItem!(context, idx, item),
             onRemove: onRemove == null ? null : () => onRemove!(idx),
           );
         },

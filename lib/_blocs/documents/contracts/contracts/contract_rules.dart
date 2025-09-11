@@ -59,6 +59,14 @@ class ContractRules {
     'ELABORAÇÃO DE PROJETO',
   ];
 
+  // NOVO: Tipos de obras
+  static const List<String> workTypes = [
+    'RODOVIÁRIA',
+    'CONSTRUÇÃO CIVIL',
+    'ARTES ESPECIAIS',
+  ];
+
+
   static const List<String> regions = [
     'AGRESTE',
     'NORTE',

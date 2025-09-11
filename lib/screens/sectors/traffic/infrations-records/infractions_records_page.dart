@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/toolBox/tool_widget.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
 
@@ -15,7 +16,6 @@ import 'infractions_table_section.dart';
 
 // MAPA + OVERLAY (mesmo padrão usado em Acidentes)
 import 'package:siged/_widgets/map/map_interactive.dart';
-import 'package:siged/_widgets/paint/paint_overlay.dart';
 
 class InfractionsRecordsPage extends StatefulWidget {
   const InfractionsRecordsPage({super.key});
@@ -117,7 +117,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                               initialZoom: 9,
                                               activeMap: true,
                                               showLegend: true,
-                                              overlayBuilder: (mapController, _) => PaintOverlay(
+                                              overlayBuilder: (mapController, _) => ToolBoxWidget(
                                                 mapController: mapController,
                                                 onStrokesChanged: (_) {},
                                                 onExportPng: (_) async {},
@@ -185,7 +185,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                           initialZoom: 9,
                                           activeMap: true,
                                           showLegend: true,
-                                          overlayBuilder: (mapController, _) => PaintOverlay(
+                                          overlayBuilder: (mapController, _) => ToolBoxWidget(
                                             mapController: mapController,
                                             onStrokesChanged: (_) {},
                                             onExportPng: (_) async {},

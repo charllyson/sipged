@@ -4,10 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/toolBox/tool_widget.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
-import 'package:siged/_widgets/paint/paint_overlay.dart';
 
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
@@ -333,10 +333,10 @@ class _AccidentsRecordsPageState extends State<AccidentsRecordsPage> {
                                             initialZoom: 9,
                                             activeMap: true,
                                             showLegend: true,
-                                            overlayBuilder: (mapController, _) => PaintOverlay(
+                                            overlayBuilder: (mapController, _) => ToolBoxWidget(
                                               mapController: mapController,
-                                              onStrokesChanged: (_) {},
-                                              onExportPng: (_) async {},
+                                              onStrokesChanged: (_) { },
+                                              onExportPng: (_) async { },
                                             ),
                                           ),
                                         ),
@@ -406,7 +406,7 @@ class _AccidentsRecordsPageState extends State<AccidentsRecordsPage> {
                                         initialZoom: 9,
                                         activeMap: true,
                                         showLegend: true,
-                                        overlayBuilder: (mapController, _) => PaintOverlay(
+                                        overlayBuilder: (mapController, _) => ToolBoxWidget(
                                           mapController: mapController,
                                           onStrokesChanged: (_) {},
                                           onExportPng: (_) async {},

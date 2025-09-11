@@ -1,10 +1,17 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
 import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_store.dart';
 
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_store.dart';
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
+import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_event.dart';
+import 'package:siged/screens/sectors/operation/schedule/schedule_civil_page.dart';
+import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 import 'package:siged/screens/actives/airports/network/active_airports_network_page.dart';
 import 'package:siged/screens/actives/airports/records/active_airports_records_page.dart';
 import 'package:siged/screens/actives/railways/network/active_railways_network_page.dart';
@@ -15,10 +22,10 @@ import 'package:siged/screens/actives/oaes/network/active_oaes_network_page.dart
 import 'package:siged/screens/sectors/financial/dashboard/dashboard_financial_page.dart';
 import 'package:siged/screens/sectors/financial/tab_bar_financial_page.dart';
 import 'package:siged/screens/sectors/operation/desapropriation/desapropriation_page.dart';
-import 'package:siged/screens/sectors/operation/schedule/schedule_page.dart';
+import 'package:siged/screens/sectors/operation/schedule/schedule_road_page.dart';
 import 'package:siged/screens/sectors/planning/environment/planning_environment_dashboard.dart';
-import 'package:siged/screens/sectors/planning/projects/planning_projects_dashboard.dart';
-import 'package:siged/screens/sectors/planning/projects/planning_projects_registration_page.dart';
+import 'package:siged/screens/sectors/planning/projects/planning_project_dashboard.dart';
+import 'package:siged/screens/sectors/planning/projects/planning_projects_network_page.dart';
 import 'package:siged/screens/menus/menu_drawer.dart';
 import 'package:siged/screens/actives/oaes/records/active_oaes_records_page.dart';
 import 'package:siged/screens/actives/roads/records/active_roads_records_page.dart';
@@ -33,13 +40,15 @@ import 'package:siged/screens/sectors/traffic/accidents/accidents_records_page.d
 import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
 import 'package:siged/screens/sectors/traffic/infrations-records/infractions_records_page.dart';
 
-import 'package:siged/_blocs/sectors/operation/schedule_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_bloc.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
 import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
 import 'package:siged/screens/actives/roads/network/active_roads_network_page.dart';
 
-import '../../_blocs/sectors/operation/schedule_repository.dart';
+import '../../_blocs/documents/contracts/contracts/contract_data.dart';
+import '../../_blocs/sectors/operation/road/schedule_repository.dart';
+import '../../_widgets/schedule/civil/schedule_civil_widget.dart';
 import '../commons/listContracts/list_contract_page.dart';
 import '../documents/contract/dashboard/dashboard_contracts_page.dart';
 import '../../_blocs/documents/contracts/contracts/contracts_controller.dart';
@@ -59,7 +68,7 @@ class MenuListPage extends StatefulWidget {
 }
 
 class _MenuListPageState extends State<MenuListPage> {
-  MenuItem _selectedItem = MenuItem.documentsContractsRecords;
+  MenuItem _selectedItem = MenuItem.planningProjectRegistration;
   bool _didWarmupUserBloc = false;   // warmup do UserBloc
   bool _didWarmupStores = false;     // warmup do ContractsStore
 
@@ -67,6 +76,78 @@ class _MenuListPageState extends State<MenuListPage> {
     setState(() => _selectedItem = item);
     Navigator.of(context).pop();
   }
+
+  /// Roteamento centralizado por tipo de obra
+  void _navigateByWorkType(BuildContext context, ContractData contract) {
+    final wt = (contract.workType ?? contract.contractType ?? '').trim().toUpperCase();
+    final scheduleCtrl = ScheduleCivilController();
+
+    // Cálculo de estacas (se precisar aquecer algo no BLoC)
+    final km = contract.contractExtKm ?? 0.0;
+    final totalEstacas = ((km * 1000) / 20).ceil();
+    final contractId = contract.id ?? '';
+
+    if (wt.contains('RODOV')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RepositoryProvider<ScheduleRepository>(
+            create: (_) => ScheduleRepository(),
+            child: BlocProvider<ScheduleBloc>(
+              create: (ctx) => ScheduleBloc(
+                // repo: ctx.read<ScheduleRepository>(),
+              )..add(ScheduleWarmupRequested(
+                contractId: contractId,
+                totalEstacas: totalEstacas,
+                initialServiceKey: 'geral',
+              )),
+              child: ScheduleRoadPage(contractData: contract),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+
+    if (wt.contains('CONSTRU')) { // Residencial/Construção → CIVIL (PDF/DXF)
+      final scheduleCtrl = ScheduleCivilController();
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => BlocProvider<CivilScheduleBloc>(
+            create: (ctx) => CivilScheduleBloc()
+              ..add(CivilWarmupRequested(contractId)),
+            child: ScheduleCivilPage(
+              title: 'Cronograma Residencial',
+              pageNumber: 1,
+              controller: scheduleCtrl,
+              contractId: contractId,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+
+
+
+    if (wt.contains('OAE') || wt.contains('ARTES ESPECIAIS')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cronograma para OAEs ainda não disponível.')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.red.shade300,
+        content: Text('Por favor, cadastre o tipo de obra para: ${contract.summarySubjectContract ?? 'N/D'}'),
+      ),
+    );
+  }
+
+
 
   Widget _buildContractsListPage(ContractNavigationCallback onTap) {
     return ChangeNotifierProvider<ListContractsController>(
@@ -79,7 +160,6 @@ class _MenuListPageState extends State<MenuListPage> {
     switch (item) {
     /// SETOR DE DOCUMENTOS ///
       case MenuItem.documentsContractsDashboard:
-      // documentsContractsDashboard
         return ChangeNotifierProvider(
           create: (ctx) {
             final ctrl = ContractsController(
@@ -87,8 +167,10 @@ class _MenuListPageState extends State<MenuListPage> {
               additivesStore: ctx.read<AdditivesStore>(),
               apostillesStore: ctx.read<ApostillesStore>(),
               reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
-              adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),   // 👈 novo
-              revisionsStore: ctx.read<RevisionsMeasurementStore>(),       // 👈 novo
+              adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),
+              revisionsStore: ctx.read<RevisionsMeasurementStore>(),
+              // ⬇️ novo
+              contractStorageBloc: ctx.read<ContractStorageBloc>(),
             );
             WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.initialize());
             return ctrl;
@@ -117,14 +199,17 @@ class _MenuListPageState extends State<MenuListPage> {
             additivesStore: ctx.read<AdditivesStore>(),
             apostillesStore: ctx.read<ApostillesStore>(),
             reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
-            adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(), // 👈
-            revisionsStore: ctx.read<RevisionsMeasurementStore>(),     // 👈
+            adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),
+            revisionsStore: ctx.read<RevisionsMeasurementStore>(),
+            // ⬇️ novo
+            contractStorageBloc: ctx.read<ContractStorageBloc>(),
           )..initialize(),
           child: const Scaffold(
             backgroundColor: Colors.white,
             body: DashboardContractPage(),
           ),
         );
+
 
       case MenuItem.documentsMeasurementsRecords:
         return _buildContractsListPage((context, contract) {
@@ -138,22 +223,11 @@ class _MenuListPageState extends State<MenuListPage> {
 
     /// SETOR DE OPERAÇÕES ///
       case MenuItem.operationMonitoringWork:
+      // Abre a lista normal; na seleção, decide para onde ir pelo workType
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => RepositoryProvider(
-                create: (_) => ScheduleRepository(),
-                child: BlocProvider(
-                  create: (ctx) => ScheduleBloc(),
-                  child: SchedulePage(contractData: contract), // 👈 importante
-                ),
-              ),
-            ),
-          );
+          _navigateByWorkType(context, contract);
         });
-
-
 
       case MenuItem.operationExpropriationDashboard:
         return ChangeNotifierProvider(
@@ -162,14 +236,17 @@ class _MenuListPageState extends State<MenuListPage> {
             additivesStore: ctx.read<AdditivesStore>(),
             apostillesStore: ctx.read<ApostillesStore>(),
             reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
-            adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(), // 👈
-            revisionsStore: ctx.read<RevisionsMeasurementStore>(),     // 👈
+            adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),
+            revisionsStore: ctx.read<RevisionsMeasurementStore>(),
+            // ⬇️ novo
+            contractStorageBloc: ctx.read<ContractStorageBloc>(),
           )..initialize(),
           child: const Scaffold(
             backgroundColor: Colors.white,
             body: DashboardContractPage(),
           ),
         );
+
 
       case MenuItem.operationExpropriationRecords:
         return _buildContractsListPage((context, contract) {
@@ -183,9 +260,16 @@ class _MenuListPageState extends State<MenuListPage> {
 
     /// SETOR DE PLANEJAMENTO ///
       case MenuItem.planningProjectDashboard:
-        return const PlanningProjectsDashboardPage();
+        return const PlanningProjectDashboardPage();
       case MenuItem.planningProjectRegistration:
-        return const PlanningProjectsRegistrationPage();
+        return _buildContractsListPage((context, contract) {
+          context.read<ContractsStore>().select(contract);
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => PlanningProjectNetworkPage(contractData: contract),
+            ),
+          );
+        });
       case MenuItem.planningRightOfWayDashboard:
         return const PlanningRightOfWayDashboard();
       case MenuItem.planningRightOfWayRecords:

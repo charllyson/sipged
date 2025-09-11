@@ -9,7 +9,7 @@ import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additive_data.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
 
-import 'additive_controller.dart';
+import '../../../../_blocs/documents/contracts/additives/additive_controller.dart';
 import 'additive_form_section.dart';
 import 'additive_graph_section.dart';
 import 'additive_table_section.dart';

@@ -5,7 +5,7 @@ import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_widgets/timeline/timeline_class.dart';
-import 'validity_controller.dart';
+import '../../../../_blocs/documents/contracts/validity/validity_controller.dart';
 import 'validity_form_section.dart';
 import 'validity_table_section.dart';
 

@@ -5,7 +5,7 @@ import 'package:siged/_widgets/texts/divider_text.dart';import 'package:siged/_w
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
 import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
-import 'apostilles_controller.dart';
+import '../../../../_blocs/documents/contracts/apostilles/apostilles_controller.dart';
 import 'apostilles_form_section.dart';
 import 'apostilles_graph_section.dart';
 import 'apostilles_table_section.dart';

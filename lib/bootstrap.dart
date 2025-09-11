@@ -15,6 +15,8 @@ import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measure
 import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_store.dart';
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_bloc.dart';
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_repository.dart';
 
 import '_blocs/actives/roads/active_roads_event.dart';
 import 'firebase_options_flavors.dart';
@@ -217,16 +219,21 @@ Future<void> bootstrapAndRunApp() async {
               additivesStore: ctx.read<AdditivesStore>(),
               apostillesStore: ctx.read<ApostillesStore>(),
               reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
-              adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),   // 👈 novo
-              revisionsStore: ctx.read<RevisionsMeasurementStore>(),       // 👈 novo
+              adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),
+              revisionsStore: ctx.read<RevisionsMeasurementStore>(),
+              // ⬇️ necessário para salvar URL de PDF e uso na MainInformationPage
+              contractStorageBloc: ctx.read<ContractStorageBloc>(),
             )..initialize(),
           ),
 
-          /// ======= Report Measurement =======
-          Provider<ReportMeasurementStorageBloc>(create: (_) => ReportMeasurementStorageBloc()),
-          Provider<ReportMeasurementBloc>(create: (_) => ReportMeasurementBloc(), dispose: (_, b) => b.dispose()),
-          ChangeNotifierProvider<ReportsMeasurementStore>(
-            create: (ctx) => ReportsMeasurementStore(ctx.read<ReportMeasurementBloc>()),
+
+          // ======= Schedule (cronograma) =======
+          RepositoryProvider<ScheduleRepository>(create: (_) => ScheduleRepository()),
+          BlocProvider<ScheduleBloc>(
+            create: (ctx) => ScheduleBloc(
+              // se o construtor aceitar repo, descomente:
+              // repo: ctx.read<ScheduleRepository>(),
+            ),
           ),
 
           /// ======= Adjustment Measurement =======  👈 ADICIONE

@@ -7,7 +7,7 @@ import 'package:siged/_blocs/system/login/login_bloc.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/photoCircle/photo_circle.dart';
-import 'package:siged/admPanel/settings_system_page.dart';
+import 'package:siged/admPanel/settings_system_hub_page.dart';
 
 class PopUpPhotoMenu extends StatefulWidget {
   const PopUpPhotoMenu({super.key});
@@ -63,7 +63,7 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu> {
         switch (value) {
           case 'administrador':
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => SettingsSystemPage()),
+              MaterialPageRoute(builder: (_) => SettingsSystemHubPage()),
             );
             break;
           case 'sair':

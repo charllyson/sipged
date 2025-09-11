@@ -6,103 +6,106 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: const Icon(Icons.cleaning_services),
-      tileColor: Colors.white10,
-      title: const Text('Apagar subcoleções (genérico)'),
-      subtitle: const Text('Informe coleção e subcoleções (separadas por vírgula)'),
-      trailing: const Icon(Icons.arrow_forward_ios),
-      onTap: () async {
-        // Use sempre o NavigatorState capturado para fechar diálogos.
-        final nav = Navigator.of(context, rootNavigator: true);
+    return Container(
+      color: Colors.black12,
+      child: ListTile(
+        leading: const Icon(Icons.cleaning_services),
+        tileColor: Colors.white10,
+        title: const Text('Apagar subcoleções (genérico)'),
+        subtitle: const Text('Informe coleção e subcoleções (separadas por vírgula)'),
+        trailing: const Icon(Icons.arrow_forward_ios),
+        onTap: () async {
+          // Use sempre o NavigatorState capturado para fechar diálogos.
+          final nav = Navigator.of(context, rootNavigator: true);
 
-        final params = await _askParams(context);
-        if (params == null) return;
+          final params = await _askParams(context);
+          if (params == null) return;
 
-        final collectionPath = params.$1.trim();
-        final subs = params.$2;
+          final collectionPath = params.$1.trim();
+          final subs = params.$2;
 
-        // 1) Confirmação inicial
-        final ok = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Confirmar limpeza'),
-            content: Text(
-              'Isto irá APAGAR as subcoleções em TODOS os documentos de:\n'
-                  'Coleção: $collectionPath\n'
-                  'Subcoleções: ${subs.join(', ')}\n\n'
-                  'As demais coleções não serão tocadas. Deseja continuar?',
+          // 1) Confirmação inicial
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Confirmar limpeza'),
+              content: Text(
+                'Isto irá APAGAR as subcoleções em TODOS os documentos de:\n'
+                    'Coleção: $collectionPath\n'
+                    'Subcoleções: ${subs.join(', ')}\n\n'
+                    'As demais coleções não serão tocadas. Deseja continuar?',
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Apagar')),
+              ],
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Apagar')),
-            ],
-          ),
-        ) ??
-            false;
-        if (!ok) return;
+          ) ??
+              false;
+          if (!ok) return;
 
-        // 2) DRY-RUN com loading
-        if (context.mounted) {
-          showDialog(
+          // 2) DRY-RUN com loading
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => const Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          Map<String, Map<String, int>> dry = const {};
+          try {
+            final cleaner = SubcollectionCleaner();
+            dry = await cleaner.deleteForCollectionPath(collectionPath, subs, dryRun: true);
+          } finally {
+            if (nav.canPop()) nav.pop(); // fecha o loading com segurança
+          }
+
+          if (!context.mounted) return;
+          await _showPreviewDialog(context, dry, title: 'Prévia (dry-run)');
+
+          // 3) Confirma apagar de verdade
+          final ok2 = await showDialog<bool>(
             context: context,
-            barrierDismissible: false,
-            builder: (_) => const Center(child: CircularProgressIndicator()),
+            builder: (ctx) => AlertDialog(
+              title: const Text('Apagar agora?'),
+              content: const Text('Deseja executar a limpeza de fato? Esta ação é irreversível.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Não')),
+                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sim, apagar')),
+              ],
+            ),
+          ) ??
+              false;
+
+          if (!ok2) return;
+
+          // 4) Execução real com loading
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => const Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          Map<String, Map<String, int>> res = const {};
+          try {
+            final cleaner = SubcollectionCleaner();
+            res = await cleaner.deleteForCollectionPath(collectionPath, subs, dryRun: false);
+          } finally {
+            if (nav.canPop()) nav.pop(); // fecha o loading com segurança
+          }
+
+          if (!context.mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Subcoleções apagadas com sucesso!')),
           );
-        }
 
-        Map<String, Map<String, int>> dry = const {};
-        try {
-          final cleaner = SubcollectionCleaner();
-          dry = await cleaner.deleteForCollectionPath(collectionPath, subs, dryRun: true);
-        } finally {
-          if (nav.canPop()) nav.pop(); // fecha o loading com segurança
-        }
-
-        if (!context.mounted) return;
-        await _showPreviewDialog(context, dry, title: 'Prévia (dry-run)');
-
-        // 3) Confirma apagar de verdade
-        final ok2 = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Apagar agora?'),
-            content: const Text('Deseja executar a limpeza de fato? Esta ação é irreversível.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Não')),
-              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sim, apagar')),
-            ],
-          ),
-        ) ??
-            false;
-
-        if (!ok2) return;
-
-        // 4) Execução real com loading
-        if (context.mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => const Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        Map<String, Map<String, int>> res = const {};
-        try {
-          final cleaner = SubcollectionCleaner();
-          res = await cleaner.deleteForCollectionPath(collectionPath, subs, dryRun: false);
-        } finally {
-          if (nav.canPop()) nav.pop(); // fecha o loading com segurança
-        }
-
-        if (!context.mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Subcoleções apagadas com sucesso!')),
-        );
-
-        await _showPreviewDialog(context, res, title: 'Resumo da limpeza');
-      },
+          await _showPreviewDialog(context, res, title: 'Resumo da limpeza');
+        },
+      ),
     );
   }
 

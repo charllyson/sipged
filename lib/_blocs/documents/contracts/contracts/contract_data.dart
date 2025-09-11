@@ -1,9 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-
 class ContractData extends ChangeNotifier {
-  ///Informações do contrato
+  /// Informações do contrato
   String? id;
   String? managerId;
   String? contractNumber;
@@ -21,7 +20,13 @@ class ContractData extends ChangeNotifier {
   String? regionalManager;
   String? contractStatus;
   String? contractObjectDescription;
+
+  /// Tipo de contrato (seu campo antigo)
   String? contractType;
+
+  /// NOVO: Tipo de obra (e.g.: Rodoviária, Saneamento, etc.)
+  String? workType;
+
   String? contractCompaniesInvolved;
   String? urlContractPdf;
   String? cnoNumber;
@@ -34,8 +39,7 @@ class ContractData extends ChangeNotifier {
   double? financialPercentage;
   double? physicalPercentage;
 
-
-  ///Datas de validade do contrato
+  /// Datas de validade do contrato
   DateTime? publicationDateDoe;
   int? initialValidityExecutionDays;
   int? initialValidityContractDays;
@@ -63,6 +67,7 @@ class ContractData extends ChangeNotifier {
     this.contractStatus,
     this.contractObjectDescription,
     this.contractType,
+    this.workType, // <- novo
     this.contractCompaniesInvolved,
     this.urlContractPdf,
     this.initialValidityExecutionDays,
@@ -97,6 +102,7 @@ class ContractData extends ChangeNotifier {
       contractStatus: '',
       contractObjectDescription: '',
       contractType: '',
+      workType: '', // <- novo default
       contractCompaniesInvolved: '',
       urlContractPdf: '',
       cnoNumber: '',
@@ -114,14 +120,13 @@ class ContractData extends ChangeNotifier {
     );
   }
 
-  ///Recuperando informações no banco de dados
+  /// Recuperando informações no banco de dados
   factory ContractData.fromDocument({required DocumentSnapshot snapshot}) {
     if (!snapshot.exists) {
       throw Exception("Contrato não encontrado");
     }
 
     final data = snapshot.data() as Map<String, dynamic>?;
-
     if (data == null) {
       throw Exception("Os dados do contrato estão vazios");
     }
@@ -145,38 +150,40 @@ class ContractData extends ChangeNotifier {
       contractStatus: data['contractstatus']?.toString(),
       contractObjectDescription: data['objectcontractdescription']?.toString(),
       contractType: data['contracttype']?.toString(),
+      workType: data['worktype']?.toString(), // <- novo
       contractCompaniesInvolved: data['companiesinvolved']?.toString(),
       urlContractPdf: data['urlpdf']?.toString(),
       cnoNumber: data['cnonumber']?.toString(),
       publicationDateDoe: (data['datapublicacaodoe'] as Timestamp?)?.toDate(),
       initialValueContract:
-          (data['valorinicialdocontrato'] as num?)?.toDouble() ?? 0.0,
+      (data['valorinicialdocontrato'] as num?)?.toDouble() ?? 0.0,
       physicalPercentage:
-          (data['fisicalpercentage'] as num?)?.toDouble() ?? 0.0,
+      (data['fisicalpercentage'] as num?)?.toDouble() ?? 0.0,
       financialPercentage:
-          (data['financialpercentage'] as num?)?.toDouble() ?? 0.0,
+      (data['financialpercentage'] as num?)?.toDouble() ?? 0.0,
       contractExtKm: (data['extkm'] as num?)?.toDouble() ?? 0.0,
       cnpjNumber: (data['cnpjnumber'] as num?)?.toInt(),
       cpfContractManager: (data['cpfcontractmanager'] as num?)?.toInt(),
       initialValidityExecutionDays:
-          (data['initialvalidityexecutiondays'] as num?)?.toInt(),
+      (data['initialvalidityexecutiondays'] as num?)?.toInt(),
       initialValidityContractDays:
-          (data['initialvaliditycontractdays'] as num?)?.toInt(),
+      (data['initialvaliditycontractdays'] as num?)?.toInt(),
       existContract: data['existecontrato'] as bool? ?? false,
       permissionContractId:
-          (data['permissionContractId'] as Map<String, dynamic>?)?.map(
+      (data['permissionContractId'] as Map<String, dynamic>?)?.map(
             (userId, perm) =>
-                MapEntry(userId, Map<String, bool>.from(perm as Map)),
-          ) ??
+            MapEntry(userId, Map<String, bool>.from(perm as Map)),
+      ) ??
           {},
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) 'id': id, // <-- adicionado aqui
+      if (id != null) 'id': id,
       if (contractNumber != null) 'contractnumber': contractNumber,
       if (contractType != null) 'contracttype': contractType,
+      if (workType != null) 'worktype': workType, // <- novo
       if (contractServices != null) 'services': contractServices,
       if (mainContractHighway != null) 'maincontracthighway': mainContractHighway,
       if (summarySubjectContract != null) 'summarysubjectcontract': summarySubjectContract,
@@ -206,7 +213,6 @@ class ContractData extends ChangeNotifier {
     };
   }
 
-
   factory ContractData.fromJson(Map<String, dynamic> json, {String? id}) {
     return ContractData()
       ..id = id
@@ -214,6 +220,7 @@ class ContractData extends ChangeNotifier {
       ..contractNumber = json['contractnumber']
       ..contractStatus = json['contractstatus']
       ..contractType = json['contracttype']
+      ..workType = json['worktype'] // <- novo
       ..contractServices = json['services']
       ..mainContractHighway = json['maincontracthighway']
       ..contractNumberProcess = json['contractbiddingprocessnumber']
@@ -244,14 +251,13 @@ class ContractData extends ChangeNotifier {
 
   // Atualiza as permissões do usuário para um contrato específico usando o ID do documento
   void updateContractPermissions(
-    String contractDocId,
-    String permissionType,
-    bool value,
-  ) {
+      String contractDocId,
+      String permissionType,
+      bool value,
+      ) {
     if (permissionContractId[contractDocId] == null) {
       permissionContractId[contractDocId] = {};
     }
     permissionContractId[contractDocId]![permissionType] = value;
   }
-
 }

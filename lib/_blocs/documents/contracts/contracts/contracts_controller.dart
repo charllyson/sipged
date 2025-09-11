@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 
 // ===== Measurements (separados) =====
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
@@ -14,6 +15,7 @@ import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dar
 import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
 
 // ===== Map/Charts =====
 import 'package:siged/_blocs/widgets/map/geo_json_manager.dart';
@@ -22,20 +24,30 @@ import 'package:siged/_widgets/charts/treemap/treemap_chart_changed.dart';
 
 class ContractsController extends ChangeNotifier {
   ContractsController({
+    // --------- Dependências obrigatórias
     required this.store,
     required this.additivesStore,
     required this.apostillesStore,
     required this.reportsMeasurementStore,
     required this.adjustmentsStore,
     required this.revisionsStore,
+    required this.contractStorageBloc,
+
+    // --------- Opcionais
     AdditivesBloc? additivesBloc,
     ApostillesBloc? apostillesBloc,
     GeoJsonManager? geoManager,
+
+    // --------- Form/ACL
+    this.moduleKey = 'contracts',
+    this.forceEditable = false,
   })  : additivesBloc = additivesBloc ?? AdditivesBloc(),
         apostillesBloc = apostillesBloc ?? ApostillesBloc(),
         geoManager = geoManager ?? GeoJsonManager();
 
-  // --------- Dependências
+  // =======================================================================
+  // INJEÇÕES
+  // =======================================================================
   final ContractsStore store;
   final AdditivesStore additivesStore;
   final ApostillesStore apostillesStore;
@@ -49,7 +61,16 @@ class ContractsController extends ChangeNotifier {
   final ApostillesBloc apostillesBloc;
   final GeoJsonManager geoManager;
 
-  // --------- Estado
+  /// Upload/Storage de PDF do contrato
+  final ContractStorageBloc contractStorageBloc;
+
+  /// Apenas para cenários com ACL por módulo (mantido para compat)
+  final String moduleKey;
+  final bool forceEditable;
+
+  // =======================================================================
+  // ESTADO DASHBOARD / AGREGAÇÕES (como no controller antigo)
+  // =======================================================================
   List<ContractData> allContracts = [];
   List<ContractData> filteredContracts = [];
 
@@ -101,18 +122,112 @@ class ContractsController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  // =======================================================================
+  // ESTADO DO FORMULÁRIO (antes no MainInformationController)
+  // =======================================================================
+  // UI/validação
+  final formKey = GlobalKey<FormState>();
+  bool showErrors = false;
+  bool isSaving = false;
+
+  bool get isEditable => forceEditable; // ajuste aqui se tiver ACL dinâmica
+
+  bool get isBtnEnabled {
+    return !isSaving &&
+        (contractStatusCtrl.text.trim().isNotEmpty) &&
+        (contractBiddingProcessNumberCtrl.text.trim().isNotEmpty) &&
+        (contractNumberCtrl.text.trim().isNotEmpty) &&
+        (initialValueOfContractCtrl.text.trim().isNotEmpty) &&
+        (summarySubjectContractCtrl.text.trim().isNotEmpty) &&
+        (contractRegionOfStateCtrl.text.trim().isNotEmpty) &&
+        (contractTextKmCtrl.text.trim().isNotEmpty) &&
+        (initialValidityContractDaysCtrl.text.trim().isNotEmpty) &&
+        (initialValidityExecutionDaysCtrl.text.trim().isNotEmpty) &&
+        (contractWorkTypeCtrl.text.trim().isNotEmpty);
+  }
+
+  // Modelo editado atualmente pela tela de informações gerais
+  late ContractData contractData;
+
+  // ===== Controllers de texto (empresa)
+  final TextEditingController contractCompanyLeaderCtrl = TextEditingController();
+  final TextEditingController contractCompaniesInvolvedCtrl = TextEditingController();
+  final TextEditingController cnoNumberCtrl = TextEditingController();
+  final TextEditingController cnpjNumberCtrl = TextEditingController(); // (se usar)
+  final TextEditingController generalNumberCtrl = TextEditingController(); // (se usar)
+
+  // ===== Controllers de texto (gerais do contrato)
+  final TextEditingController contractStatusCtrl = TextEditingController();
+  final TextEditingController contractBiddingProcessNumberCtrl = TextEditingController();
+  final TextEditingController contractNumberCtrl = TextEditingController();
+  final TextEditingController initialValueOfContractCtrl = TextEditingController();
+  final TextEditingController contractHighWayCtrl = TextEditingController();
+  final TextEditingController summarySubjectContractCtrl = TextEditingController();
+  final TextEditingController contractRegionOfStateCtrl = TextEditingController();
+  final TextEditingController contractTextKmCtrl = TextEditingController();
+  final TextEditingController contractTypeCtrl = TextEditingController();      // texto livre
+  final TextEditingController contractWorkTypeCtrl = TextEditingController();  // dropdown (Tipo de obra)
+  final TextEditingController contractServiceTypeCtrl = TextEditingController();
+  final TextEditingController datapublicacaodoeCtrl = TextEditingController();
+  final TextEditingController initialValidityContractDaysCtrl = TextEditingController();
+  final TextEditingController initialValidityExecutionDaysCtrl = TextEditingController();
+
+  // ===== Descrição
+  final TextEditingController contractObjectDescriptionCtrl = TextEditingController();
+
+  // ===== Gestor
+  final TextEditingController regionalManagerCtrl = TextEditingController();
+  final TextEditingController managerIdCtrl = TextEditingController();
+  final TextEditingController managerPhoneNumberCtrl = TextEditingController();
+  final TextEditingController cpfContractManagerCtrl = TextEditingController();
+  final TextEditingController contractManagerArtNumberCtrl = TextEditingController();
+
+  // =======================================================================
+  // CICLO DE VIDA
+  // =======================================================================
   @override
   void dispose() {
     _disposed = true;
+
+    // Dispose dos controllers de formulário
+    contractCompanyLeaderCtrl.dispose();
+    contractCompaniesInvolvedCtrl.dispose();
+    cnoNumberCtrl.dispose();
+    cnpjNumberCtrl.dispose();
+    generalNumberCtrl.dispose();
+
+    contractStatusCtrl.dispose();
+    contractBiddingProcessNumberCtrl.dispose();
+    contractNumberCtrl.dispose();
+    initialValueOfContractCtrl.dispose();
+    contractHighWayCtrl.dispose();
+    summarySubjectContractCtrl.dispose();
+    contractRegionOfStateCtrl.dispose();
+    contractTextKmCtrl.dispose();
+    contractTypeCtrl.dispose();
+    contractWorkTypeCtrl.dispose();
+    contractServiceTypeCtrl.dispose();
+    datapublicacaodoeCtrl.dispose();
+    initialValidityContractDaysCtrl.dispose();
+    initialValidityExecutionDaysCtrl.dispose();
+
+    contractObjectDescriptionCtrl.dispose();
+
+    regionalManagerCtrl.dispose();
+    managerIdCtrl.dispose();
+    managerPhoneNumberCtrl.dispose();
+    cpfContractManagerCtrl.dispose();
+    contractManagerArtNumberCtrl.dispose();
+
     super.dispose();
   }
 
-  // --------- Ciclo de vida
+  /// Inicialização para a **dashboard** (mantida).
   Future<void> initialize() async {
     // Carrega limites regionais (mapa)
     geoManager.loadLimitsRegionalsDERAL();
 
-    // Contratos (usa cache do store; se vazio, busca)
+    // Contratos
     allContracts = store.all;
     if (allContracts.isEmpty && !store.loading) {
       await store.refresh();
@@ -131,7 +246,7 @@ class ContractsController extends ChangeNotifier {
     // Estado inicial
     filteredContracts = allContracts;
 
-    // 🔧 Sempre todas as empresas (mesmo se filtro reduzir os valores)
+    // Sempre todas as empresas
     uniqueCompanies = _extractCompanies(allContracts);
 
     await aplicarFiltrosERecalcular();
@@ -141,7 +256,16 @@ class ContractsController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ---------- Recarregar “geral”
+  /// Inicialização para a **tela de informações gerais** (substitui o antigo MainInformationController.init).
+  Future<void> init(BuildContext context, {ContractData? initial}) async {
+    contractData = _clone(initial ?? ContractData.empty());
+    _fillControllersFromModel();
+    notifyListeners();
+  }
+
+  // =======================================================================
+  // AÇÕES GERAIS / RELOAD
+  // =======================================================================
   Future<void> refreshAndRecalc() async {
     final runId = ++_applyRunId;
     allContracts = store.all;
@@ -154,7 +278,9 @@ class ContractsController extends ChangeNotifier {
 
   Future<void> onHotReload() => refreshAndRecalc();
 
-  // --------- Seletores / Interações
+  // =======================================================================
+  // SELETORES / INTERAÇÕES (dashboard)
+  // =======================================================================
   bool get houveInteracaoComFiltros =>
       selectedStatus != null || selectedCompany != null || selectedRegions.isNotEmpty;
 
@@ -234,9 +360,10 @@ class ContractsController extends ChangeNotifier {
     selectedRegions = [];
   }
 
-  // --------- Filtragem
+  // =======================================================================
+  // FILTRAGEM (dashboard)
+  // =======================================================================
   void filterContracts() {
-    // 🔄 Sincroniza sempre com o store (importante após reload/refresh)
     allContracts = store.all;
 
     final base = allContracts;
@@ -254,7 +381,6 @@ class ContractsController extends ChangeNotifier {
           selectedStatus == null || status == selectedStatus!.toUpperCase();
       return matchCompany && matchRegion && matchStatus;
     }).toList();
-    // ❌ sem notify aqui; notificamos ao final do recálculo
   }
 
   List<String> _extractCompanies(List<ContractData> data) {
@@ -267,12 +393,13 @@ class ContractsController extends ChangeNotifier {
     return list;
   }
 
-  // 🔧 sempre baseada em allContracts (não em filtered)
   void _atualizarEmpresasComBaseNosContratos() {
     uniqueCompanies = _extractCompanies(allContracts);
   }
 
-  // --------- Helpers de ID
+  // =======================================================================
+  // HELPERS DE ID
+  // =======================================================================
   String? _idToString(Object? id) {
     if (id == null) return null;
     try {
@@ -289,7 +416,9 @@ class ContractsController extends ChangeNotifier {
     return id.toString();
   }
 
-  // --------- Recalcular totais (helpers não notificam)
+  // =======================================================================
+  // RECÁLCULOS (dashboard)
+  // =======================================================================
   Future<void> _calcularTotaisIniciais() async {
     totaisStatusIniciais.clear();
     totaisEmpresaIniciais.clear();
@@ -385,22 +514,18 @@ class ContractsController extends ChangeNotifier {
   }
 
   Future<void> _calcularTotaisReajustes() async {
-    // usa a store específica de ajustes
     final entries = adjustmentsStore.all;
     _totalReajustes = adjustmentsStore.sumAdjustments(entries);
   }
 
   Future<void> _calcularTotaisRevisoes() async {
-    // usa a store específica de revisões
     final entries = revisionsStore.all;
     _totalRevisoes = revisionsStore.sumRevisions(entries);
   }
 
-  // --------- Orquestrador
   Future<void> aplicarFiltrosERecalcular() async {
     final runId = ++_applyRunId;
 
-    // 🔄 Garanta dados mais recentes
     allContracts = store.all;
     allMeasurements = reportsMeasurementStore.all;
 
@@ -424,7 +549,6 @@ class ContractsController extends ChangeNotifier {
     await _calcularTotaisRevisoes();
     if (_disposed || runId != _applyRunId) return;
 
-    // 🔧 mantém lista global de empresas (com base no allContracts atualizado)
     _atualizarEmpresasComBaseNosContratos();
 
     _safeNotify();
@@ -435,7 +559,9 @@ class ContractsController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // --------- Combinações p/ gráficos
+  // =======================================================================
+  // COMBINAÇÕES/GRÁFICOS (dashboard)
+  // =======================================================================
   Map<String, double> get totaisStatusAtuais {
     switch (tipoDeValorSelecionado) {
       case 'Valor contratado':
@@ -500,7 +626,6 @@ class ContractsController extends ChangeNotifier {
     return resultado;
   }
 
-  // --------- Labels/valores ordenados (Status)
   List<String> get labelsStatusOrdenados {
     final entries = totaisStatusAtuais.entries.where((e) => e.value > 0).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -513,9 +638,8 @@ class ContractsController extends ChangeNotifier {
     return entries.map((e) => e.value).toList();
   }
 
-  // --------- Gráfico de regiões
+  // Regiões
   List<String> get labelsRegiao => ContractRules.regions;
-
   List<double?> get valuesRegiao =>
       ContractRules.regions.map((r) => totaisRegiaoAtuais[r]).toList();
 
@@ -524,15 +648,14 @@ class ContractsController extends ChangeNotifier {
       final valor = valuesRegiao[i] ?? 0.0;
       if (valor == 0.0) return Colors.grey.shade300;
       if (selectedRegionIndex != null && selectedRegionIndex == i) {
-        return Colors.orangeAccent; // destaque região selecionada
+        return Colors.orangeAccent;
       }
       return Colors.blueAccent;
     });
   }
 
-  // --------- Gráfico de empresas
+  // Empresas
   List<String> get labelsEmpresa => uniqueCompanies;
-
   List<double> get valuesEmpresa =>
       uniqueCompanies.map((e) => totaisEmpresaAtuais[e] ?? 0.0).toList();
 
@@ -541,13 +664,13 @@ class ContractsController extends ChangeNotifier {
       final valor = valuesEmpresa[i];
       if (valor == 0.0) return Colors.grey.shade300;
       if (selectedCompanyIndex != null && selectedCompanyIndex == i) {
-        return Colors.orangeAccent; // destaque empresa selecionada
+        return Colors.orangeAccent;
       }
       return Colors.blueAccent;
     });
   }
 
-  // ================== Radar 100% baseado no contractServices ==================
+  // ================== Radar (services) ==================
   List<String> get radarServiceLabels {
     final set = <String>{};
     for (final c in allContracts) {
@@ -563,9 +686,9 @@ class ContractsController extends ChangeNotifier {
       case 'Valor contratado':
         return c.initialValueContract ?? 0.0;
       case 'Total em aditivos':
-        return 0.0; // conectar AdditivesStore se desejar
+        return 0.0;
       case 'Total em apostilas':
-        return 0.0; // conectar ApostillesStore se desejar
+        return 0.0;
       case 'Somatório total':
       default:
         return (c.initialValueContract ?? 0.0);
@@ -671,10 +794,10 @@ class ContractsController extends ChangeNotifier {
           valor = contrato.initialValueContract ?? 0.0;
           break;
         case 'Total em aditivos':
-          valor = 0.0; // opcional: somar via AdditivesStore por contrato
+          valor = 0.0;
           break;
         case 'Total em apostilas':
-          valor = 0.0; // opcional: somar via ApostillesStore por contrato
+          valor = 0.0;
           break;
         case 'Somatório total':
         default:
@@ -705,5 +828,271 @@ class ContractsController extends ChangeNotifier {
         color: color,
       );
     }).toList(growable: false);
+  }
+
+  // =======================================================================
+  // ------ BLOCO DE FORM (Salvar/Atualizar + PDF) -------------------------
+  // =======================================================================
+
+  /// Salva/Atualiza as informações do contrato atual em [contractData],
+  /// preenchendo a partir dos controllers de texto.
+  Future<void> saveInformation(
+      BuildContext context, {
+        void Function(ContractData)? onSaved,
+      }) async {
+    showErrors = true;
+    notifyListeners();
+
+    if (!(formKey.currentState?.validate() ?? false)) return;
+
+    // a) controllers -> modelo
+    _applyControllersToModel();
+
+    // b) status de salvamento
+    isSaving = true;
+    notifyListeners();
+
+    try {
+      // c) salva via store
+      final saved = await store.saveOrUpdate(contractData);
+
+      // d) atualiza instância local
+      contractData = _clone(saved);
+
+      // e) callback
+      onSaved?.call(contractData);
+    } finally {
+      isSaving = false;
+      notifyListeners();
+    }
+  }
+
+  /// Após upload, salva a URL do PDF no Firestore e atualiza a instância local.
+  Future<void> salvarUrlPdfDoContratoEAtualizarUI(
+      BuildContext context, {
+        required String contractId,
+        required String url,
+        void Function(ContractData)? onSaved,
+      }) async {
+    await store.salvarUrlPdfDoContrato(contractId, url);
+
+    final updated = await store.getById(contractId);
+    if (updated != null) {
+      contractData = _clone(updated);
+      onSaved?.call(contractData);
+      notifyListeners();
+    }
+  }
+
+  // =======================================================================
+  // ------ HELPERS DO FORM -------------------------------------------------
+  // =======================================================================
+
+  ContractData _clone(ContractData src) {
+    return ContractData(
+      id: src.id,
+      managerId: src.managerId,
+      summarySubjectContract: src.summarySubjectContract,
+      contractNumber: src.contractNumber,
+      mainContractHighway: src.mainContractHighway,
+      restriction: src.restriction,
+      contractServices: src.contractServices,
+      contractManagerArtNumber: src.contractManagerArtNumber,
+      contractExtKm: src.contractExtKm,
+      regionOfState: src.regionOfState,
+      managerPhoneNumber: src.managerPhoneNumber,
+      companyLeader: src.companyLeader,
+      generalNumber: src.generalNumber,
+      contractNumberProcess: src.contractNumberProcess,
+      automaticNumberSiafe: src.automaticNumberSiafe,
+      physicalPercentage: src.physicalPercentage,
+      regionalManager: src.regionalManager,
+      contractStatus: src.contractStatus,
+      contractObjectDescription: src.contractObjectDescription,
+      contractType: src.contractType,
+      workType: src.workType,
+      contractCompaniesInvolved: src.contractCompaniesInvolved,
+      urlContractPdf: src.urlContractPdf,
+      initialValidityExecutionDays: src.initialValidityExecutionDays,
+      initialValidityContractDays: src.initialValidityContractDays,
+      cpfContractManager: src.cpfContractManager,
+      cnoNumber: src.cnoNumber,
+      cnpjNumber: src.cnpjNumber,
+      existContract: src.existContract,
+      publicationDateDoe: src.publicationDateDoe,
+      financialPercentage: src.financialPercentage,
+      initialValueContract: src.initialValueContract,
+      permissionContractId: Map<String, Map<String, bool>>.fromEntries(
+        src.permissionContractId.entries.map(
+              (e) => MapEntry(e.key, Map<String, bool>.from(e.value)),
+        ),
+      ),
+    );
+  }
+
+  void _fillControllersFromModel() {
+    // Empresa
+    contractCompanyLeaderCtrl.text = (contractData.companyLeader ?? '');
+    contractCompaniesInvolvedCtrl.text = (contractData.contractCompaniesInvolved ?? '');
+    cnoNumberCtrl.text = (contractData.cnoNumber ?? '');
+    cnpjNumberCtrl.text = (contractData.cnpjNumber?.toString() ?? '');
+    generalNumberCtrl.text = (contractData.generalNumber ?? '');
+
+    // Gerais
+    contractStatusCtrl.text = (contractData.contractStatus ?? '');
+    contractBiddingProcessNumberCtrl.text = (contractData.contractNumberProcess ?? '');
+    contractNumberCtrl.text = (contractData.contractNumber ?? '');
+    initialValueOfContractCtrl.text = _formatCurrency(contractData.initialValueContract);
+    contractHighWayCtrl.text = (contractData.mainContractHighway ?? '');
+    summarySubjectContractCtrl.text = (contractData.summarySubjectContract ?? '');
+    contractRegionOfStateCtrl.text = (contractData.regionOfState ?? '');
+    contractTextKmCtrl.text = _formatNumber(contractData.contractExtKm, decimals: 3);
+    contractTypeCtrl.text = (contractData.contractType ?? '');
+    contractWorkTypeCtrl.text = (contractData.workType ?? '');
+    contractServiceTypeCtrl.text = (contractData.contractServices ?? '');
+    datapublicacaodoeCtrl.text = contractData.publicationDateDoe != null
+        ? contractData.publicationDateDoe!.toIso8601String()
+        : '';
+    initialValidityContractDaysCtrl.text =
+    (contractData.initialValidityContractDays?.toString() ?? '');
+    initialValidityExecutionDaysCtrl.text =
+    (contractData.initialValidityExecutionDays?.toString() ?? '');
+
+    // Descrição
+    contractObjectDescriptionCtrl.text = (contractData.contractObjectDescription ?? '');
+
+    // Gestor
+    regionalManagerCtrl.text = (contractData.regionalManager ?? '');
+    managerIdCtrl.text = (contractData.managerId ?? '');
+    managerPhoneNumberCtrl.text = (contractData.managerPhoneNumber ?? '');
+    cpfContractManagerCtrl.text = (contractData.cpfContractManager?.toString() ?? '');
+    contractManagerArtNumberCtrl.text = (contractData.contractManagerArtNumber ?? '');
+  }
+
+  void _applyControllersToModel() {
+    // Empresa
+    contractData.companyLeader = _nullIfEmpty(contractCompanyLeaderCtrl.text);
+    contractData.contractCompaniesInvolved = _nullIfEmpty(contractCompaniesInvolvedCtrl.text);
+    contractData.cnoNumber = _nullIfEmpty(cnoNumberCtrl.text);
+    contractData.cnpjNumber = _tryParseInt(cnpjNumberCtrl.text);
+    contractData.generalNumber = _nullIfEmpty(generalNumberCtrl.text);
+
+    // Gerais
+    contractData.contractStatus =
+        _normalizeFromList(contractStatusCtrl.text, ContractRules.statusTypes);
+    contractData.contractNumberProcess = _nullIfEmpty(contractBiddingProcessNumberCtrl.text);
+    contractData.contractNumber = _nullIfEmpty(contractNumberCtrl.text);
+    contractData.initialValueContract = _parseCurrency(initialValueOfContractCtrl.text);
+    contractData.mainContractHighway = _nullIfEmpty(contractHighWayCtrl.text);
+    contractData.summarySubjectContract = _nullIfEmpty(summarySubjectContractCtrl.text);
+    contractData.regionOfState = _nullIfEmpty(contractRegionOfStateCtrl.text);
+    contractData.contractExtKm = _tryParseDouble(contractTextKmCtrl.text);
+    contractData.contractType = _nullIfEmpty(contractTypeCtrl.text);
+    contractData.workType =
+        _normalizeFromList(contractWorkTypeCtrl.text, ContractRules.workTypes);
+    contractData.contractServices = _nullIfEmpty(contractServiceTypeCtrl.text);
+
+    // A data já é setada pela UI via onChanged do CustomDateField; se quiser, parse daqui:
+    // contractData.publicationDateDoe = _tryParseIso(datapublicacaodoeCtrl.text);
+
+    contractData.initialValidityContractDays =
+        _tryParseInt(initialValidityContractDaysCtrl.text);
+    contractData.initialValidityExecutionDays =
+        _tryParseInt(initialValidityExecutionDaysCtrl.text);
+
+    // Descrição
+    contractData.contractObjectDescription = _nullIfEmpty(contractObjectDescriptionCtrl.text);
+
+    // Gestor
+    contractData.regionalManager = _nullIfEmpty(regionalManagerCtrl.text);
+    contractData.managerId = _nullIfEmpty(managerIdCtrl.text);
+    contractData.managerPhoneNumber = _nullIfEmpty(managerPhoneNumberCtrl.text);
+    contractData.cpfContractManager = _tryParseInt(cpfContractManagerCtrl.text);
+    contractData.contractManagerArtNumber = _nullIfEmpty(contractManagerArtNumberCtrl.text);
+  }
+
+  // =======================================================================
+  // ------ Utils de formatação/parse (reaproveitados) ----------------------
+  // =======================================================================
+
+  String _nullIfEmpty(String? v) {
+    final s = (v ?? '').trim();
+    return s.isEmpty ? '' : s;
+  }
+
+  String _formatCurrency(double? value) {
+    if (value == null) return '';
+    return 'R\$ ${_formatNumber(value, decimals: 2, decimalComma: true, thousandsDot: true)}';
+    // Observação: a máscara visual do campo cuida do layout final.
+  }
+
+  String _formatNumber(num? value,
+      {int decimals = 0, bool decimalComma = false, bool thousandsDot = false}) {
+    if (value == null) return '';
+    String s = value.toStringAsFixed(decimals);
+    if (decimalComma) {
+      s = s.replaceAll('.', ',');
+    }
+    if (thousandsDot) {
+      final parts = s.split(decimalComma ? ',' : '.');
+      String intPart = parts[0];
+      String fracPart = parts.length > 1 ? parts[1] : '';
+      final buf = StringBuffer();
+      for (int i = 0; i < intPart.length; i++) {
+        final remain = intPart.length - i - 1;
+        buf.write(intPart[i]);
+        if (remain > 0 && (remain % 3 == 0)) buf.write('.');
+      }
+      s = buf.toString();
+      if (decimals > 0) {
+        s = '$s${decimalComma ? ',' : '.'}$fracPart';
+      }
+    }
+    return s;
+  }
+
+  double? _parseCurrency(String? text) {
+    if (text == null) return null;
+    var s = text.trim();
+    if (s.isEmpty) return null;
+    s = s
+        .replaceAll('R\$', '')
+        .replaceAll(' ', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.');
+    return double.tryParse(s);
+  }
+
+  double? _tryParseDouble(String? text) {
+    if (text == null) return null;
+    final s = text.trim().replaceAll(',', '.');
+    return double.tryParse(s);
+  }
+
+  int? _tryParseInt(String? text) {
+    if (text == null) return null;
+    final s = text.trim().replaceAll(RegExp(r'[^0-9-]'), '');
+    if (s.isEmpty) return null;
+    return int.tryParse(s);
+  }
+
+  DateTime? _tryParseIso(String? text) {
+    if (text == null || text.trim().isEmpty) return null;
+    try {
+      return DateTime.parse(text.trim());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Normaliza um valor contra uma lista (case-insensitive). Retorna exatamente
+  /// como está na lista, se encontrar; caso contrário, mantém o digitado.
+  String? _normalizeFromList(String? value, List<String> candidates) {
+    final v = (value ?? '').trim();
+    if (v.isEmpty) return null;
+    final found = candidates.firstWhereOrNull(
+          (c) => c.toUpperCase() == v.toUpperCase(),
+    );
+    return found ?? v;
   }
 }

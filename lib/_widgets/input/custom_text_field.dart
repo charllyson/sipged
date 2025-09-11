@@ -23,11 +23,12 @@ class CustomTextField extends StatelessWidget {
     this.textInputAction,
     this.focusNode,
     this.autoCorrect = true,
-    this.onFieldSubmitted,
+    this.onSubmitted,
     this.fillCollor,
     this.width,
     this.hintText,
     this.maxLines = 1,
+    this.readOnly = false,
   });
 
   final List<String>? autofillHints;
@@ -50,18 +51,20 @@ class CustomTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final FocusNode? focusNode;
   final bool autoCorrect;
-  final Function(String)? onFieldSubmitted;
+  final Function(String)? onSubmitted;
   final Color? fillCollor;
   final double? width;
   final int? maxLines;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
       child: TextFormField(
+        readOnly: readOnly,
         maxLines: maxLines,
-        onFieldSubmitted: onFieldSubmitted,
+        onFieldSubmitted: onSubmitted,
         autocorrect: autoCorrect,
         textInputAction: textInputAction,
         focusNode: focusNode,
