@@ -7,10 +7,10 @@ import 'package:siged/_blocs/actives/railway/active_railways_state.dart';
 
 import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
-import 'package:siged/admPanel/converters/geoJson/geo_json_mult_line_send_firebase.dart';
-import 'package:siged/admPanel/converters/geoJson/geo_json_mult_line_check_jumps_in_collection.dart';
+import 'package:siged/_services/geoJson/send_firebase.dart';
+import 'package:siged/_services/geoJson/check_jumps_between_points.dart';
 
-import '../../../../admPanel/converters/geoJson/geo_json_mult_line_actions_floating_buttons.dart';
+import '../../../../_services/geoJson/floating_buttons.dart';
 import 'active_railways_map.dart';
 import 'active_railways_panel.dart';
 
@@ -140,7 +140,7 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
               onImportGeoJson: (ctx) => GeoJsonSendFirebase(ctx),
               onDeleteCollection: _onDeleteCollection,
               onCheckDistances: () async {
-                final ids = await geoJsonCheckJumpsInCollection(
+                final ids = await checkJumpsBetweenPoints(
                   collectionPath: 'actives_railways',
                   distanciaMaxEmKm: 2.0,
                 );

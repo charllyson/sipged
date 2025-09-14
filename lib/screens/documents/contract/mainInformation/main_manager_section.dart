@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
-import 'package:siged/_widgets/archives/pdf/web_pdf_widget.dart';
+import 'package:siged/_services/pdf/web_pdf_widget.dart';
 import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
@@ -17,7 +17,7 @@ import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_widgets/archives/pdf/web_pdf_controller.dart';
+import 'package:siged/_services/pdf/web_pdf_controller.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';

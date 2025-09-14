@@ -84,7 +84,7 @@ class ContractData extends ChangeNotifier {
 
   factory ContractData.empty() {
     return ContractData(
-      id: '',
+      id: null, // ← importante!
       managerId: '',
       contractNumber: '',
       mainContractHighway: '',

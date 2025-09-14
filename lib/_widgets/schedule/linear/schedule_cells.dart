@@ -1,11 +1,11 @@
 // lib/_widgets/schedule/schedule_cells.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_data.dart';
+import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_data.dart';
 import 'package:siged/_utils/date_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
 class ScheduleCells extends StatelessWidget {
-  final ScheduleData scheduleData;
+  final ScheduleRoadBoardData scheduleData;
   final double height;
   final Color cor;
   final VoidCallback onTap;

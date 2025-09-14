@@ -32,6 +32,8 @@ dependencies:
   intl: ^0.20.2
   provider: ^6.1.5
 
+  proj4dart: ^2.1.0
+
   # COORDENADAS
   geolocator: ^14.0.2
   latlong2: ^0.9.1
@@ -45,17 +47,22 @@ dependencies:
   fl_chart: ^1.0.0
   percent_indicator: ^4.2.3
 
-  # ACESSO AO DISPOSITIVO
-  file_picker: ^10.2.0
-  exif: ^3.3.0
-  image: ^4.0.2
-  flutter_image_compress: ^2.4.0
+  # PDF
   syncfusion_flutter_pdfviewer: ^28.2.7
   pdfx: ^2.6.0
 
   # IMAGENS
+  file_picker: ^10.2.0
+  exif: ^3.3.0
+  native_exif: ^0.6.0
+  flutter_image_compress: ^2.4.0
   image_picker: ^1.2.0
-  image_cropper: ^9.1.0
+  extended_image: ^10.0.1
+  image: ^4.3.0            # caminho Dart (opcional, mas útil)
+  image_editor: ^1.5.1     # caminho nativo (mais rápido)
+  camera: ^0.10.5+9   # compatível com Flutter 3.x
+
+
 
   # ANIMAÇÕES
   shimmer: ^3.0.0
@@ -89,10 +96,8 @@ flutter:
         - asset: assets/fonts/halter.ttf
 
   assets:
-    - assets/geojson/roads/state_roads.geojson
     - assets/geojson/limits/limites_regionais_der_al.geojson
     - assets/geojson/limits/limites_cidades_al.geojson
-    - assets/geojson/roads/state_bridges.geojson
     - assets/logos/deral/logo-deral.png
     - assets/images/default_avatar.png
     - assets/logos/siged/siged.png

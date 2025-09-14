@@ -9,8 +9,9 @@ import 'package:siged/_blocs/documents/measurement/report/report_measurement_sto
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_event.dart';
-import 'package:siged/screens/sectors/operation/schedule/schedule_civil_page.dart';
+import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_event.dart';
+import 'package:siged/_services/dxf/map_overlay_cubit.dart';
+import 'package:siged/screens/sectors/operation/schedule/civil/schedule_civil_page.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 import 'package:siged/screens/actives/airports/network/active_airports_network_page.dart';
 import 'package:siged/screens/actives/airports/records/active_airports_records_page.dart';
@@ -22,10 +23,11 @@ import 'package:siged/screens/actives/oaes/network/active_oaes_network_page.dart
 import 'package:siged/screens/sectors/financial/dashboard/dashboard_financial_page.dart';
 import 'package:siged/screens/sectors/financial/tab_bar_financial_page.dart';
 import 'package:siged/screens/sectors/operation/desapropriation/desapropriation_page.dart';
-import 'package:siged/screens/sectors/operation/schedule/schedule_road_page.dart';
+import 'package:siged/screens/sectors/operation/schedule/road/board/schedule_road_board.dart';
+import 'package:siged/screens/sectors/operation/schedule/road/schedule_road_workspace_page.dart';
 import 'package:siged/screens/sectors/planning/environment/planning_environment_dashboard.dart';
 import 'package:siged/screens/sectors/planning/projects/planning_project_dashboard.dart';
-import 'package:siged/screens/sectors/planning/projects/planning_projects_network_page.dart';
+import 'package:siged/screens/sectors/operation/schedule/road/map/schedule_road_map.dart';
 import 'package:siged/screens/menus/menu_drawer.dart';
 import 'package:siged/screens/actives/oaes/records/active_oaes_records_page.dart';
 import 'package:siged/screens/actives/roads/records/active_roads_records_page.dart';
@@ -40,14 +42,14 @@ import 'package:siged/screens/sectors/traffic/accidents/accidents_records_page.d
 import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
 import 'package:siged/screens/sectors/traffic/infrations-records/infractions_records_page.dart';
 
-import 'package:siged/_blocs/sectors/operation/road/schedule_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
 import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
 import 'package:siged/screens/actives/roads/network/active_roads_network_page.dart';
 
 import '../../_blocs/documents/contracts/contracts/contract_data.dart';
-import '../../_blocs/sectors/operation/road/schedule_repository.dart';
+import '../../_blocs/sectors/operation/road/board/schedule_road_board_repository.dart';
 import '../../_widgets/schedule/civil/schedule_civil_widget.dart';
 import '../commons/listContracts/list_contract_page.dart';
 import '../documents/contract/dashboard/dashboard_contracts_page.dart';
@@ -68,7 +70,7 @@ class MenuListPage extends StatefulWidget {
 }
 
 class _MenuListPageState extends State<MenuListPage> {
-  MenuItem _selectedItem = MenuItem.planningProjectRegistration;
+  MenuItem _selectedItem = MenuItem.documentsContractsRecords;
   bool _didWarmupUserBloc = false;   // warmup do UserBloc
   bool _didWarmupStores = false;     // warmup do ContractsStore
 
@@ -90,17 +92,17 @@ class _MenuListPageState extends State<MenuListPage> {
     if (wt.contains('RODOV')) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => RepositoryProvider<ScheduleRepository>(
-            create: (_) => ScheduleRepository(),
-            child: BlocProvider<ScheduleBloc>(
-              create: (ctx) => ScheduleBloc(
+          builder: (_) => RepositoryProvider<ScheduleRoadBoardRepository>(
+            create: (_) => ScheduleRoadBoardRepository(),
+            child: BlocProvider<ScheduleRoadBoardBloc>(
+              create: (ctx) => ScheduleRoadBoardBloc(
                 // repo: ctx.read<ScheduleRepository>(),
               )..add(ScheduleWarmupRequested(
                 contractId: contractId,
                 totalEstacas: totalEstacas,
                 initialServiceKey: 'geral',
               )),
-              child: ScheduleRoadPage(contractData: contract),
+              child: ScheduleRoadWorkspacePage(contractData: contract),
             ),
           ),
         ),
@@ -114,9 +116,17 @@ class _MenuListPageState extends State<MenuListPage> {
 
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => BlocProvider<CivilScheduleBloc>(
-            create: (ctx) => CivilScheduleBloc()
-              ..add(CivilWarmupRequested(contractId)),
+          builder: (_) => MultiBlocProvider(
+            providers: [
+              BlocProvider<CivilScheduleBloc>(
+                create: (ctx) => CivilScheduleBloc()
+                  ..add(CivilWarmupRequested(contractId)),
+              ),
+              // ⬇️ Novo: provê o cubit que recebe as polylines para o mapa
+              BlocProvider<MapOverlayCubit>(
+                create: (_) => MapOverlayCubit(),
+              ),
+            ],
             child: ScheduleCivilPage(
               title: 'Cronograma Residencial',
               pageNumber: 1,
@@ -128,9 +138,6 @@ class _MenuListPageState extends State<MenuListPage> {
       );
       return;
     }
-
-
-
 
     if (wt.contains('OAE') || wt.contains('ARTES ESPECIAIS')) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -265,9 +272,12 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => PlanningProjectNetworkPage(contractData: contract),
-            ),
+              MaterialPageRoute(
+                builder: (_) => BlocProvider<MapOverlayCubit>(
+                  create: (_) => MapOverlayCubit(),
+                  child: Container(),
+                ),
+              )
           );
         });
       case MenuItem.planningRightOfWayDashboard:

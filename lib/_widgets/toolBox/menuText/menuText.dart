@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
 import 'package:siged/_widgets/toolBox/tool_action.dart';
 import 'package:siged/_widgets/toolBox/tool_slot.dart';
-import 'package:siged/_widgets/archives/dxf/dxf_enums.dart';
+import 'package:siged/_services/dxf/dxf_enums.dart';
 
 class MenuText {
   final void Function(TextTool tool) activateTextMode; // avisa o host

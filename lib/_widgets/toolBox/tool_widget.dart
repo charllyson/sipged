@@ -6,7 +6,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_widgets/archives/dxf/dxf_enums.dart';
+import 'package:siged/_services/dxf/dxf_enums.dart';
 
 import 'package:siged/_widgets/toolBox/menuAction/menu_actions.dart';
 import 'package:siged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon.dart';

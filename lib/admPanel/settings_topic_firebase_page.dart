@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
+import 'package:siged/_services/firestore/cleanup/selective_delete_tile.dart';
+import 'package:siged/_services/firestore/explorer/firestore_explorer_page.dart';
+import 'package:siged/_services/firestore/migrate/migrateDocForSubCollection.dart';
+import 'package:siged/_services/firestore/migrate/migration.dart';
 
 // Importando suas páginas/tiles já existentes
 import 'package:siged/_utils/firebase_utils.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart'; // se não usar, pode remover
-import 'package:siged/admPanel/cleanup_subcollections/cleanup_subcollections_tile.dart';
-import 'package:siged/admPanel/cleanup_subcollections/selective_delete_tile.dart';
-import 'package:siged/admPanel/migrateCollections/migration.dart';
-import 'package:siged/admPanel/migrateDocForSubCollection/migrateDocForSubCollection.dart';
-import 'package:siged/admPanel/firestore/firestore_explorer_page.dart';
-import 'package:siged/admPanel/converters/importExcel/excel_import_controller.dart';
+import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_services/excel/excel_import_controller.dart';
 
 import '../_widgets/buttons/back_circle_button.dart';
 import '../_widgets/upBar/up_bar.dart';

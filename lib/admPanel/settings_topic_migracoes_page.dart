@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:siged/admPanel/cleanup_subcollections/cleanup_subcollections_tile.dart';
-import 'package:siged/admPanel/cleanup_subcollections/selective_delete_tile.dart';
-import 'package:siged/admPanel/migrateCollections/migration.dart';
-import 'package:siged/admPanel/migrateDocForSubCollection/migrateDocForSubCollection.dart';
+import 'package:siged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
+import 'package:siged/_services/firestore/cleanup/selective_delete_tile.dart';
+import 'package:siged/_services/firestore/migrate/migrateDocForSubCollection.dart';
+import 'package:siged/_services/firestore/migrate/migration.dart';
 import 'package:siged/_utils/firebase_utils.dart';
 
 import '../_widgets/buttons/back_circle_button.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/admPanel/users/manager_permissions_users_page.dart';
+import 'package:siged/admPanel/manager_permissions_users_page.dart';
 
 import '../_widgets/buttons/back_circle_button.dart';
 import '../_widgets/upBar/up_bar.dart';

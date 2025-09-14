@@ -7,8 +7,8 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_utils/responsive_utils.dart';
 
-import 'package:siged/_widgets/archives/pdf/web_pdf_widget.dart';
-import 'package:siged/_widgets/archives/pdf/web_pdf_controller.dart';
+import 'package:siged/_services/pdf/web_pdf_widget.dart';
+import 'package:siged/_services/pdf/web_pdf_controller.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 

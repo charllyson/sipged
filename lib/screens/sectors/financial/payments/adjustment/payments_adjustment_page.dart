@@ -8,7 +8,7 @@ import 'payment_adjustment_controller.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/admPanel/converters/importExcel/import_excel_page.dart';
+import 'package:siged/_services/excel/import_excel_page.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 import 'payment_adjustment_chart_section.dart';

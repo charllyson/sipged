@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/search/search_overlay_manager.dart';
+import 'package:siged/_widgets/search/search_overlay.dart';
 /// =============================================================
 /// 2) ACTION: Botão de busca com overlay (isolado)
 /// =============================================================
@@ -22,20 +22,18 @@ class SearchAction extends StatefulWidget {
 
 class _SearchActionState extends State<SearchAction> {
   late final TextEditingController _controller;
-  late final SearchOverlayManager _overlayManager;
+  late final SearchOverlay _overlayManager;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController();
-    _overlayManager = SearchOverlayManager(context, _controller, widget.onSearch);
+    _overlayManager = SearchOverlay(context, _controller, widget.onSearch);
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    // se seu SearchOverlayManager tiver método de dispose/fechar, chame aqui:
-    // _overlayManager.dispose();  // (caso exista)
     super.dispose();
   }
 

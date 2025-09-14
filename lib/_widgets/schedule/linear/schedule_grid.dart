@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'package:siged/_widgets/schedule/linear/schedule_grid_row.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_legend.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_data.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_style.dart';
+import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_data.dart';
+import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_style.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
 
 class ScheduleGrid extends StatelessWidget {
@@ -27,15 +27,14 @@ class ScheduleGrid extends StatelessWidget {
     this.highlightColor = const Color(0xFF1E88E5),
     this.headerHeight = 25,
     this.rightGutter = 0,
-    this.onEditLanes,
   });
 
   final int totalEstacas;
   final List<ScheduleLaneClass> faixas;
-  final List<ScheduleData> execucoes;
+  final List<ScheduleRoadBoardData> execucoes;
 
   /// Índice O(1) por célula: [estaca][faixa] -> ScheduleData
-  final Map<int, Map<int, ScheduleData>> execIndex;
+  final Map<int, Map<int, ScheduleRoadBoardData>> execIndex;
 
   final String servicoSelecionado;
 
@@ -43,10 +42,10 @@ class ScheduleGrid extends StatelessWidget {
   final double estacaWidth;
 
   /// Cor base calculada pelo State (com sombreamento por recência).
-  final Color Function(ScheduleData e) getSquareColor;
+  final Color Function(ScheduleRoadBoardData e) getSquareColor;
 
   /// Handler de toque em célula válida.
-  final void Function(ScheduleData e) onTapSquare;
+  final void Function(ScheduleRoadBoardData e) onTapSquare;
 
   final Set<String> selectedKeys;
   final void Function(int estaca, int faixaIndex)? onDragStart;
@@ -56,8 +55,6 @@ class ScheduleGrid extends StatelessWidget {
   final Color highlightColor;
   final double headerHeight;
   final double rightGutter;
-
-  final VoidCallback? onEditLanes;
 
   static const double kCellVPad = 0.5;
 
@@ -95,13 +92,13 @@ class ScheduleGrid extends StatelessWidget {
       return faixas[faixaIndex].isAllowed(servicoSelecionado);
     }
 
-    Color safeSquareColor(ScheduleData e) {
+    Color safeSquareColor(ScheduleRoadBoardData e) {
       return laneEnabledFor(e.faixaIndex)
           ? getSquareColor(e)
           : Colors.grey.shade200; // visual desabilitado
     }
 
-    void safeOnTapSquare(ScheduleData e) {
+    void safeOnTapSquare(ScheduleRoadBoardData e) {
       if (!laneEnabledFor(e.faixaIndex)) return; // ignora toques
       onTapSquare(e);
     }
@@ -158,7 +155,7 @@ class ScheduleGrid extends StatelessWidget {
                     const EdgeInsets.symmetric(vertical: ScheduleGrid.kCellVPad),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: ScheduleStyle.colorForFaixa(faixas[i].label),
+                        color: ScheduleRoadBoardStyle.colorForFaixa(faixas[i].label),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Center(
@@ -282,37 +279,6 @@ class ScheduleGrid extends StatelessWidget {
                 );
               },
             ),
-
-            if (onEditLanes != null)
-              Positioned(
-                top: 6,
-                left: 6,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 6,
-                        offset: Offset(0, 3),
-                      )
-                    ],
-                  ),
-                  child: TextButton.icon(
-                    onPressed: onEditLanes,
-                    icon: const Icon(Icons.edit_note, size: 12, color: Colors.blue),
-                    label: const Text(
-                      'Editar faixas',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontSize: 12,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
           ],
         );
       },

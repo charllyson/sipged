@@ -7,7 +7,7 @@ import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revisio
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/admPanel/converters/importExcel/import_excel_page.dart';
+import 'package:siged/_services/excel/import_excel_page.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 import 'payment_revision_chart_section.dart';

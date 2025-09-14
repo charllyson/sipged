@@ -10,7 +10,7 @@ import 'package:siged/screens/menus/menu_list_page.dart';
 import '_blocs/system/login/login_bloc.dart';
 import '_blocs/system/user/user_repository.dart';
 import '_blocs/system/user/user_data.dart';
-import 'screens/sectors/operation/schedule/schedule_civil_page.dart';
+import 'screens/sectors/operation/schedule/civil/schedule_civil_page.dart';
 
 class SiGed extends StatelessWidget {
   const SiGed({super.key});

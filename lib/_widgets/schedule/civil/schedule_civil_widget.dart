@@ -6,7 +6,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:siged/_widgets/archives/dxf/dxf_selection_overlay.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:siged/_services/dxf/dxf_selection_overlay.dart';
 import 'package:siged/_widgets/input/in_line_text_box.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
@@ -22,11 +23,11 @@ import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'package:siged/_widgets/modals/schedule_modal_square.dart';
 
 // Civil (render e UI)
-import 'package:siged/_widgets/archives/dxf/dxf_empty_hint.dart';
-import 'package:siged/_widgets/archives/dxf/dxf_render.dart'; // RenderService (mantido para outros usos)
+import 'package:siged/_services/dxf/dxf_empty_hint.dart';
+import 'package:siged/_services/dxf/dxf_render.dart'; // RenderService (mantido para outros usos)
 import 'package:siged/_widgets/schedule/civil/schedule_civil_board.dart';
 import 'package:siged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
-import 'package:siged/_widgets/archives/dxf/dxf_enums.dart';
+import 'package:siged/_services/dxf/dxf_enums.dart';
 import 'package:siged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon_painter.dart';
 import 'package:siged/_widgets/toolBox/menuDrawerPolygon/snap_utils.dart';
 import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
@@ -38,7 +39,7 @@ import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 // BLoC/Auth
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_state.dart';
@@ -48,7 +49,9 @@ import 'package:siged/_blocs/sectors/operation/civil/schedule_bloc_adapter_civil
 import 'package:firebase_storage/firebase_storage.dart';
 
 // DXF modular
-import 'package:siged/_widgets/archives/dxf/dxf_controller.dart';
+import 'package:siged/_services/dxf/dxf_controller.dart';
+
+import 'package:siged/_services/dxf/dxf_to_geo.dart';
 
 class ScheduleCivilWidget extends StatefulWidget {
   const ScheduleCivilWidget({
@@ -58,6 +61,7 @@ class ScheduleCivilWidget extends StatefulWidget {
     this.initialPdfBytes,          // mantém o nome por compatibilidade, agora é DXF
     this.pageNumber = 1,           // ignorado (só DXF)
     this.allowPickNewPdf = true,   // controla o botão “Trocar DXF”
+    this.onPolylinesReady
   });
 
   final String title;
@@ -65,6 +69,8 @@ class ScheduleCivilWidget extends StatefulWidget {
   final int pageNumber;             // <- ignorado
   final bool allowPickNewPdf;
   final ScheduleCivilController controller;
+  final void Function(List<List<LatLng>> polylines)? onPolylinesReady;
+
 
   @override
   State<ScheduleCivilWidget> createState() => _ScheduleCivilWidgetState();
@@ -403,6 +409,12 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     try {
       _setBlocking(true, msg: 'Renderizando DXF…');
       await _dxf.loadBytes(_docBytes!, hairlinePx: _dxfHairlinePx);
+      if (_dxf.model != null && widget.onPolylinesReady != null) {
+        final projector = autoDetectProjector(_dxf.model!); // ou UtmProjector(zone: 24/25, southHemisphere: true)
+        final lines = DxfToGeo.toPolylines(model: _dxf.model!, projector: projector);
+        widget.onPolylinesReady!(lines);
+      }
+
       setState(() {
         _loading = false;
       });
@@ -994,7 +1006,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     }
 
     final civilBloc = context.read<CivilScheduleBloc>();
-    final ScheduleBloc adapter = ScheduleBlocAdapterForCivil(
+    final ScheduleRoadBoardBloc adapter = ScheduleBlocAdapterForCivil(
       civilBloc: civilBloc,
       polygonId: polygonId,
       currentUserId: _uid,
@@ -1016,7 +1028,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
               physics: const ClampingScrollPhysics(),
               child: MultiBlocProvider(
                 providers: [
-                  BlocProvider<ScheduleBloc>.value(value: adapter),
+                  BlocProvider<ScheduleRoadBoardBloc>.value(value: adapter),
                   BlocProvider<CivilScheduleBloc>.value(value: civilBloc),
                 ],
                 child: ScheduleModalSquare(
