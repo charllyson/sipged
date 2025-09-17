@@ -4,16 +4,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
-
 import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'package:siged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
 import 'package:siged/_utils/date_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-
 import 'package:siged/_blocs/documents/contracts/additives/additive_data.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
@@ -51,6 +51,11 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
   final processCtrl = TextEditingController();
   final typeCtrl = TextEditingController();
 
+  // SideListBox (arquivos múltiplos por aditivo)
+  List<String> fileNames = [];
+  List<String> fileUrls = [];
+  int? selectedFileIndex;
+
   AdditiveController({
     required this.contract,
     required this.store,
@@ -69,7 +74,6 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
       _validateForm,
     );
 
-    // 🔧 Rebuild imediato quando o tipo muda (PRAZO, VALOR, RENOVAÇÃO, etc.)
     typeCtrl.addListener(_onTypeChanged);
   }
 
@@ -78,7 +82,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     notifyListeners();
   }
 
-  // Pós-frame: depende de BuildContext
+  // Pós-frame
   Future<void> postFrameInit(BuildContext context) async {
     final userBloc = context.read<UserBloc>();
     _currentUser = userBloc.state.current;
@@ -160,7 +164,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     typeCtrl.text = data.typeOfAdditive ?? '';
     orderCtrl.text = (data.additiveOrder ?? '').toString();
     dateCtrl.text = data.additiveDate != null
-        ? convertDateTimeToDDMMYYYY(data.additiveDate!)
+        ? dateTimeToDDMMYYYY(data.additiveDate!)
         : '';
     valueCtrl.text = data.additiveValue != null ? priceToString(data.additiveValue) : '';
     addDaysExecCtrl.text = data.additiveValidityExecutionDays?.toString() ?? '';
@@ -168,6 +172,10 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     processCtrl.text = data.additiveNumberProcess ?? '';
 
     _validateForm();
+
+    // carrega arquivos do aditivo atual
+    _loadFilesForCurrentAdditive();
+
     notifyListeners();
   }
 
@@ -190,6 +198,11 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     addDaysContractCtrl.clear();
     processCtrl.clear();
     typeCtrl.clear();
+
+    // limpa arquivos
+    fileNames.clear();
+    fileUrls.clear();
+    selectedFileIndex = null;
 
     _setNextOrder();
     _validateForm();
@@ -258,7 +271,7 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
 
   // TABLE / GRAPH selection
   void applySnapshot(List<AdditiveData> list) {
-    _lastSnapshotData = list; // sem notify
+    _lastSnapshotData = list;
   }
 
   void onSelectGraphIndex(int index) {
@@ -285,7 +298,146 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     );
   }
 
-  // PDF (upload + salvar URL)
+  // ====== Upload/listagem de arquivos (SideListBox) ======
+
+  /// Carrega a lista de arquivos do aditivo selecionado.
+  /// 1) Lista no Storage (múltiplos).
+  /// 2) Se vazio, fallback para `pdfUrl` legado no documento.
+  Future<void> _loadFilesForCurrentAdditive() async {
+    fileNames.clear();
+    fileUrls.clear();
+    selectedFileIndex = null;
+
+    final cId = contract.id;
+    final aId = selectedAdditive?.id;
+    if (cId == null || aId == null) {
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final files = await additivesStorageBloc.listarArquivosDoAditivo(
+        contractId: cId,
+        additiveId: aId,
+      ); // List<({String name, String url})>
+
+      if (files.isNotEmpty) {
+        for (final f in files) {
+          fileNames.add(f.name);
+          fileUrls.add(f.url);
+        }
+      } else {
+        final legacyPdfUrl = (selectedAdditive as dynamic?)?.pdfUrl as String?;
+        if (legacyPdfUrl != null && legacyPdfUrl.isNotEmpty) {
+          fileNames.add('Documento do aditivo');
+          fileUrls.add(legacyPdfUrl);
+        }
+      }
+    } catch (_) {
+      final legacyPdfUrl = (selectedAdditive as dynamic?)?.pdfUrl as String?;
+      if (legacyPdfUrl != null && legacyPdfUrl.isNotEmpty) {
+        fileNames.add('Documento do aditivo');
+        fileUrls.add(legacyPdfUrl);
+      }
+    }
+
+    notifyListeners();
+  }
+
+  /// Upload + recarregar lista (mantém compatibilidade salvando pdfUrl).
+  Future<void> addFile(BuildContext context) async {
+    final cId = contract.id;
+    final aId = selectedAdditive?.id;
+    if (cId == null || aId == null || selectedAdditive == null) return;
+
+    try {
+      String? lastProgressMsg;
+
+      final url = await additivesStorageBloc.uploadWithPicker(
+        contract: contract,
+        additive: selectedAdditive!,
+        onProgress: (p) {
+          final msg = 'Enviando arquivo ${(p * 100).toStringAsFixed(0)}%';
+          if (msg != lastProgressMsg && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), duration: const Duration(milliseconds: 700)),
+            );
+            lastProgressMsg = msg;
+          }
+        },
+      );
+
+      // salva também no campo legado (último arquivo), se quiser manter
+      await additivesStorageBloc.salvarUrlPdfDoAditivo(
+        contractId: cId,
+        additiveId: aId,
+        url: url,
+      );
+
+      // recarrega a lista múltipla
+      await _loadFilesForCurrentAdditive();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Arquivo adicionado!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao adicionar arquivo: $e')),
+        );
+      }
+    }
+  }
+
+  /// Abre a URL no navegador (ou troque pelo seu viewer interno).
+  void openFileAt(int i, BuildContext context) async {
+    if (i < 0 || i >= fileUrls.length) return;
+    selectedFileIndex = i;
+    notifyListeners();
+
+    final url = fileUrls[i];
+    try {
+      final uri = Uri.parse(url);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // implemente viewer interno se preferir
+    }
+  }
+
+  /// Remove arquivo no Storage (por URL) e recarrega a lista.
+  Future<void> removeFileAt(int i, BuildContext context) async {
+    if (i < 0 || i >= fileUrls.length) return;
+
+    final url = fileUrls[i];
+    try {
+      await additivesStorageBloc.deletarArquivoDoAditivoPorUrl(url);
+      await _loadFilesForCurrentAdditive();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Arquivo removido.'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao remover: $e')),
+        );
+      }
+    }
+  }
+
+  String _extractFileName(String urlOrPath) {
+    final idx = urlOrPath.lastIndexOf('/');
+    if (idx >= 0 && idx < urlOrPath.length - 1) {
+      return urlOrPath.substring(idx + 1);
+    }
+    return urlOrPath;
+  }
+
+  // Legado (mantido)
   Future<void> uploadValidityPdf({
     required void Function(double) onProgress,
   }) async {

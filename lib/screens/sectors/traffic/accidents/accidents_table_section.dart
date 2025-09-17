@@ -63,7 +63,7 @@ class AccidentsTableSection extends StatelessWidget {
         ),
         PagedColumnSpec<AccidentsData>(
           title: 'DATA',
-          getter: (d) => d.date != null ? convertDateTimeToDDMMYYYY(d.date!) : '-',
+          getter: (d) => d.date != null ? dateTimeToDDMMYYYY(d.date!) : '-',
           textAlign: TextAlign.center,
           maxWidth: 120,
         ),

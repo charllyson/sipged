@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_state.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
 
 // Partes da UI do modal
 import 'package:siged/_widgets/modals/actions_row.dart';
@@ -67,7 +67,7 @@ class ScheduleModalSquare extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bloc = context.read<ScheduleRoadBoardBloc>();
+    final bloc = context.read<ScheduleRoadBloc>();
 
     return ChangeNotifierProvider(
       create: (_) => ScheduleModalController(
@@ -84,7 +84,7 @@ class ScheduleModalSquare extends StatelessWidget {
       builder: (ctx, _) {
         final controller = ctx.watch<ScheduleModalController>();
 
-        return BlocListener<ScheduleRoadBoardBloc, ScheduleRoadBoardState>(
+        return BlocListener<ScheduleRoadBloc, ScheduleRoadState>(
           listenWhen: (prev, curr) =>
           prev.loadingExecucoes != curr.loadingExecucoes || prev.error != curr.error,
           listener: (bctx, state) {

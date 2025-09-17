@@ -5,9 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 // Bloc do Board (para acessar lanes, serviço atual e salvar)
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_event.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_state.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
 
 // Editor de faixas
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
@@ -31,7 +31,7 @@ class PlanningProjectEditPanel extends StatefulWidget {
 
 class _PlanningProjectEditPanelState extends State<PlanningProjectEditPanel> {
 
-  Future<void> _openEditLanes(BuildContext context, ScheduleRoadBoardState st) async {
+  Future<void> _openEditLanes(BuildContext context, ScheduleRoadState st) async {
     final rows = await showDialog<List<ScheduleLaneClass>>(
       context: context,
       builder: (_) => ScheduleLaneEdit(
@@ -42,7 +42,7 @@ class _PlanningProjectEditPanelState extends State<PlanningProjectEditPanel> {
     );
 
     if (rows != null && context.mounted) {
-      context.read<ScheduleRoadBoardBloc>().add(ScheduleLanesSaveRequested(rows));
+      context.read<ScheduleRoadBloc>().add(ScheduleLanesSaveRequested(rows));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Faixas atualizadas.')),
       );
@@ -51,7 +51,7 @@ class _PlanningProjectEditPanelState extends State<PlanningProjectEditPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ScheduleRoadBoardBloc, ScheduleRoadBoardState>(
+    return BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
       builder: (ctx, st) {
         return Container(
           color: Colors.white,

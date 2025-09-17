@@ -10,7 +10,7 @@ import 'package:siged/_widgets/footBar/foot_bar.dart';
 import 'package:siged/_services/geoJson/send_firebase.dart';
 import 'package:siged/_services/geoJson/check_jumps_between_points.dart';
 
-import '../../../../_services/geoJson/floating_buttons.dart';
+import '../../../../_widgets/services/floating_buttons.dart';
 import 'active_railways_map.dart';
 import 'active_railways_panel.dart';
 

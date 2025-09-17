@@ -56,7 +56,7 @@ class ReportMeasurementTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.order ?? '-'}',
                         (a) => a.numberprocess ?? '-',
-                        (a) => convertDateTimeToDDMMYYYY(a.date ?? DateTime.now()),
+                        (a) => dateTimeToDDMMYYYY(a.date ?? DateTime.now()),
                         (a) => priceToString(a.value),
                   ],
                   onTapItem: onTapItem,

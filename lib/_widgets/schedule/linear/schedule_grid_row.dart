@@ -4,7 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/schedule/linear/schedule_cells.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_data.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
 import 'schedule_grid.dart';
 
@@ -17,14 +17,14 @@ class ScheduleGridRow extends StatelessWidget {
   final List<ScheduleLaneClass> faixas;
 
   /// Mantido para compat, mas buscamos O(1) via `execIndex`
-  final List<ScheduleRoadBoardData> execucoes;
+  final List<ScheduleRoadData> execucoes;
 
   /// Índice O(1): [estaca][faixa] -> ScheduleData
-  final Map<int, Map<int, ScheduleRoadBoardData>> execIndex;
+  final Map<int, Map<int, ScheduleRoadData>> execIndex;
 
   final String servicoSelecionado;
-  final Color Function(ScheduleRoadBoardData) getSquareColor;
-  final void Function(ScheduleRoadBoardData) onTapSquare;
+  final Color Function(ScheduleRoadData) getSquareColor;
+  final void Function(ScheduleRoadData) onTapSquare;
 
   final Set<String> selectedKeys;
   final Color highlightColor;
@@ -104,8 +104,8 @@ class ScheduleGridRow extends StatelessWidget {
             final faixa = faixas[i];
 
             // O(1): pega direto do índice; se não houver, usa default
-            final ScheduleRoadBoardData exec = execIndex[estacaNumero]?[i] ??
-                ScheduleRoadBoardData(
+            final ScheduleRoadData exec = execIndex[estacaNumero]?[i] ??
+                ScheduleRoadData(
                   numero: estacaNumero,
                   faixaIndex: i,
                   tipo: servicoSelecionado,

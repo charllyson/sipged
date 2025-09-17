@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 
 class AdditiveData extends ChangeNotifier {
-  ///Informações de medições
   String? id;
   String? contractId;
   int? additiveOrder;
@@ -13,6 +12,9 @@ class AdditiveData extends ChangeNotifier {
 
   int? additiveValidityContractDays;
   int? additiveValidityExecutionDays;
+
+  // Legado: último PDF salvo no doc
+  String? pdfUrl;
 
   DateTime? createdAt;
   String? createdBy;
@@ -31,6 +33,7 @@ class AdditiveData extends ChangeNotifier {
     this.additiveValidityContractDays,
     this.additiveValue,
     this.typeOfAdditive,
+    this.pdfUrl,
     this.createdAt,
     this.createdBy,
     this.updatedAt,
@@ -39,17 +42,12 @@ class AdditiveData extends ChangeNotifier {
     this.deletedBy,
   });
 
-  ///Recuperando informações no banco de dados
   factory AdditiveData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) {
-      throw Exception("Contrato não encontrado");
-    }
+    if (!snapshot.exists) throw Exception("Contrato não encontrado");
 
     final data = snapshot.data() as Map<String, dynamic>?;
 
-    if (data == null) {
-      throw Exception("Os dados do contrato estão vazios");
-    }
+    if (data == null) throw Exception("Os dados do contrato estão vazios");
 
     return AdditiveData(
       id: snapshot.id,
@@ -61,6 +59,7 @@ class AdditiveData extends ChangeNotifier {
       additiveDate: (data['additivedata'] as Timestamp?)?.toDate(),
       additiveValue: (data['additivevalue'] as num?)?.toDouble(),
       typeOfAdditive: data['typeOfAdditive'],
+      pdfUrl: data['pdfUrl'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       createdBy: data['createdBy'] ?? '',
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -83,6 +82,7 @@ class AdditiveData extends ChangeNotifier {
           : null,
       additiveValue: (map['additivevalue'] as num?)?.toDouble(),
       typeOfAdditive: map['typeOfAdditive'],
+      pdfUrl: map['pdfUrl'] as String?,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
       createdBy: map['createdBy'],
       updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
@@ -91,7 +91,6 @@ class AdditiveData extends ChangeNotifier {
       deletedBy: map['deletedBy'],
     );
   }
-
 
   Map<String, dynamic> toJson() {
     return {
@@ -104,9 +103,9 @@ class AdditiveData extends ChangeNotifier {
       'additivedata': additiveDate,
       'additivevalue': additiveValue ?? 0,
       'typeOfAdditive': typeOfAdditive ?? '',
+      'pdfUrl': pdfUrl,
     };
   }
-
 
   Map<String, dynamic> toMap() {
     return {
@@ -119,6 +118,7 @@ class AdditiveData extends ChangeNotifier {
       'additivedata': additiveDate,
       'additivevalue': additiveValue ?? 0,
       'typeOfAdditive': typeOfAdditive,
+      'pdfUrl': pdfUrl,
     };
   }
 }

@@ -61,7 +61,7 @@ class PaymentAdjustmentTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.orderPaymentAdjustment ?? '-'}',
                         (a) => a.processPaymentAdjustment ?? '-',
-                        (a) => convertDateTimeToDDMMYYYY(
+                        (a) => dateTimeToDDMMYYYY(
                       a.datePaymentAdjustment ?? DateTime.now(),
                     ),
                         (a) => priceToString(a.valuePaymentAdjustment),

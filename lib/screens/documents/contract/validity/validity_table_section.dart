@@ -10,18 +10,22 @@ class ValidityTableSection extends StatelessWidget {
   final void Function(String validityId) onDelete;
   final Future<List<ValidityData>> futureValidity;
 
+  /// item selecionado para destacar a linha
+  final ValidityData? selectedItem;
+
   const ValidityTableSection({
     super.key,
     required this.onTapItem,
     required this.onDelete,
     required this.futureValidity,
+    this.selectedItem,
   });
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<ValidityData>>(
-        future: futureValidity,
-        builder: (context, snapshot) {
+      future: futureValidity,
+      builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const LoadingProgress();
         } else if (snapshot.hasError) {
@@ -29,6 +33,7 @@ class ValidityTableSection extends StatelessWidget {
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Text('Nenhuma ordem encontrada.');
         }
+
         return LayoutBuilder(
           builder: (context, constraints) {
             return SimpleTableChanged<ValidityData>(
@@ -41,14 +46,14 @@ class ValidityTableSection extends StatelessWidget {
               ],
               columnWidths: const [
                 80,
-                200,
-                140,
-                80,
+                260,
+                180,
+                80, // apagar
               ],
               columnGetters: [
                     (item) => item.orderNumber?.toString() ?? '',
                     (item) => item.ordertype ?? '',
-                    (item) => convertDateTimeToDDMMYYYY(item.orderdate),
+                    (item) => dateTimeToDDMMYYYY(item.orderdate),
               ],
               columnTextAligns: const [
                 TextAlign.center,
@@ -58,10 +63,11 @@ class ValidityTableSection extends StatelessWidget {
               ],
               onTapItem: onTapItem,
               onDelete: (item) => onDelete(item.id!),
+              selectedItem: selectedItem, // 🔰 pinta a linha
             );
           },
         );
-      }
+      },
     );
   }
 }

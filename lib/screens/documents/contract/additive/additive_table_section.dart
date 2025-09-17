@@ -10,11 +10,15 @@ class AdditiveTableSection extends StatelessWidget {
   final void Function(String additiveId) onDelete;
   final Future<List<AdditiveData>> futureAdditive;
 
+  /// ✅ item selecionado para destacar na tabela
+  final AdditiveData? selectedItem;
+
   const AdditiveTableSection({
     super.key,
     required this.onTapItem,
     required this.onDelete,
     required this.futureAdditive,
+    this.selectedItem,
   });
 
   @override
@@ -53,7 +57,7 @@ class AdditiveTableSection extends StatelessWidget {
                       columnGetters: [
                             (a) => '${a.additiveOrder ?? '-'}',
                             (a) => a.additiveNumberProcess ?? '-',
-                            (a) => convertDateTimeToDDMMYYYY(a.additiveDate ?? DateTime.now()),
+                            (a) => dateTimeToDDMMYYYY(a.additiveDate ?? DateTime.now()),
                             (a) => priceToString(a.additiveValue),
                             (a) => '${a.additiveValidityContractDays ?? '-'}',
                             (a) => '${a.additiveValidityExecutionDays ?? '-'}',
@@ -69,6 +73,9 @@ class AdditiveTableSection extends StatelessWidget {
                         TextAlign.center,
                         TextAlign.center
                       ],
+
+                      // ✅ destaque via selectedItem (já suportado no seu widget)
+                      selectedItem: selectedItem,
                     ),
                   ),
                 ],

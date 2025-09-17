@@ -165,7 +165,7 @@ class TimelineClass extends StatelessWidget {
         children: List.generate(items.length, (index) {
           final item = items[index];
           final (color, icon) = _getIconAndColor(item);
-          final dateStr = convertDateTimeToDDMMYYYY(item.date!);
+          final dateStr = dateTimeToDDMMYYYY(item.date!);
 
           return Row(
             children: [

@@ -1,4 +1,4 @@
-// lib/screens/sectors/planning/projects/schedule_road_map.dart
+// lib/screens/sectors/planning/projects/planning_right_way_map.dart
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -6,23 +6,26 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_state.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_event.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_style.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
 
-import 'package:siged/_services/geoJson/line_segmentation.dart';
+import 'package:siged/_widgets/stakes/line_segmentation.dart';
 import 'package:siged/_services/geoJson/send_firebase.dart';
-import 'package:siged/_services/geoJson/floating_buttons.dart';
-import 'package:siged/_services/geoJson/zoom_listener.dart';
+import 'package:siged/_widgets/services/floating_buttons.dart';
+import 'package:siged/_widgets/stakes/zoom_listener.dart';
+import 'package:siged/_services/geocoding/geocoding_service.dart';
 
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
 import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 
-import 'package:siged/_services/geoJson/stakes_up_right.dart';
-import '../../../../../../_blocs/sectors/operation/road/board/schedule_road_board_data.dart';
+import 'package:siged/_widgets/stakes/stakes_up_right.dart';
+import 'package:siged/_widgets/search/search_overlay.dart';
+import 'package:siged/_widgets/search/search_widget.dart';
+import '../../../../../../_blocs/sectors/operation/road/schedule_road_data.dart';
 import '../schedule_road_panel.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
@@ -101,7 +104,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   String? _tagAsString(Object? tag) => tag?.toString();
 
   // ===== Helper: apagar traçado salvo =====
-  Future<void> _onDeleteCollectionLikeBefore(ScheduleRoadBoardState st) async {
+  Future<void> _onDeleteCollectionLikeBefore(ScheduleRoadState st) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -118,7 +121,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     );
 
     if (ok == true && mounted) {
-      final bloc = context.read<ScheduleRoadBoardBloc>();
+      final bloc = context.read<ScheduleRoadBloc>();
       bloc.add(const ScheduleProjectDeleteRequested());
       bloc.add(const ScheduleRefreshRequested());
     }
@@ -201,18 +204,16 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     return [...helpers, ...src];
   }
 
-
-
   // ======= cor por SEGMENTO (mesma do grid) =======
   Color _colorForSegment({
     required int segIdx, // segmento i (entre estaca i e i+1)
     required int faixaIndex,
-    required ScheduleRoadBoardState st,
+    required ScheduleRoadState st,
   }) {
     final estaca = segIdx + 1; // splitAxisByFixedStep: seg i == E(i+1)->E(i+2)
 
     final data = st.execIndex[estaca]?[faixaIndex] ??
-        ScheduleRoadBoardData(
+        ScheduleRoadData(
           numero: estaca,
           faixaIndex: faixaIndex,
           tipo: st.currentServiceKey,
@@ -233,7 +234,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   List<TappableChangedPolyline> _buildLanePolylines({
     required SegmentedAxis segmented,
     required List lanes,
-    required ScheduleRoadBoardState st,
+    required ScheduleRoadState st,
   }) {
     const laneSpacing = 3.5; // m
     int le = 0, ce = 0, ld = 0;
@@ -277,16 +278,15 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocSelector<ScheduleRoadBoardBloc, ScheduleRoadBoardState, ({
+    return BlocSelector<ScheduleRoadBloc, ScheduleRoadState, ({
     bool initialized,
     bool savingOrImporting,
     double mapZoom,
     List<LatLng> axis,
     List lanes,
     String currentServiceKey,
-    Map<int, Map<int, ScheduleRoadBoardData>> execIndex,
+    Map<int, Map<int, ScheduleRoadData>> execIndex,
     })>(
-      // 🔸 Observa também currentServiceKey e execIndex para rebuildar o mapa
       selector: (st) => (
       initialized: st.initialized,
       savingOrImporting: st.savingOrImporting,
@@ -302,7 +302,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         final segmented = _getSegmented(axis: sel.axis, stepMeters: 20.0, zoom: sel.mapZoom);
 
         // Pega o estado completo para usar squareColor e outros helpers
-        final stFull = context.read<ScheduleRoadBoardBloc>().state;
+        final stFull = context.read<ScheduleRoadBloc>().state;
 
         // SEGMENTOS das faixas com cor por segmento (serviço atual)
         final laneSegments = _buildLanePolylines(
@@ -350,16 +350,19 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           child: Stack(
             children: [
               MapInteractivePage<Map<String, dynamic>>(
+                showSearch: true,
+                searchTargetZoom: 16,
+                showSearchMarker: true,
                 tappablePolylines: tappables,
                 overlayBuilder: (mc, _) => ZoomListener(mapController: mc),
                 onClearPolylineSelection: () async {
                   setState(() => _selectedTag = null);
-                  context.read<ScheduleRoadBoardBloc>()
+                  context.read<ScheduleRoadBloc>()
                       .add(const SchedulePolylineSelected(null));
                 },
                 onSelectPolyline: (pl) async {
                   setState(() => _selectedTag = pl.tag?.toString());   // 👈 pega o tag da linha tocada
-                  context.read<ScheduleRoadBoardBloc>()
+                  context.read<ScheduleRoadBloc>()
                       .add(SchedulePolylineSelected(_selectedTag));
                 },
                 onShowPolylineTooltip: ({required context, required position, required tag}) async {},
@@ -371,12 +374,12 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                 initiallyExpanded: true,
                 position: const GeoJsonActionsPosition.bottomLeft(),
                 onImportGeoJson: (ctx) async {
-                  final bloc = context.read<ScheduleRoadBoardBloc>();
+                  final bloc = context.read<ScheduleRoadBloc>();
                   try { await GeoJsonSendFirebase(ctx); }
                   finally { bloc.add(const ScheduleRefreshRequested()); }
                 },
                 onDeleteCollection: () async {
-                  final st = context.read<ScheduleRoadBoardBloc>().state;
+                  final st = context.read<ScheduleRoadBloc>().state;
                   await _onDeleteCollectionLikeBefore(st);
                 },
                 onCheckDistances: () async {},

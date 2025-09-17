@@ -72,39 +72,42 @@ class SettingsSystemHubPage extends StatelessWidget {
         ),
         toolbarHeight: 72,
       ),
-      body: Stack(
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cross = _gridCountForWidth(constraints.maxWidth);
-              return GridView.builder(
-                scrollDirection: Axis.vertical,
-                physics: const AlwaysScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: cross,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 1.2,
-                ),
-                itemCount: cards.length,
-                itemBuilder: (context, i) {
-                  final c = cards[i];
-                  return _TopicCard(
-                    title: c.title,
-                    subtitle: c.subtitle,
-                    icon: c.icon,
-                    color: c.color,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: c.builder),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        child: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cross = _gridCountForWidth(constraints.maxWidth);
+                return GridView.builder(
+                  scrollDirection: Axis.vertical,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: cross,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.2,
+                  ),
+                  itemCount: cards.length,
+                  itemBuilder: (context, i) {
+                    final c = cards[i];
+                    return _TopicCard(
+                      title: c.title,
+                      subtitle: c.subtitle,
+                      icon: c.icon,
+                      color: c.color,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: c.builder),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
 
-        ],
+          ],
+        ),
       ),
     );
   }

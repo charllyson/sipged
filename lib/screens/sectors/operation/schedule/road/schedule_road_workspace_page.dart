@@ -13,9 +13,9 @@ import 'package:siged/_widgets/schedule/linear/schedule_menu_buttons.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 // Estado unificado do BOARD
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_state.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_event.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 import 'package:siged/screens/sectors/operation/schedule/road/map/schedule_road_map.dart';
 
 import 'board/schedule_road_board.dart';
@@ -89,7 +89,7 @@ class _ScheduleRoadWorkspacePageState
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(74),
-        child: BlocBuilder<ScheduleRoadBoardBloc, ScheduleRoadBoardState>(
+        child: BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
           builder: (ctx, state) {
             final isLoading =
                 state.loadingServices || state.loadingLanes || state.loadingExecucoes;
@@ -213,7 +213,7 @@ class _ScheduleRoadWorkspacePageState
               Positioned.fill(child: content),
 
               // === seletor de serviços flutuante (inferior-direito) ===
-              BlocBuilder<ScheduleRoadBoardBloc, ScheduleRoadBoardState>(
+              BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
                 builder: (context, state) {
                   if (state.services.isEmpty) return const SizedBox.shrink();
 
@@ -226,7 +226,7 @@ class _ScheduleRoadWorkspacePageState
                         options: state.services,
                         current: state.currentServiceKey,
                         onSelect: (key) => context
-                            .read<ScheduleRoadBoardBloc>()
+                            .read<ScheduleRoadBloc>()
                             .add(ScheduleServiceSelected(key)),
                       ),
                     ),

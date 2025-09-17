@@ -7,15 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_photo_utils.dart';
 
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_event.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 import 'package:siged/_widgets/modals/type.dart'; // <- tipos centralizados
 
 import 'package:siged/_blocs/widgets/carousel/carousel_photo.dart';
 import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 
 class ScheduleModalController extends ChangeNotifier {
-  final ScheduleRoadBoardBloc bloc;
+  final ScheduleRoadBloc bloc;
 
   // ——— Parâmetros fixos do modal
   final String currentUserId;

@@ -6,8 +6,8 @@ import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
 
-import 'package:siged/_services/pdf/web_pdf_controller.dart';
-import 'package:siged/_services/pdf/web_pdf_widget.dart';
+import 'package:siged/_widgets/pdf/web_pdf_controller.dart';
+import 'package:siged/_widgets/pdf/web_pdf_widget.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';

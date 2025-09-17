@@ -95,7 +95,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       });
     }
 
-    // roda em paralelo: bake + leitura exif + address
+    // roda em paralelo: bake + leitura exif + suggestions
     final bakeF = compute(_bakeOrientationBytes, _bytes);
     final exifF = _readOriginalExif(_bytes);
 

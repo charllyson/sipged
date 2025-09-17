@@ -8,7 +8,7 @@ import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/date_utils.dart'
-    show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
+    show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
 import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
@@ -192,7 +192,7 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     processCtrl.text = data.processPaymentRevision ?? '';
     valueCtrl.text = priceToString(data.valuePaymentRevision);
     dateCtrl.text = data.datePaymentRevision != null
-        ? convertDateTimeToDDMMYYYY(data.datePaymentRevision!)
+        ? dateTimeToDDMMYYYY(data.datePaymentRevision!)
         : '';
     stateCtrl.text = data.statePaymentRevision ?? '';
     observationCtrl.text = data.observationPaymentRevision ?? '';

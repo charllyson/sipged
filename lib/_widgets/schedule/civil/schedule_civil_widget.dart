@@ -39,7 +39,7 @@ import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
 // BLoC/Auth
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_state.dart';
@@ -1006,7 +1006,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     }
 
     final civilBloc = context.read<CivilScheduleBloc>();
-    final ScheduleRoadBoardBloc adapter = ScheduleBlocAdapterForCivil(
+    final ScheduleRoadBloc adapter = ScheduleBlocAdapterForCivil(
       civilBloc: civilBloc,
       polygonId: polygonId,
       currentUserId: _uid,
@@ -1028,7 +1028,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
               physics: const ClampingScrollPhysics(),
               child: MultiBlocProvider(
                 providers: [
-                  BlocProvider<ScheduleRoadBoardBloc>.value(value: adapter),
+                  BlocProvider<ScheduleRoadBloc>.value(value: adapter),
                   BlocProvider<CivilScheduleBloc>.value(value: civilBloc),
                 ],
                 child: ScheduleModalSquare(

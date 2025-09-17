@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:siged/_services/geoJson/enums.dart';
 
-enum TypeFieldGeoJson {
-  string,
-  integer,
-  double_,
-  boolean,
-  datetime,
-}
+
 
 class GeoJsonPreviewDialog extends StatefulWidget {
   final List<Map<String, dynamic>> features;

@@ -1,27 +1,32 @@
+// ==============================
+// lib/_blocs/documents/contracts/apostilles/apostilles_controller.dart
+// ==============================
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
-
 import 'package:siged/_blocs/system/user/user_data.dart';
+
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
+import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 import 'package:siged/_utils/date_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_utils/handle_selection_utils.dart';
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
 
 class ApostillesController extends ChangeNotifier with FormValidationMixin {
+  // Injetados
   final ApostillesStore store;
   final ContractData contract;
   final ApostillesStorageBloc apostillesStorageBloc;
 
-  // ==== User (via UserBloc) ====
+  // User (via UserBloc)
   StreamSubscription<UserState>? _userSub;
   UserData? _currentUser;
 
@@ -44,57 +49,60 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
   final valueCtrl = TextEditingController();
   final processCtrl = TextEditingController();
 
+  // ====== SideListBox (arquivos) ======
+  /// Nomes dos arquivos exibidos
+  final List<String> fileNames = [];
+  /// URLs/paths reais dos arquivos (mesmo índice de fileNames)
+  final List<String> fileUrls = [];
+  /// Índice selecionado (para destaque visual)
+  int? selectedFileIndex;
+
   ApostillesController({
     required this.store,
     required this.contract,
-    ApostillesStorageBloc? storageBloc, // injetável
+    ApostillesStorageBloc? storageBloc,
   }) : apostillesStorageBloc = storageBloc ?? ApostillesStorageBloc() {
     _init();
   }
 
+  // INIT
   void _init() {
     futureApostilles = _getAll();
     _setNextOrder();
     setupValidation([dateCtrl, valueCtrl, processCtrl], _validateForm);
   }
 
-  /// Chame no `addPostFrameCallback` do widget.
+  /// Pós-frame: depende de BuildContext
   Future<void> postFrameInit(BuildContext context) async {
-    // 👇 lê usuário atual do UserBloc e calcula permissão
     final userBloc = context.read<UserBloc>();
     _currentUser = userBloc.state.current;
     isEditable = _canEditUser(_currentUser);
     notifyListeners();
 
-    // 👇 assina mudanças de usuário/permissões em tempo real
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
-      final prevId = _currentUser?.id;
-      _currentUser = st.current;
-      final nowId = _currentUser?.id;
-
-      final newEditable = _canEditUser(_currentUser);
-      if (newEditable != isEditable || prevId != nowId) {
+      final newEditable = _canEditUser(st.current);
+      if (newEditable != isEditable) {
         isEditable = newEditable;
+        _currentUser = st.current;
         notifyListeners();
       }
     });
   }
 
-  // Permissões (ajuste a chave do módulo se necessário)
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
     final base = (user.baseProfile ?? '').toLowerCase();
     if (base == 'administrador' || base == 'colaborador') return true;
 
-    final perms = user.modulePermissions['apostilles']; // nome do módulo
+    final perms = user.modulePermissions['apostilles'];
     if (perms != null) {
       return (perms['edit'] == true) || (perms['create'] == true);
     }
     return false;
   }
 
-  // Loads
+  // LOADS
   Future<List<ApostillesData>> _getAll() async {
     if (contract.id == null) return [];
     await store.ensureFor(contract.id!);
@@ -108,7 +116,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     notifyListeners();
   }
 
-  // Validation
+  // VALIDATION
   void _validateForm() {
     final valid = dateCtrl.text.isNotEmpty &&
         valueCtrl.text.isNotEmpty &&
@@ -120,7 +128,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
-  // Fill / Clear
+  // FILL / CLEAR
   Future<void> _setNextOrder() async {
     if (contract.id == null) return;
     await store.ensureFor(contract.id!);
@@ -137,12 +145,16 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
 
     orderCtrl.text = (data.apostilleOrder ?? '').toString();
     dateCtrl.text = data.apostilleData != null
-        ? convertDateTimeToDDMMYYYY(data.apostilleData!)
+        ? dateTimeToDDMMYYYY(data.apostilleData!)
         : '';
     valueCtrl.text = priceToString(data.apostilleValue);
     processCtrl.text = data.apostilleNumberProcess ?? '';
 
     _validateForm();
+
+    // 🆕 Carrega arquivos vinculados à apostila atual
+    _loadFilesForCurrentApostille();
+
     notifyListeners();
   }
 
@@ -155,12 +167,17 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     valueCtrl.clear();
     processCtrl.clear();
 
+    // limpa lista de arquivos
+    fileNames.clear();
+    fileUrls.clear();
+    selectedFileIndex = null;
+
     _setNextOrder();
     _validateForm();
     notifyListeners();
   }
 
-  // Save / Update
+  // SAVE / UPDATE
   Future<void> saveOrUpdate(BuildContext context) async {
     if (contract.id == null) return;
 
@@ -204,7 +221,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
-  // Delete
+  // DELETE
   Future<void> deleteApostille(BuildContext context, String id) async {
     if (contract.id == null) return;
     await store.delete(contract.id!, id);
@@ -220,7 +237,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
-  // Graph/Table selection
+  // TABLE / GRAPH selection
   void applySnapshot(List<ApostillesData> list) => _lastSnapshot = list;
 
   void onSelectGraphIndex(int index) {
@@ -247,26 +264,148 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     );
   }
 
-  // Upload + metadado (Storage)
-  Future<void> uploadPdf({
-    required void Function(double) onProgress,
-  }) async {
-    if (contract.id == null || selectedApostille?.id == null) return;
-    final url = await apostillesStorageBloc.uploadWithPicker(
-      contract: contract,
-      apostille: selectedApostille!,
-      onProgress: onProgress,
-    );
-    await apostillesStorageBloc.salvarUrlPdfDaApostila(
-      contractId: contract.id!,
-      apostilleId: selectedApostille!.id!,
-      url: url,
-    );
+  // ====== Upload/listagem de arquivos (SideListBox) ======
+
+  /// Carrega a lista de arquivos da apostila selecionada.
+  /// 1) tenta URL do Storage (oficial)
+  /// 2) fallback para metadado legado `pdfUrl` salvo no Firestore
+  Future<void> _loadFilesForCurrentApostille() async {
+    fileNames.clear();
+    fileUrls.clear();
+    selectedFileIndex = null;
+
+    final c = contract;
+    final a = selectedApostille;
+    if (c.id == null || a?.id == null) {
+      notifyListeners();
+      return;
+    }
+
+    try {
+      // 1) Storage (caminho padrão)
+      final storageUrl = await apostillesStorageBloc.getPdfUrlDaApostila(
+        contract: c,
+        apostille: a!,
+      );
+
+      if (storageUrl != null && storageUrl.isNotEmpty) {
+        fileNames.add(apostillesStorageBloc.fileName(c, a));
+        fileUrls.add(storageUrl);
+      } else if ((a.pdfUrl ?? '').isNotEmpty) {
+        // 2) metadado legado
+        fileNames.add('Documento do apostilamento');
+        fileUrls.add(a.pdfUrl!);
+      }
+    } catch (_) {
+      // mantém silencioso; apenas não lista nada
+    }
+
+    notifyListeners();
+  }
+
+  /// Abre o seletor, faz upload via StorageBloc, salva URL e adiciona na lista da UI.
+  Future<void> addFile(BuildContext context) async {
+    final c = contract;
+    final a = selectedApostille;
+    if (c.id == null || a?.id == null) return;
+
+    try {
+      String? lastProgressMsg;
+
+      final url = await apostillesStorageBloc.uploadWithPicker(
+        contract: c,
+        apostille: a!,
+        onProgress: (p) {
+          final msg = 'Enviando arquivo ${(p * 100).toStringAsFixed(0)}%';
+          if (msg != lastProgressMsg && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), duration: const Duration(milliseconds: 700)),
+            );
+            lastProgressMsg = msg;
+          }
+        },
+      );
+
+      if (url.isNotEmpty) {
+        await apostillesStorageBloc.salvarUrlPdfDaApostila(
+          contractId: c.id!,
+          apostilleId: a.id!,
+          url: url,
+        );
+
+        fileNames.add(apostillesStorageBloc.fileName(c, a));
+        fileUrls.add(url);
+        selectedFileIndex = fileNames.length - 1;
+        notifyListeners();
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Arquivo adicionado!'), backgroundColor: Colors.green),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao adicionar arquivo: $e')),
+        );
+      }
+    }
+  }
+
+  /// Abre o arquivo selecionado (URL externa). Se preferir, substitua pelo seu viewer interno.
+  Future<void> openFileAt(int i, BuildContext context) async {
+    if (i < 0 || i >= fileUrls.length) return;
+    selectedFileIndex = i;
+    notifyListeners();
+
+    final url = fileUrls[i];
+    try {
+      final uri = Uri.parse(url);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // alternativa: chamar seu viewer interno
+      // Navigator.of(context).push(...);
+    }
+  }
+
+  /// Remove item da UI. (Se quiser remover do Storage, implemente no StorageBloc.)
+  Future<void> removeFileAt(int i, BuildContext context) async {
+    if (i < 0 || i >= fileUrls.length) return;
+
+    try {
+      // TODO(opcional): se quiser remover também no storage, crie método por URL/path
+      // await apostillesStorageBloc.deletarArquivoDaApostilaPorUrl(fileUrls[i]);
+
+      fileNames.removeAt(i);
+      fileUrls.removeAt(i);
+
+      if (selectedFileIndex != null) {
+        if (fileNames.isEmpty) {
+          selectedFileIndex = null;
+        } else if (selectedFileIndex! >= fileNames.length) {
+          selectedFileIndex = fileNames.length - 1;
+        }
+      }
+      notifyListeners();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Arquivo removido.'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao remover: $e')),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
-    _userSub?.cancel(); // 👈 importante
+    _userSub?.cancel();
     removeValidation([dateCtrl, valueCtrl, processCtrl], _validateForm);
     orderCtrl.dispose();
     dateCtrl.dispose();

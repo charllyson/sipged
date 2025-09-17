@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
+import 'package:siged/_widgets/dates/selector/selectorDates.dart';
+import 'package:siged/_widgets/dates/selector/selector_dates_shimmer.dart';
 
-import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
-import '../../../../_widgets/selectorDates/selectorDates.dart';
-import '../../../../_widgets/selectorDates/selector_dates_shimmer.dart';
 
 class AccidentsSelectorSection extends StatefulWidget {
   final List<AccidentsData> allData;
@@ -29,7 +29,7 @@ class _AccidentsSelectorSectionState extends State<AccidentsSelectorSection> {
         scrollDirection: Axis.horizontal,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             SizedBox(width: 12),
             SelectorDatesShimmer(),
             SizedBox(width: 12),

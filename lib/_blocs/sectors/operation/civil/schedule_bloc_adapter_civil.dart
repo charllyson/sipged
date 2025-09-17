@@ -3,12 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 // CIVIL
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_event.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 
 /// Adaptador para reutilizar o ScheduleModalSquare no fluxo CIVIL.
 /// Não registra handlers; intercepta `add` e faz forward para o CivilScheduleBloc.
-class ScheduleBlocAdapterForCivil extends ScheduleRoadBoardBloc {
+class ScheduleBlocAdapterForCivil extends ScheduleRoadBloc {
   final CivilScheduleBloc civilBloc;
   final String polygonId;
   final String currentUserId;
@@ -20,7 +20,7 @@ class ScheduleBlocAdapterForCivil extends ScheduleRoadBoardBloc {
   }) : super();
 
   @override
-  void add(ScheduleRoadBoardEvent event) {
+  void add(ScheduleRoadEvent event) {
     if (event is ScheduleSquareApplyRequested) {
       civilBloc.add(CivilPolygonApplyRequested(
         polygonId: polygonId,

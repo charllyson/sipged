@@ -15,7 +15,7 @@ import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/date_utils.dart' show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
+import 'package:siged/_utils/date_utils.dart' show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 import 'package:siged/_utils/handle_selection_utils.dart';
 
 class RevisionMeasurementController extends ChangeNotifier with FormValidationMixin {
@@ -222,7 +222,7 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
     orderCtrl.text = '${data.order ?? ''}';
     processCtrl.text = data.numberprocess ?? '';
     valueCtrl.text = priceToString(data.value);
-    dateCtrl.text = convertDateTimeToDDMMYYYY(data.date);
+    dateCtrl.text = dateTimeToDDMMYYYY(data.date);
 
     _validateFormInternal();
     notifyListeners();

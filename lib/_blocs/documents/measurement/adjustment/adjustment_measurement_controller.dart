@@ -167,7 +167,7 @@ class AdjustmentMeasurementController extends ChangeNotifier
     orderCtrl.text   = (data.order ?? '').toString();
     processCtrl.text = data.numberprocess ?? '';
     valueCtrl.text   = priceToString(data.value);
-    dateCtrl.text    = convertDateTimeToDDMMYYYY(data.date);
+    dateCtrl.text    = dateTimeToDDMMYYYY(data.date);
 
     _validateForm();
     notifyListeners();

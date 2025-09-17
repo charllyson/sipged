@@ -8,8 +8,8 @@ class CustomTextField extends StatelessWidget {
     this.stream,
     this.initialValue,
     this.valueColor,
-    this.prefix,
-    this.suffix,
+    this.prefixIcon,
+    this.suffixIcon,
     this.inputFormatters,
     this.obscure = false,
     this.keyboardType,
@@ -29,15 +29,24 @@ class CustomTextField extends StatelessWidget {
     this.hintText,
     this.maxLines = 1,
     this.readOnly = false,
+
+    // ─── NOVOS (opcionais) ────────────────────────────────────────────────
+    this.textAlignVertical,
+    this.isDense,
+    this.isCollapsed,
+    this.contentPadding,
+    this.hintStyle,
+    this.prefixIconConstraints,
+    this.suffixIconConstraints,
   });
 
   final List<String>? autofillHints;
   final Stream<String>? stream;
   final TextEditingController? controller;
-  final String? hintText;
+  final String? hintText;                 // ← já existia, agora é usado
   final String? initialValue;
-  final Widget? prefix;
-  final Widget? suffix;
+  final Widget? prefixIcon;
+  final Widget? suffixIcon;
   final bool obscure;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
@@ -56,6 +65,15 @@ class CustomTextField extends StatelessWidget {
   final double? width;
   final int? maxLines;
   final bool readOnly;
+
+  // ─── NOVOS (opcionais) ───────────────────────────────────────────────────
+  final TextAlignVertical? textAlignVertical;
+  final bool? isDense;
+  final bool? isCollapsed;
+  final EdgeInsetsGeometry? contentPadding;
+  final TextStyle? hintStyle;
+  final BoxConstraints? prefixIconConstraints;
+  final BoxConstraints? suffixIconConstraints;
 
   @override
   Widget build(BuildContext context) {
@@ -78,13 +96,27 @@ class CustomTextField extends StatelessWidget {
         onChanged: onChanged,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
+        textAlignVertical: textAlignVertical, // ← permite centralizar verticalmente
         decoration: InputDecoration(
           labelStyle: const TextStyle(color: Colors.grey),
           filled: true,
           fillColor: fillCollor ?? Colors.white,
           labelText: labelText,
-          prefixIcon: prefix,
-          suffixIcon: suffix,
+
+          // ↓ agora realmente usamos hint
+          hintText: hintText,
+          hintStyle: hintStyle,
+
+          // ↓ controles de altura/centralização
+          isDense: isDense,
+          isCollapsed: isCollapsed,
+          contentPadding: contentPadding,
+
+          prefixIcon: prefixIcon,
+          prefixIconConstraints: prefixIconConstraints,
+          suffixIcon: suffixIcon,
+          suffixIconConstraints: suffixIconConstraints,
+
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10.0),
             borderSide: BorderSide(color: Colors.grey.shade500),

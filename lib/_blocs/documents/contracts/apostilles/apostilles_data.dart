@@ -2,13 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 
 class ApostillesData extends ChangeNotifier {
-  ///Informações de medições
   String? id;
   String? contractId;
   String? apostilleNumberProcess;
   int? apostilleOrder;
   DateTime? apostilleData;
   double? apostilleValue;
+
+  // 🔹 metadado do PDF no Firestore (legado/compat)
+  String? pdfUrl;
 
   DateTime? createdAt;
   String? createdBy;
@@ -24,33 +26,35 @@ class ApostillesData extends ChangeNotifier {
     this.apostilleOrder,
     this.apostilleData,
     this.apostilleValue,
+    this.pdfUrl,
     this.createdAt,
     this.createdBy,
     this.updatedAt,
     this.updatedBy,
     this.deletedAt,
     this.deletedBy,
-});
+  });
 
   ///Recuperando informações no banco de dados
   factory ApostillesData.fromDocument({required DocumentSnapshot snapshot}) {
     if (!snapshot.exists) {
-      throw Exception("Apostilamentos não encontrado");
+      throw Exception("Apostilamento não encontrado");
     }
 
     final data = snapshot.data() as Map<String, dynamic>?;
 
     if (data == null) {
-      throw Exception("Os dados dos apostilamentos estão vazios");
+      throw Exception("Os dados do apostilamento estão vazios");
     }
 
     return ApostillesData(
       id: snapshot.id,
       contractId: data['contractId'] ?? '',
       apostilleNumberProcess: data['apostillenumberprocess'],
-      apostilleOrder: (data['apostilleorder'] as num).toInt(),
-      apostilleData: data['apostilledata'].toDate() as DateTime,
-      apostilleValue: data['apostillevalue'].toDouble() ?? 0.0,
+      apostilleOrder: (data['apostilleorder'] as num?)?.toInt(),
+      apostilleData: (data['apostilledata'] as Timestamp?)?.toDate(),
+      apostilleValue: (data['apostillevalue'] as num?)?.toDouble() ?? 0.0,
+      pdfUrl: data['pdfUrl'] as String?, // 👈 novo
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       createdBy: data['createdBy'] ?? '',
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -72,6 +76,7 @@ class ApostillesData extends ChangeNotifier {
           ? DateTime.tryParse(map['apostilledata'])
           : null,
       apostilleValue: (map['apostillevalue'] as num?)?.toDouble() ?? 0.0,
+      pdfUrl: map['pdfUrl'] as String?, // 👈 novo
       createdAt: (map['createdAt'] is Timestamp)
           ? (map['createdAt'] as Timestamp).toDate()
           : null,
@@ -87,8 +92,6 @@ class ApostillesData extends ChangeNotifier {
     );
   }
 
-
-
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -97,6 +100,7 @@ class ApostillesData extends ChangeNotifier {
       'apostilleorder': apostilleOrder,
       'apostilledata': apostilleData,
       'apostillevalue': apostilleValue,
+      'pdfUrl': pdfUrl, // 👈 mantém meta ao atualizar
     };
   }
 
@@ -108,7 +112,7 @@ class ApostillesData extends ChangeNotifier {
       'apostilleorder': apostilleOrder,
       'apostilledata': apostilleData,
       'apostillevalue': apostilleValue,
+      'pdfUrl': pdfUrl,
     };
   }
-
 }

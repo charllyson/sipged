@@ -1,6 +1,6 @@
 // lib/_widgets/schedule/schedule_menu_buttons.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_data.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 import 'package:siged/_widgets/buttons/button_flutuante_hover.dart';
 
 class ScheduleMenuButtons extends StatefulWidget {
@@ -13,7 +13,7 @@ class ScheduleMenuButtons extends StatefulWidget {
     this.initiallyExpanded = true,
   });
 
-  final List<ScheduleRoadBoardData> options;
+  final List<ScheduleRoadData> options;
   final String current;
   final void Function(String key) onSelect;
   final double spacing;
@@ -35,7 +35,7 @@ class _ScheduleMenuButtonsState extends State<ScheduleMenuButtons>
 
   void _toggle() => setState(() => _expanded = !_expanded);
 
-  ScheduleRoadBoardData? _currentOption() {
+  ScheduleRoadData? _currentOption() {
     if (widget.options.isEmpty) return null;
     final i = widget.options.indexWhere((o) => o.key == widget.current);
     return i >= 0 ? widget.options[i] : widget.options.first;
@@ -95,7 +95,7 @@ class _ScheduleMenuButtonsState extends State<ScheduleMenuButtons>
 
 class _CollapsedSelectedButton extends StatelessWidget {
   const _CollapsedSelectedButton({required this.option, required this.onTap});
-  final ScheduleRoadBoardData? option;
+  final ScheduleRoadData? option;
   final VoidCallback onTap;
 
   @override
@@ -118,7 +118,7 @@ class _ServiceButton extends StatelessWidget {
     required this.onTap,
   });
 
-  final ScheduleRoadBoardData option;
+  final ScheduleRoadData option;
   final bool isSelected;
   final Color background;
   final VoidCallback onTap;

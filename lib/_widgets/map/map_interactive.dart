@@ -4,6 +4,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:provider/provider.dart';
+import 'package:siged/_services/geocoding/geocoding_service.dart';
+import 'package:siged/_widgets/search/SearchPin.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
@@ -13,8 +15,13 @@ import 'package:siged/_widgets/map/polylines/tappable_changed_polyline_layer.dar
 import 'package:siged/_blocs/widgets/map/map_layer.dart';
 import 'package:siged/_blocs/system/info/system_bloc.dart';
 
+import '../search/search_widget.dart';
+import '../suggestions/suggestion_models.dart';
 import 'buttons/layer_buttons.dart';
 import 'legend/map_legend_widget.dart';
+
+// NEW: usa seu overlay reutilizável
+import 'package:siged/_widgets/search/search_overlay.dart'; // SearchOverlay + SearchAction
 
 class MapInteractivePage<T> extends StatefulWidget {
   // Map
@@ -62,6 +69,20 @@ class MapInteractivePage<T> extends StatefulWidget {
   final List<String>? selectedRegionNames;
   final Function(String? region)? onRegionTap;
 
+  // =================== NEW: BUSCA ===================
+  /// Mostra o botão/flutuante de busca (reutilizável). Default: false.
+  final bool showSearch;
+
+  /// Builder do botão/ação de busca. Recebe um callback `onSearch(text)`.
+  /// Se não fornecer, usa `SearchAction(onSearch: ...)`.
+  final Widget Function(void Function(String) onSearch)? searchActionBuilder;
+
+  /// Zoom alvo quando localizar um resultado (coordenadas ou geocoder).
+  final double searchTargetZoom;
+
+  /// Mostra um marcador na posição localizada (default: true).
+  final bool showSearchMarker;
+
   const MapInteractivePage({
     super.key,
     this.initialZoom = 9.0,
@@ -83,6 +104,12 @@ class MapInteractivePage<T> extends StatefulWidget {
     this.allowMultiSelect = false,
     this.selectedRegionNames,
     this.onRegionTap,
+
+    // NEW
+    this.showSearch = false,
+    this.searchActionBuilder,
+    this.searchTargetZoom = 16,
+    this.showSearchMarker = true,
   });
 
   @override
@@ -106,8 +133,13 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   // seleção interna (chave normalizada)
   final List<String> _selectedRegions = [];
 
+  late final GeocodingService _geocoder;
+
   // controla quando podemos montar o TileLayer
   bool _mapReady = false;
+
+  // NEW: marcador de resultado da busca
+  LatLng? _searchHit;
 
   String _norm(String s) =>
       removeDiacritics(s).replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
@@ -120,6 +152,12 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   @override
   void initState() {
     super.initState();
+    _geocoder = GeocodingService.nominatim(
+      userAgent: 'siged-app/1.0 (seu-email@org.gov.br)', // obrig.
+      acceptLanguage: 'pt-BR',
+      countryCodes: 'br', // opcional: restringe ao Brasil
+      limit: 1,
+    );
 
     _pulseController = AnimationController(
       vsync: this,
@@ -272,6 +310,117 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     }
   }
 
+  // ======== AUTOCOMPLETE (endereços) ========
+  Future<List<SearchSuggestion>> _fetchAddressSuggestions(String q) async {
+    if (q.trim().length < 3) return const []; // evita bater na API a cada tecla
+    final results = await _geocoder.search(q, limit: 8);
+    return results.map((r) {
+      return SearchSuggestion.address(
+        id: r.id,
+        title: r.title,
+        subtitle: r.city ?? r.state ?? r.country,
+        point: r.point,
+      );
+    }).toList();
+  }
+
+  void _onSuggestionTap(SearchSuggestion s, void Function(String) onSearch) {
+    // para padronizar, transformamos em texto e reaproveitamos _onSearch
+    final data = s.data;
+    if (data is LatLng) {
+      onSearch('${data.latitude},${data.longitude}');
+    } else {
+      onSearch(s.title);
+    }
+  }
+
+  // =================== BUSCA (enter / sugestão) ===================
+  Future<void> _onSearch(String text) async {
+    final q = text.trim();
+    if (q.isEmpty) return;
+
+    // 1) tenta coordenadas no próprio texto
+    final parsed = _parseLatLng(q);
+    if (parsed != null) {
+      _goTo(parsed);
+      return;
+    }
+
+    // 2) geocoder interno (Nominatim por padrão)
+    try {
+      final hit = await _geocoder.geocode(q);
+      if (hit != null) {
+        _goTo(hit);
+        return;
+      }
+    } catch (_) {}
+
+    // 3) feedback simples
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não achei. Tente “lat, lng” ou refine a busca.')),
+      );
+    }
+  }
+
+  void _goTo(LatLng p) {
+    setState(() => _searchHit = p);
+    _mapController.move(p, widget.searchTargetZoom);
+  }
+
+  // Suporta: "-9.65, -36.7"  |  "S9.65 W36.7"  |  "lat:-9.65 lon:-36.7"
+  LatLng? _parseLatLng(String s) {
+    // A) decimal com vírgula ou espaço
+    final reA = RegExp(r'(-?\d{1,3}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)');
+    final mA = reA.firstMatch(s);
+    if (mA != null) {
+      final lat = double.tryParse(mA.group(1)!);
+      final lng = double.tryParse(mA.group(2)!);
+      if (lat != null && lng != null && _isValidLatLng(lat, lng)) {
+        return LatLng(lat, lng);
+      }
+    }
+
+    // B) com N/S/E/W
+    final reB = RegExp(
+      r'(?:(N|S)\s*)?(\d{1,3}(?:\.\d+)?)\D+(?:(E|W|L|O)\s*)?(\d{1,3}(?:\.\d+)?)',
+      caseSensitive: false,
+    );
+    final mB = reB.firstMatch(s);
+    if (mB != null) {
+      final ns = (mB.group(1) ?? '').toUpperCase();
+      final ew = (mB.group(3) ?? '').toUpperCase();
+      final latVal = double.tryParse(mB.group(2)!);
+      final lngVal = double.tryParse(mB.group(4)!);
+      if (latVal != null && lngVal != null) {
+        var lat = latVal;
+        var lng = lngVal;
+        if (ns == 'S') lat = -lat.abs();
+        if (ew == 'W' || ew == 'O' || ew == 'L') lng = -lng.abs(); // O/L = Oeste
+        if (_isValidLatLng(lat, lng)) return LatLng(lat, lng);
+      }
+    }
+
+    // C) "lat: x lon: y"
+    final reC = RegExp(
+      r'lat[:=]\s*(-?\d+(?:\.\d+)?)\D+lon[g]?[:=]\s*(-?\d+(?:\.\d+)?)',
+      caseSensitive: false,
+    );
+    final mC = reC.firstMatch(s);
+    if (mC != null) {
+      final lat = double.tryParse(mC.group(1)!);
+      final lng = double.tryParse(mC.group(2)!);
+      if (lat != null && lng != null && _isValidLatLng(lat, lng)) {
+        return LatLng(lat, lng);
+      }
+    }
+
+    return null;
+  }
+
+  bool _isValidLatLng(double lat, double lng) =>
+      lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
   // ---------- LAYERS DO FLUTTER_MAP (apenas LayerWidgets) ----------
   List<Widget> _buildMapLayers() {
     final List<Widget> layers = [];
@@ -386,6 +535,23 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
+    // NEW: marcador do resultado da busca
+    if (widget.showSearchMarker && _searchHit != null) {
+      layers.add(
+        MarkerLayer(
+          markers: [
+            Marker(
+              point: _searchHit!,
+              width: 38,
+              height: 38,
+              alignment: Alignment.bottomCenter,
+              child: SearchPin(), // pin simples
+            ),
+          ],
+        ),
+      );
+    }
+
     // Atribuição do OSM (apenas se usando tile público)
     if (_isOsmPublic) {
       layers.add(
@@ -446,8 +612,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                     // Overlay opcional (ex.: pintura) — FORA do FlutterMap
                     if (widget.overlayBuilder != null)
                       Positioned.fill(
-                        child:
-                        widget.overlayBuilder!(_mapController, _captureKey),
+                        child: widget.overlayBuilder!(_mapController, _captureKey),
                       ),
 
                     // Placeholder; a legenda vai em outro Positioned
@@ -467,13 +632,76 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
             child: MapLegendLayer(regionColors: widget.regionColors!),
           ),
 
-        // Botões de camada / localização — fora do mapa
-        LayerButtons(
-          onMyLocationTap: _handleMyLocationTap,
-          onMapSwitchTap: _handleMapSwitchTap,
-          mapaAtual: MapLayer.mapBase[_indexSelectedMap].nome,
-        ),
+        // NEW: ação de busca flutuante (superior esquerda) + outros botões
+        if (widget.showSearch)
+          Positioned(
+            top: 10,
+            left: 10,
+            child: Row(
+              children: [
+                _buildSearchActionButton(),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: _handleMyLocationTap,
+                  child: Tooltip(
+                    message: 'Minha localização',
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.black38,
+                        borderRadius: BorderRadius.circular(90),
+                      ),
+                      child: const Icon(Icons.pin_drop, color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: _handleMapSwitchTap,
+                  child: Tooltip(
+                    message: 'Mapa: ${MapLayer.mapBase[_indexSelectedMap].nome}',
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.black38,
+                        borderRadius: BorderRadius.circular(90),
+                      ),
+                      child: const Icon(Icons.map, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
+    );
+  }
+
+  // NEW: constrói o botão/ação de busca reutilizável
+  Widget _buildSearchActionButton() {
+    final builder = widget.searchActionBuilder;
+    if (builder != null) {
+      return builder(_onSearch);
+    }
+    // fallback: usa seu SearchAction (de search_widget.dart) com autocomplete
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: Colors.black38,
+        borderRadius: BorderRadius.circular(90),
+      ),
+      child: SearchAction(
+        onSearch: _onSearch,
+        fetchSuggestions: _fetchAddressSuggestions,
+        onSuggestionTap: (s) => _onSuggestionTap(s, _onSearch),
+        hintText: 'Buscar endereço ou "lat, lng"...',
+        expandSide: SearchExpandSide.right,
+        maxWidth: 320,
+        height: 42,
+      ),
     );
   }
 }

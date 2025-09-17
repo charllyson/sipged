@@ -1,21 +1,28 @@
+// ==============================
+// lib/screens/contracts/apostilles/apostilles_table_section.dart
+// ==============================
 import 'package:flutter/material.dart';
 import 'package:siged/_utils/date_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
-import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/loading/loading_progress.dart';
 import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
+import 'package:siged/_utils/formats/format_field.dart';
 
 class ApostilleTableSection extends StatelessWidget {
-  final void Function(ApostillesData) onTapItem;
-  final void Function(String apostilleId) onDelete;
   final Future<List<ApostillesData>> futureApostilles;
+  final void Function(ApostillesData) onTapItem;
+  final void Function(String id) onDelete;
+
+  // 🆕 para destacar linha selecionada
+  final ApostillesData? selectedItem;
 
   const ApostilleTableSection({
     super.key,
+    required this.futureApostilles,
     required this.onTapItem,
     required this.onDelete,
-    required this.futureApostilles,
+    this.selectedItem,
   });
 
   @override
@@ -43,7 +50,7 @@ class ApostilleTableSection extends StatelessWidget {
                     child: SimpleTableChanged<ApostillesData>(
                       constraints: constraints,
                       listData: snapshot.data!,
-                      columnTitles: [
+                      columnTitles: const [
                         'ORDEM',
                         'Nº PROCESSO',
                         'DATA',
@@ -52,17 +59,14 @@ class ApostilleTableSection extends StatelessWidget {
                       columnGetters: [
                             (a) => '${a.apostilleOrder ?? '-'}',
                             (a) => a.apostilleNumberProcess ?? '-',
-                            (a) => convertDateTimeToDDMMYYYY(a.apostilleData ?? DateTime.now()),
+                            (a) => dateTimeToDDMMYYYY(a.apostilleData ?? DateTime.now()),
                             (a) => priceToString(a.apostilleValue),
                       ],
-                      onTapItem: (item) => onTapItem(item),
+                      onTapItem: onTapItem,
                       onDelete: (item) => onDelete(item.id!),
-                      columnWidths: const [
-                        100,
-                        200,
-                        150,
-                        200,
-                      ],
+                      // 🆕 destaque de seleção
+                      selectedItem: selectedItem,
+                      columnWidths: const [100, 200, 150, 200],
                       columnTextAligns: const [
                         TextAlign.center,
                         TextAlign.center,

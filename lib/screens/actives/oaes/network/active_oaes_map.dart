@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:siged/_widgets/map/markers/animated_cluster_marker_widget.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
@@ -9,11 +10,15 @@ import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
+import 'package:siged/_widgets/search/search_overlay.dart';
+import 'package:siged/_widgets/search/search_widget.dart';
+import 'package:siged/_widgets/suggestions/suggestion_models.dart';
 
 import '../../../../_blocs/actives/oaes/active_oaes_data.dart';
 import '../../../../_blocs/actives/oaes/active_oaes_style.dart';
+import '../../../../_services/geocoding/geocoding_service.dart';
 
-class ActiveOaesMap extends StatelessWidget {
+class ActiveOaesMap extends StatefulWidget {
   const ActiveOaesMap({
     super.key,
     required this.state,
@@ -26,17 +31,27 @@ class ActiveOaesMap extends StatelessWidget {
   final void Function(TaggedChangedMarker<ActiveOaesData> marker)? onOpenDetails;
 
   @override
+  State<ActiveOaesMap> createState() => _ActiveOaesMapState();
+}
+
+class _ActiveOaesMapState extends State<ActiveOaesMap> {
+
+
+  @override
   Widget build(BuildContext context) {
-    if (state.loadStatus == ActiveOaesLoadStatus.loading && !state.initialized) {
+    if (widget.state.loadStatus == ActiveOaesLoadStatus.loading && !widget.state.initialized) {
       return const MapLoadingShimmer();
     }
 
-    final markers = state.filteredAll
+    final markers = widget.state.filteredAll
         .map((o) => o.toTaggedMarker())
         .whereType<TaggedChangedMarker<ActiveOaesData>>()
         .toList(growable: false);
 
     return MapInteractivePage<ActiveOaesData>(
+      showSearch: true,
+      searchTargetZoom: 16,
+      showSearchMarker: true,
       taggedMarkers: markers,
       clusterWidgetBuilder: (markers, selected, onSelect) {
         return AnimatedClusterMarkerLayer<ActiveOaesData>(
@@ -70,18 +85,18 @@ class ActiveOaesMap extends StatelessWidget {
           subTitleBuilder: (data) => data.state ?? 'Não identificado',
 
           // >>> aqui só repassamos o clique "Ver detalhes" pra página pai
-          onViewDetails: (ctx, marker) => onOpenDetails?.call(marker),
+          onViewDetails: (ctx, marker) => widget.onOpenDetails?.call(marker),
         );
       },
 
-      regionalPolygons: state.regionalPolygons,
-      regionColors: state.regionColors,
+      regionalPolygons: widget.state.regionalPolygons,
+      regionColors: widget.state.regionColors,
       allowMultiSelect: false,
-      selectedRegionNames: state.selectedRegionNamesForMap,
+      selectedRegionNames: widget.state.selectedRegionNamesForMap,
 
       onRegionTap: (region) {
         final bloc = context.read<ActiveOaesBloc>();
-        final current = state.selectedRegionFilter?.toUpperCase();
+        final current = widget.state.selectedRegionFilter?.toUpperCase();
         final tapped  = region?.toUpperCase();
         final newValue = (current != null && tapped != null && current == tapped) ? null : region;
         bloc.add(ActiveOaesRegionFilterChanged(newValue));

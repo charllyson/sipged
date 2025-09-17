@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additive_rules.dart';
-import 'package:siged/_services/pdf/web_pdf_controller.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
@@ -15,8 +14,9 @@ import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additive_data.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_services/pdf/web_pdf_widget.dart';
 
+// ✅ caminho em minúsculas
+import '../../../../_widgets/list/files/side_list_box.dart';
 
 class AdditiveFormSection extends StatelessWidget {
   final bool isEditable;
@@ -38,6 +38,13 @@ class AdditiveFormSection extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onClear;
 
+  // 🆕 props do SideListBox
+  final List<String> sideItems;
+  final int? selectedSideIndex;
+  final VoidCallback? onAddSideItem;
+  final void Function(int index)? onTapSideItem;
+  final void Function(int index)? onDeleteSideItem;
+
   const AdditiveFormSection({
     super.key,
     required this.isEditable,
@@ -56,29 +63,24 @@ class AdditiveFormSection extends StatelessWidget {
     required this.additionalDaysContractController,
     required this.onSave,
     required this.onClear,
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
   });
 
   bool exibeValor() =>
       ['VALOR', 'REEQUILÍBRIO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
           .contains(typeOfAdditiveCtrl.text.toUpperCase());
+
   bool exibePrazo() =>
       ['PRAZO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
           .contains(typeOfAdditiveCtrl.text.toUpperCase());
 
-  double getInputWidth(BuildContext context) {
-    return responsiveInputWidth(
-      context: context,
-      itemsPerLine: 4,
-      reservedWidth: 100.0,
-      spacing: 12.0,
-      margin: 12.0,
-      extraPadding: 24.0,
-      spaceBetweenReserved: 12.0,
-    );
-  }
-
+  // Agora `_input` recebe a largura já calculada
   Widget _input(
-      BuildContext context,
+      double width,
       TextEditingController ctrl,
       String label, {
         bool enabled = true,
@@ -86,19 +88,18 @@ class AdditiveFormSection extends StatelessWidget {
         bool money = false,
         bool tooltip = false,
         TextInputFormatter? mask,
+        required bool isEditable,
       }) {
     return Tooltip(
-      message: tooltip ? 'Este campo é calculado automaticamente e não pode ser editado.' : '',
+      message:
+      tooltip ? 'Este campo é calculado automaticamente e não pode ser editado.' : '',
       child: CustomTextField(
-        width: getInputWidth(context),
+        width: width,
         controller: ctrl,
         enabled: enabled && isEditable,
         labelText: label,
-        keyboardType: date
-            ? TextInputType.datetime
-            : money
-            ? TextInputType.number
-            : null,
+        keyboardType:
+        date ? TextInputType.datetime : (money ? TextInputType.number : null),
         inputFormatters: [
           if (date) FilteringTextInputFormatter.digitsOnly,
           if (date) TextInputMask(mask: '99/99/9999'),
@@ -115,31 +116,49 @@ class AdditiveFormSection extends StatelessWidget {
     );
   }
 
-  Widget _buildPdfWidget() {
-    if (currentAdditiveId == null || selectedAdditive == null) return const SizedBox.shrink();
-    return WebPdfWidgetGeneric(
-      key: Key(currentAdditiveId!),
-      type: PDFType.additives,
-      contractData: contractData,
-      specificData: selectedAdditive!,
-      additivesStorageBloc: additivesStorageBloc,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 700;
+        final bool isSmallScreen = constraints.maxWidth < 700;
+
+        // 👉 largura do SideListBox (100% no mobile; 300 em telas largas)
+        final double sideWidth = isSmallScreen ? constraints.maxWidth : 300.0;
+
+        // 👉 largura dos inputs levando em conta o sideWidth quando em duas colunas
+        //  - reservedWidth "base" = 100
+        //  - quando não é small screen, reservamos também o sideWidth + espaçamento (12)
+        final double inputsWidth = responsiveInputWidth(
+          context: context,
+          itemsPerLine: 4,
+          reservedWidth: isSmallScreen ? 0.0 : (sideWidth + 12.0),
+          spacing: 12.0,
+          margin: 12.0,
+          extraPadding: 24.0,
+          spaceBetweenReserved: 12.0,
+        );
 
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(context, orderController, 'Ordem do aditivo', enabled: false, tooltip: true),
-            _input(context, processController, 'Processo do Aditivo', mask: processoMaskFormatter),
+            _input(
+              inputsWidth,
+              orderController,
+              'Ordem do aditivo',
+              enabled: false,
+              tooltip: true,
+              isEditable: isEditable,
+            ),
+            _input(
+              inputsWidth,
+              processController,
+              'Processo do Aditivo',
+              mask: processoMaskFormatter,
+              isEditable: isEditable,
+            ),
             CustomDateField(
-              width: getInputWidth(context),
+              width: inputsWidth,
               enabled: isEditable,
               controller: dateController,
               initialValue: selectedAdditive?.additiveDate,
@@ -147,21 +166,39 @@ class AdditiveFormSection extends StatelessWidget {
               onChanged: (date) => selectedAdditive?.additiveDate = date,
             ),
             DropDownButtonChange(
-              width: getInputWidth(context),
+              width: inputsWidth,
               enabled: isEditable,
               labelText: 'Tipo de Aditivo',
               items: AdditiveRules.type,
               controller: typeOfAdditiveCtrl,
               onChanged: (value) {
-                // manter sincronia do modelo (opcional, rebuild vem do listener no controller)
                 if (selectedAdditive != null) {
                   selectedAdditive!.typeOfAdditive = value ?? '';
                 }
               },
             ),
-            if (exibeValor()) _input(context, valueController, 'Valor do aditivo', money: true),
-            if (exibePrazo()) _input(context, additionalDaysContractController, 'Dias adicionais ao prazo do contrato'),
-            if (exibePrazo()) _input(context, additionalDaysExecutionController, 'Dias adicionais ao prazo de execução'),
+            if (exibeValor())
+              _input(
+                inputsWidth,
+                valueController,
+                'Valor do aditivo',
+                money: true,
+                isEditable: isEditable,
+              ),
+            if (exibePrazo())
+              _input(
+                inputsWidth,
+                additionalDaysContractController,
+                'Dias adicionais ao prazo do contrato',
+                isEditable: isEditable,
+              ),
+            if (exibePrazo())
+              _input(
+                inputsWidth,
+                additionalDaysExecutionController,
+                'Dias adicionais ao prazo de execução',
+                isEditable: isEditable,
+              ),
           ],
         );
 
@@ -192,18 +229,29 @@ class AdditiveFormSection extends StatelessWidget {
           ],
         );
 
+        // ✅ SideListBox SEMPRE visível; "+" desabilita se nada selecionado
+        final side = SideListBox(
+          title: 'Arquivos do Aditivo',
+          items: sideItems,
+          selectedIndex: selectedSideIndex,
+          onAddPressed: (selectedAdditive != null) ? onAddSideItem : null,
+          onTap: onTapSideItem,
+          onDelete: onDeleteSideItem,
+          width: sideWidth, // 🔥 ocupa 100% no mobile
+        );
+
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: Colors.grey),
             borderRadius: BorderRadius.circular(8),
           ),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(12),
           child: isSmallScreen
               ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentAdditiveId != null && selectedAdditive != null) _buildPdfWidget(),
+              side,
               const SizedBox(height: 12),
               corpo,
             ],
@@ -211,7 +259,7 @@ class AdditiveFormSection extends StatelessWidget {
               : Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentAdditiveId != null && selectedAdditive != null) _buildPdfWidget(),
+              side,
               const SizedBox(width: 12),
               Expanded(child: corpo),
             ],

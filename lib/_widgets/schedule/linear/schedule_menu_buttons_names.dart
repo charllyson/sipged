@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_style.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
 
 class ScheduleMenuButtonsNames {
   final String key;        // ex.: "terraplenagem"
@@ -60,8 +60,8 @@ ScheduleMenuButtonsNames optionFromTitle(String title) {
     key: slug,
     label: label,
     collection: 'schedules_$slug',
-    color: ScheduleRoadBoardStyle.colorForService(label),  // 🎯 semântico por label
-    icon: ScheduleRoadBoardStyle.pickIconForTitle(label),  // 🎯 ícone semântico
+    color: ScheduleRoadStyle.colorForService(label),  // 🎯 semântico por label
+    icon: ScheduleRoadStyle.pickIconForTitle(label),  // 🎯 ícone semântico
   );
 }
 

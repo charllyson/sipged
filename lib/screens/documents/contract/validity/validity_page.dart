@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:siged/_blocs/documents/contracts/validity/validity_controller.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_widgets/timeline/timeline_class.dart';
-import '../../../../_blocs/documents/contracts/validity/validity_controller.dart';
 import 'validity_form_section.dart';
 import 'validity_table_section.dart';
 
@@ -58,7 +58,7 @@ class ValidityPage extends StatelessWidget {
                             const DividerText(title: 'Cadastrar validades no sistema'),
                             const SizedBox(height: 12),
 
-                            // Form
+                            // Form + SideListBox
                             ValidityFormSection(
                               orderCtrl: ctrl.orderCtrl,
                               orderTypeCtrl: ctrl.orderTypeCtrl,
@@ -69,20 +69,25 @@ class ValidityPage extends StatelessWidget {
                               isSaving: ctrl.isSaving,
                               formValidated: ctrl.formValidated,
                               contractData: ctrl.contract,
-                              validityStorageBloc: ctrl.validityStorageBloc,
                               onChangeDate: ctrl.onChangeDate,
                               onClear: ctrl.createNew,
                               onSaveOrUpdate: () async {
                                 final ok = await _confirm(context);
                                 if (ok) await ctrl.saveOrUpdate(context);
                               },
+                              // SideListBox bindings
+                              sideItems: ctrl.fileNames,
+                              selectedSideIndex: ctrl.selectedFileIndex,
+                              onAddSideItem: () => ctrl.addFile(context),
+                              onTapSideItem: (i) => ctrl.openFileAt(i, context),
+                              onDeleteSideItem: (i) => ctrl.removeFileAt(i, context),
                             ),
 
                             const SizedBox(height: 12),
                             const DividerText(title: 'Validades cadastradas no sistema'),
                             const SizedBox(height: 12),
 
-                            // Tabela
+                            // Tabela (com destaque da linha selecionada)
                             ValidityTableSection(
                               futureValidity: ctrl.futureValidity,
                               onTapItem: ctrl.fillFields,
@@ -90,6 +95,7 @@ class ValidityPage extends StatelessWidget {
                                 final ok = await _confirm(context);
                                 if (ok) await ctrl.deleteValidity(context, id);
                               },
+                              selectedItem: ctrl.selectedValidityData,
                             ),
                           ],
                         );

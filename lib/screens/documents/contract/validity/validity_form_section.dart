@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:siged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_utils/responsive_utils.dart';
-
-import 'package:siged/_services/pdf/web_pdf_widget.dart';
-import 'package:siged/_services/pdf/web_pdf_controller.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
 
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/contracts/validity/validity_data.dart';
 
-class ValidityFormSection extends StatefulWidget {
+// Side list
+import '../../../../_widgets/list/files/side_list_box.dart';
+
+class ValidityFormSection extends StatelessWidget {
   final TextEditingController orderCtrl;
   final TextEditingController orderTypeCtrl;
   final TextEditingController orderDateCtrl;
@@ -28,7 +26,13 @@ class ValidityFormSection extends StatefulWidget {
   final VoidCallback onClear;
   final Function(DateTime?) onChangeDate;
   final ContractData? contractData;
-  final ValidityStorageBloc validityStorageBloc;
+
+  // SideListBox
+  final List<String> sideItems;
+  final int? selectedSideIndex;
+  final VoidCallback? onAddSideItem;
+  final void Function(int index)? onTapSideItem;
+  final void Function(int index)? onDeleteSideItem;
 
   const ValidityFormSection({
     super.key,
@@ -44,137 +48,124 @@ class ValidityFormSection extends StatefulWidget {
     required this.onClear,
     required this.onChangeDate,
     required this.contractData,
-    required this.validityStorageBloc,
+    // side
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
   });
-
-  @override
-  State<ValidityFormSection> createState() => _ValidityFormSectionState();
-}
-
-class _ValidityFormSectionState extends State<ValidityFormSection>
-    with FormValidationMixin {
-  static const double _pdfPanelWidth = 98.0; // largura fixa do painel do PDF
-  static const double _gap = 12.0;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final isSmall = constraints.maxWidth < 700;
-      final hasPdf = widget.selectedValidityData?.id != null && widget.contractData != null;
+      final sideWidth = isSmall ? constraints.maxWidth : 300.0;
 
-      // quando o PDF aparece ao lado, reservamos a largura dele para o cálculo dos inputs
-      final reservedForPdf = (!isSmall && hasPdf) ? _pdfPanelWidth + _gap : 0.0;
-
+      // Inputs calculados reservando o painel lateral
       final inputWidth = responsiveInputWidth(
         context: context,
         itemsPerLine: 3,
-        reservedWidth: reservedForPdf,
+        reservedWidth: isSmall ? 0.0 : (sideWidth + 12.0),
         spacing: 12.0,
         margin: 12.0,
         extraPadding: 24.0,
-        spaceBetweenReserved: _gap,
+        spaceBetweenReserved: 12.0,
       );
 
-      Widget camposWrap = Wrap(
+      final camposWrap = Wrap(
         spacing: 12,
         runSpacing: 12,
         children: [
           Tooltip(
-            message:
-            'Este campo é calculado automaticamente e não pode ser editado.',
+            message: 'Este campo é calculado automaticamente e não pode ser editado.',
             child: CustomTextField(
               width: inputWidth,
               enabled: false,
               fillCollor: Colors.grey.shade200,
               labelText: 'Ordem',
-              controller: widget.orderCtrl,
-              keyboardType: TextInputType.text,
+              controller: orderCtrl,
+              keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             ),
           ),
           DropDownButtonChange(
             width: inputWidth,
             labelText: 'Tipo da ordem',
-            items: widget.availableOrders.isEmpty ? [] : widget.availableOrders,
-            controller: widget.orderTypeCtrl,
-            enabled: widget.availableOrders.isNotEmpty && widget.isEditable,
+            items: availableOrders.isEmpty ? [] : availableOrders,
+            controller: orderTypeCtrl,
+            enabled: availableOrders.isNotEmpty && isEditable,
           ),
           CustomDateField(
             width: inputWidth,
-            controller: widget.orderDateCtrl,
-            initialValue: widget.selectedValidityData?.orderdate,
+            controller: orderDateCtrl,
+            initialValue: selectedValidityData?.orderdate,
             labelText: 'Data da ordem',
-            enabled: widget.isEditable,
-            validator: (_) => validateDate(
-              stringToDate(widget.orderDateCtrl.text),
-            ),
-            onChanged: widget.onChangeDate,
+            enabled: isEditable,
+            // validação inline: usa stringToDate do format_field.dart
+            validator: (_) {
+              final d = stringToDate(orderDateCtrl.text);
+              return d == null ? 'Data inválida' : null;
+            },
+            onChanged: onChangeDate,
           ),
         ],
       );
-
-      Widget pdfWidget = hasPdf
-          ? SizedBox(
-        width: _pdfPanelWidth,
-        child: WebPdfWidgetGeneric<ValidityData>(
-          key: ValueKey(widget.selectedValidityData!.id!),
-          type: PDFType.validity,
-          contractData: widget.contractData!,
-          specificData: widget.selectedValidityData,
-          validityStorageBloc: widget.validityStorageBloc,
-        ),
-      )
-          : const SizedBox.shrink();
 
       final botoes = Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (widget.selectedValidityData?.id != null)
+          if (selectedValidityData?.id != null)
             TextButton.icon(
               icon: const Icon(Icons.restore),
               label: const Text('Limpar'),
-              onPressed: widget.onClear,
+              onPressed: onClear,
             ),
           const SizedBox(width: 12),
           TextButton.icon(
-            onPressed:
-            widget.formValidated && !widget.isSaving ? widget.onSaveOrUpdate : null,
+            onPressed: formValidated && !isSaving ? onSaveOrUpdate : null,
             icon: const Icon(Icons.save),
             label: Text(
-              widget.selectedValidityData?.id != null ? 'Atualizar' : 'Salvar',
+              selectedValidityData?.id != null ? 'Atualizar' : 'Salvar',
             ),
           ),
         ],
       );
 
-      // Layout: PDF ao lado em telas largas; PDF acima (centralizado) em telas pequenas
-      final content = isSmall
-          ? Column(
+      final corpo = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (hasPdf) Center(child: pdfWidget),
-          if (hasPdf) const SizedBox(height: 12),
           camposWrap,
           const SizedBox(height: 12),
           botoes,
+        ],
+      );
+
+      final side = SideListBox(
+        title: 'Documento da validade',
+        items: sideItems,
+        selectedIndex: selectedSideIndex,
+        onAddPressed: (selectedValidityData != null) ? onAddSideItem : null,
+        onTap: onTapSideItem,
+        onDelete: onDeleteSideItem,
+        width: sideWidth,
+      );
+
+      final content = isSmall
+          ? Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          side,
+          const SizedBox(height: 12),
+          corpo,
         ],
       )
           : Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (hasPdf) pdfWidget,
-          if (hasPdf) const SizedBox(width: _gap),
-          // Campos + botões ocupam o resto
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                camposWrap,
-                const SizedBox(height: 12),
-                botoes,
-              ],
-            ),
-          ),
+          side,
+          const SizedBox(width: 12),
+          Expanded(child: corpo),
         ],
       );
 

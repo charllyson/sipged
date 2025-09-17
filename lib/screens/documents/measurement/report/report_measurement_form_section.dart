@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
-import 'package:siged/_services/pdf/web_pdf_controller.dart';
+import 'package:siged/_widgets/pdf/web_pdf_controller.dart';
 import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
 
-import 'package:siged/_services/pdf/web_pdf_widget.dart';
+import 'package:siged/_widgets/pdf/web_pdf_widget.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
@@ -173,7 +173,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.list_alt),
                   label: const Text('Detalhar medição'),
-                  onPressed: isEditable ? () => _openDetalhamentoModal(context) : null,
+                  onPressed: isEditable ? () => _openDetailsModel(context) : null,
                 ),
               ),
             ),
@@ -242,7 +242,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
     );
   }
 
-  void _openDetalhamentoModal(BuildContext context) async {
+  void _openDetailsModel(BuildContext context) async {
     await Navigator.of(context).push<MeasurementBudgetPage>(
       MaterialPageRoute(
         builder: (_) => MeasurementBudgetPage(

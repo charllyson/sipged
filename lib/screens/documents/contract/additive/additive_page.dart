@@ -65,6 +65,13 @@ class AdditivePage extends StatelessWidget {
                                       onSave: () => ctrl.saveOrUpdate(context),
                                       onClear: ctrl.createNew,
                                       additivesStorageBloc: ctrl.additivesStorageBloc,
+
+                                      // SideListBox
+                                      sideItems: ctrl.fileNames,
+                                      selectedSideIndex: ctrl.selectedFileIndex,
+                                      onAddSideItem: () => ctrl.addFile(context),
+                                      onTapSideItem: (i) => ctrl.openFileAt(i, context),
+                                      onDeleteSideItem: (i) => ctrl.removeFileAt(i, context),
                                     ),
                                   ),
 
@@ -100,6 +107,8 @@ class AdditivePage extends StatelessWidget {
 
                                   const DividerText(title: 'Aditivos cadastrados no sistema'),
                                   AdditiveTableSection(
+                                    // ✅ passe o item selecionado
+                                    selectedItem: context.read<AdditiveController>().selectedAdditive,
                                     onTapItem: (a) => context.read<AdditiveController>().handleAdditiveSelection(a),
                                     onDelete: (id) => context.read<AdditiveController>().deleteAdditive(context, id),
                                     futureAdditive: context.read<AdditiveController>().futureAdditives,

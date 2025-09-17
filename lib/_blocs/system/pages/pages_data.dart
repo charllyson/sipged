@@ -10,12 +10,9 @@ enum MenuItem {
   documentsMeasurementsRecords,
 
   operationMonitoringWork,
-  operationExpropriationDashboard,
-  operationExpropriationRecords,
 
   planningProjectDashboard,
   planningProjectRegistration,
-  planningRightOfWayDashboard,
   planningRightOfWayRecords,
   planningEnvironmentDashboard,
   planningEnvironmentRecords,
@@ -56,13 +53,10 @@ class PagesData {
     'documents-measurements-records',
 
     'operation-work-timeline',
-    'operation-expropriation-dashboard',
-    'operation-expropriation-records',
 
     'planning-projects-dashboard',
     'planning-projects-records',
-    'planning-rightOfWay-dashboard',
-    'planning-rightOfWay-records',
+    'planning-rightWay-records',
     'planning-environment-dashboard',
     'planning-environment-records',
 
@@ -132,16 +126,6 @@ class PagesData {
           menuItem: MenuItem.operationMonitoringWork,
           permissionModule: 'operation-work-timeline',
         ),
-        MenuDrawerSubItem(
-          label: 'PAINEL',
-          menuItem: MenuItem.operationExpropriationDashboard,
-          permissionModule: 'operation-expropriation-dashboard',
-        ),
-        MenuDrawerSubItem(
-          label: 'DESAPROPRIAÇÃO',
-          menuItem: MenuItem.operationExpropriationRecords,
-          permissionModule: 'operation-expropriation-records',
-        ),
       ],
     ),
     MenuDrawerItemModel(
@@ -159,14 +143,9 @@ class PagesData {
           permissionModule: 'planning-projects-records',
         ),
         MenuDrawerSubItem(
-          label: 'PAINEL',
-          menuItem: MenuItem.planningRightOfWayDashboard,
-          permissionModule: 'planning-rightOfWay-dashboard',
-        ),
-        MenuDrawerSubItem(
           label: 'FAIXA DE DOMÍNIO',
           menuItem: MenuItem.planningRightOfWayRecords,
-          permissionModule: 'planning-rightOfWay-records',
+          permissionModule: 'planning-rightWay-records',
         ),
         MenuDrawerSubItem(
           label: 'PAINEL',

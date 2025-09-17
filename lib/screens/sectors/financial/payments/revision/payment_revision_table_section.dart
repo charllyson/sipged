@@ -58,7 +58,7 @@ class PaymentRevisionTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.orderPaymentRevision ?? '-'}',
                         (a) => a.processPaymentRevision ?? '-',
-                        (a) => convertDateTimeToDDMMYYYY(a.datePaymentRevision ?? DateTime.now()),
+                        (a) => dateTimeToDDMMYYYY(a.datePaymentRevision ?? DateTime.now()),
                         (a) => priceToString(a.valuePaymentRevision),
                   ],
                   onTapItem: onTapItem,

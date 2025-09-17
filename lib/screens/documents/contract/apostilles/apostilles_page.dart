@@ -1,6 +1,10 @@
+// ==============================
+// lib/screens/contracts/apostilles/apostilles_page.dart
+// ==============================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_widgets/texts/divider_text.dart';import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/texts/divider_text.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
@@ -58,6 +62,12 @@ class ApostillesPage extends StatelessWidget {
                                       valueController: ctrl.valueCtrl,
                                       onSave: () => ctrl.saveOrUpdate(context),
                                       onClear: ctrl.createNew,
+                                      // SideListBox ⇩
+                                      sideItems: ctrl.fileNames,
+                                      selectedSideIndex: ctrl.selectedFileIndex,
+                                      onAddSideItem: () => ctrl.addFile(context),
+                                      onTapSideItem: (i) => ctrl.openFileAt(i, context),
+                                      onDeleteSideItem: (i) => ctrl.removeFileAt(i, context),
                                     ),
                                   ),
                                   const DividerText(title: 'Gráfico dos apostilamentos'),
@@ -85,10 +95,15 @@ class ApostillesPage extends StatelessWidget {
                                     },
                                   ),
                                   const DividerText(title: 'Apostilamentos cadastrados no sistema'),
-                                  ApostilleTableSection(
-                                    futureApostilles: context.read<ApostillesController>().futureApostilles,
-                                    onTapItem: (a) => context.read<ApostillesController>().handleApostilleSelection(a),
-                                    onDelete: (id) => context.read<ApostillesController>().deleteApostille(context, id),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                                    child: ApostilleTableSection(
+                                      futureApostilles: ctrl.futureApostilles,
+                                      onTapItem: ctrl.handleApostilleSelection,
+                                      onDelete: (id) => ctrl.deleteApostille(context, id),
+                                      // 🆕 destacar a linha selecionada
+                                      selectedItem: ctrl.selectedApostille,
+                                    ),
                                   ),
                                   const SizedBox(height: 20),
                                 ],

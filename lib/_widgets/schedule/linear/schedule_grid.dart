@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import 'package:siged/_widgets/schedule/linear/schedule_grid_row.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_legend.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_data.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_style.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
 
 class ScheduleGrid extends StatelessWidget {
@@ -31,10 +31,10 @@ class ScheduleGrid extends StatelessWidget {
 
   final int totalEstacas;
   final List<ScheduleLaneClass> faixas;
-  final List<ScheduleRoadBoardData> execucoes;
+  final List<ScheduleRoadData> execucoes;
 
   /// Índice O(1) por célula: [estaca][faixa] -> ScheduleData
-  final Map<int, Map<int, ScheduleRoadBoardData>> execIndex;
+  final Map<int, Map<int, ScheduleRoadData>> execIndex;
 
   final String servicoSelecionado;
 
@@ -42,10 +42,10 @@ class ScheduleGrid extends StatelessWidget {
   final double estacaWidth;
 
   /// Cor base calculada pelo State (com sombreamento por recência).
-  final Color Function(ScheduleRoadBoardData e) getSquareColor;
+  final Color Function(ScheduleRoadData e) getSquareColor;
 
   /// Handler de toque em célula válida.
-  final void Function(ScheduleRoadBoardData e) onTapSquare;
+  final void Function(ScheduleRoadData e) onTapSquare;
 
   final Set<String> selectedKeys;
   final void Function(int estaca, int faixaIndex)? onDragStart;
@@ -92,13 +92,13 @@ class ScheduleGrid extends StatelessWidget {
       return faixas[faixaIndex].isAllowed(servicoSelecionado);
     }
 
-    Color safeSquareColor(ScheduleRoadBoardData e) {
+    Color safeSquareColor(ScheduleRoadData e) {
       return laneEnabledFor(e.faixaIndex)
           ? getSquareColor(e)
           : Colors.grey.shade200; // visual desabilitado
     }
 
-    void safeOnTapSquare(ScheduleRoadBoardData e) {
+    void safeOnTapSquare(ScheduleRoadData e) {
       if (!laneEnabledFor(e.faixaIndex)) return; // ignora toques
       onTapSquare(e);
     }
@@ -155,7 +155,7 @@ class ScheduleGrid extends StatelessWidget {
                     const EdgeInsets.symmetric(vertical: ScheduleGrid.kCellVPad),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: ScheduleRoadBoardStyle.colorForFaixa(faixas[i].label),
+                        color: ScheduleRoadStyle.colorForFaixa(faixas[i].label),
                         borderRadius: BorderRadius.circular(2),
                       ),
                       child: Center(

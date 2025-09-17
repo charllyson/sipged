@@ -9,7 +9,7 @@ import 'package:siged/_widgets/modals/type.dart';
 
 // Domínio / dados
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_data.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
 
 // Widgets do Schedule
@@ -21,9 +21,9 @@ import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
 import 'package:siged/_widgets/modals/schedule_modal_square.dart';
 
 // BLoC
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_event.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_state.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
 
 // Metadados por URL pro carrossel
 import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
@@ -90,7 +90,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
   void initState() {
     super.initState();
 
-    if (context.read<ScheduleRoadBoardBloc?>() == null) {
+    if (context.read<ScheduleRoadBloc?>() == null) {
       throw FlutterError(
         'ScheduleBloc não encontrado no contexto. '
             'Envolva ScheduleRoadPage com BlocProvider(create: (_) => ScheduleRoadBoardBloc()).',
@@ -101,7 +101,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
     final totalEstacas = ((km * 1000) / 20).ceil();
     final contractId = widget.contractData?.id ?? '';
 
-    context.read<ScheduleRoadBoardBloc>().add(
+    context.read<ScheduleRoadBloc>().add(
       ScheduleWarmupRequested(
         contractId: contractId,
         totalEstacas: totalEstacas,
@@ -119,7 +119,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       final km = widget.contractData?.contractExtKm ?? 0.0;
       final totalEstacas = ((km * 1000) / 20).ceil();
       final contractId = widget.contractData?.id ?? '';
-      context.read<ScheduleRoadBoardBloc>().add(
+      context.read<ScheduleRoadBloc>().add(
         ScheduleWarmupRequested(
           contractId: contractId,
           totalEstacas: totalEstacas,
@@ -131,7 +131,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<ScheduleRoadBoardBloc, ScheduleRoadBoardState>(
+    return BlocConsumer<ScheduleRoadBloc, ScheduleRoadState>(
       listenWhen: (p, c) => p.error != c.error,
       listener: (ctx, state) {
         if (state.error != null) {
@@ -174,7 +174,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
   }
 
   // ===================== Grid/Placeholder =====================
-  Widget _gridOrPlaceholder(ScheduleRoadBoardState state) {
+  Widget _gridOrPlaceholder(ScheduleRoadState state) {
     if (state.loadingLanes) {
       return const Center(
         child: Column(
@@ -208,7 +208,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       legendWidth: kLegendWidth,
       estacaWidth: kEstacaWidth,
       getSquareColor: state.squareColor,
-      onTapSquare: (ScheduleRoadBoardData e) => _onTapSquare(e, state),
+      onTapSquare: (ScheduleRoadData e) => _onTapSquare(e, state),
       onDragStart: (int e, int f) => _onDragStart(e, f),
       onDragUpdate: (int e, int f) => _onDragUpdate(e, f, state),
       onDragEnd: _onDragEnd,
@@ -219,7 +219,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
 
   // ===================== Interações (UI-only) =====================
   // (restante inalterado)
-  Future<void> _onTapSquare(ScheduleRoadBoardData e, ScheduleRoadBoardState state) async {
+  Future<void> _onTapSquare(ScheduleRoadData e, ScheduleRoadState state) async {
     if (_isDragging || _modalOpen) return;
     if (!state.canEditSingleCell) {
       _toast('Para editar, selecione um serviço específico.');
@@ -272,7 +272,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
               child: SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
                 child: BlocProvider.value(
-                  value: context.read<ScheduleRoadBoardBloc>(),
+                  value: context.read<ScheduleRoadBloc>(),
                   child: ScheduleModalSquare(
                     currentUserId: _uid,
                     tipoLabel: state.titleForHeader,
@@ -298,7 +298,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       );
 
       context
-          .read<ScheduleRoadBoardBloc>()
+          .read<ScheduleRoadBloc>()
           .add(const ScheduleExecucoesReloadRequested());
       _toast('Célula atualizada com sucesso!');
     } catch (err) {
@@ -328,7 +328,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
     });
   }
 
-  void _onDragUpdate(int estaca, int faixa, ScheduleRoadBoardState state) {
+  void _onDragUpdate(int estaca, int faixa, ScheduleRoadState state) {
     if (!_isDragging || _anchorEstaca == null || _anchorFaixa == null) return;
     final sel =
     state.selectionBetween(_anchorEstaca!, _anchorFaixa!, estaca, faixa);
@@ -350,7 +350,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
   }
 
   Future<void> _openBulkWithUnifiedModal() async {
-    final state = context.read<ScheduleRoadBoardBloc>().state;
+    final state = context.read<ScheduleRoadBloc>().state;
     if (!state.canBulkApply) {
       _toast('Selecione um serviço específico para editar em lote.');
       return;
@@ -399,7 +399,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
               child: SingleChildScrollView(
                 physics: const ClampingScrollPhysics(),
                 child: BlocProvider.value(
-                  value: context.read<ScheduleRoadBoardBloc>(),
+                  value: context.read<ScheduleRoadBloc>(),
                   child: ScheduleModalSquare(
                     currentUserId: _uid,
                     tipoLabel: state.titleForHeader,
@@ -415,7 +415,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       );
 
       context
-          .read<ScheduleRoadBoardBloc>()
+          .read<ScheduleRoadBloc>()
           .add(const ScheduleExecucoesReloadRequested());
       _toast('Aplicado em lote: ${targets.length} célula(s).');
     } catch (e) {

@@ -160,7 +160,7 @@ String removeCharacters(String inputCpf) {
   return text.toString();
 }
 
-String convertDoubletoString(double? value) {
+String doubleToString(double? value) {
   return NumberFormat('###,##0.00', 'pt-br',).format(value);
 }
 

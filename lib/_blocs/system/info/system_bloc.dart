@@ -39,7 +39,7 @@ class SystemBloc extends BlocBase {
         final response = await http.get(url);
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final address = data['address'];
+          final address = data['suggestions'];
 
           return Placemark(
             street: address['road'] ?? '',

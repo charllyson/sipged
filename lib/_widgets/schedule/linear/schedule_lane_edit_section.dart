@@ -1,6 +1,6 @@
 // lib/screens/sectors/operation/schedule/schedule_lane_edit_section.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_style.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_row_data.dart';
 
@@ -47,7 +47,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
         posCtrl: TextEditingController(text: r.pos),
         nameCtrl: TextEditingController(text: r.nome),
         altura: r.altura,
-        color: ScheduleRoadBoardStyle.colorForFaixa(r.nome),
+        color: ScheduleRoadStyle.colorForFaixa(r.nome),
       ));
       // default true se não tiver chave gravada
       _allowedForSelected.add(r.isAllowed(widget.selectedServiceKey));
@@ -69,7 +69,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
           posCtrl: TextEditingController(text: pos),
           nameCtrl: TextEditingController(text: ''),
           altura: 20,
-          color: ScheduleRoadBoardStyle.colorForFaixa(''),
+          color: ScheduleRoadStyle.colorForFaixa(''),
         ));
         _lockedIds.add(id);
         _allowedForSelected.add(true);
@@ -100,7 +100,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
           posCtrl: TextEditingController(text: ''),
           nameCtrl: TextEditingController(text: ''),
           altura: 20,
-          color: ScheduleRoadBoardStyle.colorForFaixa(''),
+          color: ScheduleRoadStyle.colorForFaixa(''),
         ),
       );
       _allowedForSelected.insert(0, true);
@@ -115,7 +115,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
           posCtrl: TextEditingController(text: ''),
           nameCtrl: TextEditingController(text: ''),
           altura: 20,
-          color: ScheduleRoadBoardStyle.colorForFaixa(''),
+          color: ScheduleRoadStyle.colorForFaixa(''),
         ),
       );
       _allowedForSelected.add(true);
@@ -131,7 +131,7 @@ class _ScheduleLaneEditState extends State<ScheduleLaneEdit> {
   }
 
   void _onNameChanged(int i, String value) {
-    setState(() => _rows[i].color = ScheduleRoadBoardStyle.colorForFaixa(value));
+    setState(() => _rows[i].color = ScheduleRoadStyle.colorForFaixa(value));
   }
 
   List<ScheduleLaneClass> _collectResult() {

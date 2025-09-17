@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/selectorDates/selectorDates.dart';
+import 'package:siged/_widgets/dates/selector/selectorDates.dart';
 
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 

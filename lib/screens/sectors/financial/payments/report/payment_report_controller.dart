@@ -8,7 +8,7 @@ import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/date_utils.dart'
-    show convertDateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
+    show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
 // REMOVER:
 /// import 'package:siged/_blocs/system/user/user_provider.dart';
@@ -177,7 +177,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     processCtrl.text = data.processPaymentReport ?? '';
     valueCtrl.text = priceToString(data.valuePaymentReport);
     dateCtrl.text = data.datePaymentReport != null
-        ? convertDateTimeToDDMMYYYY(data.datePaymentReport!)
+        ? dateTimeToDDMMYYYY(data.datePaymentReport!)
         : '';
     stateCtrl.text = data.statePaymentReport ?? '';
     observationCtrl.text = data.observationPaymentReport ?? '';

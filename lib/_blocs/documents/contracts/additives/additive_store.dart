@@ -8,9 +8,6 @@ import 'package:siged/_blocs/documents/contracts/additives/additives_storage_blo
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'additive_data.dart';
 
-/// Store em memória dos ADITIVOS, indexado por `contractId`.
-/// - Firestore via [AdditivesBloc]
-/// - Storage (PDF) via [AdditivesStorageBloc]
 class AdditivesStore extends ChangeNotifier {
   AdditivesStore({
     AdditivesBloc? bloc,
@@ -18,19 +15,15 @@ class AdditivesStore extends ChangeNotifier {
   })  : _bloc = bloc ?? AdditivesBloc(),
         _storage = storage ?? AdditivesStorageBloc();
 
-  final AdditivesBloc _bloc;               // Firestore
-  final AdditivesStorageBloc _storage;     // Storage
+  final AdditivesBloc _bloc;
+  final AdditivesStorageBloc _storage;
 
   AdditivesBloc get bloc => _bloc;
   AdditivesStorageBloc get storage => _storage;
 
-  /// contractId -> lista de aditivos (ordenados por additiveOrder)
   final Map<String, List<AdditiveData>> _byContract = <String, List<AdditiveData>>{};
-
-  /// contractId -> carregando?
   final Map<String, bool> _loading = <String, bool>{};
 
-  // ---------- Leitura ----------
   List<AdditiveData> listFor(String contractId) =>
       _byContract[contractId] ?? const <AdditiveData>[];
 
@@ -45,11 +38,10 @@ class AdditivesStore extends ChangeNotifier {
     return i >= 0 ? list[i] : null;
   }
 
-  // ---------- Carregamento ----------
   Future<void> ensureFor(String contractId) async {
     if (contractId.isEmpty) return;
-    if (_byContract.containsKey(contractId)) return;   // já em cache
-    if (_loading[contractId] == true) return;          // já carregando
+    if (_byContract.containsKey(contractId)) return;
+    if (_loading[contractId] == true) return;
 
     _loading[contractId] = true;
     try {
@@ -92,7 +84,6 @@ class AdditivesStore extends ChangeNotifier {
     _notifyAfterBuild();
   }
 
-  // ---------- Agregação ----------
   Future<List<AdditiveData>> getForContractIds(Set<String> contractIds) async {
     if (contractIds.isEmpty) return const <AdditiveData>[];
     await warmupFor(contractIds);
@@ -103,7 +94,6 @@ class AdditivesStore extends ChangeNotifier {
     return out;
   }
 
-  // ---------- Upserts locais ----------
   void upsert(AdditiveData a) {
     final contractId = a.contractId ?? '';
     if (contractId.isEmpty) return;
@@ -136,7 +126,6 @@ class AdditivesStore extends ChangeNotifier {
 
   void removeFor(String contractId, String additiveId) => remove(contractId, additiveId);
 
-  // ---------- Ações Firestore ----------
   Future<void> saveOrUpdate(String contractId, AdditiveData data) async {
     await _bloc.salvarOuAtualizarAditivo(data, contractId);
     await refreshFor(contractId);
@@ -147,9 +136,6 @@ class AdditivesStore extends ChangeNotifier {
     remove(contractId, additiveId);
   }
 
-  // ---------- Ações de PDF (via Storage Bloc) ----------
-  /// Faz upload do PDF via picker e salva a URL no Firestore
-  /// (utilize se quiser encapsular todo o fluxo no Store).
   Future<void> uploadPdfWithProgress({
     required ContractData contract,
     required AdditiveData additive,
@@ -192,7 +178,6 @@ class AdditivesStore extends ChangeNotifier {
     );
   }
 
-  /// Deleta o PDF no Storage e, se necessário, atualize o metadado fora daqui.
   Future<void> deletePdf({
     required ContractData contract,
     required AdditiveData additive,
@@ -201,7 +186,6 @@ class AdditivesStore extends ChangeNotifier {
     await refreshFor(contract.id!);
   }
 
-  // ---------- Utils ----------
   List<AdditiveData> _sorted(List<AdditiveData> list) {
     final l = List<AdditiveData>.from(list);
     l.sort((a, b) => (a.additiveOrder ?? 0).compareTo(b.additiveOrder ?? 0));

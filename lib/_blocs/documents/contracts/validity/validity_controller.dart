@@ -1,10 +1,12 @@
-// lib/_controllers/documents/contracts/validity/validity_controller.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'package:siged/_utils/date_utils.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
@@ -16,7 +18,6 @@ import 'package:siged/_blocs/documents/contracts/validity/validity_storage_bloc.
 import 'package:siged/_blocs/documents/contracts/additives/additive_data.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/contracts/validity/validity_data.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
 
 class ValidityController extends ChangeNotifier with FormValidationMixin {
   // Blocs Firestore
@@ -53,9 +54,16 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   final orderTypeCtrl = TextEditingController();
   final orderDateCtrl = TextEditingController();
 
+  // ===== SideListBox (arquivos) =====
+  /// nomes para UI
+  final List<String> fileNames = [];
+  /// URLs reais (mesmo índice)
+  final List<String> fileUrls = [];
+  int? selectedFileIndex;
+
   ValidityController({
     required this.contract,
-    ValidityStorageBloc? storageBloc, // injetável
+    ValidityStorageBloc? storageBloc,
   }) : validityStorageBloc = storageBloc ?? ValidityStorageBloc() {
     _init();
   }
@@ -71,13 +79,11 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   }
 
   Future<void> postFrameInit(BuildContext context) async {
-    // 👇 lê usuário atual e calcula permissão
     final userBloc = context.read<UserBloc>();
     _currentUser = userBloc.state.current;
     isEditable = _canEditUser(_currentUser);
     notifyListeners();
 
-    // 👇 assina mudanças do UserBloc para refletir permissões em tempo real
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
       final prevId = _currentUser?.id;
@@ -92,14 +98,11 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     });
   }
 
-  // ---- permissões (ajuste o nome do módulo se usar outro) ----
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
     final base = (user.baseProfile ?? '').toLowerCase();
     if (base == 'administrador' || base == 'colaborador') return true;
-
-    // Permissão granular por módulo (opcional)
-    final perms = user.modulePermissions['validity']; // ex.: módulo "validity"
+    final perms = user.modulePermissions['validity'];
     if (perms != null) {
       return (perms['edit'] == true) || (perms['create'] == true);
     }
@@ -132,10 +135,8 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     final nextOrder =
     existingOrders.isEmpty ? 1 : (existingOrders.reduce((a, b) => a > b ? a : b) + 1);
 
-    final newOrdersAvailable = getRulesOrders(validities);
-
     orderCtrl.text = nextOrder.toString();
-    availableOrders = newOrdersAvailable;
+    availableOrders = getRulesOrders(validities);
     notifyListeners();
   }
 
@@ -195,6 +196,11 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
       currentValidityId = null;
       selectedValidityData = null;
 
+      // limpa arquivos do painel
+      fileNames.clear();
+      fileUrls.clear();
+      selectedFileIndex = null;
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -245,13 +251,18 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
 
     orderCtrl.text = data.orderNumber?.toString() ?? '';
     orderDateCtrl.text =
-    data.orderdate != null ? convertDateTimeToDDMMYYYY(data.orderdate!) : '';
+    data.orderdate != null ? dateTimeToDDMMYYYY(data.orderdate!) : '';
     orderTypeCtrl.text = data.ordertype ?? '';
 
     if (data.ordertype != null && !availableOrders.contains(data.ordertype)) {
       availableOrders.add(data.ordertype!);
     }
+
     _validateForm();
+
+    // 👉 carrega arquivos do item selecionado
+    _loadFilesForCurrentValidity();
+
     notifyListeners();
   }
 
@@ -260,18 +271,142 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     selectedValidityData = null;
     orderTypeCtrl.clear();
     orderDateCtrl.clear();
+
+    // limpa painel de arquivos
+    fileNames.clear();
+    fileUrls.clear();
+    selectedFileIndex = null;
+
     await _loadValidityAndOrders();
     _validateForm();
     notifyListeners();
   }
 
-  // Handlers auxiliares para o form
+  // Handlers do form
   void onChangeDate(DateTime? date) {
     selectedValidityData?.orderdate = date;
     notifyListeners();
   }
 
-  // Upload + metadado (Storage)
+  // ====== SideListBox: arquivos ======
+  Future<void> _loadFilesForCurrentValidity() async {
+    fileNames.clear();
+    fileUrls.clear();
+    selectedFileIndex = null;
+
+    final a = selectedValidityData;
+    final c = contract;
+    if (a == null || a.id == null || c.id == null) {
+      notifyListeners();
+      return;
+    }
+
+    try {
+      // 1) tenta ler um metadado de compatibilidade 'pdfUrl' no documento
+      final legacyUrl = a.pdfUrl;
+      if (legacyUrl != null && legacyUrl.isNotEmpty) {
+        fileNames.add(_extractFileName(legacyUrl));
+        fileUrls.add(legacyUrl);
+      } else {
+        // 2) tenta descobrir a URL pelo caminho padrão do Storage
+        final url = await validityStorageBloc.getUrl(c, a);
+        if (url != null && url.isNotEmpty) {
+          fileNames.add(_extractFileName(url));
+          fileUrls.add(url);
+        }
+      }
+    } catch (_) {
+      // silencioso — lista fica vazia
+    }
+    notifyListeners();
+  }
+
+  Future<void> addFile(BuildContext context) async {
+    if (contract.id == null || selectedValidityData?.id == null) return;
+
+    try {
+      String? lastMsg;
+      final url = await validityStorageBloc.uploadWithPicker(
+        contract: contract,
+        validade: selectedValidityData!,
+        onProgress: (p) {
+          final msg = 'Enviando arquivo ${(p * 100).toStringAsFixed(0)}%';
+          if (msg != lastMsg && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), duration: const Duration(milliseconds: 700)),
+            );
+            lastMsg = msg;
+          }
+        },
+      );
+
+      await validityStorageBloc.salvarUrlPdfDaValidade(
+        contractId: contract.id!,
+        validadeId: selectedValidityData!.id!,
+        url: url,
+      );
+
+      fileNames.add(_extractFileName(url));
+      fileUrls.add(url);
+      selectedFileIndex = fileNames.length - 1;
+      notifyListeners();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Arquivo adicionado!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao adicionar arquivo: $e')),
+        );
+      }
+    }
+  }
+
+  void openFileAt(int i, BuildContext context) async {
+    if (i < 0 || i >= fileUrls.length) return;
+    selectedFileIndex = i;
+    notifyListeners();
+    final url = fileUrls[i];
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  Future<void> removeFileAt(int i, BuildContext context) async {
+    if (i < 0 || i >= fileUrls.length) return;
+
+    // Opcional: tentar deletar no storage se tiver caminho mapeável
+    // Aqui removemos apenas da UI para manter compatibilidade
+    fileNames.removeAt(i);
+    fileUrls.removeAt(i);
+    if (selectedFileIndex != null) {
+      if (fileNames.isEmpty) {
+        selectedFileIndex = null;
+      } else if (selectedFileIndex! >= fileNames.length) {
+        selectedFileIndex = fileNames.length - 1;
+      }
+    }
+    notifyListeners();
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Arquivo removido.'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  String _extractFileName(String urlOrPath) {
+    final idx = urlOrPath.lastIndexOf('/');
+    if (idx >= 0 && idx < urlOrPath.length - 1) {
+      return urlOrPath.substring(idx + 1);
+    }
+    return urlOrPath;
+  }
+
+  // Upload + metadado (atalho legado)
   Future<void> uploadPdf({
     required void Function(double) onProgress,
   }) async {
@@ -290,7 +425,7 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
 
   @override
   void dispose() {
-    _userSub?.cancel(); // 👈 importante
+    _userSub?.cancel();
     removeValidation([orderTypeCtrl, orderDateCtrl], _validateForm);
     orderCtrl.dispose();
     orderTypeCtrl.dispose();

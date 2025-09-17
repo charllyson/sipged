@@ -1,3 +1,6 @@
+// ==============================
+// lib/screens/contracts/additives/additive_graph_section.dart
+// ==============================
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';

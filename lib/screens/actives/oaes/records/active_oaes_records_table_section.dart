@@ -78,7 +78,7 @@ class ActiveOaesRecordsTableSection extends StatelessWidget {
                     (a) => priceToString(a.valueIntervention),
                     (a) => priceToString(a.linearCostMedia),
                     (a) => priceToString(a.costEstimate),
-                    (a) => convertDateTimeToDDMMYYYY(a.lastDateIntervention),
+                    (a) => dateTimeToDDMMYYYY(a.lastDateIntervention),
                     (a) => a.companyBuild ?? '-',
                     (a) => _fmtNum(a.latitude, maxDecimals: 6),
                     (a) => _fmtNum(a.longitude, maxDecimals: 6),

@@ -1,33 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
+import 'package:siged/_services/geocoding/geocoding_service.dart';
 
 import 'package:siged/_widgets/map/map_interactive.dart';
 import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 
 import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
+import 'package:siged/_widgets/search/search_overlay.dart';
+import 'package:siged/_widgets/search/search_widget.dart';
 
 import 'package:siged/screens/actives/roads/network/active_roads_details.dart';
 import 'package:siged/screens/actives/roads/network/active_roads_tooltip_widget.dart';
 
-class ActiveRoadsMap extends StatelessWidget {
+class ActiveRoadsMap extends StatefulWidget {
   const ActiveRoadsMap({super.key, required this.state});
 
   final ActiveRoadsState state;
 
   @override
+  State<ActiveRoadsMap> createState() => _ActiveRoadsMapState();
+}
+
+class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
+
+  @override
   Widget build(BuildContext context) {
     final isInitialLoading =
-        state.loadStatus == ActiveRoadsLoadStatus.loading && !state.initialized;
+        widget.state.loadStatus == ActiveRoadsLoadStatus.loading && !widget.state.initialized;
 
     if (isInitialLoading) {
       return const MapLoadingShimmer();
     }
 
     return MapInteractivePage(
-      tappablePolylines: state.buildStyledPolylines(),
-
+      showSearch: true,
+      searchTargetZoom: 16,
+      showSearchMarker: true,
+      tappablePolylines: widget.state.buildStyledPolylines(),
       onClearPolylineSelection: () async {
         context.read<ActiveRoadsBloc>().add(const ActiveRoadsSelectPolyline(null));
       },
@@ -47,9 +58,9 @@ class ActiveRoadsMap extends StatelessWidget {
         if (id == null) return;
 
         // tenta achar primeiro nos filtrados (respeita filtros ativos)
-        final road = state.filteredAll.firstWhere(
+        final road = widget.state.filteredAll.firstWhere(
               (r) => r.id == id,
-          orElse: () => state.all.firstWhere(
+          orElse: () => widget.state.all.firstWhere(
                 (r) => r.id == id,
             orElse: () => null as dynamic,
           ),

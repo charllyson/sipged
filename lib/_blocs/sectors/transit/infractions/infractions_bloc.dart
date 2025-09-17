@@ -179,7 +179,7 @@ class InfractionsBloc extends BlocBase {
   // AJUDANTES
   // =======================
 
-  /// Conta registros de um ano (rápido para selectorDates)
+  /// Conta registros de um ano (rápido para dates)
   Future<int> countByYear(int year) async {
     final list = await getInfractionsByYear(year);
     return list.length;

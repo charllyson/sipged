@@ -1,16 +1,21 @@
+// ==============================
+// lib/screens/contracts/apostilles/apostilles_form_section.dart
+// ==============================
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+
 import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_utils/responsive_utils.dart';
-import 'package:siged/_services/pdf/web_pdf_widget.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_services/pdf/web_pdf_controller.dart';
+
+// ✅ caminho em minúsculas
+import '../../../../_widgets/list/files/side_list_box.dart';
 
 class ApostilleFormSection extends StatelessWidget {
   final bool isEditable;
@@ -29,6 +34,13 @@ class ApostilleFormSection extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onClear;
 
+  // ▶️ SideListBox props
+  final List<String> sideItems;
+  final int? selectedSideIndex;
+  final VoidCallback? onAddSideItem;
+  final void Function(int index)? onTapSideItem;
+  final void Function(int index)? onDeleteSideItem;
+
   const ApostilleFormSection({
     super.key,
     required this.isEditable,
@@ -44,22 +56,17 @@ class ApostilleFormSection extends StatelessWidget {
     required this.valueController,
     required this.onSave,
     required this.onClear,
+    // side list
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
   });
 
-  double getInputWidth(BuildContext context) {
-    return responsiveInputWidth(
-      context: context,
-      itemsPerLine: 4,
-      reservedWidth: 100.0,
-      spacing: 12.0,
-      margin: 12.0,
-      extraPadding: 24.0,
-      spaceBetweenReserved: 12.0,
-    );
-  }
-
+  // Agora `_input` recebe a largura já calculada
   Widget _input(
-      BuildContext context,
+      double width,
       TextEditingController ctrl,
       String label, {
         bool enabled = true,
@@ -67,19 +74,17 @@ class ApostilleFormSection extends StatelessWidget {
         bool money = false,
         bool tooltip = false,
         TextInputFormatter? mask,
+        required bool isEditable,
       }) {
     return Tooltip(
       message: tooltip ? 'Este campo é gerado automaticamente.' : '',
       child: CustomTextField(
-        width: getInputWidth(context),
+        width: width,
         controller: ctrl,
         enabled: enabled && isEditable,
         labelText: label,
-        keyboardType: date
-            ? TextInputType.datetime
-            : money
-            ? TextInputType.number
-            : null,
+        keyboardType:
+        date ? TextInputType.datetime : (money ? TextInputType.number : null),
         inputFormatters: [
           if (date) FilteringTextInputFormatter.digitsOnly,
           if (date) TextInputMask(mask: '99/99/9999'),
@@ -96,38 +101,62 @@ class ApostilleFormSection extends StatelessWidget {
     );
   }
 
-  Widget _buildPdfWidget() {
-    if (currentApostilleId == null || selectedApostille == null) return const SizedBox.shrink();
-    return WebPdfWidgetGeneric(
-      key: Key(currentApostilleId!),
-      type: PDFType.apostilles,
-      contractData: contractData,
-      specificData: selectedApostille!,
-      apostillesStorageBloc: apostillesStorageBloc,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 700;
+        final bool isSmallScreen = constraints.maxWidth < 700;
+
+        // 👉 largura do SideListBox (100% no mobile; 300 em telas largas)
+        final double sideWidth = isSmallScreen ? constraints.maxWidth : 300.0;
+
+        // 👉 largura dos inputs levando em conta o sideWidth quando em duas colunas
+        //  - reservedWidth "base" = 100
+        //  - quando não é small screen, reservamos também o sideWidth + espaçamento (12)
+        final double inputsWidth = responsiveInputWidth(
+          context: context,
+          itemsPerLine: 4,
+          reservedWidth: isSmallScreen ? 0.0 : (sideWidth + 12.0),
+          spacing: 12.0,
+          margin: 12.0,
+          extraPadding: 24.0,
+          spaceBetweenReserved: 12.0,
+        );
 
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(context, orderController, 'Ordem do apostilamento', enabled: false, tooltip: true),
-            _input(context, processController, 'Nº do processo', mask: processoMaskFormatter),
+            _input(
+              inputsWidth,
+              orderController,
+              'Ordem do apostilamento',
+              enabled: false,
+              tooltip: true,
+              isEditable: isEditable,
+            ),
+            _input(
+              inputsWidth,
+              processController,
+              'Nº do processo',
+              mask: processoMaskFormatter,
+              isEditable: isEditable,
+            ),
             CustomDateField(
-              width: getInputWidth(context),
+              width: inputsWidth,
               enabled: isEditable,
               controller: dateController,
               initialValue: selectedApostille?.apostilleData,
               labelText: 'Data do apostilamento',
               onChanged: (date) => selectedApostille?.apostilleData = date,
             ),
-            _input(context, valueController, 'Valor do apostilamento', money: true),
+            _input(
+              inputsWidth,
+              valueController,
+              'Valor do apostilamento',
+              money: true,
+              isEditable: isEditable,
+            ),
           ],
         );
 
@@ -158,18 +187,29 @@ class ApostilleFormSection extends StatelessWidget {
           ],
         );
 
+        // ✅ SideListBox SEMPRE visível; "+" desabilita se nada selecionado
+        final side = SideListBox(
+          title: 'Arquivos do Apostilamento',
+          items: sideItems,
+          selectedIndex: selectedSideIndex,
+          onAddPressed: (selectedApostille != null) ? onAddSideItem : null,
+          onTap: onTapSideItem,
+          onDelete: onDeleteSideItem,
+          width: sideWidth, // 🔥 ocupa 100% no mobile
+        );
+
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: Colors.grey),
             borderRadius: BorderRadius.circular(8),
           ),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(12),
           child: isSmallScreen
               ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentApostilleId != null && selectedApostille != null) _buildPdfWidget(),
+              side,
               const SizedBox(height: 12),
               corpo,
             ],
@@ -177,7 +217,7 @@ class ApostilleFormSection extends StatelessWidget {
               : Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentApostilleId != null && selectedApostille != null) _buildPdfWidget(),
+              side,
               const SizedBox(width: 12),
               Expanded(child: corpo),
             ],

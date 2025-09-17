@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/screens/commons/listResumed/list_resumed.dart';
+import 'package:siged/_widgets/list/resume/list_resumed.dart';
 import 'package:siged/screens/documents/contract/dashboard/dashboard_contracts_chart_second_section.dart';
 
 import 'package:siged/screens/documents/measurement/dashboard/measurement_resumed_card.dart';

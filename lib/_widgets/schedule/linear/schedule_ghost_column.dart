@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
 
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_style.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
 
 class ScheduleGhostColumn extends StatelessWidget {
 
@@ -48,7 +48,7 @@ class ScheduleGhostColumn extends StatelessWidget {
                       height: faixas[i].altura,
                       decoration: BoxDecoration(
                         color:
-                        ScheduleRoadBoardStyle.colorForFaixa(faixas[i].label),
+                        ScheduleRoadStyle.colorForFaixa(faixas[i].label),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),

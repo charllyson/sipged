@@ -1,55 +1,56 @@
+// lib/_services/geoJson/send_firebase.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// ⛔️ REMOVA estes:
-// import 'package:siged/_blocs/sectors/operation/road/map/schedule_road_map_bloc.dart';
-// import 'package:siged/_blocs/sectors/operation/road/map/schedule_road_map_event.dart';
-
-// ✅ USE estes:
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_event.dart';
-
-import 'import_geo_json.dart';
+// ✅ BLoCs usados
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
 
-Future<void> GeoJsonSendFirebase(BuildContext context) async {
+// ✅ Stub unificado (aceita .geojson/.json/.kml/.kmz)
+import 'import_any_vector.dart';
+
+Future<void> GeoJsonSendFirebase(BuildContext context, {String? fixedPath}) async {
   final TextEditingController pathController = TextEditingController();
 
-  final path = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Informe o caminho da coleção'),
-      content: TextField(
-        controller: pathController,
-        decoration: const InputDecoration(
-          labelText: 'Ex: actives_railways ou contracts',
-          border: OutlineInputBorder(),
+  // Se veio "fixedPath", usa sem perguntar; senão abre diálogo
+  final path = fixedPath ??
+      await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Informe o caminho da coleção'),
+          content: TextField(
+            controller: pathController,
+            decoration: const InputDecoration(
+              labelText: 'Ex: planning_highway_domain, actives_railways…',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () {
+                final p = pathController.text.trim();
+                if (p.isNotEmpty) Navigator.pop(context, p);
+              },
+              child: const Text('Importar'),
+            ),
+          ],
         ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-        ElevatedButton(
-          onPressed: () {
-            final p = pathController.text.trim();
-            if (p.isNotEmpty) Navigator.pop(context, p);
-          },
-          child: const Text('Importar GeoJSON'),
-        ),
-      ],
-    ),
-  );
+      );
 
   if (!context.mounted || path == null || path.isEmpty) return;
 
-  await ImportGeoJson.geoJsonImport(
+  // Abre o file picker + preview + saneamento e devolve (linhas, geometrias-20m)
+  await ImportVector.importAny(
     context: context,
     path: path,
     onSalvar: (linhasPrincipais, geometrias) async {
+      // Mantém caso especial
       if (path == 'actives_railways') {
-        // 🔁 permanece igual
         context.read<ActiveRailwaysBloc>().add(
           ActiveRailwaysImportBatchRequested(
             linhasPrincipais: linhasPrincipais,
@@ -59,13 +60,19 @@ Future<void> GeoJsonSendFirebase(BuildContext context) async {
         return;
       }
 
-      // 🟦 UNIFICADO NO BOARD
+      // ✅ Se for domínio de faixa de domínio (KML/KMZ ou mesmo GeoJSON), salva direto na coleção
+      if (path == 'planning_highway_domain') {
+        await _saveBatchToPath(path, linhasPrincipais, geometrias);
+        return;
+      }
+
+      // 🟦 UNIFICADO NO BOARD (quando importar GeoJSON de projeto)
       String? contractId;
       String? summary;
       try {
-        final st = context.read<ScheduleRoadBoardBloc>().state;
+        final st = context.read<ScheduleRoadBloc>().state;
         contractId = st.contractId;
-        summary    = st.summarySubjectContract;
+        summary = st.summarySubjectContract;
       } catch (_) {
         // sem board bloc no contexto → fallback multi-doc abaixo
       }
@@ -75,7 +82,7 @@ Future<void> GeoJsonSendFirebase(BuildContext context) async {
         final geometry = _geometryFromGeometrias(geometrias);
 
         // Dispara o evento unificado para o BoardBloc (repo do Board trata o upsert)
-        context.read<ScheduleRoadBoardBloc>().add(
+        context.read<ScheduleRoadBloc>().add(
           ScheduleProjectImportGeoJsonRequested(
             geometry, // aceita Geometry/Feature/FeatureCollection
             summarySubjectContract: summary,
@@ -91,7 +98,7 @@ Future<void> GeoJsonSendFirebase(BuildContext context) async {
 
       bool refreshed = false;
       try {
-        context.read<ScheduleRoadBoardBloc>().add(const ScheduleRefreshRequested());
+        context.read<ScheduleRoadBloc>().add(const ScheduleRefreshRequested());
         refreshed = true;
       } catch (_) {}
 
@@ -110,15 +117,15 @@ Future<void> GeoJsonSendFirebase(BuildContext context) async {
 
 // ================= helpers =================
 
-/// Converte a lista `geometrias` (cada item com geometryType/points) para uma Geometry GeoJSON.
-/// Se houver mais de um segmento, retorna MultiLineString; senão, LineString.
+/// Converte `geometrias` em uma Geometry GeoJSON.
+/// Se houver >1 segmento => MultiLineString; senão LineString.
 Map<String, dynamic> _geometryFromGeometrias(List<Map<String, dynamic>> geometrias) {
   final segmentos = <List<List<double>>>[];
 
   for (final g in geometrias) {
     final geom = Map<String, dynamic>.from(g);
     final type = (geom['geometryType'] ?? 'LineString').toString();
-    final pts  = (geom['points'] as List?) ?? const [];
+    final pts = (geom['points'] as List?) ?? const [];
 
     List<List<double>> toLonLat(List<dynamic> raw) {
       return raw.map<List<double>>((p) {
@@ -145,15 +152,9 @@ Map<String, dynamic> _geometryFromGeometrias(List<Map<String, dynamic>> geometri
   }
 
   if (segmentos.length == 1) {
-    return {
-      'type': 'LineString',
-      'coordinates': segmentos.first,
-    };
+    return {'type': 'LineString', 'coordinates': segmentos.first};
   }
-  return {
-    'type': 'MultiLineString',
-    'coordinates': segmentos,
-  };
+  return {'type': 'MultiLineString', 'coordinates': segmentos};
 }
 
 Future<void> _saveBatchToPath(

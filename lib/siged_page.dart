@@ -1,16 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart'; // ⬅️ AQUI
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:siged/_widgets/login/sign_in.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 
-import 'package:siged/screens/commons/login/sign_in.dart';
 import 'package:siged/screens/menus/menu_list_page.dart';
 
 import '_blocs/system/login/login_bloc.dart';
 import '_blocs/system/user/user_repository.dart';
 import '_blocs/system/user/user_data.dart';
-import 'screens/sectors/operation/schedule/civil/schedule_civil_page.dart';
 
 class SiGed extends StatelessWidget {
   const SiGed({super.key});

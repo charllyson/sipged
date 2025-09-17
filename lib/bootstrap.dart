@@ -15,8 +15,8 @@ import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measure
 import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_store.dart';
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_bloc.dart';
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/board/schedule_road_board_repository.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
 
 import '_blocs/actives/roads/active_roads_event.dart';
 import '_services/dxf/map_overlay_cubit.dart';
@@ -231,9 +231,9 @@ Future<void> bootstrapAndRunApp() async {
 
 
           // ======= Schedule (cronograma) =======
-          RepositoryProvider<ScheduleRoadBoardRepository>(create: (_) => ScheduleRoadBoardRepository()),
-          BlocProvider<ScheduleRoadBoardBloc>(
-            create: (ctx) => ScheduleRoadBoardBloc(
+          RepositoryProvider<ScheduleRoadRepository>(create: (_) => ScheduleRoadRepository()),
+          BlocProvider<ScheduleRoadBloc>(
+            create: (ctx) => ScheduleRoadBloc(
               // se o construtor aceitar repo, descomente:
               // repo: ctx.read<ScheduleRepository>(),
             ),

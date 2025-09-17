@@ -4,14 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 
-import 'package:siged/_services/pdf/web_pdf_controller.dart';
+import 'package:siged/_widgets/pdf/web_pdf_controller.dart';
 import 'payment_adjustment_controller.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
-import 'package:siged/_services/pdf/web_pdf_widget.dart';
+import 'package:siged/_widgets/pdf/web_pdf_widget.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 

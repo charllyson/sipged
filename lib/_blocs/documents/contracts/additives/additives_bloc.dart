@@ -11,7 +11,6 @@ class AdditivesBloc extends BlocBase {
 
   AdditivesBloc();
 
-  // -------- Queries/Agregações (somente dados) --------
   Future<List<AdditiveData>> getAdditivesByContractIds(Set<String> contractIds) async {
     final all = await getAllAdditives();
     return all.where((a) => contractIds.contains(a.contractId)).toList();
@@ -74,8 +73,6 @@ class AdditivesBloc extends BlocBase {
     return ContractData.fromDocument(snapshot: snap);
   }
 
-  /// Soma os valores de aditivos dos contratos cujo status == [statusDesejado].
-  /// Aceita tanto o campo 'additivevalue' quanto 'additiveValue' no Firestore.
   Future<double> getValorPorStatus(
       List<ContractData> contratos,
       String statusDesejado,
@@ -111,14 +108,12 @@ class AdditivesBloc extends BlocBase {
           return sum + (n?.toDouble() ?? 0.0);
         });
       } catch (_) {
-        // Em caso de erro ao ler um contrato, ignora e considera 0
         return 0.0;
       }
     }));
 
     return totais.fold<double>(0.0, (a, b) => a + b);
   }
-
 
   Future<double> somarValoresAditivosPorStatus({
     required List<ContractData> contratos,
