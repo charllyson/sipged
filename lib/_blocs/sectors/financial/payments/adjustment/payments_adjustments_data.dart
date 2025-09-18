@@ -16,6 +16,9 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
   DateTime? datePaymentAdjustment;
   double? taxPaymentAdjustment;
 
+  // 🆕 URL do PDF
+  String? pdfUrl;
+
   DateTime? createdAt;
   String? createdBy;
   DateTime? updatedAt;
@@ -36,6 +39,7 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
     this.fontPaymentAdjustment,
     this.datePaymentAdjustment,
     this.taxPaymentAdjustment,
+    this.pdfUrl, // 🆕
     this.createdAt,
     this.createdBy,
     this.updatedAt,
@@ -44,16 +48,10 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
     this.deletedBy,
   });
 
-  /// Firestore -> Flutter
   factory PaymentsAdjustmentsData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) {
-      throw Exception("Ajuste não encontrado");
-    }
-
+    if (!snapshot.exists) throw Exception("Ajuste não encontrado");
     final data = snapshot.data() as Map<String, dynamic>?;
-    if (data == null) {
-      throw Exception("Os dados do ajuste estão vazios");
-    }
+    if (data == null) throw Exception("Os dados do ajuste estão vazios");
 
     final contractId = snapshot.reference.parent.parent?.id;
     final adjustment = PaymentsAdjustmentsData.fromJson(data);
@@ -62,7 +60,6 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
     return adjustment;
   }
 
-  /// Flutter -> Firestore
   Map<String, dynamic> toJson() {
     return {
       'contractId': contractId,
@@ -77,6 +74,7 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
       'fontPaymentAdjustment': fontPaymentAdjustment ?? '',
       'datePaymentAdjustment': datePaymentAdjustment != null ? Timestamp.fromDate(datePaymentAdjustment!) : null,
       'taxPaymentAdjustment': taxPaymentAdjustment ?? 0.0,
+      'pdfUrl': pdfUrl, // 🆕
       'createdAt': createdAt,
       'createdBy': createdBy,
       'updatedAt': updatedAt,
@@ -104,6 +102,7 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
       taxPaymentAdjustment: (json['taxPaymentAdjustment'] is num)
           ? (json['taxPaymentAdjustment'] as num).toDouble()
           : double.tryParse(json['taxPaymentAdjustment']?.toString() ?? '') ?? 0.0,
+      pdfUrl: json['pdfUrl'] as String?, // 🆕
       createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
       createdBy: json['createdBy'] ?? '',
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
@@ -113,20 +112,18 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
     );
   }
 
-  /// Usado no importador Excel
   factory PaymentsAdjustmentsData.fromMap(Map<String, dynamic> map) {
-    DateTime? parseDate(dynamic val) {
-      if (val == null) return null;
-      if (val is Timestamp) return val.toDate();
-      if (val is DateTime) return val;
-      if (val is String) return DateTime.tryParse(val);
+    DateTime? parseDate(dynamic v) {
+      if (v == null) return null;
+      if (v is Timestamp) return v.toDate();
+      if (v is DateTime) return v;
+      if (v is String) return DateTime.tryParse(v);
       return null;
     }
-
-    double? parseDouble(dynamic val) {
-      if (val == null) return null;
-      if (val is num) return val.toDouble();
-      return double.tryParse(val.toString());
+    double? parseDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString());
     }
 
     return PaymentsAdjustmentsData(
@@ -142,6 +139,7 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
       fontPaymentAdjustment: map['fontPaymentAdjustment'] ?? '',
       datePaymentAdjustment: parseDate(map['datePaymentAdjustment']),
       taxPaymentAdjustment: parseDouble(map['taxPaymentAdjustment']) ?? 0.0,
+      pdfUrl: map['pdfUrl'] as String?, // 🆕
       createdAt: parseDate(map['createdAt']),
       createdBy: map['createdBy'],
       updatedAt: parseDate(map['updatedAt']),

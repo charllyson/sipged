@@ -1,16 +1,20 @@
+// ==============================
+// lib/screens/documents/measurement/revision/revision_measurement_form_section.dart
+// ==============================
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_data.dart';
 import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
-
-import 'package:siged/_widgets/pdf/web_pdf_widget.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_widgets/pdf/web_pdf_controller.dart';
+
+// ✅ mesma lista lateral usada em Additives/Apostilles
+import '../../../../_widgets/list/files/side_list_box.dart';
 
 class RevisionMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
@@ -25,8 +29,17 @@ class RevisionMeasurementFormSection extends StatelessWidget {
   final TextEditingController valueRevisionController;
 
   final VoidCallback onSave;
-  final VoidCallback onClear; // ✅ agora é VoidCallback (combina com createNew)
-  final Future<void> Function(String url) onUploadSaveToFirestore;
+  final VoidCallback onClear;
+
+  // ▶️ SideListBox props
+  final List<String> sideItems;
+  final int? selectedSideIndex;
+  final VoidCallback? onAddSideItem;
+  final void Function(int index)? onTapSideItem;
+  final void Function(int index)? onDeleteSideItem;
+
+  // (compat) antes usado pelo WebPdfWidget — não é utilizado aqui
+  final Future<void> Function(String url)? onUploadSaveToFirestore;
 
   const RevisionMeasurementFormSection({
     super.key,
@@ -40,115 +53,110 @@ class RevisionMeasurementFormSection extends StatelessWidget {
     required this.dateRevisionController,
     required this.valueRevisionController,
     required this.onSave,
-    required this.onClear, // ✅
-    required this.onUploadSaveToFirestore,
+    required this.onClear,
+    // side list
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
+    this.onUploadSaveToFirestore, // (compat)
   });
 
-  double getInputWidth(BuildContext context) {
-    return responsiveInputWidth(
-      context: context,
-      itemsPerLine: 4,
-      reservedWidth: 100.0,
-      spacing: 12.0,
-      margin: 12.0,
-      extraPadding: 24.0,
-      spaceBetweenReserved: 12.0,
-    );
-  }
-
+  // `_input` recebe a largura já calculada
   Widget _input(
-      BuildContext context,
+      double width,
       TextEditingController controller,
       String label, {
+        required bool isEditable,
         bool enabled = true,
         bool tooltip = false,
         bool money = false,
         bool date = false,
-        List<TextInputFormatter>? mask,
+        TextInputFormatter? mask,
       }) {
-    List<TextInputFormatter> formatters = [];
-
-    if (money) {
-      formatters = [
-        CurrencyInputFormatter(
-          leadingSymbol: 'R\$ ',
-          useSymbolPadding: true,
-          thousandSeparator: ThousandSeparator.Period,
-          mantissaLength: 2,
-        ),
-      ];
-    } else if (date) {
-      formatters = [
-        FilteringTextInputFormatter.digitsOnly,
-        TextInputMask(mask: '99/99/9999'),
-      ];
-    } else if (mask != null) {
-      formatters = mask;
-    }
-
-    final textField = CustomTextField(
-      width: getInputWidth(context),
-      enabled: enabled,
-      labelText: label,
-      controller: controller,
-      keyboardType: money
-          ? TextInputType.number
-          : (date ? TextInputType.datetime : TextInputType.text),
-      inputFormatters: formatters,
+    return Tooltip(
+      message: tooltip ? 'Este campo é calculado automaticamente.' : '',
+      child: CustomTextField(
+        width: width,
+        enabled: enabled && isEditable,
+        labelText: label,
+        controller: controller,
+        keyboardType: money
+            ? TextInputType.number
+            : (date ? TextInputType.datetime : TextInputType.text),
+        inputFormatters: [
+          if (date) FilteringTextInputFormatter.digitsOnly,
+          if (date) TextInputMask(mask: '99/99/9999'),
+          if (money)
+            CurrencyInputFormatter(
+              leadingSymbol: 'R\$ ',
+              useSymbolPadding: true,
+              thousandSeparator: ThousandSeparator.Period,
+              mantissaLength: 2,
+            ),
+          if (mask != null) mask,
+        ],
+      ),
     );
-
-    if (tooltip) {
-      return Tooltip(
-        message: 'Este campo é calculado automaticamente.',
-        child: textField,
-      );
-    }
-    return textField;
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 700;
+        final bool isSmallScreen = constraints.maxWidth < 700;
+
+        // 👉 largura do SideListBox (100% no mobile; 300 em telas largas)
+        final double sideWidth = isSmallScreen ? constraints.maxWidth : 300.0;
+
+        // 👉 inputs levando em conta o sideWidth quando em 2 colunas
+        final double inputsWidth = responsiveInputWidth(
+          context: context,
+          itemsPerLine: 4,
+          reservedWidth: isSmallScreen ? 0.0 : (sideWidth + 12.0),
+          spacing: 12.0,
+          margin: 12.0,
+          extraPadding: 24.0,
+          spaceBetweenReserved: 12.0,
+        );
 
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
             _input(
-              context,
+              inputsWidth,
               orderRevisionController,
               'Ordem da medição',
+              isEditable: isEditable,
               enabled: false,
               tooltip: true,
             ),
             _input(
-              context,
+              inputsWidth,
               processNumberRevisionController,
               'Nº processo da medição',
-              enabled: isEditable, // ✅ respeita permissão
-              mask: [processoMaskFormatter],
+              isEditable: isEditable,
+              mask: processoMaskFormatter,
             ),
             CustomDateField(
-              width: getInputWidth(context),
-              enabled: isEditable, // ✅ respeita permissão
+              width: inputsWidth,
+              enabled: isEditable,
               controller: dateRevisionController,
-              // usa o mesmo campo do controller/model
               initialValue: selectedRevisionMeasurement?.date,
               labelText: 'Data da Medição',
               onChanged: (date) {
-                // mantém sincronizado no item selecionado
                 if (selectedRevisionMeasurement != null) {
                   selectedRevisionMeasurement!.date = date;
                 }
               },
             ),
             _input(
-              context,
+              inputsWidth,
               valueRevisionController,
               'Valor da medição',
-              enabled: isEditable, // ✅ respeita permissão
+              isEditable: isEditable,
               money: true,
             ),
           ],
@@ -159,7 +167,9 @@ class RevisionMeasurementFormSection extends StatelessWidget {
           children: [
             TextButton.icon(
               icon: const Icon(Icons.save),
-              label: Text(currentRevisionMeasurementId != null ? 'Atualizar' : 'Salvar'),
+              label: Text(
+                currentRevisionMeasurementId != null ? 'Atualizar' : 'Salvar',
+              ),
               onPressed: formValidated ? (isEditable ? onSave : null) : null,
             ),
             const SizedBox(width: 12),
@@ -167,7 +177,7 @@ class RevisionMeasurementFormSection extends StatelessWidget {
               TextButton.icon(
                 icon: const Icon(Icons.restore),
                 label: const Text('Limpar'),
-                onPressed: onClear, // ✅ chama direto (é VoidCallback)
+                onPressed: onClear,
               ),
           ],
         );
@@ -181,20 +191,30 @@ class RevisionMeasurementFormSection extends StatelessWidget {
           ],
         );
 
-        final container = Container(
+        // ✅ SideListBox SEMPRE visível; "+" desabilita se nada selecionado
+        final side = SideListBox(
+          title: 'Arquivos da Medição (Revisão)',
+          items: sideItems,
+          selectedIndex: selectedSideIndex,
+          onAddPressed:
+          (selectedRevisionMeasurement != null) ? onAddSideItem : null,
+          onTap: onTapSideItem,
+          onDelete: onDeleteSideItem,
+          width: sideWidth, // 🔥 ocupa 100% no mobile
+        );
+
+        return Container(
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: Colors.grey),
             borderRadius: BorderRadius.circular(8),
           ),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(12),
           child: isSmallScreen
               ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentRevisionMeasurementId != null &&
-                  selectedRevisionMeasurement != null)
-                _buildPdfWidget(),
+              side,
               const SizedBox(height: 12),
               corpo,
             ],
@@ -202,28 +222,13 @@ class RevisionMeasurementFormSection extends StatelessWidget {
               : Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentRevisionMeasurementId != null &&
-                  selectedRevisionMeasurement != null)
-                _buildPdfWidget(),
+              side,
               const SizedBox(width: 12),
               Expanded(child: corpo),
             ],
           ),
         );
-
-        return container;
       },
     );
-  }
-
-  Widget _buildPdfWidget() {
-    return WebPdfWidgetGeneric(
-      key: Key(currentRevisionMeasurementId!),
-      type: PDFType.report,
-      contractData: contractData,
-      specificData: selectedRevisionMeasurement!,
-      onUploadSaveToFirestore: onUploadSaveToFirestore,
-    );
-    // Observação: o widget PDF é exibido apenas quando há ID selecionado.
   }
 }

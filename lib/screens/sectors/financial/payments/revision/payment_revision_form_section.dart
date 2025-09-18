@@ -1,31 +1,90 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
-import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
-import 'package:siged/screens/sectors/financial/payments/revision/payment_revision_controller.dart';
+import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 
-import 'package:siged/_widgets/pdf/web_pdf_controller.dart';
+import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
-import 'package:siged/_widgets/pdf/web_pdf_widget.dart';
+import 'package:siged/_widgets/list/files/side_list_box.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 
 class PaymentRevisionFormSection extends StatelessWidget {
-  const PaymentRevisionFormSection({super.key});
+  // --- Controllers de formulário
+  final TextEditingController orderCtrl;
+  final TextEditingController processCtrl;
+  final TextEditingController valueCtrl;
+  final TextEditingController stateCtrl;
+  final TextEditingController observationCtrl;
+  final TextEditingController bankCtrl;
+  final TextEditingController electronicTicketCtrl;
+  final TextEditingController fontCtrl;
+  final TextEditingController dateCtrl;
+  final TextEditingController taxCtrl;
 
-  double _inputWidth(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
-    return w >= 1400 ? 260 : w >= 1100 ? 220 : w >= 900 ? 200 : 180;
+  // --- Estado
+  final PaymentsRevisionsData? selectedPaymentRevisionData;
+  final String? currentPaymentRevisionId;
+  final bool isEditable;
+  final bool isSaving;
+  final bool formValidated;
+  final VoidCallback onSaveOrUpdate;
+  final VoidCallback onClear;
+
+  // --- SideListBox
+  final List<String> sideItems;
+  final int? selectedSideIndex;
+  final VoidCallback? onAddSideItem;
+  final void Function(int index)? onTapSideItem;
+  final void Function(int index)? onDeleteSideItem;
+
+  const PaymentRevisionFormSection({
+    super.key,
+    // controllers
+    required this.orderCtrl,
+    required this.processCtrl,
+    required this.valueCtrl,
+    required this.stateCtrl,
+    required this.observationCtrl,
+    required this.bankCtrl,
+    required this.electronicTicketCtrl,
+    required this.fontCtrl,
+    required this.dateCtrl,
+    required this.taxCtrl,
+    // estado
+    required this.selectedPaymentRevisionData,
+    required this.currentPaymentRevisionId,
+    required this.isEditable,
+    required this.isSaving,
+    required this.formValidated,
+    required this.onSaveOrUpdate,
+    required this.onClear,
+    // side list
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
+  });
+
+  double _inputsWidth(BuildContext context, {required double reserved}) {
+    return responsiveInputWidth(
+      context: context,
+      itemsPerLine: 4,
+      reservedWidth: reserved,
+      spacing: 12.0,
+      margin: 12.0,
+      extraPadding: 24.0,
+      spaceBetweenReserved: 12.0,
+    );
   }
 
   Widget _input(
-      BuildContext context, {
-        required TextEditingController controller,
-        required String label,
+      double width,
+      TextEditingController controller,
+      String label, {
         bool enabled = true,
         bool tooltip = false,
         bool money = false,
@@ -36,7 +95,7 @@ class PaymentRevisionFormSection extends StatelessWidget {
     if (money) {
       formatters = [
         CurrencyInputFormatter(
-          leadingSymbol: 'R\$',
+          leadingSymbol: 'R\$ ',
           useSymbolPadding: true,
           thousandSeparator: ThousandSeparator.Period,
           mantissaLength: 2,
@@ -52,7 +111,7 @@ class PaymentRevisionFormSection extends StatelessWidget {
     }
 
     final textField = CustomTextField(
-      width: _inputWidth(context),
+      width: width,
       enabled: enabled,
       labelText: label,
       controller: controller,
@@ -73,188 +132,98 @@ class PaymentRevisionFormSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<PaymentsRevisionController>();
-    final selected = c.selected;
+    return LayoutBuilder(builder: (context, constraints) {
+      final isSmall = constraints.maxWidth < 700;
+      final sideWidth = isSmall ? constraints.maxWidth : 300.0;
+      final reserved = isSmall ? 0.0 : (sideWidth + 12.0);
+      final w = _inputsWidth(context, reserved: reserved);
 
-    final camposWrap = Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _input(
-          context,
-          controller: c.orderCtrl,
-          label: 'Ordem do pagamento da revisão',
-          enabled: false,
-          tooltip: true,
-        ),
-        _input(
-          context,
-          controller: c.processCtrl,
-          label: 'Nº processo de pagamento da revisão',
-          mask: [processoMaskFormatter],
-        ),
-        _input(
-          context,
-          controller: c.valueCtrl,
-          label: 'Valor do pagamento da revisão',
-          money: true,
-        ),
-        _input(
-          context,
-          controller: c.stateCtrl,
-          label: 'Estado do pagamento da revisão',
-        ),
-        _input(
-          context,
-          controller: c.observationCtrl,
-          label: 'Observação do pagamento da revisão',
-        ),
-        _input(
-          context,
-          controller: c.bankCtrl,
-          label: 'Nº do banco do pagamento da revisão',
-        ),
-        _input(
-          context,
-          controller: c.electronicTicketCtrl,
-          label: 'Nº do boleto eletrônico do pagamento da revisão',
-        ),
-        _input(
-          context,
-          controller: c.fontCtrl,
-          label: 'Fonte do pagamento da revisão',
-        ),
-        CustomDateField(
-          width: _inputWidth(context),
-          enabled: c.isEditable,
-          controller: c.dateCtrl,
-          initialValue: selected?.datePaymentRevision,
-          labelText: 'Data do pagamento da revisão do reajuste',
-          onChanged: (date) {
-            if (c.selected != null) {
-              c.selected!.datePaymentRevision = date;
-            }
-          },
-        ),
-        _input(
-          context,
-          controller: c.taxCtrl,
-          label: 'Imposto do pagamento da revisão',
-          money: true,
-        ),
-      ],
-    );
+      final camposWrap = Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          _input(w, orderCtrl, 'Ordem do pagamento da revisão', enabled: false, tooltip: true),
+          _input(w, processCtrl, 'Nº processo de pagamento da revisão', enabled: isEditable, mask: [processoMaskFormatter]),
+          _input(w, valueCtrl, 'Valor do pagamento da revisão', enabled: isEditable, money: true),
+          _input(w, stateCtrl, 'Estado do pagamento da revisão', enabled: isEditable),
+          _input(w, observationCtrl, 'Observação do pagamento da revisão', enabled: isEditable),
+          _input(w, bankCtrl, 'Nº do banco do pagamento da revisão', enabled: isEditable),
+          _input(w, electronicTicketCtrl, 'Nº do boleto eletrônico do pagamento da revisão', enabled: isEditable),
+          _input(w, fontCtrl, 'Fonte do pagamento da revisão', enabled: isEditable),
+          CustomDateField(
+            width: w,
+            enabled: isEditable,
+            controller: dateCtrl,
+            initialValue: selectedPaymentRevisionData?.datePaymentRevision,
+            labelText: 'Data do pagamento da revisão do reajuste',
+            onChanged: (date) => selectedPaymentRevisionData?.datePaymentRevision = date,
+          ),
+          _input(w, taxCtrl, 'Imposto do pagamento da revisão', enabled: isEditable, money: true),
+        ],
+      );
 
-    final pdfWidget = (selected?.idRevisionPayment != null && c.contract != null)
-        ? SizedBox(
-      width: 100,
-      child: WebPdfWidgetGeneric<PaymentsRevisionsData>(
-        key: Key(selected!.idRevisionPayment!),
-        type: PDFType.paymentsRevision,
-        contractData: c.contract!,
-        specificData: selected,
-      ),
-    )
-        : const SizedBox.shrink();
-
-    final botoes = Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        if (selected?.idRevisionPayment != null)
+      final botoes = Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
           TextButton.icon(
-            icon: const Icon(Icons.restore),
-            label: const Text('Limpar'),
-            onPressed: c.createNew,
+            icon: const Icon(Icons.save),
+            label: Text(currentPaymentRevisionId != null ? 'Atualizar' : 'Salvar'),
+            onPressed: formValidated && isEditable && !isSaving ? onSaveOrUpdate : null,
           ),
-        const SizedBox(width: 12),
-        TextButton.icon(
-          onPressed: c.formValidated && !c.isSaving
-              ? () async {
-            await c.saveOrUpdate(
-              onConfirm: () async {
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Confirmação'),
-                    content: const Text('Deseja salvar este pagamento da revisão?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancelar'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Confirmar'),
-                      ),
-                    ],
-                  ),
-                );
-                return ok == true;
-              },
-              onSuccessSnack: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Pagamento salvo com sucesso!'),
-                    backgroundColor: Colors.green,
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              },
-              onErrorSnack: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Falha ao salvar pagamento.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              },
-            );
-          }
-              : null,
-          icon: const Icon(Icons.save),
-          label: Text(selected?.idRevisionPayment != null ? 'Atualizar' : 'Salvar'),
-        ),
-      ],
-    );
-
-    final body = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (selected?.idRevisionPayment != null) pdfWidget,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              camposWrap,
-              const SizedBox(height: 12),
-              botoes,
-            ],
-          ),
-        ),
-      ],
-    );
-
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isSmall = constraints.maxWidth < 700;
-          return Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.white,
+          const SizedBox(width: 12),
+          if (currentPaymentRevisionId != null)
+            TextButton.icon(
+              icon: const Icon(Icons.restore),
+              label: const Text('Limpar'),
+              onPressed: onClear,
             ),
-            padding: const EdgeInsets.all(12),
-            child: isSmall
-                ? body
-                : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [Expanded(child: body)],
-            ),
-          );
-        },
-      ),
-    );
+        ],
+      );
+
+      final corpo = Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          camposWrap,
+          const SizedBox(height: 12),
+          botoes,
+        ],
+      );
+
+      final side = SideListBox(
+        title: 'Arquivos da Revisão',
+        items: sideItems,
+        selectedIndex: selectedSideIndex,
+        onAddPressed: (selectedPaymentRevisionData != null && isEditable) ? onAddSideItem : null,
+        onTap: onTapSideItem,
+        onDelete: onDeleteSideItem,
+        width: sideWidth,
+      );
+
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: isSmall
+            ? Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            side,
+            const SizedBox(height: 12),
+            corpo,
+          ],
+        )
+            : Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            side,
+            const SizedBox(width: 12),
+            Expanded(child: corpo),
+          ],
+        ),
+      );
+    });
   }
 }

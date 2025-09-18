@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 
 class PaymentsReportData extends ChangeNotifier {
-  /// Informações de medições
   String? contractId;
 
   String? idPaymentReport;
@@ -16,6 +15,9 @@ class PaymentsReportData extends ChangeNotifier {
   String? fontPaymentReport;
   DateTime? datePaymentReport;
   double? taxPaymentReport;
+
+  // 🆕 URL do PDF
+  String? pdfUrl;
 
   DateTime? createdAt;
   String? createdBy;
@@ -37,6 +39,7 @@ class PaymentsReportData extends ChangeNotifier {
     this.fontPaymentReport,
     this.datePaymentReport,
     this.taxPaymentReport,
+    this.pdfUrl, // 🆕
     this.createdAt,
     this.createdBy,
     this.updatedAt,
@@ -45,27 +48,18 @@ class PaymentsReportData extends ChangeNotifier {
     this.deletedBy,
   });
 
-  /// Recuperando informações no banco de dados
   factory PaymentsReportData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) {
-      throw Exception("Pagamento não encontrado");
-    }
-
+    if (!snapshot.exists) throw Exception("Pagamento não encontrado");
     final data = snapshot.data() as Map<String, dynamic>?;
-
-    if (data == null) {
-      throw Exception("Os dados do pagamento estão vazios");
-    }
+    if (data == null) throw Exception("Os dados do pagamento estão vazios");
 
     final contractId = snapshot.reference.parent.parent?.id;
-
     final payment = PaymentsReportData.fromJson(data);
     payment.idPaymentReport = snapshot.id;
     payment.contractId = contractId;
     return payment;
   }
 
-  /// Salvando no Firebase
   Map<String, dynamic> toJson() {
     return {
       'contractId': contractId,
@@ -80,10 +74,10 @@ class PaymentsReportData extends ChangeNotifier {
       'fontPaymentReport': fontPaymentReport ?? '',
       'datePaymentReport': datePaymentReport != null ? Timestamp.fromDate(datePaymentReport!) : null,
       'taxPaymentReport': taxPaymentReport ?? 0.0,
+      'pdfUrl': pdfUrl, // 🆕
     };
   }
 
-  /// Conversão padrão (usado com Firestore doc.data())
   factory PaymentsReportData.fromJson(Map<String, dynamic> json) {
     return PaymentsReportData(
       contractId: json['contractId'],
@@ -102,6 +96,7 @@ class PaymentsReportData extends ChangeNotifier {
       taxPaymentReport: (json['taxPaymentReport'] is num)
           ? (json['taxPaymentReport'] as num).toDouble()
           : double.tryParse(json['taxPaymentReport']?.toString() ?? '') ?? 0.0,
+      pdfUrl: json['pdfUrl'] as String?, // 🆕
       createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
       createdBy: json['createdBy'] ?? '',
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
@@ -111,9 +106,8 @@ class PaymentsReportData extends ChangeNotifier {
     );
   }
 
-  /// Conversão auxiliar com tipos variados (network usado no importador Excel, por exemplo)
   factory PaymentsReportData.fromMap(Map<String, dynamic> map) {
-    DateTime? parseDate(dynamic val) {
+    DateTime? parseDate(val) {
       if (val == null) return null;
       if (val is Timestamp) return val.toDate();
       if (val is DateTime) return val;
@@ -121,7 +115,7 @@ class PaymentsReportData extends ChangeNotifier {
       return null;
     }
 
-    double? parseDouble(dynamic val) {
+    double? parseDouble(val) {
       if (val == null) return null;
       if (val is num) return val.toDouble();
       return double.tryParse(val.toString());
@@ -140,6 +134,7 @@ class PaymentsReportData extends ChangeNotifier {
       fontPaymentReport: map['fontPaymentReport'] ?? '',
       datePaymentReport: parseDate(map['datePaymentReport']),
       taxPaymentReport: parseDouble(map['taxPaymentReport']) ?? 0.0,
+      pdfUrl: map['pdfUrl'] as String?, // 🆕
       createdAt: parseDate(map['createdAt']),
       createdBy: map['createdBy'],
       updatedAt: parseDate(map['updatedAt']),

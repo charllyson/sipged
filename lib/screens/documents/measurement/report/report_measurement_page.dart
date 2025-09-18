@@ -40,7 +40,8 @@ class ReportMeasurement extends StatelessWidget {
       create: (_) => ReportMeasurementController(contract: contractData),
       builder: (context, _) {
         final c = context.read<ReportMeasurementController>();
-        WidgetsBinding.instance.addPostFrameCallback((_) => c.postFrameInit(context));
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => c.postFrameInit(context));
 
         return Stack(
           children: [
@@ -73,12 +74,14 @@ class ReportMeasurement extends StatelessWidget {
                             ),
 
                             const SizedBox(height: 12),
-                            const DividerText(title: 'Cadastrar medições no sistema'),
+                            const DividerText(
+                                title: 'Cadastrar medições no sistema'),
                             const SizedBox(height: 12),
 
                             // ---------- Formulário ----------
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                              const EdgeInsets.symmetric(horizontal: 12),
                               child: ReportMeasurementFormSection(
                                 isEditable: ctrl.isEditable,
                                 formValidated: ctrl.formValidated,
@@ -89,27 +92,41 @@ class ReportMeasurement extends StatelessWidget {
                                 processNumberController: ctrl.processCtrl,
                                 dateController: ctrl.dateCtrl,
                                 valueController: ctrl.valueCtrl,
-                                reportMeasurementStorageBloc: ctrl.reportMeasurementStorageBloc,
+                                reportMeasurementStorageBloc:
+                                ctrl.reportMeasurementStorageBloc,
                                 onClear: ctrl.createNew,
                                 onSave: () async {
-                                  final ok = await _confirm(context, 'Deseja salvar esta medição?');
+                                  final ok = await _confirm(
+                                      context, 'Deseja salvar esta medição?');
                                   if (ok) await ctrl.saveOrUpdate(context);
                                 },
+
+                                // 🆕 SideListBox (arquivos)
+                                sideItems: ctrl.sideItems,
+                                selectedSideIndex: ctrl.selectedSideIndex,
+                                onAddSideItem: () async =>
+                                    ctrl.uploadPdf(onProgress: (_) {}),
+                                onTapSideItem: (i) => ctrl.selectSideIndex(i),
+                                onDeleteSideItem: (i) async =>
+                                    ctrl.deletePdf(),
                               ),
                             ),
 
                             const SizedBox(height: 12),
-                            const DividerText(title: 'Medições cadastradas no sistema'),
+                            const DividerText(
+                                title: 'Medições cadastradas no sistema'),
                             const SizedBox(height: 12),
 
                             // ---------- Tabela ----------
                             ReportMeasurementTableSection(
                               onTapItem: ctrl.handleSelect,
                               onDelete: (id) async {
-                                final ok = await _confirm(context, 'Deseja realmente apagar esta medição?');
+                                final ok = await _confirm(context,
+                                    'Deseja realmente apagar esta medição?');
                                 if (ok) await ctrl.deleteReport(context, id);
                               },
-                              measurementsData: ctrl.reports, // página atual do controller
+                              measurementsData:
+                              ctrl.reports, // página atual do controller
                               valorInicial: ctrl.valorInicialContrato,
                               valorAditivos: ctrl.totalAditivos,
                               valorTotal: totalDisponivel,
@@ -129,10 +146,11 @@ class ReportMeasurement extends StatelessWidget {
               ],
             ),
 
-            // ---------- Overlay de carregamento (padrão do ValidityPage) ----------
+            // ---------- Overlay de carregamento ----------
             Consumer<ReportMeasurementController>(
-              builder: (_, ctrl, __) =>
-              ctrl.isSaving ? const Center(child: CircularProgressIndicator()) : const SizedBox.shrink(),
+              builder: (_, ctrl, __) => ctrl.isSaving
+                  ? const Center(child: CircularProgressIndicator())
+                  : const SizedBox.shrink(),
             ),
           ],
         );

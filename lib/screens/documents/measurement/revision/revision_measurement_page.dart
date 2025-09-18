@@ -1,4 +1,3 @@
-// lib/screens/documents/measurement/revision/revision_measurement_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -44,7 +43,7 @@ class RevisionMeasurement extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<RevisionMeasurementController>(
       create: (_) => RevisionMeasurementController(
-        contract: contractData,                // ✅ passa o contrato no construtor
+        contract: contractData,
         measurementBloc: RevisionMeasurementBloc(),
         additivesBloc: AdditivesBloc(),
       ),
@@ -91,29 +90,40 @@ class RevisionMeasurement extends StatelessWidget {
                                 formValidated: ctrl.formValidated,
                                 selectedRevisionMeasurement: ctrl.selectedRevision,
                                 currentRevisionMeasurementId: ctrl.currentRevisionId,
-                                contractData: ctrl.contract, // ✅ já definido
+                                contractData: ctrl.contract,
                                 orderRevisionController: ctrl.orderCtrl,
                                 processNumberRevisionController: ctrl.processCtrl,
                                 dateRevisionController: ctrl.dateCtrl,
                                 valueRevisionController: ctrl.valueCtrl,
                                 onSave: () async {
-                                  await ctrl.saveOrUpdate(
-                                    onConfirm: () => _confirm(context, 'Deseja salvar esta medição?'),
-                                    onSuccessSnack: () => ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Medição salva com sucesso!'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    ),
-                                    onErrorSnack: () => ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Erro ao salvar a medição.'),
-                                      ),
-                                    ),
+                                  final ok = await _confirm(
+                                    context,
+                                    'Deseja salvar esta medição?',
                                   );
+                                  if (ok) {
+                                    await ctrl.saveOrUpdate(
+                                      onConfirm: () async => true,
+                                      onSuccessSnack: () => ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Medição salva com sucesso!'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      ),
+                                      onErrorSnack: () => ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Erro ao salvar a medição.'),
+                                        ),
+                                      ),
+                                    );
+                                  }
                                 },
                                 onClear: ctrl.createNew,
-                                onUploadSaveToFirestore: ctrl.savePdfUrl,
+                                // ▶️ SideListBox props
+                                sideItems: ctrl.sideItems,
+                                selectedSideIndex: ctrl.selectedSideIndex,
+                                onAddSideItem: ctrl.canAddFile ? ctrl.handleAddFile : null,
+                                onTapSideItem: (i) => ctrl.handleOpenFile(i),
+                                onDeleteSideItem: ctrl.handleDeleteFile,
                               ),
                             ),
                             const SizedBox(height: 12),

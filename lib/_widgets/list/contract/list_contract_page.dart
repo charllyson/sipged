@@ -28,9 +28,11 @@ class ListContractsFilteredPage extends StatelessWidget {
   const ListContractsFilteredPage({
     super.key,
     required this.onTapItem,
+    this.pageTitle = '',
   });
 
   final ContractNavigationCallback onTapItem;
+  final String pageTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +77,9 @@ class ListContractsFilteredPage extends StatelessWidget {
                           actions: [
                             SearchAction(onSearch: controller.onSearchChanged),
                             UserGreeting(firebaseUser: firebaseUser),
+                          ],
+                          titleWidgets: [
+                            Text(pageTitle)
                           ],
                         ),
 

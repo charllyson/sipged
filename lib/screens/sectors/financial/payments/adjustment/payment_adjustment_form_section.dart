@@ -1,30 +1,92 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
-
-import 'package:siged/_widgets/pdf/web_pdf_controller.dart';
-import 'payment_adjustment_controller.dart';
+import 'package:siged/_utils/responsive_utils.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
-import 'package:siged/_widgets/pdf/web_pdf_widget.dart';
+
+// 🆕 SideListBox
+import 'package:siged/_widgets/list/files/side_list_box.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 class PaymentAdjustmentFormSection extends StatelessWidget {
-  const PaymentAdjustmentFormSection({super.key});
+  const PaymentAdjustmentFormSection({
+    super.key,
+    required this.orderCtrl,
+    required this.processCtrl,
+    required this.valueCtrl,
+    required this.stateCtrl,
+    required this.observationCtrl,
+    required this.bankCtrl,
+    required this.electronicTicketCtrl,
+    required this.fontCtrl,
+    required this.dateCtrl,
+    required this.taxCtrl,
+    required this.selected,
+    required this.currentPaymentAdjustmentId,
+    required this.isEditable,
+    required this.isSaving,
+    required this.formValidated,
+    required this.onSaveOrUpdate,
+    required this.onClear,
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
+    this.contractData,
+  });
 
-  double _inputWidth(BuildContext context) {
-    final size = MediaQuery.of(context).size.width;
-    return size >= 1400 ? 260 : size >= 1100 ? 220 : size >= 900 ? 200 : 180;
+  // controllers
+  final TextEditingController orderCtrl;
+  final TextEditingController processCtrl;
+  final TextEditingController valueCtrl;
+  final TextEditingController stateCtrl;
+  final TextEditingController observationCtrl;
+  final TextEditingController bankCtrl;
+  final TextEditingController electronicTicketCtrl;
+  final TextEditingController fontCtrl;
+  final TextEditingController dateCtrl;
+  final TextEditingController taxCtrl;
+
+  final PaymentsAdjustmentsData? selected;
+  final String? currentPaymentAdjustmentId;
+  final bool isEditable;
+  final bool isSaving;
+  final bool formValidated;
+  final VoidCallback onSaveOrUpdate;
+  final VoidCallback onClear;
+
+  // SideListBox
+  final List<String> sideItems;
+  final int? selectedSideIndex;
+  final VoidCallback? onAddSideItem;
+  final void Function(int index)? onTapSideItem;
+  final void Function(int index)? onDeleteSideItem;
+
+  final ContractData? contractData;
+
+  double _inputsWidth(BuildContext context, {required double reserved}) {
+    return responsiveInputWidth(
+      context: context,
+      itemsPerLine: 4,
+      reservedWidth: reserved,
+      spacing: 12.0,
+      margin: 12.0,
+      extraPadding: 24.0,
+      spaceBetweenReserved: 12.0,
+    );
   }
 
+
   Widget _input(
-      BuildContext context, {
+      double width, {
         required TextEditingController controller,
         required String label,
         bool enabled = true,
@@ -34,7 +96,6 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
         List<TextInputFormatter>? mask,
       }) {
     List<TextInputFormatter> formatters = [];
-
     if (money) {
       formatters = [
         CurrencyInputFormatter(
@@ -53,8 +114,8 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
       formatters = mask;
     }
 
-    final textField = CustomTextField(
-      width: _inputWidth(context),
+    final tf = CustomTextField(
+      width: width,
       enabled: enabled,
       labelText: label,
       controller: controller,
@@ -65,184 +126,83 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
     );
 
     if (tooltip) {
-      return Tooltip(
-        message: 'Este campo é calculado automaticamente.',
-        child: textField,
-      );
+      return Tooltip(message: 'Este campo é calculado automaticamente.', child: tf);
     }
-    return textField;
+    return tf;
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<PaymentsAdjustmentController>();
-    final selected = c.selected;
+    return Padding(
+      padding: const EdgeInsets.all(12.0),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSmall = constraints.maxWidth < 900;
+          final sideWidth = isSmall ? constraints.maxWidth : 300.0;
+          final reserved = isSmall ? 0.0 : (sideWidth + 12.0);
+          final w = _inputsWidth(context, reserved: reserved);
 
-    final camposWrap = Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _input(
-          context,
-          controller: c.orderCtrl,
-          label: 'Ordem do reajuste',
-          enabled: false,
-          tooltip: true,
-        ),
-        _input(
-          context,
-          controller: c.processCtrl,
-          label: 'Nº processo de pagamento do reajuste',
-          mask: [processoMaskFormatter],
-        ),
-        _input(
-          context,
-          controller: c.valueCtrl,
-          label: 'Valor do pagamento do reajuste',
-          money: true,
-        ),
-        _input(
-          context,
-          controller: c.stateCtrl,
-          label: 'Estado do pagamento do reajuste',
-        ),
-        _input(
-          context,
-          controller: c.observationCtrl,
-          label: 'Observação do pagamento do reajuste',
-        ),
-        _input(
-          context,
-          controller: c.bankCtrl,
-          label: 'Nº do banco do pagamento do reajuste',
-        ),
-        _input(
-          context,
-          controller: c.electronicTicketCtrl,
-          label: 'Nº do boleto eletrônico do pagamento do reajuste',
-        ),
-        _input(
-          context,
-          controller: c.fontCtrl,
-          label: 'Fonte do pagamento do reajuste',
-        ),
-        CustomDateField(
-          width: _inputWidth(context),
-          enabled: c.isEditable,
-          controller: c.dateCtrl,
-          initialValue: selected?.datePaymentAdjustment,
-          labelText: 'Data do pagamento do reajustamento da Medição',
-          onChanged: (date) {
-            if (c.selected != null) {
-              c.selected!.datePaymentAdjustment = date;
-            }
-          },
-        ),
-        _input(
-          context,
-          controller: c.taxCtrl,
-          label: 'Imposto do pagamento do reajuste',
-          money: true,
-        ),
-      ],
-    );
+          final camposWrap = Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _input(w, controller: orderCtrl, label: 'Ordem do reajuste', enabled: false, tooltip: true),
+              _input(w, controller: processCtrl, label: 'Nº processo de pagamento do reajuste', mask: [processoMaskFormatter]),
+              _input(w, controller: valueCtrl, label: 'Valor do pagamento do reajuste', money: true),
+              _input(w, controller: stateCtrl, label: 'Estado do pagamento do reajuste'),
+              _input(w, controller: observationCtrl, label: 'Observação do pagamento do reajuste'),
+              _input(w, controller: bankCtrl, label: 'Nº do banco do pagamento do reajuste'),
+              _input(w, controller: electronicTicketCtrl, label: 'Nº do boleto eletrônico do pagamento do reajuste'),
+              _input(w, controller: fontCtrl, label: 'Fonte do pagamento do reajuste'),
+              CustomDateField(
+                width: w,
+                enabled: isEditable,
+                controller: dateCtrl,
+                initialValue: selected?.datePaymentAdjustment,
+                labelText: 'Data do pagamento do reajustamento da Medição',
+                onChanged: (date) => (selected)?.datePaymentAdjustment = date,
+              ),
+              _input(w, controller: taxCtrl, label: 'Imposto do pagamento do reajuste', money: true),
+            ],
+          );
 
-    final pdfWidget = (selected?.idPaymentAdjustment != null && c.contract != null)
-        ? SizedBox(
-      width: 100,
-      child: WebPdfWidgetGeneric<PaymentsAdjustmentsData>(
-        key: Key(selected!.idPaymentAdjustment!),
-        type: PDFType.paymentsAdjustment,
-        contractData: c.contract!,
-        specificData: selected,
-        // se seu componente exigir o bloc, descomente:
-        // paymentsAdjustmentBloc: c.bloc,
-      ),
-    )
-        : const SizedBox.shrink();
+          final botoes = Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (currentPaymentAdjustmentId != null)
+                TextButton.icon(
+                  icon: const Icon(Icons.restore),
+                  label: const Text('Limpar'),
+                  onPressed: onClear,
+                ),
+              const SizedBox(width: 12),
+              TextButton.icon(
+                onPressed: formValidated && !isSaving ? onSaveOrUpdate : null,
+                icon: const Icon(Icons.save),
+                label: Text(currentPaymentAdjustmentId != null ? 'Atualizar' : 'Salvar'),
+              ),
+            ],
+          );
 
-    final botoes = Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        if (selected?.idPaymentAdjustment != null)
-          TextButton.icon(
-            icon: const Icon(Icons.restore),
-            label: const Text('Limpar'),
-            onPressed: c.createNew,
-          ),
-        const SizedBox(width: 12),
-        TextButton.icon(
-          onPressed: c.formValidated && !c.isSaving
-              ? () async {
-            await c.saveOrUpdate(
-              onConfirm: () async {
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Confirmação'),
-                    content: const Text('Deseja salvar este pagamento de reajuste?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancelar'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Confirmar'),
-                      ),
-                    ],
-                  ),
-                );
-                return ok == true;
-              },
-              onSuccessSnack: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Pagamento salvo com sucesso!'),
-                    backgroundColor: Colors.green,
-                    duration: Duration(seconds: 3),
-                  ),
-                );
-              },
-              onErrorSnack: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Falha ao salvar pagamento.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              },
-            );
-          }
-              : null,
-          icon: const Icon(Icons.save),
-          label: Text(selected?.idPaymentAdjustment != null ? 'Atualizar' : 'Salvar'),
-        ),
-      ],
-    );
-
-    final body = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (selected?.idPaymentAdjustment != null) pdfWidget,
-        Expanded(
-          child: Column(
+          final corpo = Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               camposWrap,
               const SizedBox(height: 12),
               botoes,
             ],
-          ),
-        ),
-      ],
-    );
+          );
 
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isSmall = constraints.maxWidth < 700;
+          final side = SideListBox(
+            title: 'Arquivos do Pagamento de Reajuste',
+            items: sideItems,
+            selectedIndex: selectedSideIndex,
+            onAddPressed: (selected != null) ? onAddSideItem : null,
+            onTap: onTapSideItem,
+            onDelete: onDeleteSideItem,
+            width: sideWidth,
+          );
+
           return Container(
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey),
@@ -251,10 +211,21 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
             ),
             padding: const EdgeInsets.all(12),
             child: isSmall
-                ? body
+                ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                side,
+                const SizedBox(height: 12),
+                corpo,
+              ],
+            )
                 : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [Expanded(child: body)],
+              children: [
+                side,
+                const SizedBox(width: 12),
+                Expanded(child: corpo),
+              ],
             ),
           );
         },

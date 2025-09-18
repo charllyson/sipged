@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+
 import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
-
-import 'package:siged/_widgets/pdf/web_pdf_widget.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_widgets/pdf/web_pdf_controller.dart';
+
+// ✅ SideListBox (mesmo usado em Additives/Apostilles)
+import '../../../../_widgets/list/files/side_list_box.dart';
 
 class AdjustmentMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
@@ -25,7 +26,14 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   final TextEditingController valueAdjustmentController;
 
   final VoidCallback onSave;
-  final VoidCallback onClear; // ✅ agora é VoidCallback
+  final VoidCallback onClear;
+
+  // 🆕 props do SideListBox
+  final List<String> sideItems;
+  final int? selectedSideIndex;
+  final VoidCallback? onAddSideItem;
+  final void Function(int index)? onTapSideItem;
+  final void Function(int index)? onDeleteSideItem;
 
   const AdjustmentMeasurementFormSection({
     super.key,
@@ -39,14 +47,19 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
     required this.dateAdjustmentController,
     required this.valueAdjustmentController,
     required this.onSave,
-    required this.onClear, // ✅
+    required this.onClear,
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
   });
 
-  double getInputWidth(BuildContext context) {
+  double _inputWidth(BuildContext context, {required double reserved}) {
     return responsiveInputWidth(
       context: context,
       itemsPerLine: 4,
-      reservedWidth: 100.0,
+      reservedWidth: reserved,
       spacing: 12.0,
       margin: 12.0,
       extraPadding: 24.0,
@@ -55,7 +68,7 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   }
 
   Widget _input(
-      BuildContext context,
+      double width,
       TextEditingController controller,
       String label, {
         bool enabled = true,
@@ -85,7 +98,7 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
     }
 
     final textField = CustomTextField(
-      width: getInputWidth(context),
+      width: width,
       enabled: enabled,
       labelText: label,
       controller: controller,
@@ -101,7 +114,6 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
         child: textField,
       );
     }
-
     return textField;
   }
 
@@ -109,43 +121,42 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 700;
+        final bool isSmall = constraints.maxWidth < 700;
+        final double sideWidth = isSmall ? constraints.maxWidth : 300.0;
+        final double reserved = isSmall ? 0.0 : (sideWidth + 12.0);
+        final double w = _inputWidth(context, reserved: reserved);
 
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
             _input(
-              context,
+              w,
               orderAdjustmentController,
               'Ordem da medição',
               enabled: false,
               tooltip: true,
             ),
             _input(
-              context,
+              w,
               processNumberAdjustmentController,
               'Nº processo da medição',
-              enabled: isEditable, // ✅ respeita permissão
+              enabled: isEditable,
               mask: [processoMaskFormatter],
             ),
             CustomDateField(
-              width: getInputWidth(context),
-              enabled: isEditable, // ✅ respeita permissão
+              width: w,
+              enabled: isEditable,
               controller: dateAdjustmentController,
               initialValue: selectedAdjustmentMeasurement?.date,
               labelText: 'Data da Medição',
-              onChanged: (date) {
-                if (selectedAdjustmentMeasurement != null) {
-                  selectedAdjustmentMeasurement!.date = date;
-                }
-              },
+              onChanged: (date) => selectedAdjustmentMeasurement?.date = date,
             ),
             _input(
-              context,
+              w,
               valueAdjustmentController,
               'Valor da medição',
-              enabled: isEditable, // ✅ respeita permissão
+              enabled: isEditable,
               money: true,
             ),
           ],
@@ -164,7 +175,7 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
               TextButton.icon(
                 icon: const Icon(Icons.restore),
                 label: const Text('Limpar'),
-                onPressed: onClear, // ✅ sem async/await
+                onPressed: onClear,
               ),
           ],
         );
@@ -178,20 +189,29 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
           ],
         );
 
-        final container = Container(
+        // ✅ SideListBox sempre visível; "+" habilita apenas com item selecionado
+        final side = SideListBox(
+          title: 'Arquivos do Reajuste',
+          items: sideItems,
+          selectedIndex: selectedSideIndex,
+          onAddPressed: (selectedAdjustmentMeasurement != null) ? onAddSideItem : null,
+          onTap: onTapSideItem,
+          onDelete: onDeleteSideItem,
+          width: sideWidth,
+        );
+
+        return Container(
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: Colors.grey),
             borderRadius: BorderRadius.circular(8),
           ),
-          padding: const EdgeInsets.all(8),
-          child: isSmallScreen
+          padding: const EdgeInsets.all(12),
+          child: isSmall
               ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentAdjustmentMeasurementId != null &&
-                  selectedAdjustmentMeasurement != null)
-                _buildPdfWidget(),
+              side,
               const SizedBox(height: 12),
               corpo,
             ],
@@ -199,28 +219,13 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
               : Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (currentAdjustmentMeasurementId != null &&
-                  selectedAdjustmentMeasurement != null)
-                _buildPdfWidget(),
+              side,
               const SizedBox(width: 12),
               Expanded(child: corpo),
             ],
           ),
         );
-
-        return container;
       },
-    );
-  }
-
-  Widget _buildPdfWidget() {
-    return WebPdfWidgetGeneric(
-      key: Key(currentAdjustmentMeasurementId!),
-      type: PDFType.report,
-      contractData: contractData,
-      specificData: selectedAdjustmentMeasurement!,
-      // Se seu WebPdfWidgetGeneric exigir callback de upload, adicione:
-      // onUploadSaveToFirestore: (url) async => await onUploadSaveToFirestore(url),
     );
   }
 }

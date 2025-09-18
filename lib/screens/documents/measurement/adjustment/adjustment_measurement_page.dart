@@ -24,8 +24,7 @@ class AdjustmentMeasurement extends StatelessWidget {
           ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
         ],
       ),
-    ) ??
-        false;
+    ) ?? false;
   }
 
   @override
@@ -54,7 +53,7 @@ class AdjustmentMeasurement extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 12),
-                            DividerText(title: 'Gráfico das reajustes'),
+                            const DividerText(title: 'Gráfico dos reajustes'),
                             const SizedBox(height: 12),
                             AdjustmentMeasurementGraphSection(
                               labels: labels,
@@ -65,7 +64,7 @@ class AdjustmentMeasurement extends StatelessWidget {
                               onSelectIndex: ctrl.onSelectGraphIndex,
                             ),
                             const SizedBox(height: 12),
-                            DividerText(title: 'Cadastrar reajuste no sistema'),
+                            const DividerText(title: 'Cadastrar reajuste no sistema'),
                             const SizedBox(height: 12),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -84,10 +83,16 @@ class AdjustmentMeasurement extends StatelessWidget {
                                   if (ok) await ctrl.saveOrUpdate(context);
                                 },
                                 onClear: ctrl.createNew,
+                                // ▶️ SideListBox props
+                                sideItems: ctrl.sideItems,
+                                selectedSideIndex: ctrl.selectedSideIndex,
+                                onAddSideItem: ctrl.canAddFile ? ctrl.handleAddFile : null,
+                                onTapSideItem: (i) => ctrl.handleOpenFile(i),
+                                onDeleteSideItem: ctrl.handleDeleteFile,
                               ),
                             ),
                             const SizedBox(height: 12),
-                            DividerText(title: 'Reajustes cadastrados no sistema'),
+                            const DividerText(title: 'Reajustes cadastrados no sistema'),
                             const SizedBox(height: 12),
                             AdjustmentMeasurementTableSection(
                               onTapItem: ctrl.handleSelect,

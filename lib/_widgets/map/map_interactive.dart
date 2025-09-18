@@ -305,9 +305,13 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     }
 
     if (!hit) {
-      setState(() => _selectedRegions.clear());
+      setState(() {
+        _selectedRegions.clear();
+        _selectedMarkerPosition = null; // 👈 limpa o marker selecionado
+      });
       widget.onRegionTap?.call(null);
     }
+
   }
 
   // ======== AUTOCOMPLETE (endereços) ========
@@ -496,8 +500,19 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         widget.clusterWidgetBuilder!(
           markers,
           _selectedMarkerPosition,
-              (marker) => setState(() => _selectedMarkerPosition = marker.point),
+              (marker) => setState(() {
+            const tol = 1e-6; // ~0.1 m em lat/lon (bom p/ float)
+            final p = marker.point;
+            final s = _selectedMarkerPosition;
+
+            final same = s != null &&
+                (s.latitude  - p.latitude ).abs() < tol &&
+                (s.longitude - p.longitude).abs() < tol;
+
+            _selectedMarkerPosition = same ? null : p;
+          }),
         ),
+
       );
     }
 

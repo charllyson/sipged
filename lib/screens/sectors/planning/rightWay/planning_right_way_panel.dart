@@ -1,33 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-import 'package:siged/_blocs/sectors/planning/highway_domain/planning_highway_domain_bloc.dart';
-import 'package:siged/_blocs/sectors/planning/highway_domain/planning_highway_domain_event.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 
-// ⬇️ util de import KML/KMZ/GeoJSON
+// util de import KML/KMZ/GeoJSON
 import 'package:siged/_services/geoJson/send_firebase.dart';
 
-// 🔹 Data do contrato (agora vem pelo construtor)
+// contrato
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
-// 🔹 Página de imóveis
-import 'package:siged/screens/sectors/planning/rightWay/right_way_property_page.dart';
+// página de imóveis (tabs)
+import 'package:siged/screens/sectors/planning/rightWay/planning_right_way_tabs.dart';
 
-class PlanningRightWayPanel extends StatelessWidget {
-  final ContractData contractData; // <- recebido do Workspace
-  const PlanningRightWayPanel({super.key, required this.contractData});
+import '../../../../_blocs/sectors/planning/highway_domain/planning_highway_domain_bloc.dart';
+import '../../../../_blocs/sectors/planning/highway_domain/planning_highway_domain_event.dart';
+
+class PlanningRightWayPropertyPanel extends StatelessWidget {
+  final ContractData contractData;
+
+  /// ✅ callback para forçar o refresh do mapa ao voltar do formulário
+  final VoidCallback? onRequestMapRefresh;
+
+  const PlanningRightWayPropertyPanel({
+    super.key,
+    required this.contractData,
+    this.onRequestMapRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const BackgroundClean(), // fundo decorativo
+        const BackgroundClean(),
         ListView(
           children: [
             const SizedBox(height: 12),
 
-            // === Ação: Adicionar DUP ===
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12.0),
               child: Column(
@@ -46,7 +53,6 @@ class PlanningRightWayPanel extends StatelessWidget {
                       subtitle: const Text('Cadastrar novo decreto vinculado ao contrato'),
                       trailing: const Icon(Icons.check_circle, color: Colors.grey),
                       onTap: () {
-                        // TODO: substituir por navegação/form de DUP
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Ação: Adicionar DUP (em implementação)')),
                         );
@@ -56,7 +62,7 @@ class PlanningRightWayPanel extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // === Ação: Importar traçado (KML/KMZ/GeoJSON) ===
+                  // Importar traçado dentro do contrato
                   Card(
                     color: Colors.white,
                     elevation: 0,
@@ -68,16 +74,16 @@ class PlanningRightWayPanel extends StatelessWidget {
                     child: ListTile(
                       leading: const Icon(Icons.edit_road),
                       title: const Text('Importar traçado (KML/KMZ/GeoJSON)'),
-                      subtitle: const Text('Salvar em planning_highway_domain'),
+                      subtitle: Text('Salvar em contracts/${contractData.id}/planning_highway_domain'),
                       trailing: const Icon(Icons.check_circle, color: Colors.grey),
                       onTap: () async {
                         final bloc = context.read<PlanningHighwayDomainBloc>();
                         try {
                           await GeoJsonSendFirebase(
                             context,
-                            fixedPath: 'planning_highway_domain', // destino fixo
+                            fixedPath: 'contracts/${contractData.id}/planning_highway_domain',
                           );
-                          bloc.add(const PlanningHighwayDomainRefreshRequested());
+                          bloc.add(PlanningHighwayDomainRefreshRequested(contractData.id!));
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Traçado importado com sucesso.')),
@@ -99,7 +105,6 @@ class PlanningRightWayPanel extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // === Ação: Imóveis do Domínio (abre fullscreenDialog) ===
                   Card(
                     color: Colors.white,
                     elevation: 0,
@@ -114,22 +119,24 @@ class PlanningRightWayPanel extends StatelessWidget {
                       subtitle: const Text('Cadastrar e listar propriedades afetadas'),
                       trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                       onTap: () async {
-                        // Atualiza dados do domínio antes de abrir (se houver provider)
                         try {
                           context
                               .read<PlanningHighwayDomainBloc>()
-                              .add(const PlanningHighwayDomainRefreshRequested());
-                        } catch (_) {
-                          // se o provider não existir aqui, apenas segue com a navegação
-                        }
+                              .add(PlanningHighwayDomainRefreshRequested(contractData.id!));
+                        } catch (_) {}
 
                         if (context.mounted) {
                           await Navigator.of(context).push(
                             MaterialPageRoute(
-                              fullscreenDialog: true, // 👈 conforme pedido
-                              builder: (_) => RightWayPropertyPage(contract: contractData),
+                              fullscreenDialog: true,
+                              builder: (_) => TabBarRightWayPage(
+                                contractData: contractData,
+                              ),
                             ),
                           );
+
+                          // ✅ sempre que voltar do formulário, peça refresh do mapa
+                          onRequestMapRefresh?.call();
                         }
                       },
                     ),

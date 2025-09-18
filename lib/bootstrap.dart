@@ -17,6 +17,7 @@ import 'package:siged/_blocs/documents/measurement/revision/revision_measurement
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
+import 'package:siged/_blocs/sectors/planning/highway_domain/planning_highway_domain_bloc.dart';
 
 import '_blocs/actives/roads/active_roads_event.dart';
 import '_services/dxf/map_overlay_cubit.dart';

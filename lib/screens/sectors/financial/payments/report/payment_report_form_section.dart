@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+
 import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
+import 'package:siged/_utils/formats/input_formatters.dart';
 
-import 'package:siged/_widgets/pdf/web_pdf_controller.dart';
-import 'package:siged/_widgets/pdf/web_pdf_widget.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
-import 'package:siged/_utils/formats/input_formatters.dart';
+import 'package:siged/_widgets/list/files/side_list_box.dart';
 
 class PaymentReportFormSection extends StatelessWidget {
   final TextEditingController orderPaymentReportController;
@@ -32,7 +32,13 @@ class PaymentReportFormSection extends StatelessWidget {
   final VoidCallback onSaveOrUpdate;
   final VoidCallback onClear;
   final ContractData? contractData;
-  final Future<void> Function(String url) onUploadSaveToFirestore;
+
+  // 🆕 props do SideListBox
+  final List<String> sideItems;
+  final int? selectedSideIndex;
+  final VoidCallback? onAddSideItem;
+  final void Function(int index)? onTapSideItem;
+  final void Function(int index)? onDeleteSideItem;
 
   const PaymentReportFormSection({
     super.key,
@@ -54,14 +60,18 @@ class PaymentReportFormSection extends StatelessWidget {
     required this.onSaveOrUpdate,
     required this.onClear,
     required this.contractData,
-    required this.onUploadSaveToFirestore,
+    required this.sideItems,            // 🆕
+    this.selectedSideIndex,             // 🆕
+    this.onAddSideItem,                 // 🆕
+    this.onTapSideItem,                 // 🆕
+    this.onDeleteSideItem,              // 🆕
   });
 
-  double getInputWidth(BuildContext context) {
+  double _inputsWidth(BuildContext context, {required double reserved}) {
     return responsiveInputWidth(
       context: context,
       itemsPerLine: 4,
-      reservedWidth: 100.0,
+      reservedWidth: reserved,
       spacing: 12.0,
       margin: 12.0,
       extraPadding: 24.0,
@@ -69,14 +79,17 @@ class PaymentReportFormSection extends StatelessWidget {
     );
   }
 
-  Widget _input(BuildContext context, TextEditingController controller, String label,
-      {bool enabled = true,
+  Widget _input(
+      double width,
+      TextEditingController controller,
+      String label, {
+        bool enabled = true,
         bool tooltip = false,
         bool money = false,
         bool date = false,
-        List<TextInputFormatter>? mask}) {
+        List<TextInputFormatter>? mask,
+      }) {
     List<TextInputFormatter> formatters = [];
-
     if (money) {
       formatters = [
         CurrencyInputFormatter(
@@ -96,7 +109,7 @@ class PaymentReportFormSection extends StatelessWidget {
     }
 
     final textField = CustomTextField(
-      width: getInputWidth(context),
+      width: width,
       enabled: enabled,
       labelText: label,
       controller: controller,
@@ -107,113 +120,106 @@ class PaymentReportFormSection extends StatelessWidget {
     );
 
     if (tooltip) {
-      return Tooltip(
-        message: 'Este campo é calculado automaticamente.',
-        child: textField,
-      );
+      return Tooltip(message: 'Este campo é calculado automaticamente.', child: textField);
     }
-
     return textField;
   }
 
   @override
   Widget build(BuildContext context) {
-    final camposWrap = Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        _input(context, orderPaymentReportController, 'Ordem da medição', enabled: false, tooltip: true),
-        _input(context, processNumberPaymentReportController, 'Nº processo do pagamento da medição', mask: [processoMaskFormatter]),
-        _input(context, valuePaymentReportController, 'Valor do pagamento da medição', money: true),
-        _input(context, statePaymentReportController, 'Estado do pagamento da medição'),
-        _input(context, observationPaymentReportController, 'Observação do pagamento da medição'),
-        _input(context, bankPaymentReportController, 'Nº do banco do pagamento da medição'),
-        _input(context, electronicTicketPaymentReportController, 'Nº do boleto eletrônico do pagamento da medição'),
-        _input(context, fontPaymentReportController, 'Fonte do pagamento da medição'),
-        CustomDateField(
-          width: getInputWidth(context),
-          enabled: isEditable,
-          controller: datePaymentReportController,
-          initialValue: selectedPaymentReportData?.datePaymentReport,
-          labelText: 'Data do pagamento da Medição',
-          onChanged: (date) {
-            selectedPaymentReportData?.datePaymentReport = date;
-          },
-        ),
-        _input(context, taxPaymentReportController, 'Imposto do pagamento da medição', money: true),
-      ],
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final isSmall = constraints.maxWidth < 700;
+      final sideWidth = isSmall ? constraints.maxWidth : 300.0;
+      final reserved = isSmall ? 0.0 : (sideWidth + 12.0);
+      final w = _inputsWidth(context, reserved: reserved);
 
-    final botoes = Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        TextButton.icon(
-          icon: const Icon(Icons.save),
-          label: Text(currentPaymentReportId != null ? 'Atualizar' : 'Salvar'),
-          onPressed: formValidated && isEditable && !isSaving ? onSaveOrUpdate : null,
-        ),
-        const SizedBox(width: 12),
-        if (currentPaymentReportId != null)
+      final camposWrap = Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          _input(w, orderPaymentReportController, 'Ordem da medição', enabled: false, tooltip: true),
+          _input(w, processNumberPaymentReportController, 'Nº processo do pagamento da medição', mask: [processoMaskFormatter]),
+          _input(w, valuePaymentReportController, 'Valor do pagamento da medição', money: true),
+          _input(w, statePaymentReportController, 'Estado do pagamento da medição'),
+          _input(w, observationPaymentReportController, 'Observação do pagamento da medição'),
+          _input(w, bankPaymentReportController, 'Nº do banco do pagamento da medição'),
+          _input(w, electronicTicketPaymentReportController, 'Nº do boleto eletrônico do pagamento da medição'),
+          _input(w, fontPaymentReportController, 'Fonte do pagamento da medição'),
+          CustomDateField(
+            width: w,
+            enabled: isEditable,
+            controller: datePaymentReportController,
+            initialValue: selectedPaymentReportData?.datePaymentReport,
+            labelText: 'Data do pagamento da Medição',
+            onChanged: (date) => selectedPaymentReportData?.datePaymentReport = date,
+          ),
+          _input(w, taxPaymentReportController, 'Imposto do pagamento da medição', money: true),
+        ],
+      );
+
+      final botoes = Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
           TextButton.icon(
-            icon: const Icon(Icons.restore),
-            label: const Text('Limpar'),
-            onPressed: onClear,
+            icon: const Icon(Icons.save),
+            label: Text(currentPaymentReportId != null ? 'Atualizar' : 'Salvar'),
+            onPressed: formValidated && isEditable && !isSaving ? onSaveOrUpdate : null,
           ),
-      ],
-    );
+          const SizedBox(width: 12),
+          if (currentPaymentReportId != null)
+            TextButton.icon(
+              icon: const Icon(Icons.restore),
+              label: const Text('Limpar'),
+              onPressed: onClear,
+            ),
+        ],
+      );
 
-    final corpo = Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        camposWrap,
-        const SizedBox(height: 12),
-        botoes,
-      ],
-    );
+      final corpo = Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          camposWrap,
+          const SizedBox(height: 12),
+          botoes,
+        ],
+      );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 700;
+      // ✅ SideListBox — única exibição de PDF (sem WebPdfWidget)
+      final side = SideListBox(
+        title: 'Arquivos do Pagamento',
+        items: sideItems,
+        selectedIndex: selectedSideIndex,
+        onAddPressed: (selectedPaymentReportData != null) ? onAddSideItem : null,
+        onTap: onTapSideItem,
+        onDelete: onDeleteSideItem,
+        width: sideWidth,
+      );
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: isSmallScreen
-              ? Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (currentPaymentReportId != null && selectedPaymentReportData != null)
-                _buildPdfWidget(),
-              const SizedBox(height: 12),
-              corpo,
-            ],
-          )
-              : Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (currentPaymentReportId != null && selectedPaymentReportData != null)
-                _buildPdfWidget(),
-              const SizedBox(width: 12),
-              Expanded(child: corpo),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPdfWidget() {
-    return WebPdfWidgetGeneric(
-      key: Key(currentPaymentReportId!),
-      type: PDFType.paymentReport,
-      contractData: contractData!,
-      specificData: selectedPaymentReportData!,
-      onUploadSaveToFirestore: onUploadSaveToFirestore,
-
-    );
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: isSmall
+            ? Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            side,
+            const SizedBox(height: 12),
+            corpo,
+          ],
+        )
+            : Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            side,
+            const SizedBox(width: 12),
+            Expanded(child: corpo),
+          ],
+        ),
+      );
+    });
   }
 }

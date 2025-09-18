@@ -1,38 +1,42 @@
+// lib/_blocs/sectors/financial/payments/revision/payment_revision_controller.dart
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/date_utils.dart'
     show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
-
-import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+
+import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
+import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_storage_bloc.dart';
 
 class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin {
   PaymentsRevisionController({
     required PaymentRevisionBloc paymentRevisionBloc,
     required AdditivesBloc additivesBloc,
+    PaymentRevisionStorageBloc? storageBloc,
   })  : _paymentRevisionBloc = paymentRevisionBloc,
-        _additivesBloc = additivesBloc;
+        _additivesBloc = additivesBloc,
+        _storageBloc = storageBloc ?? PaymentRevisionStorageBloc();
 
-  // --- Dependências injetadas
+  // --- Dependências
   final PaymentRevisionBloc _paymentRevisionBloc;
   final AdditivesBloc _additivesBloc;
+  final PaymentRevisionStorageBloc _storageBloc;
 
-  // 👇 assinatura do UserBloc
+  // --- User stream
   StreamSubscription<UserState>? _userSub;
-
-  // Expor bloc (se algum widget legado precisar)
-  PaymentRevisionBloc get bloc => _paymentRevisionBloc;
 
   // --- Contexto
   UserData? currentUser;
@@ -42,6 +46,10 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
   List<PaymentsRevisionsData> _revisions = <PaymentsRevisionsData>[];
   PaymentsRevisionsData? _selected;
   String? _currentId;
+
+  // --- SideListBox
+  List<String> sideItems = const [];
+  int? selectedSideIndex;
 
   // --- Estado UI
   int? selectedIndex;
@@ -53,7 +61,7 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
   double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
-  // --- Controllers de formulário
+  // --- Controllers
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -65,7 +73,7 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
   final fontCtrl = TextEditingController();
   final taxCtrl = TextEditingController();
 
-  // --- Getters para UI
+  // --- Getters
   List<PaymentsRevisionsData> get revisions => _revisions;
   PaymentsRevisionsData? get selected => _selected;
   String? get currentPaymentRevisionId => _currentId;
@@ -77,24 +85,23 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
       _revisions.map((e) => e.valuePaymentRevision ?? 0.0).toList();
 
   double get totalMedicoes => chartValues.fold<double>(0.0, (a, b) => a + b);
-
   double get valorTotal => _valorInicial + _valorAditivos;
   double get saldo => valorTotal - totalMedicoes;
 
   double get valorInicialBase => _valorInicial;
   double get valorAditivosTotal => _valorAditivos;
+  bool get isAdmin =>
+      (currentUser?.baseProfile ?? '').trim().toLowerCase() == 'administrador';
 
   // --- Init/Dispose
   Future<void> init(BuildContext context, {required ContractData? contractData}) async {
     contract = contractData;
     if (contract?.id == null) return;
 
-    // 👇 pega o usuário atual do UserBloc e calcula permissão
     final userBloc = context.read<UserBloc>();
     currentUser = userBloc.state.current;
     isEditable = _canEditUser(currentUser);
 
-    // 👇 assina mudanças do UserBloc para refletir permissões em tempo real
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
       final prevId = currentUser?.id;
@@ -108,17 +115,13 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
       }
     });
 
-    setupValidation(
-      [orderCtrl, processCtrl, valueCtrl, dateCtrl],
-      _validateFormInternal,
-    );
-
+    setupValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateFormInternal);
     await _loadInitial();
   }
 
   @override
   void dispose() {
-    _userSub?.cancel(); // 👈 importante
+    _userSub?.cancel();
 
     removeValidation(
       [orderCtrl, processCtrl, valueCtrl, dateCtrl, stateCtrl, observationCtrl,
@@ -139,12 +142,11 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     super.dispose();
   }
 
-  // --- Permissão (ajuste conforme sua modelagem)
+  // --- Permissão
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
     final base = (user.baseProfile ?? '').toLowerCase();
     if (base == 'administrador' || base == 'colaborador') return true;
-    // granular: módulo "payments_revision"
     final perms = user.modulePermissions['payments_revision'];
     if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
     return false;
@@ -165,18 +167,32 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
         : 0;
     orderCtrl.text = (last + 1).toString();
 
+    sideItems = const [];
+    selectedSideIndex = null;
+
     notifyListeners();
   }
 
   void _validateFormInternal() {
-    final valid = areFieldsFilled(
-      [orderCtrl, processCtrl, valueCtrl, dateCtrl],
-      minLength: 1,
-    );
+    final valid = areFieldsFilled([orderCtrl, processCtrl, valueCtrl, dateCtrl], minLength: 1);
     if (formValidated != valid) {
       formValidated = valid;
       notifyListeners();
     }
+  }
+
+  // --- Side list helpers
+  Future<void> _refreshSideList() async {
+    if (contract == null || _selected?.idRevisionPayment == null) {
+      sideItems = const [];
+      selectedSideIndex = null;
+      notifyListeners();
+      return;
+    }
+    final exists = await _storageBloc.exists(contract!, _selected!);
+    sideItems = exists ? const ['Pagamento da Revisão (PDF)'] : const [];
+    selectedSideIndex = null;
+    notifyListeners();
   }
 
   // --- Ações UI
@@ -202,6 +218,7 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     taxCtrl.text = priceToString(data.taxPaymentRevision);
 
     notifyListeners();
+    _refreshSideList();
   }
 
   void createNew() {
@@ -220,6 +237,9 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     electronicTicketCtrl.clear();
     fontCtrl.clear();
     taxCtrl.clear();
+
+    sideItems = const [];
+    selectedSideIndex = null;
 
     notifyListeners();
   }
@@ -323,6 +343,10 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
           .getAllReportPaymentsOfContract(contractId: contract!.id!);
       selectedIndex = null;
       onSuccessSnack?.call();
+
+      sideItems = const [];
+      selectedSideIndex = null;
+      notifyListeners();
     } catch (_) {
       onErrorSnack?.call();
     } finally {
@@ -337,8 +361,93 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
       paymentId: _selected!.idRevisionPayment!,
       url: url,
     );
+    await _refreshSideList();
   }
 
+  // ====== AÇÕES DA SIDE LIST ======
+
+  /// Upload + salva URL no Firestore
+  Future<void> addSideItem(BuildContext context) async {
+    if (contract == null || _selected?.idRevisionPayment == null) return;
+    try {
+      final url = await _storageBloc.uploadWithPicker(
+        contract: contract!,
+        payment: _selected!,
+        onProgress: (_) {},
+      );
+      await _paymentRevisionBloc.salvarUrlPdfDePayment(
+        contractId: contract!.id!,
+        paymentId: _selected!.idRevisionPayment!,
+        url: url,
+      );
+      await _refreshSideList();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('PDF enviado com sucesso.'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao enviar PDF: $e')),
+        );
+      }
+    }
+  }
+
+  /// Obtém a URL e copia para a área de transferência
+  Future<void> openSideItem(BuildContext context, int index) async {
+    if (contract == null || _selected == null) return;
+    final url = await _storageBloc.getUrl(contract!, _selected!);
+    if (url == null || url.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Nenhum PDF disponível para esta revisão.'),
+        ));
+      }
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: url));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('URL do PDF copiada. Cole no navegador para abrir.'),
+      ));
+    }
+  }
+
+  /// Exclui o PDF do Storage e limpa o campo no doc (opcional)
+  Future<void> deleteSideItem(BuildContext context, int index) async {
+    if (contract == null || _selected == null) return;
+    try {
+      final ok = await _storageBloc.delete(contract!, _selected!);
+      if (ok) {
+        await _paymentRevisionBloc.salvarUrlPdfDePayment(
+          contractId: contract!.id!,
+          paymentId: _selected!.idRevisionPayment!,
+          url: '',
+        );
+        await _refreshSideList();
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('PDF excluído com sucesso.'),
+            backgroundColor: Colors.red,
+          ));
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao excluir PDF: $e')),
+        );
+      }
+    }
+  }
+
+  // util
   void overwriteList(List<PaymentsRevisionsData> newList) {
     _revisions = newList;
     final last = _revisions.isNotEmpty
@@ -347,6 +456,8 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     if (selectedIndex == null) {
       orderCtrl.text = (last + 1).toString();
     }
+    sideItems = const [];
+    selectedSideIndex = null;
     notifyListeners();
   }
 }

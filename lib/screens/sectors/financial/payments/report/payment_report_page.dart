@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/screens/sectors/financial/payments/report/payment_report_controller.dart';
 
+import 'package:siged/_blocs/sectors/financial/payments/report/payment_report_controller.dart';
 import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
+
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
@@ -19,11 +20,11 @@ class PaymentsReportPage extends StatelessWidget {
   const PaymentsReportPage({
     super.key,
     this.contractData,
-    this.reportData = const [], // ⭐ passe por prop (ou deixe vazio)
+    this.reportData = const [],
   });
 
   final ContractData? contractData;
-  final List<ReportMeasurementData> reportData; // tipar se já tiver o import
+  final List<ReportMeasurementData> reportData;
 
   @override
   Widget build(BuildContext context) {
@@ -131,14 +132,21 @@ class PaymentsReportPage extends StatelessWidget {
                               );
                             },
                             onClear: c.createNew,
-                            onUploadSaveToFirestore: (url) => c.savePdfUrl(url),
+
+                            // 🆕 SideListBox hooks
+                            sideItems: c.sideItems,
+                            selectedSideIndex: c.selectedSideIndex,
+                            onAddSideItem: c.canAddFile ? c.handleAddFile : null,
+                            onTapSideItem: (i) => c.handleOpenFile(i),
+                            onDeleteSideItem: c.handleDeleteFile,
                           ),
                         ),
 
                         const SizedBox(height: 12),
                         const DividerText(title: 'Pagamentos cadastrados no sistema', isSend: true),
 
-                        ImportExcelPage(
+                        if (c.isAdmin)
+                          ImportExcelPage(
                           firstCollection: c.contract?.id ?? '',
                           onFinished: () async {
                             await c.init(context, contractData: c.contract);
@@ -158,9 +166,8 @@ class PaymentsReportPage extends StatelessWidget {
                         ),
 
                         const SizedBox(height: 12),
-                        // Dica: se quiser listar o que o controller já carregou, use c.reports
                         PaymentReportTableSection(
-                          reportData: c.reports, // ← em vez do prop externo, se preferir
+                          reportData: c.reports,
                         ),
                         const SizedBox(height: 20),
                       ],

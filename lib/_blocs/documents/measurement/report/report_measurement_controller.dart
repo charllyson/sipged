@@ -1,13 +1,14 @@
+// ignore_for_file: unnecessary_this
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // segue ok
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 
 import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
-
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
@@ -39,8 +40,6 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
   // ---- contexto ----
   final ContractData contract;
   UserData? _currentUser;
-
-  // assinatura do UserBloc
   StreamSubscription<UserState>? _userSub;
 
   // ---- estado UI ----
@@ -48,6 +47,10 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
   bool isSaving = false;
   bool formValidated = false;
   int? selectedLine;
+
+  // ---- SideListBox (arquivos) ----
+  List<String> sideItems = <String>[];
+  int? selectedSideIndex;
 
   // ---- dados / paginação ----
   final int _itemsPerPage = 50;
@@ -58,7 +61,6 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
   int _currentPage = 1;
   int _totalPages = 1;
 
-  // Expostos para a UI (tabela)
   int get currentPage => _currentPage;
   int get totalPages => _totalPages;
   List<ReportMeasurementData> get reports => _pageItems;
@@ -86,7 +88,6 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
   // ---- derivados p/ gráfico ----
   List<String> get labels =>
       selectorUniverse.map((m) => (m.order ?? 0).toString()).toList();
-
   List<double> get values =>
       selectorUniverse.map((m) => (m.value ?? 0.0)).toList();
 
@@ -95,14 +96,11 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     setupValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateForm);
   }
 
-  /// chame em addPostFrameCallback no widget
   Future<void> init(BuildContext context) async {
-    // lê usuário atual do UserBloc
     final userBloc = context.read<UserBloc>();
     _currentUser = userBloc.state.current;
     isEditable = _canEditUser(_currentUser);
 
-    // assina mudanças do UserBloc para atualizar permissões
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
       final prevId = _currentUser?.id;
@@ -139,9 +137,7 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     if (base == 'administrador' || base == 'colaborador') return true;
 
     final perms = user.modulePermissions['report_measurement'];
-    if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
-
-    return false;
+    return perms != null && ((perms['edit'] == true) || (perms['create'] == true));
   }
 
   // ================= LOAD / PAGE =================
@@ -159,7 +155,6 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
 
     _all = await _measurementBloc.getAllMeasurementsOfContract(uidContract: contract.id!);
 
-    // ordena por ordem; fallback por data
     _all.sort((a, b) {
       final ao = a.order ?? -1;
       final bo = b.order ?? -1;
@@ -171,16 +166,18 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
 
     selectorUniverse = List<ReportMeasurementData>.from(_all);
 
-    // sugere próxima ordem
     final lastOrder = selectorUniverse.isNotEmpty
-        ? selectorUniverse
-        .map((e) => e.order ?? 0)
-        .reduce((a, b) => a > b ? a : b)
+        ? selectorUniverse.map((e) => e.order ?? 0).reduce((a, b) => a > b ? a : b)
         : 0;
     orderCtrl.text = (lastOrder + 1).toString();
 
     _currentPage = 1;
     _refreshPagination();
+
+    // limpa side list quando não há seleção
+    sideItems = const <String>[];
+    selectedSideIndex = null;
+
     notifyListeners();
   }
 
@@ -218,6 +215,7 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     dateCtrl.text    = dateTimeToDDMMYYYY(data.date);
 
     _validateForm();
+    _refreshSideFiles(); // 👈 atualiza lista lateral
     notifyListeners();
   }
 
@@ -227,15 +225,18 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     currentReportId = null;
 
     final nextOrder = (selectorUniverse.isNotEmpty
-        ? selectorUniverse
-        .map((e) => e.order ?? 0)
-        .reduce((a, b) => a > b ? a : b)
-        : 0) + 1;
+        ? selectorUniverse.map((e) => e.order ?? 0).reduce((a, b) => a > b ? a : b)
+        : 0) +
+        1;
 
     orderCtrl.text = nextOrder.toString();
     processCtrl.clear();
     valueCtrl.clear();
     dateCtrl.clear();
+
+    // limpa side list
+    sideItems = const <String>[];
+    selectedSideIndex = null;
 
     _validateForm();
     notifyListeners();
@@ -258,10 +259,9 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
         date: convertDDMMYYYYToDateTime(dateCtrl.text),
       );
 
-      // ⬇️ agora chama o método REPORT-only
       await _measurementBloc.saveOrUpdateReport(novo);
 
-      await _loadInitialData(); // recarrega + repagina
+      await _loadInitialData();
       createNew();
 
       if (context.mounted) {
@@ -341,31 +341,47 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     );
   }
 
+  // ================= SideListBox helpers =================
+  Future<void> _refreshSideFiles() async {
+    if (contract.id == null || selectedReport?.id == null) {
+      sideItems = const <String>[];
+      selectedSideIndex = null;
+      notifyListeners();
+      return;
+    }
+    final exists = await _storageBloc.exists(contract, selectedReport!);
+    sideItems = exists ? <String>['PDF da medição'] : const <String>[];
+    selectedSideIndex = exists ? 0 : null;
+    notifyListeners();
+  }
+
+  void selectSideIndex(int i) {
+    selectedSideIndex = i;
+    notifyListeners();
+  }
+
   // ================= PDF (Storage) =================
-  Future<void> uploadPdf({
-    required void Function(double progress) onProgress,
-  }) async {
+  Future<void> uploadPdf({required void Function(double progress) onProgress}) async {
     if (contract.id == null || selectedReport?.id == null) return;
 
     final url = await _storageBloc.uploadWithPicker(
       contract: contract,
-      reportMeasurement: selectedReport!, // objeto atual
+      reportMeasurement: selectedReport!,
       onProgress: onProgress,
     );
 
     await _storageBloc.salvarUrlPdfDaReportMeasurement(
       contractId: contract.id!,
-      reportMeasurementId: selectedReport!.id!, // 👈 nome correto
+      reportMeasurementId: selectedReport!.id!,
       url: url,
     );
+
+    await _refreshSideFiles();
   }
 
-  Future<void> savePdfUrl(String url) async {
+  Future<void> deletePdf() async {
     if (contract.id == null || selectedReport?.id == null) return;
-    await _storageBloc.salvarUrlPdfDaReportMeasurement(
-      contractId: contract.id!,
-      reportMeasurementId: selectedReport!.id!, // 👈 nome correto
-      url: url,
-    );
+    await _storageBloc.delete(contract, selectedReport!);
+    await _refreshSideFiles();
   }
 }

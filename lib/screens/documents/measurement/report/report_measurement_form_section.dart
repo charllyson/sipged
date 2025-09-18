@@ -3,24 +3,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
-import 'package:siged/_widgets/pdf/web_pdf_controller.dart';
 import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
-
-import 'package:siged/_widgets/pdf/web_pdf_widget.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
 
-import 'measurement_budget_page.dart';
+// ✅ lista lateral de arquivos (mesmo componente usado em Additives/Apostilles)
+import '../../../../_widgets/list/files/side_list_box.dart';
 
 class ReportMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
   final bool formValidated;
 
-  // 👇 agora com nomes de REPORT
   final ReportMeasurementData? selectedReportMeasurement;
   final String? currentReportMeasurementId;
 
@@ -34,6 +31,13 @@ class ReportMeasurementFormSection extends StatelessWidget {
 
   final VoidCallback onSave;
   final VoidCallback onClear;
+
+  // ▶️ SideListBox props
+  final List<String> sideItems;
+  final int? selectedSideIndex;
+  final VoidCallback? onAddSideItem;
+  final void Function(int index)? onTapSideItem;
+  final void Function(int index)? onDeleteSideItem;
 
   const ReportMeasurementFormSection({
     super.key,
@@ -49,105 +53,93 @@ class ReportMeasurementFormSection extends StatelessWidget {
     required this.valueController,
     required this.onSave,
     required this.onClear,
+    // side list
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
   });
 
-  // helper p/ formato BR (sua lib exige String)
-  String currencyBR(num v) => toCurrencyString(
-    v.toString(),
-    leadingSymbol: 'R\$ ',
-    useSymbolPadding: true,
-    thousandSeparator: ThousandSeparator.Period,
-    mantissaLength: 2,
-  );
-
-  double getInputWidth(BuildContext context) {
-    return responsiveInputWidth(
-      context: context,
-      itemsPerLine: 4,
-      reservedWidth: 100.0,
-      spacing: 12.0,
-      margin: 12.0,
-      extraPadding: 24.0,
-      spaceBetweenReserved: 12.0,
-    );
-  }
-
+  // `_input` recebe a largura já calculada (como nos outros módulos)
   Widget _input(
-      BuildContext context,
+      double width,
       TextEditingController controller,
       String label, {
+        required bool isEditable,
         bool enabled = true,
-        bool tooltip = false,
         bool money = false,
         bool date = false,
-        List<TextInputFormatter>? mask,
+        bool tooltip = false,
+        TextInputFormatter? mask,
       }) {
-    List<TextInputFormatter> formatters = [];
-
-    if (money) {
-      formatters = [
-        CurrencyInputFormatter(
-          leadingSymbol: 'R\$ ',
-          useSymbolPadding: true,
-          thousandSeparator: ThousandSeparator.Period,
-          mantissaLength: 2,
-        ),
-      ];
-    } else if (date) {
-      formatters = [
-        FilteringTextInputFormatter.digitsOnly,
-        TextInputMask(mask: '99/99/9999'),
-      ];
-    } else if (mask != null) {
-      formatters = mask;
-    }
-
-    final textField = CustomTextField(
-      width: getInputWidth(context),
-      enabled: enabled,
-      labelText: label,
-      controller: controller,
-      keyboardType: money
-          ? TextInputType.number
-          : (date ? TextInputType.datetime : TextInputType.text),
-      inputFormatters: formatters,
+    return Tooltip(
+      message: tooltip ? 'Este campo é calculado automaticamente.' : '',
+      child: CustomTextField(
+        width: width,
+        enabled: enabled && isEditable,
+        labelText: label,
+        controller: controller,
+        keyboardType: money
+            ? TextInputType.number
+            : (date ? TextInputType.datetime : TextInputType.text),
+        inputFormatters: [
+          if (date) FilteringTextInputFormatter.digitsOnly,
+          if (date) TextInputMask(mask: '99/99/9999'),
+          if (money)
+            CurrencyInputFormatter(
+              leadingSymbol: 'R\$ ',
+              useSymbolPadding: true,
+              thousandSeparator: ThousandSeparator.Period,
+              mantissaLength: 2,
+            ),
+          if (mask != null) mask,
+        ],
+      ),
     );
-
-    if (tooltip) {
-      return Tooltip(
-        message: 'Este campo é calculado automaticamente.',
-        child: textField,
-      );
-    }
-    return textField;
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 700;
+        final bool isSmallScreen = constraints.maxWidth < 700;
+
+        // 👉 largura do SideListBox (100% no mobile; 300 em telas largas)
+        final double sideWidth = isSmallScreen ? constraints.maxWidth : 300.0;
+
+        // 👉 largura dos inputs levando em conta o sideWidth quando em duas colunas
+        final double inputsWidth = responsiveInputWidth(
+          context: context,
+          itemsPerLine: 4,
+          reservedWidth: isSmallScreen ? 0.0 : (sideWidth + 12.0),
+          spacing: 12.0,
+          margin: 12.0,
+          extraPadding: 24.0,
+          spaceBetweenReserved: 12.0,
+        );
 
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
             _input(
-              context,
+              inputsWidth,
               orderController,
               'Ordem da medição',
+              isEditable: isEditable,
               enabled: false,
               tooltip: true,
             ),
             _input(
-              context,
+              inputsWidth,
               processNumberController,
               'Nº processo da medição',
-              enabled: isEditable,
-              mask: [processoMaskFormatter],
+              isEditable: isEditable,
+              mask: processoMaskFormatter,
             ),
             CustomDateField(
-              width: getInputWidth(context),
+              width: inputsWidth,
               enabled: isEditable,
               controller: dateController,
               initialValue: selectedReportMeasurement?.date,
@@ -159,23 +151,11 @@ class ReportMeasurementFormSection extends StatelessWidget {
               },
             ),
             _input(
-              context,
+              inputsWidth,
               valueController,
               'Valor da medição',
-              enabled: isEditable,
+              isEditable: isEditable,
               money: true,
-            ),
-            // Botão para abrir o modal de detalhamento
-            SizedBox(
-              width: getInputWidth(context),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.list_alt),
-                  label: const Text('Detalhar medição'),
-                  onPressed: isEditable ? () => _openDetailsModel(context) : null,
-                ),
-              ),
             ),
           ],
         );
@@ -185,7 +165,9 @@ class ReportMeasurementFormSection extends StatelessWidget {
           children: [
             TextButton.icon(
               icon: const Icon(Icons.save),
-              label: Text(currentReportMeasurementId != null ? 'Atualizar' : 'Salvar'),
+              label: Text(
+                currentReportMeasurementId != null ? 'Atualizar' : 'Salvar',
+              ),
               onPressed: formValidated ? (isEditable ? onSave : null) : null,
             ),
             const SizedBox(width: 12),
@@ -207,22 +189,30 @@ class ReportMeasurementFormSection extends StatelessWidget {
           ],
         );
 
-        final leftPdf = (currentReportMeasurementId != null && selectedReportMeasurement != null)
-            ? _buildPdfWidget()
-            : const SizedBox();
+        // ✅ SideListBox SEMPRE visível; botão "+" só habilita com um item selecionado
+        final side = SideListBox(
+          title: 'Arquivos da Medição',
+          items: sideItems,
+          selectedIndex: selectedSideIndex,
+          onAddPressed:
+          (selectedReportMeasurement != null) ? onAddSideItem : null,
+          onTap: onTapSideItem,
+          onDelete: onDeleteSideItem,
+          width: sideWidth, // 🔥 ocupa 100% no mobile
+        );
 
-        final container = Container(
+        return Container(
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: Colors.grey),
             borderRadius: BorderRadius.circular(8),
           ),
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(12),
           child: isSmallScreen
               ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              leftPdf,
+              side,
               const SizedBox(height: 12),
               corpo,
             ],
@@ -230,37 +220,13 @@ class ReportMeasurementFormSection extends StatelessWidget {
               : Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              leftPdf,
+              side,
               const SizedBox(width: 12),
               Expanded(child: corpo),
             ],
           ),
         );
-
-        return container;
       },
-    );
-  }
-
-  void _openDetailsModel(BuildContext context) async {
-    await Navigator.of(context).push<MeasurementBudgetPage>(
-      MaterialPageRoute(
-        builder: (_) => MeasurementBudgetPage(
-          contractData: contractData,
-        ),
-        fullscreenDialog: true, // opcional: efeito de "página de edição"
-      ),
-    );
-  }
-
-
-  Widget _buildPdfWidget() {
-    return WebPdfWidgetGeneric(
-      key: Key(currentReportMeasurementId!), // 👈 usa o ID de report
-      type: PDFType.report, // 👈 tipo de report
-      contractData: contractData,
-      specificData: selectedReportMeasurement!, // 👈 objeto de report
-      reportMeasurementStorageBloc: reportMeasurementStorageBloc,
     );
   }
 }

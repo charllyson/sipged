@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // 👈 novo
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:siged/_utils/date_utils.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/date_utils.dart'
-    show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
 import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
@@ -15,31 +18,26 @@ import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 
-import '../../../../../_blocs/system/user/user_bloc.dart';
-import '../../../../../_blocs/system/user/user_state.dart';
-
 class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMixin {
   PaymentsAdjustmentController({
     required PaymentAdjustmentBloc paymentAdjustmentBloc,
     required AdditivesBloc additivesBloc,
+    PaymentAdjustmentStorageBloc? storageBloc, // 🆕
   })  : _paymentAdjustmentBloc = paymentAdjustmentBloc,
-        _additivesBloc = additivesBloc;
+        _additivesBloc = additivesBloc,
+        _storageBloc = storageBloc ?? PaymentAdjustmentStorageBloc(); // 🆕
 
-  // ---- dependências (injetadas) ----
   final PaymentAdjustmentBloc _paymentAdjustmentBloc;
   final AdditivesBloc _additivesBloc;
+  final PaymentAdjustmentStorageBloc _storageBloc; // 🆕
 
-  // ---- assinatura do UserBloc ----
-  StreamSubscription<UserState>? _userSub; // 👈 novo
+  StreamSubscription<UserState>? _userSub;
 
-  // Expor bloc (se widget legado precisar)
   PaymentAdjustmentBloc get bloc => _paymentAdjustmentBloc;
 
-  // ---- contexto/entidades ----
   UserData? currentUser;
   ContractData? contract;
 
-  // ---- dados e estado ----
   List<PaymentsAdjustmentsData> _payments = <PaymentsAdjustmentsData>[];
   PaymentsAdjustmentsData? _selected;
   String? _currentId;
@@ -52,7 +50,13 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
-  // ---- controllers do formulário ----
+  // SideListBox 🆕
+  List<String> sideItems = const <String>[];
+  int? selectedSideIndex;
+  bool get canAddFile => isEditable && _selected?.idPaymentAdjustment != null;
+  String? get currentPdfUrl => _selected?.pdfUrl;
+
+  // controllers
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -64,35 +68,31 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   final fontCtrl = TextEditingController();
   final taxCtrl = TextEditingController();
 
-  // ---- getters para UI ----
   List<PaymentsAdjustmentsData> get payments => _payments;
   PaymentsAdjustmentsData? get selected => _selected;
   String? get currentPaymentAdjustmentId => _currentId;
 
   List<String> get chartLabels =>
       _payments.map((e) => (e.orderPaymentAdjustment ?? 0).toString()).toList();
-
   List<double> get chartValues =>
       _payments.map((e) => e.valuePaymentAdjustment ?? 0.0).toList();
 
   double get totalMedicoes => chartValues.fold<double>(0.0, (a, b) => a + b);
   double get valorTotal => _valorInicial + _valorAditivos;
   double get saldo => valorTotal - totalMedicoes;
-
   double get valorInicialBase => _valorInicial;
   double get valorAditivosTotal => _valorAditivos;
+  bool get isAdmin =>
+      (currentUser?.baseProfile ?? '').trim().toLowerCase() == 'administrador';
 
-  // ---- ciclo de vida ----
   Future<void> init(BuildContext context, {required ContractData? contractData}) async {
     contract = contractData;
     if (contract?.id == null) return;
 
-    // 👇 pega o usuário atual do UserBloc
     final userBloc = context.read<UserBloc>();
     currentUser = userBloc.state.current;
     isEditable = _canEditUser(currentUser);
 
-    // 👇 reage a futuras mudanças de autenticação/perfil
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
       final prevId = currentUser?.id;
@@ -112,13 +112,12 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
 
   @override
   void dispose() {
-    _userSub?.cancel(); // 👈 importante
+    _userSub?.cancel();
     removeValidation(
       [orderCtrl, processCtrl, valueCtrl, dateCtrl, stateCtrl, observationCtrl,
         bankCtrl, electronicTicketCtrl, fontCtrl, taxCtrl],
       _validateFormInternal,
     );
-
     orderCtrl.dispose();
     processCtrl.dispose();
     valueCtrl.dispose();
@@ -132,17 +131,15 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     super.dispose();
   }
 
-  // ---- permissão (ajuste ao seu modelo) ----
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
     final base = (user.baseProfile ?? '').toLowerCase();
     if (base == 'administrador' || base == 'colaborador') return true;
-    final perms = user.modulePermissions['payments_adjustment']; // nome do módulo
+    final perms = user.modulePermissions['payments_adjustment'];
     if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
     return false;
   }
 
-  // ---- core ----
   Future<void> _loadInitial() async {
     if (contract?.id == null) return;
 
@@ -156,6 +153,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
         : 0;
     orderCtrl.text = (last + 1).toString();
 
+    await _refreshSideList();
     notifyListeners();
   }
 
@@ -167,7 +165,6 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     }
   }
 
-  // ---- ações de UI ----
   void selectRow(PaymentsAdjustmentsData data) {
     final idx = _payments.indexOf(data);
     if (idx == -1) return;
@@ -189,6 +186,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     fontCtrl.text = data.fontPaymentAdjustment ?? '';
     taxCtrl.text = priceToString(data.taxPaymentAdjustment);
 
+    _refreshSideList();
     notifyListeners();
   }
 
@@ -209,6 +207,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     fontCtrl.clear();
     taxCtrl.clear();
 
+    _refreshSideList();
     notifyListeners();
   }
 
@@ -223,8 +222,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     if (!confirmed) return false;
 
     try {
-      isSaving = true;
-      notifyListeners();
+      isSaving = true; notifyListeners();
 
       final data = PaymentsAdjustmentsData(
         idPaymentAdjustment: _currentId,
@@ -239,6 +237,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
         electronicTicketPaymentAdjustment: electronicTicketCtrl.text,
         fontPaymentAdjustment: fontCtrl.text,
         taxPaymentAdjustment: parseCurrencyToDouble(taxCtrl.text),
+        pdfUrl: _selected?.pdfUrl, // mantém se já existir
       );
 
       await _paymentAdjustmentBloc.saveOrUpdatePayment(data);
@@ -253,8 +252,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
       onErrorSnack?.call();
       return false;
     } finally {
-      isSaving = false;
-      notifyListeners();
+      isSaving = false; notifyListeners();
     }
   }
 
@@ -266,8 +264,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     if (contract?.id == null) return;
 
     try {
-      isSaving = true;
-      notifyListeners();
+      isSaving = true; notifyListeners();
 
       final toSave = PaymentsAdjustmentsData(
         idPaymentAdjustment: data.idPaymentAdjustment,
@@ -282,6 +279,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
         electronicTicketPaymentAdjustment: data.electronicTicketPaymentAdjustment,
         fontPaymentAdjustment: data.fontPaymentAdjustment,
         taxPaymentAdjustment: data.taxPaymentAdjustment,
+        pdfUrl: data.pdfUrl,
       );
 
       await _paymentAdjustmentBloc.saveOrUpdatePayment(toSave);
@@ -294,8 +292,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     } catch (_) {
       onError?.call();
     } finally {
-      isSaving = false;
-      notifyListeners();
+      isSaving = false; notifyListeners();
     }
   }
 
@@ -316,6 +313,69 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     } finally {
       notifyListeners();
     }
+  }
+
+  // --------- PDF via SideListBox 🆕 ----------
+  Future<void> _refreshSideList() async {
+    if (currentPdfUrl != null && currentPdfUrl!.isNotEmpty) {
+      sideItems = const ['PDF do Pagamento de Reajuste'];
+      selectedSideIndex = 0;
+    } else {
+      sideItems = const <String>[];
+      selectedSideIndex = null;
+    }
+    if (hasListeners) notifyListeners();
+  }
+
+  Future<void> handleAddFile() async {
+    if (!canAddFile || contract?.id == null || _selected?.idPaymentAdjustment == null) return;
+    try {
+      isSaving = true; notifyListeners();
+
+      final url = await _storageBloc.uploadWithPicker(
+        contract: contract!,
+        payment: _selected!,
+        onProgress: (_) {},
+      );
+
+      await _paymentAdjustmentBloc.salvarUrlPdfDePayment(
+        contractId: contract!.id!,
+        paymentId: _selected!.idPaymentAdjustment!,
+        url: url,
+      );
+
+      _selected = _selected!..pdfUrl = url;
+      await _refreshSideList();
+    } finally {
+      isSaving = false; notifyListeners();
+    }
+  }
+
+  Future<void> handleDeleteFile(int index) async {
+    if (contract?.id == null || _selected?.idPaymentAdjustment == null) return;
+    try {
+      isSaving = true; notifyListeners();
+
+      await _storageBloc.delete(contract!, _selected!);
+      await _paymentAdjustmentBloc.salvarUrlPdfDePayment(
+        contractId: contract!.id!,
+        paymentId: _selected!.idPaymentAdjustment!,
+        url: '',
+      );
+
+      _selected = _selected!..pdfUrl = null;
+      await _refreshSideList();
+    } finally {
+      isSaving = false; notifyListeners();
+    }
+  }
+
+  Future<void> handleOpenFile(int index) async {
+    final url = currentPdfUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void overwriteList(List<PaymentsAdjustmentsData> newList) {

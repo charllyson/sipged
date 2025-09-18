@@ -1,10 +1,10 @@
-// lib/_blocs/documents/measurement/revision/revision_measurement_controller.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_bloc.dart';
 import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_data.dart';
+import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_storage_bloc.dart';
 
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
@@ -18,20 +18,25 @@ import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/date_utils.dart' show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 import 'package:siged/_utils/handle_selection_utils.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 class RevisionMeasurementController extends ChangeNotifier with FormValidationMixin {
   RevisionMeasurementController({
-    required this.contract,                   // ✅ contrato vem no construtor
+    required this.contract,                   // ✅ contrato no construtor
     required RevisionMeasurementBloc measurementBloc,
     required AdditivesBloc additivesBloc,
+    RevisionMeasurementStorageBloc? storageBloc,
   })  : _measurementBloc = measurementBloc,
-        _additivesBloc = additivesBloc;
+        _additivesBloc = additivesBloc,
+        _storageBloc = storageBloc ?? RevisionMeasurementStorageBloc();
 
   // --- Dependências
   final RevisionMeasurementBloc _measurementBloc;
   final AdditivesBloc _additivesBloc;
+  final RevisionMeasurementStorageBloc _storageBloc;
 
   // --- Contexto
-  final ContractData contract;               // ✅ final, não-late
+  final ContractData contract;               // ✅ final
   UserData? currentUser;
 
   // 👇 assinatura do UserBloc
@@ -66,6 +71,13 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
   final dateCtrl = TextEditingController();
+
+  // --- SideListBox (arquivos)
+  List<String> sideItems = const <String>[];
+  int? selectedSideIndex;
+
+  bool get canAddFile => isEditable && _selected?.id != null;
+  String? get currentPdfUrl => _selected?.pdfUrl;
 
   // --- Guard init ---
   bool _didInit = false;
@@ -174,6 +186,9 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
 
     _currentPage = 1;
     _refreshPagination();
+
+    // atualiza lista lateral conforme seleção atual (se houver)
+    await _refreshSideList();
     notifyListeners();
   }
 
@@ -225,6 +240,7 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
     dateCtrl.text = dateTimeToDDMMYYYY(data.date);
 
     _validateFormInternal();
+    _refreshSideList();
     notifyListeners();
   }
 
@@ -257,6 +273,7 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
     dateCtrl.clear();
 
     _validateFormInternal();
+    _refreshSideList();
     notifyListeners();
   }
 
@@ -280,6 +297,7 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
         numberprocess: processCtrl.text,
         value: parseCurrencyToDouble(valueCtrl.text),
         date: convertDDMMYYYYToDateTime(dateCtrl.text),
+        pdfUrl: _selected?.pdfUrl, // preserva url se já houver
       );
 
       await _measurementBloc.saveOrUpdateRevision(
@@ -296,41 +314,6 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
     } catch (_) {
       onErrorSnack?.call();
       return false;
-    } finally {
-      isSaving = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> saveExact(
-      RevisionMeasurementData data, {
-        VoidCallback? onSuccess,
-        VoidCallback? onError,
-      }) async {
-    try {
-      isSaving = true;
-      notifyListeners();
-
-      final toSave = RevisionMeasurementData(
-        id: data.id,
-        contractId: contract.id!,
-        order: data.order,
-        numberprocess: data.numberprocess,
-        value: data.value,
-        date: data.date,
-      );
-
-      await _measurementBloc.saveOrUpdateRevision(
-        contractId: contract.id!,
-        revisionMeasurementId: data.id ?? '',
-        rev: toSave,
-      );
-
-      await _loadInitial();
-      createNew();
-      onSuccess?.call();
-    } catch (_) {
-      onError?.call();
     } finally {
       isSaving = false;
       notifyListeners();
@@ -357,13 +340,85 @@ class RevisionMeasurementController extends ChangeNotifier with FormValidationMi
     }
   }
 
-  // === PDF ===
+  // === SideListBox: helpers ===
+  Future<void> _refreshSideList() async {
+    if (currentPdfUrl != null && currentPdfUrl!.isNotEmpty) {
+      sideItems = const ['PDF da Revisão'];
+      selectedSideIndex = 0;
+    } else {
+      sideItems = const <String>[];
+      selectedSideIndex = null;
+    }
+    if (hasListeners) notifyListeners();
+  }
+
+  Future<void> handleAddFile() async {
+    if (!canAddFile || contract.id == null || _selected?.id == null) return;
+    try {
+      isSaving = true; notifyListeners();
+
+      final url = await _storageBloc.uploadWithPicker(
+        contract: contract,
+        measurementId: _selected!.id!,
+        rev: _selected!,
+        onProgress: (_) {},
+      );
+
+      await _measurementBloc.salvarUrlPdfDaRevisionMeasurement(
+        contractId: contract.id!,
+        revisionMeasurementId: _selected!.id!,
+        url: url,
+      );
+
+      _selected = _selected!..pdfUrl = url;
+      await _refreshSideList();
+    } finally {
+      isSaving = false; notifyListeners();
+    }
+  }
+
+  Future<void> handleDeleteFile(int index) async {
+    if (contract.id == null || _selected?.id == null) return;
+    try {
+      isSaving = true; notifyListeners();
+
+      await _storageBloc.delete(
+        contract: contract,
+        measurementId: _selected!.id!,
+        rev: _selected!,
+      );
+
+      // zera campo no Firestore (mantendo compatibilidade)
+      await _measurementBloc.salvarUrlPdfDaRevisionMeasurement(
+        contractId: contract.id!,
+        revisionMeasurementId: _selected!.id!,
+        url: '',
+      );
+
+      _selected = _selected!..pdfUrl = null;
+      await _refreshSideList();
+    } finally {
+      isSaving = false; notifyListeners();
+    }
+  }
+
+  Future<void> handleOpenFile(int index) async {
+    final url = currentPdfUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  // === PDF (compat) ===
   Future<void> savePdfUrl(String url) async {
-    if (_selected?.id == null) return;
+    if (_selected?.id == null || contract.id == null) return;
     await _measurementBloc.salvarUrlPdfDaRevisionMeasurement(
       contractId: contract.id!,
       revisionMeasurementId: _selected!.id!,
       url: url,
     );
+    _selected = _selected!..pdfUrl = url;
+    await _refreshSideList();
   }
 }

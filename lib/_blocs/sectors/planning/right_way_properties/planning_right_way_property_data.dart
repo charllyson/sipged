@@ -1,7 +1,8 @@
+// lib/_blocs/sectors/planning/right_way_properties/planning_right_way_property_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-class RightWayPropertyData extends ChangeNotifier {
+class PlanningRightWayPropertyData extends ChangeNotifier {
   String? id;
   String? contractId;
 
@@ -42,7 +43,7 @@ class RightWayPropertyData extends ChangeNotifier {
   DateTime? updatedAt;
   String? updatedBy;
 
-  RightWayPropertyData({
+  PlanningRightWayPropertyData({
     this.id,
     this.contractId,
     this.ownerName,
@@ -70,12 +71,31 @@ class RightWayPropertyData extends ChangeNotifier {
     this.updatedBy,
   });
 
-  factory RightWayPropertyData.fromDocument(DocumentSnapshot snap) {
+  // Opções de dropdown usadas no form
+  static List<String> typeItems = ['URBANO', 'RURAL'];
+  static List<String> statusItems = ['A NEGOCIAR', 'INDENIZADO', 'JUDICIALIZADO'];
+
+  // ✅ Igualdade por id para funcionar com selectedItem: controller.selected
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is PlanningRightWayPropertyData &&
+              runtimeType == other.runtimeType &&
+              id != null &&
+              other.id != null &&
+              id == other.id;
+
+  @override
+  int get hashCode => (id ?? '').hashCode;
+
+  factory PlanningRightWayPropertyData.fromDocument(DocumentSnapshot snap) {
     final d = snap.data() as Map<String, dynamic>? ?? const {};
     DateTime? _ts(dynamic v) => (v is Timestamp) ? v.toDate() : null;
-    double? _num(dynamic v) => (v is num) ? v.toDouble() : (v is String ? double.tryParse(v.replaceAll(',', '.')) : null);
+    double? _num(dynamic v) => (v is num)
+        ? v.toDouble()
+        : (v is String ? double.tryParse(v.replaceAll(',', '.')) : null);
 
-    return RightWayPropertyData(
+    return PlanningRightWayPropertyData(
       id: snap.id,
       contractId: d['contractId'],
       ownerName: d['ownerName'],

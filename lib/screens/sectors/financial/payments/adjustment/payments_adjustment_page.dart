@@ -3,10 +3,10 @@ import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
-import 'payment_adjustment_controller.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+import '../../../../../_blocs/sectors/financial/payments/adjustment/payment_adjustment_controller.dart';
 
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_services/excel/import_excel_page.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
@@ -69,7 +69,74 @@ class PaymentsAdjustmentPage extends StatelessWidget {
                         const DividerText(title: 'Cadastrar pagamento de reajuste no sistema'),
                         const SizedBox(height: 12),
 
-                        const PaymentAdjustmentFormSection(),
+                        PaymentAdjustmentFormSection(
+                          orderCtrl: c.orderCtrl,
+                          processCtrl: c.processCtrl,
+                          valueCtrl: c.valueCtrl,
+                          stateCtrl: c.stateCtrl,
+                          observationCtrl: c.observationCtrl,
+                          bankCtrl: c.bankCtrl,
+                          electronicTicketCtrl: c.electronicTicketCtrl,
+                          fontCtrl: c.fontCtrl,
+                          dateCtrl: c.dateCtrl,
+                          taxCtrl: c.taxCtrl,
+                          selected: c.selected,
+                          currentPaymentAdjustmentId: c.currentPaymentAdjustmentId,
+                          isEditable: c.isEditable,
+                          isSaving: c.isSaving,
+                          formValidated: c.formValidated,
+                          onSaveOrUpdate: () async {
+                            await c.saveOrUpdate(
+                              onConfirm: () async {
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Confirmação'),
+                                    content: const Text('Deseja salvar este pagamento de reajuste?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, false),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () => Navigator.pop(context, true),
+                                        child: const Text('Confirmar'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                return ok == true;
+                              },
+                              onSuccessSnack: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Pagamento salvo com sucesso!'),
+                                    backgroundColor: Colors.green,
+                                    duration: Duration(seconds: 3),
+                                  ),
+                                );
+                              },
+                              onErrorSnack: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Falha ao salvar pagamento.'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                          onClear: c.createNew,
+
+                          // 🆕 SideListBox props
+                          sideItems: c.sideItems,
+                          selectedSideIndex: c.selectedSideIndex,
+                          onAddSideItem: c.canAddFile ? c.handleAddFile : null,
+                          onTapSideItem: (i) => c.handleOpenFile(i),
+                          onDeleteSideItem: c.handleDeleteFile,
+
+                          contractData: c.contract,
+                        ),
 
                         const SizedBox(height: 12),
                         const DividerText(
@@ -77,11 +144,14 @@ class PaymentsAdjustmentPage extends StatelessWidget {
                           isSend: true,
                         ),
 
-                        ImportExcelPage(
+                        if (c.isAdmin)
+                          ImportExcelPage(
                           firstCollection: c.contract?.id ?? '',
                           onFinished: () async => c.init(context, contractData: c.contract),
                           onSave: (dados) async {
-                            final data = PaymentsAdjustmentsData.fromMap(dados);
+                            final data = c.selected == null
+                                ? PaymentsAdjustmentsData.fromMap(dados)
+                                : PaymentsAdjustmentsData.fromMap(dados);
                             await c.saveExact(
                               data,
                               onError: () => ScaffoldMessenger.of(context).showSnackBar(
@@ -136,5 +206,4 @@ class PaymentsAdjustmentPage extends StatelessWidget {
       },
     );
   }
-
 }

@@ -1,22 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:siged/_blocs/sectors/planning/highway_domain/highway_property_data.dart';
+import 'package:siged/_blocs/sectors/planning/right_way_properties/planning_right_way_property_data.dart';
 
 /// Store em memória dos imóveis do **Domínio de Faixa** por contrato.
-/// Firestore path sugerido: planning_highway_domain/{contractId}/properties
-class RightWayPropertiesStore extends ChangeNotifier {
+/// Novo path: contracts/{contractId}/planning_right_way_properties
+class PlanningRightWayPropertyStore extends ChangeNotifier {
   final FirebaseFirestore _db;
-  RightWayPropertiesStore({FirebaseFirestore? firestore})
+  PlanningRightWayPropertyStore({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
-  final Map<String, List<RightWayPropertyData>> _byContract = {};
+  final Map<String, List<PlanningRightWayPropertyData>> _byContract = {};
   final Map<String, bool> _loading = {};
 
-  List<RightWayPropertyData> listFor(String contractId) =>
+  List<PlanningRightWayPropertyData> listFor(String contractId) =>
       _byContract[contractId] ?? const [];
 
   bool loadingFor(String contractId) => _loading[contractId] == true;
+
+  CollectionReference<Map<String, dynamic>> _colFor(String contractId) =>
+      _db.collection('contracts').doc(contractId).collection('planning_right_way_properties');
 
   Future<void> ensureFor(String contractId) async {
     if (contractId.isEmpty) return;
@@ -24,12 +27,8 @@ class RightWayPropertiesStore extends ChangeNotifier {
 
     _loading[contractId] = true; _notifyLater();
     try {
-      final col = _db
-          .collection('planning_highway_domain')
-          .doc(contractId)
-          .collection('properties');
-      final s = await col.orderBy('ownerName').get();
-      _byContract[contractId] = s.docs.map(RightWayPropertyData.fromDocument).toList(growable: false);
+      final s = await _colFor(contractId).orderBy('ownerName').get();
+      _byContract[contractId] = s.docs.map(PlanningRightWayPropertyData.fromDocument).toList(growable: false);
     } finally {
       _loading[contractId] = false; _notifyLater();
     }
@@ -39,23 +38,15 @@ class RightWayPropertiesStore extends ChangeNotifier {
     if (contractId.isEmpty) return;
     _loading[contractId] = true; _notifyLater();
     try {
-      final col = _db
-          .collection('planning_highway_domain')
-          .doc(contractId)
-          .collection('properties');
-      final s = await col.orderBy('ownerName').get();
-      _byContract[contractId] = s.docs.map(RightWayPropertyData.fromDocument).toList(growable: false);
+      final s = await _colFor(contractId).orderBy('ownerName').get();
+      _byContract[contractId] = s.docs.map(PlanningRightWayPropertyData.fromDocument).toList(growable: false);
     } finally {
       _loading[contractId] = false; _notifyLater();
     }
   }
 
-  Future<void> saveOrUpdate(String contractId, RightWayPropertyData data) async {
-    final col = _db
-        .collection('planning_highway_domain')
-        .doc(contractId)
-        .collection('properties');
-
+  Future<void> saveOrUpdate(String contractId, PlanningRightWayPropertyData data) async {
+    final col = _colFor(contractId);
     final doc = (data.id?.isNotEmpty ?? false) ? col.doc(data.id) : col.doc();
     data.id ??= doc.id;
     data.contractId = contractId;
@@ -69,11 +60,7 @@ class RightWayPropertiesStore extends ChangeNotifier {
   }
 
   Future<void> delete(String contractId, String id) async {
-    final col = _db
-        .collection('planning_highway_domain')
-        .doc(contractId)
-        .collection('properties');
-    await col.doc(id).delete();
+    await _colFor(contractId).doc(id).delete();
     await refreshFor(contractId);
   }
 

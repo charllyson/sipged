@@ -52,6 +52,19 @@ class AdjustmentMeasurementBloc extends BlocBase {
     await _recalcularFinancialPercentage(contractId);
   }
 
+  // ✅ novo: salva a URL do PDF diretamente no doc da coleção de adjustments
+  Future<void> salvarUrlPdfDaAdjustmentMeasurement({
+    required String contractId,
+    required String adjustmentId,
+    required String url,
+  }) async {
+    await _col(contractId).doc(adjustmentId).set({
+      'pdfUrl': url,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+    }, SetOptions(merge: true));
+  }
+
   Future<void> _recalcularFinancialPercentage(String contractId) async {
     double total = 0.0;
 
@@ -79,7 +92,7 @@ class AdjustmentMeasurementBloc extends BlocBase {
       total += (v is num) ? v.toDouble() : 0.0;
     }
 
-    // base = inicial + aditivos + apostilas (igual antes)
+    // base = inicial + aditivos + apostilas
     final c = await _db.collection('contracts').doc(contractId).get();
     final initialValue = (c.data()?['initialContractValue'] ?? 0);
     final baseInicial = (initialValue is num) ? initialValue.toDouble() : 0.0;

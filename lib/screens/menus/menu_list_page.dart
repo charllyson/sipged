@@ -32,7 +32,7 @@ import 'package:siged/_blocs/system/pages/pages_data.dart';
 import 'package:siged/_widgets/buttons/float_button_menu.dart';
 import 'package:siged/screens/documents/contract/tab_bar_contract_page.dart';
 import 'package:siged/screens/documents/measurement/tab_bar_measurement_page.dart';
-import 'package:siged/screens/sectors/planning/rightWay/planning_right_way_workspace_page.dart';
+import 'package:siged/screens/sectors/planning/rightWay/planning_right_way_workspace.dart';
 import 'package:siged/screens/sectors/traffic/accidents/accidents_records_page.dart';
 import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
 import 'package:siged/screens/sectors/traffic/infrations-records/infractions_records_page.dart';
@@ -150,10 +150,14 @@ class _MenuListPageState extends State<MenuListPage> {
 
 
 
-  Widget _buildContractsListPage(ContractNavigationCallback onTap) {
+  Widget _buildContractsListPage(ContractNavigationCallback onTap,
+      {required String pageTitle}) {
     return ChangeNotifierProvider<ListContractsController>(
       create: (ctx) => ListContractsController.create(ctx),
-      child: ListContractsFilteredPage(onTapItem: onTap),
+      child: ListContractsFilteredPage(
+        pageTitle: pageTitle,
+        onTapItem: onTap,
+      ),
     );
   }
 
@@ -191,7 +195,9 @@ class _MenuListPageState extends State<MenuListPage> {
               builder: (_) => TabBarContractPage(contractData: contract),
             ),
           );
-        });
+        },
+        pageTitle: 'Documentos dos contratos'
+        );
 
       case MenuItem.documentsMeasurementsDashboard:
         return ChangeNotifierProvider(
@@ -220,7 +226,9 @@ class _MenuListPageState extends State<MenuListPage> {
               builder: (_) => TabBarMeasurementPage(contractData: contract),
             ),
           );
-        });
+        },
+            pageTitle: 'Todos os contratos'
+        );
 
     /// SETOR DE OPERAÇÕES ///
       case MenuItem.operationMonitoringWork:
@@ -228,7 +236,9 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           _navigateByWorkType(context, contract);
-        });
+        },
+            pageTitle: 'Cronograma Físico'
+        );
 
 
     /// SETOR DE PLANEJAMENTO ///
@@ -245,17 +255,21 @@ class _MenuListPageState extends State<MenuListPage> {
                 ),
               )
           );
-        });
+        },
+            pageTitle: 'Todos os contratos'
+        );
     // case MenuItem.planningRightOfWayRecords:
       case MenuItem.planningRightOfWayRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => PlanningRightOfWayWorkspacePage(contractData: contract),
+              builder: (_) => PlanningRightWayPropertyWorkspace(contractData: contract),
             ),
           );
-        });
+        },
+            pageTitle: 'Desapropriações'
+        );
 
       case MenuItem.planningEnvironmentDashboard:
         return const PlanningEnvironmentDashboardPage();
@@ -284,7 +298,9 @@ class _MenuListPageState extends State<MenuListPage> {
               builder: (_) => TabBarFinancialPage(contractData: contract),
             ),
           );
-        });
+        },
+            pageTitle: 'Pagamentos de medições'
+        );
 
       case MenuItem.financialCommitmentDashboard:
         return const DashboardFinancialPage();
@@ -297,7 +313,9 @@ class _MenuListPageState extends State<MenuListPage> {
               builder: (_) => TabBarFinancialPage(contractData: contract),
             ),
           );
-        });
+        },
+            pageTitle: 'Pagamentos de medições'
+        );
 
     /// ATIVOS DE RODOVIAS ///
       case MenuItem.activeRoadNetwork:

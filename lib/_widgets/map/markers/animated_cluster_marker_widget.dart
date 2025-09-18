@@ -6,6 +6,20 @@ import 'cluster_marker_widget.dart';
 import 'tagged_marker.dart';
 
 class AnimatedClusterMarkerLayer<T> extends StatelessWidget {
+  const AnimatedClusterMarkerLayer({
+    super.key,
+    required this.taggedMarkers,
+    required this.selectedMarkerPosition,
+    required this.onMarkerSelected,
+    required this.markerBuilder,
+    this.titleBuilder,
+    this.subTitleBuilder,
+    this.onTooltipRequested,
+    this.onShowTooltipAcima,
+    this.onViewDetails,
+    this.onClearSelection, // 👈 novo
+  });
+
   final List<TaggedChangedMarker<T>> taggedMarkers;
   final LatLng? selectedMarkerPosition;
   final ValueChanged<TaggedChangedMarker<T>> onMarkerSelected;
@@ -20,21 +34,8 @@ class AnimatedClusterMarkerLayer<T> extends StatelessWidget {
   required List<MapEntry<String, String>> entries,
   })? onShowTooltipAcima;
 
-  /// Repassa o callback do "Ver detalhes"
   final void Function(BuildContext context, TaggedChangedMarker<T> marker)? onViewDetails;
-
-  const AnimatedClusterMarkerLayer({
-    super.key,
-    required this.taggedMarkers,
-    required this.selectedMarkerPosition,
-    required this.onMarkerSelected,
-    required this.markerBuilder,
-    this.titleBuilder,
-    this.subTitleBuilder,
-    this.onTooltipRequested,
-    this.onShowTooltipAcima,
-    this.onViewDetails,
-  });
+  final VoidCallback? onClearSelection; // 👈 novo
 
   @override
   Widget build(BuildContext context) {
@@ -49,35 +50,52 @@ class AnimatedClusterMarkerLayer<T> extends StatelessWidget {
       onTooltipRequested: onTooltipRequested,
       onShowTooltipAcima: onShowTooltipAcima,
       onViewDetails: onViewDetails,
+      onClearSelection: onClearSelection, // 👈 repassa
     ).build(context))
         .toList();
 
-    return MarkerClusterLayerWidget(
-      options: MarkerClusterLayerOptions(
-        markers: markers,
-        maxClusterRadius: 30,
-        size: const Size(40, 40),
-        zoomToBoundsOnClick: true,
-        spiderfyCircleRadius: 100,
-        showPolygon: true,
-        polygonOptions: const PolygonOptions(
-          borderColor: Colors.black26,
-          color: Color(0x11000000),
-          borderStrokeWidth: 1.0,
-        ),
-        builder: (context, cluster) => Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.black54,
-            border: Border.all(color: Colors.white, width: 2),
+
+    // ⤵️ Overlay transparente para “clicar fora e limpar seleção”
+    final hasSelection = selectedMarkerPosition != null;
+
+    return Stack(
+      children: [
+        if (hasSelection)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque, // capta o toque
+              onTap: onClearSelection,          // limpa seleção
+              child: const SizedBox.expand(),   // nada visível
+            ),
           ),
-          alignment: Alignment.center,
-          child: Text(
-            '${cluster.length}',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        MarkerClusterLayerWidget(
+          options: MarkerClusterLayerOptions(
+            markers: markers,
+            maxClusterRadius: 30,
+            size: const Size(40, 40),
+            zoomToBoundsOnClick: true,
+            spiderfyCircleRadius: 100,
+            showPolygon: true,
+            polygonOptions: const PolygonOptions(
+              borderColor: Colors.black26,
+              color: Color(0x11000000),
+              borderStrokeWidth: 1.0,
+            ),
+            builder: (context, cluster) => Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black54,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${cluster.length}',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

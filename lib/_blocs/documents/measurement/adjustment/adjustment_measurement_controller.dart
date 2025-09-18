@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 
@@ -16,7 +18,6 @@ import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_utils/handle_selection_utils.dart';
 
-// bloc + model de Ajustes
 import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_bloc.dart';
 import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_storage_bloc.dart';
@@ -69,6 +70,12 @@ class AdjustmentMeasurementController extends ChangeNotifier
   final valueCtrl = TextEditingController();
   final dateCtrl = TextEditingController();
 
+  // ---- SideListBox (arquivos)
+  List<String> sideItems = const <String>[];
+  int? selectedSideIndex;
+  bool get canAddFile => isEditable && selectedAdjustment?.id != null;
+  String? get currentPdfUrl => selectedAdjustment?.pdfUrl;
+
   // ================= INIT =================
   void _init() {
     setupValidation(
@@ -119,6 +126,7 @@ class AdjustmentMeasurementController extends ChangeNotifier
       processCtrl.clear();
       valueCtrl.clear();
       dateCtrl.clear();
+      await _refreshSideList();
       notifyListeners();
       return;
     }
@@ -133,6 +141,7 @@ class AdjustmentMeasurementController extends ChangeNotifier
         .fold(0, (a, b) => a > b ? a : b);
     orderCtrl.text = (last + 1).toString();
 
+    await _refreshSideList();
     notifyListeners();
   }
 
@@ -170,6 +179,7 @@ class AdjustmentMeasurementController extends ChangeNotifier
     dateCtrl.text    = dateTimeToDDMMYYYY(data.date);
 
     _validateForm();
+    _refreshSideList();
     notifyListeners();
   }
 
@@ -188,6 +198,7 @@ class AdjustmentMeasurementController extends ChangeNotifier
     dateCtrl.clear();
 
     _validateForm();
+    _refreshSideList();
     notifyListeners();
   }
 
@@ -205,6 +216,7 @@ class AdjustmentMeasurementController extends ChangeNotifier
         numberprocess: processCtrl.text,
         value: parseCurrencyToDouble(valueCtrl.text),
         date: convertDDMMYYYYToDateTime(dateCtrl.text),
+        pdfUrl: selectedAdjustment?.pdfUrl, // preserva se já existir
       );
 
       await _adjustmentBloc.saveOrUpdateAdjustment(
@@ -286,7 +298,77 @@ class AdjustmentMeasurementController extends ChangeNotifier
     );
   }
 
-  // ---------- PDF ----------
+  // ---------- SideListBox (arquivos) ----------
+  Future<void> _refreshSideList() async {
+    if (currentPdfUrl != null && currentPdfUrl!.isNotEmpty) {
+      sideItems = const ['PDF do Reajuste'];
+      selectedSideIndex = 0;
+    } else {
+      sideItems = const <String>[];
+      selectedSideIndex = null;
+    }
+    if (hasListeners) notifyListeners();
+  }
+
+  Future<void> handleAddFile() async {
+    if (!canAddFile || contract.id == null || selectedAdjustment?.id == null) return;
+    try {
+      isSaving = true; notifyListeners();
+
+      final url = await _storageBloc.uploadWithPicker(
+        contract: contract,
+        adjustmentId: selectedAdjustment!.id!,
+        adj: selectedAdjustment!,
+        onProgress: (_) {},
+      );
+
+      // salva URL no doc da coleção de adjustments
+      await _adjustmentBloc.salvarUrlPdfDaAdjustmentMeasurement(
+        contractId: contract.id!,
+        adjustmentId: selectedAdjustment!.id!,
+        url: url,
+      );
+
+      selectedAdjustment = selectedAdjustment!..pdfUrl = url;
+      await _refreshSideList();
+    } finally {
+      isSaving = false; notifyListeners();
+    }
+  }
+
+  Future<void> handleDeleteFile(int index) async {
+    if (contract.id == null || selectedAdjustment?.id == null) return;
+    try {
+      isSaving = true; notifyListeners();
+
+      await _storageBloc.delete(
+        contract: contract,
+        measurementId: selectedAdjustment!.id!,
+        adj: selectedAdjustment!,
+      );
+
+      await _adjustmentBloc.salvarUrlPdfDaAdjustmentMeasurement(
+        contractId: contract.id!,
+        adjustmentId: selectedAdjustment!.id!,
+        url: '',
+      );
+
+      selectedAdjustment = selectedAdjustment!..pdfUrl = null;
+      await _refreshSideList();
+    } finally {
+      isSaving = false; notifyListeners();
+    }
+  }
+
+  Future<void> handleOpenFile(int index) async {
+    final url = currentPdfUrl;
+    if (url == null || url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  // ---------- (compat) upload direto ----------
   Future<void> uploadPdf({
     required void Function(double progress) onProgress,
   }) async {
@@ -299,20 +381,25 @@ class AdjustmentMeasurementController extends ChangeNotifier
       onProgress: onProgress,
     );
 
-    await _storageBloc.salvarUrlPdfDoAdjustment(
+    await _adjustmentBloc.salvarUrlPdfDaAdjustmentMeasurement(
       contractId: contract.id!,
       adjustmentId: selectedAdjustment!.id!,
       url: url,
     );
+
+    selectedAdjustment = selectedAdjustment!..pdfUrl = url;
+    await _refreshSideList();
   }
 
   Future<void> savePdfUrl(String url) async {
     if (contract.id == null || selectedAdjustment?.id == null) return;
-    await _storageBloc.salvarUrlPdfDoAdjustment(
+    await _adjustmentBloc.salvarUrlPdfDaAdjustmentMeasurement(
       contractId: contract.id!,
       adjustmentId: selectedAdjustment!.id!,
       url: url,
     );
+    selectedAdjustment = selectedAdjustment!..pdfUrl = url;
+    await _refreshSideList();
   }
 
   @override

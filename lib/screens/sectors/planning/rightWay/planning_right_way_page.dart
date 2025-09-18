@@ -1,21 +1,26 @@
+// lib/screens/sectors/planning/rightWay/tab_bar_right_way_page.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/popUpMenu/pup_up_photo_menu.dart';
 import 'package:siged/screens/sectors/financial/payments/adjustment/payments_adjustment_page.dart';
-import 'package:siged/screens/sectors/financial/payments/report/payment_report_page.dart';
 import 'package:siged/screens/sectors/financial/payments/revision/payments_revision_page.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_bloc.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
 
-class TabBarFinancialPage extends StatefulWidget {
+// >>> NOVOS imports
+import 'package:siged/screens/sectors/planning/rightWay/property/planning_right_way_property_form.dart';
+import 'package:siged/_blocs/sectors/planning/right_way_properties/planning_right_way_property_controller.dart';
+import 'package:siged/_blocs/sectors/planning/right_way_properties/planning_right_way_property_store.dart';
+
+class TabBarRightWayPage extends StatefulWidget {
   final UserData? userData;
   final ContractData? contractData;
   final ContractBloc? contractsBloc;
   final int initialTabIndex;
 
-  const TabBarFinancialPage({
+  const TabBarRightWayPage({
     super.key,
     this.userData,
     this.contractData,
@@ -24,23 +29,41 @@ class TabBarFinancialPage extends StatefulWidget {
   });
 
   @override
-  State<TabBarFinancialPage> createState() => _TabBarFinancialPageState();
+  State<TabBarRightWayPage> createState() => _TabBarRightWayPageState();
 }
 
-class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
+class _TabBarRightWayPageState extends State<TabBarRightWayPage> {
   late ContractData? _contractData;
+
+  // >>> NOVO: controller e store do módulo
+  late final PlanningRightWayPropertyStore _store;
+  PlanningRightWayPropertyController? _propCtrl;
 
   @override
   void initState() {
     super.initState();
     _contractData = widget.contractData;
+
+    _store = PlanningRightWayPropertyStore();
+    if (_contractData != null) {
+      _propCtrl = PlanningRightWayPropertyController(
+        contract: _contractData!,
+        store: _store,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _propCtrl?.dispose();
+    _store.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // ======= lógica UpBar: status bar (safeTop) + altura da barra =======
-    final double safeTop = MediaQuery.of(context).padding.top; // iOS/Android; no web costuma ser 0
-    const double barHeight = 72.0;                              // sua faixa azul
+    final double safeTop = MediaQuery.of(context).padding.top;
+    const double barHeight = 72.0;
     final double topBarTotal = safeTop + barHeight;
 
     return DefaultTabController(
@@ -52,7 +75,6 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
           children: [
             const BackgroundClean(),
 
-            // Conteúdo deslocado para baixo da barra
             Padding(
               padding: EdgeInsets.only(top: topBarTotal),
               child: Column(
@@ -72,20 +94,33 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
                           style: const TextStyle(color: Colors.black54),
                         ),
                       ),
-                    )
-                  else
-                    const SizedBox.shrink(),
+                    ),
 
                   Expanded(
                     child: TabBarView(
-                      physics: const NeverScrollableScrollPhysics(), // impede o swipe
+                      physics: const NeverScrollableScrollPhysics(),
                       children: [
-                        // 1) Pagamentos de Medições
-                        PaymentsReportPage(contractData: _contractData),
-                        // 2) Pagamentos de Apostilamentos
-                        _wrapWithBlocker(PaymentsAdjustmentPage(contractData: _contractData)),
-                        // 3) Pagamentos de Revisões
-                        _wrapWithBlocker(PaymentsRevisionPage(contractData: _contractData)),
+                        // ====== ABA 1: IMÓVEL =================================
+                        _wrapWithBlocker(
+                          child: _propCtrl == null
+                              ? const SizedBox.shrink()
+                              : Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: PlanningRightWayPropertyForm(
+                              controller: _propCtrl!,
+                            ),
+                          ),
+                        ),
+
+                        // ====== ABA 2: Pagamentos de Reajustes =================
+                        _wrapWithBlocker(
+                          child: PaymentsAdjustmentPage(contractData: _contractData),
+                        ),
+
+                        // ====== ABA 3: Pagamentos de Revisões ==================
+                        _wrapWithBlocker(
+                          child: PaymentsRevisionPage(contractData: _contractData),
+                        ),
                       ],
                     ),
                   ),
@@ -93,7 +128,7 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
               ),
             ),
 
-            // ======= Barra azul no topo (reserva do safeTop internamente) =======
+            // ======= Barra azul no topo =======================================
             Positioned(
               top: 0,
               left: 0,
@@ -110,7 +145,7 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
                     bottom: BorderSide(color: Colors.white, width: 1),
                   ),
                 ),
-                padding: EdgeInsets.only(top: safeTop), // << respeita notch/status bar
+                padding: EdgeInsets.only(top: safeTop),
                 child: Row(
                   children: const [
                     SizedBox(width: 12),
@@ -124,9 +159,9 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
                         indicatorColor: Colors.white,
                         unselectedLabelColor: Colors.grey,
                         tabs: [
-                          Tab(text: 'Boletim'),
-                          Tab(text: 'Apostilamentos'),
-                          Tab(text: 'Revisões'),
+                          Tab(text: 'Imóvel'),
+                          Tab(text: 'Notificação'),
+                          Tab(text: 'Pagamento'),
                         ],
                       ),
                     ),
@@ -142,7 +177,7 @@ class _TabBarFinancialPageState extends State<TabBarFinancialPage> {
     );
   }
 
-  Widget _wrapWithBlocker(Widget child) {
+  Widget _wrapWithBlocker({required Widget child}) {
     if (_contractData?.id == null) {
       return Center(
         child: Padding(
