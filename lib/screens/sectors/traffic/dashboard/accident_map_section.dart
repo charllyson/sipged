@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../_widgets/map/map_interactive.dart';
-import '../../../../_blocs/widgets/map/regional_geo_json_class.dart';
+import '../../../../_widgets/map/polygon/polygon_changed.dart';
 import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
 
 class AccidentsMapSection extends StatefulWidget {
@@ -142,14 +142,14 @@ class _AccidentsMapSectionState extends State<AccidentsMapSection> {
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             clipBehavior: Clip.antiAlias,
             child: MapInteractivePage(
-              regionalPolygons: widget.regionalPolygons,
+              polygonsChanged: widget.regionalPolygons,
               selectedRegionNames: widget.selectedRegionNames,
               onRegionTap: _handleRegionTap, // <- busca & abre diálogo
               activeMap: true,
               initialZoom: 8,
               minZoom: 8,
               maxZoom: 8,
-              regionColors: widget.regionColors, // calculado no controller
+              polygonChangeColors: widget.regionColors, // calculado no controller
               allowMultiSelect: false,
               showLegend: false,
             ),

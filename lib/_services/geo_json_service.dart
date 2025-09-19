@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
+import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
 
 /// Constantes de chaves de propriedades
 const String kPropertyRegionName = 'Limite';
@@ -79,7 +79,7 @@ class GeoJsonService {
               }
               polygons.add(
                 PolygonChanged(
-                  regionName: nome,
+                  title: nome,
                   polygon: Polygon(
                     points: points,
                     color: fillColor.withOpacity(fillOpacity),
@@ -93,7 +93,7 @@ class GeoJsonService {
         }
       }
 
-      polygons.sort((a, b) => a.regionName.compareTo(b.regionName));
+      polygons.sort((a, b) => a.title.compareTo(b.title));
       return polygons;
     } catch (e) {
       debugPrint('Erro ao carregar polígonos de $assetPath: $e');

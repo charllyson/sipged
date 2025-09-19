@@ -1,7 +1,7 @@
 // lib/_blocs/actives/oaes/active_oaes_bloc.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/widgets/map/geo_json_manager.dart';
+import 'package:siged/_services/geo_json_manager.dart';
 import 'active_oaes_data.dart';
 import 'active_oaes_event.dart';
 import 'active_oaes_repository.dart';

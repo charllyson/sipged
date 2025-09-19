@@ -8,11 +8,11 @@ import 'package:siged/_services/geocoding/geocoding_service.dart';
 import 'package:siged/_widgets/search/SearchPin.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
+import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline_layer.dart';
-import 'package:siged/_blocs/widgets/map/map_layer.dart';
+import 'package:siged/_widgets/map/base/map_base_layer.dart';
 import 'package:siged/_blocs/system/info/system_bloc.dart';
 
 import '../search/search_widget.dart';
@@ -59,10 +59,8 @@ class MapInteractivePage<T> extends StatefulWidget {
   final List<Polygon>? polygon;
 
   // Polígonos regionais (preferível)
-  final List<PolygonChanged>? regionalPolygons;
-
-  // Cores por região
-  final Map<String, Color>? regionColors;
+  final List<PolygonChanged>? polygonsChanged;
+  final Map<String, Color>? polygonChangeColors;
 
   // Seleção de regiões
   final bool allowMultiSelect;
@@ -99,8 +97,8 @@ class MapInteractivePage<T> extends StatefulWidget {
     this.taggedMarkers,
     this.clusterWidgetBuilder,
     this.polygon,
-    this.regionalPolygons,
-    this.regionColors,
+    this.polygonsChanged,
+    this.polygonChangeColors,
     this.allowMultiSelect = false,
     this.selectedRegionNames,
     this.onRegionTap,
@@ -145,7 +143,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       removeDiacritics(s).replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
 
   bool get _isOsmPublic {
-    final url = MapLayer.mapBase[_indexSelectedMap].url;
+    final url = MapBaseLayer.mapBase[_indexSelectedMap].url;
     return url.contains('tile.openstreetmap.org');
   }
 
@@ -225,7 +223,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
   void _handleMapSwitchTap() {
     setState(() {
-      _indexSelectedMap = (_indexSelectedMap + 1) % MapLayer.mapBase.length;
+      _indexSelectedMap = (_indexSelectedMap + 1) % MapBaseLayer.mapBase.length;
     });
     // opcional: um move simples para forçar redraw em alguns navegadores
     Future.microtask(() {
@@ -269,7 +267,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   }
 
   List<PolygonChanged> get _regionalPolys =>
-      widget.regionalPolygons ?? const <PolygonChanged>[];
+      widget.polygonsChanged ?? const <PolygonChanged>[];
 
   void _toggleRegion(String regionKey) {
     final already = _selectedRegions.contains(regionKey);
@@ -296,9 +294,9 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
     for (final reg in regs) {
       if (_pointInPolygon(point, reg.polygon.points)) {
-        final regionKey = _norm(reg.regionName);
+        final regionKey = _norm(reg.title);
         _toggleRegion(regionKey);
-        widget.onRegionTap?.call(reg.regionName);
+        widget.onRegionTap?.call(reg.title);
         hit = true;
         break;
       }
@@ -432,13 +430,13 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     if (widget.activeMap && _mapReady) {
       if (widget.baseTileLayerBuilder != null) {
         layers.add(widget.baseTileLayerBuilder!()); // deve ser LayerWidget
-      } else if (MapLayer.mapBase[_indexSelectedMap].url.isNotEmpty) {
+      } else if (MapBaseLayer.mapBase[_indexSelectedMap].url.isNotEmpty) {
         final tileProvider = NetworkTileProvider(); // web: não-cancelável
         layers.add(
           TileLayer(
             key: ValueKey(_indexSelectedMap),
             tileProvider: tileProvider,
-            urlTemplate: MapLayer.mapBase[_indexSelectedMap].url,
+            urlTemplate: MapBaseLayer.mapBase[_indexSelectedMap].url,
             subdomains: const ['a', 'b', 'c'],
             userAgentPackageName: 'br.gov.al.siged', // <- IMPORTANTE
             keepBuffer: 3,
@@ -454,13 +452,13 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       layers.add(
         PolygonLayer(
           polygons: regional.map((entry) {
-            final key = _norm(entry.regionName);
+            final key = _norm(entry.title);
             final isSelected = _selectedRegions.contains(key);
 
-            final base = widget.regionColors?[key] ??
-                widget.regionColors?[entry.regionName] ??
-                widget.regionColors?[entry.regionName.toUpperCase()] ??
-                widget.regionColors?[entry.regionName.toLowerCase()];
+            final base = widget.polygonChangeColors?[key] ??
+                widget.polygonChangeColors?[entry.title] ??
+                widget.polygonChangeColors?[entry.title.toUpperCase()] ??
+                widget.polygonChangeColors?[entry.title.toLowerCase()];
 
             final baseColor = base ?? Colors.white70;
             final fill = baseColor.withOpacity(isSelected ? 1 : 0.30);
@@ -590,7 +588,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   @override
   Widget build(BuildContext context) {
     final hasLegend =
-        widget.showLegend && (widget.regionColors?.isNotEmpty ?? false);
+        widget.showLegend && (widget.polygonChangeColors?.isNotEmpty ?? false);
 
     return Stack(
       children: [
@@ -644,7 +642,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
           Positioned(
             left: 8,
             bottom: 8,
-            child: MapLegendLayer(regionColors: widget.regionColors!),
+            child: MapLegendLayer(regionColors: widget.polygonChangeColors!),
           ),
 
         // NEW: ação de busca flutuante (superior esquerda) + outros botões
@@ -675,7 +673,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                 InkWell(
                   onTap: _handleMapSwitchTap,
                   child: Tooltip(
-                    message: 'Mapa: ${MapLayer.mapBase[_indexSelectedMap].nome}',
+                    message: 'Mapa: ${MapBaseLayer.mapBase[_indexSelectedMap].nome}',
                     child: Container(
                       width: 42,
                       height: 42,

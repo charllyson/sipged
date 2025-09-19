@@ -18,7 +18,7 @@ import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
 
 // ===== Map/Charts =====
-import 'package:siged/_blocs/widgets/map/geo_json_manager.dart';
+import 'package:siged/_services/geo_json_manager.dart';
 import 'package:siged/_widgets/charts/radar/radar_series_data.dart';
 import 'package:siged/_widgets/charts/treemap/treemap_chart_changed.dart';
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_widgets/map/markers/animated_cluster_marker_widget.dart';
+import 'package:siged/_widgets/map/clusters/cluster_animated_marker_widget.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
 import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
@@ -54,7 +54,7 @@ class _ActiveOaesMapState extends State<ActiveOaesMap> {
       showSearchMarker: true,
       taggedMarkers: markers,
       clusterWidgetBuilder: (markers, selected, onSelect) {
-        return AnimatedClusterMarkerLayer<ActiveOaesData>(
+        return ClusterAnimatedMarkerLayer<ActiveOaesData>(
           taggedMarkers: markers,
           selectedMarkerPosition: selected,
           onMarkerSelected: onSelect,
@@ -89,8 +89,8 @@ class _ActiveOaesMapState extends State<ActiveOaesMap> {
         );
       },
 
-      regionalPolygons: widget.state.regionalPolygons,
-      regionColors: widget.state.regionColors,
+      polygonsChanged: widget.state.regionalPolygons,
+      polygonChangeColors: widget.state.regionColors,
       allowMultiSelect: false,
       selectedRegionNames: widget.state.selectedRegionNamesForMap,
 

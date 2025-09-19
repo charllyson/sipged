@@ -6,8 +6,8 @@ import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_style.dart';
 
 // 👇 GeoJSON
-import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
-import 'package:siged/_blocs/widgets/map/geo_json_manager.dart';
+import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:siged/_services/geo_json_manager.dart';
 
 enum ActiveOaesLoadStatus { idle, loading, success, failure }
 

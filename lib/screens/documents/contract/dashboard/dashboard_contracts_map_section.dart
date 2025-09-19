@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/documents/contracts/contracts/contract_style.dart';
-import 'package:siged/_blocs/widgets/map/geo_json_manager.dart';
+import 'package:siged/_services/geo_json_manager.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
 
 class MapContractSection extends StatelessWidget {
@@ -29,14 +29,14 @@ class MapContractSection extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           clipBehavior: Clip.antiAlias,
           child: MapInteractivePage(
-            regionalPolygons: geoManager.regionalPolygons,
+            polygonsChanged: geoManager.regionalPolygons,
             selectedRegionNames: selectedRegionNames,
             onRegionTap: onRegionTap,
             activeMap: true,
             initialZoom: 7.3,
             allowMultiSelect: false,
             showLegend: true,
-            regionColors: ContractStyle.regionsColors,
+            polygonChangeColors: ContractStyle.regionsColors,
           ),
         ),
       ),

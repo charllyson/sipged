@@ -1,24 +1,24 @@
-import 'mapa_data.dart';
+import 'mapa_base_data.dart';
 
-class MapLayer {
-  static final List<MapData> mapBase = [
-    MapData(
+class MapBaseLayer {
+  static final List<MapBaseData> mapBase = [
+    MapBaseData(
       nome: 'OSM',
       url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     ),
-    MapData(
+    MapBaseData(
       nome: 'Satélite',
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     ),
-    MapData(
+    MapBaseData(
       nome: 'Esri',
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
     ),
-    MapData(
+    MapBaseData(
       nome: 'Esri Topo',
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
     ),
-    MapData(
+    MapBaseData(
       nome: 'Sem Mapa',
       url: '',
     ),

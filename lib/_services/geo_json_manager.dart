@@ -1,6 +1,6 @@
 // lib/_repository/geoJson/geo_json_manager.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
+import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
 import 'geo_json_service.dart';
 
 class GeoJsonManager {
@@ -49,7 +49,7 @@ class GeoJsonManager {
 
     var i = 0;
     for (final poly in regionalPolygons) {
-      final name = poly.regionName;
+      final name = poly.title;
       if (name.isEmpty) continue;
       final key = _norm(name);
       regionColors[key] = palette[i % palette.length];

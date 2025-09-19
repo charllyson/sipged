@@ -20,8 +20,8 @@ import 'package:siged/_blocs/sectors/transit/accidents/accidents_state.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 
 // Geo/Mapa helpers (antes ficavam no controller)
-import 'package:siged/_blocs/widgets/map/geo_json_service.dart';
-import 'package:siged/_blocs/widgets/map/regional_geo_json_class.dart';
+import 'package:siged/_services/geo_json_service.dart';
+import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
 
 class AccidentsDashboardPage extends StatelessWidget {
   const AccidentsDashboardPage({super.key});
@@ -122,7 +122,7 @@ class _AccidentsDashboardScaffoldState extends State<_AccidentsDashboardScaffold
 
     // completa com cidades sem acidentes → verde
     for (final poly in _regionalPolygons) {
-      final key = _normalizeCity(poly.regionName);
+      final key = _normalizeCity(poly.title);
       colors.putIfAbsent(key, () => _zeroValueColor);
     }
     return colors;

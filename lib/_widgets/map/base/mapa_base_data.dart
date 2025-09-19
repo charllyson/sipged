@@ -1,8 +1,8 @@
-class MapData {
+class MapBaseData {
   final String nome;
   final String url;
 
-  MapData({
+  MapBaseData({
     required this.nome,
     required this.url,
   });

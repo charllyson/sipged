@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/map/markers/animated_cluster_marker_widget.dart';
+import 'package:siged/_widgets/map/clusters/cluster_animated_marker_widget.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
 import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
@@ -35,7 +35,7 @@ class ActiveAirportsMap extends StatelessWidget {
       // --------- CLUSTER / MARCADORES ---------
       taggedMarkers: markers,
       clusterWidgetBuilder: (markers, selected, onSelect) {
-        return AnimatedClusterMarkerLayer<ActiveOaesData>(
+        return ClusterAnimatedMarkerLayer<ActiveOaesData>(
           taggedMarkers: markers,
           selectedMarkerPosition: selected,
           onMarkerSelected: onSelect,
@@ -76,8 +76,8 @@ class ActiveAirportsMap extends StatelessWidget {
       },
 
       // --------- REGIÕES (GEOJSON) ---------
-      regionalPolygons: state.regionalPolygons,                // polígonos do state
-      regionColors: state.regionColors,                        // cores por região
+      polygonsChanged: state.regionalPolygons,                // polígonos do state
+      polygonChangeColors: state.regionColors,                        // cores por região
       allowMultiSelect: false,
       selectedRegionNames: state.selectedRegionNamesForMap,    // espelha seleção atual
 
