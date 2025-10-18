@@ -1,3 +1,4 @@
+// lib/screens/process/measurement/report/report_measurement_form_section.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
@@ -10,6 +11,7 @@ import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
+import 'package:siged/screens/process/measurement/create/create_detailed_reports_page.dart';
 
 // ✅ lista lateral de arquivos
 import '../../../../_widgets/list/files/side_list_box.dart';
@@ -31,6 +33,10 @@ class ReportMeasurementFormSection extends StatelessWidget {
 
   final VoidCallback onSave;
   final VoidCallback onClear;
+
+  /// ▶️ Ações (opcionais).
+  final VoidCallback? onOpenMemoDeCalculo;     // manter nulo => desabilitado
+  final VoidCallback? onOpenBoletimDeMedicao;  // abre modal readonly
 
   // ▶️ SideListBox props (compat: String | ReportMeasurementAttachment)
   final List<dynamic> sideItems;
@@ -54,6 +60,8 @@ class ReportMeasurementFormSection extends StatelessWidget {
     required this.valueController,
     required this.onSave,
     required this.onClear,
+    this.onOpenMemoDeCalculo,
+    this.onOpenBoletimDeMedicao,
     // side list
     required this.sideItems,
     this.selectedSideIndex,
@@ -79,9 +87,8 @@ class ReportMeasurementFormSection extends StatelessWidget {
       enabled: enabled && isEditable,
       labelText: label,
       controller: controller,
-      keyboardType: money
-          ? TextInputType.number
-          : (date ? TextInputType.datetime : TextInputType.text),
+      keyboardType:
+      money ? TextInputType.number : (date ? TextInputType.datetime : TextInputType.text),
       inputFormatters: [
         if (date) FilteringTextInputFormatter.digitsOnly,
         if (date) TextInputMask(mask: '99/99/9999'),
@@ -98,6 +105,32 @@ class ReportMeasurementFormSection extends StatelessWidget {
 
     if (!tooltip) return field;
     return Tooltip(message: 'Este campo é calculado automaticamente.', child: field);
+  }
+
+  String _numeroBoletim() {
+    // 1) prioriza a medição selecionada
+    final sel = selectedReportMeasurement?.order;
+    if (sel != null && sel.toString().isNotEmpty) {
+      return '$sel';
+    }
+    // 2) tenta extrair dígitos do campo "ordem"
+    final text = orderController.text;
+    final m = RegExp(r'\d+').firstMatch(text);
+    return m?.group(0) ?? '-';
+  }
+
+  // fallback modal simples (não será usado quando o pai passar o callback)
+  Future<void> _openBoletimFullScreen(BuildContext context, String numero) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (ctx) => CreateDetailedReportPage(
+          titulo: 'Boletim de Medição Nº $numero',
+          contractData: contractData,
+          measurement: selectedReportMeasurement,
+        ),
+      ),
+    );
   }
 
   @override
@@ -117,6 +150,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
           spaceBetweenReserved: 12.0,
         );
 
+        // -------- Campos
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -142,8 +176,42 @@ class ReportMeasurementFormSection extends StatelessWidget {
           ],
         );
 
-        final botoes = Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+        // -------- Botões do formulário (mesma largura dos inputs)
+        final numero = _numeroBoletim();
+        final botoesEsquerda = Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            // 🔒 Mantém desabilitado por enquanto
+            SizedBox(
+              width: inputsWidth,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.description_outlined),
+                label: Text('Abrir memória de calculo do $numero° boletim de medição'),
+                onPressed: null,
+              ),
+            ),
+            // ✅ Abre o modal (callback custom se fornecido)
+            SizedBox(
+              width: inputsWidth,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: Text('Abrir $numero° boletim de medição'),
+                onPressed: () {
+                  if (onOpenBoletimDeMedicao != null) {
+                    onOpenBoletimDeMedicao!();
+                  } else {
+                    _openBoletimFullScreen(context, numero);
+                  }
+                },
+              ),
+            ),
+          ],
+        );
+
+        // -------- Botões à direita (Salvar/Limpar)
+        final botoesDireita = Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             TextButton.icon(
               icon: const Icon(Icons.save),
@@ -160,20 +228,46 @@ class ReportMeasurementFormSection extends StatelessWidget {
           ],
         );
 
+        // -------- Barra combinada
+        final barraAcoes = Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: isSmallScreen
+              ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              botoesEsquerda,
+              const SizedBox(height: 12),
+              Align(alignment: Alignment.centerRight, child: botoesDireita),
+            ],
+          )
+              : Row(
+            children: [
+              Expanded(
+                child: Align(alignment: Alignment.centerLeft, child: botoesEsquerda),
+              ),
+              const SizedBox(width: 12),
+              botoesDireita,
+            ],
+          ),
+        );
+
+        // -------- Corpo
         final corpo = Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             camposWrap,
             const SizedBox(height: 12),
-            botoes,
+            barraAcoes,
           ],
         );
 
+        // -------- SideList
         final side = SideListBox(
           title: 'Arquivos da Medição',
-          items: sideItems, // String | Attachment
+          items: sideItems,
           selectedIndex: selectedSideIndex,
-          onAddPressed: (selectedReportMeasurement != null && isEditable) ? onAddSideItem : null,
+          onAddPressed:
+          (selectedReportMeasurement != null && isEditable) ? onAddSideItem : null,
           onTap: onTapSideItem,
           onDelete: isEditable ? onDeleteSideItem : null,
           onEditLabel: isEditable ? onEditLabelSideItem : null,

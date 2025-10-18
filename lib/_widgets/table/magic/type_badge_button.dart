@@ -47,8 +47,7 @@ class TypeBadgeButton extends StatelessWidget {
           onSelected(a.type!);
           return;
         }
-        // Remover coluna
-        if (onRemove != null) {
+        if (a.kind == _MenuKind.remove && onRemove != null) {
           final ok = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
@@ -76,19 +75,21 @@ class TypeBadgeButton extends StatelessWidget {
         PopupMenuItem(value: _MenuAction.type(bc.ColumnType.date), child: Text(_label(bc.ColumnType.date))),
         const PopupMenuDivider(),
         PopupMenuItem(value: _MenuAction.type(bc.ColumnType.auto), child: Text(_label(bc.ColumnType.auto))),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: const _MenuAction.remove(),
-          child: Row(
-            children: const [
-              Icon(Icons.delete_outline, color: Colors.red),
-              SizedBox(width: 8),
-              Text('Remover coluna', style: TextStyle(color: Colors.red)),
-            ],
+        if (onRemove != null) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            value: const _MenuAction.remove(),
+            child: Row(
+              children: const [
+                Icon(Icons.delete_outline, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Remover coluna', style: TextStyle(color: Colors.red)),
+              ],
+            ),
           ),
-        ),
+        ],
       ],
-      offset: const Offset(0, 24), // aparece logo abaixo do badge
+      offset: const Offset(0, 24),
       child: Container(
         width: 18,
         height: 18,

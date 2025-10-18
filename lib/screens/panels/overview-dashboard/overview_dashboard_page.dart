@@ -3,16 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:siged/_widgets/list/resume/list_resumed.dart';
 import 'package:siged/_widgets/summary/summary_expandable_card.dart';
 import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_chart_row_two.dart';
-import 'package:siged/screens/process/report/measurement_contract_section.dart';
-
-import 'package:siged/screens/process/report/measurement_resumed_card.dart';
+import 'package:siged/screens/panels/measurement/measurement_contract_section.dart';
 
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/screens/process/report/measurement_selector_dates_section.dart';
+import 'package:siged/screens/panels/measurement/measurement_selector_dates_section.dart';
 
-import '../../../../_widgets/footBar/foot_bar.dart';
 import '../../../../_widgets/upBar/up_bar.dart';
 
 import 'overview_dashboard_type.dart';

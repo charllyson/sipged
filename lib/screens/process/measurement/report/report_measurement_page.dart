@@ -30,7 +30,8 @@ class ReportMeasurement extends StatelessWidget {
           ),
         ],
       ),
-    ) ?? false;
+    ) ??
+        false;
   }
 
   @override
@@ -95,7 +96,13 @@ class ReportMeasurement extends StatelessWidget {
                                   if (ok) await ctrl.saveOrUpdate(context);
                                 },
 
-                                // 🆕 SideListBox (abre PDF interno)
+                                // 🔒 mantém memória de cálculo inativa
+                                onOpenMemoDeCalculo: null,
+
+                                // ✅ abre modal readonly (budget/breakdown)
+                                onOpenBoletimDeMedicao: () => ctrl.openBoletimModal(context),
+
+                                // SideList (abre PDF interno)
                                 sideItems: ctrl.sideItems,
                                 selectedSideIndex: ctrl.selectedSideIndex,
                                 onAddSideItem: (ctrl.isEditable && ctrl.selectedReport != null)
@@ -105,7 +112,8 @@ class ReportMeasurement extends StatelessWidget {
                                 onDeleteSideItem: (i) => ctrl.deleteAttachmentAt(context, i),
                                 onEditLabelSideItem: (i) => ctrl.editAttachmentLabel(context, i),
                               ),
-                            ),
+                            )
+                            ,
 
                             const SizedBox(height: 12),
                             const DividerText(title: 'Medições cadastradas no sistema'),
@@ -121,7 +129,7 @@ class ReportMeasurement extends StatelessWidget {
                                 );
                                 if (ok) await ctrl.deleteReport(context, id);
                               },
-                              measurementsData: ctrl.reports, // página atual do controller
+                              measurementsData: ctrl.reports,
                               valorInicial: ctrl.valorInicialContrato,
                               valorAditivos: ctrl.totalAditivos,
                               valorTotal: totalDisponivel,

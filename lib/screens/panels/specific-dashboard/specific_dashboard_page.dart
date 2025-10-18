@@ -55,7 +55,7 @@ import 'package:siged/_widgets/kit/rule/text_painter_changed.dart';
 import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_charts_row_one.dart';
 
 // Seções auxiliares
-import 'package:siged/screens/process/report/measurement_selector_dates_section.dart';
+import 'package:siged/screens/panels/measurement/measurement_selector_dates_section.dart';
 import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_list.dart';
 
 // Timeline

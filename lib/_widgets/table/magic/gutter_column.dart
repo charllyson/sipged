@@ -8,16 +8,25 @@ class MagicGutterColumn extends StatelessWidget {
     required this.vGutterCtrl,
     required this.rowHeight,
     required this.rowCountWithGhost,
-    required this.onAddRow,
+    this.onAddRow,
     this.bottomScrollGap = 0,
+
+    /// Quando true, aplica borda superior na primeira célula.
+    /// Útil se o header acima não desenhar essa borda.
+    this.addTopBorder = false,
   });
 
   final bc.MagicTableController ctrl;
   final ScrollController vGutterCtrl;
   final double rowHeight;
   final int rowCountWithGhost;
-  final VoidCallback onAddRow;
+
+  /// se null, não mostra a “linha fantasma” (+)
+  final VoidCallback? onAddRow;
+
   final double bottomScrollGap;
+
+  final bool addTopBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +38,15 @@ class MagicGutterColumn extends StatelessWidget {
             final isFirst = r == 0;
             final isGhost = r == ctrl.rowCount;
 
+            if (isGhost && onAddRow == null) {
+              // esconde a linha de “+”
+              return const SizedBox.shrink();
+            }
+
+            final topSide = (isFirst && addTopBorder)
+                ? BorderSide(color: Colors.grey.shade300, width: 1)
+                : BorderSide.none;
+
             Widget cell = Container(
               height: rowHeight,
               alignment: Alignment.centerRight,
@@ -38,6 +56,9 @@ class MagicGutterColumn extends StatelessWidget {
                     ? Colors.grey.shade100
                     : (isFirst ? Colors.grey.shade200 : Colors.grey.shade50),
                 border: Border(
+                  top: topSide, // ✅ borda superior opcional na 1ª linha
+                  left: BorderSide(color: Colors.grey.shade300, width: 1),
+                  right: BorderSide(color: Colors.grey.shade300, width: 1),
                   bottom: BorderSide(color: Colors.grey.shade300, width: 1),
                 ),
               ),
@@ -55,7 +76,7 @@ class MagicGutterColumn extends StatelessWidget {
             if (isGhost) cell = InkWell(onTap: onAddRow, child: cell);
             return cell;
           }),
-          SizedBox(height: bottomScrollGap), // 👈 gap rola junto
+          SizedBox(height: bottomScrollGap),
         ],
       ),
     );

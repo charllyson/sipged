@@ -4,9 +4,9 @@ import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
 import 'package:siged/_blocs/process/contracts/contract_data.dart';
 
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
-import 'package:siged/screens/process/report/report_measurement_page.dart';
-import 'package:siged/screens/process/adjustment/adjustment_measurement_page.dart';
-import 'package:siged/screens/process/revision/revision_measurement_page.dart';
+import 'package:siged/screens/process/measurement/report/report_measurement_page.dart';
+import 'package:siged/screens/process/measurement/adjustment/adjustment_measurement_page.dart';
+import 'package:siged/screens/process/measurement/revision/revision_measurement_page.dart';
 
 class TabBarMeasurementPage extends StatelessWidget {
   final ContractData? contractData;

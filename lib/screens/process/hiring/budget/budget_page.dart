@@ -32,12 +32,10 @@ class _BudgetPageState extends State<BudgetPage> {
       bc.MagicTableController ctrl,
       String contractId,
       ) async {
-    // Garante cache
     await store.ensureFor(contractId);
 
     final data = store.dataFor(contractId);
     if (data == null || data.isEmpty) {
-      // tabela vazia padrão
       ctrl.loadFromSnapshot(
         table: const <List<String>>[<String>[]],
         colTypesAsString: const <String>[],
@@ -46,11 +44,43 @@ class _BudgetPageState extends State<BudgetPage> {
       return;
     }
 
-    // Preenche a MagicTable a partir do domínio
     MagicBudgetAdapter.loadControllerFromDomain(
       controller: ctrl,
       data: data,
     );
+  }
+
+  Future<void> _saveNow(
+      BudgetStore store,
+      bc.MagicTableController c,
+      String contractId,
+      ) async {
+    setState(() => _saving = true);
+    try {
+      final domain = MagicBudgetAdapter.buildDomainFromController(controller: c);
+      await store.saveDomain(contractId: contractId, data: domain);
+      if (mounted) {
+        NotificationCenter.instance.show(
+          AppNotification(
+            title: const Text('Orçamento'),
+            subtitle: const Text('Alterações salvas'),
+            type: AppNotificationType.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        NotificationCenter.instance.show(
+          AppNotification(
+            title: const Text('Falha ao salvar'),
+            subtitle: Text('$e'),
+            type: AppNotificationType.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -78,9 +108,19 @@ class _BudgetPageState extends State<BudgetPage> {
                   selectAllOnEdit: false,
                   controller: ctrl,
                   onInit: (c) => _load(store, c, contractId),
-                  // vãos que aparecem só no fim da rolagem
+
+                  // 🔒 esconda apenas no BudgetPage:
+                  allowAddColumn: false,
+                  allowRemoveColumn: false,
+                  allowAddRow: false,
+
+                  // (se usar auto-save quando estrutura muda)
+                  onRequestSaveAfterStructureChange: (c) =>
+                      _saveNow(store, c, contractId),
+
                   bottomScrollGap: 90,
                   rightScrollGap: 60,
+
                   floatingActionsBuilder: (ctx, c) => [
                     FloatingActionButton.small(
                       backgroundColor: Colors.white,
@@ -100,47 +140,14 @@ class _BudgetPageState extends State<BudgetPage> {
                         if (!c.hasData) {
                           NotificationCenter.instance.show(
                             AppNotification(
-                              title: Text('Nada para salvar'),
-                              subtitle: Text('Cole dados do Excel antes de salvar.'),
+                              title: const Text('Nada para salvar'),
+                              subtitle: const Text('Cole dados do Excel antes de salvar.'),
                               type: AppNotificationType.info,
                             ),
                           );
                           return;
                         }
-                        setState(() => _saving = true);
-                        try {
-                          // Controller -> domínio
-                          final domain = MagicBudgetAdapter.buildDomainFromController(
-                            controller: c,
-                          );
-
-                          await store.saveDomain(
-                            contractId: contractId,
-                            data: domain,
-                          );
-
-                          if (mounted) {
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: Text('Orçamento'),
-                                subtitle: Text('Dados salvos com sucesso'),
-                                type: AppNotificationType.success,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Falha ao salvar'),
-                                subtitle: Text('$e'),
-                                type: AppNotificationType.error,
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setState(() => _saving = false);
-                        }
+                        await _saveNow(store, c, contractId);
                       },
                       child: const Icon(Icons.save),
                     ),

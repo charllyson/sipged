@@ -195,6 +195,70 @@ class ReportMeasurementBloc extends BlocBase {
     }, SetOptions(merge: true));
   }
 
+  // ⬇️ cole no final de ReportMeasurementBloc (antes do dispose)
+
+  // ==================== ITENS DA MEDIÇÃO (por item do Budget) ====================
+  // Estrutura no Firestore:
+  // contracts/{contractId}/reportsMeasurement/{measurementId}/items/{budgetItemId}
+
+  CollectionReference<Map<String, dynamic>> _itemsCol({
+    required String contractId,
+    required String measurementId,
+  }) =>
+      _db.collection('contracts')
+          .doc(contractId)
+          .collection(ReportMeasurementData.collectionName)
+          .doc(measurementId)
+          .collection('items');
+
+  /// Carrega todos os itens já salvos e retorna um mapa por budgetItemId.
+  Future<Map<String, Map<String, dynamic>>> loadItemsMap({
+    required String contractId,
+    required String measurementId,
+  }) async {
+    final qs = await _itemsCol(contractId: contractId, measurementId: measurementId).get();
+    final out = <String, Map<String, dynamic>>{};
+    for (final d in qs.docs) {
+      final m = d.data();
+      out[d.id] = {
+        'qtyPrev': (m['qtyPrev'] ?? 0).toDouble(),
+        'qtyPeriod': (m['qtyPeriod'] ?? 0).toDouble(),
+        'qtyAccum': (m['qtyAccum'] ?? 0).toDouble(),
+        'qtyContractBal': (m['qtyContractBal'] ?? 0).toDouble(),
+        'valPrev': (m['valPrev'] ?? 0).toDouble(),
+        'valPeriod': (m['valPeriod'] ?? 0).toDouble(),
+        'valAccum': (m['valAccum'] ?? 0).toDouble(),
+        'valContractBal': (m['valContractBal'] ?? 0).toDouble(),
+        'updatedAt': m['updatedAt'],
+        'updatedBy': m['updatedBy'],
+        'budgetItemId': m['budgetItemId'] ?? d.id,
+      };
+    }
+    return out;
+  }
+
+  /// Upsert de um item vinculado ao `budgetItemId` (id da linha do orçamento).
+  Future<void> upsertMeasurementItem({
+    required String contractId,
+    required String measurementId,
+    required String budgetItemId,
+    required Map<String, dynamic> payload, // campos qty*/val*, já calculados
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final data = <String, dynamic>{
+      'budgetItemId': budgetItemId,
+      ...payload,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': uid,
+      'contractId': contractId,
+      'measurementId': measurementId,
+    };
+    await _itemsCol(contractId: contractId, measurementId: measurementId)
+        .doc(budgetItemId)
+        .set(data, SetOptions(merge: true));
+  }
+
+
   @override
   void dispose() { super.dispose(); }
 }

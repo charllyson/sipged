@@ -24,7 +24,7 @@ import 'package:siged/screens/process/apostilles/tab_bar_apostilles_page.dart';
 import 'package:siged/screens/process/hiring/tab_bar_contract_page.dart';
 import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_page.dart';
 import 'package:siged/screens/process/landRegularization/lane_regularization_tabs.dart';
-import 'package:siged/screens/process/report/tab_bar_measurement_page.dart';
+import 'package:siged/screens/process/measurement/tab_bar_measurement_page.dart';
 import 'package:siged/screens/process/validity/tab_bar_validity_page.dart';
 import 'package:siged/screens/sectors/operation/schedule/civil/schedule_civil_page.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';

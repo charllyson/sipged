@@ -22,6 +22,7 @@ import 'package:siged/_utils/handle_selection_utils.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:siged/screens/process/measurement/create/create_detailed_reports_page.dart';
 
 import 'report_measurement_bloc.dart';
 import 'report_measurement_storage_bloc.dart';
@@ -162,6 +163,21 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     final canCreate = perms.userCanModule(user: user, module: 'report_measurement', action: 'create');
     return canEdit || canCreate;
   }
+
+  Future<void> openBoletimModal(BuildContext context) async {
+    final numero = selectedReport?.order ?? int.tryParse(orderCtrl.text) ?? 0;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => CreateDetailedReportPage(
+          titulo: 'Boletim de Medição Nº $numero',
+          contractData: contract,
+          measurement: selectedReport, // se null, cai no orçamento contratado
+        ),
+      ),
+    );
+  }
+
 
   // ================= LOAD / PAGE =================
   Future<void> _loadInitialData() async {

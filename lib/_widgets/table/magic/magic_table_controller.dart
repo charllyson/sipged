@@ -101,8 +101,7 @@ class MagicTableController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Acrescenta colunas **à direita**. Se ainda não existir schema, cria um
-  /// a partir do header atual para habilitar colunas derivadas/editáveis.
+  /// Acrescenta colunas **à direita**
   void appendColumns(List<ColumnMeta> metas) {
     if (metas.isEmpty) return;
 
@@ -111,18 +110,17 @@ class MagicTableController extends ChangeNotifier {
       return;
     }
 
-    // Se ainda não há schema, criamos um com as colunas existentes (todas editáveis)
     if (!hasSchema) {
-      final legacy = _columnsFromHeader(); // tipos atuais/auto; editáveis
+      final legacy = _columnsFromHeader();
       _schema = [...legacy, ...metas];
     } else {
       _schema = [...columns, ...metas];
     }
 
-    // 1) Header: acrescenta títulos
+    // 1) Header
     tableData[0] = [...tableData[0], ...metas.map((m) => m.title)];
 
-    // 2) Linhas: acrescenta células vazias
+    // 2) Linhas
     for (int r = 1; r < tableData.length; r++) {
       tableData[r] = [...tableData[r], ...List<String>.filled(metas.length, '')];
     }
@@ -130,7 +128,7 @@ class MagicTableController extends ChangeNotifier {
     // 3) Tipos
     colTypes = _schema!.map((m) => m.type).toList(growable: true);
 
-    // 4) Recalcula derivadas e larguras
+    // 4) Recalcula
     recomputeAll();
     colWidths = computeColWidths(tableData);
     numericCols = List<bool>.generate(colCount, (i) => isNumericEffective(i), growable: true);
@@ -394,6 +392,7 @@ class MagicTableController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// REMOÇÃO sem schema (modo livre)
   void removeColumn(int col) {
     if (hasSchema) return;
     if (col < 0 || col >= colCount) return;
@@ -416,6 +415,73 @@ class MagicTableController extends ChangeNotifier {
 
     _syncAfterShapeChange();
     notifyListeners();
+  }
+
+  /// REMOÇÃO com schema — apaga UMA coluna
+  void removeColumnWithSchema(int col) {
+    if (col < 0 || col >= colCount) return;
+
+    if (hasSchema) {
+      final metas = List<ColumnMeta>.from(columns);
+      if (col >= 0 && col < metas.length) {
+        metas.removeAt(col);
+        _schema = metas;
+      }
+    }
+
+    for (var r = 0; r < tableData.length; r++) {
+      if (col < tableData[r].length) {
+        final row = List<String>.from(tableData[r], growable: true)..removeAt(col);
+        tableData[r] = row;
+      }
+    }
+
+    _syncAfterShapeChange();
+    if (hasSchema) recomputeAll();
+    notifyListeners();
+  }
+
+  /// REMOÇÃO com schema — apaga VÁRIAS colunas
+  void removeColumnsWithSchema(Iterable<int> cols) {
+    final sorted = cols
+        .where((c) => c >= 0 && c < colCount)
+        .toSet()
+        .toList()
+      ..sort((a, b) => b.compareTo(a)); // direita -> esquerda
+
+    if (sorted.isEmpty) return;
+
+    if (hasSchema) {
+      final metas = List<ColumnMeta>.from(columns);
+      for (final c in sorted) {
+        if (c >= 0 && c < metas.length) metas.removeAt(c);
+      }
+      _schema = metas;
+    }
+
+    for (var r = 0; r < tableData.length; r++) {
+      var row = List<String>.from(tableData[r], growable: true);
+      for (final c in sorted) {
+        if (c >= 0 && c < row.length) row.removeAt(c);
+      }
+      tableData[r] = row;
+    }
+
+    _syncAfterShapeChange();
+    if (hasSchema) recomputeAll();
+    notifyListeners();
+  }
+
+  /// Conveniência: apagar por NOME do cabeçalho
+  bool removeColumnByHeader(String headerName) {
+    final idx = headers.indexOf(headerName);
+    if (idx < 0) return false;
+    if (hasSchema) {
+      removeColumnWithSchema(idx);
+    } else {
+      removeColumn(idx);
+    }
+    return true;
   }
 
   // ===== Helpers =====
@@ -478,14 +544,11 @@ class MagicTableController extends ChangeNotifier {
     return sawValue && !sawNonNumeric;
   }
 
-  // ---------- Helpers públicos para uso externo ----------
+  // ---------- Helpers públicos ----------
   double? parseBR(String s) => _parseBR(s);
-
   String formatNumberBR(double d, {int decimals = 2, bool trimZeros = true}) =>
-      _formatNumberBR(d, decimals: decimals, trimZeros: trimZeros);
-
+      _formatNumberBR(d, decimals: decimals, trimZeros: true);
   String formatMoneyBR(double d) => _formatMoneyBR(d);
-
 
   double _measureCellWidth(String txt, TextStyle style) {
     final tp = TextPainter(text: TextSpan(text: txt, style: style), textDirection: TextDirection.ltr, maxLines: 1)..layout();
