@@ -1,4 +1,3 @@
-// lib/_blocs/sectors/transit/accidents/accidents_event.dart
 import 'package:equatable/equatable.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 
@@ -54,4 +53,28 @@ class AccidentsDeleteRequested extends AccidentsEvent {
 /// Recarregar mantendo filtros atuais
 class AccidentsRefreshRequested extends AccidentsEvent {
   const AccidentsRefreshRequested();
+}
+
+/// Obter localização atual + reverse geocoding (endereço sugerido)
+class AccidentsGetLocationRequested extends AccidentsEvent {
+  const AccidentsGetLocationRequested();
+}
+
+/// Reverse geocoding a partir de coordenadas (MAPA → FORMULÁRIO)
+class AccidentsReverseGeocodeRequested extends AccidentsEvent {
+  final double latitude;
+  final double longitude;
+  const AccidentsReverseGeocodeRequested(this.latitude, this.longitude);
+
+  @override
+  List<Object?> get props => [latitude, longitude];
+}
+
+/// Geocoding a partir de CEP (FORM → MAPA)
+class AccidentsGeocodeCepRequested extends AccidentsEvent {
+  final String cep; // apenas dígitos, ex.: "57035747"
+  const AccidentsGeocodeCepRequested(this.cep);
+
+  @override
+  List<Object?> get props => [cep];
 }

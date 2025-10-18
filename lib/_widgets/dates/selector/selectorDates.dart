@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 class SelectorDates<T> extends StatefulWidget {
@@ -9,10 +10,14 @@ class SelectorDates<T> extends StatefulWidget {
 
   final void Function(List<T> filteredItems)? onFilterChanged;
   final void Function({
-  List<T> filteredItems,
+  required List<T> filteredItems,
   int? selectedYear,
   int? selectedMonth,
   })? onSelectionChanged;
+
+  /// Controla a ordenação dos itens filtrados
+  final bool sortByDate;          // ordena por data?
+  final bool sortDescending;      // true = mais recente primeiro
 
   const SelectorDates({
     super.key,
@@ -23,6 +28,8 @@ class SelectorDates<T> extends StatefulWidget {
     this.onSelectionChanged,
     this.initialYear,
     this.initialMonth,
+    this.sortByDate = true,        // padrão: ordenar
+    this.sortDescending = false,   // padrão: cronológico (antigo → recente)
   });
 
   @override
@@ -30,52 +37,75 @@ class SelectorDates<T> extends StatefulWidget {
 }
 
 class _SelectorDatesState<T> extends State<SelectorDates<T>> {
-  final selectedYearNotifier = ValueNotifier<int?>(null);
+  final selectedYearNotifier  = ValueNotifier<int?>(null);
   final selectedMonthNotifier = ValueNotifier<int?>(null);
 
   Map<int, List<int>> availableMonthsByYear = {};
+  Timer? _applyDebounce;
+
+  /// Saber se antes havia dados; usado para detectar a 1ª chegada (vazio → não-vazio)
+  bool _hadData = false;
+
+  void _scheduleApply() {
+    _applyDebounce?.cancel();
+    // Executa no mesmo ciclo de eventos, coalescendo múltiplas mudanças
+    _applyDebounce = Timer(const Duration(milliseconds: 0), _aplicarFiltro);
+  }
 
   @override
   void initState() {
     super.initState();
-    selectedYearNotifier.addListener(_aplicarFiltro);
-    selectedMonthNotifier.addListener(_aplicarFiltro);
-
+    _hadData = widget.items.isNotEmpty;
     _calcularMesesDisponiveis();
-    _initSelection(); // <- define ano/mês iniciais
+    _initSelection(); // monta com o que tiver (pode estar vazio)
   }
 
   @override
   void didUpdateWidget(covariant SelectorDates<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final itemsChanged = !identical(widget.items, oldWidget.items);
-    final initChanged  = widget.initialYear != oldWidget.initialYear ||
-        widget.initialMonth != oldWidget.initialMonth;
+    final itemsChanged =
+        !identical(widget.items, oldWidget.items) ||
+            widget.items.length != oldWidget.items.length;
+
+    final initChanged =
+        widget.initialYear  != oldWidget.initialYear ||
+            widget.initialMonth != oldWidget.initialMonth;
+
+    // Detecta primeira carga (antes vazio, agora com dados)
+    final had = _hadData;
+    final has = widget.items.isNotEmpty;
+    _hadData = has;
 
     if (itemsChanged) {
       _calcularMesesDisponiveis();
     }
 
+    if (!had && has) {
+      // Primeira chegada de dados: redecide seleção (preferir ano atual)
+      _reinitSelectionAfterFirstData();
+      return;
+    }
+
     if (initChanged) {
-      // AQUI: aplica exatamente o que veio do pai (pode ser null => "Todos")
+      // Pai passou explicitamente novos iniciais — respeite
       selectedYearNotifier.value  = widget.initialYear;
       selectedMonthNotifier.value = widget.initialMonth;
-      // _aplicarFiltro será chamado pelos listeners dos notifiers
+      _scheduleApply();
       return;
     }
 
     if (itemsChanged) {
-      // itens mudaram mas ano/mês não; reexecuta filtro com seleção atual
+      // Reaplica com a seleção atual
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _aplicarFiltro();
       });
     }
   }
 
-
   @override
   void dispose() {
+    _applyDebounce?.cancel();
     selectedYearNotifier.dispose();
     selectedMonthNotifier.dispose();
     super.dispose();
@@ -85,121 +115,171 @@ class _SelectorDatesState<T> extends State<SelectorDates<T>> {
     availableMonthsByYear = {};
     for (final item in widget.items) {
       final date = widget.getDate(item);
-      if (date != null) {
-        final y = date.year, m = date.month;
-        final list = availableMonthsByYear.putIfAbsent(y, () => <int>[]);
-        if (!list.contains(m)) list.add(m);
-      }
+      if (date == null) continue;
+      final y = date.year, m = date.month;
+      final list = availableMonthsByYear.putIfAbsent(y, () => <int>[]);
+      if (!list.contains(m)) list.add(m);
     }
-    // meses em ordem DESC (Dez..Jan) para mostrar os mais recentes primeiro
+    // Meses em ordem DESC (Dez..Jan) para mostrar recentes primeiro
     for (final y in availableMonthsByYear.keys) {
       availableMonthsByYear[y]!.sort((a, b) => b.compareTo(a));
     }
   }
 
+  /// Primeira definição de seleção (pode ainda não haver dados)
   void _initSelection() {
-    final years = availableMonthsByYear.keys.toList()..sort((a, b) => b.compareTo(a)); // DESC
-    int? year = widget.initialYear;
+    final nowYear      = DateTime.now().year;
+    final allYearsDesc = availableMonthsByYear.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    // 1) Começa pelo initialYear do pai, ou ano atual se nulo
+    int? year  = widget.initialYear ?? nowYear;
     int? month = widget.initialMonth;
 
-    // fallback do ano: atual se existir, senão o mais recente disponível
-    final nowYear = DateTime.now().year;
-    if (year == null) {
-      if (availableMonthsByYear.containsKey(nowYear)) {
-        year = nowYear;
-      } else if (years.isNotEmpty) {
-        year = years.first; // maior ano disponível
-      }
-    } else if (!availableMonthsByYear.containsKey(year)) {
-      // inicial inválido -> mesmo fallback
-      if (availableMonthsByYear.containsKey(nowYear)) {
-        year = nowYear;
-      } else if (years.isNotEmpty) {
-        year = years.first;
-      } else {
-        year = null; // sem dados
-      }
+    // 2) Se o ano não possui dados (ou lista vazia), cai para o mais recente com dados
+    if (!availableMonthsByYear.containsKey(year)) {
+      year = allYearsDesc.isNotEmpty ? allYearsDesc.first : null;
     }
 
-    // fallback do mês: só se o ano for válido e o mês existir
+    // 3) Mês: válido ou "Todos os meses"
     if (year != null) {
       final months = availableMonthsByYear[year] ?? const <int>[];
       if (month == null || !months.contains(month)) {
-        month = null; // começa em "Todos os meses" para o ano escolhido
+        month = null;
       }
     } else {
       month = null;
     }
 
-    selectedYearNotifier.value = year;
+    selectedYearNotifier.value  = year;
     selectedMonthNotifier.value = month;
+    _scheduleApply();
+  }
+
+  /// Recalcula a seleção preferindo o ano atual na 1ª chegada de dados
+  void _reinitSelectionAfterFirstData() {
+    final nowYear      = DateTime.now().year;
+    final allYearsDesc = availableMonthsByYear.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    int? year  = widget.initialYear;
+    int? month = widget.initialMonth;
+
+    // Preferir agora o ano atual se não veio do pai
+    year ??= availableMonthsByYear.containsKey(nowYear) ? nowYear : null;
+
+    // Se continuar nulo/indisponível, cai para o mais recente com dados
+    if (year == null || !availableMonthsByYear.containsKey(year)) {
+      year = allYearsDesc.isNotEmpty ? allYearsDesc.first : null;
+    }
+
+    if (year != null) {
+      final months = availableMonthsByYear[year] ?? const <int>[];
+      if (month == null || !months.contains(month)) month = null;
+    } else {
+      month = null;
+    }
+
+    selectedYearNotifier.value  = year;
+    selectedMonthNotifier.value = month;
+    _scheduleApply();
   }
 
   void _aplicarFiltro() {
-    final selectedYear = selectedYearNotifier.value;
-    final selectedMonth = selectedMonthNotifier.value;
+    int? selectedYear  = selectedYearNotifier.value;
+    int? selectedMonth = selectedMonthNotifier.value;
+
+    // Se ano selecionado ficou inválido após mudança dos itens, ajusta
+    if (selectedYear != null && !availableMonthsByYear.containsKey(selectedYear)) {
+      final allYearsDesc = availableMonthsByYear.keys.toList()..sort((a, b) => b.compareTo(a));
+      selectedYear = allYearsDesc.isNotEmpty ? allYearsDesc.first : null;
+      selectedYearNotifier.value  = selectedYear;
+      selectedMonth               = null;
+      selectedMonthNotifier.value = null;
+    }
 
     final filtered = widget.items.where((item) {
       final date = widget.getDate(item);
       if (date == null) return false;
-      final matchYear = selectedYear == null || date.year == selectedYear;
-      final matchMonth = selectedMonth == null || date.month == selectedMonth;
-      return matchYear && matchMonth;
+      final okYear  = selectedYear  == null || date.year  == selectedYear;
+      final okMonth = selectedMonth == null || date.month == selectedMonth;
+      return okYear && okMonth;
     }).toList();
+
+    // Ordenação por data (cronológica por padrão)
+    if (widget.sortByDate) {
+      filtered.sort((a, b) {
+        final da = widget.getDate(a);
+        final db = widget.getDate(b);
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;  // nulos por último
+        if (db == null) return -1;
+        final cmp = da.compareTo(db);
+        return widget.sortDescending ? -cmp : cmp;
+      });
+    }
 
     widget.onFilterChanged?.call(filtered);
     widget.onSelectionChanged?.call(
+      filteredItems: filtered,
       selectedYear: selectedYear,
       selectedMonth: selectedMonth,
-      filteredItems: filtered,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final years = availableMonthsByYear.keys.toList()..sort((a, b) => b.compareTo(a));
-    final selectedYear = selectedYearNotifier.value;
+    final years         = availableMonthsByYear.keys.toList()..sort((a, b) => b.compareTo(a));
+    final selectedYear  = selectedYearNotifier.value;
     final selectedMonth = selectedMonthNotifier.value;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // anos
+        // ===== ANOS =====
         Row(
           children: [
             _buildSelectorAllDatesButton(
               label: 'Todos os anos',
               selected: selectedYear == null,
               onTap: () {
-                selectedYearNotifier.value = null;
+                selectedYearNotifier.value  = null;
                 selectedMonthNotifier.value = null;
+                _scheduleApply();
               },
             ),
-            ...years.map((y) => _buildSelectorButton(
-              label: y.toString(),
-              selected: y == selectedYear,
-              onTap: () {
-                selectedYearNotifier.value = y;
-                selectedMonthNotifier.value = null;
-              },
-            )),
+            ...years.map(
+                  (y) => _buildSelectorButton(
+                label: y.toString(),
+                selected: y == selectedYear,
+                onTap: () {
+                  selectedYearNotifier.value  = y;
+                  selectedMonthNotifier.value = null;
+                  _scheduleApply();
+                },
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        // meses
+        // ===== MESES =====
         if (selectedYear != null)
           Row(
             children: [
               _buildSelectorAllDatesButton(
                 label: 'Todos os meses',
                 selected: selectedMonth == null,
-                onTap: () => selectedMonthNotifier.value = null,
+                onTap: () {
+                  selectedMonthNotifier.value = null;
+                  _scheduleApply();
+                },
               ),
               ...?availableMonthsByYear[selectedYear]?.map(
                     (month) => _buildSelectorButton(
                   label: _nomeMes(month),
                   selected: month == selectedMonth,
-                  onTap: () => selectedMonthNotifier.value = month,
+                  onTap: () {
+                    selectedMonthNotifier.value = month;
+                    _scheduleApply();
+                  },
                 ),
               ),
             ],

@@ -18,6 +18,9 @@ import 'dart:io' show File, Platform;
 import 'package:path_provider/path_provider.dart';
 import 'package:native_exif/native_exif.dart';
 
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 /// Tela de preview/edição (crop, rotate, flip, zoom).
 /// Retorna os bytes recortados via `Navigator.pop<Uint8List>(bytes)`.
 class PhotoEditorPage extends StatefulWidget {
@@ -181,8 +184,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title:
-        const Text('Ajustar foto', style: TextStyle(color: Colors.white)),
+        title: const Text('Ajustar foto', style: TextStyle(color: Colors.white)),
         actions: [
           TextButton.icon(
             style: TextButton.styleFrom(foregroundColor: Colors.white),
@@ -253,12 +255,28 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       // 2) Tenta gravar EXIF no resultado (Android/iOS)
       final withExif = await _applyExifIfSupported(edited);
 
+      // ✅ toast sucesso ANTES de fechar a tela
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Foto exportada'),
+          subtitle: const Text('Edição aplicada com sucesso'),
+          type: AppNotificationType.success,
+          leadingLabel: const Text('Editor'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
       if (!mounted) return;
       Navigator.of(context).pop<Uint8List>(withExif);
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao exportar: $e')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Falha ao exportar'),
+          subtitle: Text('$e'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Editor'),
+          duration: const Duration(seconds: 6),
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);

@@ -6,13 +6,17 @@ import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_services/geoJson/send_firebase.dart';
 
 // contrato
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 
 // página de imóveis (tabs)
-import 'package:siged/screens/sectors/planning/rightWay/planning_right_way_tabs.dart';
+import 'package:siged/screens/process/landRegularization/lane_regularization_tabs.dart';
 
 import '../../../../_blocs/sectors/planning/highway_domain/planning_highway_domain_bloc.dart';
 import '../../../../_blocs/sectors/planning/highway_domain/planning_highway_domain_event.dart';
+
+// ✅ notificações ricas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 class PlanningRightWayPropertyPanel extends StatelessWidget {
   final ContractData contractData;
@@ -53,8 +57,15 @@ class PlanningRightWayPropertyPanel extends StatelessWidget {
                       subtitle: const Text('Cadastrar novo decreto vinculado ao contrato'),
                       trailing: const Icon(Icons.check_circle, color: Colors.grey),
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Ação: Adicionar DUP (em implementação)')),
+                        // 🔔 info (placeholder de funcionalidade)
+                        NotificationCenter.instance.show(
+                          AppNotification(
+                            title: const Text('Em implementação'),
+                            subtitle: const Text('Ação: Adicionar DUP'),
+                            type: AppNotificationType.info,
+                            leadingLabel: const Text('Direito de Passagem'),
+                            duration: const Duration(seconds: 4),
+                          ),
                         );
                       },
                     ),
@@ -84,20 +95,27 @@ class PlanningRightWayPropertyPanel extends StatelessWidget {
                             fixedPath: 'contracts/${contractData.id}/planning_highway_domain',
                           );
                           bloc.add(PlanningHighwayDomainRefreshRequested(contractData.id!));
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Traçado importado com sucesso.')),
-                            );
-                          }
+
+                          // 🔔 sucesso
+                          NotificationCenter.instance.show(
+                            AppNotification(
+                              title: const Text('Traçado importado'),
+                              subtitle: const Text('Arquivo salvo e mapa atualizado'),
+                              type: AppNotificationType.success,
+                              leadingLabel: const Text('Geo'),
+                            ),
+                          );
                         } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: Colors.red.shade400,
-                                content: Text('Falha ao importar: $e'),
-                              ),
-                            );
-                          }
+                          // 🔔 erro
+                          NotificationCenter.instance.show(
+                            AppNotification(
+                              title: const Text('Falha ao importar traçado'),
+                              subtitle: Text('$e'),
+                              type: AppNotificationType.error,
+                              leadingLabel: const Text('Geo'),
+                              duration: const Duration(seconds: 6),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -129,7 +147,7 @@ class PlanningRightWayPropertyPanel extends StatelessWidget {
                           await Navigator.of(context).push(
                             MaterialPageRoute(
                               fullscreenDialog: true,
-                              builder: (_) => TabBarRightWayPage(
+                              builder: (_) => TabLaneRegularizationPage(
                                 contractData: contractData,
                               ),
                             ),

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'selective_delete_util.dart';
 
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class SelectiveDeleteSubcollectionTile extends StatelessWidget {
   const SelectiveDeleteSubcollectionTile({super.key});
 
@@ -20,10 +23,11 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
           if (mode == null) return;
 
           switch (mode) {
-            case _Mode.byIds:
+            case _Mode.byIds: {
               final p = await _askByIds(context);
               if (p == null) return;
 
+              // DRY RUN
               if (context.mounted) {
                 showDialog(
                   context: context,
@@ -40,6 +44,18 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
                   docIds: p.ids,
                   dryRun: true,
                 );
+              } catch (e) {
+                if (nav.canPop()) nav.pop();
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Falha no dry-run'),
+                    subtitle: Text('$e'),
+                    type: AppNotificationType.error,
+                    leadingLabel: const Text('Limpeza'),
+                    duration: const Duration(seconds: 6),
+                  ),
+                );
+                return;
               } finally {
                 if (nav.canPop()) nav.pop();
               }
@@ -48,6 +64,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
               final proceed = await _confirm(context, 'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?');
               if (!proceed) return;
 
+              // REAL RUN
               if (context.mounted) {
                 showDialog(
                   context: context,
@@ -64,17 +81,35 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
                   docIds: p.ids,
                   dryRun: false,
                 );
+              } catch (e) {
+                if (nav.canPop()) nav.pop();
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Erro ao apagar documentos'),
+                    subtitle: Text('$e'),
+                    type: AppNotificationType.error,
+                    leadingLabel: const Text('Limpeza'),
+                    duration: const Duration(seconds: 6),
+                  ),
+                );
+                return;
               } finally {
                 if (nav.canPop()) nav.pop();
               }
 
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Apagados: $real documento(s).')),
+              NotificationCenter.instance.show(
+                AppNotification(
+                  title: Text('Apagados: $real documento(s).'),
+                  type: AppNotificationType.success,
+                  leadingLabel: const Text('Limpeza'),
+                  duration: const Duration(seconds: 4),
+                ),
               );
               break;
+            }
 
-            case _Mode.byFilter:
+            case _Mode.byFilter: {
               final p = await _askByFilter(context);
               if (p == null) return;
 
@@ -101,6 +136,18 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
                   filters: p.filters,
                   dryRun: true,
                 );
+              } catch (e) {
+                if (nav.canPop()) nav.pop();
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Falha no dry-run'),
+                    subtitle: Text('$e'),
+                    type: AppNotificationType.error,
+                    leadingLabel: const Text('Limpeza'),
+                    duration: const Duration(seconds: 6),
+                  ),
+                );
+                return;
               } finally {
                 if (nav.canPop()) nav.pop();
               }
@@ -132,15 +179,33 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
                   filters: p.filters,
                   dryRun: false,
                 );
+              } catch (e) {
+                if (nav.canPop()) nav.pop();
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Erro ao apagar documentos'),
+                    subtitle: Text('$e'),
+                    type: AppNotificationType.error,
+                    leadingLabel: const Text('Limpeza'),
+                    duration: const Duration(seconds: 6),
+                  ),
+                );
+                return;
               } finally {
                 if (nav.canPop()) nav.pop();
               }
 
               if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Apagados: $real documento(s).')),
+              NotificationCenter.instance.show(
+                AppNotification(
+                  title: Text('Apagados: $real documento(s).'),
+                  type: AppNotificationType.success,
+                  leadingLabel: const Text('Limpeza'),
+                  duration: const Duration(seconds: 4),
+                ),
               );
               break;
+            }
           }
         },
       ),
@@ -158,8 +223,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
           ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Apagar')),
         ],
       ),
-    ) ??
-        false;
+    ) ?? false;
   }
 
   // ---------- Escolha do modo ----------
@@ -252,8 +316,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
           ),
         ],
       ),
-    ) ??
-        false;
+    ) ?? false;
 
     if (!ok) return null;
 
@@ -366,8 +429,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
           );
         },
       ),
-    ) ??
-        false;
+    ) ?? false;
 
     if (!ok) return null;
 

@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:siged/_widgets/carousel/photo_carousel.dart';
-import 'package:siged/_blocs/widgets/carousel/carousel_photo_theme.dart';
+import 'package:siged/_widgets/carousel/carousel_photo_theme.dart';
 import 'package:siged/_widgets/carousel/photo_picker_square.dart';
-import 'package:siged/_widgets/modals/schedule_modal_controller.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_modal_controller.dart';
 
 class SchedulePhotoSection extends StatelessWidget {
   const SchedulePhotoSection({super.key});

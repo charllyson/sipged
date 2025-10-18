@@ -1,10 +1,7 @@
 // lib/screens/sectors/planning/rightWay/planning_right_way_map.dart
 import 'dart:async';
-import 'dart:convert';
-import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,12 +9,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:siged/_widgets/map/geometry/geometry_cell.dart';
+import 'package:siged/_services/geometry/geometry_utils.dart';
 
+// === SIGED widgets ===
 import 'package:siged/_widgets/map/map_interactive.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 
 // cluster animado
 import 'package:siged/_widgets/map/clusters/cluster_animated_marker_widget.dart';
@@ -25,10 +23,6 @@ import 'package:siged/_widgets/map/clusters/cluster_animated_marker_widget.dart'
 import 'package:siged/_widgets/map/pin/pin_changed.dart';
 
 // tooltip visual
-import 'package:siged/_widgets/map/tooltip/tooltip_animated_card.dart';
-import 'package:siged/_widgets/map/tooltip/tooltip_balloon_tip.dart';
-
-import 'package:siged/_widgets/map/geometry/geometry_type.dart';
 
 class PlanningRightWayPropertyMap extends StatefulWidget {
   final ContractData contractData;
@@ -72,25 +66,19 @@ class _PlanningRightWayPropertyMapState
   bool _loading = true;
   String? _error;
 
-  // apenas se o chamador não fornecer um notifier próprio
   late final ValueNotifier<String?> _localSelectedPropId;
-
-  // zoom atual
-  double _currentZoom = 9;
 
   StreamSubscription? _mapSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _propsSub;
   VoidCallback? _refreshListener;
 
-  // ======== MapController ref (para overlay calcular posição) ========
-  MapController? _mapControllerRef;
-
-  // ======== Overlay do tooltip ========
-  LatLng? _tooltipAnchor;                  // LatLng âncora do tooltip
-  Offset? _tooltipScreenPos;               // posição de tela atual (pixel)
+  LatLng? _tooltipAnchor;                  // LatLng âncora (coincide com topo do chip)
+  Offset? _tooltipScreenPos;               // posição de tela do LatLng
   List<MapEntry<String, String>> _tooltipEntries = const [];
   VoidCallback? _tooltipOnDetails;
   VoidCallback? _tooltipOnClose;
+
+  final GlobalKey _tooltipKey = GlobalKey();
 
   @override
   void initState() {
@@ -100,7 +88,6 @@ class _PlanningRightWayPropertyMapState
     _loadAllGeoFromStorage();
     _listenOwnersRealtime();
 
-    // escuta refresh externo (ex.: controller.mapRefresh)
     if (widget.refreshListenable != null) {
       _refreshListener = _reloadAll;
       widget.refreshListenable!.addListener(_refreshListener!);
@@ -193,372 +180,6 @@ class _PlanningRightWayPropertyMapState
     return (bytes: r.bodyBytes, contentType: r.headers['content-type']);
   }
 
-  String _detectKind(String fileName, String? contentType, Uint8List bytes) {
-    final lower = fileName.toLowerCase();
-    if (lower.endsWith('.kml')) return 'kml';
-    if (lower.endsWith('.kmz')) return 'kmz';
-    if (lower.endsWith('.geojson') || lower.endsWith('.json')) return 'geojson';
-
-    final ct = (contentType ?? '').toLowerCase();
-    if (ct.contains('kml')) return 'kml';
-    if (ct.contains('kmz') || ct.contains('zip')) return 'kmz';
-    if (ct.contains('geo+json') || ct.contains('json')) return 'geojson';
-
-    if (bytes.length >= 2 && bytes[0] == 0x50 && bytes[1] == 0x4B) return 'kmz';
-    final head =
-    utf8.decode(bytes.take(64).toList(), allowMalformed: true).toLowerCase();
-    if (head.contains('<kml')) return 'kml';
-    if (head.trimLeft().startsWith('{')) return 'geojson';
-    return 'unknown';
-  }
-
-  Future<List<Geom>> _parseGeometries(
-      String name,
-      Uint8List bytes,
-      String kind,
-      ) async {
-    switch (kind) {
-      case 'kml':
-        return _parseKml(utf8.decode(bytes, allowMalformed: true));
-      case 'kmz':
-        return _parseKmz(bytes);
-      case 'geojson':
-        return _parseGeoJson(utf8.decode(bytes, allowMalformed: true));
-      default:
-        return const [];
-    }
-  }
-
-  List<Geom> _parseGeoJson(String text) {
-    final data = json.decode(text) as Map<String, dynamic>;
-    final List<Geom> out = [];
-
-    void addLine(List coords) {
-      final pts = <LatLng>[];
-      for (final c in coords) {
-        if (c is List && c.length >= 2) {
-          pts.add(LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()));
-        }
-      }
-      if (pts.length >= 2) out.add(Geom.line(pts));
-    }
-
-    void addPoly(List coords) {
-      if (coords.isEmpty) return;
-      final ring = coords.first as List;
-      final pts = <LatLng>[];
-      for (final c in ring) {
-        if (c is List && c.length >= 2) {
-          pts.add(LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()));
-        }
-      }
-      if (pts.length >= 3) out.add(Geom.polygon(pts));
-    }
-
-    void parseGeom(Map<String, dynamic> g) {
-      final type = (g['type'] ?? '').toString();
-      final coords = g['coordinates'];
-      if (type == 'LineString' && coords is List) {
-        addLine(coords);
-      } else if (type == 'MultiLineString' && coords is List) {
-        for (final ls in coords) {
-          if (ls is List) addLine(ls);
-        }
-      } else if (type == 'Polygon' && coords is List) {
-        addPoly(coords);
-      } else if (type == 'MultiPolygon' && coords is List) {
-        for (final pg in coords) {
-          if (pg is List) addPoly(pg);
-        }
-      }
-    }
-
-    final type = (data['type'] ?? '').toString();
-    if (type == 'FeatureCollection' && data['features'] is List) {
-      for (final f in (data['features'] as List)) {
-        if (f is Map<String, dynamic>) {
-          final g = f['geometry'] as Map<String, dynamic>?;
-          if (g != null) parseGeom(g);
-        }
-      }
-    } else if (type == 'Feature' && data['geometry'] is Map<String, dynamic>) {
-      parseGeom(data['geometry'] as Map<String, dynamic>);
-    } else if (data['type'] is String && data['coordinates'] != null) {
-      parseGeom(data);
-    }
-
-    return out;
-  }
-
-  List<Geom> _parseKml(String xml) {
-    final List<Geom> out = [];
-
-    Iterable<List<LatLng>> _extractLines() sync* {
-      final reg = RegExp(
-        r'<LineString[^>]*>.*?<coordinates>(.*?)</coordinates>.*?</LineString>',
-        dotAll: true,
-        caseSensitive: false,
-      );
-      for (final m in reg.allMatches(xml)) {
-        final pts = _coordsToLatLng(m.group(1) ?? '');
-        if (pts.length >= 2) yield pts;
-      }
-    }
-
-    Iterable<List<LatLng>> _extractPolys() sync* {
-      final reg = RegExp(
-        r'<Polygon[^>]*>.*?<outerBoundaryIs>.*?<coordinates>(.*?)</coordinates>.*?</outerBoundaryIs>.*?</Polygon>',
-        dotAll: true,
-        caseSensitive: false,
-      );
-      for (final m in reg.allMatches(xml)) {
-        final pts = _coordsToLatLng(m.group(1) ?? '');
-        if (pts.length >= 3) yield pts;
-      }
-    }
-
-    for (final ls in _extractLines()) {
-      out.add(Geom.line(ls));
-    }
-    for (final pg in _extractPolys()) {
-      out.add(Geom.polygon(pg));
-    }
-    return out;
-  }
-
-  Future<List<Geom>> _parseKmz(Uint8List bytes) async {
-    final archive = ZipDecoder().decodeBytes(bytes, verify: true);
-    for (final f in archive.files) {
-      if (f.isFile && f.name.toLowerCase().endsWith('.kml')) {
-        final content =
-        utf8.decode(f.content as List<int>, allowMalformed: true);
-        return _parseKml(content);
-      }
-    }
-    return const [];
-  }
-
-  List<LatLng> _coordsToLatLng(String coordsTxt) {
-    final pts = <LatLng>[];
-    final tokens = coordsTxt
-        .split(RegExp(r'\s+'))
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty);
-    for (final t in tokens) {
-      final p = t.split(',');
-      if (p.length >= 2) {
-        final lon = double.tryParse(p[0]);
-        final lat = double.tryParse(p[1]);
-        if (lat != null && lon != null) pts.add(LatLng(lat, lon));
-      }
-    }
-    return pts;
-  }
-
-  // =================== RÓTULO DENTRO DO POLÍGONO (polylabel) ===================
-
-  double _hypot(double a, double b) => math.sqrt(a * a + b * b);
-
-  double _pointToSegDist(
-      double x,
-      double y,
-      double x1,
-      double y1,
-      double x2,
-      double y2,
-      ) {
-    final dx = x2 - x1, dy = y2 - y1;
-
-    if (dx == 0 && dy == 0) {
-      return _hypot(x - x1, y - y1);
-    }
-
-    var t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy);
-    t = (t.clamp(0.0, 1.0)) as double;
-
-    final px = x1 + t * dx;
-    final py = y1 + t * dy;
-
-    return _hypot(x - px, y - py);
-  }
-
-  double _pointToPolygonDist(double x, double y, List<LatLng> poly) {
-    bool inside = false;
-    double minDist = double.infinity;
-    for (int i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      final xi = poly[i].longitude, yi = poly[i].latitude;
-      final xj = poly[j].longitude, yj = poly[j].latitude;
-
-      final intersect =
-          ((yi > y) != (yj > y)) &&
-              (x < (xj - xi) * (y - yi) / (yj - yi + 0.0) + xi);
-      if (intersect) inside = !inside;
-
-      final dist = _pointToSegDist(x, y, xi, yi, xj, yj);
-      if (dist < minDist) minDist = dist;
-    }
-    return (inside ? 1 : -1) * minDist;
-  }
-
-  ({double minX, double minY, double maxX, double maxY}) _bbox(
-      List<LatLng> poly,
-      ) {
-    double minX = double.infinity, minY = double.infinity;
-    double maxX = -double.infinity, maxY = -double.infinity;
-    for (final p in poly) {
-      final x = p.longitude, y = p.latitude;
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
-    }
-    return (minX: minX, minY: minY, maxX: maxX, maxY: maxY);
-  }
-
-  LatLng _polylabel(List<LatLng> polygon, {double precision = 1e-4}) {
-    final b = _bbox(polygon);
-    final double w = b.maxX - b.minX, h = b.maxY - b.minY;
-    final double cellSize = math.min(w, h);
-    if (cellSize == 0) return polygon.first;
-    final double h2 = cellSize / 2;
-
-    GeometryCell bestCell = GeometryCell(
-      (b.minX + b.maxX) / 2,
-      (b.minY + b.maxY) / 2,
-      0,
-      _pointToPolygonDist(
-        (b.minX + b.maxX) / 2,
-        (b.minY + b.maxY) / 2,
-        polygon,
-      ),
-    );
-
-    GeometryCell? best;
-    final List<GeometryCell> queue = [];
-    for (double x = b.minX; x < b.maxX; x += cellSize) {
-      for (double y = b.minY; y < b.maxY; y += cellSize) {
-        final c = GeometryCell(
-          x + h2,
-          y + h2,
-          h2,
-          _pointToPolygonDist(x + h2, y + h2, polygon),
-        );
-        queue.add(c);
-        if (best == null || c.d > best!.d) best = c;
-      }
-    }
-    if (best != null && best!.d > bestCell.d) bestCell = best!;
-
-    queue.sort((a, b) => b.max.compareTo(a.max));
-    final double tolerance = precision;
-
-    while (queue.isNotEmpty) {
-      final cell = queue.removeAt(0);
-
-      if (cell.d > bestCell.d) bestCell = cell;
-
-      if (cell.max - bestCell.d <= tolerance) continue;
-
-      final h2c = cell.h / 2;
-      for (final dx in [-h2c, h2c]) {
-        for (final dy in [-h2c, h2c]) {
-          final c = GeometryCell(
-            cell.x + dx,
-            cell.y + dy,
-            h2c,
-            _pointToPolygonDist(cell.x + dx, cell.y + dy, polygon),
-          );
-          queue.add(c);
-        }
-      }
-      queue.sort((a, b) => b.max.compareTo(a.max));
-    }
-
-    return LatLng(bestCell.y, bestCell.x);
-  }
-
-  // ------------------- helpers -------------------
-
-  String _initials3(String owner) {
-    final tokens = owner
-        .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
-        .toList();
-    if (tokens.isEmpty) return 'IMV';
-    final letters = tokens.take(3).map((t) => t.characters.first).join();
-    return letters.toUpperCase().padRight(3, ' ').substring(0, 3);
-  }
-
-  // ======== Overlay helpers (usando APENAS MapController) ========
-
-  // Projeta LatLng para "coordenada de mundo" (Web Mercator), em pixels na escala do zoom.
-  ({double x, double y}) _mercatorProject(LatLng ll, double zoom) {
-    const double tileSize = 256.0;
-    final double scale = tileSize * math.pow(2.0, zoom).toDouble();
-
-    // longitude: [-180,180] -> [0, scale]
-    final double x = (ll.longitude + 180.0) / 360.0 * scale;
-
-    // latitude -> mercator Y
-    final double sinLat = math.sin(ll.latitude * math.pi / 180.0);
-    final double y = (0.5 - math.log((1 + sinLat) / (1 - sinLat)) / (4 * math.pi)) * scale;
-
-    return (x: x, y: y);
-  }
-
-  // Recalcula a posição do tooltip na tela (sem usar MapController.project / MapCamera.latLngToScreenPoint)
-  void _recomputeTooltipScreenPos(MapController? mapController) {
-    if (_tooltipAnchor == null || mapController == null) return;
-
-    final cam = mapController.camera;
-    final size = cam.nonRotatedSize;         // tamanho do mapa (sem rotação)
-    final zoom = cam.zoom;
-    final center = cam.center;
-
-    // mundo (pixels na escala do zoom) do centro e do ponto alvo
-    final c = _mercatorProject(center, zoom);
-    final p = _mercatorProject(_tooltipAnchor!, zoom);
-
-    // origem dos pixels visíveis (top-left) = mundo(centro) - metade do tamanho do mapa
-    final originX = c.x - size.width  / 2.0;
-    final originY = c.y - size.height / 2.0;
-
-    // posição em tela = mundo(ponto) - origem
-    final screenX = p.x - originX;
-    final screenY = p.y - originY;
-
-    setState(() {
-      _tooltipScreenPos = Offset(screenX, screenY);
-    });
-  }
-
-  void _openTooltip({
-    required LatLng latLng,
-    required List<MapEntry<String, String>> entries,
-    VoidCallback? onDetails,
-    VoidCallback? onClose,
-    MapController? mapController,
-  }) {
-    _tooltipAnchor = latLng;
-    _tooltipEntries = entries;
-    _tooltipOnDetails = onDetails;
-    _tooltipOnClose = () {
-      _closeTooltip();
-      onClose?.call();
-    };
-    _recomputeTooltipScreenPos(mapController);
-  }
-
-  void _closeTooltip() {
-    setState(() {
-      _tooltipAnchor = null;
-      _tooltipScreenPos = null;
-      _tooltipEntries = const [];
-      _tooltipOnDetails = null;
-      _tooltipOnClose = null;
-    });
-  }
-
   // ------------------- INGEST + MARKERS (polylabel) -------------------
 
   void _ingestGeometries(
@@ -587,8 +208,13 @@ class _PlanningRightWayPropertyMapState
           ),
         );
 
-        // ponto de rótulo DENTRO do polígono
-        final labelPoint = _polylabel(g.points, precision: 1e-4);
+        // ponto de rótulo DENTRO do polígono (polylabel util)
+        final labelPoint = labelPointForPolygon(
+          g.points,
+          strategy: LabelPointStrategy.centroid,
+          ensureInside: true,
+          polylabelPrecision: 1e-6,
+        );
 
         _markers.add(
           TaggedChangedMarker<Map<String, dynamic>>(
@@ -617,7 +243,6 @@ class _PlanningRightWayPropertyMapState
     }
 
     try {
-      // 1) Pré-carrega proprietários (id -> ownerName)
       final propsCol = _db
           .collection('contracts')
           .doc(contractId)
@@ -633,7 +258,6 @@ class _PlanningRightWayPropertyMapState
         }
       } catch (_) {}
 
-      // 2) Lista pastas de propriedades com geo
       final root = _storage.ref(
         'contracts/$contractId/planning_highway_domain/properties',
       );
@@ -648,7 +272,6 @@ class _PlanningRightWayPropertyMapState
         } catch (_) {}
       }
 
-      // 3) Varre arquivos geo de cada propriedade
       for (final folder in geoFolders) {
         final propertyId = folder.parent?.name ?? '';
         final list = await folder.listAll();
@@ -656,16 +279,15 @@ class _PlanningRightWayPropertyMapState
           try {
             final url = await item.getDownloadURL();
             final dl = await _downloadWithType(url);
-            final kind = _detectKind(item.name, dl.contentType, dl.bytes);
-            final geoms = await _parseGeometries(item.name, dl.bytes, kind);
+
+            final kind = GeometryParsers.detectKind(item.name, dl.contentType, dl.bytes);
+            final geoms = await GeometryParsers.parseGeometries(item.name, dl.bytes, kind);
 
             final owner =
                 _ownersByPropId[propertyId] ?? 'Proprietário não informado';
 
             _ingestGeometries(geoms, ownerName: owner, propertyId: propertyId);
-          } catch (_) {
-            // ignora itens problemáticos
-          }
+          } catch (_) {}
         }
       }
 
@@ -680,6 +302,66 @@ class _PlanningRightWayPropertyMapState
       });
     }
   }
+
+  // ------------------- helpers -------------------
+
+  String _initials3(String owner) {
+    final tokens = owner
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (tokens.isEmpty) return 'IMV';
+    final letters = tokens.take(3).map((t) => t.characters.first).join();
+    return letters.toUpperCase().padRight(3, ' ').substring(0, 3);
+  }
+
+  // ======== Overlay helpers ========
+
+  void _recomputeTooltipScreenPos(MapController? mapController) {
+    if (_tooltipAnchor == null || mapController == null) return;
+    final cam = mapController.camera;
+    final pos = MapMath.latLngToScreen(cam, _tooltipAnchor!);
+    setState(() => _tooltipScreenPos = pos);
+  }
+
+  void _openTooltip({
+    required LatLng latLng,
+    required List<MapEntry<String, String>> entries,
+    VoidCallback? onDetails,
+    VoidCallback? onClose,
+    MapController? mapController,
+  }) {
+    _tooltipAnchor = latLng;
+    _tooltipEntries = entries;
+    _tooltipOnDetails = onDetails;
+    _tooltipOnClose = () {
+      _closeTooltip();
+      onClose?.call();
+    };
+    _recomputeTooltipScreenPos(mapController);
+
+    // garante novo cálculo depois que o Card medir
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _recomputeTooltipScreenPos(mapController);
+    });
+  }
+
+  void _closeTooltip() {
+    if (!mounted) return;
+
+    setState(() {
+      _tooltipAnchor = null;
+      _tooltipScreenPos = null;
+      _tooltipEntries = const [];
+      _tooltipOnDetails = null;
+      _tooltipOnClose = null;
+    });
+
+    // 👇 DESSELECIONA e FECHA o painel de detalhes
+    widget.selectedPropertyIdNotifier?.value = null;
+    widget.externalPanelController?.value = false;
+  }
+
 
   // ----------------------------- UI -----------------------------
 
@@ -724,122 +406,41 @@ class _PlanningRightWayPropertyMapState
             taggedMarkers: taggedMarkers,
             selectedMarkerPosition: selectedMarkerPosition,
             onMarkerSelected: onMarkerSelected,
+            inlineTooltip: true,
+            inlineMaxWidth: 240,
+            inlineClearance: -45.0,
+            markerAlignment: Alignment.topCenter,
+            // PIN visual + cor por seleção
+            markerBuilder: (context, tagged, isSelected) {
+              final label = (tagged.properties['pinLabel'] as String?)?.trim() ?? 'IMV';
+              final Color pinColor = isSelected ? Colors.amber.shade700 : Colors.black26;
 
-            // PIN visual (âncora no bottom-center do Marker)
-            markerBuilder: (context, tagged) {
-              final label =
-                  (tagged.properties?['pinLabel'] as String?)?.trim() ?? 'IMV';
               return PinChanged(
-                size: 36,
-                color: const Color(0xFFE67E22),
-                borderColor: const Color(0xFF5A3A12),
-                showShadow: true,
-                innerDot: true,
-                label: label, // 3 letras
+                size: 50,
+                label: label,
+                color: pinColor,
+                halo: isSelected,
+                haloOpacity: 0.20,
+                haloScale: 1.85,
               );
             },
-
             // Título/Subtítulo do tooltip
             titleBuilder: (data) {
               final owner = (data['ownerName'] as String?) ??
-                  (taggedMarkers
-                      .firstWhere((m) => m.data == data)
-                      .properties?['ownerName'] as String?) ??
+                  (taggedMarkers.firstWhere((m) => m.data == data).properties['ownerName'] as String?) ??
                   'Proprietário';
               return owner;
             },
-            subTitleBuilder: (data) => '', // opcional
+            subTitleBuilder: (data) => '',
 
             // Botão "Detalhes" → abre painel direito
             onViewDetails: (ctx, tagged) {
               final propId = tagged.data['propertyId'] as String?;
               if (propId == null || propId.isEmpty) return;
-              widget.externalPanelController?.value = true; // abre painel
-              widget.selectedPropertyIdNotifier?.value = propId; // carrega detalhes
+              widget.externalPanelController?.value = true;
+              widget.selectedPropertyIdNotifier?.value = propId;
             },
-
-            // 👇 Abre tooltip em overlay no PAI (usa o MapController salvo)
-            onShowTooltipAcima: ({
-              required BuildContext context,
-              required LatLng position,
-              required List<MapEntry<String, String>> entries,
-              VoidCallback? onDetails,
-              VoidCallback? onClose,
-            }) {
-              _openTooltip(
-                latLng: position,
-                entries: entries,
-                onDetails: onDetails,
-                onClose: onClose,
-                mapController: _mapControllerRef,
-              );
-            },
-
             onClearSelection: _closeTooltip,
-          );
-        },
-
-        // ======== Overlay acima do mapa ========
-        overlayBuilder: (mapController, _) {
-          // guarda referência do mapController para uso em callbacks
-          _mapControllerRef ??= mapController;
-
-          // escuta eventos do mapa (zoom/pan) para manter o tooltip posicionado
-          _mapSub ??= mapController.mapEventStream.listen((evt) {
-            final z = evt.camera.zoom;
-            if (z != _currentZoom && mounted) {
-              setState(() => _currentZoom = z);
-            }
-            _recomputeTooltipScreenPos(mapController);
-          });
-
-          return Stack(
-            children: [
-              // barreira de clique-fora (só quando tooltip aberto)
-              if (_tooltipScreenPos != null)
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: _closeTooltip,
-                    child: const SizedBox.shrink(),
-                  ),
-                ),
-
-              // Tooltip posicionado por coordenada de tela
-              if (_tooltipScreenPos != null)
-                Positioned(
-                  // centralize conforme sua largura/altura do card
-                  left: _tooltipScreenPos!.dx - 140, // 280/2
-                  top: _tooltipScreenPos!.dy - 145,  // sobe acima do pin
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TooltipAnimatedCard(
-                        title: _tooltipEntries
-                            .firstWhere(
-                              (e) => e.key == 'title',
-                          orElse: () => const MapEntry('title', 'Detalhe'),
-                        )
-                            .value,
-                        subtitle: () {
-                          final s = _tooltipEntries
-                              .firstWhere(
-                                (e) => e.key == 'subtitle',
-                            orElse: () => const MapEntry('subtitle', ''),
-                          )
-                              .value
-                              .trim();
-                          return s.isEmpty ? null : s;
-                        }(),
-                        maxWidth: 280,
-                        onDetails: _tooltipOnDetails,
-                        onClose: _tooltipOnClose ?? _closeTooltip,
-                      ),
-                      const TooltipBalloonTip(color: Colors.black87, height: 6, width: 14),
-                    ],
-                  ),
-                ),
-            ],
           );
         },
       ),

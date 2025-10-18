@@ -1,7 +1,7 @@
 // lib/_widgets/carousel/overlays/photo_metadata_overlay.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/carousel/carousel_metadata.dart' as pm;
 
 class PhotoMetadataOverlay extends StatelessWidget {
   final pm.CarouselMetadata? meta;

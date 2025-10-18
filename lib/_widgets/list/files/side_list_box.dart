@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:siged/_widgets/list/files/auto_icon.dart';
+// mesmo viewer usado no WebPdfWidgetGeneric
+import 'package:siged/_services/pdf/pdf_preview.dart';
 
 class SideListBox extends StatelessWidget {
   final String title;
-  final List<String> items;
+  /// Compat: aceita `String` (antigo) ou `Attachment` (novo)
+  final List<dynamic> items;
   final int? selectedIndex;
   final VoidCallback? onAddPressed;
   final void Function(int index)? onTap;
   final void Function(int index)? onDelete;
+  final void Function(int index)? onEditLabel; // só para attachment
   final double width;
-
-  /// Opcional: sobrescrever o leading por item (ex.: para o box georreferenciado)
-  final Widget Function(String name)? leadingBuilder;
 
   const SideListBox({
     super.key,
@@ -20,9 +25,72 @@ class SideListBox extends StatelessWidget {
     this.onAddPressed,
     this.onTap,
     this.onDelete,
+    this.onEditLabel,
     this.width = 300,
-    this.leadingBuilder,
   });
+
+  String _normExt(String? e) {
+    final s = (e ?? '').trim();
+    if (s.isEmpty) return '';
+    return (s.startsWith('.') ? s.substring(1) : s).toLowerCase();
+  }
+
+  bool _isPdfAttachment(Attachment a) {
+    final ext = _normExt(a.ext);
+    if (ext == 'pdf') return true;
+    final url = (a.url).toLowerCase();
+    return url.endsWith('.pdf');
+  }
+
+  Future<void> _openUrlExternal(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null) {
+      try { await launchUrl(uri, mode: LaunchMode.externalApplication); } catch (_) {}
+    }
+  }
+
+  Future<void> _openPdfDialog(BuildContext context, String url, {String? title}) async {
+    await showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.all(16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 980, maxHeight: 780),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // cabeçalho simples com título e fechar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title ?? 'Visualizar PDF',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Fechar',
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: PdfPreview(pdfUrl: url)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,102 +145,96 @@ class SideListBox extends StatelessWidget {
                 child: Text('Sem arquivos. Toque em + e adicione.'),
               )
             else
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 240),
-                child: Scrollbar(
-                  child: ListView.separated(
-                    shrinkWrap: true,
+              Builder(
+                builder: (context) {
+                  // Quando tiver muitos itens, ativa rolagem e fixa altura.
+                  const maxHeight = 280.0;
+                  final needsScroll = items.length > 6;
+
+                  final list = ListView.separated(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: !needsScroll,
+                    physics: needsScroll
+                        ? const AlwaysScrollableScrollPhysics()
+                        : const NeverScrollableScrollPhysics(),
                     itemCount: items.length,
-                    separatorBuilder: (_, __) => Divider(height: 1, color: divider),
+                    separatorBuilder: (_, __) => Divider(height: 1, thickness: 1, color: divider),
                     itemBuilder: (context, i) {
                       final selected = selectedIndex != null && selectedIndex == i;
-                      final name = items[i];
+                      final dynamic raw = items[i];
+                      final bool isAttachment = raw is Attachment;
+
+                      final String label = isAttachment ? raw.label : raw.toString();
+
+                      // Ícone: tenta usar extensão do attachment; cai para URL/nome
+                      final String iconKey = isAttachment
+                          ? ((_normExt(raw.ext).isNotEmpty) ? _normExt(raw.ext) : raw.url)
+                          : label;
+
+                      final String subtitle = isAttachment
+                          ? _normExt(raw.ext).toUpperCase()
+                          : '';
+
+                      Future<void> handleTap() async {
+                        // prioridade: callback externo
+                        if (onTap != null) {
+                          onTap!(i);
+                          return;
+                        }
+                        // sem callback: comportamento padrão
+                        if (isAttachment) {
+                          final a = raw as Attachment;
+                          if (_isPdfAttachment(a)) {
+                            await _openPdfDialog(context, a.url, title: label);
+                          } else {
+                            await _openUrlExternal(a.url);
+                          }
+                        }
+                      }
 
                       return Material(
                         color: selected ? cs.primary.withOpacity(0.08) : Colors.transparent,
                         child: ListTile(
                           dense: true,
+                          visualDensity: const VisualDensity(vertical: -2),
+                          minVerticalPadding: 0,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                          leading: leadingBuilder?.call(name) ?? _autoIconFor(name),
-                          title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          onTap: onTap != null ? () => onTap!(i) : null,
-                          trailing: onDelete == null
+                          leading: AutoIcon(nameOrUrl: iconKey),
+                          title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: subtitle.isEmpty
                               ? null
-                              : IconButton(
-                            tooltip: 'Remover',
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => onDelete!(i),
+                              : Text(subtitle, style: const TextStyle(fontSize: 11)),
+                          onTap: handleTap,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isAttachment && onEditLabel != null)
+                                IconButton(
+                                  tooltip: 'Renomear rótulo',
+                                  icon: const Icon(Icons.edit, size: 18),
+                                  onPressed: () => onEditLabel!(i),
+                                ),
+                              if (onDelete != null)
+                                IconButton(
+                                  tooltip: 'Remover',
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => onDelete!(i),
+                                ),
+                            ],
                           ),
                         ),
                       );
                     },
-                  ),
-                ),
-              ),
+                  );
+
+                  return needsScroll
+                      ? SizedBox(height: maxHeight, child: Scrollbar(child: list))
+                      : list;
+                },
+              )
           ],
         ),
       ),
     );
-  }
-
-  // ---------- helpers ----------
-  Widget _autoIconFor(String nameOrUrl) {
-    final ext = _extractExt(nameOrUrl); // ex.: ".kml"
-
-    switch (ext) {
-      case '.pdf':
-        return const Icon(Icons.picture_as_pdf);
-      case '.kml':
-        return const Icon(Icons.terrain); // KML
-      case '.kmz':
-        return const Icon(Icons.layers); // KMZ
-      case '.geojson':
-      case '.json':
-        return const Icon(Icons.public); // GeoJSON
-      case '.png':
-      case '.jpg':
-      case '.jpeg':
-      case '.gif':
-      case '.webp':
-        return const Icon(Icons.image);
-      case '.doc':
-      case '.docx':
-        return const Icon(Icons.description);
-      case '.xls':
-      case '.xlsx':
-      case '.csv':
-        return const Icon(Icons.table_chart);
-      case '.ppt':
-      case '.pptx':
-        return const Icon(Icons.slideshow);
-      case '.zip':
-      case '.rar':
-      case '.7z':
-        return const Icon(Icons.archive);
-      case '.txt':
-      case '.md':
-        return const Icon(Icons.notes);
-      default:
-        return const Icon(Icons.insert_drive_file);
-    }
-  }
-
-  /// Extrai a extensão de forma robusta (minúscula), ignorando query/hash e espaços.
-  String _extractExt(String input) {
-    var s = input.trim();
-
-    // remove query e hash
-    final q = s.indexOf('?');
-    if (q != -1) s = s.substring(0, q);
-    final h = s.indexOf('#');
-    if (h != -1) s = s.substring(0, h);
-
-    // pega só o último segmento do path
-    s = s.split('/').last.trim();
-
-    // match da última extensão no fim da string
-    final m = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(s);
-    if (m == null) return '';
-    return '.${m.group(1)!.toLowerCase()}';
   }
 }

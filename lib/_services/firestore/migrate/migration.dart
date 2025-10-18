@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_services/firestore/migrate/migration_service.dart';
 
+// ✅ notificações ricas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class MigrationCollections extends StatelessWidget {
   const MigrationCollections({super.key});
 
@@ -10,30 +14,42 @@ class MigrationCollections extends StatelessWidget {
       leading: const Icon(Icons.swap_horiz),
       tileColor: Colors.white10,
       onTap: () async {
-        // Loading
+        // Loading modal
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder:
-              (_) => const Center(child: CircularProgressIndicator()),
+          builder: (_) => const Center(child: CircularProgressIndicator()),
         );
         try {
           await migrarMeasurementsParaColecoesNovas();
-          if (context.mounted) {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Migração (renomeio) concluída!'),
-              ),
-            );
-          }
+
+          if (!context.mounted) return;
+          Navigator.pop(context); // fecha loading
+
+          // 🔔 sucesso
+          NotificationCenter.instance.show(
+            AppNotification(
+              title: const Text('Migração concluída'),
+              subtitle: const Text('Medições renomeadas para novas coleções'),
+              type: AppNotificationType.success,
+              leadingLabel: const Text('Migração'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
         } catch (e) {
-          if (context.mounted) {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erro na migração: $e')),
-            );
-          }
+          if (!context.mounted) return;
+          Navigator.pop(context); // fecha loading
+
+          // 🔔 erro
+          NotificationCenter.instance.show(
+            AppNotification(
+              title: const Text('Erro na migração'),
+              subtitle: Text('$e'),
+              type: AppNotificationType.error,
+              leadingLabel: const Text('Migração'),
+              duration: const Duration(seconds: 6),
+            ),
+          );
         }
       },
       title: const Text(

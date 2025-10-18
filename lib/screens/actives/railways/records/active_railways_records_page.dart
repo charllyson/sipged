@@ -18,6 +18,10 @@ import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
 import 'active_railways_form.dart';
 import 'active_railways_records_table_section.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ActiveRailwaysRecordsPage extends StatefulWidget {
   const ActiveRailwaysRecordsPage({super.key});
 
@@ -69,6 +73,14 @@ class _ActiveRailwaysRecordsPageState extends State<ActiveRailwaysRecordsPage> {
               return const Scaffold(body: Center(child: CircularProgressIndicator()));
             }
             if (st.loadStatus == ActiveRailwaysLoadStatus.failure) {
+              // 🔔 Notificação de erro de carregamento
+              NotificationCenter.instance.show(
+                AppNotification(
+                  title: const Text('Falha ao carregar ferrovias'),
+                  subtitle: Text(st.error ?? 'Erro desconhecido'),
+                  type: AppNotificationType.error,
+                ),
+              );
               return Scaffold(body: Center(child: Text('Erro: ${st.error ?? '-'}')));
             }
 
@@ -101,8 +113,14 @@ class _ActiveRailwaysRecordsPageState extends State<ActiveRailwaysRecordsPage> {
                               futureRailways: Future.value(st.all),
                               onTapItem: (item) {
                                 setState(() => _editing = item); // carrega no form
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Editando ${item.codigo ?? item.nome ?? item.id ?? ''}')),
+                                final rotulo = item.codigo ?? item.nome ?? item.id ?? '';
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    title: const Text('Editando registro'),
+                                    subtitle: Text(rotulo),
+                                    type: AppNotificationType.info,
+                                    duration: const Duration(seconds: 3),
+                                  ),
                                 );
                               },
                               onDelete: (id) {
@@ -110,10 +128,11 @@ class _ActiveRailwaysRecordsPageState extends State<ActiveRailwaysRecordsPage> {
                                 if (_editing?.id == id) {
                                   setState(() => _editing = null);
                                 }
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Solicitando exclusão...'),
-                                    backgroundColor: Colors.red,
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    title: Text('Solicitando exclusão...'),
+                                    type: AppNotificationType.warning,
+                                    duration: Duration(seconds: 3),
                                   ),
                                 );
                               },

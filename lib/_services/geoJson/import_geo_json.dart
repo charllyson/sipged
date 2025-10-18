@@ -7,11 +7,15 @@ import 'package:latlong2/latlong.dart';
 import 'preview_dialog.dart';
 import 'sanitizer_geometry.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ImportGeoJson {
   /// Abre o file picker, mostra o preview e devolve o que foi selecionado.
   ///
   /// - `onSalvar`: recebe (linhasPrincipais, geometrias) já saneadas (LineStrings).
-  /// - `onFinished`: callback opcional para pós-processo (snackbar, refresh, etc).
+  /// - `onFinished`: callback opcional para pós-processo (refresh etc).
   static Future<void> geoJsonImport({
     required BuildContext context,
     required String path, // mantido por compatibilidade
@@ -27,7 +31,10 @@ class ImportGeoJson {
         type: FileType.custom,
         allowedExtensions: ['geojson', 'json'],
       );
-      if (result == null) return;
+      if (result == null) {
+        _notify('Importação cancelada', type: AppNotificationType.warning);
+        return;
+      }
 
       final file = result.files.first;
       final bytes = file.bytes ?? File(file.path!).readAsBytesSync();
@@ -38,7 +45,7 @@ class ImportGeoJson {
       featuresRaw.whereType<Map<String, dynamic>>().toList();
 
       if (parsedFeatures.isEmpty) {
-        _showSnackBar(context, 'GeoJSON sem dados válidos.');
+        _notify('GeoJSON sem dados válidos.', type: AppNotificationType.warning);
         return;
       }
 
@@ -86,28 +93,33 @@ class ImportGeoJson {
               await onSalvar(linhas, geometrias);
               onFinished?.call();
 
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Importado com correção de saltos. '
-                          'Saltos detectados (na escolha de sentido): $totalSaltosConsiderados',
-                    ),
-                  ),
-                );
-              }
+              _notify(
+                'Importação concluída',
+                type: AppNotificationType.success,
+                subtitle:
+                'Saltos detectados (no sentido escolhido): $totalSaltosConsiderados',
+              );
             },
           );
         },
       );
     } catch (e) {
-      _showSnackBar(context, 'Erro ao importar GeoJSON: $e');
+      _notify('Erro ao importar GeoJSON', type: AppNotificationType.error, subtitle: '$e');
     }
   }
 
-  static void _showSnackBar(BuildContext context, String msg) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    }
+  // 🔔 helper de notificação
+  static void _notify(
+      String title, {
+        AppNotificationType type = AppNotificationType.info,
+        String? subtitle,
+      }) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text(title),
+        subtitle: subtitle != null ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
   }
 }

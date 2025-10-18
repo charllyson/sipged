@@ -11,13 +11,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
 import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
-import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_bloc.dart';
-import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_store.dart';
-import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_bloc.dart';
-import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
+import 'package:siged/_blocs/process/adjustment/adjustment_measurement_bloc.dart';
+import 'package:siged/_blocs/process/adjustment/adjustment_measurement_store.dart';
+import 'package:siged/_blocs/process/phys_fin/physics_finance_store.dart';
+import 'package:siged/_blocs/process/revision/revision_measurement_bloc.dart';
+import 'package:siged/_blocs/process/revision/revision_measurement_store.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
-import 'package:siged/_blocs/sectors/planning/highway_domain/planning_highway_domain_bloc.dart';
 
 import '_blocs/actives/roads/active_roads_event.dart';
 import '_services/dxf/map_overlay_cubit.dart';
@@ -31,17 +31,17 @@ import 'package:firebase_storage/firebase_storage.dart';
 // ************ IMPORTS via package: ************
 import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
 
-import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/budget/budget_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/validity/validity_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_bloc.dart';
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
+import 'package:siged/_blocs/process/additives/additives_bloc.dart';
+import 'package:siged/_blocs/process/additives/additives_storage_bloc.dart';
+import 'package:siged/_blocs/process/apostilles/apostilles_bloc.dart';
+import 'package:siged/_blocs/process/apostilles/apostilles_storage_bloc.dart';
+import 'package:siged/_blocs/process/budget/budget_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contract_storage_bloc.dart';
+import 'package:siged/_blocs/process/validity/validity_bloc.dart';
+import 'package:siged/_blocs/process/validity/validity_storage_bloc.dart';
+import 'package:siged/_blocs/process/report/report_measurement_bloc.dart';
+import 'package:siged/_blocs/process/report/report_measurement_storage_bloc.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
@@ -51,20 +51,19 @@ import 'package:siged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
 import 'package:siged/_blocs/sectors/transit/infractions/infractions_bloc.dart';
 import 'package:siged/_blocs/sectors/transit/infractions/infractions_controller.dart';
 
-import 'package:siged/_blocs/system/user/admin_bloc.dart';
 import 'package:siged/_blocs/system/login/login_bloc.dart';
 import 'package:siged/_blocs/system/info/system_bloc.dart';
 
-import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
-import 'package:siged/_blocs/documents/contracts/budget/budget_store.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
-import 'package:siged/_blocs/documents/contracts/validity/validity_store.dart';
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_store.dart';
+import 'package:siged/_blocs/process/additives/additive_store.dart';
+import 'package:siged/_blocs/process/apostilles/apostilles_store.dart';
+import 'package:siged/_blocs/process/budget/budget_store.dart';
+import 'package:siged/_blocs/process/contracts/contract_store.dart';
+import 'package:siged/_blocs/process/validity/validity_store.dart';
+import 'package:siged/_blocs/process/report/report_measurement_store.dart';
 
 import 'package:siged/_blocs/system/user/user_repository.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contracts_controller.dart';
-import 'package:siged/siged_page.dart';
+import 'package:siged/_blocs/process/contracts/contracts_controller.dart';
+import 'package:siged/gate_page.dart';
 
 // OAEs
 import '_blocs/actives/oaes/active_oaes_event.dart';
@@ -125,12 +124,12 @@ Future<void> bootstrapAndRunApp() async {
     runApp(
       MultiProvider(
         providers: [
+          // ========= Cubits/BLoCs auxiliares =========
           BlocProvider(create: (_) => MapOverlayCubit()),
 
-          // --------- BLoCs / services ---------
+          // --------- BLoCs / services básicos ---------
           Provider<LoginBloc>(create: (_) => LoginBloc(), dispose: (_, b) => b.dispose()),
           Provider<SystemBloc>(create: (_) => SystemBloc(), dispose: (_, b) => b.dispose()),
-          Provider<AdminBloc>(create: (_) => AdminBloc(), dispose: (_, b) => b.dispose()),
 
           /// ======= User =======
           Provider<UserRepository>(create: (_) => UserRepository()),
@@ -140,41 +139,27 @@ Future<void> bootstrapAndRunApp() async {
             dispose: (_, b) => b.close(),
           ),
 
-          /// ======= Contract =======
-          Provider<ContractBloc>(create: (_) => ContractBloc(), dispose: (_, b) => b.dispose()),
-          Provider<ContractStorageBloc>(create: (_) => ContractStorageBloc()),
-          ChangeNotifierProvider<ContractsStore>(
-            create: (ctx) => ContractsStore(ctx.read<ContractBloc>(), ctx.read<ContractStorageBloc>()),
+          /// ======= OAEs / Rodovias / Ferrovias =======
+          BlocProvider<ActiveOaesBloc>(create: (_) => ActiveOaesBloc()..add(const ActiveOaesWarmupRequested())),
+          BlocProvider<ActiveRoadsBloc>(create: (_) => ActiveRoadsBloc()..add(const ActiveRoadsWarmupRequested())),
+          BlocProvider<ActiveRailwaysBloc>(create: (_) => ActiveRailwaysBloc()..add(const ActiveRailwaysWarmupRequested())),
+
+          // ======= Acidentes / Infrações =======
+          BlocProvider<AccidentsBloc>(create: (_) => AccidentsBloc()),
+          Provider<InfractionsBloc>(create: (_) => InfractionsBloc(), dispose: (_, b) => b.dispose()),
+          ChangeNotifierProxyProvider<InfractionsBloc, InfractionsController>(
+            create: (ctx) => InfractionsController(bloc: ctx.read<InfractionsBloc>()),
+            update: (_, iBloc, ctrl) => ctrl!..updateDeps(iBloc),
           ),
 
-          /// ======= Additives =======
-          Provider<AdditivesBloc>(create: (_) => AdditivesBloc(), dispose: (_, b) => b.dispose()),
-          Provider<AdditivesStorageBloc>(create: (_) => AdditivesStorageBloc(), dispose: (_, b) => b.dispose()),
-          ChangeNotifierProvider<AdditivesStore>(
-            create: (ctx) => AdditivesStore(
-              bloc: ctx.read<AdditivesBloc>(),
-              storage: ctx.read<AdditivesStorageBloc>(),
-            ),
-          ),
-
-          /// ======= Apostilles =======
-          Provider<ApostillesBloc>(create: (_) => ApostillesBloc(), dispose: (_, b) => b.dispose()),
-          Provider<ApostillesStorageBloc>(create: (_) => ApostillesStorageBloc(), dispose: (_, b) => b.dispose()),
-          ChangeNotifierProvider<ApostillesStore>(
-            create: (ctx) => ApostillesStore(
-              bloc: ctx.read<ApostillesBloc>(),
-              storage: ctx.read<ApostillesStorageBloc>(),
-            ),
-          ),
-
-          /// ======= Report Measurement =======
+          /// ======= REPORT MEASUREMENT =======
           Provider<ReportMeasurementStorageBloc>(create: (_) => ReportMeasurementStorageBloc()),
           Provider<ReportMeasurementBloc>(create: (_) => ReportMeasurementBloc(), dispose: (_, b) => b.dispose()),
           ChangeNotifierProvider<ReportsMeasurementStore>(
             create: (ctx) => ReportsMeasurementStore(ctx.read<ReportMeasurementBloc>()),
           ),
 
-          /// ======= Validity =======
+          /// ======= VALIDITY =======
           Provider<ValidityStorageBloc>(create: (_) => ValidityStorageBloc()),
           Provider<ValidityBloc>(create: (_) => ValidityBloc(), dispose: (_, b) => b.dispose()),
           ChangeNotifierProvider<ValidityStore>(
@@ -184,39 +169,55 @@ Future<void> bootstrapAndRunApp() async {
             ),
           ),
 
-          /// ======= Budget =======
+          /// ======= BUDGET =======
           Provider<BudgetBloc>(create: (_) => BudgetBloc()),
-          ChangeNotifierProvider<BudgetStore>(create: (ctx) => BudgetStore(bloc: ctx.read<BudgetBloc>())),
-
-          /// ======= OAEs =======
-          BlocProvider<ActiveOaesBloc>(
-            create: (_) => ActiveOaesBloc()
-              ..add(const ActiveOaesWarmupRequested()),
-          ),
-          /// ======= Roads =======
-          BlocProvider<ActiveRoadsBloc>(
-            create: (_) => ActiveRoadsBloc()
-              ..add(const ActiveRoadsWarmupRequested()),
-          ),
-          /// ======= Railway =======
-          BlocProvider<ActiveRailwaysBloc>(
-            create: (_) => ActiveRailwaysBloc()
-              ..add(const ActiveRailwaysWarmupRequested()),
+          ChangeNotifierProvider<BudgetStore>(
+            create: (ctx) => BudgetStore(bloc: ctx.read<BudgetBloc>()),
           ),
 
-          // ======= Accidents =======
-          BlocProvider<AccidentsBloc>(                     // ✅ TROCA para BlocProvider
-            create: (_) => AccidentsBloc(),
+          /// ======= ADJUSTMENT MEASUREMENT (mover para cima do ContractsController) =======
+          Provider<AdjustmentMeasurementBloc>(create: (_) => AdjustmentMeasurementBloc(), dispose: (_, b) => b.dispose()),
+          ChangeNotifierProvider<AdjustmentsMeasurementStore>(
+            create: (ctx) => AdjustmentsMeasurementStore(ctx.read<AdjustmentMeasurementBloc>()),
           ),
 
-          /// ======= Infractions =======
-          Provider<InfractionsBloc>(create: (_) => InfractionsBloc(), dispose: (_, b) => b.dispose()),
-          ChangeNotifierProxyProvider<InfractionsBloc, InfractionsController>(
-            create: (ctx) => InfractionsController(bloc: ctx.read<InfractionsBloc>()),
-            update: (_, iBloc, ctrl) => ctrl!..updateDeps(iBloc),
+          /// ======= REVISION MEASUREMENT (mover para cima do ContractsController) =======
+          Provider<RevisionMeasurementBloc>(create: (_) => RevisionMeasurementBloc(), dispose: (_, b) => b.dispose()),
+          ChangeNotifierProvider<RevisionsMeasurementStore>(
+            create: (ctx) => RevisionsMeasurementStore(ctx.read<RevisionMeasurementBloc>()),
           ),
 
-          /// ======= Dashboard =======
+          /// ======= ADDITIVES =======
+          Provider<AdditivesBloc>(create: (_) => AdditivesBloc(), dispose: (_, b) => b.dispose()),
+          Provider<AdditivesStorageBloc>(create: (_) => AdditivesStorageBloc(), dispose: (_, b) => b.dispose()),
+          ChangeNotifierProvider<AdditivesStore>(
+            create: (ctx) => AdditivesStore(
+              bloc: ctx.read<AdditivesBloc>(),
+              storage: ctx.read<AdditivesStorageBloc>(),
+            ),
+          ),
+
+          /// ======= APOSTILLES =======
+          Provider<ApostillesBloc>(create: (_) => ApostillesBloc(), dispose: (_, b) => b.dispose()),
+          Provider<ApostillesStorageBloc>(create: (_) => ApostillesStorageBloc(), dispose: (_, b) => b.dispose()),
+          ChangeNotifierProvider<ApostillesStore>(
+            create: (ctx) => ApostillesStore(
+              bloc: ctx.read<ApostillesBloc>(),
+              storage: ctx.read<ApostillesStorageBloc>(),
+            ),
+          ),
+
+          /// ======= CONTRACT base (Store/Storage/Bloc) =======
+          Provider<ContractBloc>(create: (_) => ContractBloc(), dispose: (_, b) => b.dispose()),
+          Provider<ContractStorageBloc>(create: (_) => ContractStorageBloc()),
+          ChangeNotifierProvider<ContractsStore>(
+            create: (ctx) => ContractsStore(
+              ctx.read<ContractBloc>(),
+              ctx.read<ContractStorageBloc>(),
+            ),
+          ),
+
+          /// ======= ContractsController (depois de TODOS os stores acima) =======
           ChangeNotifierProvider<ContractsController>(
             create: (ctx) => ContractsController(
               store: ctx.read<ContractsStore>(),
@@ -225,48 +226,32 @@ Future<void> bootstrapAndRunApp() async {
               reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
               adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),
               revisionsStore: ctx.read<RevisionsMeasurementStore>(),
-              // ⬇️ necessário para salvar URL de PDF e uso na MainInformationPage
+              // necessário para salvar URL de PDF e uso na MainInformationPage
               contractStorageBloc: ctx.read<ContractStorageBloc>(),
             )..initialize(),
           ),
 
-
           // ======= Schedule (cronograma) =======
           RepositoryProvider<ScheduleRoadRepository>(create: (_) => ScheduleRoadRepository()),
-          BlocProvider<ScheduleRoadBloc>(
-            create: (ctx) => ScheduleRoadBloc(
-              // se o construtor aceitar repo, descomente:
-              // repo: ctx.read<ScheduleRepository>(),
-            ),
-          ),
-
-          /// ======= Adjustment Measurement =======  👈 ADICIONE
-          Provider<AdjustmentMeasurementBloc>(create: (_) => AdjustmentMeasurementBloc(), dispose: (_, b) => b.dispose()),
-          ChangeNotifierProvider<AdjustmentsMeasurementStore>(
-            create: (ctx) => AdjustmentsMeasurementStore(ctx.read<AdjustmentMeasurementBloc>()),
-          ),
-
-          /// ======= Revision Measurement =======    👈 ADICIONE
-          Provider<RevisionMeasurementBloc>(create: (_) => RevisionMeasurementBloc(), dispose: (_, b) => b.dispose()),
-          ChangeNotifierProvider<RevisionsMeasurementStore>(
-            create: (ctx) => RevisionsMeasurementStore(ctx.read<RevisionMeasurementBloc>()),
-          ),
-
+          BlocProvider<ScheduleRoadBloc>(create: (ctx) => ScheduleRoadBloc()),
 
           /// ======= Payments =======
           Provider<PaymentReportBloc>(create: (_) => PaymentReportBloc()),
           Provider<PaymentsReportStorageBloc>(create: (_) => PaymentsReportStorageBloc()),
           Provider<PaymentRevisionBloc>(create: (_) => PaymentRevisionBloc()),
           Provider<PaymentAdjustmentBloc>(create: (_) => PaymentAdjustmentBloc()),
+
+          /// ======= Physics / Finance =======
+          ChangeNotifierProvider(create: (_) => PhysicsFinanceStore()), // novo
         ],
         builder: (context, _) {
           return BlocBuilder<UserBloc, UserState>(
             buildWhen: (a, b) => a.current != b.current,
             builder: (context, userState) {
-              final app = const SiGed();
+              final app = const GatePage();
 
               if (userState.current == null) {
-                // sem user: não injeta OAEs
+                // sem user: não injeta OAEs extras
                 return app;
               }
 

@@ -1,5 +1,4 @@
 // lib/_widgets/schedule/civil/dxf_enums.dart
-import 'package:flutter/material.dart';
 
 /// Origem do conteúdo que está sendo renderizado.
 enum SourceKind {

@@ -13,7 +13,7 @@ import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 
 class PaymentAdjustmentFormSection extends StatelessWidget {
   const PaymentAdjustmentFormSection({

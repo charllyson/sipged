@@ -1,4 +1,3 @@
-// lib/_widgets/schedule/schedule_grid.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 

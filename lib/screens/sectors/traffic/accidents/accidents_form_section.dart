@@ -17,7 +17,7 @@ class AccidentsFormSection extends StatelessWidget {
   final TextEditingController orderCtrl;
   final TextEditingController dateCtrl;
   final TextEditingController highwayCtrl;
-  final TextEditingController cityCtrl;
+  final TextEditingController cityCtrl; // Descrição (geral)
   final TextEditingController typeOfAccidentCtrl;
   final TextEditingController deathCtrl;
   final TextEditingController scoresVictimsCtrl;
@@ -27,7 +27,7 @@ class AccidentsFormSection extends StatelessWidget {
   final TextEditingController longitudeCtrl;
   final TextEditingController postalCodeCtrl;
   final TextEditingController streetCtrl;
-  final TextEditingController city2Ctrl;
+  final TextEditingController city2Ctrl; // Endereço
   final TextEditingController subLocalityCtrl;
   final TextEditingController administrativeAreaCtrl;
   final TextEditingController countryCtrl;
@@ -36,6 +36,10 @@ class AccidentsFormSection extends StatelessWidget {
   final Future<void> Function() onClear;
   final VoidCallback onSave;
   final VoidCallback onGetLocation;
+
+  /// 🔄 Callbacks para sincronizar com o mapa
+  final void Function(double lat, double lon)? onUpdateMapFromLatLng;
+  final Future<void> Function(String cep)? onUpdateMapFromCep;
 
   const AccidentsFormSection({
     super.key,
@@ -63,7 +67,29 @@ class AccidentsFormSection extends StatelessWidget {
     required this.onSave,
     required this.onGetLocation,
     this.itemsPerLineOverride,
+    this.onUpdateMapFromLatLng,
+    this.onUpdateMapFromCep,
   });
+
+  // ============= Helpers de validação/conversão =============
+  bool _isValidLatLng(double lat, double lng) =>
+      lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
+  void _tryUpdateMapFromLatLng() {
+    final lat = double.tryParse(latitudeCtrl.text.replaceAll(',', '.'));
+    final lng = double.tryParse(longitudeCtrl.text.replaceAll(',', '.'));
+    if (lat != null && lng != null && _isValidLatLng(lat, lng)) {
+      onUpdateMapFromLatLng?.call(lat, lng);
+    }
+  }
+
+  Future<void> _tryUpdateMapFromCep() async {
+    final raw = postalCodeCtrl.text;
+    final digits = raw.replaceAll(RegExp(r'\D'), ''); // só números
+    if (digits.length == 8) {
+      await onUpdateMapFromCep?.call(digits); // pai geocodifica e move o mapa
+    }
+  }
 
   // Campo de texto padrão
   Widget _text(
@@ -97,9 +123,12 @@ class AccidentsFormSection extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
-            const Expanded(child: Divider(thickness: 1, endIndent: 12, color: Colors.grey)),
+            const Expanded(
+                child:
+                Divider(thickness: 1, endIndent: 12, color: Colors.grey)),
             Text(title, style: const TextStyle(fontSize: 16)),
-            const Expanded(child: Divider(thickness: 1, indent: 12, color: Colors.grey)),
+            const Expanded(
+                child: Divider(thickness: 1, indent: 12, color: Colors.grey)),
           ],
         ),
       ),
@@ -108,6 +137,37 @@ class AccidentsFormSection extends StatelessWidget {
 
   // Bloco Localização (linha inteira)
   Widget _localizacaoBlock(BuildContext context, double maxW) {
+    // Focus wrappers para disparar ao perder o foco (blur) ou Enter (na prática Enter geralmente baixa o foco)
+    final latField = Focus(
+      onFocusChange: (hasFocus) {
+        if (!hasFocus) _tryUpdateMapFromLatLng();
+      },
+      child: _text(
+        context,
+        latitudeCtrl,
+        'Latitude',
+        keyboardType: const TextInputType.numberWithOptions(
+          signed: true,
+          decimal: true,
+        ),
+      ),
+    );
+
+    final lonField = Focus(
+      onFocusChange: (hasFocus) {
+        if (!hasFocus) _tryUpdateMapFromLatLng();
+      },
+      child: _text(
+        context,
+        longitudeCtrl,
+        'Longitude',
+        keyboardType: const TextInputType.numberWithOptions(
+          signed: true,
+          decimal: true,
+        ),
+      ),
+    );
+
     return SizedBox(
       width: maxW,
       child: Row(
@@ -135,13 +195,32 @@ class AccidentsFormSection extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                Expanded(child: _text(context, latitudeCtrl, 'Latitude', enabled: false)),
+                Expanded(child: latField),
                 const SizedBox(width: 8),
-                Expanded(child: _text(context, longitudeCtrl, 'Longitude', enabled: false)),
+                Expanded(child: lonField),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Campo CEP com blur → geocode
+  Widget _cepField(BuildContext context, double fieldW) {
+    return _gridItem(
+      fieldW,
+      Focus(
+        onFocusChange: (hasFocus) {
+          if (!hasFocus) _tryUpdateMapFromCep();
+        },
+        child: _text(
+          context,
+          postalCodeCtrl,
+          'CEP',
+          keyboardType: TextInputType.number,
+          mask: [FilteringTextInputFormatter.digitsOnly],
+        ),
       ),
     );
   }
@@ -171,12 +250,15 @@ class AccidentsFormSection extends StatelessWidget {
         runSpacing: spacing,
         children: [
           // ===== Localização (FULL WIDTH) =====
-          _sectionHeader(maxW, 'Localização'),
           _localizacaoBlock(context, maxW),
+
           // ===== Endereço e Metadados (2 por linha) =====
-          _gridItem(fieldW, _text(context, postalCodeCtrl, 'CEP')),
+          _cepField(context, fieldW),
           _gridItem(fieldW, _text(context, streetCtrl, 'Rua')),
-          _gridItem(fieldW, _text(context, cityCtrl, 'Cidade')),
+          _gridItem(
+              fieldW,
+              _text(context, city2Ctrl,
+                  'Cidade (Endereço)')),
           _gridItem(fieldW, _text(context, subLocalityCtrl, 'Bairro')),
           _gridItem(fieldW, _text(context, administrativeAreaCtrl, 'Estado')),
           _gridItem(fieldW, _text(context, countryCtrl, 'País')),
@@ -207,7 +289,8 @@ class AccidentsFormSection extends StatelessWidget {
           _gridItem(
             fieldW,
             DropDownButtonChange(
-              validator: (v) => (v == null || v.isEmpty) ? 'Campo obrigatório' : null,
+              validator: (v) =>
+              (v == null || v.isEmpty) ? 'Campo obrigatório' : null,
               enabled: isEditable,
               labelText: 'Tipo de acidente',
               items: AccidentsData.accidentTypes,
@@ -229,13 +312,16 @@ class AccidentsFormSection extends StatelessWidget {
             _text(
               context,
               scoresVictimsCtrl,
-              'Vítimas envolvidas',
+              'Vítimas com escoreações',
               keyboardType: TextInputType.number,
               mask: [FilteringTextInputFormatter.digitsOnly],
             ),
           ),
-          _gridItem(fieldW, _text(context, transportInvolvedCtrl, 'Transportes envolvidos')),
-          _gridItem(fieldW, _text(context, highwayCtrl, 'Rodovias')),
+          _gridItem(
+              fieldW, _text(context, transportInvolvedCtrl, 'Automóveis envolvidos')),
+          _gridItem(fieldW, _text(context, highwayCtrl, 'Rodovia')),
+          // Campo Cidade (descrição geral)
+          _gridItem(fieldW, _text(context, cityCtrl, 'Cidade (Descrição)')),
         ],
       );
 

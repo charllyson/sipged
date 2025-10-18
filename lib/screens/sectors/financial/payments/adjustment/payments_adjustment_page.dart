@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/report/payment_report_controller.dart';
+import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 import '../../../../../_blocs/sectors/financial/payments/adjustment/payment_adjustment_controller.dart';
 
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_services/excel/import_excel_page.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
@@ -14,6 +15,10 @@ import 'package:siged/_widgets/footBar/foot_bar.dart';
 import 'payment_adjustment_chart_section.dart';
 import 'payment_adjustment_form_section.dart';
 import 'payment_adjustment_table_section.dart';
+
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 class PaymentsAdjustmentPage extends StatelessWidget {
   const PaymentsAdjustmentPage({super.key, this.contractData});
@@ -107,23 +112,6 @@ class PaymentsAdjustmentPage extends StatelessWidget {
                                 );
                                 return ok == true;
                               },
-                              onSuccessSnack: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Pagamento salvo com sucesso!'),
-                                    backgroundColor: Colors.green,
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                              },
-                              onErrorSnack: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Falha ao salvar pagamento.'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              },
                             );
                           },
                           onClear: c.createNew,
@@ -146,36 +134,30 @@ class PaymentsAdjustmentPage extends StatelessWidget {
 
                         if (c.isAdmin)
                           ImportExcelPage(
-                          firstCollection: c.contract?.id ?? '',
-                          onFinished: () async => c.init(context, contractData: c.contract),
-                          onSave: (dados) async {
-                            final data = c.selected == null
-                                ? PaymentsAdjustmentsData.fromMap(dados)
-                                : PaymentsAdjustmentsData.fromMap(dados);
-                            await c.saveExact(
-                              data,
-                              onError: () => ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Erro ao importar pagamento de reajuste.'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                            firstCollection: c.contract?.id ?? '',
+                            onFinished: () async => c.init(context, contractData: c.contract),
+                            onSave: (dados) async {
+                              final data = c.selected == null
+                                  ? PaymentsAdjustmentsData.fromMap(dados)
+                                  : PaymentsAdjustmentsData.fromMap(dados);
+                              await c.saveExact(
+                                data,
+                                onError: () {
+                                  NotificationCenter.instance.show(
+                                    AppNotification(
+                                      title: Text('Erro ao importar'),
+                                      type: AppNotificationType.error,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
 
                         const SizedBox(height: 12),
                         PaymentAdjustmentTableSection(
                           onTapItem: c.selectRow,
-                          onDelete: (id) => c.deleteById(
-                            id,
-                            onSuccessSnack: () => ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Pagamento de reajustamento apagado com sucesso.'),
-                                backgroundColor: Colors.red,
-                              ),
-                            ),
-                          ),
+                          onDelete: (id) => c.deleteById(id),
                           paymentAdjustmentData: c.payments,
                           valorInicial: valorInicial,
                           valorAditivos: valorAditivos,

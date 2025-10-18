@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/tool_dock.dart';
 import 'package:siged/_widgets/toolBox/tool_slot.dart';
 
 ToolSlot MenuZoom(VoidCallback onTap) {

@@ -15,7 +15,6 @@ import 'package:siged/_widgets/toolBox/menuExport/menu_export.dart';
 import 'package:siged/_widgets/toolBox/menuSelect/menu_select.dart';
 import 'package:siged/_widgets/toolBox/menuText/menuText.dart';
 import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
-import 'package:siged/_widgets/toolBox/menuText/menu_text_side_panels.dart';
 import 'package:siged/_widgets/toolBox/menuZoom/menu_zoom.dart';
 import 'menuLock/menu_lock.dart';
 

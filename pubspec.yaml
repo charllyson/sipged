@@ -31,6 +31,7 @@ dependencies:
   scoped_model: ^2.0.0
   intl: ^0.20.2
   provider: ^6.1.5
+  dio: ^5.9.0
 
   xml: ^6.5.0
   archive: ^3.4.0
@@ -43,6 +44,7 @@ dependencies:
   # MAPAS
   flutter_map: ^8.2.1
   flutter_map_marker_cluster_plus: ^1.4.2
+  weather: ^3.2.1
 
   # GRÁFICOS
   fl_chart: ^1.0.0
@@ -62,7 +64,6 @@ dependencies:
   image: ^4.3.0            # caminho Dart (opcional, mas útil)
   image_editor: ^1.5.1     # caminho nativo (mais rápido)
   camera: ^0.10.5+9   # compatível com Flutter 3.x
-
 
 
   # ANIMAÇÕES
@@ -87,6 +88,14 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter_icons:
+  android: true
+  ios: true        # se quiser já gerar pra iOS
+  image_path: assets/app_icon.png   # 1024x1024 recomendado (sem bordas)
+  adaptive_icon_background: "#FFFFFF"     # ou "assets/icon_bg.png"
+  adaptive_icon_foreground: assets/icon_fg.png
 
 flutter:
   uses-material-design: true

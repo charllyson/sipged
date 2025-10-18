@@ -19,12 +19,8 @@ class ActiveOaesPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     const double kGaugeBoxWidth = 260;
     const double kPieBoxWidth = 280;
-    const double kWrapSpacing = 16.0;
-    const double kWrapRunSpacing = 16.0;
-
     const double kBarWidth = 50.0;
     const double kBarGap = 16.0;
-// ajuste se quiser
 
     return Stack(
       children: [
@@ -36,8 +32,9 @@ class ActiveOaesPanel extends StatelessWidget {
                 builder: (context, st) {
                   final bloc = context.read<ActiveOaesBloc>();
 
-                  // Gauge derivado do Pie
-                  final gaugeVm = st.gaugeForPieSelection(
+                  // 🔧 Gauge agora leva em conta os DOIS filtros (pie + região)
+                  final gaugeVm = st.gaugeForPieSelectionWithRegion(
+                    region: st.selectedRegionFilter,
                     selectedPieIndex: st.selectedPieIndexFilter,
                   );
 
@@ -58,17 +55,20 @@ class ActiveOaesPanel extends StatelessWidget {
                                     final double dynamicRadius = side * 0.35;
                                     final double dynamicFontSize = dynamicRadius * 0.5;
 
-                                    return GaugeCircularPercent(
-                                      centerTitle: gaugeVm.percent.clamp(0.0, 1.0),
-                                      footerTitle: gaugeVm.label,
-                                      headerMode: GaugeTextMode.number,
-                                      centerMode: GaugeTextMode.number,
-                                      values: [gaugeVm.count],
-                                      footerMode: GaugeTextMode.explicit,
-                                      radius: dynamicRadius,
-                                      larguraGrafico: side,
-                                      centerFontSize: dynamicFontSize,
-                                      footerFontSize: 12,
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 12.0),
+                                      child: GaugeCircularPercent(
+                                        centerTitle: gaugeVm.percent.clamp(0.0, 1.0),
+                                        footerTitle: gaugeVm.label,
+                                        headerMode: GaugeTextMode.number,
+                                        centerMode: GaugeTextMode.number,
+                                        values: [gaugeVm.count],
+                                        footerMode: GaugeTextMode.explicit,
+                                        radius: dynamicRadius,
+                                        larguraGrafico: side,
+                                        centerFontSize: dynamicFontSize,
+                                        footerFontSize: 12,
+                                      ),
                                     );
                                   },
                                 ),
@@ -90,23 +90,26 @@ class ActiveOaesPanel extends StatelessWidget {
                                     final double centerHole =
                                     (baseSlice * 0.58).clamp(18.0, baseSlice - 10.0);
 
-                                    return PieChartChanged(
-                                      colorCard: Colors.white,
-                                      valueFormatType: ValueFormatType.integer,
-                                      labels: st.pieLabelsForChart,
-                                      values: st.pieValuesForChart,
-                                      coresPersonalizadas: st.pieColorsForChart,
-                                      selectedIndex: st.selectedPieIndexFilter,
-                                      larguraGrafico: side,
-                                      alturaCard: 295,
-                                      chartHeight: chartHeight,
-                                      sliceRadius: baseSlice,
-                                      sliceRadiusHighlighted: hiSlice,
-                                      centerSpaceRadius: centerHole,
-                                      sectionsSpace: 2,
-                                      onTouch: (idx) {
-                                        bloc.add(ActiveOaesPieFilterChanged(idx));
-                                      },
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 12.0, top: 12),
+                                      child: PieChartChanged(
+                                        colorCard: Colors.white,
+                                        valueFormatType: ValueFormatType.integer,
+                                        labels: st.pieLabelsForChart,
+                                        values: st.pieValuesForChart,
+                                        coresPersonalizadas: st.pieColorsForChart,
+                                        selectedIndex: st.selectedPieIndexFilter,
+                                        larguraGrafico: side,
+                                        alturaCard: 295,
+                                        chartHeight: chartHeight,
+                                        sliceRadius: baseSlice,
+                                        sliceRadiusHighlighted: hiSlice,
+                                        centerSpaceRadius: centerHole,
+                                        sectionsSpace: 2,
+                                        onTouch: (idx) {
+                                          bloc.add(ActiveOaesPieFilterChanged(idx));
+                                        },
+                                      ),
                                     );
                                   },
                                 ),
@@ -143,21 +146,24 @@ class ActiveOaesPanel extends StatelessWidget {
                               scrollDirection: Axis.horizontal,
                               child: SizedBox(
                                 width: contentWidth,
-                                child: BarChartChanged(
-                                  colorCard: Colors.white,
-                                  valueFormatter: (v) => v.toStringAsFixed(0),
-                                  heightGraphic: 260,
-                                  widthBar: kBarWidth,
-                                  labels: st.regionLabels,
-                                  values: st.regionCountsFilteredByPie(),
-                                  selectedIndex: selectedRegionIdx,
-                                  onBarTap: (label) {
-                                    final newRegion = label == st.selectedRegionFilter
-                                        ? null
-                                        : label;
-                                    bloc.add(ActiveOaesRegionFilterChanged(newRegion));
-                                  },
-                                  expandToMaxWidth: true,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                                  child: BarChartChanged(
+                                    colorCard: Colors.white,
+                                    valueFormatter: (v) => v.toStringAsFixed(0),
+                                    heightGraphic: 260,
+                                    widthBar: kBarWidth,
+                                    labels: st.regionLabels,
+                                    values: st.regionCountsFilteredByPie(), // já considera o pie
+                                    selectedIndex: selectedRegionIdx,
+                                    onBarTap: (label) {
+                                      final newRegion = label == st.selectedRegionFilter
+                                          ? null
+                                          : label;
+                                      bloc.add(ActiveOaesRegionFilterChanged(newRegion));
+                                    },
+                                    expandToMaxWidth: true,
+                                  ),
                                 ),
                               ),
                             );

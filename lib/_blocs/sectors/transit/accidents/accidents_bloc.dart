@@ -1,4 +1,3 @@
-// lib/_blocs/sectors/transit/accidents/accidents_bloc.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -19,9 +18,12 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
     on<AccidentsSaveRequested>(_onSave);
     on<AccidentsDeleteRequested>(_onDelete);
     on<AccidentsRefreshRequested>(_onRefresh);
+    on<AccidentsGetLocationRequested>(_onGetLocationRequested);
+    on<AccidentsReverseGeocodeRequested>(_onReverseGeocodeRequested); // NOVO
+    on<AccidentsGeocodeCepRequested>(_onGeocodeCepRequested); // NOVO
   }
 
-  // ================= Helpers =================
+  // Helpers
   List<AccidentsData> _sortDescByDate(List<AccidentsData> list) {
     final cp = List<AccidentsData>.from(list);
     cp.sort((a, b) {
@@ -44,14 +46,9 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
       totalDocs == 0 ? 1 : ((totalDocs + limit - 1) ~/ limit);
 
   Map<String, double> _resumeMap(List<AccidentsData> view) {
-    // mesmo shape esperado pelos cards do summary (tipo -> double)
     final Map<String, double> out = {};
     for (final a in view) {
-      final t = (a.typeOfAccident ?? '').trim().toUpperCase();
-      if (t.isEmpty) continue;
-      final key = AccidentsData.getTitleByAccidentType(t).toUpperCase() == 'OUTROS'
-          ? 'OUTROS'
-          : t;
+      final key = AccidentsData.canonicalType(a.typeOfAccident);
       out[key] = (out[key] ?? 0) + 1.0;
     }
     return out;
@@ -93,8 +90,7 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
     ));
   }
 
-  // ================= Handlers =================
-
+  // Handlers
   Future<void> _onWarmup(
       AccidentsWarmupRequested e,
       Emitter<AccidentsState> emit,
@@ -107,20 +103,19 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
       city: (e.initialCity?.trim().isEmpty ?? true) ? null : e.initialCity!.trim(),
       error: null,
       success: null,
+      clearLocationSuggestion: true,
+      clearLocationError: true,
     ));
 
     try {
-      // Universo SEM filtros (para o seletor) — fica guardado
       final universe = await _repo.getAllAccidents();
 
-      // Lista filtrada conforme filtros iniciais
       final filtered = await _repo.getAllAccidents(
         year: state.year,
         month: state.month,
         city: state.city,
       );
 
-      // Primeira emissão: universe + placeholder para não piscar
       emit(state.copyWith(universe: universe));
 
       await _recomputeAndEmit(
@@ -140,13 +135,18 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
       AccidentsFilterChanged e,
       Emitter<AccidentsState> emit,
       ) async {
-    emit(state.copyWith(loading: true, error: null, success: null));
+    emit(state.copyWith(
+      loading: true,
+      error: null,
+      success: null,
+      clearLocationSuggestion: true,
+      clearLocationError: true,
+    ));
     try {
       final nextYear = e.year;
       final nextMonth = e.month;
-      final nextCity = (e.city?.trim().isEmpty ?? true) ? null : e.city!.trim();
+      final nextCity = (e.city?.trim().isNotEmpty == true) ? e.city!.trim() : null;
 
-      // NUNCA mexe em state.universe aqui
       final filtered = await _repo.getAllAccidents(
         year: nextYear,
         month: nextMonth,
@@ -171,7 +171,6 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
       AccidentsPageRequested e,
       Emitter<AccidentsState> emit,
       ) async {
-    // paginação é local — sem hits na rede
     await _recomputeAndEmit(emit: emit, page: e.page);
   }
 
@@ -179,39 +178,15 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
       AccidentsSaveRequested e,
       Emitter<AccidentsState> emit,
       ) async {
-    emit(state.copyWith(saving: true, error: null, success: null));
+    emit(state.copyWith(
+      saving: true,
+      error: null,
+      success: null,
+      clearLocationError: true,
+    ));
     try {
       await _repo.saveOrUpdateAccident(e.data);
 
-      // Recarrega universo (opcional) e filtrados (obrigatório)
-      // Se o volume for grande e você quiser economizar, pode pular o universo
-      final universe = await _repo.getAllAccidents();
-      final filtered = await _repo.getAllAccidents(
-        year: state.year,
-        month: state.month,
-        city: state.city,
-      );
-
-      emit(state.copyWith(universe: universe));
-      await _recomputeAndEmit(emit: emit, page: state.currentPage, allOverride: filtered);
-
-      emit(state.copyWith(saving: false, success: 'Acidente salvo com sucesso!'));
-    } catch (err, st) {
-      debugPrint('Save error: $err\n$st');
-      emit(state.copyWith(saving: false, error: '$err'));
-    }
-  }
-
-  Future<void> _onDelete(
-      AccidentsDeleteRequested e,
-      Emitter<AccidentsState> emit,
-      ) async {
-    emit(state.copyWith(saving: true, error: null, success: null));
-    try {
-      final y = e.yearHint ?? state.year ?? DateTime.now().year;
-      await _repo.deleteAccident(id: e.id, year: y);
-
-      // Recarrega
       final universe = await _repo.getAllAccidents();
       final filtered = await _repo.getAllAccidents(
         year: state.year,
@@ -222,13 +197,57 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
       emit(state.copyWith(universe: universe));
       await _recomputeAndEmit(
         emit: emit,
-        page: state.currentPage > 1 && _slice(filtered, state.currentPage, state.limitPerPage).isEmpty
+        page: state.currentPage,
+        allOverride: filtered,
+      );
+
+      emit(state.copyWith(
+        saving: false,
+        success: 'Acidente salvo com sucesso!',
+        clearLocationSuggestion: true,
+      ));
+    } catch (err, st) {
+      debugPrint('Save error: $err\n$st');
+      emit(state.copyWith(saving: false, error: '$err'));
+    }
+  }
+
+  Future<void> _onDelete(
+      AccidentsDeleteRequested e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    emit(state.copyWith(
+      saving: true,
+      error: null,
+      success: null,
+      clearLocationError: true,
+    ));
+    try {
+      final y = e.yearHint ?? state.year ?? DateTime.now().year;
+      await _repo.deleteAccident(id: e.id, year: y);
+
+      final universe = await _repo.getAllAccidents();
+      final filtered = await _repo.getAllAccidents(
+        year: state.year,
+        month: state.month,
+        city: state.city,
+      );
+
+      emit(state.copyWith(universe: universe));
+      await _recomputeAndEmit(
+        emit: emit,
+        page: state.currentPage > 1 &&
+            _slice(filtered, state.currentPage, state.limitPerPage).isEmpty
             ? state.currentPage - 1
             : state.currentPage,
         allOverride: filtered,
       );
 
-      emit(state.copyWith(saving: false, success: 'Acidente apagado com sucesso.'));
+      emit(state.copyWith(
+        saving: false,
+        success: 'Acidente apagado com sucesso.',
+        clearLocationSuggestion: true,
+      ));
     } catch (err, st) {
       debugPrint('Delete error: $err\n$st');
       emit(state.copyWith(saving: false, error: '$err'));
@@ -239,17 +258,107 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
       AccidentsRefreshRequested e,
       Emitter<AccidentsState> emit,
       ) async {
-    emit(state.copyWith(loading: true, error: null, success: null));
+    emit(state.copyWith(
+      loading: true,
+      error: null,
+      success: null,
+      clearLocationError: true,
+    ));
     try {
       final filtered = await _repo.getAllAccidents(
         year: state.year,
         month: state.month,
         city: state.city,
       );
-      await _recomputeAndEmit(emit: emit, page: state.currentPage, allOverride: filtered);
+      await _recomputeAndEmit(
+        emit: emit,
+        page: state.currentPage,
+        allOverride: filtered,
+      );
     } catch (err, st) {
       debugPrint('Refresh error: $err\n$st');
       emit(state.copyWith(loading: false, error: '$err'));
     }
   }
+
+  // Obter localização (via OSM/Nominatim) — sem Google
+  Future<void> _onGetLocationRequested(
+      AccidentsGetLocationRequested e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    emit(state.copyWith(
+      gettingLocation: true,
+      clearLocationSuggestion: true,
+      clearLocationError: true,
+    ));
+    try {
+      final suggestion = await _repo.resolveCurrentLocation();
+      emit(state.copyWith(
+        gettingLocation: false,
+        locationSuggestion: suggestion,
+      ));
+    } catch (err, st) {
+      debugPrint('Location error: $err\n$st');
+      emit(state.copyWith(
+        gettingLocation: false,
+        locationError: '$err',
+        clearLocationSuggestion: true,
+      ));
+    }
+  }
+
+  // 🔥 NOVO: Reverse geocoding a partir de coordenadas (mapa→formulário)
+  Future<void> _onReverseGeocodeRequested(
+      AccidentsReverseGeocodeRequested e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    emit(state.copyWith(
+      gettingLocation: true,
+      clearLocationSuggestion: true,
+      clearLocationError: true,
+    ));
+    try {
+      final suggestion = await _repo.reverseGeocode(lat: e.latitude, lon: e.longitude);
+      emit(state.copyWith(
+        gettingLocation: false,
+        locationSuggestion: suggestion,
+      ));
+    } catch (err, st) {
+      debugPrint('ReverseGeocode error: $err\n$st');
+      emit(state.copyWith(
+        gettingLocation: false,
+        locationError: '$err',
+        clearLocationSuggestion: true,
+      ));
+    }
+  }
+
+  // Geocoding por CEP (FORM → MAPA)
+  Future<void> _onGeocodeCepRequested(
+      AccidentsGeocodeCepRequested e,
+      Emitter<AccidentsState> emit,
+      ) async {
+    emit(state.copyWith(
+      gettingLocation: true,
+      clearLocationSuggestion: true,
+      clearLocationError: true,
+    ));
+    try {
+      // espera-se que o repositório normalize o CEP (apenas dígitos)
+      final suggestion = await _repo.geocodeCep(e.cep);
+
+      emit(state.copyWith(
+        gettingLocation: false,
+        locationSuggestion: suggestion,
+      ));
+    } catch (err, st) {
+      debugPrint('Geocode CEP error: $err\n$st');
+      emit(state.copyWith(
+        gettingLocation: false,
+        locationError: '$err',
+        clearLocationSuggestion: true,
+      ));
+    }
+  }
+
 }

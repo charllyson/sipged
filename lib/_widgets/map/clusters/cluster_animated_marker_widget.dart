@@ -19,13 +19,22 @@ class ClusterAnimatedMarkerLayer<T> extends StatelessWidget {
     this.onShowTooltipAcima,
     this.onViewDetails,
     this.onClearSelection,
+
+    // ▼ parâmetros chave para “colar”
+    this.inlineTooltip = true,
+    this.inlineMaxWidth = 280,
+    this.inlineEstimatedHeight = 150.0,
+    this.inlineYOffset = 4.0,
+    this.inlineClearance = 0,
+    required this.markerAlignment,
   });
 
   final List<TaggedChangedMarker<T>> taggedMarkers;
   final LatLng? selectedMarkerPosition;
   final ValueChanged<TaggedChangedMarker<T>> onMarkerSelected;
 
-  final Widget Function(BuildContext context, TaggedChangedMarker<T> marker)
+  /// Builder do pin (visual inalterado)
+  final Widget Function(BuildContext, TaggedChangedMarker<T>, bool isSelected)
   markerBuilder;
 
   final String Function(T data)? titleBuilder;
@@ -33,7 +42,9 @@ class ClusterAnimatedMarkerLayer<T> extends StatelessWidget {
 
   final void Function(LatLng, String)? onTooltipRequested;
 
-  /// O **PAI** desenha o tooltip fora do Marker (overlay sobre o mapa).
+  final Alignment markerAlignment;
+
+  /// Overlay externo opcional
   final void Function({
   required BuildContext context,
   required LatLng position,
@@ -45,26 +56,51 @@ class ClusterAnimatedMarkerLayer<T> extends StatelessWidget {
   final void Function(BuildContext, TaggedChangedMarker<T>)? onViewDetails;
   final VoidCallback? onClearSelection;
 
+  // Config do tooltip inline
+  final bool inlineTooltip;
+  final double inlineMaxWidth;
+  final double inlineEstimatedHeight;
+  final double inlineYOffset;
+  final double inlineClearance;
+
   @override
   Widget build(BuildContext context) {
-    final markers = taggedMarkers
+    final sorted = List<TaggedChangedMarker<T>>.from(taggedMarkers);
+    if (selectedMarkerPosition != null) {
+      sorted.sort((a, b) {
+        final aSel = _same(a.point, selectedMarkerPosition!);
+        final bSel = _same(b.point, selectedMarkerPosition!);
+        if (aSel == bSel) return 0;
+        return aSel ? 1 : -1;
+      });
+    }
+
+    final markers = sorted
         .map(
           (tagged) => ClusterMarkerBuilder<T>(
-        tagged: tagged,
-        selectedMarkerPosition: selectedMarkerPosition,
-        onMarkerSelected: onMarkerSelected,
-        markerBuilder: markerBuilder,
-        titleBuilder: titleBuilder,
-        subTitleBuilder: subTitleBuilder,
-        onTooltipRequested: onTooltipRequested,
-        onShowTooltipAcima: onShowTooltipAcima, // repassa
-        onViewDetails: onViewDetails,
-        onClearSelection: onClearSelection,
+          tagged: tagged,
+          selectedMarkerPosition: selectedMarkerPosition,
+          onMarkerSelected: onMarkerSelected,
+          markerBuilder: markerBuilder,
+          titleBuilder: titleBuilder,
+          subTitleBuilder: subTitleBuilder,
+          onTooltipRequested: onTooltipRequested,
+          onShowTooltipAcima: onShowTooltipAcima,
+          onViewDetails: onViewDetails,
+          onClearSelection: onClearSelection,
+
+          // mantém posicionamento; só “cola” o card no pin
+          inlineTooltip: inlineTooltip,
+          inlineMaxWidth: inlineMaxWidth,
+          inlineYOffset: inlineYOffset,
+          inlineClearance: inlineClearance,
+          inlineEstimatedHeight: inlineEstimatedHeight,
+          inlineBalloonHeight: 4.0,
+          markerAlignment: markerAlignment
       ).build(context),
     )
         .toList();
 
-    // 🔎 Não coloque barreira de clique-fora aqui. Deixe no overlay do PAI.
     return MarkerClusterLayerWidget(
       options: MarkerClusterLayerOptions(
         markers: markers,
@@ -96,5 +132,10 @@ class ClusterAnimatedMarkerLayer<T> extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  bool _same(LatLng a, LatLng b, {double eps = 1e-9}) {
+    return (a.latitude - b.latitude).abs() < eps &&
+        (a.longitude - b.longitude).abs() < eps;
   }
 }

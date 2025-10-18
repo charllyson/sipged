@@ -19,9 +19,6 @@ class ActiveRailwaysPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     const double kGaugeBoxWidth = 260;
     const double kPieBoxWidth = 280;
-    const double kWrapSpacing = 16.0;
-    const double kWrapRunSpacing = 16.0;
-
     const double kBarWidth = 50.0;
     const double kBarGap = 16.0;
 

@@ -13,106 +13,115 @@ import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
 // ✅ Stub unificado (aceita .geojson/.json/.kml/.kmz)
 import 'import_any_vector.dart';
 
+// 🔔 Notificações centralizadas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 Future<void> GeoJsonSendFirebase(BuildContext context, {String? fixedPath}) async {
-  final TextEditingController pathController = TextEditingController();
+  try {
+    final TextEditingController pathController = TextEditingController();
 
-  // Se veio "fixedPath", usa sem perguntar; senão abre diálogo
-  final path = fixedPath ??
-      await showDialog<String>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Informe o caminho da coleção'),
-          content: TextField(
-            controller: pathController,
-            decoration: const InputDecoration(
-              labelText: 'Ex: planning_highway_domain, actives_railways…',
-              border: OutlineInputBorder(),
+    // Se veio "fixedPath", usa sem perguntar; senão abre diálogo
+    final path = fixedPath ??
+        await showDialog<String>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Informe o caminho da coleção'),
+            content: TextField(
+              controller: pathController,
+              decoration: const InputDecoration(
+                labelText: 'Ex: planning_highway_domain, actives_railways…',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-            ElevatedButton(
-              onPressed: () {
-                final p = pathController.text.trim();
-                if (p.isNotEmpty) Navigator.pop(context, p);
-              },
-              child: const Text('Importar'),
-            ),
-          ],
-        ),
-      );
-
-  if (!context.mounted || path == null || path.isEmpty) return;
-
-  // Abre o file picker + preview + saneamento e devolve (linhas, geometrias-20m)
-  await ImportVector.importAny(
-    context: context,
-    path: path,
-    onSalvar: (linhasPrincipais, geometrias) async {
-      // Mantém caso especial
-      if (path == 'actives_railways') {
-        context.read<ActiveRailwaysBloc>().add(
-          ActiveRailwaysImportBatchRequested(
-            linhasPrincipais: linhasPrincipais,
-            geometrias: geometrias,
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+              ElevatedButton(
+                onPressed: () {
+                  final p = pathController.text.trim();
+                  if (p.isNotEmpty) Navigator.pop(context, p);
+                },
+                child: const Text('Importar'),
+              ),
+            ],
           ),
         );
-        return;
-      }
 
-      // ✅ Se for domínio de faixa de domínio (KML/KMZ ou mesmo GeoJSON), salva direto na coleção
-      if (path == 'planning_highway_domain') {
-        await _saveBatchToPath(path, linhasPrincipais, geometrias);
-        return;
-      }
+    if (!context.mounted || path == null || path.isEmpty) return;
 
-      // 🟦 UNIFICADO NO BOARD (quando importar GeoJSON de projeto)
-      String? contractId;
-      String? summary;
-      try {
-        final st = context.read<ScheduleRoadBloc>().state;
-        contractId = st.contractId;
-        summary = st.summarySubjectContract;
-      } catch (_) {
-        // sem board bloc no contexto → fallback multi-doc abaixo
-      }
+    // Abre o file picker + preview + saneamento e devolve (linhas, geometrias-20m)
+    await ImportVector.importAny(
+      context: context,
+      path: path,
+      onSalvar: (linhasPrincipais, geometrias) async {
+        // Mantém caso especial
+        if (path == 'actives_railways') {
+          context.read<ActiveRailwaysBloc>().add(
+            ActiveRailwaysImportBatchRequested(
+              linhasPrincipais: linhasPrincipais,
+              geometrias: geometrias,
+            ),
+          );
+          return;
+        }
 
-      if (contractId != null && contractId!.isNotEmpty) {
-        // Constrói uma Geometry a partir das "geometrias" recebidas
-        final geometry = _geometryFromGeometrias(geometrias);
+        // ✅ Se for domínio de faixa de domínio, salva direto na coleção
+        if (path == 'planning_highway_domain') {
+          await _saveBatchToPath(path, linhasPrincipais, geometrias);
+          return;
+        }
 
-        // Dispara o evento unificado para o BoardBloc (repo do Board trata o upsert)
-        context.read<ScheduleRoadBloc>().add(
-          ScheduleProjectImportGeoJsonRequested(
-            geometry, // aceita Geometry/Feature/FeatureCollection
-            summarySubjectContract: summary,
-          ),
+        // 🟦 UNIFICADO NO BOARD (quando importar GeoJSON de projeto)
+        String? contractId;
+        String? summary;
+        try {
+          final st = context.read<ScheduleRoadBloc>().state;
+          contractId = st.contractId;
+          summary = st.summarySubjectContract;
+        } catch (_) {
+          // sem board bloc no contexto → fallback multi-doc abaixo
+        }
+
+        if (contractId != null && contractId!.isNotEmpty) {
+          // Constrói uma Geometry a partir das "geometrias" recebidas
+          final geometry = _geometryFromGeometrias(geometrias);
+
+          // Dispara o evento unificado para o BoardBloc (repo do Board trata o upsert)
+          context.read<ScheduleRoadBloc>().add(
+            ScheduleProjectImportGeoJsonRequested(
+              geometry, // aceita Geometry/Feature/FeatureCollection
+              summarySubjectContract: summary,
+            ),
+          );
+        } else {
+          // fallback: grava em lote na coleção informada (compat)
+          await _saveBatchToPath(path, linhasPrincipais, geometrias);
+        }
+      },
+      onFinished: () {
+        if (!context.mounted) return;
+
+        bool refreshed = false;
+        try {
+          context.read<ScheduleRoadBloc>().add(const ScheduleRefreshRequested());
+          refreshed = true;
+        } catch (_) {}
+
+        try {
+          context.read<ActiveRailwaysBloc>().add(const ActiveRailwaysRefreshRequested());
+          refreshed = true;
+        } catch (_) {}
+
+        _notify(
+          refreshed ? 'Importação concluída.' : 'Importação concluída (dados salvos).',
+          type: AppNotificationType.success,
         );
-      } else {
-        // fallback: grava em lote na coleção informada (compat)
-        await _saveBatchToPath(path, linhasPrincipais, geometrias);
-      }
-    },
-    onFinished: () {
-      if (!context.mounted) return;
-
-      bool refreshed = false;
-      try {
-        context.read<ScheduleRoadBloc>().add(const ScheduleRefreshRequested());
-        refreshed = true;
-      } catch (_) {}
-
-      try {
-        context.read<ActiveRailwaysBloc>().add(const ActiveRailwaysRefreshRequested());
-        refreshed = true;
-      } catch (_) {}
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Importação concluída.${refreshed ? '' : ' (dados salvos)'}')),
-      );
-    },
-    maxJumpKm: 2.0,
-  );
+      },
+      maxJumpKm: 2.0,
+    );
+  } catch (e) {
+    _notify('Falha ao importar', type: AppNotificationType.error, subtitle: '$e');
+  }
 }
 
 // ================= helpers =================
@@ -241,4 +250,19 @@ List<GeoPoint> _normalizeMultiLineToGeoPoints(List<List<dynamic>> segmentos) {
   }
 
   return caminhoFinal.map((p) => GeoPoint(p['latitude']!, p['longitude']!)).toList();
+}
+
+// 🔔 helper local de notificação
+void _notify(
+    String title, {
+      AppNotificationType type = AppNotificationType.info,
+      String? subtitle,
+    }) {
+  NotificationCenter.instance.show(
+    AppNotification(
+      title: Text(title),
+      subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+      type: type,
+    ),
+  );
 }

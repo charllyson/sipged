@@ -4,6 +4,10 @@ import 'package:siged/_widgets/buttons/button_flutuante_hover.dart';
 
 import '../../_services/geoJson/fix_jumps_between_points.dart';
 
+// 🔔 Notificações centralizadas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class GeoJsonActionsButtons extends StatefulWidget {
   const GeoJsonActionsButtons({
     super.key,
@@ -44,6 +48,7 @@ class GeoJsonActionsButtons extends StatefulWidget {
 class _GeoJsonActionsButtonsState extends State<GeoJsonActionsButtons>
     with TickerProviderStateMixin {
   late bool _expanded;
+  bool _busy = false;
 
   @override
   void initState() {
@@ -56,7 +61,7 @@ class _GeoJsonActionsButtonsState extends State<GeoJsonActionsButtons>
   @override
   Widget build(BuildContext context) {
     final buttonsExpanded = <Widget>[
-      _ActionButton(
+      ActionButton(
         icon: Icons.upload,
         label: 'Enviar Polylines',
         background: Colors.blue.withOpacity(0.18),
@@ -64,7 +69,7 @@ class _GeoJsonActionsButtonsState extends State<GeoJsonActionsButtons>
         highlightColor: Colors.blue,
         onTap: () => widget.onImportGeoJson(context),
       ),
-      _ActionButton(
+      ActionButton(
         icon: Icons.restore_from_trash_rounded,
         label: 'Deletar Polylines',
         background: Colors.red.withOpacity(0.18),
@@ -72,7 +77,7 @@ class _GeoJsonActionsButtonsState extends State<GeoJsonActionsButtons>
         highlightColor: Colors.red,
         onTap: widget.onDeleteCollection,
       ),
-      _ActionButton(
+      ActionButton(
         icon: Icons.alt_route,
         label: 'Verificar Saltos',
         background: Colors.orange.withOpacity(0.18),
@@ -80,29 +85,31 @@ class _GeoJsonActionsButtonsState extends State<GeoJsonActionsButtons>
         highlightColor: Colors.orange,
         onTap: widget.onCheckDistances,
       ),
-      _ActionButton(
+      ActionButton(
         icon: Icons.auto_fix_high,
-        label: 'Verificar & Corrigir',
+        label: _busy ? 'Processando…' : 'Verificar & Corrigir',
         background: Colors.green.withOpacity(0.18),
         borderColor: Colors.green,
         highlightColor: Colors.green,
-        onTap: () async {
-          await fixJumpsBetweenPoints(
-            collectionPath: widget.collectionPath,
-            maxJumpKm: 2.0,
-          );
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Verificação & correção concluídas.'),
-              ),
+        onTap: _busy ? (){} : () async {
+          setState(() => _busy = true);
+          _notify('Verificando e corrigindo saltos…', type: AppNotificationType.info);
+          try {
+            await fixJumpsBetweenPoints(
+              collectionPath: widget.collectionPath,
+              maxJumpKm: 2.0,
             );
+            _notify('Verificação & correção concluídas.', type: AppNotificationType.success);
+          } catch (e) {
+            _notify('Falha ao verificar/corrigir', subtitle: '$e', type: AppNotificationType.error);
+          } finally {
+            if (mounted) setState(() => _busy = false);
           }
         },
       ),
     ];
 
-    final toggle = _ToggleButton(expanded: _expanded, onTap: _toggle);
+    final toggle = ToggleButton(expanded: _expanded, onTap: _toggle);
 
     final children = _expanded
         ? [
@@ -143,11 +150,25 @@ class _GeoJsonActionsButtonsState extends State<GeoJsonActionsButtons>
     }
     return out;
   }
+
+  void _notify(
+      String title, {
+        AppNotificationType type = AppNotificationType.info,
+        String? subtitle,
+      }) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text(title),
+        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
+  }
 }
 
 /// Botão de ação com o mesmo “look & feel” do ScheduleMenuButtons
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
+class ActionButton extends StatelessWidget {
+  const ActionButton({super.key,
     required this.icon,
     required this.label,
     required this.background,
@@ -193,8 +214,8 @@ class _ActionButton extends StatelessWidget {
 }
 
 /// Toggle (abrir/fechar), mesmo componente visual do menu de serviços
-class _ToggleButton extends StatelessWidget {
-  const _ToggleButton({required this.expanded, required this.onTap});
+class ToggleButton extends StatelessWidget {
+  const ToggleButton({super.key, required this.expanded, required this.onTap});
   final bool expanded;
   final VoidCallback onTap;
 

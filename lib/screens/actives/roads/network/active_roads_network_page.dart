@@ -1,9 +1,9 @@
+// lib/screens/actives/roads/network/active_roads_network_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
 
 import 'package:siged/_widgets/upBar/up_bar.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
 
 import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
@@ -20,7 +20,12 @@ class ActiveRoadsNetworkPage extends StatefulWidget {
 
 class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
   late final ActiveRoadsBloc _bloc;
-  bool _showRightPanel = false;
+
+  // 👉 painel inicia visível
+  bool _showPanel = true;
+
+  // 👉 fração de altura do MAPA no layout empilhado (tablet/mobile)
+  double _stackedMapFraction = 0.56; // 56% mapa / 44% painel
 
   @override
   void initState() {
@@ -34,14 +39,37 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
     super.dispose();
   }
 
-
   void _clearFilters() {
     _bloc.add(const ActiveRoadsRegionFilterChanged(null));
     _bloc.add(const ActiveRoadsSurfaceFilterChanged(null));
+    _bloc.add(const ActiveRoadsPieFilterChanged(null));
   }
 
-  void _toggleRightPanel() {
-    setState(() => _showRightPanel = !_showRightPanel);
+  void _togglePanel() => setState(() => _showPanel = !_showPanel);
+
+  // ----- divisor arrastável (só para layout empilhado) -----
+  Widget _buildDraggableHorizontalDivider(double totalH) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeRow,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragUpdate: (details) {
+          final delta = details.delta.dy;
+          setState(() {
+            final currentMapH = _stackedMapFraction * totalH;
+            final newMapH = (currentMapH + delta).clamp(220.0, totalH * 0.9);
+            _stackedMapFraction = (newMapH / totalH).clamp(0.2, 0.9);
+          });
+        },
+        child: Container(
+          height: 10,
+          color: Colors.white,
+          child: Center(
+            child: Container(width: double.infinity, height: 1, color: Colors.blue),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -60,64 +88,73 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
                 onPressed: _clearFilters,
               ),
               IconButton(
-                tooltip: _showRightPanel ? 'Ocultar painel' : 'Mostrar painel',
+                tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
                 icon: Icon(
-                  _showRightPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                  _showPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
                   color: Colors.white,
                 ),
-                onPressed: _toggleRightPanel,
+                onPressed: _togglePanel,
               ),
             ],
           ),
         ),
+        body: BlocBuilder<ActiveRoadsBloc, ActiveRoadsState>(
+          builder: (context, state) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isWide = constraints.maxWidth >= 980;
 
-        bottomNavigationBar: const FootBar(),
+                if (isWide) {
+                  // =======================
+                  // DESKTOP (lado a lado)
+                  // =======================
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: ActiveRoadsMap(state: state),
+                      ),
+                      if (_showPanel) ...[
+                        const VerticalDivider(width: 1),
+                        const SizedBox(
+                          width: 600,
+                          child: ActiveRoadsPanel(),
+                        ),
+                      ],
+                    ],
+                  );
+                }
 
-        body: Stack(
-          children: [
-            BlocBuilder<ActiveRoadsBloc, ActiveRoadsState>(
-              builder: (context, state) {
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final bool isWide = constraints.maxWidth >= 980;
+                // ==================================
+                // TABLET/MOBILE (empilhado - mapa em cima)
+                // ==================================
+                final double totalH = constraints.maxHeight;
+                final double minMapH = 220.0;
+                final double maxMapH = (totalH * 0.9).clamp(minMapH, totalH);
+                final double mapH = (_stackedMapFraction * totalH).clamp(minMapH, maxMapH);
 
-                    if (isWide) {
-                      // Layout lado a lado
-                      return Row(
-                        children: [
-                          Expanded(
-                            flex: 1,
-                            child: ActiveRoadsMap(state: state),
-                          ),
-                          if (_showRightPanel) ...[
-                            const VerticalDivider(width: 1),
-                            const SizedBox(
-                              width: 600,
-                              child: ActiveRoadsPanel(),
-                            ),
-                          ],
-                        ],
-                      );
-                    } else {
-                      // Layout empilhado (mobile/tablet)
-                      return Column(
-                        children: [
-                          Expanded(child: ActiveRoadsMap(state: state)),
-                          if (_showRightPanel) ...[
-                            const Divider(height: 1),
-                            const SizedBox(
-                              height: 420,
-                              child: ActiveRoadsPanel(),
-                            ),
-                          ],
-                        ],
-                      );
-                    }
-                  },
+                return Column(
+                  children: [
+                    // MAPA (em cima)
+                    SizedBox(
+                      width: double.infinity,
+                      height: _showPanel ? mapH : null,
+                      child: _showPanel
+                          ? ActiveRoadsMap(state: state)
+                          : Expanded(child: ActiveRoadsMap(state: state)),
+                    ),
+
+                    if (_showPanel) _buildDraggableHorizontalDivider(totalH),
+
+                    // PAINEL (embaixo)
+                    if (_showPanel)
+                      const Expanded(
+                        child: ActiveRoadsPanel(),
+                      ),
+                  ],
                 );
               },
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

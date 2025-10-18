@@ -3,11 +3,14 @@ import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ImportExcelPage extends StatefulWidget {
   final String firstCollection;
   final void Function()? onFinished;
   final Future<void> Function(Map<String, dynamic> dados)? onSave;
-
 
   const ImportExcelPage({
     super.key,
@@ -25,6 +28,18 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
   List<Map<String, dynamic>> _jsonData = [];
   final Map<String, String> _tiposPorCampo = {};
 
+  // 🔔 helper
+  void _notify(String title,
+      {AppNotificationType type = AppNotificationType.info, String? subtitle}) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text(title),
+        subtitle: subtitle != null ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
+  }
+
   Future<void> _importarExcel() async {
     try {
       setState(() {
@@ -33,13 +48,19 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
       });
 
       FilePickerResult? result = await FilePicker.platform.pickFiles();
-      if (result == null) return;
+      if (result == null) {
+        _notify('Importação cancelada', type: AppNotificationType.warning);
+        return;
+      }
 
       final file = result.files.first;
       final bytes = file.bytes ?? File(file.path!).readAsBytesSync();
       final excel = Excel.decodeBytes(bytes);
       final sheet = excel.tables[excel.tables.keys.first];
-      if (sheet == null) return;
+      if (sheet == null) {
+        _notify('Planilha não encontrada', type: AppNotificationType.error);
+        return;
+      }
 
       final headers = sheet.rows.first
           .map((cell) => cell?.value.toString().trim().replaceAll('\u00A0', ''))
@@ -58,19 +79,17 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
       }).toList();
 
       if (_jsonData.isEmpty) {
-        _showSnackBar('Planilha vazia!');
+        _notify('Planilha vazia!', type: AppNotificationType.warning);
         return;
       }
-      for (int i = 0; i < _jsonData.length; i++) {
-      }
+
       _mostrarPreviewComSelecao();
     } catch (e) {
       debugPrint('Erro ao importar Excel: $e');
-      _showSnackBar('Erro: $e');
+      _notify('Erro ao importar', type: AppNotificationType.error, subtitle: '$e');
     } finally {
-      setState(() => _importando = false);
+      if (mounted) setState(() => _importando = false);
     }
-
   }
 
   dynamic _converterValor(dynamic valor) {
@@ -109,7 +128,6 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
     return valor;
   }
 
-
   void _mostrarPreviewComSelecao() {
     final colunas = _jsonData.isNotEmpty ? _jsonData.first.keys.toList() : [];
     final Map<int, bool> linhasSelecionadas = {
@@ -136,51 +154,50 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
                     return DataColumn(
                       label: SizedBox(
                         child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Checkbox(
-                                    value: colunasSelecionadas[coluna],
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Checkbox(
+                                  value: colunasSelecionadas[coluna],
+                                  onChanged: (val) {
+                                    setStateDialog(() {
+                                      colunasSelecionadas[coluna] = val ?? false;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(width: 4),
+                                SizedBox(
+                                  width: 80,
+                                  child: DropdownButton<String>(
+                                    isExpanded: true,
+                                    value: _tiposPorCampo[coluna] ?? 'String',
+                                    underline: const SizedBox(),
+                                    items: ['String', 'int', 'double', 'bool', 'DateTime']
+                                        .map((tipo) => DropdownMenuItem(
+                                      value: tipo,
+                                      child: Text(tipo, style: const TextStyle(fontSize: 12)),
+                                    ))
+                                        .toList(),
                                     onChanged: (val) {
                                       setStateDialog(() {
-                                        colunasSelecionadas[coluna] = val ?? false;
+                                        if (val != null) _tiposPorCampo[coluna] = val;
                                       });
                                     },
                                   ),
-                                  const SizedBox(width: 4),
-                                  SizedBox(
-                                    width: 80,
-                                    child: DropdownButton<String>(
-                                      isExpanded: true,
-                                      value: _tiposPorCampo[coluna] ?? 'String',
-                                      underline: const SizedBox(),
-                                      items: ['String', 'int', 'double', 'bool', 'DateTime']
-                                          .map((tipo) => DropdownMenuItem(
-                                        value: tipo,
-                                        child: Text(tipo, style: const TextStyle(fontSize: 12)),
-                                      ))
-                                          .toList(),
-                                      onChanged: (val) {
-                                        setStateDialog(() {
-                                          if (val != null) _tiposPorCampo[coluna] = val;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    coluna,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 2,
-                                  ),
-
-                                ],
-                              ),
-                            ]
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  coluna,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -291,7 +308,8 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
       count++;
     }
 
-    _showSnackBar('Importação concluída: $count registros importados.');
+    _notify('Importação concluída', type: AppNotificationType.success,
+        subtitle: '$count registros importados.');
 
     if (widget.onFinished != null) {
       widget.onFinished!(); // notifica a tela principal
@@ -317,12 +335,10 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
 
   DateTime? _converterParaDateTime(dynamic valor) {
     if (valor == null) return null;
-
     if (valor is DateTime) return valor;
 
     if (valor is String) {
       final str = valor.trim();
-
       if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(str)) {
         final partes = str.split('/');
         try {
@@ -337,15 +353,7 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
       }
       return DateTime.tryParse(str); // tenta padrão ISO
     }
-
     return null;
-  }
-
-
-  void _showSnackBar(String msg) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    }
   }
 
   @override

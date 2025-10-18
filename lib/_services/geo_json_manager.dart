@@ -11,7 +11,7 @@ class GeoJsonManager {
   final Map<String, Color> regionColors = {};
 
   /// Carrega limites regionais do DER/AL e gera um mapa de cores
-  Future<void> loadLimitsRegionalsDERAL() async {
+  Future<void> loadLimitsRegionalsPolygonDERAL() async {
     final data = await GeoJsonService.loadPolygonsRegionsOfDERAL(
       assetPath: 'assets/geojson/limits/limites_regionais_der_al.geojson',
     );
@@ -20,7 +20,7 @@ class GeoJsonManager {
       ..clear()
       ..addAll(data);
 
-    _buildDefaultRegionColors();
+    _buildDefaultPolygonColors();
   }
 
   // =========== Helpers ===========
@@ -30,7 +30,7 @@ class GeoJsonManager {
   String _norm(String s) => s.trim().toUpperCase();
 
   /// Define uma paleta básica e atribui cores às regiões carregadas
-  void _buildDefaultRegionColors() {
+  void _buildDefaultPolygonColors() {
     regionColors.clear();
 
     // Paleta neutra e legível (pode ajustar ao seu tema)
@@ -58,7 +58,7 @@ class GeoJsonManager {
   }
 
   /// Permite sobrescrever as cores por região (ex.: vindo de regras da app)
-  void applyRegionColors(Map<String, Color> colors) {
+  void applyPolygonColors(Map<String, Color> colors) {
     regionColors
       ..clear()
       ..addAll({
@@ -67,7 +67,7 @@ class GeoJsonManager {
   }
 
   /// Obtém a cor para uma região; retorna um fallback se não mapeada
-  Color colorForRegion(String regionName, {Color? fallback}) {
+  Color colorForPolygon(String regionName, {Color? fallback}) {
     return regionColors[_norm(regionName)] ?? (fallback ?? Colors.white70);
   }
 }

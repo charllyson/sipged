@@ -18,16 +18,7 @@ class SystemBloc extends BlocBase {
   final String _docId = 'info'; // ID fixo do documento
 
 
-  double calcularLarguraDinamica(
-      int quantidadeMedicoes, {
-        double larguraPorPonto = 60,
-        double larguraMinima = 300,
-      }) {
-    return (quantidadeMedicoes * larguraPorPonto).clamp(
-      larguraMinima,
-      2000,
-    ); // máximo opcional
-  }
+
 
 
   Future<Placemark?> getPlaceMarkAdapted(LatLng coords) async {

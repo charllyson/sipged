@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_report_controller.dart';
-import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
 
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_services/excel/import_excel_page.dart';
@@ -15,6 +15,10 @@ import 'package:siged/_widgets/footBar/foot_bar.dart';
 import 'payment_report_chart_section.dart';
 import 'payment_report_form_section.dart';
 import 'payment_report_table_section.dart';
+
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 class PaymentsReportPage extends StatelessWidget {
   const PaymentsReportPage({
@@ -112,23 +116,6 @@ class PaymentsReportPage extends StatelessWidget {
                                   );
                                   return ok == true;
                                 },
-                                onSuccessSnack: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Pagamento salvo com sucesso!'),
-                                      backgroundColor: Colors.green,
-                                      duration: Duration(seconds: 3),
-                                    ),
-                                  );
-                                },
-                                onErrorSnack: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Falha ao salvar pagamento.'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                },
                               );
                             },
                             onClear: c.createNew,
@@ -147,23 +134,25 @@ class PaymentsReportPage extends StatelessWidget {
 
                         if (c.isAdmin)
                           ImportExcelPage(
-                          firstCollection: c.contract?.id ?? '',
-                          onFinished: () async {
-                            await c.init(context, contractData: c.contract);
-                          },
-                          onSave: (dados) async {
-                            final data = PaymentsReportData.fromMap(dados);
-                            await c.saveExact(
-                              data,
-                              onError: () => ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Erro ao importar pagamento.'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                            firstCollection: c.contract?.id ?? '',
+                            onFinished: () async {
+                              await c.init(context, contractData: c.contract);
+                            },
+                            onSave: (dados) async {
+                              final data = PaymentsReportData.fromMap(dados);
+                              await c.saveExact(
+                                data,
+                                onError: () {
+                                  NotificationCenter.instance.show(
+                                    AppNotification(
+                                      title: Text('Erro ao importar pagamento'),
+                                      type: AppNotificationType.error,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
 
                         const SizedBox(height: 12),
                         PaymentReportTableSection(

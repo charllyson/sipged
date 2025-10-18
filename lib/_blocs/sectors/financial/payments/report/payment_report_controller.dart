@@ -1,56 +1,67 @@
+// lib/_blocs/sectors/financial/payments/report/payment_report_controller.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
+import 'package:siged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
 
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+
+import 'package:siged/_blocs/process/additives/additives_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/date_utils.dart'
     show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
-import 'package:siged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
-
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+// ✅ novo: papéis globais + permissões por módulo
+import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
 
 class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   PaymentsReportController({
     required PaymentReportBloc paymentReportBloc,
     required AdditivesBloc additivesBloc,
-    PaymentsReportStorageBloc? storageBloc, // 🆕
+    PaymentsReportStorageBloc? storageBloc,
   })  : _paymentReportBloc = paymentReportBloc,
         _additivesBloc = additivesBloc,
         _storageBloc = storageBloc ?? PaymentsReportStorageBloc();
 
+  // --- Dependências
   final PaymentReportBloc _paymentReportBloc;
   final AdditivesBloc _additivesBloc;
-  final PaymentsReportStorageBloc _storageBloc; // 🆕
+  final PaymentsReportStorageBloc _storageBloc;
 
+  // --- User stream
   StreamSubscription<UserState>? _userSub;
 
+  // --- Contexto
   UserData? currentUser;
   ContractData? contract;
 
+  // --- Dados
   List<PaymentsReportData> _reports = <PaymentsReportData>[];
   PaymentsReportData? _selected;
   String? _currentId;
 
+  // --- Estado UI
   int? selectedIndex;
   bool isEditable = false;
   bool isSaving = false;
   bool formValidated = false;
 
+  // --- Totais (caso use em UI)
   double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
-  // Campos
+  // --- Campos
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -62,12 +73,13 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   final fontCtrl = TextEditingController();
   final taxCtrl = TextEditingController();
 
-  // 🆕 SideListBox
+  // --- SideListBox (PDF)
   List<String> sideItems = const <String>[];
   int? selectedSideIndex;
   bool get canAddFile => isEditable && _selected?.idPaymentReport != null;
   String? get currentPdfUrl => _selected?.pdfUrl;
 
+  // --- Getters de lista/gráficos
   List<PaymentsReportData> get reports => _reports;
   PaymentsReportData? get selected => _selected;
   String? get currentPaymentReportId => _currentId;
@@ -77,14 +89,19 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   List<double> get chartValues =>
       _reports.map((e) => e.valuePaymentReport ?? 0.0).toList();
 
-  bool get isAdmin =>
-      (currentUser?.baseProfile ?? '').trim().toLowerCase() == 'administrador';
-
-  double get totalMedicoes => chartValues.fold<double>(0.0, (a, b) => a + b);
+  double get totalMedicoes =>
+      chartValues.fold<double>(0.0, (a, b) => a + b);
   double get valorTotal => _valorInicial + _valorAditivos;
   double get saldo => valorTotal - totalMedicoes;
 
+  // ✅ admin via papel global
+  bool get isAdmin {
+    final u = currentUser;
+    if (u == null) return false;
+    return roles.roleForUser(u) == roles.BaseRole.ADMINISTRADOR;
+  }
 
+  // --- Init/Dispose
   Future<void> init(BuildContext context, {required ContractData? contractData}) async {
     contract = contractData;
     if (contract?.id == null) return;
@@ -113,10 +130,13 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   @override
   void dispose() {
     _userSub?.cancel();
-    removeValidation([
-      orderCtrl, processCtrl, valueCtrl, dateCtrl, stateCtrl, observationCtrl,
-      bankCtrl, electronicTicketCtrl, fontCtrl, taxCtrl,
-    ], _validateFormInternal);
+
+    removeValidation(
+      [orderCtrl, processCtrl, valueCtrl, dateCtrl, stateCtrl, observationCtrl,
+        bankCtrl, electronicTicketCtrl, fontCtrl, taxCtrl],
+      _validateFormInternal,
+    );
+
     orderCtrl.dispose();
     processCtrl.dispose();
     valueCtrl.dispose();
@@ -130,15 +150,28 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     super.dispose();
   }
 
+  // --- Permissão (módulo: payments_report)
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
-    final base = (user.baseProfile ?? '').toLowerCase();
-    if (base == 'administrador' || base == 'colaborador') return true;
-    final perms = user.modulePermissions['payments_report'];
-    if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
-    return false;
+
+    // Admin sempre pode
+    if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) return true;
+
+    // Senão, checamos permissão de módulo (edit OU create concede edição)
+    final canEdit = perms.userCanModule(
+      user: user,
+      module: 'payments_report',
+      action: 'edit',
+    );
+    final canCreate = perms.userCanModule(
+      user: user,
+      module: 'payments_report',
+      action: 'create',
+    );
+    return canEdit || canCreate;
   }
 
+  // --- Core
   Future<void> _loadInitial() async {
     if (contract?.id == null) return;
 
@@ -165,6 +198,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
+  // --- Ações UI
   void selectRow(PaymentsReportData data) {
     final idx = _reports.indexOf(data);
     if (idx == -1) return;
@@ -213,8 +247,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
 
   Future<bool> saveOrUpdate({
     required Future<bool> Function() onConfirm,
-    VoidCallback? onSuccessSnack,
-    VoidCallback? onErrorSnack,
+    VoidCallback? onSuccess,
+    VoidCallback? onError,
   }) async {
     if (contract?.id == null) return false;
 
@@ -238,7 +272,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
         electronicTicketPaymentReport: electronicTicketCtrl.text,
         fontPaymentReport: fontCtrl.text,
         taxPaymentReport: parseCurrencyToDouble(taxCtrl.text),
-        pdfUrl: _selected?.pdfUrl, // preserva se existir
+        pdfUrl: _selected?.pdfUrl, // preserva se já existir
       );
 
       await _paymentReportBloc.saveOrUpdatePayment(data);
@@ -246,10 +280,10 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
           .getAllReportPaymentsOfContract(contractId: contract!.id!);
 
       createNew();
-      onSuccessSnack?.call();
+      onSuccess?.call();
       return true;
     } catch (_) {
-      onErrorSnack?.call();
+      onError?.call();
       return false;
     } finally {
       isSaving = false;
@@ -297,8 +331,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
 
   Future<void> deleteById(
       String idPaymentReport, {
-        VoidCallback? onSuccessSnack,
-        VoidCallback? onErrorSnack,
+        VoidCallback? onSuccess,
+        VoidCallback? onError,
       }) async {
     if (contract?.id == null) return;
     try {
@@ -306,9 +340,9 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
       _reports = await _paymentReportBloc
           .getAllReportPaymentsOfContract(contractId: contract!.id!);
       selectedIndex = null;
-      onSuccessSnack?.call();
+      onSuccess?.call();
     } catch (_) {
-      onErrorSnack?.call();
+      onError?.call();
     } finally {
       notifyListeners();
     }
@@ -377,7 +411,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  // compat: usado por WebPdfWidget antigo (se ficar em algum lugar)
+  // compat com widgets antigos
   Future<void> savePdfUrl(String url) async {
     if (_selected?.idPaymentReport == null || contract?.id == null) return;
     await _paymentReportBloc.salvarUrlPdfDePayment(

@@ -21,7 +21,7 @@ class PaymentAdjustmentBloc extends BlocBase {
     required String contractId,
   }) async {
     final snapshot = await _db
-        .collection('documents')
+        .collection('process')
         .doc(contractId)
         .collection('adjustmentPayments')
         .orderBy('orderPaymentAdjustment')
@@ -52,7 +52,7 @@ class PaymentAdjustmentBloc extends BlocBase {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     final contractId = data.contractId!;
     final ref = _db
-        .collection('documents')
+        .collection('process')
         .doc(contractId)
         .collection('adjustmentPayments');
 
@@ -91,7 +91,7 @@ class PaymentAdjustmentBloc extends BlocBase {
 
   Future<void> deletarPayment(String uidContract, String uidPayment) async {
     final ref = _db
-        .collection('documents')
+        .collection('process')
         .doc(uidContract)
         .collection('adjustmentPayments')
         .doc(uidPayment);
@@ -110,7 +110,7 @@ class PaymentAdjustmentBloc extends BlocBase {
   }) async {
     try {
       await _db
-          .collection('documents')
+          .collection('process')
           .doc(contractId)
           .collection('adjustmentPayments')
           .doc(paymentId)

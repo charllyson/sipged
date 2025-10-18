@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_style.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/overview_dashboard_style.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
-import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/screens/documents/contract/tab_bar_contract_page.dart';
+import 'package:siged/_blocs/process/contracts/contract_rules.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/screens/process/hiring/tab_bar_contract_page.dart';
 
 class ListResumed extends StatelessWidget {
   final List<ContractData> contract;
@@ -47,7 +47,7 @@ class ListResumed extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => TabBarContractPage(
+                      builder: (context) => TabBarHiringPage(
                         contractData: contrato,
                         initialTabIndex: 0, // Abre direto na aba de Medições
                       ),
@@ -70,7 +70,7 @@ class ListResumed extends StatelessWidget {
                           Text(
                             contrato.contractStatus ?? '',
                             style: TextStyle(
-                              color: ContractStyle.statusColors[contrato.contractStatus?.toUpperCase()] ?? Colors.black,
+                              color: OverviewDashboardStyle.statusColors[contrato.contractStatus?.toUpperCase()] ?? Colors.black,
                               fontWeight: FontWeight.bold,
                             ),
                           ),

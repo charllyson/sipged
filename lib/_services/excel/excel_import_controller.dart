@@ -4,6 +4,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'excel_preview_dialog.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ImportExcelController {
   static Future<void> importar({
     required BuildContext context,
@@ -12,7 +16,10 @@ class ImportExcelController {
   }) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles();
-      if (result == null) return;
+      if (result == null) {
+        _notify('Importação cancelada', type: AppNotificationType.warning);
+        return;
+      }
 
       final file = result.files.first;
       final bytes = file.bytes ?? File(file.path!).readAsBytesSync();
@@ -20,19 +27,20 @@ class ImportExcelController {
       final sheet = excel.tables[excel.tables.keys.first];
 
       if (sheet == null || sheet.rows.isEmpty) {
-        _showSnackBar(context, 'Planilha vazia ou inválida.');
+        _notify('Planilha vazia ou inválida.', type: AppNotificationType.warning);
         return;
       }
 
+      // Cabeçalhos normalizados
       final headers = <String>[];
       for (var i = 0; i < sheet.rows.first.length; i++) {
         final cell = sheet.rows.first[i];
         final raw = cell?.value?.toString() ?? '';
-        headers.add(raw.trim().replaceAll(RegExp(r'\s+'), '_').isEmpty
-            ? 'col_$i'
-            : raw.trim().replaceAll(RegExp(r'\s+'), '_'));
+        final norm = raw.trim().replaceAll(RegExp(r'\s+'), '_');
+        headers.add(norm.isEmpty ? 'col_$i' : norm);
       }
 
+      // Linhas
       final List<Map<String, dynamic>> jsonData = sheet.rows.skip(1).map((row) {
         final Map<String, dynamic> json = {};
         for (int i = 0; i < headers.length; i++) {
@@ -43,15 +51,12 @@ class ImportExcelController {
         return json;
       }).toList();
 
-
       if (jsonData.isEmpty) {
-        _showSnackBar(context, 'Nenhum dado encontrado na planilha.');
+        _notify('Nenhum dado encontrado na planilha.', type: AppNotificationType.warning);
         return;
       }
 
-      if (!context.mounted) {
-        return;
-      }
+      if (!context.mounted) return;
       await showDialog(
         context: context,
         builder: (ctx) {
@@ -63,7 +68,7 @@ class ImportExcelController {
         },
       );
     } catch (e) {
-      _showSnackBar(context, 'Erro ao importar: $e');
+      _notify('Erro ao importar', type: AppNotificationType.error, subtitle: '$e');
     }
   }
 
@@ -73,8 +78,9 @@ class ImportExcelController {
     if (valor is String) {
       final str = valor.trim();
 
-      // Detecta padrão: 14/11/2019 10:30:00
-      final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})[ T](\d{2}):(\d{2}):(\d{2})$').firstMatch(str);
+      // 14/11/2019 10:30:00
+      final match =
+      RegExp(r'^(\d{2})/(\d{2})/(\d{4})[ T](\d{2}):(\d{2}):(\d{2})$').firstMatch(str);
       if (match != null) {
         try {
           final day = int.parse(match.group(1)!);
@@ -89,17 +95,17 @@ class ImportExcelController {
         }
       }
 
-      // Detecta padrão: 14/11/2019
+      // 14/11/2019
       if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(str)) {
         final parts = str.split('/');
         return DateTime.tryParse('${parts[2]}-${parts[1]}-${parts[0]}');
       }
 
-      // Detecta padrão: 2019-11-14T10:30:00 ou similar
+      // ISO
       final dateISO = DateTime.tryParse(str);
       if (dateISO != null) return dateISO;
 
-      // Detecta valores numéricos com vírgula ou ponto
+      // numérico com vírgula/ponto
       final strNum = str.replaceAll('.', '').replaceAll(',', '.');
       final parsed = double.tryParse(strNum);
       if (parsed != null) return parsed;
@@ -110,9 +116,18 @@ class ImportExcelController {
     return valor;
   }
 
-  static void _showSnackBar(BuildContext context, String msg) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    }
+  // 🔔 helper de notificação
+  static void _notify(
+      String title, {
+        AppNotificationType type = AppNotificationType.info,
+        String? subtitle,
+      }) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text(title),
+        subtitle: subtitle != null ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
   }
 }

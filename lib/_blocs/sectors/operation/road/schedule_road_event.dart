@@ -1,9 +1,10 @@
-// lib/_blocs/sectors/operation/road/board/schedule_road_event.dart
+// COMPLETO — acrescido dos eventos do PHYS/FIN
+
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
-import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/carousel/carousel_metadata.dart' as pm;
 
 abstract class ScheduleRoadEvent extends Equatable {
   const ScheduleRoadEvent();
@@ -11,8 +12,6 @@ abstract class ScheduleRoadEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Inicializa estado com contrato e serviço inicial.
-/// totalEstacas é opcional: se houver geometria, será recalculado pelos 20 m.
 class ScheduleWarmupRequested extends ScheduleRoadEvent {
   final String contractId;
   final int? totalEstacas;
@@ -29,12 +28,10 @@ class ScheduleWarmupRequested extends ScheduleRoadEvent {
       [contractId, totalEstacas, initialServiceKey, summarySubjectContract];
 }
 
-/// Recarrega tudo (serviços, faixas, execuções + geometria)
 class ScheduleRefreshRequested extends ScheduleRoadEvent {
   const ScheduleRefreshRequested();
 }
 
-/// Seleciona um serviço
 class ScheduleServiceSelected extends ScheduleRoadEvent {
   final String serviceKey;
   const ScheduleServiceSelected(this.serviceKey);
@@ -42,7 +39,6 @@ class ScheduleServiceSelected extends ScheduleRoadEvent {
   List<Object?> get props => [serviceKey];
 }
 
-/// Salvar faixas (e recarregar)
 class ScheduleLanesSaveRequested extends ScheduleRoadEvent {
   final List<ScheduleLaneClass> lanes;
   const ScheduleLanesSaveRequested(this.lanes);
@@ -50,26 +46,19 @@ class ScheduleLanesSaveRequested extends ScheduleRoadEvent {
   List<Object?> get props => [lanes];
 }
 
-/// Recarrega execuções da serviceKey atual
 class ScheduleExecucoesReloadRequested extends ScheduleRoadEvent {
   const ScheduleExecucoesReloadRequested();
 }
 
-/// ========================== MAPA (agora no Board) ==========================
-
-/// Importa GeoJSON e salva geometria (na mesma infra do repositório do Board)
+// ====== MAPA ======
 class ScheduleProjectImportGeoJsonRequested extends ScheduleRoadEvent {
   final Map<String, dynamic> geojson;
   final String? summarySubjectContract;
-  const ScheduleProjectImportGeoJsonRequested(
-      this.geojson, {
-        this.summarySubjectContract,
-      });
+  const ScheduleProjectImportGeoJsonRequested(this.geojson, {this.summarySubjectContract});
   @override
   List<Object?> get props => [geojson, summarySubjectContract];
 }
 
-/// Upsert direto (caso já tenha ScheduleRoadMapData pronto)
 class ScheduleProjectUpsertRequested extends ScheduleRoadEvent {
   final ScheduleRoadData data;
   const ScheduleProjectUpsertRequested(this.data);
@@ -77,12 +66,10 @@ class ScheduleProjectUpsertRequested extends ScheduleRoadEvent {
   List<Object?> get props => [data];
 }
 
-/// Excluir traçado
 class ScheduleProjectDeleteRequested extends ScheduleRoadEvent {
   const ScheduleProjectDeleteRequested();
 }
 
-/// Seleção de polyline no mapa (tag arbitrária)
 class SchedulePolylineSelected extends ScheduleRoadEvent {
   final String? polylineId;
   const SchedulePolylineSelected(this.polylineId);
@@ -90,7 +77,6 @@ class SchedulePolylineSelected extends ScheduleRoadEvent {
   List<Object?> get props => [polylineId];
 }
 
-/// Mudança de zoom (normalizado no BLoC)
 class ScheduleMapZoomChanged extends ScheduleRoadEvent {
   final double zoom;
   const ScheduleMapZoomChanged(this.zoom);
@@ -98,26 +84,21 @@ class ScheduleMapZoomChanged extends ScheduleRoadEvent {
   List<Object?> get props => [zoom];
 }
 
-/// ---------------------------------------------------------------------------
-/// AÇÃO ÚNICA: Aplicar (status/comentário/data + novos uploads + exclusões + ordenação)
-/// ---------------------------------------------------------------------------
+// ====== AÇÃO ÚNICA ======
 class ScheduleSquareApplyRequested extends ScheduleRoadEvent {
   final int estaca;
   final int faixaIndex;
 
-  // Metadados de célula
   final String tipoLabel;
-  final String status;        // 'concluido' | 'em_andamento' | 'a_iniciar'
-  final String? comentario;   // null = limpar
-  final DateTime? takenAt;    // data do modal (fallback p/ novas fotos)
+  final String status;
+  final String? comentario;
+  final DateTime? takenAt;
 
-  // Fotos
-  final List<String> finalPhotoUrls;                 // ordem final sem as novas
-  final List<Uint8List> newFilesBytes;               // novas fotos (0..n)
-  final List<String>? newFileNames;                  // nomes das novas (opcional)
-  final List<pm.CarouselMetadata> newPhotoMetas;     // metas das novas (opcional)
+  final List<String> finalPhotoUrls;
+  final List<Uint8List> newFilesBytes;
+  final List<String>? newFileNames;
+  final List<pm.CarouselMetadata> newPhotoMetas;
 
-  // Usuário
   final String currentUserId;
 
   const ScheduleSquareApplyRequested({
@@ -148,4 +129,21 @@ class ScheduleSquareApplyRequested extends ScheduleRoadEvent {
     newPhotoMetas,
     currentUserId,
   ];
+}
+
+// ====== PHYS/FIN (períodos + grade) ======
+
+/// Dispara salvamento da grade no Firestore (usado pela tela ao alterar um percentual).
+class PhysFinGridUpdateRequested extends ScheduleRoadEvent {
+  final List<int> periods;
+  final Map<String, List<double>> grid; // serviceKey -> [%, %, ...]
+  final String? updatedBy;
+  const PhysFinGridUpdateRequested({
+    required this.periods,
+    required this.grid,
+    this.updatedBy,
+  });
+
+  @override
+  List<Object?> get props => [periods, grid, updatedBy];
 }

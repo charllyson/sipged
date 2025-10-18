@@ -1,84 +1,87 @@
-// lib/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart
+// lib/screens/sectors/traffic/overview-dashboard/accidents_dashboard_page.dart
 import 'dart:math' as math;
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/screens/sectors/traffic/dashboard/accidents_selector_section.dart';
-import 'package:siged/screens/sectors/traffic/dashboard/accidents_summary_section.dart';
-import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
+// Infra UI
 import 'package:siged/_widgets/upBar/up_bar.dart';
-import 'accidents_charts_section.dart';
-import 'accident_map_section.dart';
+import 'package:siged/screens/sectors/traffic/dashboard/accidents_analytics_panel.dart';
+import 'package:siged/screens/sectors/traffic/dashboard/accidents_map_panel.dart';
+
+// Mapa (reuso)
+import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:siged/_services/geo_json_service.dart';
 
 // Bloc
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_event.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_state.dart';
-import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 
-// Geo/Mapa helpers (antes ficavam no controller)
-import 'package:siged/_services/geo_json_service.dart';
-import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
+// ===================== Scaffold com painel lateral =====================
 
-class AccidentsDashboardPage extends StatelessWidget {
+enum RightPanelMode { none, map }
+
+class AccidentsDashboardPage extends StatefulWidget {
   const AccidentsDashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const _AccidentsDashboardScaffold();
-  }
+  State<AccidentsDashboardPage> createState() => _AccidentsDashboardPageState();
 }
 
-class _AccidentsDashboardScaffold extends StatefulWidget {
-  const _AccidentsDashboardScaffold();
+class _AccidentsDashboardPageState extends State<AccidentsDashboardPage> {
+  late final AccidentsBloc _bloc;
 
-  @override
-  State<_AccidentsDashboardScaffold> createState() => _AccidentsDashboardScaffoldState();
-}
+  RightPanelMode _mode = RightPanelMode.map;
 
-class _AccidentsDashboardScaffoldState extends State<_AccidentsDashboardScaffold> {
-  bool _didInit = false;
+  // Split do painel direito (wide) — fração da largura total (0..1). Começa em 50%.
+  double _splitH = 0.49;
 
-  // ========= estado local (substitui o antigo controller) =========
+  // Split vertical (small) — fração da ALTURA total para o painel do mapa (0..1). Começa em 50%.
+  double _splitV = 0.35;
+
+  // Geo/Mapa
   List<PolygonChanged> _regionalPolygons = [];
-  String? _selectedRegionName;
-  String? _selectedTypeName;
-  int? _selectedIndexRegion;
-  int? _selectedIndexType;
-
-  // paleta para o heatmap (similar ao controller antigo)
-  List<Color> _heatmapPalette = const [
+  final List<Color> _heatmapPalette = const [
     Color(0xFFFFF59D), // amarelo claro
     Color(0xFFFFB300), // laranja
     Color(0xFFD32F2F), // vermelho
   ];
-  final Color _zeroValueColor = const Color(0xFF2E7D32); // verde para “0”
+  final Color _zeroValueColor = Colors.grey;
   bool _useLogScale = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || _didInit) return;
-      _didInit = true;
+    _bloc = AccidentsBloc()..add(AccidentsWarmupRequested(initialYear: DateTime.now().year));
+    _warmupPolygons();
+  }
 
-      // Warmup do Bloc (filtros padrão: ano atual)
-      context.read<AccidentsBloc>().add(
-        AccidentsWarmupRequested(initialYear: DateTime.now().year),
-      );
+  Future<void> _warmupPolygons() async {
+    final polys = await GeoJsonService.loadServicePolygonsOfCitiesAL(
+      assetPath: 'assets/geojson/limits/limites_cidades_al.geojson',
+    );
+    if (!mounted) return;
+    setState(() => _regionalPolygons = polys);
+  }
 
-      // Carrega limites municipais de AL (para o mapa)
-      final polys = await GeoJsonService.loadServicePolygonsOfCitiesAL(
-        assetPath: 'assets/geojson/limits/limites_cidades_al.geojson',
-      );
-      if (mounted) setState(() => _regionalPolygons = polys);
+  @override
+  void dispose() {
+    _bloc.close();
+    super.dispose();
+  }
+
+  void _clearFilters() {
+    _bloc.add(const AccidentsFilterChanged(year: null, month: null));
+  }
+
+  void _toggleMapPanel() {
+    setState(() {
+      _mode = (_mode == RightPanelMode.map) ? RightPanelMode.none : RightPanelMode.map;
     });
   }
 
-  // ========= normalização (cidades sem acento/uppercase) =========
+  // ===== helpers para o heatmap =====
   String _normalizeCity(String? nome) {
     if (nome == null) return '';
     final noAccent = removeDiacritics(nome);
@@ -86,208 +89,230 @@ class _AccidentsDashboardScaffoldState extends State<_AccidentsDashboardScaffold
     return noMultipleSpace.trim().toUpperCase();
   }
 
-  // ========= construção das cores do mapa a partir dos totais =========
-  Map<String, Color> _regionColors(Map<String, double> totalsByCity) {
-    // conta por cidade já está em UPPERCASE no state (proveniente do repo),
-    // mas normalizamos por segurança
+  Map<String, Color> _buildRegionColors({
+    required Map<String, double> totalsByCity,
+    required List<Color> palette,
+    required Color zeroColor,
+    required bool useLog,
+    required List<PolygonChanged> polygons,
+  }) {
     final counts = <String, int>{};
     for (final e in totalsByCity.entries) {
-      final key = _normalizeCity(e.key);
-      counts[key] = (e.value).round();
+      counts[_normalizeCity(e.key)] = (e.value).round();
     }
 
-    // máxima incidência (normalizada/log se necessário)
     int maxRaw = 0;
     for (final v in counts.values) {
       if (v > maxRaw) maxRaw = v;
     }
-    double normMax = _useLogScale ? math.log(maxRaw + 1) : maxRaw.toDouble();
+    double normMax = useLog ? math.log(maxRaw + 1) : maxRaw.toDouble();
     if (normMax <= 0) normMax = 1;
 
-    Color interpolate(double factor) {
-      final n = _heatmapPalette.length;
-      if (n == 1) return _heatmapPalette.first;
-      final scaled = factor * (n - 1);
+    Color lerp(double f) {
+      final n = palette.length;
+      if (n == 1) return palette.first;
+      final scaled = f * (n - 1);
       final i = scaled.floor().clamp(0, n - 2);
       final t = scaled - i;
-      return Color.lerp(_heatmapPalette[i], _heatmapPalette[i + 1], t)!;
+      return Color.lerp(palette[i], palette[i + 1], t)!;
     }
 
     final colors = <String, Color>{};
     for (final e in counts.entries) {
-      final vNorm = _useLogScale ? math.log(e.value + 1) : e.value.toDouble();
+      final vNorm = useLog ? math.log(e.value + 1) : e.value.toDouble();
       final factor = (vNorm / normMax).clamp(0.0, 1.0);
-      colors[e.key] = interpolate(factor);
+      colors[e.key] = lerp(factor);
     }
 
-    // completa com cidades sem acidentes → verde
-    for (final poly in _regionalPolygons) {
+    for (final poly in polygons) {
       final key = _normalizeCity(poly.title);
-      colors.putIfAbsent(key, () => _zeroValueColor);
+      colors.putIfAbsent(key, () => zeroColor);
     }
     return colors;
   }
 
-  // ========= destaques (sem aplicar filtro global) =========
-  void _onTypeSelectedLocal(String? typeName, List<String> labelsType) {
-    if (typeName == null || typeName.toUpperCase() == _selectedTypeName?.toUpperCase()) {
-      _selectedTypeName = null;
-      _selectedIndexType = null;
-    } else {
-      _selectedTypeName = typeName;
-      _selectedIndexType = labelsType.indexWhere((t) => t.toUpperCase() == typeName.toUpperCase());
-    }
-    setState(() {});
-  }
-
-  void _onRegionSelectedLocal(String? regionName, List<String> labelsRegiao) {
-    if (regionName == null || regionName.toUpperCase() == _selectedRegionName?.toUpperCase()) {
-      _selectedRegionName = null;
-      _selectedIndexRegion = null;
-    } else {
-      _selectedRegionName = regionName;
-      _selectedIndexRegion = labelsRegiao.indexWhere((r) => r.toUpperCase() == regionName.toUpperCase());
-    }
-    setState(() {});
-  }
-
-  // ========= busca por cidade (a partir da view atual do Bloc) =========
-  Future<List<AccidentsData>> _fetchCityAccidentsFromState(
-      AccidentsState st,
-      String cityName,
-      ) async {
-    final key = _normalizeCity(cityName);
-    return st.view.where((a) => _normalizeCity(a.city) == key).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AccidentsBloc, AccidentsState>(
-      builder: (context, state) {
-        // dados para os cards/resumo
-        final totalsByType = state.totalsByType; // Map<String,double>
-        final totalsByCity = state.totalsByCity; // Map<String,double>
+    final showRightPanel = _mode != RightPanelMode.none;
 
-        // arrays para os gráficos
-        final labelsType = totalsByType.entries.where((e) => e.value > 0).map((e) => e.key).toList();
-        final valuesType = totalsByType.entries.where((e) => e.value > 0).map((e) => e.value).toList();
-
-        final labelsRegiao =
-        totalsByCity.entries.where((e) => e.value > 0).map((e) => e.key).toList();
-        final valuesRegiao =
-        totalsByCity.entries.where((e) => e.value > 0).map((e) => e.value).toList();
-
-        // índices de highlight (mantidos localmente)
-        _selectedIndexType = (_selectedTypeName == null)
-            ? null
-            : labelsType.indexWhere((t) => t.toUpperCase() == _selectedTypeName!.toUpperCase());
-        _selectedIndexRegion = (_selectedRegionName == null)
-            ? null
-            : labelsRegiao.indexWhere((r) => r.toUpperCase() == _selectedRegionName!.toUpperCase());
-
-        // totais agregados
-        final valorTotal = state.all.length.toDouble();   // histórico total (universo carregado)
-        final totalByType = state.view.length.toDouble(); // total no filtro atual (ano/mês/cidade)
-
-        // cores para o mapa (derivadas de totalsByCity)
-        final regionColors = _regionColors(totalsByCity);
-
-        return Scaffold(
-          backgroundColor: Colors.white,
-          body: Stack(
-            children: [
-              const BackgroundClean(),
-              Column(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const UpBar(),
-                          const SizedBox(height: 8),
-                          const DividerText(title: 'Estatística geral de acidentes'),
-                          const SizedBox(height: 8),
-
-                          // Resumo por tipos (usa o mesmo shape do controller antigo)
-                          AccidentsSummarySection(
-                            totalsByType: state.resumeByType,
-                          ),
-
-                          const SizedBox(height: 8),
-                          const DividerText(title: 'Maiores índices por tipos e cidades'),
-                          const SizedBox(height: 8),
-
-                          AccidentsChartsSection(
-                            labelsType: labelsType,
-                            valuesType: valuesType,
-                            labelsRegiao: labelsRegiao,
-                            valuesRegiao: valuesRegiao,
-                            selectedIndexType: _selectedIndexType,
-                            selectedIndexRegiao: _selectedIndexRegion,
-                            totalAccidents: totalByType,
-                            valorTotal: valorTotal,
-                            onTypeSelected: (t) => _onTypeSelectedLocal(t, labelsType),
-                            onRegionTap:   (r) => _onRegionSelectedLocal(r, labelsRegiao),
-                          ),
-
-                          const SizedBox(height: 8),
-                          const DividerText(title: 'Filtro por ano'),
-                          const SizedBox(height: 8),
-
-                          AccidentsSelectorSection(
-                            allData: state.universe,   // ✅ sempre o universo completo
-                            onFilterChanged: (_, y, m) {
-                              context.read<AccidentsBloc>().add(
-                                AccidentsFilterChanged(year: y, month: m),
-                              );
-                            },
-                          ),
-
-                          const SizedBox(height: 8),
-                          const DividerText(
-                            title: 'Mapa da incidência de acidentes por município',
-                          ),
-                          const SizedBox(height: 8),
-
-                          // Mapa: dados/cores derivados do state; polígonos carregados localmente
-                          AccidentsMapSection(
-                            regionalPolygons: _regionalPolygons,
-                            selectedRegionNames: _selectedRegionName != null
-                                ? [_selectedRegionName!.toUpperCase()]
-                                : const [],
-                            onRegionTap: (name) => _onRegionSelectedLocal(name, labelsRegiao),
-                            regionColors: regionColors,
-                            fetchCityData: (city) => _fetchCityAccidentsFromState(state, city),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const FootBar(),
-                ],
+    return BlocProvider.value(
+      value: _bloc,
+      child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(74),
+          child: UpBar(
+            showPhotoMenu: true,
+            actions: [
+              IconButton(
+                tooltip: 'Limpar filtros',
+                icon: const Icon(Icons.filter_alt_off, color: Colors.white),
+                onPressed: _clearFilters,
               ),
-
-              // Overlay leve de loading (usa state.loading)
-              if (state.loading)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    ignoring: true,
-                    child: Container(
-                      color: Colors.transparent,
-                      alignment: Alignment.topRight,
-                      padding: const EdgeInsets.all(12),
-                      child: const SizedBox(
-                        width: 26, height: 26,
-                        child: CircularProgressIndicator(strokeWidth: 3),
-                      ),
-                    ),
-                  ),
+              IconButton(
+                tooltip: showRightPanel ? 'Ocultar mapa' : 'Mostrar mapa',
+                icon: Icon(
+                  showRightPanel ? Icons.map : Icons.map_outlined,
+                  color: Colors.white,
                 ),
+                onPressed: _toggleMapPanel,
+              ),
             ],
           ),
-        );
-      },
+        ),
+
+        body: BlocBuilder<AccidentsBloc, AccidentsState>(
+          builder: (context, state) {
+            // Cores do mapa (derivadas do state atual)
+            final regionColors = _buildRegionColors(
+              totalsByCity: state.totalsByCity,
+              palette: _heatmapPalette,
+              zeroColor: _zeroValueColor,
+              useLog: _useLogScale,
+              polygons: _regionalPolygons,
+            );
+
+            // Painel da direita (mapa)
+            Widget? rightPane;
+            if (_mode == RightPanelMode.map) {
+              rightPane = AccidentsMapPanel(
+                state: state,
+                regionalPolygons: _regionalPolygons,
+                regionColors: regionColors,
+              );
+            }
+
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isWide = constraints.maxWidth >= 980;
+
+                if (!isWide) {
+                  // ================== SMALL: divisor VERTICAL arrastável ==================
+                  if (rightPane == null) {
+                    // Sem painel: apenas analytics
+                    return const AccidentsAnalyticsPanel();
+                  }
+
+                  // Altura disponível nesta área
+                  final double totalH = constraints.maxHeight;
+                  const double minBottom = 260.0;                        // altura mínima do mapa
+                  final double maxBottom = (totalH * 0.9).clamp(300.0, totalH); // máxima segura
+
+                  // altura atual do mapa baseada no split
+                  double bottomH = (_splitV * totalH).clamp(minBottom, maxBottom);
+                  final double clampedV = bottomH / totalH;
+                  if (clampedV != _splitV) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _splitV = clampedV);
+                    });
+                  }
+
+                  // handle vertical
+                  final Widget vHandle = MouseRegion(
+                    cursor: SystemMouseCursors.resizeRow,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onDoubleTap: () => setState(() => _splitV = 0.5), // reset 50%
+                      onVerticalDragUpdate: (details) {
+                        final double hNow = (_splitV * totalH);
+                        final double newH = (hNow + details.delta.dy)   // dy > 0 (baixo) => aumenta
+                            .clamp(minBottom, maxBottom);
+                        setState(() {
+                          _splitV = newH / totalH;
+                        });
+                      },
+                      child: Container(
+                        height: 10,
+                        color: Colors.white,
+                        child: Center(
+                          child: Container(width: double.infinity, height: 1, color: Colors.blue),
+                        ),
+                      ),
+                    ),
+                  );
+
+                  return Column(
+                    children: [
+                      // Fundo (mapa) com altura ajustável
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 80),
+                        curve: Curves.easeOut,
+                        height: bottomH,
+                        width: double.infinity,
+                        child: rightPane,
+                      ),
+                      vHandle,
+                      // Topo (analytics) ocupa o restante
+                      const Expanded(child: AccidentsAnalyticsPanel()),
+                      // Handle vertical
+                    ],
+                  );
+                }
+
+                // ================== WIDE: divisor HORIZONTAL arrastável ==================
+                const double minRight = 420.0;
+                final double maxRight = constraints.maxWidth * 0.80;
+
+                // largura atual do painel direito baseada no split
+                final double currentRightWidth =
+                (_splitH * constraints.maxWidth).clamp(minRight, maxRight);
+
+                // se clampou, sincroniza split
+                final double clampedH = currentRightWidth / constraints.maxWidth;
+                if (clampedH != _splitH) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _splitH = clampedH);
+                  });
+                }
+
+                // handle horizontal
+                final Widget hHandle = MouseRegion(
+                  cursor: SystemMouseCursors.resizeColumn,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onDoubleTap: () => setState(() => _splitH = 0.5), // reset 50%
+                    onHorizontalDragUpdate: (details) {
+                      // Em LTR: arrastar para ESQUERDA => AUMENTA painel direito
+                      final dir = Directionality.of(context);
+                      final sign = (dir == TextDirection.ltr) ? -1.0 : 1.0;
+                      final double widthNow = (_splitH * constraints.maxWidth);
+                      final double newWidth = (widthNow + sign * details.delta.dx).clamp(minRight, maxRight);
+                      setState(() {
+                        _splitH = newWidth / constraints.maxWidth;
+                      });
+                    },
+                    child: Container(
+                      width: 10,
+                      color: Colors.white,
+                      child: Center(
+                        child: Container(width: 1, height: double.infinity, color: Colors.blue),
+                      ),
+                    ),
+                  ),
+                );
+
+                return Row(
+                  children: [
+                    // painel esquerdo ocupa o restante
+                    const Expanded(child: AccidentsAnalyticsPanel()),
+                    // divisor/handle
+                    hHandle,
+                    // painel direito (mapa) com largura ajustável
+                    if (rightPane != null)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 80),
+                        curve: Curves.easeOut,
+                        width: currentRightWidth,
+                        child: rightPane,
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
     );
   }
 }
+
+

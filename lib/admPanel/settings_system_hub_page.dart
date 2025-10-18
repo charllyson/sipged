@@ -3,10 +3,10 @@ import 'package:siged/_widgets/buttons/back_circle_button.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
 
 // Páginas por tópico
-import 'package:siged/admPanel/settings_topic_sistema_page.dart';
-import 'settings_topic_firebase_page.dart';
-import 'settings_topic_conversores_page.dart';
-import 'settings_topic_migracoes_page.dart';
+import 'package:siged/admPanel/system/users/settings_topic_sistema_page.dart';
+import 'firebase/settings_topic_firebase_page.dart';
+import 'converters/settings_topic_conversores_page.dart';
+import 'migrations/settings_topic_migracoes_page.dart';
 
 class SettingsSystemHubPage extends StatelessWidget {
   const SettingsSystemHubPage({super.key});
@@ -50,9 +50,6 @@ class SettingsSystemHubPage extends StatelessWidget {
         builder: (_) => const SettingsTopicMigracoesPage(),
       ),
     ];
-
-    final topSafe = MediaQuery.of(context).padding.top;
-    final topPadding = topSafe + 72 + 16; // empurra o grid pra baixo da UpBar
 
     return Scaffold(
       backgroundColor: Colors.white,

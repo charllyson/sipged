@@ -19,6 +19,10 @@ import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'active_oaes_form.dart';
 import 'active_oaes_records_table_section.dart';
 
+// ✅ notificações ricas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ActiveOaesRecordsPage extends StatefulWidget {
   const ActiveOaesRecordsPage({super.key});
 
@@ -27,9 +31,6 @@ class ActiveOaesRecordsPage extends StatefulWidget {
 }
 
 class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
-// índice original (na lista st.all)
-// índice da fatia (0..5)
-// índice da barra de região
   bool _firedUserWarmup = false;
   bool _firedOaesWarmup = false;
 
@@ -71,7 +72,8 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
               bloc.add(const ActiveOaesWarmupRequested());
             }
 
-            if (!st.initialized || st.loadStatus == ActiveOaesLoadStatus.loading) {
+            if (!st.initialized ||
+                st.loadStatus == ActiveOaesLoadStatus.loading) {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               );
@@ -82,10 +84,6 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
               );
             }
 
-// labels semânticos (0..5)
-// contagem por nota
-// cores por nota
-
             final labelsRegion = st.regionLabels;
 
             return Stack(
@@ -93,8 +91,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
                 const BackgroundClean(),
                 Column(
                   children: [
-                    UpBar(
-                    ),
+                    const UpBar(),
                     const SizedBox(height: 12),
                     Expanded(
                       child: SingleChildScrollView(
@@ -107,7 +104,8 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
                               padding: EdgeInsets.symmetric(horizontal: 12.0),
                               child: ActiveOaesForm(),
                             ),
-                            const DividerText(title: 'OAEs cadastradas no sistema'),
+                            const DividerText(
+                                title: 'OAEs cadastradas no sistema'),
                             const SizedBox(height: 12),
 
                             // ===================== TABELA =====================
@@ -115,11 +113,13 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
                               futureOaes: Future.value(st.all),
                               onTapItem: (item) {
                                 // espelha seleção no BLoC
-                                final originalIndex = st.all.indexWhere((e) => e.id == item.id);
+                                final originalIndex = st.all
+                                    .indexWhere((e) => e.id == item.id);
                                 if (originalIndex != -1) {
                                   context
                                       .read<ActiveOaesBloc>()
-                                      .add(ActiveOaesSelectByIndex(originalIndex));
+                                      .add(ActiveOaesSelectByIndex(
+                                      originalIndex));
                                 }
 
                                 // espelha no PIE: nota -> índice da fatia (0..5)
@@ -131,14 +131,21 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
                                       (lab) => lab.toUpperCase() == r,
                                 );
                                 if (idxRegion != -1) {
+                                  // no-op aqui (mantido para futura integração visual)
                                 }
                               },
                               onDelete: (id) {
-                                context.read<ActiveOaesBloc>().add(ActiveOaesDeleteRequested(id));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Solicitando exclusão...'),
-                                    backgroundColor: Colors.red,
+                                context
+                                    .read<ActiveOaesBloc>()
+                                    .add(ActiveOaesDeleteRequested(id));
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    title:
+                                    const Text('Solicitando exclusão...'),
+                                    type: AppNotificationType.warning,
+                                    leadingLabel: const Text('OAEs'),
+                                    duration:
+                                    const Duration(seconds: 4),
                                   ),
                                 );
                               },
@@ -151,6 +158,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
                   ],
                 ),
 
+                // Overlay de salvamento
                 if (st.saving)
                   Stack(
                     children: [

@@ -1,3 +1,4 @@
+// lib/_pages/actives/railway/active_railways_network_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -13,6 +14,10 @@ import 'package:siged/_services/geoJson/check_jumps_between_points.dart';
 import '../../../../_widgets/services/floating_buttons.dart';
 import 'active_railways_map.dart';
 import 'active_railways_panel.dart';
+
+// ✅ Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ActiveRailwaysNetworkPage extends StatefulWidget {
   const ActiveRailwaysNetworkPage({super.key});
@@ -52,15 +57,19 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
   // Import / Delete helpers
   // =========================
 
-
   /// Deleta todos os documentos atualmente carregados no estado.
   void _onDeleteCollection() async {
     final ids = _bloc.state.all.map((e) => e.id).whereType<String>().toList();
     for (final id in ids) {
       _bloc.add(ActiveRailwaysDeleteRequested(id));
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Solicitada exclusão de todas as ferrovias carregadas.')),
+
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('Exclusão solicitada'),
+        subtitle: Text('${ids.length} ferrovia(s) marcada(s) para exclusão.'),
+        type: AppNotificationType.warning,
+      ),
     );
   }
 
@@ -144,17 +153,22 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
                   collectionPath: 'actives_railways',
                   distanciaMaxEmKm: 2.0,
                 );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Verificação concluída. ${ids.length} docs com saltos.')),
-                  );
-                }
+
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Verificação concluída'),
+                    subtitle: Text('${ids.length} documento(s) com possíveis saltos > 2 km'),
+                    type: ids.isEmpty
+                        ? AppNotificationType.success
+                        : AppNotificationType.warning,
+                  ),
+                );
               },
               collectionPath: 'actives_railways', // <<< novo param
               initiallyExpanded: true, // opcional
-              position: const GeoJsonActionsPosition.bottomLeft(), // ou .bottomRight()
+              position:
+              const GeoJsonActionsPosition.bottomLeft(), // ou .bottomRight()
             ),
-
           ],
         ),
       ),

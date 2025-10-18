@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'planning_highway_domain_event.dart';
 import 'planning_highway_domain_state.dart';
 import 'planning_highway_domain_repository.dart';
-import 'planning_highway_domain_data.dart';
 
 class PlanningHighwayDomainBloc
     extends Bloc<PlanningHighwayDomainEvent, PlanningHighwayDomainState> {

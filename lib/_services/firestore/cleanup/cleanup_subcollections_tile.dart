@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'cleanup_subcollections_util.dart';
 
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class CleanUpSubcollectionsTile extends StatelessWidget {
   const CleanUpSubcollectionsTile({super.key});
 
@@ -40,8 +43,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
                 ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Apagar')),
               ],
             ),
-          ) ??
-              false;
+          ) ?? false;
           if (!ok) return;
 
           // 2) DRY-RUN com loading
@@ -57,6 +59,19 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
           try {
             final cleaner = SubcollectionCleaner();
             dry = await cleaner.deleteForCollectionPath(collectionPath, subs, dryRun: true);
+          } catch (e) {
+            // fecha loading e informa erro
+            if (nav.canPop()) nav.pop();
+            NotificationCenter.instance.show(
+              AppNotification(
+                title: const Text('Falha no dry-run'),
+                subtitle: Text('$e'),
+                type: AppNotificationType.error,
+                leadingLabel: const Text('Limpeza'),
+                duration: const Duration(seconds: 6),
+              ),
+            );
+            return;
           } finally {
             if (nav.canPop()) nav.pop(); // fecha o loading com segurança
           }
@@ -75,8 +90,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
                 ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sim, apagar')),
               ],
             ),
-          ) ??
-              false;
+          ) ?? false;
 
           if (!ok2) return;
 
@@ -93,14 +107,33 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
           try {
             final cleaner = SubcollectionCleaner();
             res = await cleaner.deleteForCollectionPath(collectionPath, subs, dryRun: false);
+          } catch (e) {
+            // fecha loading e informa erro
+            if (nav.canPop()) nav.pop();
+            NotificationCenter.instance.show(
+              AppNotification(
+                title: const Text('Erro ao apagar subcoleções'),
+                subtitle: Text('$e'),
+                type: AppNotificationType.error,
+                leadingLabel: const Text('Limpeza'),
+                duration: const Duration(seconds: 6),
+              ),
+            );
+            return;
           } finally {
             if (nav.canPop()) nav.pop(); // fecha o loading com segurança
           }
 
           if (!context.mounted) return;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Subcoleções apagadas com sucesso!')),
+          // ✅ sucesso via NotificationCenter
+          NotificationCenter.instance.show(
+            AppNotification(
+              title: const Text('Subcoleções apagadas com sucesso!'),
+              type: AppNotificationType.success,
+              leadingLabel: const Text('Limpeza'),
+              duration: const Duration(seconds: 4),
+            ),
           );
 
           await _showPreviewDialog(context, res, title: 'Resumo da limpeza');
@@ -150,8 +183,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
           ),
         ],
       ),
-    ) ??
-        false;
+    ) ?? false;
 
     if (!ok) return null;
 

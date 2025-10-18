@@ -1,27 +1,31 @@
 import 'package:flutter/material.dart';
 
 // STORAGE BLOCS
-import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/additives/additives_storage_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_storage_bloc.dart';
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_storage_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/validity/validity_storage_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contract_storage_bloc.dart';
+import 'package:siged/_blocs/process/additives/additives_storage_bloc.dart';
+import 'package:siged/_blocs/process/apostilles/apostilles_storage_bloc.dart';
+import 'package:siged/_blocs/process/report/report_measurement_storage_bloc.dart';
+import 'package:siged/_blocs/process/validity/validity_storage_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_storage_bloc.dart';
 
 // DATAS
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_blocs/documents/contracts/additives/additive_data.dart';
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
-import 'package:siged/_blocs/documents/contracts/validity/validity_data.dart';
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/additives/additive_data.dart';
+import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
+import 'package:siged/_blocs/process/validity/validity_data.dart';
+import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 
-// troque o import do stub por este:
+// Visualizador interno de PDF
 import 'package:siged/_services/pdf/pdf_preview.dart';
+
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 enum PDFType {
   contract,
@@ -35,7 +39,7 @@ enum PDFType {
 }
 
 /// Controller genérico para PDFs.
-/// - Centraliza regras por tipo de PDF (contract, additive, etc.)
+/// - Centraliza regras por tipo de PDF (hiring, additive, etc.)
 /// - Exposição de estado (isUploading, progress, pdfExists)
 /// - Ações: checkExists, open, send, delete, handleTap
 class WebPdfControllerGeneric<T> extends ChangeNotifier {
@@ -154,6 +158,21 @@ class WebPdfControllerGeneric<T> extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 🔔 helper para notificar
+  void _notify(
+      String title, {
+        AppNotificationType type = AppNotificationType.info,
+        String? subtitle,
+      }) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text(title),
+        subtitle: subtitle != null ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
+  }
+
   // ---- API pública ----
 
   /// Verifica se há PDF armazenado para o contexto atual.
@@ -206,34 +225,46 @@ class WebPdfControllerGeneric<T> extends ChangeNotifier {
 
   /// Abre o PDF (se existir) em um Dialog com o Web viewer.
   Future<void> openPdf(BuildContext context) async {
-    if (!_pdfExists) return;
+    if (!_pdfExists) {
+      _notify('PDF não encontrado', type: AppNotificationType.warning);
+      return;
+    }
+
     String? url;
 
     try {
       url = switch (_type) {
-        PDFType.contract => await _contractStorageBloc?.getFirstContractPdfUrl(_contract),
-        PDFType.additives => await _additivesStorageBloc?.getPdfUrlDoAditivo(
+        PDFType.contract =>
+        await _contractStorageBloc?.getFirstContractPdfUrl(_contract),
+        PDFType.additives =>
+        await _additivesStorageBloc?.getPdfUrlDoAditivo(
             contract: _contract, additive: _as<AdditiveData>()),
-        PDFType.apostilles => await _apostillesStorageBloc?.getPdfUrlDaApostila(
+        PDFType.apostilles =>
+        await _apostillesStorageBloc?.getPdfUrlDaApostila(
             contract: _contract, apostille: _as<ApostillesData>()),
-        PDFType.report => await _reportsStorageBloc?.getPdfUrlDaMedicao(
+        PDFType.report =>
+        await _reportsStorageBloc?.getPdfUrlDaMedicao(
             contract: _contract, measurement: _as<ReportMeasurementData>()),
-        PDFType.validity => await _validityStorageBloc?.getPdfUrlDaValidade(
+        PDFType.validity =>
+        await _validityStorageBloc?.getPdfUrlDaValidade(
             contract: _contract, validade: _as<ValidityData>()),
-        PDFType.paymentReport => await _paymentsReportStorageBloc?.getPdfUrlDaPayment(
+        PDFType.paymentReport =>
+        await _paymentsReportStorageBloc?.getPdfUrlDaPayment(
             contract: _contract, payment: _as<PaymentsReportData>()),
-        PDFType.paymentsAdjustment => await _paymentsAdjustmentStorageBloc?.getPdfUrlDaPayment(
+        PDFType.paymentsAdjustment =>
+        await _paymentsAdjustmentStorageBloc?.getPdfUrlDaPayment(
             contract: _contract, paymentsAdjustmentsData: _as<PaymentsAdjustmentsData>()),
-        PDFType.paymentsRevision => await _paymentsRevisionStorageBloc?.getPdfUrlDaPayment(
+        PDFType.paymentsRevision =>
+        await _paymentsRevisionStorageBloc?.getPdfUrlDaPayment(
             contract: _contract, paymentsRevisionsData: _as<PaymentsRevisionsData>()),
       };
     } catch (e) {
-      _showSnackBar(context, 'Erro ao obter URL: $e', isError: true);
+      _notify('Erro ao obter URL do PDF', type: AppNotificationType.error, subtitle: '$e');
       return;
     }
 
-    if (url == null) {
-      _showSnackBar(context, 'PDF não encontrado', isError: true);
+    if (url == null || url.isEmpty) {
+      _notify('PDF não encontrado', type: AppNotificationType.warning);
       return;
     }
 
@@ -242,7 +273,7 @@ class WebPdfControllerGeneric<T> extends ChangeNotifier {
       builder: (_) => Dialog(
         backgroundColor: Colors.white,
         insetPadding: const EdgeInsets.all(16),
-        child: PdfPreview(pdfUrl: url!), // ver seção 3 para o !
+        child: PdfPreview(pdfUrl: url!),
       ),
     );
   }
@@ -327,9 +358,9 @@ class WebPdfControllerGeneric<T> extends ChangeNotifier {
       }
 
       await checkExists();
-      _showSnackBar(context, 'PDF enviado com sucesso');
+      _notify('PDF enviado com sucesso', type: AppNotificationType.success);
     } catch (e) {
-      _showSnackBar(context, 'Erro ao enviar PDF: $e', isError: true);
+      _notify('Erro ao enviar PDF', type: AppNotificationType.error, subtitle: '$e');
     } finally {
       _setUploading(false);
       _setProgress(0);
@@ -381,15 +412,15 @@ class WebPdfControllerGeneric<T> extends ChangeNotifier {
           break;
       }
     } catch (e) {
-      _showSnackBar(context, 'Erro ao excluir: $e', isError: true);
+      _notify('Erro ao excluir PDF', type: AppNotificationType.error, subtitle: '$e');
       return;
     }
 
     if (success == true) {
       await checkExists();
-      _showSnackBar(context, 'PDF excluído com sucesso');
+      _notify('PDF excluído com sucesso', type: AppNotificationType.success);
     } else {
-      _showSnackBar(context, 'Erro ao excluir PDF', isError: true);
+      _notify('Erro ao excluir PDF', type: AppNotificationType.error);
     }
   }
 
@@ -401,15 +432,5 @@ class WebPdfControllerGeneric<T> extends ChangeNotifier {
     } else {
       await sendPdf(context);
     }
-  }
-
-  // ---- UI helpers ----
-  void _showSnackBar(BuildContext context, String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: isError ? Colors.red : Colors.green,
-      ),
-    );
   }
 }

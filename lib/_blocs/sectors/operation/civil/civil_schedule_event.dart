@@ -1,7 +1,7 @@
 // lib/_blocs/sectors/operation/civil/civil_schedule_event.dart
 import 'dart:typed_data';
 import 'package:equatable/equatable.dart';
-import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/carousel/carousel_metadata.dart' as pm;
 
 abstract class CivilScheduleEvent extends Equatable {
   const CivilScheduleEvent();

@@ -11,7 +11,7 @@ class AccidentsData extends ChangeNotifier {
   String? id;
   int? order;
   DateTime? date;
-  String? referencePoint;
+  String? referencePoint;        // 📍 já existia, manter
   int? death;
   String? highway;
   String? description;
@@ -20,6 +20,10 @@ class AccidentsData extends ChangeNotifier {
   int? scoresVictims;
   String? transportInvolved;
   String? typeOfAccident;
+
+  // NOVOS CAMPOS
+  String? victimSex;             // ⚥ NOVO
+  int?    victimAge;             // 🎂 NOVO
 
   LatLng? latLng;
   Placemark? placemark;
@@ -43,355 +47,18 @@ class AccidentsData extends ChangeNotifier {
   DateTime? deletedAt;
   String? deletedBy;
 
-  // ---------- Campos denormalizados p/ performance ----------
-  int? year;                 // ano do acidente
-  int? month;                // mês do acidente (1..12)
-  String? yearDocId;         // id do doc em trafficAccidents correspondente ao ano (opcional)
-  String? recordPath;        // path completo do doc em records (ex.: trafficAccidents/XYZ/records/ABC)
+  // ---------- Denormalizações ----------
+  int? year;
+  int? month;
+  String? yearDocId;
+  String? recordPath;
+  String? cityNormalized;
 
-  // Chave útil para agrupamento/ordenação local (ex.: "2025-08")
   String? get yearMonthKey => (year != null && month != null)
       ? '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}'
       : null;
 
-
   final Map<String, int> cityOfAccident = {};
-
-  String normalizeString(String? nome) {
-    if (nome == null) return '';
-    final noAccent = removeDiacritics(nome);
-    final noMultipleSpace = noAccent.replaceAll(RegExp(r'\s+'), ' ');
-    return noMultipleSpace.trim().toUpperCase();
-  }
-
-  Future<void> loadAccidentsData(List<AccidentsData> accidentsData) async {
-    cityOfAccident.clear();
-
-    for (final acc in accidentsData) {
-      final city = normalizeString(acc.city);
-      if (city.isEmpty) continue;
-
-      cityOfAccident[city] = (cityOfAccident[city] ?? 0) + 1;
-    }
-  }
-
-  Map<String, Color> calculateColorsFilteredCity(
-      List<AccidentsData> filteredAccidentsData,
-      ) {
-    final count = <String, int>{};
-    for (final accidents in filteredAccidentsData) {
-      final city = normalizeString(accidents.city);
-      if (city.isEmpty) continue;
-      count[city] = (count[city] ?? 0) + 1;
-    }
-    final max = count.values.fold<int>(1, (a, b) => math.max(a, b));
-    return {
-      for (final entry in count.entries)
-        entry.key: interpolateColorsAccidentsFactor(
-          (entry.value / max).clamp(0.05, 1.0),
-        ),
-    };
-  }
-
-  Color interpolateColorsAccidentsFactor(double accidentsFactor) {
-    final index = (accidentsFactor *
-        (AccidentsData.statusColorsAccidentType.length - 1))
-        .floor()
-        .clamp(0, AccidentsData.statusColorsAccidentType.length - 2);
-    final t =
-        accidentsFactor * (AccidentsData.statusColorsAccidentType.length - 1) -
-            index;
-    return Color.lerp(
-      AccidentsData.statusColorsAccidentType[index],
-      AccidentsData.statusColorsAccidentType[index + 1],
-      t,
-    )!;
-  }
-
-  static List<String> accidentTypes = [
-    'COLISÃO COM ANIMAL',
-    'COLISÃO FRONTAL',
-    'COLISÃO TRASEIRA',
-    'COLISÃO LONGITUDINAL',
-    'COLISÃO TRANSVERSAL',
-    'COLISÃO COM OBJETO FIXO',
-    'COLISÃO COM MOTOCICLETA',
-    'CAPOTAMENTO',
-    'TOMBAMENTO',
-    'ATROPELAMENTO',
-    'SAÍDA DE PISTA',
-    'ENGAVETAMENTO',
-    'QUEDA DE MOTOCICLETA',
-    'QUEDA DE CICLISTA',
-    'QUEDA',
-    'CHOQUE',
-    'OUTROS',
-  ];
-
-  static List<String> cityState = [
-    'ÁGUA BRANCA',
-    'ANADIA',
-    'ARAPIRACA',
-    'ATALAIA',
-    'BARRA DE SANTO ANTÔNIO',
-    'BARRA DE SÃO MIGUEL',
-    'BATALHA',
-    'BELÉM',
-    'BELO MONTE',
-    'BOCA DA MATA',
-    'BRANQUINHA',
-    'CACIMBINHAS',
-    'CAJUEIRO',
-    'CAMPESTRE',
-    'CAMPO ALEGRE',
-    'CANAPI',
-    'CAPELA',
-    'CARNEIROS',
-    'CHÃ PRETA',
-    "COITÉ DO NÓIA",
-    'COLÔNIA LEOPOLDINA',
-    'COQUEIRO SECO',
-    'CORURIPE',
-    'CRAÍBAS',
-    'DELMIRO GOUVEIA',
-    'DOIS RIACHOS',
-    'ESTRELA DE ALAGOAS',
-    'FEIRA GRANDE',
-    'FELIZ DESERTO',
-    'FLEXEIRAS',
-    'GIRAU DO PONCIANO',
-    'IBATEGUARA',
-    'IGACI',
-    'IGREJA NOVA',
-    'INHAPI',
-    "JACARÉ DOS HOMENS",
-    'JACUÍPE',
-    'JAPARATINGA',
-    'JARAMATAIA',
-    'JEQUIÁ DA PRAIA',
-    'JOAQUIM GOMES',
-    'JUNDIÁ',
-    'JUNQUEIRO',
-    'LAGOA DA CANOA',
-    'LIMOEIRO DE ANADIA',
-    'MACEIÓ',
-    'MAJOR ISIDORO',
-    'MAR VERMELHO',
-    'MARAGOGI',
-    'MARAVILHA',
-    'MARECHAL DEODORO',
-    'MARIBONDO',
-    'MATA GRANDE',
-    'MATRIZ DE CAMARAGIBE',
-    'MESSIAS',
-    'MINADOR DO NEGRÃO',
-    'MONTEIRÓPOLIS',
-    'MURICI',
-    'NOVO LINO',
-    "OLHO D'ÁGUA DAS FLORES",
-    "OLHO D'ÁGUA DO CASADO",
-    "OLHO D'ÁGUA GRANDE",
-    'OLIVENÇA',
-    'OURO BRANCO',
-    'PALESTINA',
-    "PALMEIRA DOS ÍNDIOS",
-    'PÃO DE AÇÚCAR',
-    'PARICONHA',
-    'PARIPUEIRA',
-    'PASSO DE CAMARAGIBE',
-    'PAULO JACINTO',
-    'PENEDO',
-    'PIAÇABUÇU',
-    'PILAR',
-    'PINDOBA',
-    'PIRANHAS',
-    'POÇO DAS TRINCHEIRAS',
-    'PORTO CALVO',
-    'PORTO DE PEDRAS',
-    'PORTO REAL DO COLÉGIO',
-    'QUEBRANGULO',
-    'RIO LARGO',
-    'ROTEIRO',
-    'SANTA LUZIA DO NORTE',
-    'SANTANA DO IPANEMA',
-    'SANTANA DO MUNDAÚ',
-    'SÃO BRÁS',
-    'SÃO JOSÉ DA LAJE',
-    'SÃO JOSÉ DA TAPERA',
-    'SÃO LUÍS DO QUITUNDE',
-    'SÃO MIGUEL DOS CAMPOS',
-    'SÃO MIGUEL DOS MILAGRES',
-    'SÃO SEBASTIÃO',
-    'SATUBA',
-    'SENADOR RUI PALMEIRA',
-    "TANQUE D'ARCA",
-    'TAQUARANA',
-    'TEOTÔNIO VILELA',
-    'TRAIPU',
-    'UNIÃO DOS PALMARES',
-    'VIÇOSA',
-  ];
-
-
-  static String getTitleByAccidentType(String status) {
-    switch (status) {
-      case 'COLISÃO COM ANIMAL':
-        return 'Colisão com Animal';
-      case 'COLISÃO FRONTAL':
-        return 'Colisão Frontal';
-      case 'COLISÃO TRASEIRA':
-        return 'Colisão Traseira';
-      case 'COLISÃO LONGITUDINAL':
-        return 'Colisão Longitudinal';
-      case 'COLISÃO TRANSVERSAL':
-        return 'Colisão Transversal';
-      case 'COLISÃO COM OBJETO FIXO':
-        return 'Colisão com Objeto Fixo';
-      case 'COLISÃO COM MOTOCICLETA':
-        return 'Colisão com Motocicleta';
-      case 'CAPOTAMENTO':
-        return 'Capotamento';
-      case 'TOMBAMENTO':
-        return 'Tombamento';
-      case 'ATROPELAMENTO':
-        return 'Atropelamento';
-      case 'SAÍDA DE PISTA':
-        return 'Saída de Pista';
-      case 'ENGAVETAMENTO':
-        return 'Engavetamento';
-      case 'QUEDA DE MOTOCICLETA':
-        return 'Queda de Motocicleta';
-      case 'QUEDA DE CICLISTA':
-        return 'Queda de Ciclista';
-      case 'QUEDA':
-        return 'Queda';
-      case 'CHOQUE':
-        return 'Choque';
-      default:
-        return 'OUTROS';
-    }
-  }
-
-  static IconData iconAccidentType(String status) {
-    switch (status) {
-      case 'COLISÃO COM ANIMAL':
-        return Icons.pets;
-      case 'COLISÃO FRONTAL':
-        return Icons.car_crash;
-      case 'COLISÃO TRASEIRA':
-        return Icons.car_crash;
-      case 'COLISÃO LONGITUDINAL':
-        return Icons.car_crash;
-      case 'COLISÃO TRANSVERSAL':
-        return Icons.car_crash;
-      case 'COLISÃO COM OBJETO FIXO':
-        return Icons.minor_crash;
-      case 'COLISÃO COM MOTOCICLETA':
-        return Icons.motorcycle;
-      case 'CAPOTAMENTO':
-        return Icons.minor_crash;
-      case 'TOMBAMENTO':
-        return Icons.minor_crash;
-      case 'ATROPELAMENTO':
-        return Icons.directions_walk;
-      case 'SAÍDA DE PISTA':
-        return Icons.highlight;
-      case 'ENGAVETAMENTO':
-        return Icons.minor_crash;
-      case 'QUEDA DE MOTOCICLETA':
-        return Icons.motorcycle_outlined;
-      case 'QUEDA DE CICLISTA':
-        return Icons.bike_scooter;
-      case 'QUEDA':
-        return Icons.directions_walk;
-      case 'CHOQUE':
-        return Icons.directions_walk;
-      default:
-        return Icons.not_listed_location;
-    }
-  }
-
-  static Color getColorByAccidentType(String status) {
-    switch (status) {
-      case 'COLISÃO COM ANIMAL':
-        return Colors.yellow.shade700;
-      case 'COLISÃO FRONTAL':
-        return Colors.blue.shade300;
-      case 'COLISÃO TRASEIRA':
-        return Colors.green;
-      case 'COLISÃO LONGITUDINAL':
-        return Colors.orange.shade700;
-      case 'COLISÃO TRANSVERSAL':
-        return Colors.red.shade700;
-      case 'COLISÃO COM OBJETO FIXO':
-        return Colors.grey;
-      case 'COLISÃO COM MOTOCICLETA':
-        return Colors.yellow.shade700;
-      case 'CAPOTAMENTO':
-        return Colors.blue.shade300;
-      case 'TOMBAMENTO':
-        return Colors.green;
-      case 'ATROPELAMENTO':
-        return Colors.orange.shade700;
-      case 'SAÍDA DE PISTA':
-        return Colors.red.shade700;
-      case 'ENGAVETAMENTO':
-        return Colors.grey;
-      case 'QUEDA DE MOTOCICLETA':
-        return Colors.yellow.shade700;
-      case 'QUEDA DE CICLISTA':
-        return Colors.blue.shade300;
-      case 'QUEDA':
-        return Colors.green;
-      case 'CHOQUE':
-        return Colors.orange.shade700;
-      default:
-        return Colors.black;
-    }
-  }
-
-
-  static List<Color> specificColorsAccidentType = [
-    Colors.yellow.shade300,
-    Colors.yellow.shade700,
-    Colors.orange.shade400,
-    Colors.orange.shade600,
-    Colors.deepOrange.shade400,
-    Colors.deepOrange.shade600,
-    Colors.red.shade600,
-    Colors.red.shade900,
-  ];
-
-  static List<Color> statusColorsAccidentType = [
-    Colors.yellow.shade700,
-    Colors.blue.shade300,
-    Colors.green,
-    Colors.orange.shade700,
-    Colors.red.shade700,
-    Colors.grey,
-  ];
-
-  static String normalizarTipoAcidente(String tipo) {
-    tipo = tipo.toUpperCase().trim();
-    if (tipo.contains('COLISÃO COM ANIMAL')) return 'COLISÃO COM ANIMAL';
-    if (tipo.contains('COLISÃO FRONTAL')) return 'COLISÃO FRONTAL';
-    if (tipo.contains('COLISÃO TRASEIRA')) return 'COLISÃO TRASEIRA';
-    if (tipo.contains('COLISÃO LONGITUDINAL')) return 'COLISÃO LONGITUDINAL';
-    if (tipo.contains('COLISÃO TRANSVERSAL')) return 'COLISÃO TRANSVERSAL';
-    if (tipo.contains('COLISÃO COM OBJETO FIXO')) return 'COLISÃO OBJETO FIXO';
-    if (tipo.contains('COLISÃO COM MOTOCICLETA') || tipo.contains('MOTO')) return 'COLISÃO COM MOTO';
-    if (tipo.contains('CAPOTAMENTO')) return 'CAPOTAMENTO';
-    if (tipo.contains('TOMBAMENTO')) return 'TOMBAMENTO';
-    if (tipo.contains('ATROPELAMENTO')) return 'ATROPELAMENTO';
-    if (tipo.contains('SAÍDA DE PISTA')) return 'SAÍDA DE PISTA';
-    if (tipo.contains('ENGAVETAMENTO')) return 'ENGAVETAMENTO';
-    if (tipo.contains('QUEDA DE MOTOCICLETA')) return 'QUEDA DE MOTO';
-    if (tipo.contains('QUEDA DE CICLISTA')) return 'QUEDA DE CICLISTA';
-    if (tipo.contains('QUEDA')) return 'QUEDA';
-    if (tipo.contains('CHOQUE')) return 'CHOQUE';
-    if (tipo.contains('OUTROS')) return 'OUTROS';
-    return tipo;
-  }
 
   AccidentsData({
     this.id,
@@ -429,51 +96,214 @@ class AccidentsData extends ChangeNotifier {
     this.referencePoint,
 
     // novos
+    this.victimSex,              // ⚥
+    this.victimAge,              // 🎂
+
     this.year,
     this.month,
     this.yearDocId,
     this.recordPath,
+    this.cityNormalized,
   });
+
+  // =================== Helpers ===================
+
+  static String normalizeString(String? nome) {
+    if (nome == null) return '';
+    final noAccent = removeDiacritics(nome);
+    final noMultipleSpace = noAccent.replaceAll(RegExp(r'\s+'), ' ');
+    return noMultipleSpace.trim().toUpperCase();
+  }
+
+  static String canonicalType(String? raw) {
+    if (raw == null) return 'OUTROS';
+    final t = raw.toUpperCase().trim();
+    if (t.contains('ANIMAL')) return 'COLISÃO COM ANIMAL';
+    if (t.contains('FRONTAL')) return 'COLISÃO FRONTAL';
+    if (t.contains('TRASEIRA')) return 'COLISÃO TRASEIRA';
+    if (t.contains('LONGITUDINAL')) return 'COLISÃO LONGITUDINAL';
+    if (t.contains('TRANSVERSAL')) return 'COLISÃO TRANSVERSAL';
+    if (t.contains('OBJETO FIXO')) return 'COLISÃO COM OBJETO FIXO';
+    if (t.contains('MOTOCICLETA') || t.contains('MOTO')) return 'COLISÃO COM MOTOCICLETA';
+    if (t.contains('CAPOTAMENTO')) return 'CAPOTAMENTO';
+    if (t.contains('TOMBAMENTO')) return 'TOMBAMENTO';
+    if (t.contains('ATROPELAMENTO')) return 'ATROPELAMENTO';
+    if (t.contains('SAÍDA DE PISTA')) return 'SAÍDA DE PISTA';
+    if (t.contains('ENGAVETAMENTO')) return 'ENGAVETAMENTO';
+    if (t.contains('QUEDA DE CICLISTA')) return 'QUEDA DE CICLISTA';
+    if (t.contains('QUEDA')) return 'QUEDA';
+    if (t.contains('CHOQUE')) return 'CHOQUE';
+    return 'OUTROS';
+  }
+
+  static String displayTitle(String canonical) => getTitleByAccidentType(canonical);
+  static IconData iconFor(String canonical) => iconAccidentType(canonical);
+
+  Future<void> loadAccidentsData(List<AccidentsData> accidentsData) async {
+    cityOfAccident.clear();
+    for (final acc in accidentsData) {
+      final cityKey = normalizeString(acc.city);
+      if (cityKey.isEmpty) continue;
+      cityOfAccident[cityKey] = (cityOfAccident[cityKey] ?? 0) + 1;
+    }
+  }
+
+  Map<String, Color> calculateColorsFilteredCity(List<AccidentsData> filteredAccidentsData) {
+    final count = <String, int>{};
+    for (final accidents in filteredAccidentsData) {
+      final cityKey = normalizeString(accidents.city);
+      if (cityKey.isEmpty) continue;
+      count[cityKey] = (count[cityKey] ?? 0) + 1;
+    }
+    final max = count.values.fold<int>(1, (a, b) => math.max(a, b));
+    return {
+      for (final entry in count.entries)
+        entry.key: interpolateColorsAccidentsFactor((entry.value / max).clamp(0.05, 1.0)),
+    };
+  }
+
+  Color interpolateColorsAccidentsFactor(double accidentsFactor) {
+    final index = (accidentsFactor *
+        (AccidentsData.statusColorsAccidentType.length - 1))
+        .floor()
+        .clamp(0, AccidentsData.statusColorsAccidentType.length - 2);
+    final t = accidentsFactor * (AccidentsData.statusColorsAccidentType.length - 1) - index;
+    return Color.lerp(
+      AccidentsData.statusColorsAccidentType[index],
+      AccidentsData.statusColorsAccidentType[index + 1],
+      t,
+    )!;
+  }
+
+  static List<String> accidentTypes = [
+    'COLISÃO COM ANIMAL','COLISÃO FRONTAL','COLISÃO TRASEIRA','COLISÃO LONGITUDINAL','COLISÃO TRANSVERSAL',
+    'COLISÃO COM OBJETO FIXO','COLISÃO COM MOTOCICLETA','CAPOTAMENTO','TOMBAMENTO','ATROPELAMENTO','SAÍDA DE PISTA',
+    'ENGAVETAMENTO','QUEDA DE MOTOCICLETA','QUEDA DE CICLISTA','QUEDA','CHOQUE','OUTROS',
+  ];
+
+  static const List<String> sexOptions = ['MASCULINO','FEMININO','IGNORADO'];
+
+  static String getTitleByAccidentType(String status) {
+    switch (status) {
+      case 'COLISÃO COM ANIMAL': return 'Colisão com Animal';
+      case 'COLISÃO FRONTAL': return 'Colisão Frontal';
+      case 'COLISÃO TRASEIRA': return 'Colisão Traseira';
+      case 'COLISÃO LONGITUDINAL': return 'Colisão Longitudinal';
+      case 'COLISÃO TRANSVERSAL': return 'Colisão Transversal';
+      case 'COLISÃO COM OBJETO FIXO': return 'Colisão com Objeto Fixo';
+      case 'COLISÃO COM MOTOCICLETA': return 'Colisão com Motocicleta';
+      case 'CAPOTAMENTO': return 'Capotamento';
+      case 'TOMBAMENTO': return 'Tombamento';
+      case 'ATROPELAMENTO': return 'Atropelamento';
+      case 'SAÍDA DE PISTA': return 'Saída de Pista';
+      case 'ENGAVETAMENTO': return 'Engavetamento';
+      case 'QUEDA DE MOTOCICLETA': return 'Queda de Motocicleta';
+      case 'QUEDA DE CICLISTA': return 'Queda de Ciclista';
+      case 'QUEDA': return 'Queda';
+      case 'CHOQUE': return 'Choque';
+      default: return 'OUTROS';
+    }
+  }
+
+  static IconData iconAccidentType(String status) {
+    switch (status) {
+      case 'COLISÃO COM ANIMAL': return Icons.pets;
+      case 'COLISÃO FRONTAL': return Icons.car_crash;
+      case 'COLISÃO TRASEIRA': return Icons.car_crash;
+      case 'COLISÃO LONGITUDINAL': return Icons.car_crash;
+      case 'COLISÃO TRANSVERSAL': return Icons.car_crash;
+      case 'COLISÃO COM OBJETO FIXO': return Icons.minor_crash;
+      case 'COLISÃO COM MOTOCICLETA': return Icons.motorcycle;
+      case 'CAPOTAMENTO': return Icons.minor_crash;
+      case 'TOMBAMENTO': return Icons.minor_crash;
+      case 'ATROPELAMENTO': return Icons.directions_walk;
+      case 'SAÍDA DE PISTA': return Icons.highlight;
+      case 'ENGAVETAMENTO': return Icons.minor_crash;
+      case 'QUEDA DE MOTOCICLETA': return Icons.motorcycle_outlined;
+      case 'QUEDA DE CICLISTA': return Icons.bike_scooter;
+      case 'QUEDA': return Icons.directions_walk;
+      case 'CHOQUE': return Icons.warning;
+      default: return Icons.not_listed_location;
+    }
+  }
+
+  static List<Color> specificColorsAccidentType = [
+    Colors.yellow.shade300, Colors.yellow.shade700, Colors.orange.shade400,
+    Colors.orange.shade600, Colors.deepOrange.shade400, Colors.deepOrange.shade600,
+    Colors.red.shade600, Colors.red.shade900,
+  ];
+
+  static List<Color> statusColorsAccidentType = [
+    Colors.yellow.shade700, Colors.blue.shade300, Colors.green,
+    Colors.orange.shade700, Colors.red.shade700, Colors.grey,
+  ];
+
+  static Color getColorByAccidentType(String status) {
+    switch (status) {
+      case 'COLISÃO COM ANIMAL': return Colors.yellow.shade700;
+      case 'COLISÃO FRONTAL': return Colors.blue.shade300;
+      case 'COLISÃO TRASEIRA': return Colors.green;
+      case 'COLISÃO LONGITUDINAL': return Colors.orange.shade700;
+      case 'COLISÃO TRANSVERSAL': return Colors.red.shade700;
+      case 'COLISÃO COM OBJETO FIXO': return Colors.grey;
+      case 'COLISÃO COM MOTOCICLETA': return Colors.yellow.shade700;
+      case 'CAPOTAMENTO': return Colors.blue.shade300;
+      case 'TOMBAMENTO': return Colors.green;
+      case 'ATROPELAMENTO': return Colors.orange.shade700;
+      case 'SAÍDA DE PISTA': return Colors.red.shade700;
+      case 'ENGAVETAMENTO': return Colors.grey;
+      case 'QUEDA DE MOTOCICLETA': return Colors.yellow.shade700;
+      case 'QUEDA DE CICLISTA': return Colors.blue.shade300;
+      case 'QUEDA': return Colors.green;
+      case 'CHOQUE': return Colors.orange.shade700;
+      default: return Colors.black;
+    }
+  }
+
+  // =================== Firestore ===================
 
   factory AccidentsData.fromDocument({required DocumentSnapshot snapshot}) {
     final data = snapshot.data() as Map<String, dynamic>;
 
-    // Converte date
     final DateTime? dt = (data['date'] is Timestamp)
         ? (data['date'] as Timestamp).toDate()
         : parseDate(data['date']);
 
-    // Lê year/month do banco, se não houver, calcula da date (melhor que nada)
     final int? yr = (data['year'] is int) ? data['year'] as int : dt?.toLocal().year;
     final int? mo = (data['month'] is int) ? data['month'] as int : dt?.toLocal().month;
+
+    LatLng? latLng;
+    final lg = data['latLng'];
+    if (lg is GeoPoint) {
+      latLng = LatLng(lg.latitude, lg.longitude);
+    } else if (lg is Map) {
+      final la = lg['latitude'] ?? lg['lat'];
+      final lo = lg['longitude'] ?? lg['lng'];
+      if (la is num && lo is num) {
+        latLng = LatLng(la.toDouble(), lo.toDouble());
+      }
+    }
 
     return AccidentsData(
       id: snapshot.id,
       city: data['city'],
+      cityNormalized: data['cityNormalized'],
       date: dt,
-      death: data['death'],
+      death: (data['death'] is int) ? data['death'] : (data['death'] is num ? (data['death'] as num).toInt() : null),
       highway: data['highway'],
       location: data['location'],
       referencePoint: data['referencePoint'],
-      scoresVictims: data['scoresVictims'],
+      scoresVictims: (data['scoresVictims'] is int) ? data['scoresVictims'] : (data['scoresVictims'] is num ? (data['scoresVictims'] as num).toInt() : null),
       transportInvolved: data['transportInvolved'],
       typeOfAccident: data['typeOfAccident'] ?? '',
-      order: data['order'],
-      createdAt: data['createdAt'] is Timestamp
-          ? (data['createdAt'] as Timestamp).toDate()
-          : DateTime.tryParse(data['createdAt'] ?? ''),
+      order: data['order'] is int ? data['order'] : null,
+      createdAt: data['createdAt'] is Timestamp ? (data['createdAt'] as Timestamp).toDate() : DateTime.tryParse('${data['createdAt'] ?? ''}'),
       createdBy: data['createdBy'],
-      updatedAt: data['updatedAt'] is Timestamp
-          ? (data['updatedAt'] as Timestamp).toDate()
-          : DateTime.tryParse(data['updatedAt'] ?? ''),
+      updatedAt: data['updatedAt'] is Timestamp ? (data['updatedAt'] as Timestamp).toDate() : DateTime.tryParse('${data['updatedAt'] ?? ''}'),
       updatedBy: data['updatedBy'],
-      deletedAt: data['deletedAt'] is Timestamp
-          ? (data['deletedAt'] as Timestamp).toDate()
-          : DateTime.tryParse(data['deletedAt'] ?? ''),
+      deletedAt: data['deletedAt'] is Timestamp ? (data['deletedAt'] as Timestamp).toDate() : DateTime.tryParse('${data['deletedAt'] ?? ''}'),
       deletedBy: data['deletedBy'],
-      latLng: data['latLng'] != null
-          ? LatLng(data['latLng']['latitude'], data['latLng']['longitude'])
-          : null,
+      latLng: latLng,
       street: data['street'],
       subLocality: data['subLocality'],
       locality: data['locality'],
@@ -487,36 +317,44 @@ class AccidentsData extends ChangeNotifier {
       nameArea: data['nameArea'],
 
       // novos
+      victimSex: data['victimSex'],
+      victimAge: (data['victimAge'] is int) ? data['victimAge'] : (data['victimAge'] is num ? (data['victimAge'] as num).toInt() : null),
+
       year: yr,
       month: mo,
       yearDocId: data['yearDocId'],
-      recordPath: data['recordPath'] ?? snapshot.reference.path, // fallback: path atual
+      recordPath: data['recordPath'] ?? snapshot.reference.path,
     );
   }
 
   List<AccidentsData> converterParaAcidentes(List<Map<String, dynamic>> dados) {
-    // ... (mantido, pode adicionar year/month se vierem no mapa)
     return dados.map((mapa) {
       return AccidentsData(
         id: mapa['id'],
         city: mapa['city'],
+        cityNormalized: mapa['city'] != null ? normalizeString(mapa['city']) : null,
         date: AccidentsData.parseDate(mapa['date']),
-        death: mapa['death'],
+        death: mapa['death'] is num ? (mapa['death'] as num).toInt() : null,
         highway: mapa['highway'],
         location: mapa['location'],
         referencePoint: mapa['referencePoint'],
-        scoresVictims: mapa['scoresVictims'],
+        scoresVictims: mapa['scoresVictims'] is num ? (mapa['scoresVictims'] as num).toInt() : null,
         transportInvolved: mapa['transportInvolved'],
         typeOfAccident: mapa['typeOfAccident'],
-        order: mapa['order'],
+        order: mapa['order'] is num ? (mapa['order'] as num).toInt() : null,
         createdAt: AccidentsData.parseDate(mapa['createdAt']),
         createdBy: mapa['createdBy'],
         updatedAt: AccidentsData.parseDate(mapa['updatedAt']),
         updatedBy: mapa['updatedBy'],
         deletedAt: AccidentsData.parseDate(mapa['deletedAt']),
         deletedBy: mapa['deletedBy'],
-        latLng: mapa['latLng'] != null
-            ? LatLng(mapa['latLng']['latitude'], mapa['latLng']['longitude'])
+        latLng: (mapa['latLng'] is Map &&
+            mapa['latLng']['latitude'] != null &&
+            mapa['latLng']['longitude'] != null)
+            ? LatLng(
+          (mapa['latLng']['latitude'] as num).toDouble(),
+          (mapa['latLng']['longitude'] as num).toDouble(),
+        )
             : null,
         street: mapa['street'],
         subLocality: mapa['subLocality'],
@@ -530,23 +368,30 @@ class AccidentsData extends ChangeNotifier {
         subThoroughfare: mapa['subThoroughfare'],
         nameArea: mapa['nameArea'],
 
-        year: mapa['year'],
-        month: mapa['month'],
+        victimSex: mapa['victimSex'],
+        victimAge: mapa['victimAge'] is num ? (mapa['victimAge'] as num).toInt() : null,
+
+        year: mapa['year'] is int ? mapa['year'] : null,
+        month: mapa['month'] is int ? mapa['month'] : null,
         yearDocId: mapa['yearDocId'],
         recordPath: mapa['recordPath'],
       );
     }).toList();
   }
 
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toFirestore() {
+    final y = year ?? date?.toLocal().year;
+    final m = month ?? date?.toLocal().month;
+    final cityNorm = city != null ? normalizeString(city) : '';
+
     return {
-      'id': id ?? '',
       'city': city ?? '',
+      'cityNormalized': cityNorm,
       'date': date != null ? Timestamp.fromDate(date!) : null,
-      'death': death ?? 0, // 🔧 melhor manter número
+      'death': death,
       'highway': highway ?? '',
       'location': location ?? '',
-      'scoresVictims': scoresVictims ?? 0,
+      'scoresVictims': scoresVictims,
       'transportInvolved': transportInvolved ?? '',
       'typeOfAccident': typeOfAccident ?? '',
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
@@ -555,10 +400,8 @@ class AccidentsData extends ChangeNotifier {
       'updatedBy': updatedBy ?? '',
       'deletedAt': deletedAt != null ? Timestamp.fromDate(deletedAt!) : null,
       'deletedBy': deletedBy ?? '',
-      'order': order ?? 0,
-      'latLng': latLng != null
-          ? {'latitude': latLng!.latitude, 'longitude': latLng!.longitude}
-          : null,
+      'order': order,
+      'latLng': latLng != null ? {'latitude': latLng!.latitude, 'longitude': latLng!.longitude} : null,
       'street': street ?? '',
       'subLocality': subLocality ?? '',
       'locality': locality ?? '',
@@ -570,57 +413,21 @@ class AccidentsData extends ChangeNotifier {
       'thoroughfare': thoroughfare ?? '',
       'subThoroughfare': subThoroughfare ?? '',
       'nameArea': nameArea ?? '',
+      'referencePoint': referencePoint ?? '',     // ✅ gravar ponto de referência
+      'victimSex': victimSex ?? '',               // ✅ gravar sexo
+      'victimAge': victimAge,                     // ✅ gravar idade
 
-      // novos
-      'year': year ?? date?.toLocal().year,          // garante preenchido
-      'month': month ?? date?.toLocal().month,       // garante preenchido
+      'year': y,
+      'month': m,
       'yearDocId': yearDocId,
       'recordPath': recordPath,
-      'yearMonthKey': yearMonthKey,                  // ex.: "2025-08"
-    };
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'city': city,
-      'date': date != null ? Timestamp.fromDate(date!) : null,
-      'death': death,
-      'highway': highway,
-      'location': location,
-      'scoresVictims': scoresVictims,
-      'transportInvolved': transportInvolved,
-      'typeOfAccident': typeOfAccident,
-      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
-      'createdBy': createdBy,
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
-      'updatedBy': updatedBy,
-      'deletedAt': deletedAt != null ? Timestamp.fromDate(deletedAt!) : null,
-      'deletedBy': deletedBy,
-      'order': order,
-      'latLng': latLng != null
-          ? {'latitude': latLng!.latitude, 'longitude': latLng!.longitude}
+      'yearMonthKey': (y != null && m != null)
+          ? '${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}'
           : null,
-      'street': street,
-      'subLocality': subLocality,
-      'locality': locality,
-      'administrativeArea': administrativeArea,
-      'postalCode': postalCode,
-      'country': country,
-      'isoCountryCode': isoCountryCode,
-      'subAdministrativeArea': subAdministrativeArea,
-      'thoroughfare': thoroughfare,
-      'subThoroughfare': subThoroughfare,
-      'nameArea': nameArea,
-
-      // novos
-      'year': year ?? date?.toLocal().year,
-      'month': month ?? date?.toLocal().month,
-      'yearDocId': yearDocId,
-      'recordPath': recordPath,
-      'yearMonthKey': yearMonthKey,
     };
   }
+
+  // =================== Datas ===================
 
   static DateTime? parseDate(dynamic value) {
     if (value == null) return null;

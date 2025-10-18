@@ -58,18 +58,21 @@ class ActiveRoadsPanel extends StatelessWidget {
                                     final double dynamicRadius = side * 0.35;
                                     final double dynamicFontSize = dynamicRadius * 0.5;
 
-                                    return GaugeCircularPercent(
-                                      centerTitle: gaugeVm.percent.clamp(0.0, 1.0),
-                                      footerTitle:
-                                      '${gaugeVm.label} • ${_fmtKm(gaugeVm.count)}',
-                                      headerMode: GaugeTextMode.number,
-                                      centerMode: GaugeTextMode.number,
-                                      values: [double.parse(gaugeVm.count.toStringAsFixed(3))],
-                                      footerMode: GaugeTextMode.explicit,
-                                      radius: dynamicRadius,
-                                      larguraGrafico: side,
-                                      centerFontSize: dynamicFontSize,
-                                      footerFontSize: 12,
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 12.0, right: 12),
+                                      child: GaugeCircularPercent(
+                                        centerTitle: gaugeVm.percent.clamp(0.0, 1.0),
+                                        footerTitle:
+                                        '${gaugeVm.label} • ${_fmtKm(gaugeVm.count)}',
+                                        headerMode: GaugeTextMode.number,
+                                        centerMode: GaugeTextMode.number,
+                                        values: [double.parse(gaugeVm.count.toStringAsFixed(3))],
+                                        footerMode: GaugeTextMode.explicit,
+                                        radius: dynamicRadius,
+                                        larguraGrafico: side,
+                                        centerFontSize: dynamicFontSize,
+                                        footerFontSize: 12,
+                                      ),
                                     );
                                   },
                                 ),
@@ -94,23 +97,26 @@ class ActiveRoadsPanel extends StatelessWidget {
                                     final double centerHole =
                                     (baseSlice * 0.58).clamp(18.0, baseSlice - 10.0);
 
-                                    return PieChartChanged(
-                                      colorCard: Colors.white,
-                                      valueFormatType: ValueFormatType.decimal,
-                                      labels: st.pieLabelsForChart,
-                                      values: st.pieValuesForChart,
-                                      coresPersonalizadas: st.pieColorsForChart,
-                                      selectedIndex: st.selectedPieIndexFilter,
-                                      larguraGrafico: side,
-                                      alturaCard: 295,
-                                      chartHeight: chartHeight,
-                                      sliceRadius: baseSlice,
-                                      sliceRadiusHighlighted: hiSlice,
-                                      centerSpaceRadius: centerHole,
-                                      sectionsSpace: 2,
-                                      onTouch: (idx) {
-                                        bloc.add(ActiveRoadsPieFilterChanged(idx));
-                                      },
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 12.0),
+                                      child: PieChartChanged(
+                                        colorCard: Colors.white,
+                                        valueFormatType: ValueFormatType.decimal,
+                                        labels: st.pieLabelsForChart,
+                                        values: st.pieValuesForChart,
+                                        coresPersonalizadas: st.pieColorsForChart,
+                                        selectedIndex: st.selectedPieIndexFilter,
+                                        larguraGrafico: side,
+                                        alturaCard: 295,
+                                        chartHeight: chartHeight,
+                                        sliceRadius: baseSlice,
+                                        sliceRadiusHighlighted: hiSlice,
+                                        centerSpaceRadius: centerHole,
+                                        sectionsSpace: 2,
+                                        onTouch: (idx) {
+                                          bloc.add(ActiveRoadsPieFilterChanged(idx));
+                                        },
+                                      ),
                                     );
                                   },
                                 ),
@@ -142,22 +148,25 @@ class ActiveRoadsPanel extends StatelessWidget {
                               scrollDirection: Axis.horizontal,
                               child: SizedBox(
                                 width: contentWidth,
-                                child: BarChartChanged(
-                                  colorCard: Colors.white,
-                                  valueFormatter: (v) => _fmtKm(v),
-                                  heightGraphic: 260,
-                                  widthBar: kBarWidth,
-                                  labels: st.regionLabels,
-                                  values: st.regionCountsFilteredByPie(), // km (filtra pelo pie)
-                                  selectedIndex: selectedRegionIdx,
-                                  onBarTap: (label) {
-                                    // toggle da região
-                                    final newRegion = label == st.selectedRegionFilter ? null : label;
-                                    bloc.add(ActiveRoadsRegionFilterChanged(newRegion));
-                                    // OBS: não limpamos o PIE; como o PIE já considera a região,
-                                    // ele será recalculado automaticamente. O Gauge também recalcula.
-                                  },
-                                  expandToMaxWidth: true,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                                  child: BarChartChanged(
+                                    colorCard: Colors.white,
+                                    valueFormatter: (v) => _fmtKm(v),
+                                    heightGraphic: 260,
+                                    widthBar: kBarWidth,
+                                    labels: st.regionLabels,
+                                    values: st.regionCountsFilteredByPie(), // km (filtra pelo pie)
+                                    selectedIndex: selectedRegionIdx,
+                                    onBarTap: (label) {
+                                      // toggle da região
+                                      final newRegion = label == st.selectedRegionFilter ? null : label;
+                                      bloc.add(ActiveRoadsRegionFilterChanged(newRegion));
+                                      // OBS: não limpamos o PIE; como o PIE já considera a região,
+                                      // ele será recalculado automaticamente. O Gauge também recalcula.
+                                    },
+                                    expandToMaxWidth: true,
+                                  ),
                                 ),
                               ),
                             );

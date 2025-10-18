@@ -1,24 +1,58 @@
-// lib/_blocs/sectors/transit/accidents/accidents_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
+
+class AddressSuggestion extends Equatable {
+  final double? latitude;
+  final double? longitude;
+  final String street;
+  final String subLocality;
+  final String administrativeArea;
+  final String postalCode;
+  final String country;
+  final String isoCountryCode;
+  final String city;
+
+  const AddressSuggestion({
+    this.latitude,
+    this.longitude,
+    this.street = '',
+    this.subLocality = '',
+    this.administrativeArea = '',
+    this.postalCode = '',
+    this.country = '',
+    this.isoCountryCode = '',
+    this.city = '',
+  });
+
+  @override
+  List<Object?> get props => [
+    latitude,
+    longitude,
+    street,
+    subLocality,
+    administrativeArea,
+    postalCode,
+    country,
+    isoCountryCode,
+    city,
+  ];
+}
 
 class AccidentsState extends Equatable {
   final bool initialized;
   final bool loading;
   final bool saving;
 
-  // Filtros atuais
+  // Filtros
   final int? year;
   final int? month;
   final String? city;
 
-  // Universo imutável (para o seletor de anos/meses)
+  // Universo / visões
   final List<AccidentsData> universe;
-
-  // Coleções derivadas
-  final List<AccidentsData> all;       // lista filtrada por (year/month/city)
-  final List<AccidentsData> view;      // mesma all, mas já ordenada/ajustada para a tela
-  final List<AccidentsData> pageItems; // fatia paginada
+  final List<AccidentsData> all;
+  final List<AccidentsData> view;
+  final List<AccidentsData> pageItems;
 
   // Paginação
   final int currentPage;
@@ -28,11 +62,16 @@ class AccidentsState extends Equatable {
   // Agregações
   final Map<String, double> totalsByCity;
   final Map<String, double> totalsByType;
-  final Map<String, double> resumeByType; // mesmo shape do controller antigo (cards)
+  final Map<String, double> resumeByType;
 
   // Mensagens
   final String? error;
   final String? success;
+
+  // Localização
+  final bool gettingLocation;
+  final AddressSuggestion? locationSuggestion;
+  final String? locationError;
 
   const AccidentsState({
     this.initialized = false,
@@ -53,15 +92,23 @@ class AccidentsState extends Equatable {
     this.resumeByType = const {},
     this.error,
     this.success,
+    this.gettingLocation = false,
+    this.locationSuggestion,
+    this.locationError,
   });
 
   AccidentsState copyWith({
     bool? initialized,
     bool? loading,
     bool? saving,
+
+    bool setYearNull = false,
     int? year,
+    bool setMonthNull = false,
     int? month,
+    bool setCityNull = false,
     String? city,
+
     List<AccidentsData>? universe,
     List<AccidentsData>? all,
     List<AccidentsData>? view,
@@ -74,14 +121,20 @@ class AccidentsState extends Equatable {
     Map<String, double>? resumeByType,
     String? error,
     String? success,
+
+    bool? gettingLocation,
+    AddressSuggestion? locationSuggestion,
+    bool clearLocationSuggestion = false,
+    String? locationError,
+    bool clearLocationError = false,
   }) {
     return AccidentsState(
       initialized: initialized ?? this.initialized,
       loading: loading ?? this.loading,
       saving: saving ?? this.saving,
-      year: year != null ? year : this.year,
-      month: month != null ? month : this.month,
-      city: city != null ? city : this.city,
+      year: setYearNull ? null : (year ?? this.year),
+      month: setMonthNull ? null : (month ?? this.month),
+      city: setCityNull ? null : (city ?? this.city),
       universe: universe ?? this.universe,
       all: all ?? this.all,
       view: view ?? this.view,
@@ -94,6 +147,10 @@ class AccidentsState extends Equatable {
       resumeByType: resumeByType ?? this.resumeByType,
       error: error,
       success: success,
+
+      gettingLocation: gettingLocation ?? this.gettingLocation,
+      locationSuggestion: clearLocationSuggestion ? null : (locationSuggestion ?? this.locationSuggestion),
+      locationError: clearLocationError ? null : (locationError ?? this.locationError),
     );
   }
 
@@ -117,5 +174,8 @@ class AccidentsState extends Equatable {
     resumeByType,
     error,
     success,
+    gettingLocation,
+    locationSuggestion,
+    locationError,
   ];
 }

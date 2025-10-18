@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
@@ -348,4 +351,75 @@ List<LatLng>? _parsePointsToLatLngList(dynamic value) {
     }
   }
   return out;
+}
+
+extension ActiveRailwayDataExt on ActiveRailwayData {
+  /// Todos os pontos achatados (multiLine -> lista única)
+  List<LatLng> get _flat {
+    final ml = multiLine;
+    if (ml == null || ml.isEmpty) return const [];
+    return ml.expand((seg) => seg).toList(growable: false);
+  }
+
+  LatLng? get startLatLng => _flat.isNotEmpty ? _flat.first : null;
+  LatLng? get endLatLng   => _flat.isNotEmpty ? _flat.last  : null;
+
+  LatLng? get centerLatLng {
+    final f = _flat;
+    if (f.isEmpty) return null;
+    double lat = 0, lng = 0;
+    for (final p in f) { lat += p.latitude; lng += p.longitude; }
+    return LatLng(lat / f.length, lng / f.length);
+  }
+
+  /// Projeta [p] na ferrovia (em todos os segmentos) e retorna o ponto mais próximo.
+  LatLng? projectOnRailway(LatLng? p) {
+    if (p == null) return centerLatLng;
+    final ml = multiLine;
+    if (ml == null || ml.isEmpty) return centerLatLng;
+
+    // escala aproximada: graus → metros
+    final meanLat = (_flat.isNotEmpty)
+        ? _flat.map((e) => e.latitude).reduce((a, b) => a + b) / _flat.length
+        : p.latitude;
+    const mPerDegLat = 111320.0;
+    final mPerDegLng = 111320.0 * math.cos(meanLat * math.pi / 180.0);
+
+    Offset toM(LatLng ll) => Offset(ll.longitude * mPerDegLng, ll.latitude * mPerDegLat);
+    LatLng toLL(Offset m) => LatLng(m.dy / mPerDegLat, m.dx / mPerDegLng);
+
+    final P = toM(p);
+    double best = double.infinity;
+    Offset? bestProj;
+
+    for (final seg in ml) {
+      for (var i = 0; i < seg.length - 1; i++) {
+        final a = toM(seg[i]);
+        final b = toM(seg[i + 1]);
+        final proj = _projectPointOnSegment(P, a, b);
+        final d = (proj - P).distance;
+        if (d < best) {
+          best = d;
+          bestProj = proj;
+        }
+      }
+    }
+
+    return bestProj == null ? centerLatLng : toLL(bestProj);
+  }
+
+  /// Melhor âncora para tooltip a partir de um toque.
+  LatLng? anchorForTap(LatLng? tap) =>
+      projectOnRailway(tap) ?? centerLatLng ?? startLatLng ?? endLatLng;
+}
+
+/// Projeta ponto P no segmento AB (coordenadas cartesianas)
+Offset _projectPointOnSegment(Offset p, Offset a, Offset b) {
+  final ab = b - a;
+  final ab2 = ab.dx * ab.dx + ab.dy * ab.dy;
+  if (ab2 == 0) return a;
+  final ap = p - a;
+  var t = (ap.dx * ab.dx + ap.dy * ab.dy) / ab2;
+  t = t.clamp(0.0, 1.0);
+  return Offset(a.dx + ab.dx * t, a.dy + ab.dy * t);
 }

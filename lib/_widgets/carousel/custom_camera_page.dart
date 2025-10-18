@@ -1,10 +1,12 @@
 // lib/_widgets/schedule/square_modal/custom_camera_page.dart
 import 'dart:typed_data';
-import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart' as cam;
+
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 /// Câmera full-screen baseada no pacote `camera` (iOS/Android).
 /// Retorna bytes (JPEG) via Navigator.pop.
@@ -76,6 +78,17 @@ class _CustomCameraPageState extends State<CustomCameraPage>
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Erro ao iniciar câmera: $e');
+
+      // ❌ erro via NotificationCenter
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Falha ao iniciar a câmera'),
+          subtitle: Text('$e'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Câmera'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -93,8 +106,14 @@ class _CustomCameraPageState extends State<CustomCameraPage>
       Navigator.of(context).pop<Uint8List>(bytes);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao capturar: $e')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Falha ao capturar'),
+          subtitle: Text('$e'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Câmera'),
+          duration: const Duration(seconds: 6),
+        ),
       );
     } finally {
       if (mounted) setState(() => _busy = false);

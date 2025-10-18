@@ -3,10 +3,11 @@ import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/system/login/login_bloc.dart';
 import 'package:siged/_widgets/background/background.dart';
-import 'package:siged/_widgets/background/sisgeo_logo.dart';
+import 'package:siged/_widgets/images/sisgeo_logo.dart';
 import 'package:siged/_widgets/buttons/stream_button_.dart';
 import 'package:siged/_widgets/input/custom_icon_button.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/loading/loading_progress.dart';
 
 class SignIn extends StatefulWidget {
@@ -18,6 +19,7 @@ class SignIn extends StatefulWidget {
 
 class _SignInState extends State<SignIn> {
   late TextEditingController _emailController;
+  late TextEditingController _companyController;
   late TextEditingController _passController;
   bool _hasEmail = false;
   bool _hasPass = false;
@@ -29,12 +31,13 @@ class _SignInState extends State<SignIn> {
     super.initState();
     _emailController = TextEditingController();
     _passController = TextEditingController();
+    _companyController = TextEditingController();
     _loginBloc = Provider.of<LoginBloc>(context, listen: false);
 
     _emailController.addListener(() {
       setState(() => _hasEmail = _emailController.text.isNotEmpty);
     });
-
+    _companyController.text = 'DER';
     _passController.addListener(() {
       setState(() => _hasPass = _passController.text.isNotEmpty);
     });
@@ -44,6 +47,7 @@ class _SignInState extends State<SignIn> {
   void dispose() {
     _emailController.dispose();
     _passController.dispose();
+    _companyController.dispose();
     super.dispose();
   }
 
@@ -66,7 +70,7 @@ class _SignInState extends State<SignIn> {
                   padding: const EdgeInsets.only(bottom: 32),
                   child: Column(
                     children: [
-                      const sigedLogo(),
+                      const SiGedLogo(),
                       LayoutBuilder(
                         builder: (context, constraints) {
                           double maxWidth;
@@ -98,16 +102,29 @@ class _SignInState extends State<SignIn> {
                                       children: <Widget>[
                                         Padding(
                                           padding: const EdgeInsets.symmetric(horizontal: 32),
+                                          child: DropDownButtonChange(
+                                            width: maxWidth,
+                                            controller: _companyController,
+                                            labelText: 'Entrar como:',
+                                            enabled: true,
+                                            items: [
+                                              'DER'
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 32),
                                           child: CustomTextField(
                                             controller: _emailController,
                                             autofillHints: const [AutofillHints.username],
                                             stream: _loginBloc.outEmail,
                                             labelText: 'E-mail',
-                                            prefixIcon: const Icon(Icons.account_circle),
+                                            prefix: const Icon(Icons.account_circle),
                                             keyboardType: TextInputType.emailAddress,
                                             onChanged: _loginBloc.changeEmail,
                                             enabled: true,
-                                            suffixIcon: _hasEmail
+                                            suffix: _hasEmail
                                                 ? CustomIconButton(
                                               radius: 32,
                                               iconData: Icons.clear,
@@ -123,12 +140,12 @@ class _SignInState extends State<SignIn> {
                                             controller: _passController,
                                             autofillHints: const [AutofillHints.password],
                                             labelText: 'Senha',
-                                            prefixIcon: const Icon(Icons.lock),
+                                            prefix: const Icon(Icons.lock),
                                             obscure: _inputObscure,
                                             stream: _loginBloc.outPassword,
                                             onChanged: _loginBloc.changePassword,
                                             enabled: true,
-                                            suffixIcon: _hasPass
+                                            suffix: _hasPass
                                                 ? IconButton(
                                               icon: Icon(
                                                 _inputObscure

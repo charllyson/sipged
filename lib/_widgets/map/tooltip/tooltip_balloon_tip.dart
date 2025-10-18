@@ -1,13 +1,8 @@
+// lib/_widgets/map/markers/tooltip_balloon_tip.dart
 import 'package:flutter/material.dart';
 
 enum BalloonDirection { down, up }
 
-/// Triângulo do balão (a “setinha” que aponta para o pin).
-/// Use logo abaixo (ou acima) do card.
-/// Ex.: `BalloonTip(color: Colors.black87)`
-
-/// Dica: quando o tooltip fica acima do pin, use `direction: BalloonDirection.down`
-/// para a seta apontar para baixo (em direção ao pin).
 class TooltipBalloonTip extends StatelessWidget {
   const TooltipBalloonTip({
     super.key,
@@ -58,17 +53,14 @@ class _BalloonTipPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Triângulo isósceles: base em cima/baixo conforme direção
     final path = Path();
     if (direction == BalloonDirection.down) {
-      // base no topo, vértice para baixo (aponta para o pin)
       path
         ..moveTo(0, 0)
         ..lineTo(w, 0)
         ..lineTo(w / 2, h)
         ..close();
     } else {
-      // base embaixo, vértice para cima
       path
         ..moveTo(0, h)
         ..lineTo(w, h)

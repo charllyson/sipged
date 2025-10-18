@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/popUpMenu/pup_up_photo_menu.dart';
-import 'package:siged/_widgets/registers/register_class.dart';
-import 'package:siged/_widgets/toast/show_stacked_toast.dart';
+import 'package:siged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 
 class UpBar extends StatelessWidget implements PreferredSizeWidget {
   // Alturas das linhas
@@ -239,23 +237,6 @@ class _Tight extends StatelessWidget {
     }
     return child;
   }
-}
-
-/// ======================= TOAST HELPERS =======================
-void showStackedToast(BuildContext context, Registro registro, int index) {
-  final overlay = Overlay.of(context);
-  final overlayEntry = OverlayEntry(
-    builder: (context) => StackedToastNotification(
-      registro: registro,
-      index: index,
-      tipoAlteracao: getTipoAlteracao(
-        createdAt: registro.original?.createdAt,
-        updatedAt: registro.original?.updatedAt,
-      ),
-    ),
-  );
-  overlay.insert(overlayEntry);
-  Future.delayed(const Duration(seconds: 4)).then((_) => overlayEntry.remove());
 }
 
 String getTipoAlteracao({DateTime? createdAt, DateTime? updatedAt}) {

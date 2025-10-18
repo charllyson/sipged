@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 typedef ForwardGeocodeFn = Future<LatLng?> Function(String query);
 
-/// Sugestão rica (para autocomplete)
+/// Sugestão rica (para search)
 class GeoPlace {
   final String id;
   final String title;      // display_name / place_name
@@ -28,7 +28,7 @@ abstract class GeocodingService {
   /// Geocode simples: texto -> 1 ponto
   Future<LatLng?> geocode(String query);
 
-  /// Busca múltiplas sugestões (autocomplete)
+  /// Busca múltiplas sugestões (search)
   Future<List<GeoPlace>> search(String query, {int limit = 6});
 
   /// ===== NOMINATIM (OpenStreetMap) =====

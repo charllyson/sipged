@@ -1,65 +1,43 @@
+// lib/_blocs/system/user/user_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../info/system_data.dart';
-
+/// Modelo de usuário SEM responsabilidades de permissão.
+///
+/// Toda a lógica de papéis/permissões deve ficar em:
+/// - lib/_utils/user_permission.dart  (BaseRole, helpers)
+/// - lib/_utils/page_permission.dart  (Perms, checagem módulo/doc)
 class UserData extends ChangeNotifier {
-  /// Informações do usuário
+  // ===== Identificação e perfil =====
   String? id;
-  DateTime? createUser;
   String? name;
   String? surname;
   String? cpf;
-  String? gender;
   String? email;
   String? password;
+  String? gender;
+
+  // ===== Foto =====
   String? urlPhoto;
-  XFile? filePhoto;
-  DateTime? dateToBirthday;
+  XFile? filePhoto; // uso em runtime (upload), não persiste no Firestore
+
+  // ===== Contato =====
   String? cellPhone;
-  DocumentSnapshot<Map<String, dynamic>>? userSnap;
 
-  List<String>? permissionOrgan;
-  List<String>? permissionDirector;
-  List<String>? permissionSector;
-  List<String>? departments;
-  Map<String, List<String>>? departmentRoles = {};
+  String? baseRole;
+  String? baseProfile;
 
-  static List<String> permissionProfile = [
-    'Convidado',
-    'Colaborador',
-    'Administrador'
-  ];
+  // ===== Datas =====
+  DateTime? createUser;
+  DateTime? dateToBirthday;
 
-  /// ===== TIPOS DE PERMISSÃO =====
-  static List<String> permissionType = [
-    'read',
-    'create',
-    'edit',
-    'delete',
-    'update',
-    'approve',
-  ];
-
-  /// Permissões híbridas
-  String? baseProfile; // Ex: leitor, colaborador, administrador
-  Map<String, Map<String, bool>> modulePermissions = {};
-
-  /// Campos auxiliares para controle de permissão
-  bool isSelectedOrgan = false;
-  bool isSelectedDirector = false;
-  bool isSelectedSector = false;
-
-  /// Listas internas para hierarquia
-  List<SystemData>? directors;
-  List<SystemData>? sectors;
-
-  /// Localização
+  // ===== Preferências / localização =====
+  bool? themeDark;
   GeoPoint? geoPoint;
 
-  /// Configuração do app
-  bool? themeDark;
+  // ===== Snapshot bruto (opcional p/ debug) =====
+  DocumentSnapshot<Map<String, dynamic>>? userSnap;
 
   UserData({
     this.id,
@@ -68,99 +46,102 @@ class UserData extends ChangeNotifier {
     this.cpf,
     this.email,
     this.password,
+    this.gender,
     this.urlPhoto,
     this.filePhoto,
-    this.dateToBirthday,
     this.cellPhone,
-    this.userSnap,
-    this.geoPoint,
-    this.themeDark,
     this.createUser,
-    this.gender,
-    this.permissionOrgan,
-    this.permissionDirector,
-    this.permissionSector,
+    this.dateToBirthday,
+    this.themeDark,
+    this.geoPoint,
+    this.userSnap,
+    this.baseRole,
     this.baseProfile,
-    this.modulePermissions = const {},
-    this.directors,
-    this.sectors,
-    this.isSelectedOrgan = false,
-    this.isSelectedDirector = false,
-    this.isSelectedSector = false,
-    this.departments,
-    this.departmentRoles,
   });
 
-  /// Construtor a partir do documento do Firebase
-  factory UserData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) throw Exception("Documento do usuário não encontrado");
-    final data = snapshot.data() as Map<String, dynamic>?;
+  /// Construtor a partir do documento do Firebase.
+  factory UserData.fromDocument({
+    required DocumentSnapshot<Map<String, dynamic>> snapshot,
+  }) {
+    if (!snapshot.exists) {
+      throw Exception("Documento do usuário não encontrado");
+    }
 
-    if (data == null) throw Exception("Dados do usuário estão vazios");
-
-    // Compatibilidade com diferentes formatos de modulePermissions
-    final rawPermissions = data['modulePermissions'] as Map<String, dynamic>? ?? {};
-    final parsedPermissions = <String, Map<String, bool>>{};
-    rawPermissions.forEach((module, permissions) {
-      if (permissions is Map) {
-        parsedPermissions[module] = permissions.map(
-              (k, v) => MapEntry(k.toString(), v == true),
-        );
-      } else if (permissions is List) {
-        parsedPermissions[module] = {
-          for (var perm in permissions) perm.toString(): true,
-        };
-      } else {
-        parsedPermissions[module] = {};
-      }
-    });
+    final data = snapshot.data();
+    if (data == null) {
+      throw Exception("Dados do usuário estão vazios");
+    }
 
     return UserData(
       id: snapshot.id,
-      urlPhoto: data['photo'] ?? '',
-      name: data['name'] as String? ?? 'Sem nome',
-      surname: data['surname'] as String? ?? 'Sem sobrenome',
-      cpf: data['cpf'] as String? ?? 'Sem CPF',
-      email: data['email'] as String? ?? 'Sem email',
+      name: data['name'] as String?,
+      surname: data['surname'] as String?,
+      cpf: data['cpf'] as String?,
+      email: data['email'] as String?,
       password: data['password'] as String?,
-      dateToBirthday: (data['dateToBirthday'] as Timestamp?)?.toDate(),
+      gender: data['gender'] as String?,
+      urlPhoto: data['photo'] as String?,
       cellPhone: data['cellPhone'] as String?,
       themeDark: data['themeDark'] as bool? ?? false,
+      dateToBirthday: (data['dateToBirthday'] as Timestamp?)?.toDate(),
       createUser: (data['createUser'] as Timestamp?)?.toDate(),
-      gender: data['gender'] as String?,
-      permissionOrgan: (data['permissionOrgan'] as List?)?.map((e) => e.toString()).toList() ?? [],
-      permissionDirector: (data['permissionDirector'] as List?)?.map((e) => e.toString()).toList() ?? [],
-      permissionSector: (data['permissionSector'] as List?)?.map((e) => e.toString()).toList() ?? [],
-      baseProfile: data['baseProfile'] as String?,
-      modulePermissions: parsedPermissions,
       geoPoint: data['geoPoint'] as GeoPoint?,
-      departments: (data['departments'] as List?)?.map((e) => e.toString()).toList() ?? [],
-      departmentRoles: (data['departmentRoles'] as Map?)?.map((key, value) => MapEntry(key.toString(), (value as List).map((e) => e.toString()).toList())),
+      baseRole: data['baseRole'] as String?,
+      baseProfile: data['baseProfile'] as String?,
+      userSnap: snapshot,
     );
   }
 
-  /// Converte para mapa para salvar no Firestore
+  /// Converte para mapa para salvar no Firestore.
+  ///
+  /// Observações:
+  /// - Campos `filePhoto` e `userSnap` não são persistidos.
+  /// - `lastSignIn` é atualizado no momento do save.
   Map<String, dynamic> toMap() {
     return {
       'name': name,
       'surname': surname,
       'email': email,
-      'dateToBirthday': dateToBirthday,
       'cpf': cpf,
-      'createUser': createUser ?? DateTime.now(),
-      'lastSignIn': DateTime.now(),
-      'cellPhone': cellPhone,
+      'password': password,
       'gender': gender,
       'photo': urlPhoto,
+      'cellPhone': cellPhone,
       'themeDark': themeDark,
-      'permissionOrgan': permissionOrgan,
-      'permissionDirector': permissionDirector,
-      'permissionSector': permissionSector,
-      'baseProfile': baseProfile,
-      'modulePermissions': modulePermissions,
       'geoPoint': geoPoint,
-      'departments': departments,
-      'departmentRoles': departmentRoles,
+      'dateToBirthday':
+      dateToBirthday != null ? Timestamp.fromDate(dateToBirthday!) : null,
+      'createUser':
+      createUser != null ? Timestamp.fromDate(createUser!) : Timestamp.now(),
+      'lastSignIn': Timestamp.now(),
     };
+  }
+
+  /// Atualiza campos mutáveis e notifica ouvintes (útil na UI).
+  void update({
+    String? name,
+    String? surname,
+    String? cpf,
+    String? email,
+    String? gender,
+    String? urlPhoto,
+    XFile? filePhoto,
+    String? cellPhone,
+    bool? themeDark,
+    GeoPoint? geoPoint,
+    DateTime? dateToBirthday,
+  }) {
+    this.name = name ?? this.name;
+    this.surname = surname ?? this.surname;
+    this.cpf = cpf ?? this.cpf;
+    this.email = email ?? this.email;
+    this.gender = gender ?? this.gender;
+    this.urlPhoto = urlPhoto ?? this.urlPhoto;
+    this.filePhoto = filePhoto ?? this.filePhoto;
+    this.cellPhone = cellPhone ?? this.cellPhone;
+    this.themeDark = themeDark ?? this.themeDark;
+    this.geoPoint = geoPoint ?? this.geoPoint;
+    this.dateToBirthday = dateToBirthday ?? this.dateToBirthday;
+    notifyListeners();
   }
 }

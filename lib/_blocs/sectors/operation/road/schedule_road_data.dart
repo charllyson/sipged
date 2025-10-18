@@ -1,20 +1,12 @@
-// lib/_blocs/sectors/operation/road/board/schedule_road_data.dart
+// COMPLETO — igual ao seu (mantido); sem mudanças funcionais
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp, GeoPoint;
 import 'package:latlong2/latlong.dart';
 
-/// ----------------------------------------------------------------------------
-/// Dados por célula do cronograma + Geometria do traçado
-/// (geometryType/multiLine/points agora moram aqui)
-/// ----------------------------------------------------------------------------
 class ScheduleRoadData {
-  // --------- dados da célula ----------
   final int numero;
   final int faixaIndex;
   final String? tipo;
-
-  /// Valor cru que vem/sai do banco:
-  /// 'concluido' | 'em_andamento' | 'a_iniciar' | variações com acento/espaços
   final String? status;
   final String? comentario;
 
@@ -25,29 +17,20 @@ class ScheduleRoadData {
   DateTime? get takenAt =>
       takenAtMs == null ? null : DateTime.fromMillisecondsSinceEpoch(takenAtMs!);
 
-  // auditoria
   final DateTime? createdAt;
   final String? createdBy;
   final DateTime? updatedAt;
   final String? updatedBy;
 
-  // meta UI
   final String key;
   final String label;
   final IconData icon;
   final Color color;
 
-  // --------- GEOMETRIA (opcional, nível contrato/projeto) ----------
-  /// "LineString" | "MultiLineString" (informativo)
   final String? geometryType;
-
-  /// Segmentos (preferido quando existe)
   final List<List<LatLng>>? multiLine;
-
-  /// Fallback: linha única achatada
   final List<LatLng>? points;
 
-  // ======== Construtor ========
   const ScheduleRoadData({
     required this.numero,
     required this.faixaIndex,
@@ -65,15 +48,11 @@ class ScheduleRoadData {
     this.fotos = const <String>[],
     this.fotosMeta = const <Map<String, dynamic>>[],
     this.takenAtMs,
-    // geom
     this.geometryType,
     this.multiLine,
     this.points,
   });
 
-  // ================= Helpers de GEOMETRIA =================
-
-  /// Segmentos prontos para desenhar.
   List<List<LatLng>> getSegments() {
     if (multiLine != null && multiLine!.isNotEmpty) {
       return multiLine!.map((s) => List<LatLng>.from(s)).toList();
@@ -84,12 +63,8 @@ class ScheduleRoadData {
     return const <List<LatLng>>[];
   }
 
-  /// Eixo “achatado” (útil para medições/segmentações de 20m).
   List<LatLng> get axis => getSegments().expand((s) => s).toList(growable: false);
 
-  // ================= Helpers de status =================
-
-  /// Remove acentos e normaliza para comparar
   static String _strip(String s) {
     const from = 'ÀÁÂÃÄÅàáâãäåÈÉÊËèéêëÌÍÎÏìíîïÒÓÔÕÖòóôõöÙÚÛÜùúûüÇçÑñÝýÿ';
     const to   = 'AAAAAAaaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNnYyy';
@@ -98,7 +73,6 @@ class ScheduleRoadData {
     return noAccents.toLowerCase().trim().replaceAll(RegExp(r'\s+'), '_');
   }
 
-  /// Canônico: 'concluido' | 'em_andamento' | 'a_iniciar'
   String get statusCanonical {
     final raw = status ?? '';
     final s = _strip(raw);
@@ -108,7 +82,6 @@ class ScheduleRoadData {
     return 'a_iniciar';
   }
 
-  /// Label bonitinha para UI
   String get statusLabel {
     switch (statusCanonical) {
       case 'concluido':     return 'Concluído';
@@ -132,8 +105,6 @@ class ScheduleRoadData {
       return '$first$rest';
     }).join(' ');
   }
-
-  // ================= Helpers de fotos/data =================
 
   bool get hasPhotos => fotos.any((u) => u.trim().isNotEmpty);
   int get photosCount => fotos.where((u) => u.trim().isNotEmpty).length;
@@ -179,8 +150,6 @@ class ScheduleRoadData {
     return best;
   }
 
-  // =================== Parse/Serialize (inclui geometria) ===================
-
   factory ScheduleRoadData.fromMap(Map<String, dynamic> m, {ScheduleRoadData? meta}) {
     final def = ScheduleRoadData(
       numero: 0,
@@ -207,7 +176,6 @@ class ScheduleRoadData {
       label: meta?.label ?? def.label,
       icon: meta?.icon ?? def.icon,
       color: meta?.color ?? def.color,
-      // Geometria
       geometryType: _asString(m['geometryType']),
       multiLine: _parseMulti(m['multiLine']),
       points: _parsePoints(m['points']),
@@ -228,7 +196,6 @@ class ScheduleRoadData {
       'fotos': fotos,
       'fotos_meta': fotosMeta,
       if (takenAtMs != null) 'takenAtMs': takenAtMs,
-      // Geometria (somente se existir)
       if (geometryType != null) 'geometryType': geometryType,
       if (multiLine != null) 'multiLine': _toMultiList(multiLine),
       if (points != null) 'points': _toPoints(points),
@@ -261,7 +228,6 @@ class ScheduleRoadData {
     List<String>? fotos,
     List<Map<String, dynamic>>? fotosMeta,
     int? takenAtMs,
-    // Geometria
     String? geometryType,
     List<List<LatLng>>? multiLine,
     List<LatLng>? points,
@@ -283,14 +249,12 @@ class ScheduleRoadData {
       fotos: fotos ?? this.fotos,
       fotosMeta: fotosMeta ?? this.fotosMeta,
       takenAtMs: takenAtMs ?? this.takenAtMs,
-      // geom
       geometryType: geometryType ?? this.geometryType,
       multiLine: multiLine ?? this.multiLine,
       points: points ?? this.points,
     );
   }
 
-  // -------- parsers utilitários --------
   static int? _asInt(dynamic v) {
     if (v == null) return null;
     if (v is int) return v;
@@ -343,7 +307,6 @@ class ScheduleRoadData {
     return null;
   }
 
-  // ---------- Parse de geometria ----------
   static List<List<LatLng>>? _parseMulti(dynamic g) {
     if (g is! List) return null;
     final out = <List<LatLng>>[];
@@ -388,7 +351,6 @@ class ScheduleRoadData {
     return out.isEmpty ? null : out;
   }
 
-  // ---------- Serialize de geometria ----------
   static List<List<dynamic>>? _toMultiList(List<List<LatLng>>? ml) {
     if (ml == null) return null;
     return ml
@@ -398,7 +360,6 @@ class ScheduleRoadData {
 
   static List<dynamic>? _toPoints(List<LatLng>? pts) {
     if (pts == null) return null;
-    // usando chaves 'latitude'/'longitude' para compatibilidade
     return pts
         .map((p) => {'latitude': p.latitude, 'longitude': p.longitude})
         .toList();

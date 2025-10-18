@@ -1,4 +1,5 @@
-// lib/_blocs/sectors/operation/road/board/schedule_road_bloc.dart
+// COMPLETO — Bloc com physfin_grid por ÍNDICE no Firestore e NOME na UI
+
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -23,7 +24,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     ScheduleRoadRepository? repository,
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
-  })  : _repo = repository ?? ScheduleRoadRepository(firestore: firestore, storage: storage),
+  })  : _repo =
+      repository ?? ScheduleRoadRepository(firestore: firestore, storage: storage),
         firestore = firestore ?? FirebaseFirestore.instance,
         storage = storage ?? FirebaseStorage.instance,
         super(const ScheduleRoadState()) {
@@ -33,22 +35,83 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     on<ScheduleLanesSaveRequested>(_onLanesSave);
     on<ScheduleExecucoesReloadRequested>(_onExecReload);
 
-    // ação única do modal
     on<ScheduleSquareApplyRequested>(_onApply);
 
-    // ===== MAPA (unificado) =====
     on<ScheduleProjectImportGeoJsonRequested>(_onImportGeoJson);
     on<ScheduleProjectUpsertRequested>(_onUpsertProject);
     on<ScheduleProjectDeleteRequested>(_onDeleteProject);
-    on<SchedulePolylineSelected>((e, emit) => emit(state.copyWith(selectedPolylineId: e.polylineId)));
+    on<SchedulePolylineSelected>(
+            (e, emit) => emit(state.copyWith(selectedPolylineId: e.polylineId)));
     on<ScheduleMapZoomChanged>((e, emit) {
       final z = double.parse(e.zoom.toStringAsFixed(2));
-      if ((state.mapZoom - z).abs() >= 0.05) emit(state.copyWith(mapZoom: z));
+      if ((state.mapZoom - z).abs() >= 0.05) {
+        emit(state.copyWith(mapZoom: z));
+      }
     });
+
+    on<PhysFinGridUpdateRequested>(_onPhysFinUpdateRequested);
   }
 
-  // ------ helpers ------
   String _slug(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+
+  // ====== Helpers de mapeamento NOME <-> ÍNDICE para physfin ======
+
+  bool _isIndexKey(String k) => RegExp(r'^\d+$').hasMatch(k);
+  String _idxOf(int i) => (i + 1).toString().padLeft(3, '0'); // "001", "002", ...
+
+  /// Lista “serviços válidos” (exclui GERAL) na ordem em que aparecem
+  List<ScheduleRoadData> _validServices(List<ScheduleRoadData> all) =>
+      all.where((s) => s.key != 'geral').toList();
+
+  /// NOME(slug) -> ÍNDICE("001")
+  Map<String, String> _nameToIndex(List<ScheduleRoadData> services) {
+    final v = _validServices(services);
+    final m = <String, String>{};
+    for (int i = 0; i < v.length; i++) {
+      m[v[i].key] = _idxOf(i);
+    }
+    return m;
+  }
+
+  /// ÍNDICE("001") -> NOME(slug)
+  Map<String, String> _indexToName(List<ScheduleRoadData> services) {
+    final v = _validServices(services);
+    final m = <String, String>{};
+    for (int i = 0; i < v.length; i++) {
+      m[_idxOf(i)] = v[i].key;
+    }
+    return m;
+  }
+
+  /// Converte GRID (Map<nome, ...>) -> (Map<idx, ...>)
+  Map<String, List<double>> _gridNameToIndex(
+      Map<String, List<double>> byName,
+      List<ScheduleRoadData> services,
+      ) {
+    final m = _nameToIndex(services);
+    final out = <String, List<double>>{};
+    byName.forEach((k, v) {
+      final idx = _isIndexKey(k) ? k : (m[k] ?? k);
+      out[idx] = List<double>.from(v);
+    });
+    return out;
+  }
+
+  /// Converte GRID (Map<idx, ...>) -> (Map<nome, ...>)
+  Map<String, List<double>> _gridIndexToName(
+      Map<String, List<double>> byIndex,
+      List<ScheduleRoadData> services,
+      ) {
+    final m = _indexToName(services);
+    final out = <String, List<double>>{};
+    byIndex.forEach((k, v) {
+      final name = _isIndexKey(k) ? (m[k] ?? k) : k;
+      out[name] = List<double>.from(v);
+    });
+    return out;
+  }
+
+  // ====== util ======
 
   ScheduleRoadData _currentMeta(ScheduleRoadState st) {
     if (st.services.isEmpty) {
@@ -57,7 +120,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
         icon: Icons.clear_all, color: Colors.grey,
       );
     }
-    return st.services.firstWhere((o) => o.key == st.currentServiceKey, orElse: () => st.services.first);
+    return st.services
+        .firstWhere((o) => o.key == st.currentServiceKey, orElse: () => st.services.first);
   }
 
   List<String> _serviceKeysForGeral(ScheduleRoadState st) =>
@@ -74,18 +138,27 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
 
   DateTime? _cellDate(ScheduleRoadData e) => e.takenAt ?? e.updatedAt ?? e.createdAt;
   DateTime? _minD(List<ScheduleRoadData> xs) {
-    DateTime? d; for (final e in xs){final c=_cellDate(e); if(c==null) continue; if(d==null||c.isBefore(d)) d=c;} return d;
-  }
-  DateTime? _maxD(List<ScheduleRoadData> xs) {
-    DateTime? d; for (final e in xs){final c=_cellDate(e); if(c==null) continue; if(d==null||c.isAfter(d)) d=c;} return d;
+    DateTime? d;
+    for (final e in xs) {
+      final c = _cellDate(e);
+      if (c == null) continue;
+      if (d == null || c.isBefore(d)) d = c;
+    }
+    return d;
   }
 
-  // Deriva o eixo (flatten) a partir da geometria crua
-  List<LatLng> _axisFrom({
-    String? geometryType,
-    List<List<LatLng>>? multiLine,
-    List<LatLng>? points,
-  }) {
+  DateTime? _maxD(List<ScheduleRoadData> xs) {
+    DateTime? d;
+    for (final e in xs) {
+      final c = _cellDate(e);
+      if (c == null) continue;
+      if (d == null || c.isAfter(d)) d = c;
+    }
+    return d;
+  }
+
+  List<LatLng> _axisFrom(
+      {String? geometryType, List<List<LatLng>>? multiLine, List<LatLng>? points}) {
     if (multiLine != null && multiLine.isNotEmpty) {
       return multiLine.expand((s) => s).toList(growable: false);
     }
@@ -98,12 +171,13 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
   int _deriveTotalEstacasFromAxis(List<LatLng> axis) {
     if (axis.length < 2) return 0;
     final seg = splitAxisByFixedStep(axis: axis, stepMeters: 20.0);
-    return seg.segments.length; // 1 segmento = 20 m = 1 estaca
+    return seg.segments.length;
   }
 
   // ================= handlers =================
 
-  Future<void> _onWarmup(ScheduleWarmupRequested e, Emitter<ScheduleRoadState> emit) async {
+  Future<void> _onWarmup(
+      ScheduleWarmupRequested e, Emitter<ScheduleRoadState> emit) async {
     emit(state.copyWith(
       contractId: e.contractId,
       summarySubjectContract: e.summarySubjectContract,
@@ -111,43 +185,58 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
       loadingServices: true,
       loadingLanes: true,
       loadingExecucoes: true,
-      savingOrImporting: true, // carregando geometria também
+      savingOrImporting: true,
       error: null,
     ));
 
     try {
-      // serviços + faixas
-      final services = await _repo.loadAvailableServicesFromBudget(e.contractId);
-      await _repo.ensureDefaultLaneIfMissing(e.contractId);
+      _repo.clearContractCache(e.contractId);
+
+      // serviços, totais, faixas e physfin em paralelo
+      final servicesF = _repo.loadAvailableServicesFromBudget(e.contractId);
+      final totalsF = _repo.fetchBudgetServiceTotals(e.contractId);
+      final ensureLaneF = _repo.ensureDefaultLaneIfMissing(e.contractId);
+      final physfinF = _repo.loadPhysFinGrid(e.contractId); // <-- índices no Firestore
+
+      final services = await servicesF;
+      await ensureLaneF;
       final lanes = await _repo.loadFaixas(e.contractId);
+      final totals = await totalsF;
+      final phys = await physfinF;
 
       final currentKey = services.any((s) => s.key == e.initialServiceKey.toLowerCase())
           ? e.initialServiceKey.toLowerCase()
           : 'geral';
 
-      // geometria (agora direto no state: geometryType/multiLine/points)
+      // geometria
       final ScheduleRoadData? g = await _repo.fetchProjectGeometry(e.contractId);
       final geometryType = g?.geometryType;
-      final multiLine    = g?.multiLine;
-      final points       = g?.points;
+      final multiLine = g?.multiLine;
+      final points = g?.points;
 
-      // totalEstacas a partir da geometria (ou usa o fornecido)
-      final axis = _axisFrom(geometryType: geometryType, multiLine: multiLine, points: points);
+      final axis = _axisFrom(
+          geometryType: geometryType, multiLine: multiLine, points: points);
       final derived = _deriveTotalEstacasFromAxis(axis);
       final totalEstacas = (derived > 0) ? derived : (e.totalEstacas ?? 0);
 
       // execuções do serviço atual
-      final meta = _currentMeta(state.copyWith(services: services, currentServiceKey: currentKey));
+      final meta = _currentMeta(
+          state.copyWith(services: services, currentServiceKey: currentKey));
       final execs = await _repo.fetchExecucoes(
         contractId: e.contractId,
         selectedServiceKey: currentKey,
-        serviceKeysForGeral: services.where((s) => s.key != 'geral').map((s) => s.key).toList(),
+        serviceKeysForGeral:
+        services.where((s) => s.key != 'geral').map((s) => s.key).toList(),
         metaForSelected: meta,
       );
+
+      // 🔁 Converte physfin (índice) -> (nome) para a UI
+      final gridByName = _gridIndexToName(phys.grid, services);
 
       emit(state.copyWith(
         initialized: true,
         services: services,
+        serviceTotals: totals,
         lanes: lanes,
         execucoes: execs,
         execIndex: _buildExecIndex(execs),
@@ -159,11 +248,12 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
         savingOrImporting: false,
         error: null,
         currentServiceKey: currentKey,
-        // geometria no state:
         geometryType: geometryType,
         multiLine: multiLine,
         points: points,
         totalEstacas: totalEstacas,
+        physfinPeriods: phys.periods,
+        physfinGrid: gridByName, // UI vê por nome
       ));
     } catch (err, stTrace) {
       debugPrint('Warmup error: $err\n$stTrace');
@@ -177,7 +267,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     }
   }
 
-  Future<void> _onRefresh(ScheduleRefreshRequested e, Emitter<ScheduleRoadState> emit) async {
+  Future<void> _onRefresh(
+      ScheduleRefreshRequested e, Emitter<ScheduleRoadState> emit) async {
     final cid = state.contractId;
     if (cid == null || cid.isEmpty) return;
 
@@ -190,14 +281,17 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     ));
 
     try {
+      _repo.clearContractCache(cid);
+
       final services = await _repo.loadAvailableServicesFromBudget(cid);
       final lanes = await _repo.loadFaixas(cid);
+      final totals = await _repo.fetchBudgetServiceTotals(cid);
+      final phys = await _repo.loadPhysFinGrid(cid); // índices
 
-      // geometria
       final ScheduleRoadData? g = await _repo.fetchProjectGeometry(cid);
       final geometryType = g?.geometryType;
-      final multiLine    = g?.multiLine;
-      final points       = g?.points;
+      final multiLine = g?.multiLine;
+      final points = g?.points;
 
       final execs = await _repo.fetchExecucoes(
         contractId: cid,
@@ -206,13 +300,16 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
         metaForSelected: _currentMeta(state.copyWith(services: services)),
       );
 
-      // recalcula totalEstacas se conseguirmos derivar
-      final axis = _axisFrom(geometryType: geometryType, multiLine: multiLine, points: points);
+      final axis = _axisFrom(
+          geometryType: geometryType, multiLine: multiLine, points: points);
       final maybeTotal = _deriveTotalEstacasFromAxis(axis);
       final nextTotal = maybeTotal > 0 ? maybeTotal : state.totalEstacas;
 
+      final gridByName = _gridIndexToName(phys.grid, services);
+
       emit(state.copyWith(
         services: services,
+        serviceTotals: totals,
         lanes: lanes,
         execucoes: execs,
         execIndex: _buildExecIndex(execs),
@@ -227,6 +324,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
         multiLine: multiLine,
         points: points,
         totalEstacas: nextTotal,
+        physfinPeriods: phys.periods,
+        physfinGrid: gridByName, // UI por nome
       ));
     } catch (err, stTrace) {
       debugPrint('Refresh error: $err\n$stTrace');
@@ -240,7 +339,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     }
   }
 
-  Future<void> _onServiceSelected(ScheduleServiceSelected e, Emitter<ScheduleRoadState> emit) async {
+  Future<void> _onServiceSelected(
+      ScheduleServiceSelected e, Emitter<ScheduleRoadState> emit) async {
     final cid = state.contractId;
     if (cid == null || cid.isEmpty) return;
 
@@ -269,7 +369,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     }
   }
 
-  Future<void> _onLanesSave(ScheduleLanesSaveRequested e, Emitter<ScheduleRoadState> emit) async {
+  Future<void> _onLanesSave(
+      ScheduleLanesSaveRequested e, Emitter<ScheduleRoadState> emit) async {
     final cid = state.contractId;
     if (cid == null || cid.isEmpty) return;
 
@@ -278,13 +379,15 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
       await _repo.saveFaixas(cid, e.lanes);
       final lanes = await _repo.loadFaixas(cid);
       emit(state.copyWith(lanes: lanes, loadingLanes: false, error: null));
+      add(const ScheduleExecucoesReloadRequested());
     } catch (err, stTrace) {
       debugPrint('LanesSave error: $err\n$stTrace');
       emit(state.copyWith(loadingLanes: false, error: '$err'));
     }
   }
 
-  Future<void> _onExecReload(ScheduleExecucoesReloadRequested e, Emitter<ScheduleRoadState> emit) async {
+  Future<void> _onExecReload(
+      ScheduleExecucoesReloadRequested e, Emitter<ScheduleRoadState> emit) async {
     final cid = state.contractId;
     if (cid == null || cid.isEmpty) return;
 
@@ -310,13 +413,13 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     }
   }
 
-  Future<void> _onApply(ScheduleSquareApplyRequested e, Emitter<ScheduleRoadState> emit) async {
+  Future<void> _onApply(
+      ScheduleSquareApplyRequested e, Emitter<ScheduleRoadState> emit) async {
     final cid = state.contractId;
     if (cid == null || cid.isEmpty) return;
     if (state.currentServiceKey == 'geral') return;
 
     try {
-      // 1) aplica alterações (repo mantém comportamento)
       final uploadedUrls = await _repo.applySquareChanges(
         contractId: cid,
         serviceKey: state.currentServiceKey,
@@ -333,7 +436,6 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
         currentUserId: e.currentUserId,
       );
 
-      // 2) atualização otimista
       final list = [...state.execucoes];
       final idx = list.indexWhere((x) => x.numero == e.estaca && x.faixaIndex == e.faixaIndex);
       final meta = _currentMeta(state);
@@ -355,7 +457,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
 
         final prevMetas = prev?.fotosMeta ?? const <Map<String, dynamic>>[];
         final byUrl = <String, Map<String, dynamic>>{
-          for (final m in prevMetas) (m['url'] as String?) ?? '': Map<String, dynamic>.from(m),
+          for (final m in prevMetas) (m['url'] as String?) ?? '':
+          Map<String, dynamic>.from(m),
         };
         final metasOrdered = finalFotos.map((u) {
           final m = byUrl[u];
@@ -373,7 +476,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
           faixaIndex: e.faixaIndex,
           tipo: e.tipoLabel,
           status: canon,
-          comentario: (e.comentario?.trim().isEmpty ?? true) ? null : e.comentario!.trim(),
+          comentario:
+          (e.comentario?.trim().isEmpty ?? true) ? null : e.comentario!.trim(),
           createdAt: prev?.createdAt ?? now,
           createdBy: prev?.createdBy ?? e.currentUserId,
           updatedAt: now,
@@ -384,25 +488,25 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
           color: meta.color,
           fotos: finalFotos,
           fotosMeta: metasOrdered,
-          takenAtMs: (e.takenAt != null) ? e.takenAt!.millisecondsSinceEpoch : prev?.takenAtMs,
+          takenAtMs:
+          (e.takenAt != null) ? e.takenAt!.millisecondsSinceEpoch : prev?.takenAtMs,
         );
 
-        if (idx == -1) list.add(updated); else list[idx] = updated;
+        if (idx == -1) {
+          list.add(updated);
+        } else {
+          list[idx] = updated;
+        }
       }
-
-      final newIndex = _buildExecIndex(list);
-      final newMin = _minD(list);
-      final newMax = _maxD(list);
 
       emit(state.copyWith(
         execucoes: List.unmodifiable(list),
-        execIndex: newIndex,
-        minDate: newMin,
-        maxDate: newMax,
+        execIndex: _buildExecIndex(list),
+        minDate: _minD(list),
+        maxDate: _maxD(list),
         error: null,
       ));
 
-      // 3) reload para alinhar com servidor
       add(const ScheduleExecucoesReloadRequested());
     } catch (err, stTrace) {
       debugPrint('Apply error: $err\n$stTrace');
@@ -410,9 +514,10 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     }
   }
 
-  // ===================== MAPA (unificado) =====================
+  // ===================== MAPA =====================
 
-  Future<void> _onImportGeoJson(ScheduleProjectImportGeoJsonRequested e, Emitter<ScheduleRoadState> emit) async {
+  Future<void> _onImportGeoJson(
+      ScheduleProjectImportGeoJsonRequested e, Emitter<ScheduleRoadState> emit) async {
     final cid = state.contractId;
     if (cid == null || cid.isEmpty) return;
     emit(state.copyWith(savingOrImporting: true, error: null));
@@ -428,11 +533,7 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
         multiLine: saved.multiLine,
         points: saved.points,
         totalEstacas: _deriveTotalEstacasFromAxis(
-          _axisFrom(
-            geometryType: saved.geometryType,
-            multiLine: saved.multiLine,
-            points: saved.points,
-          ),
+          _axisFrom(geometryType: saved.geometryType, multiLine: saved.multiLine, points: saved.points),
         ),
       ));
     } catch (err) {
@@ -440,7 +541,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     }
   }
 
-  Future<void> _onUpsertProject(ScheduleProjectUpsertRequested e, Emitter<ScheduleRoadState> emit) async {
+  Future<void> _onUpsertProject(
+      ScheduleProjectUpsertRequested e, Emitter<ScheduleRoadState> emit) async {
     emit(state.copyWith(savingOrImporting: true, error: null));
     try {
       final ScheduleRoadData saved = await _repo.upsertProjectGeometry(e.data);
@@ -450,11 +552,7 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
         multiLine: saved.multiLine,
         points: saved.points,
         totalEstacas: _deriveTotalEstacasFromAxis(
-          _axisFrom(
-            geometryType: saved.geometryType,
-            multiLine: saved.multiLine,
-            points: saved.points,
-          ),
+          _axisFrom(geometryType: saved.geometryType, multiLine: saved.multiLine, points: saved.points),
         ),
       ));
     } catch (err) {
@@ -462,7 +560,8 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
     }
   }
 
-  Future<void> _onDeleteProject(ScheduleProjectDeleteRequested e, Emitter<ScheduleRoadState> emit) async {
+  Future<void> _onDeleteProject(
+      ScheduleProjectDeleteRequested e, Emitter<ScheduleRoadState> emit) async {
     final cid = state.contractId;
     if (cid == null || cid.isEmpty) return;
     emit(state.copyWith(savingOrImporting: true, error: null));
@@ -477,6 +576,34 @@ class ScheduleRoadBloc extends Bloc<ScheduleRoadEvent, ScheduleRoadState> {
       ));
     } catch (err) {
       emit(state.copyWith(savingOrImporting: false, error: err.toString()));
+    }
+  }
+
+  // ===================== PHYS/FIN =====================
+
+  Future<void> _onPhysFinUpdateRequested(
+      PhysFinGridUpdateRequested e, Emitter<ScheduleRoadState> emit) async {
+    final cid = state.contractId;
+    if (cid == null || cid.isEmpty) return;
+
+    // Converte NOME -> ÍNDICE para gravar
+    final gridIdx = _gridNameToIndex(e.grid, state.services);
+
+    // Atualiza estado imediatamente (UI continua por nome)
+    emit(state.copyWith(
+      physfinPeriods: e.periods,
+      physfinGrid: e.grid,
+    ));
+
+    try {
+      await _repo.savePhysFinGrid(
+        contractId: cid,
+        periods: e.periods,
+        grid: gridIdx, // grava por índice
+        updatedBy: e.updatedBy,
+      );
+    } catch (err) {
+      debugPrint('savePhysFinGrid error: $err');
     }
   }
 }

@@ -66,36 +66,6 @@ class PaymentReportTableSection extends StatelessWidget {
                   onDelete: (data) async {
                     final id = data.idPaymentReport;
                     if (id == null) return;
-
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Confirmação'),
-                        content: const Text('Deseja apagar este pagamento?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancelar'),
-                          ),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Apagar'),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirm == true) {
-                      await c.deleteById(
-                        id,
-                        onSuccessSnack: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Medição apagada com sucesso.'),
-                            backgroundColor: Colors.red,
-                          ),
-                        ),
-                      );
-                    }
                   },
                   columnWidths: const [100, 220, 220, 220],
                   columnTextAligns: const [

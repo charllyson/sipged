@@ -1,11 +1,19 @@
+// ============================================================================
+// lib/_blocs/actives/roads/active_roads_state.dart
+// ============================================================================
+import 'dart:math';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart'; // ✅ para Marker
+import 'package:latlong2/latlong.dart';
 
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
 import 'package:siged/_blocs/actives/roads/active_road_style.dart';
 import 'package:siged/_blocs/actives/roads/active_road_rules.dart';
+import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:siged/_blocs/process/contracts/contract_rules.dart';
 
 enum ActiveRoadsLoadStatus { idle, loading, success, failure }
 
@@ -164,8 +172,6 @@ class ActiveRoadsState extends Equatable {
   // ===========================================================================
   // Coleções derivadas para CHARTS (base já filtrada por REGIÃO)
   // ===========================================================================
-  /// Lista base para gráficos: se houver região selecionada, filtra por ela;
-  /// caso contrário, usa todos.
   List<ActiveRoadsData> get _baseForCharts {
     final regionFilterC =
     selectedRegionFilter == null ? null : _canonRegion(selectedRegionFilter);
@@ -177,9 +183,7 @@ class ActiveRoadsState extends Equatable {
     }).toList(growable: false);
   }
 
-  // ===========================================================================
-  // PIE — soma de extensão (km) por superfície (AGORA respeita REGIÃO)
-  // ===========================================================================
+  // PIE — soma de extensão (km) por superfície (respeita REGIÃO)
   Map<String, double> get _sumExtBySurfaceInRegion {
     final src = _baseForCharts;
     final map = <String, double>{for (final s in _surfaceCodesOrder) s: 0.0};
@@ -195,14 +199,23 @@ class ActiveRoadsState extends Equatable {
     final sums = _sumExtBySurfaceInRegion;
     return _surfaceCodesOrder.map((code) {
       final km = (sums[code] ?? 0.0);
-      return (code: code, label: _labelForSurface(code), value: km, color: ActiveRoadsStyle.colorForSurface(code));
+      return (
+      code: code,
+      label: _labelForSurface(code),
+      value: km,
+      color: ActiveRoadsStyle.colorForSurface(code)
+      );
     }).toList(growable: false);
   }
 
-  List<String> get pieLabelsForChart => _pieItems.map((e) => e.label).toList(growable: false);
-  List<double> get pieValuesForChart => _pieItems.map((e) => e.value).toList(growable: false);
-  List<Color> get pieColorsForChart => _pieItems.map((e) => e.color).toList(growable: false);
-  double get pieTotal => _pieItems.fold<double>(0.0, (sum, e) => sum + e.value);
+  List<String> get pieLabelsForChart =>
+      _pieItems.map((e) => e.label).toList(growable: false);
+  List<double> get pieValuesForChart =>
+      _pieItems.map((e) => e.value).toList(growable: false);
+  List<Color> get pieColorsForChart =>
+      _pieItems.map((e) => e.color).toList(growable: false);
+  double get pieTotal =>
+      _pieItems.fold<double>(0.0, (sum, e) => sum + e.value);
 
   String surfaceCodeFromPieChartIndex(int pieIndex) {
     final items = _pieItems;
@@ -211,7 +224,7 @@ class ActiveRoadsState extends Equatable {
   }
 
   // ===========================================================================
-  // GAUGE — percentual de km (AGORA considera PIE + REGIÃO)
+  // GAUGE — percentual de km (considera PIE + REGIÃO)
   // ===========================================================================
   GaugeVM gaugeForCurrentFilters() {
     final String? codeFilter = _surfaceFilterFromPieOrNull; // pode ser null
@@ -231,16 +244,16 @@ class ActiveRoadsState extends Equatable {
       }).fold<double>(0.0, (acc, r) => acc + (r.extension ?? 0.0));
     }
 
-    // Total da região (ou total global, se região nula)
     final double totalKm = _sumKm(regionC: regionFilterC);
-    // Foco (superfície selecionada no pie) dentro da região (se houver)
-    final double countKm = _sumKm(regionC: regionFilterC, surfaceCode: codeFilter);
+    final double countKm =
+    _sumKm(regionC: regionFilterC, surfaceCode: codeFilter);
 
     if (totalKm <= 0) {
       return const GaugeVM(label: 'Total', count: 0, total: 0, percent: 0);
     }
 
-    final String label = (codeFilter != null) ? _labelForSurface(codeFilter) : 'Total';
+    final String label =
+    (codeFilter != null) ? _labelForSurface(codeFilter) : 'Total';
     return GaugeVM(
       label: label,
       count: countKm,
@@ -254,7 +267,6 @@ class ActiveRoadsState extends Equatable {
   // ===========================================================================
   List<String> get regionLabels => ContractRules.regions;
 
-  /// Soma total de km por região (sem considerar pie)
   List<double> get regionSumsKm {
     final values = <double>[];
     for (final label in regionLabels) {
@@ -268,7 +280,6 @@ class ActiveRoadsState extends Equatable {
     return values;
   }
 
-  /// Soma de km por região, filtrada pelo Pie (se houver)
   List<double> regionCountsFilteredByPie() {
     final values = <double>[];
     final codeFilter = _surfaceFilterFromPieOrNull;
@@ -318,7 +329,8 @@ class ActiveRoadsState extends Equatable {
       }
       if (codeFilter != null) return _surfaceCodeOf(r) == codeFilter;
       if (fallbackText != null && fallbackText.isNotEmpty) {
-        final raw = (r.stateSurface ?? r.surface ?? r.state ?? '').toString().toUpperCase();
+        final raw =
+        (r.stateSurface ?? r.surface ?? r.state ?? '').toString().toUpperCase();
         return raw.contains(fallbackText);
       }
       return true;
@@ -329,36 +341,94 @@ class ActiveRoadsState extends Equatable {
       selectedRegionFilter == null ? null : [selectedRegionFilter!];
 
   // ===========================================================================
-  // MAPA — polylines estilizadas
+  // MAPA — polylines estilizadas (com COR DE SELEÇÃO + HALO)
   // ===========================================================================
-  List<TappableChangedPolyline> buildStyledPolylines() {
+  List<TappableChangedPolyline> buildStyledPolylines({
+    required double zoom,
+    required double centerLatitude,
+  }) {
     final List<TappableChangedPolyline> lines = [];
+
+    final lanePx   = ActiveRoadsRules.laneWidthForZoom(zoom);
+    final sepPx    = ActiveRoadsRules.laneSeparationPxForZoom(zoom);
+    final degPerPx = ActiveRoadsRules.degreesPerPixel(centerLatitude, zoom);
+    final deltaDeg = sepPx * degPerPx;
+
     for (final road in filteredAll) {
-      if (road.id == null || road.points == null || road.points!.isEmpty) continue;
+      final id  = road.id;
+      final pts = road.points;
+      if (id == null || pts == null || pts.isEmpty) continue;
 
-      final tagId = road.id!;
-      final statusCode = _surfaceCodeOf(road);
-      final estilo = ActiveRoadsStyle.styleLane(statusCode, 12);
-      final isSelected = (selectedPolylineId != null && selectedPolylineId == tagId);
+      final code  = _surfaceCodeOf(road);
+      final dupla = ActiveRoadsRules.isDupla(code);
+      final dash  = ActiveRoadsRules.isTracejada(code);
 
-      for (final entry in estilo.asMap().entries) {
-        final idx = entry.key;
-        final camada = entry.value;
+      final baseColor = ActiveRoadsStyle.colorForSurface(
+        (code == 'OUTRO') ? '' : code,
+      );
+
+      final isSelected   = (selectedPolylineId != null && selectedPolylineId == id);
+      final displayColor = isSelected ? Colors.orangeAccent : baseColor;
+
+      final bool drawHalo   = isSelected;
+      final Color haloColor = Colors.white.withOpacity(0.95);
+      final double haloExtra = 3.0;
+
+      final w = isSelected ? (lanePx + 2) : lanePx;
+
+      // helper tipado corretamente
+      void _addTrack({
+        required List<LatLng> points,
+      }) {
+        if (drawHalo) {
+          // 1) HALO primeiro (aparece por baixo porque entra na lista antes)
+          lines.add(
+            TappableChangedPolyline(
+              points: points,
+              tag: id,
+              color: haloColor,
+              defaultColor: haloColor,
+              strokeWidth: w + haloExtra,
+              isDotted: false,       // halo sempre contínuo
+              hitTestable: false,    // não captura clique
+            ),
+          );
+        }
+        // 2) Linha “de verdade” por cima
         lines.add(
           TappableChangedPolyline(
-            isDotted: false,
-            points: ActiveRoadsRules.deslocarPontos(
-              road.points!,
-              deslocamentoOrtogonal: idx * 0.00003,
-            ),
-            color: isSelected ? Colors.redAccent : camada.cor,
-            defaultColor: camada.cor,
-            strokeWidth: isSelected ? camada.width + 2 : camada.width,
-            tag: tagId,
+            points: points,
+            tag: id,
+            color: displayColor,
+            defaultColor: baseColor,
+            strokeWidth: w,
+            isDotted: dash,
+            hitTestable: true,
           ),
         );
       }
+
+      if (dupla) {
+        final left = ActiveRoadsRules.deslocarPontos(
+          pts,
+          deslocamentoOrtogonal: -deltaDeg,
+          miterLimit: 3.0,
+          densifyIfSegmentMeters: 0,
+        );
+        _addTrack(points: left);
+
+        final right = ActiveRoadsRules.deslocarPontos(
+          pts,
+          deslocamentoOrtogonal:  deltaDeg,
+          miterLimit: 3.0,
+          densifyIfSegmentMeters: 0,
+        );
+        _addTrack(points: right);
+      } else {
+        _addTrack(points: pts);
+      }
     }
+
     return lines;
   }
 
@@ -392,3 +462,149 @@ class GaugeVM {
   String get subtitle =>
       '${count.toStringAsFixed(1)} km de ${total.toStringAsFixed(1)} km';
 }
+// ============================================================================
+// Labels de rodovia como TaggedChangedMarker (para CLUSTER)
+// ============================================================================
+extension ActiveRoadsLabelClusterExt on ActiveRoadsState {
+  /// Cria marcadores "taggeados" (com o dado da rodovia) para usar no cluster.
+  List<TaggedChangedMarker<ActiveRoadsData>> buildRoadLabelTaggedMarkers({
+    required double zoom,
+  }) {
+    final size = (zoom * 3.2).clamp(18.0, 32.0);
+    final font = (size * 0.45).clamp(8.0, 13.0);
+
+    return filteredAll.map((r) {
+      final anchor = r.labelAnchorOnLine;      // << aqui
+      if (anchor == null) return null;
+
+      final label = (r.acronym?.isNotEmpty ?? false) ? r.acronym! : (r.roadCode ?? '');
+      if (label.isEmpty) return null;
+
+      return TaggedChangedMarker<ActiveRoadsData>(
+        point: anchor,
+        data: r,
+        properties: {'label': label, 'diameter': size, 'font': font},
+      );
+    }).whereType<TaggedChangedMarker<ActiveRoadsData>>().toList(growable: false);
+  }
+}
+
+final _dist = const Distance();
+
+LatLng? pointAtDistanceOnLine(List<LatLng> pts, double targetMeters) {
+  if (pts.length < 2) return pts.isNotEmpty ? pts.first : null;
+
+  double acc = 0.0;
+  for (int i = 0; i < pts.length - 1; i++) {
+    final a = pts[i];
+    final b = pts[i + 1];
+    final seg = _dist.as(LengthUnit.Meter, a, b);
+
+    if (acc + seg >= targetMeters) {
+      final remain = targetMeters - acc;
+      final t = (seg == 0) ? 0.0 : (remain / seg).clamp(0.0, 1.0);
+      // interpolação linear (ok para segmentos curtos)
+      final lat = a.latitude  + (b.latitude  - a.latitude)  * t;
+      final lng = a.longitude + (b.longitude - a.longitude) * t;
+      return LatLng(lat, lng);
+    }
+    acc += seg;
+  }
+  return pts.last;
+}
+
+double lengthOfLineMeters(List<LatLng> pts) {
+  double acc = 0.0;
+  for (int i = 0; i < pts.length - 1; i++) {
+    acc += _dist.as(LengthUnit.Meter, pts[i], pts[i + 1]);
+  }
+  return acc;
+}
+
+extension ActiveRoadsAnchors on ActiveRoadsData {
+  /// Ponto para rótulo fixado sobre a polyline (metade do comprimento).
+  LatLng? get labelAnchorOnLine {
+    final pts = points;
+    if (pts == null || pts.length < 2) return centerLatLng ?? pts?.first;
+    final L = lengthOfLineMeters(pts);
+    if (L <= 0) return pts.first;
+    return pointAtDistanceOnLine(pts, L / 2);
+  }
+}
+// ============================================================================
+// Labels de rodovia como marcadores circulares no centro da polyline
+// ============================================================================
+extension ActiveRoadsLabelsExtension on ActiveRoadsState {
+  /// Cria marcadores circulares brancos no centro da polyline com o número/sigla.
+  /// Use em MapInteractivePage.extraMarkers.
+  List<Marker> buildRoadLabelMarkers({required double zoom}) {
+    final size = (zoom * 3.2).clamp(18.0, 32.0);
+    final font = (size * 0.45).clamp(8.0, 13.0);
+
+    return filteredAll.map((r) {
+      final anchor = r.labelAnchorOnLine;        // << aqui
+      if (anchor == null) return null;
+
+      final label = (r.acronym?.isNotEmpty ?? false) ? r.acronym! : (r.roadCode ?? '');
+      if (label.isEmpty) return null;
+
+      return Marker(
+        point: anchor,
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        child: RoadLabelCircle(text: label, diameter: size, fontSize: font),
+      );
+    }).whereType<Marker>().toList(growable: false);
+  }
+
+
+}
+
+class RoadLabelCircle extends StatelessWidget {
+  final String text;
+  final double diameter;
+  final double fontSize;
+
+  const RoadLabelCircle({
+    required this.text,
+    required this.diameter,
+    required this.fontSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: diameter,
+      height: diameter,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.black87, width: 1.4),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 2,
+            spreadRadius: 0.5,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+          height: 1.0,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.visible,
+        softWrap: false,
+      ),
+    );
+  }
+}
+

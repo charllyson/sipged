@@ -15,6 +15,10 @@ import 'package:xml/xml.dart' as xml;
 
 import 'preview_dialog.dart'; // GeoJsonPreviewDialog
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ImportVector {
   static Future<void> importAny({
     required BuildContext context,
@@ -32,7 +36,10 @@ class ImportVector {
         type: FileType.custom,
         allowedExtensions: ['geojson', 'json', 'kml', 'kmz'],
       );
-      if (result == null) return;
+      if (result == null) {
+        _notify('Importação cancelada', type: AppNotificationType.warning);
+        return;
+      }
 
       final file = result.files.first;
       final ext = (file.extension ?? '').toLowerCase();
@@ -48,12 +55,12 @@ class ImportVector {
       } else if (ext == 'kml' || ext == 'kmz') {
         features = await _featuresFromKmlOrKmzBytes(bytes, file.name);
       } else {
-        _showSnackBar(context, 'Formato não suportado: .$ext');
+        _notify('Formato não suportado: .$ext', type: AppNotificationType.error);
         return;
       }
 
       if (features.isEmpty) {
-        _showSnackBar(context, 'Nenhuma feature de linha encontrada.');
+        _notify('Nenhuma feature de linha encontrada.', type: AppNotificationType.warning);
         return;
       }
 
@@ -81,17 +88,13 @@ class ImportVector {
               await onSalvar(linhas, geometrias);
               onFinished?.call();
 
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Importação concluída.')),
-                );
-              }
+              _notify('Importação concluída.', type: AppNotificationType.success);
             },
           );
         },
       );
     } catch (e) {
-      _showSnackBar(context, 'Erro ao importar: $e');
+      _notify('Erro ao importar', type: AppNotificationType.error, subtitle: '$e');
     }
   }
 
@@ -249,6 +252,21 @@ class ImportVector {
     final _arch = ArchiveSingleton.instance;
     return _arch.zipDecoder;
   }
+
+  // 🔔 helper de notificação
+  static void _notify(
+      String title, {
+        AppNotificationType type = AppNotificationType.info,
+        String? subtitle,
+      }) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text(title),
+        subtitle: subtitle != null ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
+  }
 }
 
 // ---- singletons p/ evitar import estático (ajuda a não quebrar hot-reload) ----
@@ -269,11 +287,4 @@ class ArchiveSingleton {
   }
   static final ArchiveSingleton instance = ArchiveSingleton._();
   late dynamic zipDecoder;
-}
-
-// snackbar
-void _showSnackBar(BuildContext context, String msg) {
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
 }

@@ -10,6 +10,9 @@ import 'package:siged/_widgets/carousel/photo_preview_page.dart';
 import 'dart:io' show Platform;
 import 'package:siged/_widgets/carousel/custom_camera_page.dart';
 
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class PhotoPickerSquare extends StatelessWidget {
   final bool enabled;
 
@@ -243,11 +246,15 @@ class PhotoPickerSquare extends StatelessWidget {
 
       await onPickFromCamera?.call(edited);
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Falha ao obter imagem da câmera: $e')),
-        );
-      }
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Falha ao obter imagem da câmera'),
+          subtitle: Text('$e'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Fotos'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     }
   }
 
@@ -290,11 +297,15 @@ class PhotoPickerSquare extends StatelessWidget {
 
       await onPickFromGallery?.call(edited);
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Falha ao obter/editar imagem: $e')),
-        );
-      }
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Falha ao obter/editar imagem'),
+          subtitle: Text('$e'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Fotos'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     }
   }
 }

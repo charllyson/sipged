@@ -15,6 +15,10 @@ import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
 import 'package:siged/_blocs/system/user/user_repository.dart';
 
+// 🔔 Notificações centralizadas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class SignUp extends StatefulWidget {
   const SignUp({super.key, required this.userData});
   final UserData userData;
@@ -54,20 +58,35 @@ class _SignUpState extends State<SignUp> with LoginValidators {
     super.dispose();
   }
 
+  void _notify(
+      String title, {
+        String? subtitle,
+        AppNotificationType type = AppNotificationType.info,
+      }) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        type: type,
+        title: Text(title),
+        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     // 0) senha igual
     if (_passController.text != _repeatPassController.text) {
       _passController.clear();
       _repeatPassController.clear();
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => const CupertinoAlertDialog(
-            title: Text('Erro na senha'),
-            content: Text('As senhas digitadas não coincidem'),
-          ),
-        );
-      }
+      if (!mounted) return;
+
+      // Mantém o alerta visual explícito para esse caso
+      showDialog(
+        context: context,
+        builder: (context) => const CupertinoAlertDialog(
+          title: Text('Erro na senha'),
+          content: Text('As senhas digitadas não coincidem'),
+        ),
+      );
       return;
     }
 
@@ -97,28 +116,25 @@ class _SignUpState extends State<SignUp> with LoginValidators {
 
       // 4) avisa o UserBloc para refletir no estado (cache/byId/current)
       final bloc = context.read<UserBloc>();
-      // carrega o novo usuário para o cache
       bloc.add(UserFetchByIdRequested(uid));
-      // (opcional) ativa o bind do usuário atual para receber atualizações em tempo real
       bloc.add(const CurrentUserBindToggleRequested(true));
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cadastro realizado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _notify('Cadastro realizado com sucesso!', type: AppNotificationType.success);
       Navigator.of(context).pop(); // fecha a tela de cadastro
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao cadastrar: ${e.message ?? e.code}')),
+      _notify(
+        'Erro ao cadastrar',
+        subtitle: e.message ?? e.code,
+        type: AppNotificationType.error,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro inesperado ao cadastrar: $e')),
+      _notify(
+        'Erro inesperado ao cadastrar',
+        subtitle: '$e',
+        type: AppNotificationType.error,
       );
     } finally {
       _loading.value = false;
@@ -153,14 +169,14 @@ class _SignUpState extends State<SignUp> with LoginValidators {
                                 controller: _nameController,
                                 onSaved: (v) => widget.userData.name = v,
                                 labelText: 'Nome',
-                                prefixIcon: const Icon(Icons.account_circle),
+                                prefix: const Icon(Icons.account_circle),
                                 validator: validateName,
                               ),
                               CustomTextField(
                                 controller: _surnameController,
                                 onSaved: (v) => widget.userData.surname = v,
                                 labelText: 'Sobrenome',
-                                prefixIcon: const Icon(Icons.account_circle),
+                                prefix: const Icon(Icons.account_circle),
                                 validator: validateSurname,
                               ),
                               CustomTextField(
@@ -168,41 +184,38 @@ class _SignUpState extends State<SignUp> with LoginValidators {
                                 stream: _loginBloc.outEmail,
                                 onSaved: (v) => widget.userData.email = v,
                                 labelText: 'E-mail',
-                                prefixIcon: const Icon(Icons.account_circle),
+                                prefix: const Icon(Icons.account_circle),
                                 keyboardType: TextInputType.emailAddress,
                                 onChanged: _loginBloc.changeEmail,
                                 enabled: true,
                                 validator: validateEmailLogin,
                               ),
                               CustomTextField(
-                                initialValue:
-                                addFormatCpf(widget.userData.cpf!),
+                                initialValue: addFormatCpf(widget.userData.cpf!),
                                 labelText: 'CPF',
                                 enabled: false,
-                                prefixIcon: const Icon(Icons.account_box),
-                                suffixIcon: const Icon(Icons.check_circle,
-                                    color: Colors.green),
+                                prefix: const Icon(Icons.account_box),
+                                suffix: const Icon(Icons.check_circle, color: Colors.green),
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [CpfInputFormatter()],
                               ),
                               CustomDateField(
                                 validator: validateDateToBirthday,
-                                onSaved: (v) =>
-                                widget.userData.dateToBirthday = v,
+                                onSaved: (v) => widget.userData.dateToBirthday = v,
                                 labelText: 'Data de nascimento',
                                 prefix: const Icon(Icons.cake),
                               ),
                               CustomTextField(
                                 controller: _passController,
                                 labelText: 'Senha',
-                                prefixIcon: const Icon(Icons.lock),
+                                prefix: const Icon(Icons.lock),
                                 obscure: true,
                                 validator: validatePasswordLogin,
                               ),
                               CustomTextField(
                                 controller: _repeatPassController,
                                 labelText: 'Repita a Senha',
-                                prefixIcon: const Icon(Icons.lock),
+                                prefix: const Icon(Icons.lock),
                                 obscure: true,
                                 validator: validatePasswordLogin,
                               ),
@@ -229,8 +242,7 @@ class _SignUpState extends State<SignUp> with LoginValidators {
                                     )
                                         : const Text(
                                       'Cadastrar',
-                                      style:
-                                      TextStyle(color: Colors.white),
+                                      style: TextStyle(color: Colors.white),
                                     ),
                                   );
                                 },
@@ -244,10 +256,61 @@ class _SignUpState extends State<SignUp> with LoginValidators {
                 ),
               ],
             ),
-            // Dica: se quiser bloquear toques enquanto salva, adicione um ModalBarrier usando _loading.
+
+            // 🔒 Bloqueio visual opcional durante o carregamento
+            ValueListenableBuilder<bool>(
+              valueListenable: _loading,
+              builder: (_, loading, __) {
+                if (!loading) return const SizedBox.shrink();
+                return const _BlockingOverlay(message: 'Criando conta…');
+              },
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BlockingOverlay extends StatelessWidget {
+  const _BlockingOverlay({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const Positioned.fill(
+          child: ModalBarrier(dismissible: false, color: Color(0x66000000)),
+        ),
+        Positioned.fill(
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF6E6E6E)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.6),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    message,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

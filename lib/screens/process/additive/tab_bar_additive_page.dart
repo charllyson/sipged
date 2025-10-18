@@ -1,0 +1,57 @@
+// lib/screens/process/hiring/physical_financial/tab_bar_additive_page.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
+import 'package:siged/_widgets/schedule/physical_financial/schedule_physical_financial_widget.dart';
+import 'package:siged/screens/process/additive/additive_page.dart';
+
+class TabBarAdditivePage extends StatelessWidget {
+  final ContractData? contractData;
+  final ContractBloc? contractsBloc;
+  final int initialTabIndex;
+
+  const TabBarAdditivePage({
+    super.key,
+    this.contractData,
+    this.contractsBloc,
+    this.initialTabIndex = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TabChangedWidget(
+      contractData: contractData,
+      contractsBloc: contractsBloc,
+      initialTabIndex: initialTabIndex,
+      tabs: [
+        ContractTabDescriptor(
+          label: 'Aditivos',
+          requireSavedContract: true,
+          builder: (c) => AdditivePage(
+            key: ValueKey(c?.id),
+            contractData: c!,
+          ),
+        ),
+        ContractTabDescriptor(
+          label: 'Cronograma',
+          requireSavedContract: true,
+          builder: (c) => BlocProvider(
+            create: (_) => ScheduleRoadBloc()
+              ..add(ScheduleWarmupRequested(
+                contractId: c.id!,
+                initialServiceKey: 'geral',
+              )),
+            child: SchedulePhysicalFinancialWidget(
+              contractData: c!,
+              chronogramMode: true,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

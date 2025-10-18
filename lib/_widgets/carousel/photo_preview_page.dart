@@ -16,6 +16,10 @@ import 'package:geocoding/geocoding.dart' as geocoding;
 
 import 'package:siged/_widgets/carousel/photo_editor_page.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class PhotoPreviewPage extends StatefulWidget {
   final Uint8List originalBytes;
 
@@ -61,7 +65,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
 
   Uint8List? _previewBytes;         // bytes "baked" p/ PREVIEW
   bool _busy = false;
-  bool _preparing = true;           // ✅ novo: controla overlay de preparo
+  bool _preparing = true;           // controla overlay de preparo
 
   // Fit com toggle
   late BoxFit _fit;
@@ -85,6 +89,26 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       _bytes = widget.originalBytes;
       _preparePreview();
     }
+  }
+
+  // 🔔 helper central p/ publicar toasts
+  void _notify(
+      String title, {
+        AppNotificationType type = AppNotificationType.info,
+        String? subtitle,
+        String? id,
+      }) {
+    if (id != null) {
+      NotificationCenter.instance.dismissById(id);
+    }
+    NotificationCenter.instance.show(
+      AppNotification(
+        id: id,
+        title: Text(title),
+        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
   }
 
   Future<void> _preparePreview() async {
@@ -113,7 +137,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
     setState(() {
       _previewBytes = baked;
       _orig = orig;
-      _preparing = false; // ✅ pronto
+      _preparing = false; // pronto
     });
 
     // Resolve endereço (prioriza EXIF; senão, GPS do aparelho)
@@ -271,7 +295,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
               ),
             ),
 
-          // ✅ BLOQUEIOS
+          // BLOQUEIOS
           if (_preparing) _buildBlocking('Preparando pré-visualização…'),
           if (_busy) _buildBlocking('Finalizando…'),
         ],
@@ -333,7 +357,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
         _previewBytes = null;
         _street = _city = _state = null;
         _latUsed = _lonUsed = null;
-        _preparing = true; // ✅ volta para carregando enquanto refaz preview
+        _preparing = true; // volta para carregando enquanto refaz preview
       });
       await _preparePreview();
     }
@@ -350,11 +374,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
       if (!mounted) return;
       Navigator.of(context).pop<Uint8List>(withExif);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Falha ao finalizar: $e')),
-        );
-      }
+      _notify('Falha ao finalizar', type: AppNotificationType.error, subtitle: '$e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

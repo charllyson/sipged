@@ -1,7 +1,11 @@
+// lib/screens/actives/railway/active_railways_map.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
+
 import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_state.dart';
@@ -10,31 +14,56 @@ import 'package:siged/_widgets/map/map_interactive.dart';
 import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 
 import 'active_railways_details.dart';
-import 'active_railways_tooltip_widget.dart';
 
-class ActiveRailwaysMap extends StatelessWidget {
+// NOVO helper de overlay ancorado
+import 'package:siged/_widgets/map/tooltip/map_tap_overlay.dart';
+
+class ActiveRailwaysMap extends StatefulWidget {
   const ActiveRailwaysMap({super.key, required this.state});
   final ActiveRailwaysState state;
 
   @override
+  State<ActiveRailwaysMap> createState() => _ActiveRailwaysMapState();
+}
+
+class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
+  // âncora do tooltip (LatLng na ferrovia)
+  LatLng? _anchorLatLng;
+  // para reprojetar em pan/zoom
+  MapController? _lastMapController;
+  Offset Function(Offset local)? _toGlobal;
+
+  @override
   Widget build(BuildContext context) {
     final isInitialLoading =
-        state.loadStatus == ActiveRailwaysLoadStatus.loading && !state.initialized;
+        widget.state.loadStatus == ActiveRailwaysLoadStatus.loading && !widget.state.initialized;
 
     if (isInitialLoading) {
       return const MapLoadingShimmer();
     }
 
     return MapInteractivePage(
-      // usa o zoom do estado para gerar as polylines responsivas
-      tappablePolylines: state.buildStyledPolylines(zoom: state.mapZoom),
+      // polylines responsivas
+      tappablePolylines: widget.state.buildStyledPolylines(zoom: widget.state.mapZoom),
 
-      // overlay invisível para ouvir zoom sem tocar no MapInteractivePage
-      overlayBuilder: (MapController mc, GlobalKey _) =>
-          _ZoomListenerOverlay(mapController: mc),
+      // overlay invisível que já alimenta o zoom pro BLoC (mantido)
+      overlayBuilder: (MapController mc, GlobalKey _) => _ZoomListenerOverlay(mapController: mc),
+
+      // 👉 atualiza o tooltip ancorado conforme pan/zoom
+      onCameraChanged: (double _, LatLng __) {
+        if (_anchorLatLng != null && _lastMapController != null && _toGlobal != null) {
+          final local = _lastMapController!.camera.latLngToScreenOffset(_anchorLatLng!);
+          final global = _toGlobal!(local);
+          MapTapOverlayTooltip.updatePosition(global);
+        }
+      },
 
       onClearPolylineSelection: () async {
         context.read<ActiveRailwaysBloc>().add(const ActiveRailwaysSelectPolyline(null));
+        _anchorLatLng = null;
+        _lastMapController = null;
+        _toGlobal = null;
+        MapTapOverlayTooltip.hide();
       },
 
       onSelectPolyline: (polyline) async {
@@ -47,26 +76,44 @@ class ActiveRailwaysMap extends StatelessWidget {
         required BuildContext context,
         required Offset position,
         required Object? tag,
+        required MapController mapController,   // 👈 vem do MapInteractivePage atualizado
+        LatLng? tapLatLng,                      // 👈 idem
+        Offset Function(Offset p)? toGlobal,    // 👈 idem
       }) async {
         final id = tag?.toString();
         if (id == null) return;
 
-        final fer = state.filteredAll.firstWhere(
+        final fer = widget.state.filteredAll.firstWhere(
               (f) => f.id == id,
-          orElse: () => state.all.firstWhere(
+          orElse: () => widget.state.all.firstWhere(
                 (f) => f.id == id,
             orElse: () => null as dynamic,
           ),
         );
 
-        final overlay = Overlay.of(context);
+        // âncora ideal: projeção do toque na linha; fallback: centro/início/fim
+        _anchorLatLng = fer.anchorForTap(tapLatLng);
+        if (_anchorLatLng == null) return;
 
-        ActiveRailwaysTooltipWidget.show(
+        // guarda pra reprojetar durante pan/zoom
+        _lastMapController = mapController;
+        _toGlobal = toGlobal;
+
+        final overlay = Overlay.of(context);
+        if (overlay == null) return;
+
+        final title = _title(fer);
+        final subtitle = _subtitle(fer);
+
+        MapTapOverlayTooltip.show(
           overlayState: overlay,
           position: position,
-          fer: fer,
-          onVerMais: () async {
-            ActiveRailwaysTooltipWidget.hide();
+          title: title,
+          subtitle: subtitle.isEmpty ? null : subtitle,
+          maxWidth: 320,
+          forceDownArrow: true, // seta sempre para baixo (aponta para a via)
+          onDetails: () async {
+            MapTapOverlayTooltip.hide();
             await showDialog(
               context: context,
               barrierDismissible: true,
@@ -84,9 +131,31 @@ class ActiveRailwaysMap extends StatelessWidget {
               ),
             );
           },
+          onClose: () {
+            _anchorLatLng = null;
+            _lastMapController = null;
+            _toGlobal = null;
+          },
         );
       },
     );
+  }
+
+  String _title(ActiveRailwayData fer) {
+    final nome = (fer.nome ?? '').trim();
+    if (nome.isNotEmpty) return nome;
+    final cod = (fer.codigo ?? '').trim();
+    if (cod.isNotEmpty) return 'Ferrovia $cod';
+    return fer.id ?? 'Ferrovia';
+  }
+
+  String _subtitle(ActiveRailwayData fer) {
+    final s = <String>[];
+    if ((fer.uf ?? '').trim().isNotEmpty) s.add('UF: ${fer.uf}');
+    if ((fer.status ?? '').trim().isNotEmpty) s.add('Status: ${fer.status}');
+    if ((fer.bitola ?? '').trim().isNotEmpty) s.add('Bitola: ${fer.bitola}');
+    if ((fer.municipio ?? '').trim().isNotEmpty) s.add(fer.municipio!);
+    return s.join(' • ');
   }
 }
 

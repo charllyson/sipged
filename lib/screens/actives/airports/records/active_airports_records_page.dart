@@ -19,6 +19,10 @@ import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'active_airports_form.dart';
 import 'active_airports_records_table_section.dart';
 
+// ✅ notificações ricas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ActiveAirportsRecordsPage extends StatefulWidget {
   const ActiveAirportsRecordsPage({super.key});
 
@@ -27,9 +31,6 @@ class ActiveAirportsRecordsPage extends StatefulWidget {
 }
 
 class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
-// índice original (na lista st.all)
-// índice da fatia (0..5)
-// índice da barra de região
   bool _firedUserWarmup = false;
   bool _firedOaesWarmup = false;
 
@@ -82,10 +83,6 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
               );
             }
 
-// labels semânticos (0..5)
-// contagem por nota
-// cores por nota
-
             final labelsRegion = st.regionLabels;
 
             return Stack(
@@ -93,8 +90,7 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
                 const BackgroundClean(),
                 Column(
                   children: [
-                    UpBar(
-                    ),
+                    const UpBar(),
                     const SizedBox(height: 12),
                     Expanded(
                       child: SingleChildScrollView(
@@ -131,14 +127,17 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
                                       (lab) => lab.toUpperCase() == r,
                                 );
                                 if (idxRegion != -1) {
+                                  // (reservado para integração futura)
                                 }
                               },
                               onDelete: (id) {
                                 context.read<ActiveOaesBloc>().add(ActiveOaesDeleteRequested(id));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Solicitando exclusão...'),
-                                    backgroundColor: Colors.red,
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    title: const Text('Solicitando exclusão...'),
+                                    type: AppNotificationType.warning,
+                                    leadingLabel: const Text('Aeroportos'),
+                                    duration: const Duration(seconds: 4),
                                   ),
                                 );
                               },

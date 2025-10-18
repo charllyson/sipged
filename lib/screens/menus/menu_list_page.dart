@@ -1,56 +1,58 @@
+// lib/screens/menus/menu_list_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_storage_bloc.dart';
-import 'package:siged/_blocs/documents/measurement/adjustment/adjustment_measurement_store.dart';
-
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_store.dart';
-import 'package:siged/_blocs/documents/measurement/revision/revision_measurement_store.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_storage_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contracts_controller.dart';
+import 'package:siged/_blocs/process/adjustment/adjustment_measurement_store.dart';
+import 'package:siged/_blocs/process/report/report_measurement_store.dart';
+import 'package:siged/_blocs/process/revision/revision_measurement_store.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
+import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_services/dxf/map_overlay_cubit.dart';
+import 'package:siged/_widgets/list/demand/list_demand_page.dart';
+import 'package:siged/home_page.dart';
+import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_page.dart';
+import 'package:siged/screens/process/additive/tab_bar_additive_page.dart';
+import 'package:siged/screens/process/apostilles/tab_bar_apostilles_page.dart';
+import 'package:siged/screens/process/hiring/tab_bar_contract_page.dart';
+import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_page.dart';
+import 'package:siged/screens/process/landRegularization/lane_regularization_tabs.dart';
+import 'package:siged/screens/process/report/tab_bar_measurement_page.dart';
+import 'package:siged/screens/process/validity/tab_bar_validity_page.dart';
 import 'package:siged/screens/sectors/operation/schedule/civil/schedule_civil_page.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 import 'package:siged/screens/actives/airports/network/active_airports_network_page.dart';
 import 'package:siged/screens/actives/airports/records/active_airports_records_page.dart';
 import 'package:siged/screens/actives/railways/network/active_railways_network_page.dart';
 import 'package:siged/screens/actives/railways/records/active_railways_records_page.dart';
-
-import 'package:siged/_widgets/list/contract/list_contracts_controller.dart';
+import 'package:siged/_blocs/process/contracts/list_contracts_controller.dart';
 import 'package:siged/screens/actives/oaes/network/active_oaes_network_page.dart';
 import 'package:siged/screens/sectors/financial/dashboard/dashboard_financial_page.dart';
 import 'package:siged/screens/sectors/financial/tab_bar_financial_page.dart';
 import 'package:siged/screens/sectors/operation/schedule/road/schedule_road_workspace_page.dart';
 import 'package:siged/screens/sectors/planning/environment/planning_environment_dashboard.dart';
-import 'package:siged/screens/sectors/planning/projects/planning_project_dashboard.dart';
 import 'package:siged/screens/menus/menu_drawer.dart';
 import 'package:siged/screens/actives/oaes/records/active_oaes_records_page.dart';
 import 'package:siged/screens/actives/roads/records/active_roads_records_page.dart';
-
 import 'package:siged/_blocs/system/pages/pages_data.dart';
 import 'package:siged/_widgets/buttons/float_button_menu.dart';
-import 'package:siged/screens/documents/contract/tab_bar_contract_page.dart';
-import 'package:siged/screens/documents/measurement/tab_bar_measurement_page.dart';
 import 'package:siged/screens/sectors/planning/rightWay/planning_right_way_workspace.dart';
 import 'package:siged/screens/sectors/traffic/accidents/accidents_records_page.dart';
 import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
+import 'package:siged/screens/sectors/traffic/infractions-dashboard/infractions_dashboard_page.dart';
 import 'package:siged/screens/sectors/traffic/infrations-records/infractions_records_page.dart';
-
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/additives/additive_store.dart';
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_store.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_store.dart';
+import 'package:siged/_blocs/process/additives/additive_store.dart';
+import 'package:siged/_blocs/process/apostilles/apostilles_store.dart';
+import 'package:siged/_blocs/process/contracts/contract_store.dart';
 import 'package:siged/screens/actives/roads/network/active_roads_network_page.dart';
-
-import '../../_blocs/documents/contracts/contracts/contract_data.dart';
-import '../../_blocs/sectors/operation/road/schedule_road_repository.dart';
-import '../../_widgets/list/contract/list_contract_page.dart';
-import '../documents/contract/dashboard/dashboard_contracts_page.dart';
-import '../../_blocs/documents/contracts/contracts/contracts_controller.dart';
-import '../sectors/traffic/infractions-dashboard/infractions_dashboard_page.dart';
-
-// BLoC de usuário
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
@@ -64,21 +66,22 @@ class MenuListPage extends StatefulWidget {
 }
 
 class _MenuListPageState extends State<MenuListPage> {
-  MenuItem _selectedItem = MenuItem.documentsContractsRecords;
-  bool _didWarmupUserBloc = false;   // warmup do UserBloc
-  bool _didWarmupStores = false;     // warmup do ContractsStore
+  MenuItem? _selectedItem;
+  bool _didWarmupUserBloc = false;
+  bool _didWarmupStores = false;
 
   void _onSelectPage(MenuItem item) {
     setState(() => _selectedItem = item);
-    Navigator.of(context).pop();
+    Navigator.of(context).maybePop(); // fecha o Drawer
   }
 
-  /// Roteamento centralizado por tipo de obra
+  void _goHome() {
+    setState(() => _selectedItem = null);
+    Navigator.of(context).maybePop(); // fecha o Drawer se aberto
+  }
+
   void _navigateByWorkType(BuildContext context, ContractData contract) {
     final wt = (contract.workType ?? contract.contractType ?? '').trim().toUpperCase();
-    final scheduleCtrl = ScheduleCivilController();
-
-    // Cálculo de estacas (se precisar aquecer algo no BLoC)
     final km = contract.contractExtKm ?? 0.0;
     final totalEstacas = ((km * 1000) / 20).ceil();
     final contractId = contract.id ?? '';
@@ -90,13 +93,15 @@ class _MenuListPageState extends State<MenuListPage> {
             create: (_) => ScheduleRoadRepository(),
             child: BlocProvider<ScheduleRoadBloc>(
               create: (ctx) => ScheduleRoadBloc(
-                // repo: ctx.read<ScheduleRepository>(),
+                repository: ctx.read<ScheduleRoadRepository>(),
               )..add(ScheduleWarmupRequested(
                 contractId: contractId,
                 totalEstacas: totalEstacas,
                 initialServiceKey: 'geral',
               )),
-              child: ScheduleRoadWorkspacePage(contractData: contract),
+              child: Scaffold(
+                body: ScheduleRoadWorkspacePage(contractData: contract),
+              ),
             ),
           ),
         ),
@@ -104,28 +109,24 @@ class _MenuListPageState extends State<MenuListPage> {
       return;
     }
 
-
-    if (wt.contains('CONSTRU')) { // Residencial/Construção → CIVIL (PDF/DXF)
+    if (wt.contains('CONSTRU')) {
       final scheduleCtrl = ScheduleCivilController();
-
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => MultiBlocProvider(
             providers: [
               BlocProvider<CivilScheduleBloc>(
-                create: (ctx) => CivilScheduleBloc()
-                  ..add(CivilWarmupRequested(contractId)),
+                create: (ctx) => CivilScheduleBloc()..add(CivilWarmupRequested(contractId)),
               ),
-              // ⬇️ Novo: provê o cubit que recebe as polylines para o mapa
-              BlocProvider<MapOverlayCubit>(
-                create: (_) => MapOverlayCubit(),
-              ),
+              BlocProvider<MapOverlayCubit>(create: (_) => MapOverlayCubit()),
             ],
-            child: ScheduleCivilPage(
-              title: 'Cronograma Residencial',
-              pageNumber: 1,
-              controller: scheduleCtrl,
-              contractId: contractId,
+            child: Scaffold(
+              body: ScheduleCivilPage(
+                title: 'Cronograma Residencial',
+                pageNumber: 1,
+                controller: scheduleCtrl,
+                contractId: contractId,
+              ),
             ),
           ),
         ),
@@ -134,27 +135,28 @@ class _MenuListPageState extends State<MenuListPage> {
     }
 
     if (wt.contains('OAE') || wt.contains('ARTES ESPECIAIS')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cronograma para OAEs ainda não disponível.')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Cronograma para OAEs ainda não disponível.'),
+          type: AppNotificationType.warning,
+        ),
       );
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Colors.red.shade300,
-        content: Text('Por favor, cadastre o tipo de obra para: ${contract.summarySubjectContract ?? 'N/D'}'),
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('Tipo de obra não definido'),
+        subtitle: Text('Cadastre o tipo para: ${contract.summarySubjectContract ?? 'N/D'}'),
+        type: AppNotificationType.error,
       ),
     );
   }
 
-
-
-  Widget _buildContractsListPage(ContractNavigationCallback onTap,
-      {required String pageTitle}) {
+  Widget _buildContractsListPage(DemandNavigationCallback onTap, {required String pageTitle}) {
     return ChangeNotifierProvider<ListContractsController>(
       create: (ctx) => ListContractsController.create(ctx),
-      child: ListContractsFilteredPage(
+      child: ListDemandPage(
         pageTitle: pageTitle,
         onTapItem: onTap,
       ),
@@ -163,8 +165,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
   Widget _getPage(MenuItem item, UserData currentUser) {
     switch (item) {
-    /// SETOR DE DOCUMENTOS ///
-      case MenuItem.documentsContractsDashboard:
+      case MenuItem.overviewDashboard:
         return ChangeNotifierProvider(
           create: (ctx) {
             final ctrl = ContractsController(
@@ -174,91 +175,108 @@ class _MenuListPageState extends State<MenuListPage> {
               reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
               adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),
               revisionsStore: ctx.read<RevisionsMeasurementStore>(),
-              // ⬇️ novo
               contractStorageBloc: ctx.read<ContractStorageBloc>(),
             );
             WidgetsBinding.instance.addPostFrameCallback((_) => ctrl.initialize());
             return ctrl;
           },
-          child: const Scaffold(
-            backgroundColor: Colors.white,
-            body: DashboardContractPage(),
-          ),
+          child: const OverviewDashboardPage(),
         );
 
+      case MenuItem.specificDashboard:
+        return _buildContractsListPage((context, contract) {
+          context.read<ContractsStore>().select(contract);
+          final km = contract.contractExtKm ?? 0.0;
+          final totalEstacas = ((km * 1000) / 20).ceil();
+          final contractId = contract.id ?? '';
 
-      case MenuItem.documentsContractsRecords:
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
+                create: (_) => ScheduleRoadRepository(),
+                child: BlocProvider<ScheduleRoadBloc>(
+                  create: (ctx) => ScheduleRoadBloc(
+                    repository: ctx.read<ScheduleRoadRepository>(),
+                  )..add(ScheduleWarmupRequested(
+                    contractId: contractId,
+                    totalEstacas: totalEstacas,
+                    initialServiceKey: 'geral',
+                    summarySubjectContract: contract.summarySubjectContract,
+                  )),
+                  child: SpecificDashboardPage(contractData: contract),
+                ),
+              ),
+            ),
+          );
+        }, pageTitle: 'Planejamento específico');
+
+      case MenuItem.processHiringRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => TabBarContractPage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => TabBarHiringPage(contractData: contract)),
           );
-        },
-        pageTitle: 'Documentos dos contratos'
-        );
+        }, pageTitle: 'Contratação');
 
-      case MenuItem.documentsMeasurementsDashboard:
-        return ChangeNotifierProvider(
-          create: (ctx) => ContractsController(
-            store: ctx.read<ContractsStore>(),
-            additivesStore: ctx.read<AdditivesStore>(),
-            apostillesStore: ctx.read<ApostillesStore>(),
-            reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
-            adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),
-            revisionsStore: ctx.read<RevisionsMeasurementStore>(),
-            // ⬇️ novo
-            contractStorageBloc: ctx.read<ContractStorageBloc>(),
-          )..initialize(),
-          child: const Scaffold(
-            backgroundColor: Colors.white,
-            body: DashboardContractPage(),
-          ),
-        );
-
-
-      case MenuItem.documentsMeasurementsRecords:
+      case MenuItem.processValidityRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => TabBarMeasurementPage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => TabBarValidityPage(contractData: contract)),
           );
-        },
-            pageTitle: 'Todos os contratos'
-        );
+        }, pageTitle: 'Ordens e Vigência');
 
-    /// SETOR DE OPERAÇÕES ///
+      case MenuItem.processAdditiveRecords:
+        return _buildContractsListPage((context, contract) {
+          context.read<ContractsStore>().select(contract);
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => TabBarAdditivePage(contractData: contract)),
+          );
+        }, pageTitle: 'Aditivos');
+
+      case MenuItem.processApostillesRecords:
+        return _buildContractsListPage((context, contract) {
+          context.read<ContractsStore>().select(contract);
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => TabBarApostillesPage(contractData: contract)),
+          );
+        }, pageTitle: 'Apostilamentos');
+
+      case MenuItem.processLandRegularizationRecords:
+        return _buildContractsListPage((context, contract) {
+          context.read<ContractsStore>().select(contract);
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => TabLaneRegularizationPage(contractData: contract)),
+          );
+        }, pageTitle: 'Apostilamentos');
+
+      case MenuItem.processMeasurementsRecords:
+        return _buildContractsListPage((context, contract) {
+          context.read<ContractsStore>().select(contract);
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => TabBarMeasurementPage(contractData: contract)),
+          );
+        }, pageTitle: 'Medições');
+
       case MenuItem.operationMonitoringWork:
-      // Abre a lista normal; na seleção, decide para onde ir pelo workType
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           _navigateByWorkType(context, contract);
-        },
-            pageTitle: 'Cronograma Físico'
-        );
+        }, pageTitle: 'Cronograma Físico');
 
-
-    /// SETOR DE PLANEJAMENTO ///
-      case MenuItem.planningProjectDashboard:
-        return const PlanningProjectDashboardPage();
       case MenuItem.planningProjectRegistration:
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => BlocProvider<MapOverlayCubit>(
-                  create: (_) => MapOverlayCubit(),
-                  child: Container(),
-                ),
-              )
+            MaterialPageRoute(
+              builder: (_) => BlocProvider<MapOverlayCubit>(
+                create: (_) => MapOverlayCubit(),
+                child: Container(),
+              ),
+            ),
           );
-        },
-            pageTitle: 'Todos os contratos'
-        );
-    // case MenuItem.planningRightOfWayRecords:
+        }, pageTitle: 'Todos os contratos');
+
       case MenuItem.planningRightOfWayRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
@@ -267,16 +285,11 @@ class _MenuListPageState extends State<MenuListPage> {
               builder: (_) => PlanningRightWayPropertyWorkspace(contractData: contract),
             ),
           );
-        },
-            pageTitle: 'Desapropriações'
-        );
+        }, pageTitle: 'Desapropriações');
 
-      case MenuItem.planningEnvironmentDashboard:
-        return const PlanningEnvironmentDashboardPage();
       case MenuItem.planningEnvironmentRecords:
         return const PlanningEnvironmentDashboardPage();
 
-    /// SETOR DE TRANSPORTE ///
       case MenuItem.trafficAccidentsDashboard:
         return const AccidentsDashboardPage();
       case MenuItem.trafficAccidentsRecords:
@@ -286,62 +299,42 @@ class _MenuListPageState extends State<MenuListPage> {
       case MenuItem.trafficInfractionsRecords:
         return const InfractionsRecordsPage();
 
-    /// SETOR FINANCEIRO ///
       case MenuItem.financialPaymentsDashboard:
         return const DashboardFinancialPage();
-
       case MenuItem.financialPaymentsRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => TabBarFinancialPage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => TabBarFinancialPage(contractData: contract)),
           );
-        },
-            pageTitle: 'Pagamentos de medições'
-        );
+        }, pageTitle: 'Pagamentos de medições');
 
       case MenuItem.financialCommitmentDashboard:
         return const DashboardFinancialPage();
-
       case MenuItem.financialCommitmentRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => TabBarFinancialPage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => TabBarFinancialPage(contractData: contract)),
           );
-        },
-            pageTitle: 'Pagamentos de medições'
-        );
+        }, pageTitle: 'Pagamentos de medições');
 
-    /// ATIVOS DE RODOVIAS ///
       case MenuItem.activeRoadNetwork:
         return const ActiveRoadsNetworkPage();
       case MenuItem.activeRoadRegistration:
         return const ActiveRoadsRecordsPage();
-
-    /// ATIVOS DE OAEs ///
       case MenuItem.activesOAEsNetwork:
         return const ActiveOAEsNetworkPage();
       case MenuItem.activeOAEsRegistration:
         return const ActiveOaesRecordsPage();
-
-    /// ATIVOS DE AEROPORTOS ///
       case MenuItem.activeAirportsNetwork:
         return const ActiveAirportsNetworkPage();
       case MenuItem.activeAirportsRegistration:
         return const ActiveAirportsRecordsPage();
-
-    /// ATIVOS DE FERROVIAS ///
       case MenuItem.activeRailwaysNetwork:
         return const ActiveRailwaysNetworkPage();
       case MenuItem.activeRailwaysRegistration:
         return const ActiveRailwaysRecordsPage();
-
-    /// ATIVOS DE PORTOS ///
       case MenuItem.activePortsNetwork:
         return const ActiveRoadsNetworkPage();
       case MenuItem.activeRegistrationPorts:
@@ -351,7 +344,6 @@ class _MenuListPageState extends State<MenuListPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Dispara warmup do UserBloc uma única vez
     if (!_didWarmupUserBloc) {
       _didWarmupUserBloc = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -375,25 +367,30 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }
 
-        // Warmup dos stores dependentes do usuário — uma vez
         if (!_didWarmupStores) {
           _didWarmupStores = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             context.read<ContractsStore>().warmup(currentUser);
-            // Se houver outros stores que dependem do usuário, faça aqui também.
-            // ex: context.read<AdditivesStore>().warmup(user);
           });
         }
 
         return Scaffold(
           backgroundColor: Colors.white,
-          drawer: DrawerMenu(onTap: _onSelectPage),
+          drawer: DrawerMenu(
+            onTap: _onSelectPage,
+            onTapHome: _goHome, // 👈 agora o logo volta pra Home sem abrir nova rota
+          ),
           body: Stack(
             children: [
-              _getPage(_selectedItem, currentUser),
+              if (_selectedItem == null)
+                HomeBody(onSelect: _onSelectPage) // corpo, sem Scaffold
+                //AccidentsRecordsPage()
+              else
+                _getPage(_selectedItem!, currentUser),
               const FloatButtonMenu(),
             ],
           ),
+          bottomNavigationBar: const FootBar(),
         );
       },
     );

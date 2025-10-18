@@ -10,7 +10,7 @@ import 'package:siged/_widgets/schedule/linear/schedule_header.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_sub_header.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_menu_buttons.dart';
 
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 
 // Estado unificado do BOARD
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
@@ -82,7 +82,6 @@ class _ScheduleRoadWorkspacePageState
   Widget build(BuildContext context) {
     const double kRightPanelWidth = 600.0;
     const double kCardMaxWidth = 520.0;
-    const double kBottomSafeGap = 76.0; // distância “segura” da FootBar; ajuste se precisar
 
     final isMap = _mode == _ViewMode.map;
 

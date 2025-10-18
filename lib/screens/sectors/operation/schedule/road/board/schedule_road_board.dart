@@ -1,4 +1,3 @@
-// lib/screens/sectors/planning/projects/schedule_road_board.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,17 +7,15 @@ import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/modals/type.dart';
 
 // Domínio / dados
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
 
 // Widgets do Schedule
 import 'package:siged/_widgets/schedule/linear/schedule_grid.dart';
-// (removido) import 'package:siged/_widgets/schedule/linear/schedule_menu_buttons.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
 
 // Modal unificado
-import 'package:siged/_widgets/modals/schedule_modal_square.dart';
+import 'package:siged/_widgets/schedule/linear/schedule_modal_square.dart';
 
 // BLoC
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
@@ -26,7 +23,11 @@ import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
 
 // Metadados por URL pro carrossel
-import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/carousel/carousel_metadata.dart' as pm;
+
+// 🔔 Notificações centralizadas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadBoard extends StatefulWidget {
   final ContractData? contractData;
@@ -62,8 +63,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
     if (up.contains('PISTA ATUAL')) return 'PISTA ATUAL';
     if (up.contains('CANTEIRO')) return 'CANTEIRO';
 
-    var cleaned =
-    raw.replaceAll(RegExp(r'\b(LE|CE|LD)\b', caseSensitive: false), '');
+    var cleaned = raw.replaceAll(RegExp(r'\b(LE|CE|LD)\b', caseSensitive: false), '');
     cleaned = cleaned.replaceAll(RegExp(r'\s*-\s*'), ' ');
     cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
     return cleaned.toUpperCase();
@@ -131,22 +131,27 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<ScheduleRoadBloc, ScheduleRoadState>(
-      listenWhen: (p, c) => p.error != c.error,
-      listener: (ctx, state) {
-        if (state.error != null) {
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            SnackBar(content: Text('Erro: ${state.error}')),
-          );
-        }
-      },
-      builder: (context, state) {
-        return Scaffold(
-          backgroundColor: Colors.white,
-          body: Stack(
-            children: [
-              const BackgroundClean(),
-              Column(
+    return Scaffold(
+      body: Stack(
+        children: [
+          const BackgroundClean(),
+          BlocConsumer<ScheduleRoadBloc, ScheduleRoadState>(
+            listenWhen: (p, c) => p.error != c.error,
+            listener: (ctx, state) {
+              if (state.error != null) {
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    type: AppNotificationType.error,
+                    title: Text('Erro: ${state.error}'),
+                    leadingIcon: const Icon(Icons.error_outline, color: Color(0xFFD32F2F)),
+                    leadingLabel: const Text('Cronograma'),
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              }
+            },
+            builder: (context, state) {
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
@@ -159,17 +164,11 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
                     ),
                   ),
                 ],
-              ),
-              // 🔻 REMOVIDO: os botões de serviço agora ficam no Workspace (UpBar)
-              // Positioned(
-              //   bottom: 16,
-              //   right: 14,
-              //   child: ScheduleMenuButtons(...),
-              // ),
-            ],
+              );
+            },
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -218,7 +217,6 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
   }
 
   // ===================== Interações (UI-only) =====================
-  // (restante inalterado)
   Future<void> _onTapSquare(ScheduleRoadData e, ScheduleRoadState state) async {
     if (_isDragging || _modalOpen) return;
     if (!state.canEditSingleCell) {
@@ -254,8 +252,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
 
       final initialStatus = _statusFromString(e.status);
       final laneLabel = state.lanes[e.faixaIndex].label;
-      final initialNameForRoad =
-      _formatRoadName(laneLabel: laneLabel, estaca: e.numero);
+      final initialNameForRoad = _formatRoadName(laneLabel: laneLabel, estaca: e.numero);
 
       await showModalBottomSheet<void>(
         context: context,
@@ -297,12 +294,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
         },
       );
 
-      context
-          .read<ScheduleRoadBloc>()
-          .add(const ScheduleExecucoesReloadRequested());
-      _toast('Célula atualizada com sucesso!');
+      context.read<ScheduleRoadBloc>().add(const ScheduleExecucoesReloadRequested());
+      _toast('Célula atualizada com sucesso!', type: AppNotificationType.success);
     } catch (err) {
-      _toast('Falha ao salvar a célula: $err');
+      _toast('Falha ao salvar a célula: $err', type: AppNotificationType.error);
     } finally {
       _modalOpen = false;
       if (mounted) setState(() => _selectedKeys.clear());
@@ -324,14 +319,13 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       _anchorFaixa = faixa;
       _selectedKeys
         ..clear()
-        ..add('${estaca}_$faixa');
+        ..add('${estaca}_faixa:$faixa');
     });
   }
 
   void _onDragUpdate(int estaca, int faixa, ScheduleRoadState state) {
     if (!_isDragging || _anchorEstaca == null || _anchorFaixa == null) return;
-    final sel =
-    state.selectionBetween(_anchorEstaca!, _anchorFaixa!, estaca, faixa);
+    final sel = state.selectionBetween(_anchorEstaca!, _anchorFaixa!, estaca, faixa);
     setState(() {
       _selectedKeys
         ..clear()
@@ -363,7 +357,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       final parts = key.split('_');
       if (parts.length != 2) continue;
       final estaca = int.tryParse(parts[0]);
-      final faixa = int.tryParse(parts[1]);
+      final faixa = int.tryParse(parts[1].replaceFirst('faixa:', ''));
       if (estaca == null || faixa == null) continue;
 
       estacasSelecionadas.add(estaca);
@@ -414,44 +408,25 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
         },
       );
 
-      context
-          .read<ScheduleRoadBloc>()
-          .add(const ScheduleExecucoesReloadRequested());
-      _toast('Aplicado em lote: ${targets.length} célula(s).');
+      context.read<ScheduleRoadBloc>().add(const ScheduleExecucoesReloadRequested());
+      _toast('Aplicado em lote: ${targets.length} célula(s).', type: AppNotificationType.success);
     } catch (e) {
-      _toast('Falha no lote: $e');
+      _toast('Falha no lote: $e', type: AppNotificationType.error);
     } finally {
       _modalOpen = false;
       if (mounted) setState(() => _selectedKeys.clear());
     }
   }
 
-  void _toast(String msg) {
-    final overlay = Overlay.of(context);
-    final entry = OverlayEntry(
-      builder: (_) => Positioned(
-        top: 70,
-        right: 24,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade300,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 3))
-              ],
-            ),
-            child: Text(
-              msg,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
-          ),
-        ),
+  // ===================== Notificações centralizadas =====================
+  void _toast(String msg, {AppNotificationType type = AppNotificationType.info}) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        type: type,
+        title: Text(msg),
+        leadingLabel: const Text('Aviso'),
+        duration: const Duration(seconds: 10),
       ),
     );
-    overlay.insert(entry);
-    Future.delayed(const Duration(seconds: 3), () => entry.remove());
   }
 }

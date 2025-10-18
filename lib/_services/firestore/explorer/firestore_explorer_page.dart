@@ -4,6 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_services/firestore/explorer/firestore_export_stub.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 
+// ✅ notificações ricas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class FieldMapping {
   final TextEditingController oldFieldCtrl;
   final TextEditingController newFieldCtrl;
@@ -24,7 +28,7 @@ class FirestoreExplorerPage extends StatefulWidget {
 }
 
 class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
-  final _collectionCtrl = TextEditingController(text: 'documents');
+  final _collectionCtrl = TextEditingController(text: 'process');
   final _newCollectionCtrl = TextEditingController();
   final List<FieldMapping> _fieldMappings = [];
   final List<Map<String, TextEditingController>> _subcollections = [];
@@ -244,8 +248,13 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
 
   Future<void> _buscarSubcolecao(String nomeOriginal, String nomeNovo) async {
     if (nomeOriginal.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Preencha o nome da subcoleção original para buscar.')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Informe a subcoleção original para buscar.'),
+          type: AppNotificationType.warning,
+          leadingLabel: const Text('Firestore'),
+          duration: const Duration(seconds: 4),
+        ),
       );
       return;
     }
@@ -263,8 +272,12 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
       if (parentSnapshot.docs.isEmpty) {
         setState(() => isLoading = false);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Nenhum documento encontrado na coleção "$colName".')),
+        NotificationCenter.instance.show(
+          AppNotification(
+            title: Text('Nenhum documento na coleção "$colName".'),
+            type: AppNotificationType.warning,
+            leadingLabel: const Text('Firestore'),
+          ),
         );
         return;
       }
@@ -288,22 +301,37 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
       });
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Documentos carregados da subcoleção "$nomeOriginal".')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: Text('Subcoleção "$nomeOriginal" carregada.'),
+          type: AppNotificationType.success,
+          leadingLabel: const Text('Firestore'),
+        ),
       );
     } catch (e) {
       setState(() => isLoading = false);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao buscar subcoleção: $e')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Erro ao buscar subcoleção'),
+          subtitle: Text('$e'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Firestore'),
+          duration: const Duration(seconds: 6),
+        ),
       );
     }
   }
 
   Future<void> _replicarSubcolecao(String nomeOriginal, String nomeNovo) async {
     if (nomeOriginal.isEmpty || nomeNovo.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe os nomes da subcoleção original e nova.')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Informe os nomes da subcoleção original e nova.'),
+          type: AppNotificationType.warning,
+          leadingLabel: const Text('Firestore'),
+          duration: const Duration(seconds: 4),
+        ),
       );
       return;
     }
@@ -345,11 +373,23 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Subcoleção "$nomeOriginal" replicada e original removida com sucesso.')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: Text('Subcoleção "$nomeOriginal" renomeada e original removida.'),
+          type: AppNotificationType.success,
+          leadingLabel: const Text('Firestore'),
+        ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Erro ao renomear subcoleção'),
+          subtitle: Text('$e'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Firestore'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     } finally {
       setState(() => isLoading = false);
     }
@@ -367,8 +407,12 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
         _fieldMappings.clear();
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Nenhum documento encontrado na coleção "$colName".')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: Text('Nenhum documento na coleção "$colName".'),
+          type: AppNotificationType.warning,
+          leadingLabel: const Text('Firestore'),
+        ),
       );
       return;
     }
@@ -434,8 +478,12 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Coleção "$origem" copiada para "$destino"')),
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text('Coleção "$origem" copiada para "$destino".'),
+        type: AppNotificationType.success,
+        leadingLabel: const Text('Firestore'),
+      ),
     );
   }
 
@@ -485,11 +533,23 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Coleção replicada e arrays convertidos com sucesso!')),
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Coleção replicada e arrays convertidos para subcoleções.'),
+          type: AppNotificationType.success,
+          leadingLabel: const Text('Firestore'),
+        ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Erro na conversão de arrays'),
+          subtitle: Text('$e'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Firestore'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     } finally {
       setState(() => isLoading = false);
     }
@@ -538,8 +598,12 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Campos renomeados em subcoleção "$nomeSubcolecao".')),
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text('Campos renomeados em "$nomeSubcolecao".'),
+        type: AppNotificationType.success,
+        leadingLabel: const Text('Firestore'),
+      ),
     );
   }
 
@@ -573,8 +637,12 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Campos renomeados com sucesso!')),
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('Campos renomeados com sucesso!'),
+        type: AppNotificationType.success,
+        leadingLabel: const Text('Firestore'),
+      ),
     );
 
     _loadData();
@@ -675,8 +743,14 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
               }
             } catch (e) {
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Erro ao renomear campos: $e')),
+              NotificationCenter.instance.show(
+                AppNotification(
+                  title: const Text('Erro ao renomear campos'),
+                  subtitle: Text('$e'),
+                  type: AppNotificationType.error,
+                  leadingLabel: const Text('Firestore'),
+                  duration: const Duration(seconds: 6),
+                ),
               );
             } finally {
               setState(() => isLoading = false);
@@ -757,7 +831,6 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
           ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Confirmar')),
         ],
       ),
-    ) ??
-        false;
+    ) ?? false;
   }
 }

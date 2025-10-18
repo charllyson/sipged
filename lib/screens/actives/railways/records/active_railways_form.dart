@@ -10,6 +10,10 @@ import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_state.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ActiveRailwaysForm extends StatefulWidget {
   /// Registro que será editado no formulário (opcional). Se null, o form fica “em branco”.
   final ActiveRailwayData? editing;
@@ -186,8 +190,17 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
                         ? () {
                       final data = _buildData(widget.editing);
                       bloc.add(ActiveRailwaysUpsertRequested(data));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Salvando ferrovia...')),
+                      NotificationCenter.instance.show(
+                        AppNotification(
+                          title: const Text('Salvando ferrovia...'),
+                          subtitle: Text(
+                            (widget.editing?.id != null)
+                                ? 'Atualizando registro'
+                                : 'Criando novo registro',
+                          ),
+                          type: AppNotificationType.info,
+                          duration: const Duration(seconds: 2),
+                        ),
                       );
                     }
                         : null,

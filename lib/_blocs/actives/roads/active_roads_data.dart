@@ -1,3 +1,5 @@
+import 'dart:math' as Math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -105,7 +107,6 @@ class ActiveRoadsData extends ChangeNotifier {
     this.points,
   });
 
-
   /// Cria a partir de snapshot do Firebase
   factory ActiveRoadsData.fromDocument(DocumentSnapshot snapshot) {
     if (!snapshot.exists) throw Exception("Documento não encontrado");
@@ -114,7 +115,7 @@ class ActiveRoadsData extends ChangeNotifier {
     return ActiveRoadsData.fromMap(data, id: snapshot.id);
   }
 
-  /// Cria a partir de um network genérico
+  /// Cria a partir de um map genérico (ex.: network)
   factory ActiveRoadsData.fromMap(Map<String, dynamic> map, {String? id}) {
     return ActiveRoadsData(
       id: id ?? map['id'],
@@ -151,13 +152,13 @@ class ActiveRoadsData extends ChangeNotifier {
       maximumSpeed: _toInt(map['maximumSpeed']),
       conservationCondition: map['conservationCondition'],
       drainage: map['drainage'],
-      vsa: _toInt(['vsa']),
+      vsa: _toInt(map['vsa']), // ✅ corrigido
       roadName: map['roadName'],
       state: map['state'],
       direction: map['direction'],
       managingAgency: map['managingAgency'],
       description: map['description'],
-      metadata: map['metadata'],
+      metadata: (map['metadata'] is Map<String, dynamic>) ? map['metadata'] as Map<String, dynamic> : null,
       createdAt: _parseDate(map['createdAt']),
       createdBy: map['createdBy'],
       updatedAt: _parseDate(map['updatedAt']),
@@ -168,7 +169,7 @@ class ActiveRoadsData extends ChangeNotifier {
     );
   }
 
-  /// Converte para um network para salvar no Firestore
+  /// Serializa para Firestore
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -223,6 +224,8 @@ class ActiveRoadsData extends ChangeNotifier {
   }
 }
 
+/// ----------------- HELPERS -----------------
+
 double? _toDouble(dynamic value) {
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value);
@@ -245,22 +248,102 @@ List<LatLng>? _parsePoints(dynamic value) {
   if (value is List) {
     return value
         .map<LatLng?>((e) {
-          if (e is GeoPoint) return LatLng(e.latitude, e.longitude);
-          if (e is Map && e['lat'] != null && e['lng'] != null) {
-            return LatLng(
-              (e['lat'] as num).toDouble(),
-              (e['lng'] as num).toDouble(),
-            );
-          }
-          return null;
-        })
+      if (e is GeoPoint) return LatLng(e.latitude, e.longitude);
+      if (e is Map && e['lat'] != null && e['lng'] != null) {
+        return LatLng(
+          (e['lat'] as num).toDouble(),
+          (e['lng'] as num).toDouble(),
+        );
+      }
+      return null;
+    })
         .whereType<LatLng>()
         .toList();
   }
   return null;
 }
 
+/// ----------------- EXTENSIONS ÚTEIS -----------------
+
 extension RoadDataExtensions on ActiveRoadsData {
+  /// Ponto inicial (pelos campos de lat/long) – se existirem.
+  LatLng? get startLatLng {
+    final lat = double.tryParse((initialLatSegment ?? '').replaceAll(',', '.'));
+    final lng = double.tryParse((initialLongSegment ?? '').replaceAll(',', '.'));
+    if (lat != null && lng != null) return LatLng(lat, lng);
+    return (points != null && points!.isNotEmpty) ? points!.first : null;
+    // fallback simples
+  }
+
+  /// Ponto final (pelos campos de lat/long) – se existirem.
+  LatLng? get endLatLng {
+    final lat = double.tryParse((finalLatSegment ?? '').replaceAll(',', '.'));
+    final lng = double.tryParse((finalLongSegment ?? '').replaceAll(',', '.'));
+    if (lat != null && lng != null) return LatLng(lat, lng);
+    return (points != null && points!.isNotEmpty) ? points!.last : null;
+  }
+
+  /// Centro geométrico simples (média dos pontos) – se houver polyline.
+  LatLng? get centerLatLng {
+    final ps = points;
+    if (ps != null && ps.isNotEmpty) {
+      double lat = 0, lng = 0;
+      for (final p in ps) {
+        lat += p.latitude;
+        lng += p.longitude;
+      }
+      return LatLng(lat / ps.length, lng / ps.length);
+    }
+    // sem polyline? tenta média do início/fim
+    final a = startLatLng, b = endLatLng;
+    if (a != null && b != null) {
+      return LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2);
+    }
+    return a ?? b;
+  }
+
+  /// Calcula a projeção do ponto P sobre a polyline (ponto mais próximo na linha).
+  /// Retorna null se não houver polyline suficiente.
+  LatLng? projectOnPolyline(LatLng p) {
+    final ps = points;
+    if (ps == null || ps.length < 2) return null;
+
+    // Converte para “metros” aproximados para distância euclidiana
+    final meanLat = ps.fold<double>(0.0, (acc, e) => acc + e.latitude) / ps.length;
+    const mPerDegLat = 111320.0;
+    final mPerDegLng = 111320.0 * (MathUtils.cosDeg(meanLat));
+    Offset toM(LatLng ll) => Offset(ll.longitude * mPerDegLng, ll.latitude * mPerDegLat);
+    LatLng toLL(Offset m) => LatLng(m.dy / mPerDegLat, m.dx / mPerDegLng);
+
+    final P = toM(p);
+    double bestDist = double.infinity;
+    Offset? best;
+
+    for (int i = 0; i < ps.length - 1; i++) {
+      final a = toM(ps[i]);
+      final b = toM(ps[i + 1]);
+      final proj = _projectPointOnSegment(P, a, b);
+      final d = (proj - P).distance;
+      if (d < bestDist) {
+        bestDist = d;
+        best = proj;
+      }
+    }
+
+    if (best == null) return null;
+    return toLL(best);
+  }
+
+  /// Escolhe a melhor âncora para o tooltip dado um toque.
+  /// 1) projeção do toque na linha; 2) centro; 3) início; 4) fim.
+  LatLng? anchorForTap(LatLng? tap) {
+    return projectOnPolyline(tap ?? centerLatLng ?? startLatLng ?? endLatLng ?? const LatLng(0, 0)) ??
+        centerLatLng ??
+        startLatLng ??
+        endLatLng;
+  }
+
+  /// Entradas para debug/inspeção
   List<MapEntry<String, String>> toEntries() {
     return [
       MapEntry('Rodovia', acronym ?? ''),
@@ -283,7 +366,7 @@ extension RoadDataExtensions on ActiveRoadsData {
       MapEntry('Segmento Final', finalSegment ?? ''),
       MapEntry('Km Inicial', initialKm?.toString() ?? ''),
       MapEntry('Km Final', finalKm?.toString() ?? ''),
-      MapEntry('Extensão', extension?.toString() ?? ''),
+      MapEntry('Extensão (raw)', extension?.toString() ?? ''),
       MapEntry('Pavimento', stateSurface ?? ''),
       MapEntry('Trabalho', works ?? ''),
       MapEntry('Coincidente Federal', coincidentFederal ?? ''),
@@ -292,7 +375,7 @@ extension RoadDataExtensions on ActiveRoadsData {
       MapEntry('Coincidente Estadual', coincidentState ?? ''),
       MapEntry('Pavimento Estadual', coincidentStateSurface ?? ''),
       MapEntry('Jurisdição', jurisdiction ?? ''),
-      MapEntry('Pavimento', surface ?? ''),
+      MapEntry('Pavimento (raw)', surface ?? ''),
       MapEntry('Unidade Local', unitLocal ?? ''),
       MapEntry('Coincidente', coincident ?? ''),
       MapEntry('Lat Inicial', initialLatSegment ?? ''),
@@ -316,4 +399,27 @@ extension RoadDataExtensions on ActiveRoadsData {
       MapEntry('Metadata', metadata?.toString() ?? ''),
     ];
   }
+}
+
+/// ---- math helpers
+class MathUtils {
+  static double cosDeg(double deg) => MathUtils._cos(deg * 3.141592653589793 / 180.0);
+  static double _cos(double rad) => MathUtils._dcos(rad);
+  static double _dcos(double rad) => MathUtils._cosInternal(rad);
+  static double _cosInternal(double rad) => MathUtils.__cos(rad);
+  static double __cos(double rad) => MathUtils.___cos(rad);
+  static double ___cos(double rad) => MathUtils.____cos(rad);
+  static double ____cos(double rad) => MathUtils.realCos(rad);
+  static double realCos(double rad) => Math.cos(rad);
+}
+
+/// Função de projeção de ponto em segmento em coordenadas cartesianas (metros aproximados)
+Offset _projectPointOnSegment(Offset p, Offset a, Offset b) {
+  final ab = b - a;
+  final ab2 = ab.dx * ab.dx + ab.dy * ab.dy;
+  if (ab2 == 0) return a;
+  final ap = p - a;
+  var t = (ap.dx * ab.dx + ap.dy * ab.dy) / ab2;
+  t = t.clamp(0.0, 1.0);
+  return Offset(a.dx + ab.dx * t, a.dy + ab.dy * t);
 }

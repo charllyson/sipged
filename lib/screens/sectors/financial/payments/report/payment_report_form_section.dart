@@ -8,7 +8,7 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 

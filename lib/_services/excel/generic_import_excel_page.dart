@@ -5,6 +5,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class GenericImportExcelPage extends StatefulWidget {
   final String? path;
   const GenericImportExcelPage({super.key, this.path});
@@ -29,6 +33,17 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
   int _totalParaAtualizar = 0;
   bool _atualizando = false;
 
+  // 🔔 helper
+  void _notify(String title, {AppNotificationType type = AppNotificationType.info, String? subtitle}) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text(title),
+        subtitle: subtitle != null ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -39,7 +54,10 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
 
   Future<void> _verificarColecao() async {
     final path = _pathController.text.trim();
-    if (path.isEmpty) return;
+    if (path.isEmpty) {
+      _notify('Informe o caminho da coleção.', type: AppNotificationType.warning);
+      return;
+    }
     setState(() => _loading = true);
     try {
       final collection = FirebaseFirestore.instance.collection(path);
@@ -48,14 +66,16 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
         _colecaoExiste = snapshot.docs.isNotEmpty;
         _loading = false;
       });
+      _notify(
+        _colecaoExiste == true ? 'Coleção encontrada' : 'Coleção vazia (será criada ao importar)',
+        type: AppNotificationType.info,
+      );
     } catch (e) {
       setState(() {
         _colecaoExiste = false;
         _loading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro: Caminho inválido.')),
-      );
+      _notify('Erro: Caminho inválido.', type: AppNotificationType.error, subtitle: '$e');
     }
   }
 
@@ -67,29 +87,39 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
 
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles();
-      if (result != null) {
-        final file = result.files.first;
-        final bytes = file.bytes ?? File(file.path!).readAsBytesSync();
-        final excel = Excel.decodeBytes(bytes);
-        final sheet = excel.tables[excel.tables.keys.first];
+      if (result == null) {
+        _notify('Importação cancelada', type: AppNotificationType.warning);
+        return;
+      }
 
-        if (sheet != null) {
-          final headers = sheet.rows.first.map((c) => c?.value.toString().trim()).toList();
-          _jsonData = sheet.rows.skip(1).map((row) {
-            final Map<String, dynamic> json = {};
-            for (int i = 0; i < headers.length; i++) {
-              final key = headers[i];
-              final cell = row[i];
-              if (key != null) json[key] = _converterValor(cell?.value);
-            }
-            return json;
-          }).toList();
+      final file = result.files.first;
+      final bytes = file.bytes ?? File(file.path!).readAsBytesSync();
+      final excel = Excel.decodeBytes(bytes);
+      final sheet = excel.tables[excel.tables.keys.first];
 
-          if (_jsonData.isNotEmpty) _listarCamposExistentes();
+      if (sheet != null) {
+        final headers = sheet.rows.first.map((c) => c?.value.toString().trim()).toList();
+        _jsonData = sheet.rows.skip(1).map((row) {
+          final Map<String, dynamic> json = {};
+          for (int i = 0; i < headers.length; i++) {
+            final key = headers[i];
+            final cell = row[i];
+            if (key != null) json[key] = _converterValor(cell?.value);
+          }
+          return json;
+        }).toList();
+
+        if (_jsonData.isNotEmpty) {
+          await _listarCamposExistentes();
+          _notify('Planilha carregada', type: AppNotificationType.success, subtitle: '${_jsonData.length} registros prontos');
+        } else {
+          _notify('Planilha vazia', type: AppNotificationType.warning);
         }
+      } else {
+        _notify('Aba da planilha não encontrada', type: AppNotificationType.error);
       }
     } catch (e) {
-      print('Erro: $e');
+      _notify('Erro ao ler planilha', type: AppNotificationType.error, subtitle: '$e');
     } finally {
       setState(() => _loading = false);
     }
@@ -114,7 +144,10 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
 
   Future<void> _listarCamposExistentes() async {
     final path = _pathController.text.trim();
-    if (path.isEmpty) return;
+    if (path.isEmpty) {
+      _notify('Informe o caminho da coleção.', type: AppNotificationType.warning);
+      return;
+    }
     setState(() {
       _carregandoCampos = true;
       _camposSelecionados = [];
@@ -130,7 +163,10 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
       }
       setState(() => _carregandoCampos = false);
       _mostrarSelecaoDeCampos();
-    } catch (_) {}
+    } catch (e) {
+      setState(() => _carregandoCampos = false);
+      _notify('Erro ao listar campos', type: AppNotificationType.error, subtitle: '$e');
+    }
   }
 
   void _mostrarSelecaoDeCampos() {
@@ -187,6 +223,10 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () {
+                if (_camposSelecionados.isEmpty) {
+                  _notify('Selecione ao menos um campo', type: AppNotificationType.warning);
+                  return;
+                }
                 Navigator.pop(context);
                 _mostrarPreview();
               },
@@ -199,6 +239,10 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
   }
 
   void _mostrarPreview() {
+    if (_jsonData.isEmpty) {
+      _notify('Nenhum dado carregado', type: AppNotificationType.warning);
+      return;
+    }
     final preview = _jsonData.first;
     final previewFiltrado = Map.fromEntries(
       preview.entries.where((e) => _camposSelecionados.contains(e.key)),
@@ -230,66 +274,90 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
 
   Future<void> _salvarAtualizacoes() async {
     final path = _pathController.text.trim();
-    if (path.isEmpty) return;
+    if (path.isEmpty) {
+      _notify('Informe o caminho da coleção.', type: AppNotificationType.warning);
+      return;
+    }
+    if (_jsonData.isEmpty) {
+      _notify('Nenhum dado para atualizar', type: AppNotificationType.warning);
+      return;
+    }
+
     setState(() {
       _loading = true;
       _atualizando = true;
       _atualizados = 0;
       _totalParaAtualizar = _jsonData.length;
     });
+
     final collection = FirebaseFirestore.instance.collection(path);
     final parentId = _getParentIdFromPath(path);
 
-    for (final rowOriginal in _jsonData) {
-      final row = Map<String, dynamic>.from(rowOriginal);
-      final dadosFiltrados = <String, dynamic>{};
+    try {
+      for (final rowOriginal in _jsonData) {
+        final row = Map<String, dynamic>.from(rowOriginal);
+        final dadosFiltrados = <String, dynamic>{};
 
-      for (final entry in row.entries) {
-        final key = entry.key;
-        if (!_camposSelecionados.contains(key)) continue;
-        final tipo = _tiposPorCampo[key] ?? 'String';
-        final valorOriginal = entry.value;
-        dynamic valor;
+        for (final entry in row.entries) {
+          final key = entry.key;
+          if (!_camposSelecionados.contains(key)) continue;
+          final tipo = _tiposPorCampo[key] ?? 'String';
+          final valorOriginal = entry.value;
+          dynamic valor;
 
-        try {
-          switch (tipo) {
-            case 'int': valor = int.tryParse(valorOriginal.toString()); break;
-            case 'double': valor = double.tryParse(valorOriginal.toString()); break;
-            case 'bool': valor = valorOriginal.toString().toLowerCase() == 'true' || valorOriginal.toString() == '1'; break;
-            case 'DateTime': valor = valorOriginal is DateTime ? valorOriginal : DateTime.tryParse(valorOriginal.toString()); break;
-            case 'String': default: valor = valorOriginal.toString();
+          try {
+            switch (tipo) {
+              case 'int':
+                valor = int.tryParse(valorOriginal.toString());
+                break;
+              case 'double':
+                valor = double.tryParse(valorOriginal.toString());
+                break;
+              case 'bool':
+                valor = valorOriginal.toString().toLowerCase() == 'true' || valorOriginal.toString() == '1';
+                break;
+              case 'DateTime':
+                valor = valorOriginal is DateTime ? valorOriginal : DateTime.tryParse(valorOriginal.toString());
+                break;
+              case 'String':
+              default:
+                valor = valorOriginal.toString();
+            }
+          } catch (_) {
+            valor = valorOriginal;
           }
-        } catch (_) {
-          valor = valorOriginal;
+          dadosFiltrados[key] = valor;
         }
-        dadosFiltrados[key] = valor;
+
+        if (parentId != null) {
+          dadosFiltrados['contractId'] = parentId;
+        }
+
+        final order = row['order'];
+        if (order == null) {
+          // se não tiver 'order', cria novo doc
+          await collection.add(dadosFiltrados);
+        } else {
+          final snapshot = await collection.where('order', isEqualTo: order).limit(1).get();
+          if (snapshot.docs.isNotEmpty) {
+            await collection.doc(snapshot.docs.first.id).update(dadosFiltrados);
+          } else {
+            await collection.add(dadosFiltrados);
+          }
+        }
+
+        setState(() => _atualizados++);
       }
 
-      if (parentId != null) {
-        dadosFiltrados['contractId'] = parentId;
-      }
-
-      final order = row['order'];
-      if (order == null) continue;
-
-      final snapshot = await collection.where('order', isEqualTo: order).limit(1).get();
-      if (snapshot.docs.isNotEmpty) {
-        await collection.doc(snapshot.docs.first.id).update(dadosFiltrados);
-      } else {
-        await collection.add(dadosFiltrados);
-      }
-
-      setState(() => _atualizados++);
+      _notify('Importação concluída', type: AppNotificationType.success, subtitle: '$_atualizados de $_totalParaAtualizar atualizados');
+    } catch (e) {
+      _notify('Falha durante a importação', type: AppNotificationType.error, subtitle: '$e');
+    } finally {
+      setState(() {
+        _loading = false;
+        _atualizando = false;
+      });
     }
-
-    setState(() {
-      _loading = false;
-      _atualizando = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Importação concluída!')),
-    );
   }
 
   String? _getParentIdFromPath(String path) {
@@ -311,13 +379,13 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
               controller: _pathController,
               decoration: const InputDecoration(
                 labelText: 'Caminho da coleção ou subcoleção no Firestore',
-                hintText: 'Ex: documents/abc123/accidents',
+                hintText: 'Ex: process/abc123/accidents',
               ),
             ),
             const SizedBox(height: 16),
             if (_atualizando) ...[
               const SizedBox(height: 16),
-              LinearProgressIndicator(value: _atualizados / _totalParaAtualizar, minHeight: 16),
+              LinearProgressIndicator(value: _totalParaAtualizar == 0 ? 0 : _atualizados / _totalParaAtualizar, minHeight: 16),
               const SizedBox(height: 8),
               Text('$_atualizados de $_totalParaAtualizar atualizados'),
             ],

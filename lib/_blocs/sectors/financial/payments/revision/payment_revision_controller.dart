@@ -14,12 +14,20 @@ import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/date_utils.dart'
     show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_storage_bloc.dart';
+
+// ✅ NOVO: papéis globais + checagens de permissão por módulo
+import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+
+// 🔔 Notificações centralizadas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin {
   PaymentsRevisionController({
@@ -90,8 +98,13 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
 
   double get valorInicialBase => _valorInicial;
   double get valorAditivosTotal => _valorAditivos;
-  bool get isAdmin =>
-      (currentUser?.baseProfile ?? '').trim().toLowerCase() == 'administrador';
+
+  // ✅ foi: baseProfile; agora: papel global via user_permission.dart
+  bool get isAdmin {
+    final u = currentUser;
+    if (u == null) return false;
+    return roles.roleForUser(u) == roles.BaseRole.ADMINISTRADOR;
+  }
 
   // --- Init/Dispose
   Future<void> init(BuildContext context, {required ContractData? contractData}) async {
@@ -142,14 +155,27 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     super.dispose();
   }
 
-  // --- Permissão
+  // --- Permissão (módulo: payments_revision)
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
-    final base = (user.baseProfile ?? '').toLowerCase();
-    if (base == 'administrador' || base == 'colaborador') return true;
-    final perms = user.modulePermissions['payments_revision'];
-    if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
-    return false;
+
+    // Admin sempre pode
+    if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) return true;
+
+    // Senão, checamos permissão de módulo (edit OU create concede edição)
+    final canEditModule = perms.userCanModule(
+      user: user,
+      module: 'payments_revision',
+      action: 'edit',
+    );
+
+    final canCreateModule = perms.userCanModule(
+      user: user,
+      module: 'payments_revision',
+      action: 'create',
+    );
+
+    return canEditModule || canCreateModule;
   }
 
   // --- Core
@@ -246,8 +272,8 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
 
   Future<bool> saveOrUpdate({
     required Future<bool> Function() onConfirm,
-    VoidCallback? onSuccessSnack,
-    VoidCallback? onErrorSnack,
+    VoidCallback? onSuccess,
+    VoidCallback? onError,
   }) async {
     if (contract?.id == null) return false;
 
@@ -279,10 +305,10 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
           .getAllReportPaymentsOfContract(contractId: contract!.id!);
 
       createNew();
-      onSuccessSnack?.call();
+      onSuccess?.call();
       return true;
     } catch (_) {
-      onErrorSnack?.call();
+      onError?.call();
       return false;
     } finally {
       isSaving = false;
@@ -333,8 +359,8 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
 
   Future<void> deleteById(
       String idPaymentRevision, {
-        VoidCallback? onSuccessSnack,
-        VoidCallback? onErrorSnack,
+        VoidCallback? onSuccess,
+        VoidCallback? onError,
       }) async {
     if (contract?.id == null) return;
     try {
@@ -342,13 +368,13 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
       _revisions = await _paymentRevisionBloc
           .getAllReportPaymentsOfContract(contractId: contract!.id!);
       selectedIndex = null;
-      onSuccessSnack?.call();
+      onSuccess?.call();
 
       sideItems = const [];
       selectedSideIndex = null;
       notifyListeners();
     } catch (_) {
-      onErrorSnack?.call();
+      onError?.call();
     } finally {
       notifyListeners();
     }
@@ -382,18 +408,9 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
       );
       await _refreshSideList();
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('PDF enviado com sucesso.'),
-          backgroundColor: Colors.green,
-        ));
-      }
+      _notify('PDF enviado com sucesso.', type: AppNotificationType.success);
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Falha ao enviar PDF: $e')),
-        );
-      }
+      _notify('Falha ao enviar PDF', subtitle: '$e', type: AppNotificationType.error);
     }
   }
 
@@ -402,20 +419,12 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     if (contract == null || _selected == null) return;
     final url = await _storageBloc.getUrl(contract!, _selected!);
     if (url == null || url.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Nenhum PDF disponível para esta revisão.'),
-        ));
-      }
+      _notify('Nenhum PDF disponível para esta revisão.', type: AppNotificationType.warning);
       return;
     }
 
     await Clipboard.setData(ClipboardData(text: url));
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('URL do PDF copiada. Cole no navegador para abrir.'),
-      ));
-    }
+    _notify('URL do PDF copiada', subtitle: 'Cole no navegador para abrir.');
   }
 
   /// Exclui o PDF do Storage e limpa o campo no doc (opcional)
@@ -431,19 +440,10 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
         );
         await _refreshSideList();
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('PDF excluído com sucesso.'),
-            backgroundColor: Colors.red,
-          ));
-        }
+        _notify('PDF excluído com sucesso.', type: AppNotificationType.success);
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Falha ao excluir PDF: $e')),
-        );
-      }
+      _notify('Falha ao excluir PDF', subtitle: '$e', type: AppNotificationType.error);
     }
   }
 
@@ -459,5 +459,20 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
     sideItems = const [];
     selectedSideIndex = null;
     notifyListeners();
+  }
+
+  // ===== Notificação centralizada =====
+  void _notify(
+      String title, {
+        String? subtitle,
+        AppNotificationType type = AppNotificationType.info,
+      }) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        type: type,
+        title: Text(title),
+        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+      ),
+    );
   }
 }

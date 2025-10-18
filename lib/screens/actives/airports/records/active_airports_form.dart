@@ -13,6 +13,10 @@ import '../../../../_blocs/actives/oaes/active_oaes_bloc.dart';
 import '../../../../_blocs/actives/oaes/active_oaes_event.dart';
 import '../../../../_blocs/actives/oaes/active_oaes_state.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ActiveAirportsForm extends StatefulWidget {
   const ActiveAirportsForm({super.key});
 
@@ -255,8 +259,15 @@ class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
                   ? () {
                 final patched = _patchFromUi(st.form);
                 context.read<ActiveOaesBloc>().add(ActiveOaesUpsertRequested(patched));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Enviando...')),
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Enviando...'),
+                    subtitle: Text(
+                      (st.selectedIndex != null) ? 'Atualizando registro' : 'Criando registro',
+                    ),
+                    type: AppNotificationType.info,
+                    duration: const Duration(seconds: 2),
+                  ),
                 );
               }
                   : null,
@@ -268,7 +279,18 @@ class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
               TextButton.icon(
                 icon: const Icon(Icons.cleaning_services_outlined),
                 label: const Text('Limpar'),
-                onPressed: () => context.read<ActiveOaesBloc>().add(const ActiveOaesClearSelection()),
+                onPressed: () {
+                  context.read<ActiveOaesBloc>().add(const ActiveOaesClearSelection());
+
+                  // 🔔 Notificação de limpeza (opcional)
+                  NotificationCenter.instance.show(
+                    AppNotification(
+                      title: Text('Formulário limpo'),
+                      type: AppNotificationType.info,
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
               ),
           ],
         );

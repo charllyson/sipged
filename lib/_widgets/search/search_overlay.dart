@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/search/SearchBox.dart';
 import '../suggestions/suggestion_models.dart';
 
@@ -219,7 +218,7 @@ class SearchOverlay {
     _loading = false;
   }
 
-  // ===== autocomplete =====
+  // ===== search =====
   void _onQueryChanged() => _scheduleFetch();
 
   void _scheduleFetch() {
@@ -270,8 +269,7 @@ class SearchOverlay {
       case SuggestionKind.roadSegment:
         return Icons.alt_route_outlined;
       case SuggestionKind.custom:
-      default:
-        return Icons.search;
+      return Icons.search;
     }
   }
 }

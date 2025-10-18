@@ -4,17 +4,20 @@ import '../../../_widgets/drawer/menu_drawer_sub_item.dart';
 
 
 enum MenuItem {
-  documentsContractsDashboard,
-  documentsContractsRecords,
-  documentsMeasurementsDashboard,
-  documentsMeasurementsRecords,
+  overviewDashboard,
+  specificDashboard,
+
+  processHiringRecords,
+  processValidityRecords,
+  processAdditiveRecords,
+  processApostillesRecords,
+  processMeasurementsRecords,
+  processLandRegularizationRecords,
 
   operationMonitoringWork,
 
-  planningProjectDashboard,
   planningProjectRegistration,
   planningRightOfWayRecords,
-  planningEnvironmentDashboard,
   planningEnvironmentRecords,
 
   trafficAccidentsDashboard,
@@ -47,27 +50,32 @@ class PagesData {
 
   /// ===== MÓDULOS =====
   static List<String> module = [
-    'documents-contracts-dashboard',
-    'documents-contracts-records',
-    'documents-measurements-dashboard',
-    'documents-measurements-records',
+    'overview-overview-dashboard',
+    'specific-overview-dashboard',
+
+    'process-hiring-records',
+    'process-validity-records',
+    'process-additive-records',
+    'process-apostilles-records',
+    'process-measurements-records',
+    'process-land-regularization-records',
 
     'operation-work-timeline',
 
-    'planning-projects-dashboard',
+    'planning-projects-overview-dashboard',
     'planning-projects-records',
     'planning-rightWay-records',
-    'planning-environment-dashboard',
+    'planning-environment-overview-dashboard',
     'planning-environment-records',
 
-    'traffic-accidents-dashboard',
+    'traffic-accidents-overview-dashboard',
     'traffic-accidents-records',
-    'traffic-infractions-dashboard',
+    'traffic-infractions-overview-dashboard',
     'traffic-infractions-records',
 
-    'financial-payments-dashboard',
+    'financial-payments-overview-dashboard',
     'financial-payments-records',
-    'financial-commitment-dashboard',
+    'financial-commitment-overview-dashboard',
     'financial-commitment-records',
 
     'active-road-records',
@@ -86,31 +94,61 @@ class PagesData {
     'active-ports-network',
   ];
 
+  /// =========== PAINÉIS =============
+  static List<MenuDrawerItemModel> panelDashboard = [
+    MenuDrawerItemModel(
+      label: 'PAINÉIS',
+      icon: Icons.area_chart,
+      subItems: [
+        MenuDrawerSubItem(
+          label: 'GERAL',
+          menuItem: MenuItem.overviewDashboard,
+          permissionModule: 'overview-overview-dashboard',
+        ),
+        MenuDrawerSubItem(
+          label: 'ESPECÍFICO',
+          menuItem: MenuItem.specificDashboard,
+          permissionModule: 'specific-overview-dashboard',
+        ),
+      ],
+    ),
+  ];
+
   /// ===== MENU PRINCIPAL =====
   static List<MenuDrawerItemModel> drawerDocuments = [
     MenuDrawerItemModel(
-      label: 'CONTRATOS',
+      label: 'PROCESSOS',
       icon: Icons.document_scanner,
       subItems: [
         MenuDrawerSubItem(
-          label: 'PAINEL',
-          menuItem: MenuItem.documentsContractsDashboard,
-          permissionModule: 'documents-contracts-dashboard',
+          label: 'CONTRATAÇÃO',
+          menuItem: MenuItem.processHiringRecords,
+          permissionModule: 'process-hiring-records',
         ),
         MenuDrawerSubItem(
-          label: 'CONTRATOS',
-          menuItem: MenuItem.documentsContractsRecords,
-          permissionModule: 'documents-contracts-records',
+          label: 'VIGÊNCIAS',
+          menuItem: MenuItem.processValidityRecords,
+          permissionModule: 'process-validity-records',
         ),
         MenuDrawerSubItem(
-          label: 'PAINEL',
-          menuItem: MenuItem.documentsMeasurementsDashboard,
-          permissionModule: 'documents-measurements-dashboard',
+          label: 'ADITIVOS',
+          menuItem: MenuItem.processAdditiveRecords,
+          permissionModule: 'process-additive-records',
+        ),
+        MenuDrawerSubItem(
+          label: 'APOSTILAMENTOS',
+          menuItem: MenuItem.processApostillesRecords,
+          permissionModule: 'process-apostilles-records',
         ),
         MenuDrawerSubItem(
           label: 'MEDIÇÕES',
-          menuItem: MenuItem.documentsMeasurementsRecords,
-          permissionModule: 'documents-measurements-records',
+          menuItem: MenuItem.processMeasurementsRecords,
+          permissionModule: 'process-measurements-records',
+        ),
+        MenuDrawerSubItem(
+          label: 'REGULARIZAÇÃO DE TERRENOS',
+          menuItem: MenuItem.processLandRegularizationRecords,
+          permissionModule: 'process-land-regularization-records',
         ),
       ],
     ),
@@ -133,11 +171,6 @@ class PagesData {
       icon: Icons.bar_chart,
       subItems: [
         MenuDrawerSubItem(
-          label: 'PAINEL',
-          menuItem: MenuItem.planningProjectDashboard,
-          permissionModule: 'planning-projects-dashboard',
-        ),
-        MenuDrawerSubItem(
           label: 'PROJETOS',
           menuItem: MenuItem.planningProjectRegistration,
           permissionModule: 'planning-projects-records',
@@ -146,11 +179,6 @@ class PagesData {
           label: 'FAIXA DE DOMÍNIO',
           menuItem: MenuItem.planningRightOfWayRecords,
           permissionModule: 'planning-rightWay-records',
-        ),
-        MenuDrawerSubItem(
-          label: 'PAINEL',
-          menuItem: MenuItem.planningEnvironmentDashboard,
-          permissionModule: 'planning-environment-dashboard',
         ),
         MenuDrawerSubItem(
           label: 'MEIO AMBIENTE',
@@ -168,17 +196,17 @@ class PagesData {
         MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.trafficAccidentsDashboard,
-          permissionModule: 'traffic-accidents-dashboard',
+          permissionModule: 'traffic-accidents-overview-dashboard',
         ),
         MenuDrawerSubItem(
-          label: 'ACIDENTES',
+          label: 'SINISTROS',
           menuItem: MenuItem.trafficAccidentsRecords,
           permissionModule: 'traffic-accidents-records',
         ),
         MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.trafficInfractionsDashboard,
-          permissionModule: 'traffic-infractions-dashboard',
+          permissionModule: 'traffic-infractions-overview-dashboard',
         ),
         MenuDrawerSubItem(
           label: 'INFRAÇÕES',
@@ -194,7 +222,7 @@ class PagesData {
         MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.financialPaymentsDashboard,
-          permissionModule: 'financial-payments-dashboard',
+          permissionModule: 'financial-payments-overview-dashboard',
         ),
         MenuDrawerSubItem(
           label: 'PAGAMENTOS',
@@ -204,7 +232,7 @@ class PagesData {
         MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.financialCommitmentDashboard,
-          permissionModule: 'financial-commitment-dashboard',
+          permissionModule: 'financial-commitment-overview-dashboard',
         ),
         MenuDrawerSubItem(
           label: 'EMPENHOS',

@@ -9,13 +9,11 @@ import 'package:latlong2/latlong.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
 
 import 'package:siged/_widgets/stakes/line_segmentation.dart';
 import 'package:siged/_services/geoJson/send_firebase.dart';
 import 'package:siged/_widgets/services/floating_buttons.dart';
 import 'package:siged/_widgets/stakes/zoom_listener.dart';
-import 'package:siged/_services/geocoding/geocoding_service.dart';
 
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
@@ -23,11 +21,9 @@ import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 
 import 'package:siged/_widgets/stakes/stakes_up_right.dart';
-import 'package:siged/_widgets/search/search_overlay.dart';
-import 'package:siged/_widgets/search/search_widget.dart';
 import '../../../../../../_blocs/sectors/operation/road/schedule_road_data.dart';
 import '../schedule_road_panel.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 
 // ====== constantes de estilo ======
 const double kLaneStrokeWidth = 7.0;            // largura padrão dos segmentos
@@ -365,7 +361,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                   context.read<ScheduleRoadBloc>()
                       .add(SchedulePolylineSelected(_selectedTag));
                 },
-                onShowPolylineTooltip: ({required context, required position, required tag}) async {},
+                //onShowPolylineTooltip: ({required context, required position, required tag}) async {},
                 taggedMarkers: stakeMarkers,
                 clusterWidgetBuilder: (tagged, selectedPos, onSel) => _stakesLayer(markers: tagged),
               ),

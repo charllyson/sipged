@@ -1,3 +1,4 @@
+// lib/screens/sectors/traffic/accidents/accidents_selector_dates_section.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/dates/selector/selectorDates.dart';
 import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';

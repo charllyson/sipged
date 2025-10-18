@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_widgets/modals/schedule_modal_controller.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_modal_controller.dart';
 import 'package:siged/_widgets/modals/type.dart'; // ⬅️ precisa do ScheduleType
 
 class ScheduleActionsRow extends StatelessWidget {
@@ -13,12 +13,16 @@ class ScheduleActionsRow extends StatelessWidget {
   /// Callback para apagar a área (apenas civil mostra o botão quando não for null)
   final VoidCallback? onDelete;
 
+  /// Callback para fechar SOMENTE o bottom sheet (injetado pelo showModalBottomSheet)
+  final VoidCallback? onClose;
+
   const ScheduleActionsRow({
     super.key,
     required this.type,
     this.confirmLabel = 'Salvar',
     this.confirmIcon = Icons.done,
     this.onDelete,
+    this.onClose,
   });
 
   @override
@@ -56,11 +60,11 @@ class ScheduleActionsRow extends StatelessWidget {
                         ),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
+                            onPressed: () => Navigator.of(ctx, rootNavigator: false).pop(false),
                             child: const Text('Cancelar'),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
+                            onPressed: () => Navigator.of(ctx, rootNavigator: false).pop(true),
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.red,
                             ),
@@ -74,14 +78,31 @@ class ScheduleActionsRow extends StatelessWidget {
                   child: const Text('Apagar área', style: TextStyle(color: Colors.red)),
                 )
                     : OutlinedButton(
-                  onPressed: disabled ? null : () => Navigator.pop(context),
+                  onPressed: disabled
+                      ? null
+                      : () {
+                    // fecha SOMENTE o sheet
+                    if (onClose != null) {
+                      onClose!();
+                    } else {
+                      Navigator.of(context, rootNavigator: false).maybePop();
+                    }
+                  },
                   child: const Text('Cancelar'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: disabled ? null : () => c.save(context),
+                  onPressed: disabled
+                      ? null
+                      : () async {
+                    // salva SEM dar pop aqui; quem fecha é o onClose
+                    await c.save(
+                      context,
+                      onClose: onClose ?? () => Navigator.of(context, rootNavigator: false).maybePop(),
+                    );
+                  },
                   icon: Icon(confirmIcon),
                   label: Text(confirmLabel),
                 ),

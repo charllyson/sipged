@@ -1,3 +1,4 @@
+// lib/screens/sectors/traffic/accidents/accidents_table_section.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/table/paged/paged_table_changed.dart';
 import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
@@ -80,20 +81,32 @@ class AccidentsTableSection extends StatelessWidget {
           maxWidth: 160,
         ),
         PagedColumnSpec<AccidentsData>(
-          title: 'LOCAL',
+          title: 'PONTO DE\nREFERÊNCIA',
           getter: (d) => d.referencePoint ?? '-',
           textAlign: TextAlign.center,
           maxWidth: 200,
         ),
         PagedColumnSpec<AccidentsData>(
-          title: 'TIPO DE ACIDENTE',
+          title: 'TIPO DE\nACIDENTE',
           getter: (d) => d.typeOfAccident ?? '-',
           textAlign: TextAlign.center,
           maxWidth: 180,
         ),
         PagedColumnSpec<AccidentsData>(
-          title: 'VÍTIMAS',
+          title: 'VÍTIMAS COM\nESCOREAÇÕES',
           getter: (d) => (d.scoresVictims ?? 0).toString(),
+          textAlign: TextAlign.center,
+          maxWidth: 120,
+        ),
+        PagedColumnSpec<AccidentsData>(
+          title: 'MORTE',
+          getter: (d) => (d.death ?? 0).toString(),
+          textAlign: TextAlign.center,
+          maxWidth: 120,
+        ),
+        PagedColumnSpec<AccidentsData>(
+          title: 'AUTOMÓVEIS\nENVOLVIDOS',
+          getter: (d) => (d.transportInvolved ?? 0).toString(),
           textAlign: TextAlign.center,
           maxWidth: 120,
         ),

@@ -10,6 +10,9 @@ import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ActiveRoadsForm extends StatefulWidget {
   /// Registro que será editado no formulário (opcional). Se null, o form fica “em branco”.
@@ -203,8 +206,17 @@ class _ActiveRoadsFormState extends State<ActiveRoadsForm> {
                         ? () {
                       final data = _buildData(widget.editing);
                       bloc.add(ActiveRoadsUpsertRequested(data));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Salvando rodovia...')),
+                      NotificationCenter.instance.show(
+                        AppNotification(
+                          title: const Text('Salvando rodovia...'),
+                          subtitle: Text(
+                            (widget.editing?.id != null)
+                                ? 'Atualizando registro'
+                                : 'Criando novo registro',
+                          ),
+                          type: AppNotificationType.info,
+                          duration: const Duration(seconds: 2),
+                        ),
                       );
                     }
                         : null,

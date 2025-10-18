@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/documents/contracts/additives/additive_data.dart';
-import 'package:siged/_blocs/documents/contracts/apostilles/apostilles_data.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_blocs/documents/contracts/validity/validity_data.dart';
-import 'package:siged/_blocs/documents/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/process/additives/additive_data.dart';
+import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/validity/validity_data.dart';
+import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 
 class Registro {
   final String? id;

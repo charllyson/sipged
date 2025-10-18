@@ -5,7 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 
 /// Storage-only para PDFs de Ajustes de Pagamento.
@@ -26,7 +26,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
   }
 
   String pathFor(ContractData c, PaymentsAdjustmentsData p) =>
-      'documents/${c.id}/adjustmentPayments/${p.idPaymentAdjustment}/${fileName(c, p)}';
+      'process/${c.id}/adjustmentPayments/${p.idPaymentAdjustment}/${fileName(c, p)}';
 
   // ---------- Operações principais ----------
   Future<bool> exists(ContractData c, PaymentsAdjustmentsData p) async {

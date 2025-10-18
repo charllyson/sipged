@@ -1,35 +1,41 @@
+// lib/_blocs/sectors/financial/payments/adjustment/payment_adjustment_controller.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
-import 'package:siged/_utils/date_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+
+import 'package:siged/_blocs/system/user/user_bloc.dart';
+import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:siged/_blocs/system/user/user_data.dart';
+
+import 'package:siged/_blocs/process/additives/additives_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
+
+import 'package:siged/_utils/date_utils.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
-import 'package:siged/_blocs/documents/contracts/additives/additives_bloc.dart';
-import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
-
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+// ✅ novo: papéis globais + permissões por módulo
+import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
 
 class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMixin {
   PaymentsAdjustmentController({
     required PaymentAdjustmentBloc paymentAdjustmentBloc,
     required AdditivesBloc additivesBloc,
-    PaymentAdjustmentStorageBloc? storageBloc, // 🆕
+    PaymentAdjustmentStorageBloc? storageBloc,
   })  : _paymentAdjustmentBloc = paymentAdjustmentBloc,
         _additivesBloc = additivesBloc,
-        _storageBloc = storageBloc ?? PaymentAdjustmentStorageBloc(); // 🆕
+        _storageBloc = storageBloc ?? PaymentAdjustmentStorageBloc();
 
   final PaymentAdjustmentBloc _paymentAdjustmentBloc;
   final AdditivesBloc _additivesBloc;
-  final PaymentAdjustmentStorageBloc _storageBloc; // 🆕
+  final PaymentAdjustmentStorageBloc _storageBloc;
 
   StreamSubscription<UserState>? _userSub;
 
@@ -50,7 +56,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
-  // SideListBox 🆕
+  // SideListBox
   List<String> sideItems = const <String>[];
   int? selectedSideIndex;
   bool get canAddFile => isEditable && _selected?.idPaymentAdjustment != null;
@@ -82,8 +88,13 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   double get saldo => valorTotal - totalMedicoes;
   double get valorInicialBase => _valorInicial;
   double get valorAditivosTotal => _valorAditivos;
-  bool get isAdmin =>
-      (currentUser?.baseProfile ?? '').trim().toLowerCase() == 'administrador';
+
+  // ✅ admin via papel global
+  bool get isAdmin {
+    final u = currentUser;
+    if (u == null) return false;
+    return roles.roleForUser(u) == roles.BaseRole.ADMINISTRADOR;
+  }
 
   Future<void> init(BuildContext context, {required ContractData? contractData}) async {
     contract = contractData;
@@ -131,13 +142,25 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     super.dispose();
   }
 
+  // ✅ Permissão (módulo: payments_adjustment)
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
-    final base = (user.baseProfile ?? '').toLowerCase();
-    if (base == 'administrador' || base == 'colaborador') return true;
-    final perms = user.modulePermissions['payments_adjustment'];
-    if (perms != null) return (perms['edit'] == true) || (perms['create'] == true);
-    return false;
+
+    // Admin sempre pode
+    if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) return true;
+
+    // Senão, checamos permissão de módulo (edit OU create concede edição)
+    final canEdit = perms.userCanModule(
+      user: user,
+      module: 'payments_adjustment',
+      action: 'edit',
+    );
+    final canCreate = perms.userCanModule(
+      user: user,
+      module: 'payments_adjustment',
+      action: 'create',
+    );
+    return canEdit || canCreate;
   }
 
   Future<void> _loadInitial() async {
@@ -213,8 +236,8 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
 
   Future<bool> saveOrUpdate({
     required Future<bool> Function() onConfirm,
-    VoidCallback? onSuccessSnack,
-    VoidCallback? onErrorSnack,
+    VoidCallback? onSuccess,
+    VoidCallback? onError,
   }) async {
     if (contract?.id == null) return false;
 
@@ -246,10 +269,10 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
           .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
 
       createNew();
-      onSuccessSnack?.call();
+      onSuccess?.call();
       return true;
     } catch (_) {
-      onErrorSnack?.call();
+      onError?.call();
       return false;
     } finally {
       isSaving = false; notifyListeners();
@@ -298,8 +321,8 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
 
   Future<void> deleteById(
       String idPaymentAdjustment, {
-        VoidCallback? onSuccessSnack,
-        VoidCallback? onErrorSnack,
+        VoidCallback? onSuccess,
+        VoidCallback? onError,
       }) async {
     if (contract?.id == null) return;
     try {
@@ -307,15 +330,15 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
       _payments = await _paymentAdjustmentBloc
           .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
       selectedIndex = null;
-      onSuccessSnack?.call();
+      onSuccess?.call();
     } catch (_) {
-      onErrorSnack?.call();
+      onError?.call();
     } finally {
       notifyListeners();
     }
   }
 
-  // --------- PDF via SideListBox 🆕 ----------
+  // --------- PDF via SideListBox ----------
   Future<void> _refreshSideList() async {
     if (currentPdfUrl != null && currentPdfUrl!.isNotEmpty) {
       sideItems = const ['PDF do Pagamento de Reajuste'];

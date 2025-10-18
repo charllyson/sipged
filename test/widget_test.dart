@@ -8,12 +8,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:siged/siged_page.dart';
+import 'package:siged/gate_page.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget( SiGed());
+    await tester.pumpWidget( GatePage());
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);

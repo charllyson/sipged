@@ -5,7 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 
 /// Storage-only para PDFs de **Revisões de Pagamento**.
@@ -26,7 +26,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
   }
 
   String pathFor(ContractData c, PaymentsRevisionsData p) =>
-      'documents/${c.id}/revisionPayments/${p.idRevisionPayment}/${fileName(c, p)}';
+      'process/${c.id}/revisionPayments/${p.idRevisionPayment}/${fileName(c, p)}';
 
   // ---------- Operações principais ----------
   Future<bool> exists(ContractData c, PaymentsRevisionsData p) async {

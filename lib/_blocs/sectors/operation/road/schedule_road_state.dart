@@ -1,4 +1,5 @@
-// lib/_blocs/sectors/operation/road/board/schedule_road_state.dart
+// COMPLETO — acrescido de physfinPeriods/physfinGrid
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -10,27 +11,21 @@ import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
 class ScheduleRoadState extends Equatable {
   final bool initialized;
 
-  // contrato / header
   final String? contractId;
   final String? summarySubjectContract;
 
-  // grid
   final int totalEstacas;
   final String currentServiceKey;
 
-  // dados
-  final List<ScheduleRoadData> services;   // opções de serviço
-  final List<ScheduleLaneClass> lanes;          // faixas
-  final List<ScheduleRoadData> execucoes;  // células
+  final List<ScheduleRoadData> services;
+  final List<ScheduleLaneClass> lanes;
+  final List<ScheduleRoadData> execucoes;
 
-  /// Índice O(1): [estaca][faixa] -> ScheduleData
   final Map<int, Map<int, ScheduleRoadData>> execIndex;
 
-  /// Cache de datas globais para sombreamento relativo
   final DateTime? minDate;
   final DateTime? maxDate;
 
-  // carregamentos
   final bool loadingServices;
   final bool loadingLanes;
   final bool loadingExecucoes;
@@ -38,24 +33,23 @@ class ScheduleRoadState extends Equatable {
 
   final String? error;
 
-  // ======== GEOMETRIA (migrada p/ o Board) ========
-  /// "LineString" | "MultiLineString"
   final String? geometryType;
-
-  /// Preferido: lista de segmentos (cada segmento é uma lista de pontos)
   final List<List<LatLng>>? multiLine;
-
-  /// Fallback: linha achatada (um único array de pontos)
   final List<LatLng>? points;
 
-  /// Retorna o eixo achatado (multiLine -> flatten; senão points; senão vazio)
+  /// somatório do orçamento por serviço (key -> total em double)
+  final Map<String, double> serviceTotals;
+
+  /// períodos físicos/financeiros (em dias) e grade de percentuais (serviço -> lista)
+  final List<int> physfinPeriods;
+  final Map<String, List<double>> physfinGrid;
+
   List<LatLng> get axis => axisFrom(
     geometryType: geometryType,
     multiLine: multiLine,
     points: points,
   );
 
-  /// Helper estático para uso pelo BLoC
   static List<LatLng> axisFrom({
     required String? geometryType,
     required List<List<LatLng>>? multiLine,
@@ -70,7 +64,6 @@ class ScheduleRoadState extends Equatable {
     return const <LatLng>[];
   }
 
-  // ======== MAPA (estado leve) ========
   final String? selectedPolylineId;
   final double mapZoom;
 
@@ -91,13 +84,12 @@ class ScheduleRoadState extends Equatable {
     this.loadingExecucoes = false,
     this.savingOrImporting = false,
     this.error,
-
-    // geometria
     this.geometryType,
     this.multiLine,
     this.points,
-
-    // mapa
+    this.serviceTotals = const {},
+    this.physfinPeriods = const [],
+    this.physfinGrid = const {},
     this.selectedPolylineId,
     this.mapZoom = 12.0,
   });
@@ -119,13 +111,12 @@ class ScheduleRoadState extends Equatable {
     bool? loadingExecucoes,
     bool? savingOrImporting,
     String? error,
-
-    // geometria
     String? geometryType,
     List<List<LatLng>>? multiLine,
     List<LatLng>? points,
-
-    // mapa
+    Map<String, double>? serviceTotals,
+    List<int>? physfinPeriods,
+    Map<String, List<double>>? physfinGrid,
     Object? selectedPolylineId,
     double? mapZoom,
   }) {
@@ -146,13 +137,12 @@ class ScheduleRoadState extends Equatable {
       loadingExecucoes: loadingExecucoes ?? this.loadingExecucoes,
       savingOrImporting: savingOrImporting ?? this.savingOrImporting,
       error: error,
-
-      // geometria
       geometryType: geometryType ?? this.geometryType,
       multiLine: multiLine ?? this.multiLine,
       points: points ?? this.points,
-
-      // mapa
+      serviceTotals: serviceTotals ?? this.serviceTotals,
+      physfinPeriods: physfinPeriods ?? this.physfinPeriods,
+      physfinGrid: physfinGrid ?? this.physfinGrid,
       selectedPolylineId: selectedPolylineId is _Unset
           ? this.selectedPolylineId
           : (selectedPolylineId as String?),
@@ -178,21 +168,17 @@ class ScheduleRoadState extends Equatable {
     loadingExecucoes,
     savingOrImporting,
     error,
-
-    // geometria
     geometryType,
     multiLine,
     points,
-
-    // mapa
+    serviceTotals,
+    physfinPeriods,
+    physfinGrid,
     selectedPolylineId,
     mapZoom,
   ];
 
-  // ================== Derivados p/ Header/Resumo ==================
-
   bool get _isGeral => currentServiceKey.toLowerCase() == 'geral';
-
   bool _laneEnabled(ScheduleLaneClass l) =>
       _isGeral ? true : l.isAllowed(currentServiceKey);
 
@@ -201,7 +187,6 @@ class ScheduleRoadState extends Equatable {
     return _laneEnabled(lanes[e.faixaIndex]);
   }
 
-  /// Total esperado = estacas * (somente lanes habilitadas ao serviço atual)
   int get totalEsperado {
     if (lanes.isEmpty || totalEstacas <= 0) return 0;
     final enabled = lanes.where(_laneEnabled).length;
@@ -233,56 +218,31 @@ class ScheduleRoadState extends Equatable {
     return 'a_iniciar';
   }
 
-  int get concluidos => execucoes
-      .where((e) => _cellEnabled(e) && _canonStatus(e.status) == 'concluido')
-      .length;
-
-  int get andamento => execucoes
-      .where((e) => _cellEnabled(e) && _canonStatus(e.status) == 'em_andamento')
-      .length;
-
+  int get concluidos =>
+      execucoes.where((e) => _cellEnabled(e) && _canonStatus(e.status) == 'concluido').length;
+  int get andamento =>
+      execucoes.where((e) => _cellEnabled(e) && _canonStatus(e.status) == 'em_andamento').length;
   int get iniciados => concluidos + andamento;
+  int get aIniciar => (totalEsperado - iniciados) < 0 ? 0 : (totalEsperado - iniciados);
 
-  /// A iniciar = totalEsperado - (concluídos + andamento)
-  int get aIniciar {
-    final total = totalEsperado;
-    final ai = total - iniciados;
-    return ai < 0 ? 0 : ai;
-  }
-
-  double get pctConcluido =>
-      totalEsperado == 0 ? 0 : (concluidos / totalEsperado) * 100.0;
-
-  double get pctAndamento =>
-      totalEsperado == 0 ? 0 : (andamento / totalEsperado) * 100.0;
-
-  double get pctAIniciar =>
-      totalEsperado == 0 ? 0 : (aIniciar / totalEsperado) * 100.0;
-
-  // ================== Helpers expostos p/ SchedulePage ==================
+  double get pctConcluido => totalEsperado == 0 ? 0 : (concluidos / totalEsperado) * 100.0;
+  double get pctAndamento => totalEsperado == 0 ? 0 : (andamento / totalEsperado) * 100.0;
+  double get pctAIniciar => totalEsperado == 0 ? 0 : (aIniciar / totalEsperado) * 100.0;
 
   ScheduleRoadData get currentServiceMeta {
     if (services.isEmpty) {
       return const ScheduleRoadData(
-        numero: 0,
-        faixaIndex: 0,
-        key: 'geral',
-        label: 'GERAL',
-        icon: Icons.clear_all,
-        color: Colors.grey,
+        numero: 0, faixaIndex: 0, key: 'geral', label: 'GERAL',
+        icon: Icons.clear_all, color: Colors.grey,
       );
     }
-    return services.firstWhere(
-          (o) => o.key == currentServiceKey,
-      orElse: () => services.first,
-    );
+    return services.firstWhere((o) => o.key == currentServiceKey,
+        orElse: () => services.first);
   }
 
-  String get titleForHeader {
-    final meta = currentServiceMeta;
-    return (meta.label.isNotEmpty ? meta.label : meta.key).toUpperCase();
-  }
-
+  String get titleForHeader =>
+      (currentServiceMeta.label.isNotEmpty ? currentServiceMeta.label : currentServiceMeta.key)
+          .toUpperCase();
   Color get colorForHeader => currentServiceMeta.color;
 
   bool get canEditSingleCell => currentServiceKey != 'geral';
@@ -312,7 +272,6 @@ class ScheduleRoadState extends Equatable {
     return idx == -1 ? const <String>[] : List<String>.from(execucoes[idx].fotos);
   }
 
-  // ====== Sombreamento relativo por recência ======
   static const double _kMaxWhiteBlendOldest = 0.60;
 
   DateTime? _dateForShade(ScheduleRoadData e) {
@@ -381,7 +340,6 @@ class ScheduleRoadState extends Equatable {
   }
 }
 
-// helper para copyWith(selectedPolylineId opcional)
 class _Unset {
   const _Unset();
 }

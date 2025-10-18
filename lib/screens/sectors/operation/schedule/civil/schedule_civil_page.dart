@@ -12,6 +12,10 @@ import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
 import 'package:siged/_widgets/schedule/civil/schedule_civil_widget.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ScheduleCivilPage extends StatelessWidget {
   const ScheduleCivilPage({
     super.key,
@@ -93,21 +97,18 @@ class ScheduleCivilPage extends StatelessWidget {
               initialPdfBytes: initialPdfBytes, // tratado como DXF no widget
               pageNumber: 1,                    // fixo (DXF)
               allowPickNewPdf: allowPickNewPdf,
-                onPolylinesReady: (lines) {
-                  final total = lines.fold<int>(0, (a, b) => a + b.length);
-                  // envia pro mapa
-                  context.read<MapOverlayCubit>().showDxfPolylines(lines);
-
-                  // 🔎 prova visual
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('DXF → mapa: ${lines.length} linhas, $total vértices')),
-                  );
-
-                  // e log
-                  // ignore: avoid_print
-                  print('[DXF→MAP] linGroups=${lines.length}, vertices=$total '
-                      'ex.: ${lines.isNotEmpty && lines.first.isNotEmpty ? lines.first.first : '∅'}');
-                }
+              onPolylinesReady: (lines) {
+                final total = lines.fold<int>(0, (a, b) => a + b.length);
+                context.read<MapOverlayCubit>().showDxfPolylines(lines);
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('DXF enviado ao mapa'),
+                    subtitle: Text('${lines.length} linha(s), $total vértice(s)'),
+                    type: AppNotificationType.success,
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              },
             ),
             Positioned.fill(
               child: AnimatedBuilder(
@@ -151,8 +152,6 @@ class ScheduleCivilPage extends StatelessWidget {
                         onAskName: (s) => _askAreaName(context, initial: s ?? '').then((v) => v ?? s ?? ''),
                       ),
                       onDeleteSelected: controller.deleteSelected,
-
-                      // Export sempre como DXF (page=1)
                       buildGeoJSON: (normalized) => controller.exportGeoJSON(
                         sourceKind: SourceKind.dxf,
                         pageNumber: 1,
@@ -162,8 +161,13 @@ class ScheduleCivilPage extends StatelessWidget {
                       copyToClipboard: (txt) async {
                         await Clipboard.setData(ClipboardData(text: txt));
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Copiado para a área de transferência')),
+                          NotificationCenter.instance.show(
+                            AppNotification(
+                              title: Text('Copiado'),
+                              subtitle: Text('Conteúdo enviado para a área de transferência.'),
+                              type: AppNotificationType.info,
+                              duration: Duration(seconds: 2),
+                            ),
                           );
                         }
                       },

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_services/firestore/cleanup/cleanup_subcollections.dart';
 
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class CleanUpOldCollections extends StatelessWidget {
   const CleanUpOldCollections({super.key});
 
@@ -32,7 +35,7 @@ class CleanUpOldCollections extends StatelessWidget {
 
         if (!ok) return;
 
-        // 2) Mostra loading
+        // 2) Mostra loading (dry-run)
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -83,7 +86,7 @@ class CleanUpOldCollections extends StatelessWidget {
 
           if (!ok2) return;
 
-          // 4) Executa real
+          // 4) Executa real com loading
           showDialog(
             context: context,
             barrierDismissible: false,
@@ -93,11 +96,16 @@ class CleanUpOldCollections extends StatelessWidget {
           final res = await cleaner.deleteForAllContracts(dryRun: false);
 
           Navigator.pop(context); // fecha loading
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Subcoleções antigas apagadas com sucesso!')),
-            );
-          }
+
+          // ✅ sucesso via NotificationCenter
+          NotificationCenter.instance.show(
+            AppNotification(
+              title: const Text('Subcoleções antigas apagadas'),
+              type: AppNotificationType.success,
+              leadingLabel: const Text('Limpeza'),
+              duration: const Duration(seconds: 4),
+            ),
+          );
 
           // (opcional) Mostra um resumo do resultado real
           await showDialog<void>(
@@ -122,12 +130,21 @@ class CleanUpOldCollections extends StatelessWidget {
             ),
           );
         } catch (e) {
-          Navigator.pop(context); // fecha qualquer loading aberto
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Falha ao apagar: $e')),
-            );
+          // fecha qualquer loading aberto
+          if (Navigator.of(context, rootNavigator: true).canPop()) {
+            Navigator.pop(context);
           }
+
+          // ❌ erro via NotificationCenter
+          NotificationCenter.instance.show(
+            AppNotification(
+              title: const Text('Falha ao apagar'),
+              subtitle: Text('$e'),
+              type: AppNotificationType.error,
+              leadingLabel: const Text('Limpeza'),
+              duration: const Duration(seconds: 6),
+            ),
+          );
         }
       },
     );

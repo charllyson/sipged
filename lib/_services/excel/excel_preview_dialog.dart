@@ -8,6 +8,10 @@ import 'tipo_dado_enum.dart';
 import 'excel_utils.dart';
 import 'progress_import_dialog.dart';
 
+// ✅ notificações ricas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class ExcelPreviewDialog extends StatefulWidget {
   final List<Map<String, dynamic>> jsonData;
   final String path;
@@ -254,9 +258,15 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
 
     final total = _linhasSelecionadas.entries.where((e) => e.value).length;
     if (total == 0) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nenhuma linha selecionada para importar.')),
+      // ❗️ aviso via NotificationCenter
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Nada a importar'),
+          subtitle: const Text('Nenhuma linha selecionada.'),
+          type: AppNotificationType.warning,
+          leadingLabel: const Text('Importação'),
+          duration: const Duration(seconds: 4),
+        ),
       );
       return;
     }
@@ -276,37 +286,60 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
           Future(() async {
             int count = 0;
 
-            for (int i = 0; i < widget.jsonData.length; i++) {
-              if (!(_linhasSelecionadas[i] ?? false)) continue;
+            try {
+              for (int i = 0; i < widget.jsonData.length; i++) {
+                if (!(_linhasSelecionadas[i] ?? false)) continue;
 
-              final linha = widget.jsonData[i];
-              final Map<String, dynamic> dadosFiltrados = {};
+                final linha = widget.jsonData[i];
+                final Map<String, dynamic> dadosFiltrados = {};
 
-              for (final campo in _colunasSelecionadas.keys) {
-                if (_colunasSelecionadas[campo] != true) continue;
+                for (final campo in _colunasSelecionadas.keys) {
+                  if (_colunasSelecionadas[campo] != true) continue;
 
-                final valor = linha[campo];
-                final tipo = _tiposPorCampo[campo] ?? TipoDado.string;
-                final convertido = converterValorPorTipo(valor, tipo);
+                  final valor = linha[campo];
+                  final tipo = _tiposPorCampo[campo] ?? TipoDado.string;
+                  final convertido = converterValorPorTipo(valor, tipo);
 
-                dadosFiltrados[campo] = convertido;
+                  dadosFiltrados[campo] = convertido;
+                }
+
+                // salve como preferir (add / set com docId único)
+                await ref.add(dadosFiltrados);
+
+                count++;
+                progress.value = count;
               }
 
-              // salve como preferir (add / set com docId único)
-              await ref.add(dadosFiltrados);
+              if (ctx.mounted) Navigator.of(ctx).pop(); // fecha progress
+              if (mounted) Navigator.of(context).pop();  // fecha preview
 
-              count++;
-              progress.value = count;
-            }
+              if (mounted) {
+                // ✅ sucesso via NotificationCenter
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Importação concluída'),
+                    subtitle: Text('Registros importados: $count de $total.'),
+                    type: AppNotificationType.success,
+                    leadingLabel: const Text('Importação'),
+                    duration: const Duration(seconds: 6),
+                  ),
+                );
+                widget.onFinished?.call();
+              }
+            } catch (e) {
+              if (ctx.mounted) Navigator.of(ctx).pop(); // fecha progress
+              if (mounted) Navigator.of(context).pop();  // fecha preview
 
-            if (ctx.mounted) Navigator.of(ctx).pop(); // fecha progress
-            if (mounted) Navigator.of(context).pop();  // fecha preview
-
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Importação concluída: $count de $total.')),
+              // ❌ erro via NotificationCenter
+              NotificationCenter.instance.show(
+                AppNotification(
+                  title: const Text('Falha na importação'),
+                  subtitle: Text('$e'),
+                  type: AppNotificationType.error,
+                  leadingLabel: const Text('Importação'),
+                  duration: const Duration(seconds: 8),
+                ),
               );
-              widget.onFinished?.call();
             }
           });
         }

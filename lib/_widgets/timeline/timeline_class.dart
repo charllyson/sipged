@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_utils/date_utils.dart';
 
-import 'package:siged/_blocs/documents/contracts/validity/validity_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/additives/additive_data.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
-import 'package:siged/_blocs/documents/contracts/validity/validity_data.dart';
+import 'package:siged/_blocs/process/validity/validity_bloc.dart';
+import 'package:siged/_blocs/process/additives/additive_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/validity/validity_data.dart';
 
 class TimelineItem {
   final String title;
@@ -118,7 +118,7 @@ class TimelineClass extends StatelessWidget {
       items.add(TimelineItem(
         title: 'PUBLICAÇÃO',
         date: contract.publicationDateDoe,
-        source: 'mainInformation',
+        source: '0.resume',
         original: contract,
       ));
     }
@@ -220,7 +220,7 @@ class TimelineClass extends StatelessWidget {
         if (type.contains('PARALISA')) return (Colors.orange, Icons.pause);
         if (type.contains('FINALIZA')) return (Colors.green, Icons.check_circle);
         return (Colors.grey, Icons.description);
-      case 'mainInformation':
+      case '0.resume':
         return (Colors.black54, Icons.article);
       case 'assinatura_prazo':
         return (Colors.teal, Icons.edit_note);

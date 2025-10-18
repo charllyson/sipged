@@ -60,7 +60,6 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
         validator: widget.validator,
         dropdownColor: Colors.white,
         value: selectedTypes,
-
         // ✅ garante truncamento do item selecionado
         selectedItemBuilder: (ctx) => widget.items
             .map((v) => Align(

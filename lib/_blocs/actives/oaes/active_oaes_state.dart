@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:siged/_blocs/process/contracts/contract_rules.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_style.dart';
 
 // 👇 GeoJSON
@@ -116,7 +116,7 @@ class ActiveOaesState extends Equatable {
       GeoJsonManager gm,
       ) async {
     // mesmo método que você usa no DashboardController
-    await gm.loadLimitsRegionalsDERAL();
+    await gm.loadLimitsRegionalsPolygonDERAL();
     return state.withGeoManager(gm);
   }
 

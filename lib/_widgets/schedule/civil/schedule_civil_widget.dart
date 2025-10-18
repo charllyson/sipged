@@ -1,6 +1,4 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/gestures.dart';
@@ -9,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:siged/_services/dxf/dxf_selection_overlay.dart';
 import 'package:siged/_widgets/input/in_line_text_box.dart';
-import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 // Base/UI
 import 'package:siged/_widgets/background/background_cleaner.dart';
@@ -20,11 +17,11 @@ import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
 
 // Modal unificado + tipos
-import 'package:siged/_widgets/modals/schedule_modal_square.dart';
+import 'package:siged/_widgets/schedule/linear/schedule_modal_square.dart';
 
 // Civil (render e UI)
 import 'package:siged/_services/dxf/dxf_empty_hint.dart';
-import 'package:siged/_services/dxf/dxf_render.dart'; // RenderService (mantido para outros usos)
+// RenderService (mantido para outros usos)
 import 'package:siged/_widgets/schedule/civil/schedule_civil_board.dart';
 import 'package:siged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
 import 'package:siged/_services/dxf/dxf_enums.dart';
@@ -34,7 +31,7 @@ import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
 
 // Domínio
 import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
-import 'package:siged/_blocs/widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/carousel/carousel_metadata.dart' as pm;
 
 // BLoC/Auth
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -50,8 +47,11 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 // DXF modular
 import 'package:siged/_services/dxf/dxf_controller.dart';
-
 import 'package:siged/_services/dxf/dxf_to_geo.dart';
+
+// ✅ notificações ricas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ScheduleCivilWidget extends StatefulWidget {
   const ScheduleCivilWidget({
@@ -70,7 +70,6 @@ class ScheduleCivilWidget extends StatefulWidget {
   final bool allowPickNewPdf;
   final ScheduleCivilController controller;
   final void Function(List<List<LatLng>> polylines)? onPolylinesReady;
-
 
   @override
   State<ScheduleCivilWidget> createState() => _ScheduleCivilWidgetState();
@@ -151,8 +150,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     switch (st) {
       case ScheduleStatus.concluido:   return const Color(0xFF34A853);
       case ScheduleStatus.emAndamento: return const Color(0xFFF39C12);
-      case ScheduleStatus.aIniciar:
-      default:                         return const Color(0xFF9CA3AF);
+      case ScheduleStatus.aIniciar:    return const Color(0xFF9CA3AF);
     }
   }
 
@@ -374,15 +372,23 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       civil.add(const CivilRefreshRequested());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Polígono salvo.')),
+        NotificationCenter.instance.show(
+          AppNotification(
+            title: const Text('Polígono salvo.'),
+            type: AppNotificationType.success,
+            leadingLabel: const Text('Civil'),
+          ),
         );
       }
     } catch (e) {
       _polygonIdByIndex.remove(index);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Falha ao salvar polígono: $e')),
+        NotificationCenter.instance.show(
+          AppNotification(
+            title: Text('Falha ao salvar polígono: $e'),
+            type: AppNotificationType.error,
+            leadingLabel: const Text('Civil'),
+          ),
         );
       }
     } finally {
@@ -576,11 +582,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     if (!isDrawingNow &&
         ctrl.mode == ToolMode.select &&
         ctrl.selectedIndex == null) {
-      final pick = _dxf.pickAtImage(
-        pImage,
-        tolPx: 8.0,
-        currentScreenScale: _tc.value.storage[0],
-      );
       setState(() {}); // redesenha overlay
     }
 
@@ -1054,10 +1055,12 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                       Navigator.of(context).pop();
                     }
                     civilBloc.add(const CivilRefreshRequested());
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        backgroundColor: Colors.red,
-                        content: Text('Área apagada.', style: TextStyle(color: Colors.white)),
+
+                    NotificationCenter.instance.show(
+                      AppNotification(
+                        title: const Text('Área apagada.'),
+                        type: AppNotificationType.warning,
+                        leadingLabel: const Text('Civil'),
                       ),
                     );
                   },
@@ -1086,8 +1089,12 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       listener: (ctx, st) async {
         await _hydrateFromBackend(st);
         if ((st.error ?? '').isNotEmpty && mounted) {
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            SnackBar(content: Text('Erro: ${st.error}')),
+          NotificationCenter.instance.show(
+            AppNotification(
+              title: Text('Erro: ${st.error}'),
+              type: AppNotificationType.error,
+              leadingLabel: const Text('Civil'),
+            ),
           );
         }
       },

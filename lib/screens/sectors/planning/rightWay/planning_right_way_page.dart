@@ -1,18 +1,18 @@
 // lib/screens/sectors/planning/rightWay/tab_bar_right_way_page.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/popUpMenu/pup_up_photo_menu.dart';
+import 'package:siged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 import 'package:siged/screens/sectors/financial/payments/adjustment/payments_adjustment_page.dart';
 import 'package:siged/screens/sectors/financial/payments/revision/payments_revision_page.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_bloc.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
+import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
 
 // >>> NOVOS imports
-import 'package:siged/screens/sectors/planning/rightWay/property/planning_right_way_property_form.dart';
-import 'package:siged/_blocs/sectors/planning/right_way_properties/planning_right_way_property_controller.dart';
-import 'package:siged/_blocs/sectors/planning/right_way_properties/planning_right_way_property_store.dart';
+import 'package:siged/screens/process/landRegularization/lane_regularization_property_form.dart';
+import 'package:siged/_blocs/process/laneRegularization/lane_regularization_controller.dart';
+import 'package:siged/_blocs/process/laneRegularization/lane_regularization_store.dart';
 
 class TabBarRightWayPage extends StatefulWidget {
   final UserData? userData;
@@ -36,17 +36,17 @@ class _TabBarRightWayPageState extends State<TabBarRightWayPage> {
   late ContractData? _contractData;
 
   // >>> NOVO: controller e store do módulo
-  late final PlanningRightWayPropertyStore _store;
-  PlanningRightWayPropertyController? _propCtrl;
+  late final LaneRegularizationStore _store;
+  LaneRegularizationController? _propCtrl;
 
   @override
   void initState() {
     super.initState();
     _contractData = widget.contractData;
 
-    _store = PlanningRightWayPropertyStore();
+    _store = LaneRegularizationStore();
     if (_contractData != null) {
-      _propCtrl = PlanningRightWayPropertyController(
+      _propCtrl = LaneRegularizationController(
         contract: _contractData!,
         store: _store,
       );
@@ -106,7 +106,7 @@ class _TabBarRightWayPageState extends State<TabBarRightWayPage> {
                               ? const SizedBox.shrink()
                               : Padding(
                             padding: const EdgeInsets.all(12.0),
-                            child: PlanningRightWayPropertyForm(
+                            child: LaneRegularizationPropertyForm(
                               controller: _propCtrl!,
                             ),
                           ),

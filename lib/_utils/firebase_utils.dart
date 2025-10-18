@@ -1,6 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+// 🔔 Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class FirebaseUtils {
   static Future<void> deleteCollectionCompletamente({
     required BuildContext context,
@@ -16,11 +20,11 @@ class FirebaseUtils {
       final totalDocs = totalDocsSnapshot.docs.length;
 
       if (totalDocs == 0) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ Coleção "$path" não encontrada ou já está vazia.')),
-          );
-        }
+        _notify(
+          'Coleção não encontrada ou vazia',
+          subtitle: '"$path"',
+          type: AppNotificationType.warning,
+        );
         return;
       }
 
@@ -28,7 +32,7 @@ class FirebaseUtils {
       final bool confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Confirmar exclusão'),
+          title: const Text('Confirmar exclusão'),
           content: Text(
             'Tem certeza que deseja apagar a coleção:\n\n"$path"\n\nEla contém $totalDocs documentos.',
           ),
@@ -49,17 +53,16 @@ class FirebaseUtils {
 
       if (!confirm) return;
 
-      // Etapa 3: exibir início
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('🗑️ Apagando $totalDocs documentos da coleção "$path"...')),
-        );
-      }
+      // Etapa 3: início
+      _notify(
+        'Apagando documentos…',
+        subtitle: '$totalDocs docs em "$path"',
+        type: AppNotificationType.info,
+      );
 
       // Etapa 4: apagar por lote
       while (true) {
         final querySnapshot = await collectionRef.limit(batchSize).get();
-
         if (querySnapshot.docs.isEmpty) break;
 
         final batch = FirebaseFirestore.instance.batch();
@@ -68,26 +71,41 @@ class FirebaseUtils {
         }
 
         await batch.commit();
-        await Future.delayed(const Duration(milliseconds: 250)); // Em vez de 50ms
+        await Future.delayed(const Duration(milliseconds: 250));
       }
 
       // Etapa 5: sucesso
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ Coleção "$path" deletada com sucesso! ($totalDocs docs)')),
-        );
-      }
+      _notify(
+        'Coleção deletada com sucesso',
+        subtitle: '"$path" • $totalDocs docs',
+        type: AppNotificationType.success,
+      );
 
-      if (onFinished != null) onFinished();
+      onFinished?.call();
     } catch (e, stack) {
       debugPrint('❌ Erro ao deletar coleção "$path": $e');
       debugPrint(stack.toString());
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao deletar "$path": $e')),
-        );
-      }
+      _notify(
+        'Erro ao deletar coleção',
+        subtitle: '"$path": $e',
+        type: AppNotificationType.error,
+      );
     }
+  }
+
+  // 🔔 helper de notificação
+  static void _notify(
+      String title, {
+        String? subtitle,
+        AppNotificationType type = AppNotificationType.info,
+      }) {
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: Text(title),
+        subtitle: subtitle != null ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
   }
 }

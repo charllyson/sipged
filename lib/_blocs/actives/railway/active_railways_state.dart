@@ -9,7 +9,7 @@ import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_rules.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_style.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_blocs/documents/contracts/contracts/contract_rules.dart';
+import 'package:siged/_blocs/process/contracts/contract_rules.dart';
 
 import 'package:siged/screens/actives/railways/network/railway_ties.dart';
 import 'package:siged/_utils/multi_line_simplifier.dart';

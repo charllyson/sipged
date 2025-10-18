@@ -1,22 +1,21 @@
+// lib/screens/sectors/actives/oaes/active_oaes_map.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:latlong2/latlong.dart';
 
 import 'package:siged/_widgets/map/clusters/cluster_animated_marker_widget.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
 import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 
+// pin com bico/seleção
+import 'package:siged/_widgets/map/pin/pin_changed.dart';
+
 import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
-import 'package:siged/_widgets/search/search_overlay.dart';
-import 'package:siged/_widgets/search/search_widget.dart';
-import 'package:siged/_widgets/suggestions/suggestion_models.dart';
 
 import '../../../../_blocs/actives/oaes/active_oaes_data.dart';
 import '../../../../_blocs/actives/oaes/active_oaes_style.dart';
-import '../../../../_services/geocoding/geocoding_service.dart';
 
 class ActiveOaesMap extends StatefulWidget {
   const ActiveOaesMap({
@@ -36,7 +35,6 @@ class ActiveOaesMap extends StatefulWidget {
 
 class _ActiveOaesMapState extends State<ActiveOaesMap> {
 
-
   @override
   Widget build(BuildContext context) {
     if (widget.state.loadStatus == ActiveOaesLoadStatus.loading && !widget.state.initialized) {
@@ -53,38 +51,43 @@ class _ActiveOaesMapState extends State<ActiveOaesMap> {
       searchTargetZoom: 16,
       showSearchMarker: true,
       taggedMarkers: markers,
+
       clusterWidgetBuilder: (markers, selected, onSelect) {
+        final bool anySelected = selected != null;
+
         return ClusterAnimatedMarkerLayer<ActiveOaesData>(
           taggedMarkers: markers,
           selectedMarkerPosition: selected,
           onMarkerSelected: onSelect,
-          markerBuilder: (context, tagged) {
+          inlineTooltip: true,
+          inlineMaxWidth: 240,
+          inlineClearance: -10,
+          markerAlignment: Alignment.topCenter,
+          // pin + lógica de seleção/destaque
+          markerBuilder: (context, tagged, isSelected) {
             final nota  = tagged.data.score?.toDouble() ?? 0;
-            final order = tagged.data.order?.toString() ?? '';
-            return Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(
-                  color: OaesDataStyle.getColorByNota(nota),
-                  width: 4,
-                ),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
-                ],
-              ),
-              child: Text(
-                order,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black),
-              ),
+            final order = (tagged.data.order?.toString() ?? '').trim();
+
+            final Color notaColor = OaesDataStyle.getColorByNota(nota);
+            final Color pinColor = isSelected
+                ? notaColor
+                : (anySelected ? Colors.black26 : notaColor);
+
+            return PinChanged(
+              size: 50,
+              label: order.isEmpty ? ' ' : order,
+              color: pinColor,
+              halo: isSelected,
+              haloOpacity: 0.20,
+              haloScale: 1.85,
+              innerDot: true,
             );
           },
+
           titleBuilder: (data) => data.identificationName ?? 'Sem nome',
           subTitleBuilder: (data) => data.state ?? 'Não identificado',
 
-          // >>> aqui só repassamos o clique "Ver detalhes" pra página pai
+          // abrir painel de detalhes na página pai
           onViewDetails: (ctx, marker) => widget.onOpenDetails?.call(marker),
         );
       },

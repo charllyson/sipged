@@ -8,8 +8,7 @@ class SummaryExpandableCard extends StatelessWidget {
   final IconData? icon;
   final Color colorIcon;
 
-  /// [valoresIndividuais] na ordem: [Inicial, Aditivo, Apostila]
-  /// Pode ficar vazio quando você só quer mostrar o total.
+  /// Valores individuais (cada índice corresponde a um rótulo do breakdown).
   final List<double?> valoresIndividuais;
 
   /// Se informado, sobrepõe qualquer cálculo.
@@ -24,6 +23,9 @@ class SummaryExpandableCard extends StatelessWidget {
   /// true = moeda; false = número inteiro (bom para contagens).
   final bool formatAsCurrency;
 
+  /// Rótulos dos itens do breakdown.
+  final List<String>? subTitles;
+
   const SummaryExpandableCard({
     super.key,
     required this.title,
@@ -34,6 +36,7 @@ class SummaryExpandableCard extends StatelessWidget {
     this.valorTotal,
     this.loading = false,
     this.formatAsCurrency = true,
+    this.subTitles,
   });
 
   String _format(double? value) {
@@ -43,19 +46,22 @@ class SummaryExpandableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // largura responsiva dos cartões da grade
     final width = responsiveInputWidth(
       context: context,
       itemsPerLine: 6,
       margin: 12,
       spacing: 12,
+      // se você aplicou meu patch do responsive_utils, dá pra por minItemWidth > 220
+      // minItemWidth: 230,
     );
 
-    final labels = const ['Inicial', 'Aditivo', 'Apostila'];
     final hasBreakdown = valoresIndividuais.isNotEmpty;
 
     Widget _totalText(double? v) => Text(
       _format(v),
-      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+      overflow: TextOverflow.visible,
       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
     );
 
@@ -75,7 +81,8 @@ class SummaryExpandableCard extends StatelessWidget {
       }
       // fallback: soma dos individuais
       final soma = valoresIndividuais.fold<double>(
-        0.0, (sum, v) => sum + (v ?? 0.0),
+        0.0,
+            (sum, v) => sum + (v ?? 0.0),
       );
       return _totalText(soma);
     }
@@ -86,44 +93,94 @@ class SummaryExpandableCard extends StatelessWidget {
         color: Colors.white,
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          leading: icon != null ? Icon(icon, color: colorIcon) : null,
-          trailing: hasBreakdown ? null : const SizedBox.shrink(), // some a setinha se não tiver filhos
-          title: Text(
-            title,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-          subtitle: Wrap(
-            children: [
-              const Text('Total:', style: TextStyle(fontSize: 14)),
-              const SizedBox(width: 4),
-              _totalWidget(),
-            ],
-          ),
-          childrenPadding: const EdgeInsets.only(left: 20, right: 20, bottom: 8),
-          children: hasBreakdown
-              ? List.generate(valoresIndividuais.length, (i) {
-            final label = i < labels.length ? labels[i] : 'Valor ${i + 1}';
-            final valor = valoresIndividuais[i] ?? 0.0;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-              child: Row(
-                children: [
-                  Text('$label:', style: const TextStyle(fontSize: 14, color: Colors.grey)),
-                  const Spacer(),
-                  loading ? ShimmerW60H14() : Text(
-                    _format(valor),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: icon != null ? Icon(icon, color: colorIcon) : null,
+            trailing: hasBreakdown ? null : const SizedBox.shrink(),
+
+            // ✅ Título robusto para iPad 12,9": até 2 linhas, sem estourar
+            title: LayoutBuilder(
+              builder: (context, constraints) {
+                return ConstrainedBox(
+                  // deixa espaço para ícones/setas; evita overflow
+                  constraints: BoxConstraints(maxWidth: constraints.maxWidth - 40),
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    softWrap: true,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.left,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
+                );
+              },
+            ),
+
+            // ✅ “Total: R$ …” sem quebrar layout; adapta no iPad grande
+            subtitle: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Total:', style: TextStyle(fontSize: 14)),
+                  const SizedBox(width: 4),
+                  _totalWidget(),
                 ],
               ),
-            );
-          })
-              : const <Widget>[],
+            ),
+
+            childrenPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            children: hasBreakdown
+                ? [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: List.generate(valoresIndividuais.length, (i) {
+                      final label = (subTitles != null && i < subTitles!.length)
+                          ? subTitles![i]
+                          : 'Valor ${i + 1}';
+                      final valor = valoresIndividuais[i] ?? 0.0;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            // label do breakdown com quebra controlada
+                            Expanded(
+                              child: Text(
+                                '$label:',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 14, color: Colors.grey),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            loading
+                                ? ShimmerW60H14()
+                                : Text(
+                              _format(valor),
+                              softWrap: false,
+                              overflow: TextOverflow.visible,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ]
+                : const <Widget>[],
+          ),
         ),
       ),
     );

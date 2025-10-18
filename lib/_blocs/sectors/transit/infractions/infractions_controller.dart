@@ -6,6 +6,10 @@ import 'package:geolocator/geolocator.dart';
 import 'infractions_bloc.dart';
 import 'infractions_data.dart';
 
+// 🔔 Notificações centralizadas
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
 class InfractionsController extends ChangeNotifier {
   InfractionsController({required InfractionsBloc bloc}) : _bloc = bloc;
 
@@ -291,7 +295,7 @@ class InfractionsController extends ChangeNotifier {
 
       final targetYear = data.dateInfraction?.year;
       if (targetYear == null) {
-        _snack(context, 'Informe a data da infração (não foi possível determinar o ano).');
+        _notify('Informe a data da infração', type: AppNotificationType.warning, subtitle: 'Não foi possível determinar o ano.');
         return;
       }
 
@@ -306,10 +310,10 @@ class InfractionsController extends ChangeNotifier {
         source: 'save',
       );
 
-      _snack(context, 'Infração salva com sucesso.');
+      _notify('Infração salva com sucesso', type: AppNotificationType.success);
       await createNew();
     } catch (e) {
-      _snack(context, 'Erro ao salvar: $e');
+      _notify('Erro ao salvar', type: AppNotificationType.error, subtitle: '$e');
     } finally {
       isSaving = false;
       _safeNotify();
@@ -328,7 +332,7 @@ class InfractionsController extends ChangeNotifier {
       final targetYear = item.dateInfraction?.year ?? selectedYear;
 
       if (targetYear == null) {
-        _snack(context, 'Não foi possível determinar o ano do registro para excluir.');
+        _notify('Não foi possível determinar o ano do registro', type: AppNotificationType.warning, subtitle: 'Exclusão não executada.');
         return;
       }
 
@@ -343,10 +347,10 @@ class InfractionsController extends ChangeNotifier {
         source: 'delete',
       );
 
-      _snack(context, 'Infração removida.');
+      _notify('Infração removida', type: AppNotificationType.success);
       if (currentInfractionId == id) await createNew();
     } catch (e) {
-      _snack(context, 'Erro ao remover: $e');
+      _notify('Erro ao remover', type: AppNotificationType.error, subtitle: '$e');
     } finally {
       isSaving = false;
       _safeNotify();
@@ -477,8 +481,23 @@ class InfractionsController extends ChangeNotifier {
     return res ?? false;
   }
 
-  void _snack(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _notify(
+      String title, {
+        AppNotificationType type = AppNotificationType.info,
+        String? subtitle,
+        String? id,
+      }) {
+    if (id != null) {
+      NotificationCenter.instance.dismissById(id);
+    }
+    NotificationCenter.instance.show(
+      AppNotification(
+        id: id,
+        title: Text(title),
+        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        type: type,
+      ),
+    );
   }
 
   // ===================== GEOLOCALIZAÇÃO =====================
@@ -489,12 +508,12 @@ class InfractionsController extends ChangeNotifier {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          _snack(context, 'Permissão de localização negada.');
+          _notify('Permissão de localização negada.', type: AppNotificationType.warning);
           return;
         }
       }
       if (permission == LocationPermission.deniedForever) {
-        _snack(context, 'Permissão de localização negada permanentemente.');
+        _notify('Permissão de localização negada permanentemente.', type: AppNotificationType.warning);
         return;
       }
 
@@ -517,7 +536,7 @@ class InfractionsController extends ChangeNotifier {
 
       _safeNotify();
     } catch (e) {
-      _snack(context, 'Falha ao obter localização: $e');
+      _notify('Falha ao obter localização', type: AppNotificationType.error, subtitle: '$e');
     }
   }
 

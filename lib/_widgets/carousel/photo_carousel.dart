@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/carousel/photo_gallery_dialog.dart';
 import 'package:siged/_widgets/carousel/photo_item.dart';
 import 'package:siged/_widgets/carousel/photo_thumb.dart';
-import 'package:siged/_blocs/widgets/carousel/carousel_photo_theme.dart';
-import '../../_blocs/widgets/carousel/carousel_metadata.dart' as pm;
-import '../../_blocs/widgets/carousel/carousel_photo.dart';
+import 'package:siged/_widgets/carousel/carousel_photo_theme.dart';
+import 'carousel_metadata.dart' as pm;
+import 'carousel_photo.dart';
 
 class PhotoCarousel extends StatelessWidget {
   final Widget? leading;
