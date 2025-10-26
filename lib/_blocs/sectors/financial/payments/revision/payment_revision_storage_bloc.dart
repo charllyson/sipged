@@ -1,4 +1,3 @@
-// lib/_blocs/sectors/financial/payments/revisions/payment_revision_storage_bloc.dart
 import 'dart:typed_data';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -7,28 +6,39 @@ import 'package:flutter/foundation.dart';
 
 import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
-/// Storage-only para PDFs de **Revisões de Pagamento**.
+/// Storage-only para PDFs e anexos de **Revisões de Pagamento**.
 class PaymentRevisionStorageBloc extends BlocBase {
   final FirebaseStorage _storage;
   PaymentRevisionStorageBloc({FirebaseStorage? storage})
       : _storage = storage ?? FirebaseStorage.instance;
 
   // ---------- Utils ----------
-  String _sanitize(String s) =>
-      s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+  String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ContractData c, PaymentsRevisionsData p) {
+  String fileName(ContractData c, PaymentsRevisionsData p, {String? originalName}) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem    = (p.orderPaymentRevision ?? '0').toString();
     final proc     = _sanitize(p.processPaymentRevision ?? 'processo');
+    if (originalName != null && originalName.trim().isNotEmpty) {
+      return '$contrato-$ordem-$proc-${_sanitize(originalName)}';
+    }
     return '$contrato-$ordem-$proc.pdf';
   }
 
+  // Legado: caminho único para PDF
   String pathFor(ContractData c, PaymentsRevisionsData p) =>
       'process/${c.id}/revisionPayments/${p.idRevisionPayment}/${fileName(c, p)}';
 
-  // ---------- Operações principais ----------
+  // Nova pasta padrão para múltiplos anexos
+  String folderFor(ContractData c, PaymentsRevisionsData p) =>
+      'contracts/${c.id}/revisionPayments/${p.idRevisionPayment}';
+
+  String fullPath(ContractData c, PaymentsRevisionsData p, String file) =>
+      '${folderFor(c, p)}/$file';
+
+  // ---------- Operações principais (legado) ----------
   Future<bool> exists(ContractData c, PaymentsRevisionsData p) async {
     try {
       await _storage.ref(pathFor(c, p)).getMetadata();
@@ -47,7 +57,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
     }
   }
 
-  /// Upload via seletor (Web/desktop). Retorna a URL https.
+  /// Upload via seletor (Web/desktop). Retorna a URL https. (legado)
   Future<String> uploadWithPicker({
     required ContractData contract,
     required PaymentsRevisionsData payment,
@@ -67,7 +77,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
     );
   }
 
-  /// Upload a partir de bytes; retorna URL https.
+  /// Upload a partir de bytes; retorna URL https. (legado)
   Future<String> uploadBytes({
     required ContractData contract,
     required PaymentsRevisionsData payment,
@@ -98,7 +108,74 @@ class PaymentRevisionStorageBloc extends BlocBase {
     }
   }
 
-  // ---------- Compat (mantém API antiga da UI) ----------
+  // ---------- NOVOS utilitários (multi-anexos) ----------
+
+  /// Abre o picker e retorna (bytes, nomeOriginal)
+  Future<(Uint8List, String)> pickFileBytes() async {
+    final res = await FilePicker.platform.pickFiles(withData: true);
+    if (res == null || res.files.single.bytes == null) {
+      throw Exception('Nenhum arquivo selecionado ou arquivo vazio.');
+    }
+    return (res.files.single.bytes!, res.files.single.name);
+  }
+
+  /// Upload de anexo a partir de bytes, gerando um Attachment completo.
+  Future<Attachment> uploadAttachmentBytes({
+    required ContractData contract,
+    required PaymentsRevisionsData payment,
+    required Uint8List bytes,
+    required String originalName,
+    required String label,
+  }) async {
+    final safeName = fileName(contract, payment, originalName: originalName);
+    final ref = _storage.ref(fullPath(contract, payment, safeName));
+    final task = ref.putData(
+      bytes,
+      SettableMetadata(contentType: 'application/octet-stream'),
+    );
+    await task;
+    final url = await ref.getDownloadURL();
+
+    return Attachment(
+      id: safeName,
+      label: label,
+      url: url,
+      path: ref.fullPath,
+      ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(safeName)?.group(0) ?? '',
+      createdAt: DateTime.now(),
+    );
+  }
+
+  /// Lista todos os arquivos já existentes na pasta da revisão (novo esquema).
+  Future<List<_StorageFile>> listarArquivosDaRevisao({
+    required String contractId,
+    required String revisionPaymentId,
+  }) async {
+    final dir = 'contracts/$contractId/revisionPayments/$revisionPaymentId';
+    try {
+      final res = await _storage.ref(dir).listAll();
+      final out = <_StorageFile>[];
+      for (final item in res.items) {
+        final url = await item.getDownloadURL();
+        out.add(_StorageFile(name: item.name, url: url));
+      }
+      return out;
+    } catch (e) {
+      debugPrint('listarArquivosDaRevisao erro: $e');
+      return const <_StorageFile>[];
+    }
+  }
+
+  /// Deleta um arquivo pelo caminho completo (path salvo no Attachment).
+  Future<void> deleteStorageByPath(String fullPath) async {
+    try {
+      await _storage.ref(fullPath).delete();
+    } catch (e) {
+      debugPrint('deleteStorageByPath erro: $e');
+    }
+  }
+
+  // ---------- Compat (UI antiga) ----------
   Future<bool> verificarSePdfDePaymentExiste({
     required ContractData contract,
     required PaymentsRevisionsData paymentsRevisionsData,
@@ -113,7 +190,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
     required ContractData? contract,
     required PaymentsRevisionsData? payment,
     required void Function(double) onProgress,
-    Future<void> Function(String url)? onUploaded, // opcional
+    Future<void> Function(String url)? onUploaded,
   }) async {
     final c = contract;
     final p = payment;
@@ -134,4 +211,14 @@ class PaymentRevisionStorageBloc extends BlocBase {
     }
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+}
+
+class _StorageFile {
+  final String name;
+  final String url;
+  const _StorageFile({required this.name, required this.url});
 }

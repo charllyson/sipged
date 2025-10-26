@@ -91,6 +91,13 @@ class AdjustmentMeasurement extends StatelessWidget {
                                 onTapSideItem: (i) => ctrl.handleOpenFile(context, i), // ⬅️ abre viewer interno
                                 onDeleteSideItem: (i) async => ctrl.handleDeleteFile(i),
                                 onEditLabelSideItem: (i) async => ctrl.handleEditLabelFile(i),
+
+                                // =========================
+                                // NOVAS PROPRIEDADES (DROPDOWN ORDEM)
+                                // =========================
+                                orderOptions: ctrl.orderOptions,
+                                greyOrderItems: ctrl.greyOrderItems,
+                                onChangedOrder: ctrl.onChangeOrderDropdown,
                               ),
                             ),
                             const SizedBox(height: 12),

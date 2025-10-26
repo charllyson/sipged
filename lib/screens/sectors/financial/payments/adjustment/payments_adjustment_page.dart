@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_blocs/sectors/financial/payments/report/payment_report_controller.dart';
-import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
-import '../../../../../_blocs/sectors/financial/payments/adjustment/payment_adjustment_controller.dart';
+import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_controller.dart';
 
+import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_services/excel/import_excel_page.dart';
@@ -119,11 +118,17 @@ class PaymentsAdjustmentPage extends StatelessWidget {
                           // 🆕 SideListBox props
                           sideItems: c.sideItems,
                           selectedSideIndex: c.selectedSideIndex,
-                          onAddSideItem: c.canAddFile ? c.handleAddFile : null,
-                          onTapSideItem: (i) => c.handleOpenFile(i),
-                          onDeleteSideItem: c.handleDeleteFile,
+                          onAddSideItem: c.canAddFile ? () => c.handleAddFile(context) : null,
+                          onTapSideItem: (i) => c.handleOpenFile(context, i),
+                          onDeleteSideItem: (i) => c.handleDeleteFile(i, context),
+                          onEditLabelSideItem: (i) => c.handleEditLabelFile(i, context),
 
                           contractData: c.contract,
+
+                          // 🆕 Dropdown de ordem (espelha PaymentReport)
+                          orderNumberOptions: c.orderNumberOptions,
+                          greyOrderItems: c.greyOrderItems,
+                          onChangedOrderNumber: c.onChangeOrderNumber,
                         ),
 
                         const SizedBox(height: 12),
@@ -137,9 +142,7 @@ class PaymentsAdjustmentPage extends StatelessWidget {
                             firstCollection: c.contract?.id ?? '',
                             onFinished: () async => c.init(context, contractData: c.contract),
                             onSave: (dados) async {
-                              final data = c.selected == null
-                                  ? PaymentsAdjustmentsData.fromMap(dados)
-                                  : PaymentsAdjustmentsData.fromMap(dados);
+                              final data = PaymentsAdjustmentsData.fromMap(dados);
                               await c.saveExact(
                                 data,
                                 onError: () {

@@ -220,11 +220,57 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     notifyListeners();
   }
 
+  // =================== NOVO: lógica do DROPDOWN de ordem ===================
+  Set<int> get _existingOrders {
+    final base = _lastSnapshotData.isNotEmpty
+        ? _lastSnapshotData
+        : (contract.id == null ? const <AdditiveData>[] : store.listFor(contract.id!));
+    return base.map((e) => e.additiveOrder ?? 0).where((e) => e > 0).toSet();
+  }
+
+  int get _nextAvailableOrder {
+    final set = _existingOrders;
+    if (set.isEmpty) return 1;
+    for (int i = 1; i <= set.length + 1; i++) {
+      if (!set.contains(i)) return i;
+    }
+    final max = set.reduce((a, b) => a > b ? a : b);
+    return max + 1;
+  }
+
+  List<String> get orderOptions {
+    final set = _existingOrders;
+    final maxPlusOne = set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
+  }
+
+  Set<String> get greyOrderItems => _existingOrders.map((e) => e.toString()).toSet();
+
+  void onChangeOrderDropdown(String? v) {
+    final picked = int.tryParse(v ?? '');
+    if (picked == null || picked <= 0) return;
+
+    // se existe -> seleciona
+    final list = _lastSnapshotData.isNotEmpty
+        ? _lastSnapshotData
+        : (contract.id == null ? const <AdditiveData>[] : store.listFor(contract.id!));
+
+    final idx = list.indexWhere((m) => (m.additiveOrder ?? -1) == picked);
+    if (idx >= 0) {
+      handleAdditiveSelection(list[idx]);
+      return;
+    }
+
+    // não existe -> inicia novo com a ordem escolhida
+    createNew();
+    orderCtrl.text = picked.toString();
+    notifyListeners();
+  }
+  // ========================================================================
+
   Future<void> _setNextOrder() async {
-    if (contract.id == null) return;
-    final list = await _getAll();
-    final last = list.map((e) => e.additiveOrder ?? 0).fold(0, (a, b) => a > b ? a : b);
-    orderCtrl.text = (last + 1).toString();
+    // passa a usar o próximo disponível (não apenas max+1)
+    orderCtrl.text = _nextAvailableOrder.toString();
     notifyListeners();
   }
 
@@ -625,7 +671,6 @@ class AdditiveController extends ChangeNotifier with FormValidationMixin {
     selectedAdditive = selectedAdditive!..pdfUrl = url;
     await _refreshSideList();
   }
-
 
   @override
   void dispose() {

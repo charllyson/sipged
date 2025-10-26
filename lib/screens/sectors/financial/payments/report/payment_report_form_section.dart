@@ -5,6 +5,7 @@ import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 
@@ -33,12 +34,18 @@ class PaymentReportFormSection extends StatelessWidget {
   final VoidCallback onClear;
   final ContractData? contractData;
 
-  // 🆕 props do SideListBox
-  final List<String> sideItems;
+  // 🆕 SideListBox (agora suporta anexos com rótulo)
+  final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
+  final void Function(int index)? onEditLabelSideItem;
+
+  // 🆕 Dropdown de ordem
+  final List<String> orderNumberOptions;
+  final Set<String> greyOrderItems;
+  final void Function(String? value)? onChangedOrderNumber;
 
   const PaymentReportFormSection({
     super.key,
@@ -60,11 +67,16 @@ class PaymentReportFormSection extends StatelessWidget {
     required this.onSaveOrUpdate,
     required this.onClear,
     required this.contractData,
-    required this.sideItems,            // 🆕
-    this.selectedSideIndex,             // 🆕
-    this.onAddSideItem,                 // 🆕
-    this.onTapSideItem,                 // 🆕
-    this.onDeleteSideItem,              // 🆕
+    required this.sideItems,
+    this.selectedSideIndex,
+    this.onAddSideItem,
+    this.onTapSideItem,
+    this.onDeleteSideItem,
+    this.onEditLabelSideItem,
+    // dropdown
+    required this.orderNumberOptions,
+    required this.greyOrderItems,
+    this.onChangedOrderNumber,
   });
 
   double _inputsWidth(BuildContext context, {required double reserved}) {
@@ -137,7 +149,16 @@ class PaymentReportFormSection extends StatelessWidget {
         spacing: 12,
         runSpacing: 12,
         children: [
-          _input(w, orderPaymentReportController, 'Ordem da medição', enabled: false, tooltip: true),
+          // 🔽 Ordem com dropdown inteligente
+          DropDownButtonChange(
+            width: w,
+            labelText: 'Ordem da medição',
+            items: orderNumberOptions,
+            controller: orderPaymentReportController,
+            enabled: isEditable,
+            greyItems: greyOrderItems,           // itens existentes em cinza
+            onChanged: onChangedOrderNumber,     // carrega existente ou cria novo
+          ),
           _input(w, processNumberPaymentReportController, 'Nº processo do pagamento da medição', mask: [processoMaskFormatter]),
           _input(w, valuePaymentReportController, 'Valor do pagamento da medição', money: true),
           _input(w, statePaymentReportController, 'Estado do pagamento da medição'),
@@ -184,14 +205,15 @@ class PaymentReportFormSection extends StatelessWidget {
         ],
       );
 
-      // ✅ SideListBox — única exibição de PDF (sem WebPdfWidget)
+      // ✅ SideListBox — multi-anexos com rótulo/renomear
       final side = SideListBox(
         title: 'Arquivos do Pagamento',
         items: sideItems,
         selectedIndex: selectedSideIndex,
-        onAddPressed: (selectedPaymentReportData != null) ? onAddSideItem : null,
+        onAddPressed: (selectedPaymentReportData != null && isEditable) ? onAddSideItem : null,
         onTap: onTapSideItem,
-        onDelete: onDeleteSideItem,
+        onDelete: isEditable ? onDeleteSideItem : null,
+        onEditLabel: isEditable ? onEditLabelSideItem : null,
         width: sideWidth,
       );
 

@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/charts/lines/line_chart_changed.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
-
 import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
 
 class PaymentsAdjustmentChartsSection extends StatelessWidget {
@@ -54,7 +53,8 @@ class PaymentsAdjustmentChartsSection extends StatelessWidget {
             labels: labels,
             values: values,
             selectedIndex: selectedIndex,
-            larguraGrafico: math.max(MediaQuery.of(context).size.width - 300 - 52, 800),
+            larguraGrafico:
+            math.max(MediaQuery.of(context).size.width - 300 - 52, 800),
             alturaGrafico: 260,
             onPointTap: (index) {
               if (index >= 0 && index < values.length) {

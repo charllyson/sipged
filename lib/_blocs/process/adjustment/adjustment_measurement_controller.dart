@@ -126,6 +126,48 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
     return canEdit || canCreate;
   }
 
+  // =================== NOVO: helpers do dropdown de ordem ===================
+  Set<int> get _existingOrders =>
+      adjustments.map((e) => e.order ?? 0).where((e) => e > 0).toSet();
+
+  int get nextAvailableOrder {
+    if (_existingOrders.isEmpty) return 1;
+    for (int i = 1; i <= (_existingOrders.length + 1); i++) {
+      if (!_existingOrders.contains(i)) return i;
+    }
+    final max = _existingOrders.reduce((a, b) => a > b ? a : b);
+    return max + 1;
+  }
+
+  List<String> get orderOptions {
+    final maxPlusOne = _existingOrders.isEmpty
+        ? 1
+        : _existingOrders.reduce((a, b) => a > b ? a : b) + 1;
+    return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
+  }
+
+  Set<String> get greyOrderItems =>
+      _existingOrders.map((e) => e.toString()).toSet();
+
+  void onChangeOrderDropdown(String? v) {
+    final picked = int.tryParse(v ?? '');
+    if (picked == null || picked <= 0) return;
+
+    final idx = adjustments.indexWhere((m) => (m.order ?? -1) == picked);
+    if (idx >= 0) {
+      // já existe -> seleciona o registro
+      handleSelect(adjustments[idx]);
+      return;
+    }
+
+    // não existe -> inicia form novo com a ordem escolhida
+    createNew();
+    orderCtrl.text = picked.toString();
+    notifyListeners();
+  }
+
+  // ========================================================================
+
   Future<void> loadInitialData() async {
     if (contract.id == null) {
       adjustments = [];
@@ -140,8 +182,8 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
 
     adjustments = await _adjustmentBloc.getAllAdjustmentsOfContract(uidContract: contract.id!);
 
-    final last = adjustments.map((e) => e.order ?? 0).fold(0, (a, b) => a > b ? a : b);
-    orderCtrl.text = (last + 1).toString();
+    // ✅ usa sempre o “próximo disponível”
+    orderCtrl.text = nextAvailableOrder.toString();
 
     await _refreshSideList();
     notifyListeners();
@@ -180,8 +222,8 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
     selectedAdjustment = null;
     currentAdjustmentId = null;
 
-    final last = adjustments.map((e) => e.order ?? 0).fold(0, (a, b) => a > b ? a : b);
-    orderCtrl.text = (last + 1).toString();
+    // ✅ agora também usa “próximo disponível”
+    orderCtrl.text = nextAvailableOrder.toString();
     processCtrl.clear(); valueCtrl.clear(); dateCtrl.clear();
 
     _validateForm();

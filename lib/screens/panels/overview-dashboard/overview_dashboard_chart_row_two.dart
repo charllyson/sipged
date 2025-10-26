@@ -21,6 +21,7 @@ class OverviewDashboardChartRowTwo extends StatelessWidget {
 
           // ------- Barras por Empresa -------
           BarChartChanged(
+            colorCard: Colors.white,
             heightGraphic: 285,
             widthBar: 47,
             labels: controller.labelsCompany,

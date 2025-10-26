@@ -18,16 +18,9 @@ class MagicGridBody extends StatelessWidget {
     required this.onCommitEdit,
     this.bottomScrollGap = 0,
     this.rightScrollGap = 0,
-
-    /// Quando true, o grid NÃO cria scroll horizontal interno.
     this.useExternalHScroll = false,
-
-    /// Quando informado, o grid aplica essas physics aos scrolls internos.
-    /// Use [NeverScrollableScrollPhysics] para “desligar” o scroll interno.
     this.hPhysics,
     this.vPhysics,
-
-    /// 🔹 Quando true, o grid NÃO cria scroll vertical interno.
     this.useExternalVScroll = false,
   });
 
@@ -52,8 +45,6 @@ class MagicGridBody extends StatelessWidget {
   final bool useExternalHScroll;
   final ScrollPhysics? hPhysics;
   final ScrollPhysics? vPhysics;
-
-  /// 🔹 Novo
   final bool useExternalVScroll;
 
   bool _isUpperCase(String v) {
@@ -70,7 +61,6 @@ class MagicGridBody extends StatelessWidget {
           final secondCol = ctrl.tableData[r].length > 1 ? ctrl.tableData[r][1] : '';
           final isIntegerRow = !isFirstRow && int.tryParse(firstCol) != null;
           final isUpperCaseRow = !isFirstRow && _isUpperCase(secondCol);
-
           final isEditingRow = (editRow != null && editRow == r);
 
           final baseBg = isFirstRow
@@ -126,31 +116,25 @@ class MagicGridBody extends StatelessWidget {
                   textAlign: textAlign,
                   maxLines: 1,
                   keyboardType: isNumericCol
-                      ? const TextInputType.numberWithOptions(
-                      decimal: true, signed: true)
+                      ? const TextInputType.numberWithOptions(decimal: true, signed: true)
                       : TextInputType.text,
                   inputFormatters: isNumericCol
                       ? <TextInputFormatter>[
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[0-9\.\,\-\sRr\$]'),
-                    ),
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9\.\,\-\sRr\$]')),
                   ]
                       : null,
                   onSubmitted: (_) => onCommitEdit(),
                   onTapOutside: (_) => onCommitEdit(),
                   style: baseText,
                 )
-                    : Text(cell,
-                    softWrap: true, textAlign: textAlign, style: baseText);
+                    : Text(cell, softWrap: true, textAlign: textAlign, style: baseText);
 
                 final cellBox = Container(
                   width: w,
                   height: rowHeight,
                   alignment: isHeaderCell
                       ? Alignment.center
-                      : (isNumericCol
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft),
+                      : (isNumericCol ? Alignment.centerRight : Alignment.centerLeft),
                   padding: cellPad,
                   clipBehavior: Clip.hardEdge,
                   decoration: BoxDecoration(
@@ -164,13 +148,32 @@ class MagicGridBody extends StatelessWidget {
                   child: content,
                 );
 
-                Widget clickable = cellBox;
+                Widget cellWithOutline = cellBox;
+                if (isEditing && !isHeaderCell) {
+                  cellWithOutline = Stack(
+                    children: [
+                      cellBox,
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Container(
+                            margin: const EdgeInsets.all(0.5),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.blue, width: 2),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
 
+                Widget clickable = cellWithOutline;
                 if (isReadOnly) {
                   clickable = Tooltip(
                     message: 'Valor gerado automaticamente.',
                     waitDuration: const Duration(milliseconds: 300),
-                    child: cellBox,
+                    child: cellWithOutline,
                   );
                 }
 
@@ -196,7 +199,6 @@ class MagicGridBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔹 Quando o scroll vertical é externo, não criamos SingleChildScrollView vertical
     if (useExternalVScroll) {
       return useExternalHScroll
           ? _buildRows(context)
@@ -208,7 +210,6 @@ class MagicGridBody extends StatelessWidget {
       );
     }
 
-    // 🔹 Comportamento antigo (com scroll vertical interno)
     return SingleChildScrollView(
       controller: vGridCtrl,
       physics: vPhysics,

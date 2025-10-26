@@ -10,6 +10,7 @@ class DropDownButtonChange extends StatefulWidget {
     this.enabled,
     this.validator,
     this.width,
+    this.greyItems = const <String>{}, // itens exibidos em cinza (ocupados)
   });
 
   final void Function(String?)? onChanged;
@@ -19,6 +20,9 @@ class DropDownButtonChange extends StatefulWidget {
   final bool? enabled;
   final String? Function(String?)? validator;
   final double? width;
+
+  /// Conjunto de valores que devem aparecer em cinza (ordens já existentes)
+  final Set<String> greyItems;
 
   @override
   State<DropDownButtonChange> createState() => _DropDownButtonChangeState();
@@ -38,7 +42,9 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
   @override
   void didUpdateWidget(covariant DropDownButtonChange oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.controller.text != selectedTypes) {
+    if (widget.controller.text != selectedTypes ||
+        oldWidget.items != widget.items ||
+        oldWidget.greyItems != widget.greyItems) {
       setState(() {
         selectedTypes = widget.items.contains(widget.controller.text)
             ? widget.controller.text
@@ -47,32 +53,39 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
     }
   }
 
+  TextStyle _styleFor(String value, {bool asSelected = false}) {
+    final isGrey = widget.greyItems.contains(value);
+    return TextStyle(
+      color: isGrey ? Colors.grey : Colors.black,
+      fontWeight: asSelected ? FontWeight.w500 : FontWeight.normal,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEnabled = widget.enabled ?? true;
 
     return SizedBox(
-      width: widget.width ?? 160, // um pouco maior evita apertos desnecessários
+      width: widget.width ?? 160,
       child: DropdownButtonFormField<String>(
         isDense: true,
-        isExpanded: true, // ✅ evita overflow horizontal
-        menuMaxHeight: 200,
+        isExpanded: true,
+        menuMaxHeight: 260,
         validator: widget.validator,
         dropdownColor: Colors.white,
         value: selectedTypes,
-        // ✅ garante truncamento do item selecionado
-        selectedItemBuilder: (ctx) => widget.items
-            .map((v) => Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            v,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            softWrap: false,
-          ),
-        ))
-            .toList(),
-
+        selectedItemBuilder: (ctx) => widget.items.map((v) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              v,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: _styleFor(v, asSelected: true),
+            ),
+          );
+        }).toList(),
         items: widget.items.map((value) {
           return DropdownMenuItem<String>(
             value: value,
@@ -81,10 +94,10 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
               softWrap: false,
+              style: _styleFor(value),
             ),
           );
         }).toList(),
-
         onChanged: isEnabled
             ? (selected) {
           setState(() {
@@ -94,21 +107,20 @@ class _DropDownButtonChangeState extends State<DropDownButtonChange> {
           widget.onChanged?.call(selected);
         }
             : null,
-
-        iconSize: 20, // (opcional) diminui o espaço do ícone
+        iconSize: 20,
         decoration: InputDecoration(
           fillColor: isEnabled ? Colors.white : Colors.grey.shade200,
           filled: true,
           labelText: widget.labelText,
-          labelStyle: TextStyle(
-              color: isEnabled ? Colors.grey : Colors.grey.shade500),
+          labelStyle:
+          TextStyle(color: isEnabled ? Colors.grey : Colors.grey.shade500),
           hintStyle:
           TextStyle(color: isEnabled ? Colors.grey : Colors.grey.shade400),
           contentPadding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 14), // ↓
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
           enabledBorder: OutlineInputBorder(
-            borderSide:
-            BorderSide(color: isEnabled ? Colors.grey : Colors.grey.shade400),
+            borderSide: BorderSide(
+                color: isEnabled ? Colors.grey : Colors.grey.shade400),
             borderRadius: BorderRadius.circular(10),
           ),
           focusedBorder: OutlineInputBorder(

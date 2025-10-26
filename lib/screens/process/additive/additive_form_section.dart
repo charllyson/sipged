@@ -42,6 +42,11 @@ class AdditiveFormSection extends StatelessWidget {
   final void Function(int index)? onDeleteSideItem;
   final void Function(int index)? onEditLabelSideItem;
 
+  // ▶️ NOVOS: props do dropdown de ordem
+  final List<String> orderOptions;
+  final Set<String> greyOrderItems;
+  final void Function(String?) onChangedOrder;
+
   const AdditiveFormSection({
     super.key,
     required this.isEditable,
@@ -65,6 +70,10 @@ class AdditiveFormSection extends StatelessWidget {
     this.onTapSideItem,
     this.onDeleteSideItem,
     this.onEditLabelSideItem,
+    // dropdown ordem
+    required this.orderOptions,
+    required this.greyOrderItems,
+    required this.onChangedOrder,
   });
 
   bool exibeValor() =>
@@ -133,13 +142,15 @@ class AdditiveFormSection extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(
-              inputsWidth,
-              orderController,
-              'Ordem do aditivo',
-              enabled: false,
-              tooltip: true,
-              isEditable: isEditable,
+            // 🔄 ORDEM COM DROPDOWN (mesma lógica: cinza = existente; preto = livre)
+            DropDownButtonChange(
+              width: inputsWidth,
+              enabled: true, // sempre interativo para filtrar/selecionar
+              labelText: 'Ordem do aditivo',
+              items: orderOptions,
+              greyItems: greyOrderItems,
+              controller: orderController,
+              onChanged: onChangedOrder,
             ),
             _input(
               inputsWidth,

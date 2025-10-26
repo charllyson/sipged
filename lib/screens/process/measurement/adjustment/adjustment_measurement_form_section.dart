@@ -8,6 +8,7 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
 // SideListBox já entende String e Attachment
 import '../../../../_widgets/list/files/side_list_box.dart';
@@ -37,6 +38,11 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   final void Function(int index)? onDeleteSideItem;
   final void Function(int index)? onEditLabelSideItem;
 
+  // ▶️ NOVOS: dados do dropdown de ordem
+  final List<String> orderOptions;                 // 1..(max+1)
+  final Set<String> greyOrderItems;                // existentes (cinza)
+  final void Function(String?) onChangedOrder;     // ação ao escolher
+
   const AdjustmentMeasurementFormSection({
     super.key,
     required this.isEditable,
@@ -56,6 +62,10 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
     this.onTapSideItem,
     this.onDeleteSideItem,
     this.onEditLabelSideItem,
+    // dropdown de ordem
+    required this.orderOptions,
+    required this.greyOrderItems,
+    required this.onChangedOrder,
   });
 
   double _inputWidth(BuildContext context, {required double reserved}) {
@@ -131,13 +141,17 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: [
-        _input(
-          w,
-          orderAdjustmentController,
-          'Ordem da medição',
-          enabled: false,
-          tooltip: true,
+        // 🔄 Substituição do input pela combo de ordem
+        DropDownButtonChange(
+          width: w,
+          controller: orderAdjustmentController,
+          labelText: 'Ordem da medição',
+          items: orderOptions,       // 1..(max+1)
+          greyItems: greyOrderItems, // existentes => cinza
+          enabled: true,             // permite clicar para selecionar/filtrar mesmo que form não editável
+          onChanged: onChangedOrder, // ação do controller
         ),
+
         _input(
           w,
           processNumberAdjustmentController,

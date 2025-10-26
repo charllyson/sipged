@@ -4,12 +4,12 @@ import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:siged/screens/process/validity/validity_page.dart';
 
-class TabBarValidityPage extends StatelessWidget {
+class ValidityTabBarPage extends StatelessWidget {
   final ContractData? contractData;
   final ContractBloc? contractsBloc;
   final int initialTabIndex;
 
-  const TabBarValidityPage({
+  const ValidityTabBarPage({
     super.key,
     this.contractData,
     this.contractsBloc,

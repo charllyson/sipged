@@ -52,7 +52,11 @@ dependencies:
 
   # PDF
   syncfusion_flutter_pdfviewer: ^28.2.7
-  pdfx: ^2.6.0
+  pdfx: ^2.6.0                                # Exibe arquivos PDF
+  pdf: ^3.11.0                                # Gera relatórios em PDF
+  printing: ^5.13.4                           # Imprime relatórios em PDF
+
+
 
   # IMAGENS
   file_picker: ^10.2.0
@@ -61,9 +65,9 @@ dependencies:
   flutter_image_compress: ^2.4.0
   image_picker: ^1.2.0
   extended_image: ^10.0.1
-  image: ^4.3.0            # caminho Dart (opcional, mas útil)
-  image_editor: ^1.5.1     # caminho nativo (mais rápido)
-  camera: ^0.10.5+9   # compatível com Flutter 3.x
+  image: ^4.3.0                                 # caminho Dart (opcional, mas útil)
+  image_editor: ^1.5.1                          # caminho nativo (mais rápido)
+  camera: ^0.10.5+9                             # compatível com Flutter 3.x
 
 
   # ANIMAÇÕES

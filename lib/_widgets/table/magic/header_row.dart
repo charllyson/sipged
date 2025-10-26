@@ -2,14 +2,11 @@ import 'package:flutter/material.dart';
 import 'magic_table_controller.dart' as bc;
 import 'type_badge_button.dart';
 
-/// Cabeçalho de letras (A..Z) com suporte a colunas extras (painel direito)
-/// Pode usar o PRÓPRIO scroll interno (padrão) ou um scroll EXTERNO
-/// quando [useExternalHScroll] = true.
 class MagicHeaderRow extends StatelessWidget {
   const MagicHeaderRow({
     super.key,
     required this.ctrl,
-    required this.hHeaderCtrl,
+    this.hHeaderCtrl,
     required this.headerHeight,
 
     this.ghostColWidth = 48,
@@ -27,14 +24,11 @@ class MagicHeaderRow extends StatelessWidget {
     this.extraLabel,
 
     this.useExternalHScroll = false,
-
-    /// Quando true, desenha a borda superior do header.
-    /// Útil quando NÃO há a faixa de “bandas” acima.
     this.addTopBorder = false,
   });
 
   final bc.MagicTableController ctrl;
-  final ScrollController hHeaderCtrl;
+  final ScrollController? hHeaderCtrl;
   final double headerHeight;
   final double ghostColWidth;
   final double rightScrollGap;
@@ -50,10 +44,7 @@ class MagicHeaderRow extends StatelessWidget {
   final double Function(int i)? extraWidth;
   final String Function(int i)? extraLabel;
 
-  /// Quando true, NÃO cria `SingleChildScrollView` interno.
   final bool useExternalHScroll;
-
-  /// Quando true, pinta a borda superior do header.
   final bool addTopBorder;
 
   static const double _resizeHandleWidth = 8;
@@ -61,19 +52,19 @@ class MagicHeaderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cells = <Widget>[];
-
     final topBorder = addTopBorder
         ? BorderSide(color: Colors.grey.shade300, width: 1)
         : BorderSide.none;
 
-    // ====== GRID PRINCIPAL (A..)
+    // ===== GRID PRINCIPAL (A..)
     for (int c = 0; c < ctrl.colCount; c++) {
       final w = (c < ctrl.colWidths.length) ? ctrl.colWidths[c] : 120.0;
-      final hasType =
-          (c < ctrl.colTypes.length) && ctrl.colTypes[c] != bc.ColumnType.auto;
+      final hasType = (c < ctrl.colTypes.length) && ctrl.colTypes[c] != bc.ColumnType.auto;
 
       final isLastMain = c == ctrl.colCount - 1;
-      final showRightBorderOnMain = !(isLastMain && extraCount == 0);
+
+      // ✅ se há painel (extraCount > 0), NÃO desenha a borda direita no último do principal
+      final showRightBorderOnMain = !(isLastMain && extraCount > 0);
 
       cells.add(
         Stack(
@@ -86,7 +77,7 @@ class MagicHeaderRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
                 border: Border(
-                  top: topBorder, // ✅ borda superior opcional
+                  top: topBorder,
                   left: BorderSide(color: Colors.grey.shade300, width: 1),
                   right: showRightBorderOnMain
                       ? BorderSide(color: Colors.grey.shade300, width: 1)
@@ -103,7 +94,6 @@ class MagicHeaderRow extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-
             // handle de resize
             Positioned(
               right: 0,
@@ -132,7 +122,6 @@ class MagicHeaderRow extends StatelessWidget {
                 ),
               ),
             ),
-
             if (showTypeBadge)
               Positioned(
                 top: 4,
@@ -159,7 +148,7 @@ class MagicHeaderRow extends StatelessWidget {
       );
     }
 
-    // ====== EXTRAS (PAINEL DIREITO)
+    // ===== EXTRAS (painel)
     for (int i = 0; i < extraCount; i++) {
       final w = (extraWidth != null) ? extraWidth!(i) : 120.0;
       final label = (extraLabel != null)
@@ -175,10 +164,10 @@ class MagicHeaderRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.grey.shade100,
             border: Border(
-              top: topBorder, // ✅ borda superior opcional
-              left: BorderSide(color: Colors.grey.shade300, width: 1),
+              top: topBorder,
+              left: BorderSide(color: Colors.grey.shade300, width: 1), // ✅ sempre
               right: isLastExtra
-                  ? BorderSide.none
+                  ? BorderSide.none // ✅ evita borda dupla no fim
                   : BorderSide(color: Colors.grey.shade300, width: 1),
               bottom: BorderSide(color: Colors.grey.shade300, width: 1),
             ),
@@ -205,7 +194,7 @@ class MagicHeaderRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               border: Border(
-                top: topBorder, // ✅ borda superior opcional
+                top: topBorder,
                 left: BorderSide(color: Colors.grey.shade300, width: 1),
                 bottom: BorderSide(color: Colors.grey.shade300, width: 1),
               ),
@@ -230,9 +219,7 @@ class MagicHeaderRow extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.transparent,
-              border: Border(
-                top: topBorder, // ✅ borda superior opcional (para continuidade)
-              ),
+              border: Border(top: topBorder),
             ),
           ),
         ),
@@ -240,11 +227,8 @@ class MagicHeaderRow extends StatelessWidget {
     }
 
     final content = Row(children: cells);
-
-    // 🔹 Se o scroll é externo, devolve só o Row
     if (useExternalHScroll) return content;
 
-    // 🔹 Caso contrário, cria o scroller interno
     return SingleChildScrollView(
       controller: hHeaderCtrl,
       scrollDirection: Axis.horizontal,

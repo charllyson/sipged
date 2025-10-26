@@ -8,6 +8,7 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 
@@ -33,12 +34,18 @@ class PaymentRevisionFormSection extends StatelessWidget {
   final VoidCallback onSaveOrUpdate;
   final VoidCallback onClear;
 
-  // --- SideListBox
-  final List<String> sideItems;
+  // --- Dropdown ordem
+  final List<String> orderNumberOptions;
+  final Set<String> greyOrderItems;
+  final void Function(String? value)? onChangedOrderNumber;
+
+  // --- SideListBox (agora dinâmico)
+  final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
+  final void Function(int index)? onEditLabelSideItem;
 
   const PaymentRevisionFormSection({
     super.key,
@@ -61,12 +68,17 @@ class PaymentRevisionFormSection extends StatelessWidget {
     required this.formValidated,
     required this.onSaveOrUpdate,
     required this.onClear,
+    // dropdown
+    required this.orderNumberOptions,
+    required this.greyOrderItems,
+    this.onChangedOrderNumber,
     // side list
     required this.sideItems,
     this.selectedSideIndex,
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
+    this.onEditLabelSideItem,
   });
 
   double _inputsWidth(BuildContext context, {required double reserved}) {
@@ -115,9 +127,8 @@ class PaymentRevisionFormSection extends StatelessWidget {
       enabled: enabled,
       labelText: label,
       controller: controller,
-      keyboardType: money
-          ? TextInputType.number
-          : (date ? TextInputType.datetime : TextInputType.text),
+      keyboardType:
+      money ? TextInputType.number : (date ? TextInputType.datetime : TextInputType.text),
       inputFormatters: formatters,
     );
 
@@ -142,14 +153,31 @@ class PaymentRevisionFormSection extends StatelessWidget {
         spacing: 12,
         runSpacing: 12,
         children: [
-          _input(w, orderCtrl, 'Ordem do pagamento da revisão', enabled: false, tooltip: true),
-          _input(w, processCtrl, 'Nº processo de pagamento da revisão', enabled: isEditable, mask: [processoMaskFormatter]),
-          _input(w, valueCtrl, 'Valor do pagamento da revisão', enabled: isEditable, money: true),
-          _input(w, stateCtrl, 'Estado do pagamento da revisão', enabled: isEditable),
-          _input(w, observationCtrl, 'Observação do pagamento da revisão', enabled: isEditable),
-          _input(w, bankCtrl, 'Nº do banco do pagamento da revisão', enabled: isEditable),
-          _input(w, electronicTicketCtrl, 'Nº do boleto eletrônico do pagamento da revisão', enabled: isEditable),
-          _input(w, fontCtrl, 'Fonte do pagamento da revisão', enabled: isEditable),
+          // 🔽 Ordem com dropdown inteligente
+          DropDownButtonChange(
+            width: w,
+            labelText: 'Ordem da revisão',
+            items: orderNumberOptions,
+            controller: orderCtrl,
+            enabled: isEditable,
+            greyItems: greyOrderItems,
+            onChanged: onChangedOrderNumber,
+          ),
+          _input(w, processCtrl, 'Nº processo de pagamento da revisão',
+              enabled: isEditable, mask: [processoMaskFormatter]),
+          _input(w, valueCtrl, 'Valor do pagamento da revisão',
+              enabled: isEditable, money: true),
+          _input(w, stateCtrl, 'Estado do pagamento da revisão',
+              enabled: isEditable),
+          _input(w, observationCtrl, 'Observação do pagamento da revisão',
+              enabled: isEditable),
+          _input(w, bankCtrl, 'Nº do banco do pagamento da revisão',
+              enabled: isEditable),
+          _input(w, electronicTicketCtrl,
+              'Nº do boleto eletrônico do pagamento da revisão',
+              enabled: isEditable),
+          _input(w, fontCtrl, 'Fonte do pagamento da revisão',
+              enabled: isEditable),
           CustomDateField(
             width: w,
             enabled: isEditable,
@@ -158,7 +186,8 @@ class PaymentRevisionFormSection extends StatelessWidget {
             labelText: 'Data do pagamento da revisão do reajuste',
             onChanged: (date) => selectedPaymentRevisionData?.datePaymentRevision = date,
           ),
-          _input(w, taxCtrl, 'Imposto do pagamento da revisão', enabled: isEditable, money: true),
+          _input(w, taxCtrl, 'Imposto do pagamento da revisão',
+              enabled: isEditable, money: true),
         ],
       );
 
@@ -195,7 +224,8 @@ class PaymentRevisionFormSection extends StatelessWidget {
         selectedIndex: selectedSideIndex,
         onAddPressed: (selectedPaymentRevisionData != null && isEditable) ? onAddSideItem : null,
         onTap: onTapSideItem,
-        onDelete: onDeleteSideItem,
+        onDelete: isEditable ? onDeleteSideItem : null,
+        onEditLabel: isEditable ? onEditLabelSideItem : null,
         width: sideWidth,
       );
 

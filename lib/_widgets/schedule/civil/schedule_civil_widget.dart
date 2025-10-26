@@ -521,7 +521,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     color: it.color,
     fontSize: it.fontSize,
     fontWeight: it.weight,
-    fontFamily: it.monospace ? 'monospace' : null,
   );
 
   Rect _textBounds(TextItem it) {
@@ -805,7 +804,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                     color: it.color,
                     fontSize: it.fontSize,
                     fontWeight: it.weight,
-                    fontFamily: it.monospace ? 'monospace' : null,
                     shadows: (i == ctrl.selectedText)
                         ? const [Shadow(color: Colors.black54, blurRadius: 6)]
                         : null,
@@ -907,7 +905,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
           color: ctrl.defaultTextStyle.color ?? Colors.white,
           fontSize: ctrl.defaultTextStyle.fontSize ?? 16,
           weight: ctrl.defaultTextStyle.fontWeight ?? FontWeight.w600,
-          monospace: ctrl.defaultTextStyle.fontFamily == 'monospace',
           areaSize: (ctrl.textTool == TextTool.area || ctrl.textTool == TextTool.verticalArea)
               ? Size(ctrl.textDefaultWidth, ctrl.textDefaultHeight)
               : null,

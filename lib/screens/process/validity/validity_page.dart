@@ -27,8 +27,7 @@ class ValidityPage extends StatelessWidget {
           ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
         ],
       ),
-    ) ??
-        false;
+    ) ?? false;
   }
 
   @override
@@ -65,7 +64,15 @@ class ValidityPage extends StatelessWidget {
                               orderCtrl: ctrl.orderCtrl,
                               orderTypeCtrl: ctrl.orderTypeCtrl,
                               orderDateCtrl: ctrl.orderDateCtrl,
+
+                              // ▼ Tipo (mantido)
                               availableOrders: ctrl.availableOrders,
+
+                              // ⬇️ NOVO: Dropdown de ORDEM numérica (inteligente)
+                              orderNumberOptions: ctrl.orderNumberOptions,
+                              greyOrderItems: ctrl.greyOrderItems,
+                              onChangedOrderNumber: ctrl.onChangeOrderNumber,
+
                               selectedValidityData: ctrl.selectedValidityData,
                               isEditable: ctrl.isEditable,
                               isSaving: ctrl.isSaving,
@@ -77,6 +84,7 @@ class ValidityPage extends StatelessWidget {
                                 final ok = await _confirm(context);
                                 if (ok) await ctrl.saveOrUpdate(context);
                               },
+
                               sideItems: ctrl.sideItems,
                               selectedSideIndex: ctrl.selectedSideIndex,
                               onAddSideItem: ctrl.canAddFile ? () => ctrl.addFile(context) : null,

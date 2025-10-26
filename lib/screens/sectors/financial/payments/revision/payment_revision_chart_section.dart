@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/charts/lines/line_chart_changed.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
-
 import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
 
 class PaymentsRevisionChartsSection extends StatelessWidget {
@@ -32,7 +31,7 @@ class PaymentsRevisionChartsSection extends StatelessWidget {
           const SizedBox(width: 12),
           GaugeCircularPercent(
             centerTitle: valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
-            headerTitle: 'Execução dos reajustamentos',
+            headerTitle: 'Execução das revisões',
             radius: 70,
             larguraGrafico: 200,
             values: totalMedicoes.isNaN ? null : [totalMedicoes],

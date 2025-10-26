@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 
+// ⬇️ mesmo Attachment usado nos outros módulos
+import 'package:siged/_widgets/list/files/attachment.dart';
+
 class PaymentsReportData extends ChangeNotifier {
   String? contractId;
 
@@ -16,8 +19,11 @@ class PaymentsReportData extends ChangeNotifier {
   DateTime? datePaymentReport;
   double? taxPaymentReport;
 
-  // 🆕 URL do PDF
+  // Legado (um único PDF)
   String? pdfUrl;
+
+  // 🆕 Multi-anexos
+  List<Attachment>? attachments;
 
   DateTime? createdAt;
   String? createdBy;
@@ -39,7 +45,8 @@ class PaymentsReportData extends ChangeNotifier {
     this.fontPaymentReport,
     this.datePaymentReport,
     this.taxPaymentReport,
-    this.pdfUrl, // 🆕
+    this.pdfUrl,
+    this.attachments, // 🆕
     this.createdAt,
     this.createdBy,
     this.updatedAt,
@@ -74,11 +81,40 @@ class PaymentsReportData extends ChangeNotifier {
       'fontPaymentReport': fontPaymentReport ?? '',
       'datePaymentReport': datePaymentReport != null ? Timestamp.fromDate(datePaymentReport!) : null,
       'taxPaymentReport': taxPaymentReport ?? 0.0,
-      'pdfUrl': pdfUrl, // 🆕
+
+      // Legado
+      'pdfUrl': pdfUrl,
+
+      // 🆕 Multi-anexos
+      'attachments': (attachments ?? const <Attachment>[])
+          .map((a) => a.toMap())
+          .toList(),
     };
   }
 
   factory PaymentsReportData.fromJson(Map<String, dynamic> json) {
+    List<Attachment>? _parseAtts(dynamic v) {
+      if (v is List) {
+        return v
+            .whereType<Map<String, dynamic>>()
+            .map((m) => Attachment.fromMap(m))
+            .toList();
+      }
+      return null;
+    }
+
+    double _parseDouble(dynamic v) {
+      if (v is num) return v.toDouble();
+      return double.tryParse(v?.toString() ?? '') ?? 0.0;
+    }
+
+    DateTime? _parseDate(dynamic v) {
+      if (v is Timestamp) return v.toDate();
+      if (v is DateTime) return v;
+      if (v is String) return DateTime.tryParse(v);
+      return null;
+    }
+
     return PaymentsReportData(
       contractId: json['contractId'],
       idPaymentReport: json['idPaymentReport'] ?? '',
@@ -86,22 +122,19 @@ class PaymentsReportData extends ChangeNotifier {
       processPaymentReport: json['processPaymentReport'] ?? '',
       statePaymentReport: json['statePaymentReport'] ?? '',
       observationPaymentReport: json['observationPaymentReport'] ?? '',
-      valuePaymentReport: (json['valuePaymentReport'] is num)
-          ? (json['valuePaymentReport'] as num).toDouble()
-          : double.tryParse(json['valuePaymentReport']?.toString() ?? '') ?? 0.0,
+      valuePaymentReport: _parseDouble(json['valuePaymentReport']),
       orderBankPaymentReport: json['orderBankPaymentReport'] ?? '',
       electronicTicketPaymentReport: json['electronicTicketPaymentReport'] ?? '',
       fontPaymentReport: json['fontPaymentReport'] ?? '',
-      datePaymentReport: (json['datePaymentReport'] as Timestamp?)?.toDate(),
-      taxPaymentReport: (json['taxPaymentReport'] is num)
-          ? (json['taxPaymentReport'] as num).toDouble()
-          : double.tryParse(json['taxPaymentReport']?.toString() ?? '') ?? 0.0,
-      pdfUrl: json['pdfUrl'] as String?, // 🆕
-      createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
+      datePaymentReport: _parseDate(json['datePaymentReport']),
+      taxPaymentReport: _parseDouble(json['taxPaymentReport']),
+      pdfUrl: json['pdfUrl'] as String?,
+      attachments: _parseAtts(json['attachments']),
+      createdAt: _parseDate(json['createdAt']),
       createdBy: json['createdBy'] ?? '',
-      updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
+      updatedAt: _parseDate(json['updatedAt']),
       updatedBy: json['updatedBy'] ?? '',
-      deletedAt: (json['deletedAt'] as Timestamp?)?.toDate(),
+      deletedAt: _parseDate(json['deletedAt']),
       deletedBy: json['deletedBy'] ?? '',
     );
   }
@@ -121,6 +154,16 @@ class PaymentsReportData extends ChangeNotifier {
       return double.tryParse(val.toString());
     }
 
+    List<Attachment>? parseAtts(dynamic v) {
+      if (v is List) {
+        return v
+            .whereType<Map<String, dynamic>>()
+            .map((m) => Attachment.fromMap(m))
+            .toList();
+      }
+      return null;
+    }
+
     return PaymentsReportData(
       contractId: map['contractId'],
       idPaymentReport: map['idPaymentReport'] ?? '',
@@ -134,7 +177,8 @@ class PaymentsReportData extends ChangeNotifier {
       fontPaymentReport: map['fontPaymentReport'] ?? '',
       datePaymentReport: parseDate(map['datePaymentReport']),
       taxPaymentReport: parseDouble(map['taxPaymentReport']) ?? 0.0,
-      pdfUrl: map['pdfUrl'] as String?, // 🆕
+      pdfUrl: map['pdfUrl'] as String?,
+      attachments: parseAtts(map['attachments']),
       createdAt: parseDate(map['createdAt']),
       createdBy: map['createdBy'],
       updatedAt: parseDate(map['updatedAt']),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/images/photo_circle/photo_circle.dart';
+import 'package:siged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 
@@ -22,20 +24,6 @@ class HomeBody extends StatelessWidget {
     return Stack(
       children: [
         const BackgroundClean(),
-        IgnorePointer(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFFEEF2FF).withOpacity(.9),
-                  const Color(0xFFE0F2FE).withOpacity(.6),
-                ],
-              ),
-            ),
-          ),
-        ),
         const _SoftBubbles(),
         BlocBuilder<UserBloc, UserState>(
           builder: (context, state) {
@@ -45,7 +33,6 @@ class HomeBody extends StatelessWidget {
                 final w = c.maxWidth;
                 final isWide = w >= 1080;
                 final maxContentW = isWide ? 1080.0 : w;
-
                 return Center(
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: maxContentW),
@@ -123,27 +110,34 @@ class _HeroHeader extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         if (user?.name != null && user!.name!.trim().isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(.6),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.black.withOpacity(.06)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(.04),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                )
-              ],
-            ),
-            child: Text(
-              'Olá, ${user!.name}!',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.blueGrey.shade800,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              PopUpPhotoMenu(),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(.6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black.withOpacity(.06)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(.04),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    )
+                  ],
+                ),
+                child: Text(
+                  'Olá, ${user!.name}!',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blueGrey.shade800,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
       ],
     );

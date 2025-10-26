@@ -13,6 +13,9 @@ import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_utils/responsive_utils.dart';
 import 'package:siged/_utils/mask_class.dart';
 
+// ⬇️ dropdown com itens cinza
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
+
 // ✅ SideListBox aceita String OU Attachment
 import '../../../../_widgets/list/files/side_list_box.dart';
 
@@ -24,6 +27,7 @@ class ApostilleFormSection extends StatelessWidget {
   final String? currentApostilleId;
   final ContractData contractData;
 
+  // ⚠️ controllers
   final TextEditingController orderController;
   final TextEditingController processController;
   final TextEditingController dateController;
@@ -39,6 +43,11 @@ class ApostilleFormSection extends StatelessWidget {
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
   final void Function(int index)? onEditLabelSideItem;
+
+  // 🆕 Dropdown de ordem (inteligente)
+  final List<String> orderNumberOptions;
+  final Set<String> greyOrderItems;
+  final void Function(String?) onChangedOrderNumber;
 
   const ApostilleFormSection({
     super.key,
@@ -60,6 +69,10 @@ class ApostilleFormSection extends StatelessWidget {
     this.onTapSideItem,
     this.onDeleteSideItem,
     this.onEditLabelSideItem,
+    // novos:
+    required this.orderNumberOptions,
+    required this.greyOrderItems,
+    required this.onChangedOrderNumber,
   });
 
   Widget _input(
@@ -120,13 +133,15 @@ class ApostilleFormSection extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(
-              inputsWidth,
-              orderController,
-              'Ordem do apostilamento',
-              enabled: false,
-              tooltip: true,
-              isEditable: isEditable,
+            // 🔽 Ordem com dropdown inteligente
+            DropDownButtonChange(
+              width: inputsWidth,
+              labelText: 'Ordem do apostilamento',
+              items: orderNumberOptions,
+              controller: orderController,
+              enabled: isEditable,
+              greyItems: greyOrderItems,        // itens usados em cinza
+              onChanged: onChangedOrderNumber,  // carrega existente ou cria novo
             ),
             _input(
               inputsWidth,

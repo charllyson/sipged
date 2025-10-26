@@ -54,12 +54,20 @@ class ApostillesPage extends StatelessWidget {
                                       selectedApostille: ctrl.selectedApostille,
                                       currentApostilleId: ctrl.currentApostilleId,
                                       contractData: ctrl.contract,
-                                      orderController: ctrl.orderCtrl,
-                                      processController: ctrl.processCtrl,
-                                      dateController: ctrl.dateCtrl,
-                                      valueController: ctrl.valueCtrl,
+
+                                      // controllers
+                                      orderController: ctrl.orderController,
+                                      processController: ctrl.processController,
+                                      dateController: ctrl.dateController,
+                                      valueController: ctrl.valueController,
+
                                       onSave: () => ctrl.saveOrUpdate(context),
                                       onClear: ctrl.createNew,
+
+                                      // Dropdown de Ordem (novo)
+                                      orderNumberOptions: ctrl.orderNumberOptions,
+                                      greyOrderItems: ctrl.greyOrderItems,
+                                      onChangedOrderNumber: ctrl.onChangeOrderNumber,
 
                                       // SideListBox (com rótulos)
                                       sideItems: ctrl.sideItems,

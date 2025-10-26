@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/table/magic/magic_table_changed.dart';
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
-import 'package:siged/_widgets/table/magic/trailing_col_meta.dart';
-import 'package:siged/_widgets/table/magic/gutter_column.dart';
-import 'package:siged/_widgets/table/magic/grid_body.dart';
+import 'gutter_column.dart';
 import 'leading_column.dart';
-import 'trailing_header.dart';
-import 'trailing_column.dart';
+import 'grid_body.dart';
+
+typedef RowStyleResolver = ({Color bg, TextStyle text}) Function(int r);
 
 class MagicBodyRow extends StatelessWidget {
   const MagicBodyRow({
@@ -14,17 +12,15 @@ class MagicBodyRow extends StatelessWidget {
     required this.ctrl,
     required this.rowCountWithGhost,
     required this.hasLeading,
-    required this.hasTrailing,
     required this.gutterWidth,
     required this.leadingWidth,
     required this.mainGridWidth,
-    required this.trailingTotalWidth,
-    required this.trailingCols,
     required this.cellPad,
     required this.rowHeight,
     required this.gap,
     required this.bottomScrollGap,
     required this.useExternalVScroll,
+    required this.useExternalHScroll, // << novo
     required this.vGutterCtrl,
     required this.vGridCtrl,
     required this.hGridCtrl,
@@ -38,21 +34,15 @@ class MagicBodyRow extends StatelessWidget {
     required this.leadingHeaderBuilder,
     required this.leadingCellBuilder,
     required this.rowStyleResolver,
-    required this.trailingRowBuilder,
   });
 
   final bc.MagicTableController ctrl;
   final int rowCountWithGhost;
-
   final bool hasLeading;
-  final bool hasTrailing;
 
   final double gutterWidth;
   final double leadingWidth;
   final double mainGridWidth;
-  final double trailingTotalWidth;
-
-  final List<TrailingColMeta> trailingCols;
 
   final EdgeInsets cellPad;
   final double rowHeight;
@@ -60,6 +50,7 @@ class MagicBodyRow extends StatelessWidget {
   final double bottomScrollGap;
 
   final bool useExternalVScroll;
+  final bool useExternalHScroll;
 
   final ScrollController vGutterCtrl;
   final ScrollController vGridCtrl;
@@ -78,17 +69,37 @@ class MagicBodyRow extends StatelessWidget {
   final Widget Function(BuildContext context)? leadingHeaderBuilder;
   final Widget Function(BuildContext context, int row)? leadingCellBuilder;
   final RowStyleResolver rowStyleResolver;
-  final TrailingRowBuilder? trailingRowBuilder;
 
   @override
   Widget build(BuildContext context) {
+    final bodyGrid = SizedBox(
+      width: mainGridWidth,
+      child: MagicGridBody(
+        ctrl: ctrl,
+        vGridCtrl: vGridCtrl,
+        hGridCtrl: hGridCtrl,
+        rowHeight: rowHeight,
+        cellPad: cellPad,
+        editRow: editRow,
+        editCol: editCol,
+        cellController: cellController,
+        cellFocus: cellFocus,
+        onStartEdit: onStartEdit,
+        onCommitEdit: onCommitEdit,
+        bottomScrollGap: bottomScrollGap,
+        rightScrollGap: 0,
+        useExternalHScroll: useExternalHScroll, // << respeita H externo
+        useExternalVScroll: useExternalVScroll,
+        vPhysics: useExternalVScroll ? const NeverScrollableScrollPhysics() : vPhysics,
+      ),
+    );
+
     return Row(
       children: [
-        // GUTTER
+        // GUTTER (com V scroll sincronizado externamente)
         SizedBox(
           width: gutterWidth,
           child: MagicGutterColumn(
-            addTopBorder: true, // ✅
             ctrl: ctrl,
             vGutterCtrl: vGutterCtrl,
             rowHeight: rowHeight,
@@ -126,77 +137,17 @@ class MagicBodyRow extends StatelessWidget {
           ),
         if (hasLeading) SizedBox(width: gap),
 
-        // GRID + TRAILING com scroller horizontal único
-        Expanded(
-          child: SingleChildScrollView(
-            controller: hGridCtrl,
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: mainGridWidth,
-                  child: MagicGridBody(
-                    ctrl: ctrl,
-                    vGridCtrl: vGridCtrl,
-                    hGridCtrl: hGridCtrl,
-                    rowHeight: rowHeight,
-                    cellPad: cellPad,
-                    editRow: editRow,
-                    editCol: editCol,
-                    cellController: cellController,
-                    cellFocus: cellFocus,
-                    onStartEdit: onStartEdit,
-                    onCommitEdit: onCommitEdit,
-                    bottomScrollGap: bottomScrollGap,
-                    rightScrollGap: 0,
-                    useExternalHScroll: true,
-                    useExternalVScroll: useExternalVScroll,
-                    vPhysics: useExternalVScroll ? const NeverScrollableScrollPhysics() : vPhysics,
-                  ),
-                ),
-
-                if (hasTrailing)
-                  SizedBox(
-                    width: trailingTotalWidth,
-                    child: Column(
-                      children: [
-                        MagicTrailingHeader(
-                          trailingCols: trailingCols,
-                          rowHeight: rowHeight,
-                          cellPad: cellPad,
-                        ),
-                        if (useExternalVScroll)
-                          MagicTrailingColumn(
-                            rowCount: ctrl.rowCount,
-                            rowHeight: rowHeight,
-                            bottomScrollGap: bottomScrollGap,
-                            trailingCols: trailingCols,
-                            trailingRowBuilder: trailingRowBuilder,
-                            cellPad: cellPad,
-                            rowStyleResolver: rowStyleResolver,
-                          )
-                        else
-                          Expanded(
-                            child: SingleChildScrollView(
-                              controller: vGridCtrl,
-                              child: MagicTrailingColumn(
-                                rowCount: ctrl.rowCount,
-                                rowHeight: rowHeight,
-                                bottomScrollGap: bottomScrollGap,
-                                trailingCols: trailingCols,
-                                trailingRowBuilder: trailingRowBuilder,
-                                cellPad: cellPad,
-                                rowStyleResolver: rowStyleResolver,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
+        // GRID
+        if (useExternalHScroll)
+          bodyGrid
+        else
+          Expanded(
+            child: SingleChildScrollView(
+              controller: hGridCtrl,
+              scrollDirection: Axis.horizontal,
+              child: bodyGrid,
             ),
           ),
-        ),
       ],
     );
   }

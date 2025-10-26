@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_widgets/drawer/menu_drawer_item.dart';
 
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/drawer/menu_drawer_sub_item.dart';
@@ -16,10 +17,11 @@ import 'package:siged/_blocs/system/user/user_state.dart';
 // Permissões centralizadas
 import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
 
+/// =======================================================
+/// DrawerMenu dinâmico (muda cor conforme o perfil do usuário)
+/// =======================================================
 class DrawerMenu extends StatefulWidget {
   final void Function(MenuItem) onTap;
-
-  /// Novo: callback para ir para a Home (limpar seleção)
   final VoidCallback? onTapHome;
 
   const DrawerMenu({
@@ -51,134 +53,106 @@ class _DrawerMenuState extends State<DrawerMenu> {
 
   @override
   Widget build(BuildContext context) {
-    return Drawer(
-      width: 250,
-      backgroundColor: const Color(0xFF1B2033),
-      child: BlocBuilder<UserBloc, UserState>(
-        builder: (context, state) {
-          final userData = _resolveCurrentUserData(state);
+    return BlocBuilder<UserBloc, UserState>(
+      builder: (context, state) {
+        final userData = _resolveCurrentUserData(state);
+        final bgPalette = UserData.drawerPaletteForUser(userData);
 
-          if (_firebaseUser == null) {
-            return const Center(
-              child: Text('Não autenticado', style: TextStyle(color: Colors.white70)),
-            );
-          }
-
-          if (userData == null || state.isLoadingUsers) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          return ListView(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: SiGedLogo(
-                  fontSize: 40,
-                  heightLogo: 30,
-                  widthLogo: 30,
-                  onTapHome: () {
-                    // fecha o Drawer e avisa o pai pra ir pra Home
-                    Navigator.of(context).maybePop();
-                    widget.onTapHome?.call();
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // ====== DOCUMENTOS ======
-              ...(() {
-                final docsGroups = <Widget>[
-                  ...PagesData.panelDashboard
-                      .map((item) => _buildExpandableGroup(
-                    icon: item.icon,
-                    label: item.label,
-                    children: item.subItems,
-                    user: userData,
-                  ))
-                      .whereType<Widget>(),
-                  ...PagesData.drawerDocuments
-                      .map((item) => _buildExpandableGroup(
-                    icon: item.icon,
-                    label: item.label,
-                    children: item.subItems,
-                    user: userData,
-                  ))
-                      .whereType<Widget>(),
-                ];
-                if (docsGroups.isEmpty) return const <Widget>[];
-                return <Widget>[
-                  DividerText(
-                    title: 'DOCUMENTOS',
-                    colorTitle: Colors.white38,
-                    subTitle: Colors.white24,
-                  ),
-                  const SizedBox(height: 8),
-                  ...docsGroups,
-                  const SizedBox(height: 12),
-                ];
-              })(),
-
-              // ====== SETORES ======
-              ...(() {
-                final deptGroups = <Widget>[
-                  ...PagesData.drawerDepartments
-                      .map((item) => _buildExpandableGroup(
-                    icon: item.icon,
-                    label: item.label,
-                    children: item.subItems,
-                    user: userData,
-                  ))
-                      .whereType<Widget>(),
-                ];
-                if (deptGroups.isEmpty) return const <Widget>[];
-                return <Widget>[
-                  DividerText(
-                    title: 'SETORES',
-                    colorTitle: Colors.white38,
-                    subTitle: Colors.white24,
-                  ),
-                  const SizedBox(height: 8),
-                  ...deptGroups,
-                  const SizedBox(height: 12),
-                ];
-              })(),
-
-              // ====== ATIVOS ======
-              ...(() {
-                final activeGroups = <Widget>[
-                  ...PagesData.drawerActives
-                      .map((item) => _buildExpandableGroup(
-                    icon: item.icon,
-                    label: item.label,
-                    children: item.subItems,
-                    user: userData,
-                  ))
-                      .whereType<Widget>(),
-                ];
-                if (activeGroups.isEmpty) return const <Widget>[];
-                return <Widget>[
-                  DividerText(
-                    title: 'ATIVOS',
-                    colorTitle: Colors.white38,
-                    subTitle: Colors.white24,
-                  ),
-                  const SizedBox(height: 8),
-                  ...activeGroups,
-                  const SizedBox(height: 20),
-                ];
-              })(),
-            ],
-          );
-        },
-      ),
+        return Drawer(
+          width: 250,
+          backgroundColor: bgPalette.background,
+          child: _buildContent(context, userData, state, bgPalette),
+        );
+      },
     );
   }
 
-  UserData? _resolveCurrentUserData(UserState state) {
-    if (state.current != null) return state.current;
-    final uid = _firebaseUser?.uid;
-    if (uid != null && uid.isNotEmpty) return state.byId[uid];
-    return null;
+  Widget _buildContent(BuildContext context, UserData? userData, UserState state, DrawerPalette palette) {
+    if (_firebaseUser == null) {
+      return const Center(
+        child: Text('Não autenticado', style: TextStyle(color: Colors.white70)),
+      );
+    }
+
+    if (userData == null || state.isLoadingUsers) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return ListView(
+      children: [
+        // ===== LOGO =====
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: SiGedLogo(
+            fontSize: 40,
+            heightLogo: 30,
+            widthLogo: 30,
+            onTapHome: () {
+              Navigator.of(context).maybePop();
+              widget.onTapHome?.call();
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ====== DOCUMENTOS ======
+        ..._buildSection(
+          title: 'DOCUMENTOS',
+          user: userData,
+          colorTitle: palette.sectionTitle,
+          colorSubTitle: palette.sectionSubtitle,
+          items: [
+            ...PagesData.panelDashboard,
+            ...PagesData.drawerDocuments,
+          ],
+        ),
+
+        // ====== SETORES ======
+        ..._buildSection(
+          title: 'SETORES',
+          user: userData,
+          colorTitle: palette.sectionTitle,
+          colorSubTitle: palette.sectionSubtitle,
+          items: PagesData.drawerDepartments,
+        ),
+
+        // ====== ATIVOS ======
+        ..._buildSection(
+          title: 'ATIVOS',
+          user: userData,
+          colorTitle: palette.sectionTitle,
+          colorSubTitle: palette.sectionSubtitle,
+          items: PagesData.drawerActives,
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildSection({
+    required String title,
+    required UserData user,
+    required Color colorTitle,
+    required Color colorSubTitle,
+    required List<MenuDrawerItemModel> items,
+  }) {
+    final visibleGroups = items
+        .map((item) => _buildExpandableGroup(
+      icon: item.icon,
+      label: item.label,
+      children: item.subItems,
+      user: user,
+    ))
+        .whereType<Widget>()
+        .toList();
+
+    if (visibleGroups.isEmpty) return const <Widget>[];
+
+    return [
+      DividerText(title: title, colorTitle: colorTitle, subTitle: colorSubTitle),
+      const SizedBox(height: 8),
+      ...visibleGroups,
+      const SizedBox(height: 12),
+    ];
   }
 
   Widget? _buildExpandableGroup({
@@ -213,6 +187,25 @@ class _DrawerMenuState extends State<DrawerMenu> {
       ),
     );
   }
+
+  UserData? _resolveCurrentUserData(UserState state) {
+    if (state.current != null) return state.current;
+    final uid = _firebaseUser?.uid;
+    if (uid != null && uid.isNotEmpty) return state.byId[uid];
+    return null;
+  }
+}
+
+class DrawerPalette {
+  final Color background;
+  final Color sectionTitle;
+  final Color sectionSubtitle;
+
+  const DrawerPalette({
+    required this.background,
+    required this.sectionTitle,
+    required this.sectionSubtitle,
+  });
 }
 
 class _SubMenuRowSimple extends StatefulWidget {

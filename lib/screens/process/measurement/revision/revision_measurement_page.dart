@@ -115,6 +115,11 @@ class RevisionMeasurement extends StatelessWidget {
                                 onTapSideItem: (i) => ctrl.handleOpenFile(context, i),
                                 onDeleteSideItem: ctrl.handleDeleteFile,
                                 onEditLabelSideItem: ctrl.handleEditLabelFile,
+
+                                // ▶️ NOVO: props do dropdown
+                                orderOptions: ctrl.orderOptions,
+                                greyOrderItems: ctrl.greyOrderItems,
+                                onChangedOrder: ctrl.onChangeOrderDropdown,
                               ),
                             ),
                             const SizedBox(height: 12),

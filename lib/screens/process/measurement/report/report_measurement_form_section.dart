@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+import 'package:siged/_blocs/process/report/report_measurement_controller.dart';
 
 import 'package:siged/_blocs/process/report/report_measurement_storage_bloc.dart';
 import 'package:siged/_utils/responsive_utils.dart';
@@ -25,6 +26,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
 
   final ContractData contractData;
   final ReportMeasurementStorageBloc reportMeasurementStorageBloc;
+  final ReportMeasurementController controller;
 
   final TextEditingController orderController;
   final TextEditingController processNumberController;
@@ -53,6 +55,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
     required this.selectedReportMeasurement,
     required this.currentReportMeasurementId,
     required this.contractData,
+    required this.controller,
     required this.reportMeasurementStorageBloc,
     required this.orderController,
     required this.processNumberController,
@@ -117,20 +120,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
     final text = orderController.text;
     final m = RegExp(r'\d+').firstMatch(text);
     return m?.group(0) ?? '-';
-  }
-
-  // fallback modal simples (não será usado quando o pai passar o callback)
-  Future<void> _openBoletimFullScreen(BuildContext context, String numero) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (ctx) => CreateDetailedReportPage(
-          titulo: 'Boletim de Medição Nº $numero',
-          contractData: contractData,
-          measurement: selectedReportMeasurement,
-        ),
-      ),
-    );
   }
 
   @override
@@ -201,7 +190,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
                   if (onOpenBoletimDeMedicao != null) {
                     onOpenBoletimDeMedicao!();
                   } else {
-                    _openBoletimFullScreen(context, numero);
+                    controller.openBoletimModal(context);
                   }
                 },
               ),

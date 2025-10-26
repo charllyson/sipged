@@ -22,9 +22,6 @@ class ReportMeasurementData {
   DateTime? updatedAt;
   String? updatedBy;
 
-  // detalhamento
-  Map<String, dynamic>? breakdown;
-
   // anexos com rótulo (novo)
   List<Attachment>? attachments;
 
@@ -36,7 +33,6 @@ class ReportMeasurementData {
     this.value,
     this.contractId,
     this.pdfUrl,
-    this.breakdown,
     this.attachments,
     this.createdAt,
     this.createdBy,
@@ -122,7 +118,6 @@ class ReportMeasurementData {
       createdBy: data['createdBy'] as String?,
       updatedAt: _toDate(data['updatedAt']),
       updatedBy: data['updatedBy'] as String?,
-      breakdown: (data['breakdown'] is Map) ? Map<String, dynamic>.from(data['breakdown']) : null,
       attachments: _toAttachments(data['attachments'], fallbackPdfUrl: _pdfUrl),
     );
   }
@@ -141,7 +136,6 @@ class ReportMeasurementData {
       createdBy: json['createdBy'] as String?,
       updatedAt: _toDate(json['updatedAt']),
       updatedBy: json['updatedBy'] as String?,
-      breakdown: (json['breakdown'] is Map) ? Map<String, dynamic>.from(json['breakdown']) : null,
       attachments: _toAttachments(json['attachments'], fallbackPdfUrl: _pdfUrl),
     );
   }
@@ -159,7 +153,6 @@ class ReportMeasurementData {
       'createdBy': createdBy,
       'updatedAt': updatedAt,
       'updatedBy': updatedBy,
-      'breakdown': breakdown,
       'attachments': attachments?.map((e) => e.toMap()).toList(),
     }..removeWhere((k, v) => v == null);
   }
@@ -188,7 +181,6 @@ class ReportMeasurementData {
       value: value ?? this.value,
       contractId: contractId ?? this.contractId,
       pdfUrl: pdfUrl ?? this.pdfUrl,
-      breakdown: breakdown ?? this.breakdown,
       attachments: attachments ?? this.attachments,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,

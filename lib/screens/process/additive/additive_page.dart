@@ -71,6 +71,11 @@ class AdditivePage extends StatelessWidget {
                                       onTapSideItem: (i) => ctrl.handleOpenFile(context, i),
                                       onDeleteSideItem: (i) => ctrl.handleDeleteFile(i, context),
                                       onEditLabelSideItem: (i) => ctrl.handleEditLabelFile(i, context),
+
+                                      // ▶️ Dropdown de ORDEM
+                                      orderOptions: ctrl.orderOptions,
+                                      greyOrderItems: ctrl.greyOrderItems,
+                                      onChangedOrder: ctrl.onChangeOrderDropdown,
                                     ),
                                   ),
 

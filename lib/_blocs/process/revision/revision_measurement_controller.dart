@@ -132,6 +132,49 @@ class RevisionMeasurementController extends ChangeNotifier
   double get valorTotalDisponivel => _valorInicialContrato + _totalAditivos;
   double get saldo => valorTotalDisponivel - totalMedicoes;
 
+  // =================== NOVO: helpers do dropdown de ordem ===================
+  Set<int> get _existingOrders =>
+      _selectorUniverse.map((e) => e.order ?? 0).where((e) => e > 0).toSet();
+
+  int get nextAvailableOrder {
+    if (_existingOrders.isEmpty) return 1;
+    // primeiro “buraco” entre 1..N
+    for (int i = 1; i <= (_existingOrders.length + 1); i++) {
+      if (!_existingOrders.contains(i)) return i;
+    }
+    // senão, max+1
+    final max = _existingOrders.reduce((a, b) => a > b ? a : b);
+    return max + 1;
+  }
+
+  List<String> get orderOptions {
+    final maxPlusOne = _existingOrders.isEmpty
+        ? 1
+        : _existingOrders.reduce((a, b) => a > b ? a : b) + 1;
+    return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
+  }
+
+  Set<String> get greyOrderItems =>
+      _existingOrders.map((e) => e.toString()).toSet();
+
+  void onChangeOrderDropdown(String? v) {
+    final picked = int.tryParse(v ?? '');
+    if (picked == null || picked <= 0) return;
+
+    final idx = _selectorUniverse.indexWhere((m) => (m.order ?? -1) == picked);
+    if (idx >= 0) {
+      // já existe -> seleciona o registro
+      handleSelect(_selectorUniverse[idx]);
+      return;
+    }
+
+    // não existe -> inicia form novo com a ordem escolhida
+    createNew();
+    orderCtrl.text = picked.toString();
+    notifyListeners();
+  }
+  // ========================================================================
+
   // === Init/Dispose ===
   Future<void> init(BuildContext context) async {
     if (_didInit) return;
@@ -212,12 +255,8 @@ class RevisionMeasurementController extends ChangeNotifier
 
     _selectorUniverse = List<RevisionMeasurementData>.from(_all);
 
-    final last = _selectorUniverse.isNotEmpty
-        ? _selectorUniverse
-        .map((e) => e.order ?? 0)
-        .reduce((a, b) => a > b ? a : b)
-        : 0;
-    orderCtrl.text = (last + 1).toString();
+    // ✅ usa sempre o “próximo disponível”
+    orderCtrl.text = nextAvailableOrder.toString();
 
     _currentPage = 1;
     _refreshPagination();
@@ -298,17 +337,12 @@ class RevisionMeasurementController extends ChangeNotifier
   }
 
   void createNew() {
-    final last = _selectorUniverse.isNotEmpty
-        ? _selectorUniverse
-        .map((e) => e.order ?? 0)
-        .reduce((a, b) => a > b ? a : b)
-        : 0;
-
     selectedIndex = null;
     _selected = null;
     _currentId = null;
 
-    orderCtrl.text = (last + 1).toString();
+    // ✅ agora também usa “próximo disponível”
+    orderCtrl.text = nextAvailableOrder.toString();
     processCtrl.clear();
     valueCtrl.clear();
     dateCtrl.clear();

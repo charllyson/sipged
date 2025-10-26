@@ -116,12 +116,19 @@ class PaymentsRevisionPage extends StatelessWidget {
                               );
                             },
                             onClear: c.createNew,
-                            // Side
+
+                            // 🔽 Dropdown de ordem
+                            orderNumberOptions: c.orderNumberOptions,
+                            greyOrderItems: c.greyOrderItems,
+                            onChangedOrderNumber: c.onChangeOrderNumber,
+
+                            // 🆕 SideListBox (multi anexos + rótulo)
                             sideItems: c.sideItems,
                             selectedSideIndex: c.selectedSideIndex,
-                            onAddSideItem: () => c.addSideItem(context),
-                            onTapSideItem: (i) => c.openSideItem(context, i),
-                            onDeleteSideItem: (i) => c.deleteSideItem(context, i),
+                            onAddSideItem: c.canAddFile ? () => c.handleAddFile(context) : null,
+                            onTapSideItem: (i) => c.handleOpenFile(context, i),
+                            onDeleteSideItem: (i) => c.handleDeleteFile(i, context),
+                            onEditLabelSideItem: (i) => c.handleEditLabelFile(i, context),
                           ),
                         ),
 

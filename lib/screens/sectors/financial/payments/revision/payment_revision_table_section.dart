@@ -34,7 +34,10 @@ class PaymentRevisionTableSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalReports = paymentsRevisionsData.fold<double>(0.0, (prev, item) => prev + (item.valuePaymentRevision ?? 0.0),);
+    final totalReports = paymentsRevisionsData.fold<double>(
+      0.0,
+          (prev, item) => prev + (item.valuePaymentRevision ?? 0.0),
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -48,11 +51,11 @@ class PaymentRevisionTableSection extends StatelessWidget {
                 child: SimpleTableChanged<PaymentsRevisionsData>(
                   constraints: constraints,
                   listData: paymentsRevisionsData,
-                  columnTitles: [
+                  columnTitles: const [
                     'ORDEM',
                     'Nº PROCESSO',
-                    'DATA DO PAGAMENTO DA MEDIÇÃO',
-                    'VALOR DO PAGAMENTO DA MEDIÇÃO',
+                    'DATA DO PAGAMENTO DA REVISÃO',
+                    'VALOR DO PAGAMENTO DA REVISÃO',
                   ],
                   selectedItem: selectedPaymentsRevisionsData,
                   columnGetters: [
@@ -63,7 +66,7 @@ class PaymentRevisionTableSection extends StatelessWidget {
                   ],
                   onTapItem: onTapItem,
                   onDelete: (item) => onDelete(item.idRevisionPayment!),
-                  columnWidths: const [100, 200, 150, 200],
+                  columnWidths: const [100, 200, 180, 220],
                   columnTextAligns: const [
                     TextAlign.center,
                     TextAlign.center,

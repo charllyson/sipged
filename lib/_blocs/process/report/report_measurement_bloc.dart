@@ -195,8 +195,6 @@ class ReportMeasurementBloc extends BlocBase {
     }, SetOptions(merge: true));
   }
 
-  // ⬇️ cole no final de ReportMeasurementBloc (antes do dispose)
-
   // ==================== ITENS DA MEDIÇÃO (por item do Budget) ====================
   // Estrutura no Firestore:
   // contracts/{contractId}/reportsMeasurement/{measurementId}/items/{budgetItemId}
@@ -258,6 +256,96 @@ class ReportMeasurementBloc extends BlocBase {
         .set(data, SetOptions(merge: true));
   }
 
+  // ==================== NOVO: salvar snapshot + itens em lote + atualizar value ====================
+
+  List<List<T>> _chunk<T>(List<T> list, int size) {
+    final chunks = <List<T>>[];
+    for (int i = 0; i < list.length; i += size) {
+      chunks.add(list.sublist(i, i + size > list.length ? list.length : i + size));
+    }
+    return chunks;
+  }
+
+  /// Salva o snapshot do boletim (headers/types/widths/rows) no campo `breakdown` da medição.
+  Future<void> saveBreakdownSnapshot({
+    required String contractId,
+    required String measurementId,
+    required Map<String, dynamic> breakdown,
+  }) async {
+    await _col(contractId).doc(measurementId).set({
+      'breakdown': {
+        'headers': List<String>.from(breakdown['headers'] ?? const <String>[]),
+        'colTypes': List<String>.from(breakdown['colTypes'] ?? const <String>[]),
+        'colWidths': List<double>.from(
+          (breakdown['colWidths'] as List? ?? const <double>[])
+              .map((e) => (e is num) ? e.toDouble() : double.tryParse('$e') ?? 120.0),
+        ),
+        'rows': List<List<String>>.from(
+          (breakdown['rows'] as List? ?? const <List<dynamic>>[])
+              .map((r) => List<String>.from(r.map((e) => '$e'))),
+        ),
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  /// Salva/atualiza **itens** da medição em **lote** (batch), seguindo padrão do Budget.
+  Future<void> bulkUpsertMeasurementItems({
+    required String contractId,
+    required String measurementId,
+    required Map<String, Map<String, dynamic>> items,
+  }) async {
+    if (items.isEmpty) return;
+
+    final entries = items.entries.toList();
+    const int kMaxBatch = 500;
+    for (final chunk in _chunk(entries, kMaxBatch)) {
+      final batch = _db.batch();
+      for (final e in chunk) {
+        final budgetItemId = e.key;
+        final m = e.value;
+        final docRef = _itemsCol(contractId: contractId, measurementId: measurementId).doc(budgetItemId);
+
+        final data = <String, dynamic>{
+          'budgetItemId': budgetItemId,
+          // qty
+          'qtyPrev': (m['qtyPrev'] ?? 0) is num ? (m['qtyPrev'] as num).toDouble() : 0.0,
+          'qtyPeriod': (m['qtyPeriod'] ?? 0) is num ? (m['qtyPeriod'] as num).toDouble() : 0.0,
+          'qtyAccum': (m['qtyAccum'] ?? 0) is num ? (m['qtyAccum'] as num).toDouble() : 0.0,
+          'qtyContractBal': (m['qtyContractBal'] ?? 0) is num ? (m['qtyContractBal'] as num).toDouble() : 0.0,
+          // values (R$)
+          'valPrev': (m['valPrev'] ?? 0) is num ? (m['valPrev'] as num).toDouble() : 0.0,
+          'valPeriod': (m['valPeriod'] ?? 0) is num ? (m['valPeriod'] as num).toDouble() : 0.0,
+          'valAccum': (m['valAccum'] ?? 0) is num ? (m['valAccum'] as num).toDouble() : 0.0,
+          'valContractBal': (m['valContractBal'] ?? 0) is num ? (m['valContractBal'] as num).toDouble() : 0.0,
+
+          // meta
+          'contractId': contractId,
+          'measurementId': measurementId,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+        };
+
+        batch.set(docRef, data, SetOptions(merge: true));
+      }
+      await batch.commit();
+    }
+  }
+
+  /// Atualiza o campo `value` (R$) da medição com o total do período (somatório dos itens).
+  Future<void> updateMeasurementValue({
+    required String contractId,
+    required String measurementId,
+    required double value,
+  }) async {
+    await _col(contractId).doc(measurementId).set({
+      'value': value,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+    }, SetOptions(merge: true));
+
+    await _recalcularFinancialPercentage(contractId);
+  }
 
   @override
   void dispose() { super.dispose(); }

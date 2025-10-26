@@ -1,5 +1,4 @@
 // lib/screens/process/revision/revision_measurement_form_section.dart
-// (arquivo completo – idêntico ao que você enviou, pronto para o onTapSideItem)
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
@@ -11,6 +10,7 @@ import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
 // ✅ mesma lista lateral usada em Additives/Apostilles/Reports/Adjustments
 import '../../../../_widgets/list/files/side_list_box.dart';
@@ -30,7 +30,7 @@ class RevisionMeasurementFormSection extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onClear;
 
-  // ▶️ SideListBox (compat: String OU ReportMeasurementAttachment)
+  // ▶️ SideListBox (compat: String OU Attachment)
   final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
@@ -40,6 +40,11 @@ class RevisionMeasurementFormSection extends StatelessWidget {
 
   // (compat) antes usado pelo WebPdfWidget — não é utilizado aqui
   final Future<void> Function(String url)? onUploadSaveToFirestore;
+
+  // ▶️ NOVOS: props do dropdown de ordem
+  final List<String> orderOptions;
+  final Set<String> greyOrderItems;
+  final void Function(String?) onChangedOrder;
 
   const RevisionMeasurementFormSection({
     super.key,
@@ -62,6 +67,10 @@ class RevisionMeasurementFormSection extends StatelessWidget {
     this.onDeleteSideItem,
     this.onEditLabelSideItem,
     this.onUploadSaveToFirestore, // (compat)
+    // dropdown
+    required this.orderOptions,
+    required this.greyOrderItems,
+    required this.onChangedOrder,
   });
 
   // `_input` recebe a largura já calculada
@@ -126,13 +135,15 @@ class RevisionMeasurementFormSection extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(
-              inputsWidth,
-              orderRevisionController,
-              'Ordem da medição',
-              isEditable: isEditable,
-              enabled: false,
-              tooltip: true,
+            // 🔄 Substituição do campo por dropdown de ordem
+            DropDownButtonChange(
+              width: inputsWidth,
+              controller: orderRevisionController,
+              labelText: 'Ordem da medição',
+              items: orderOptions,          // 1..(max+1)
+              greyItems: greyOrderItems,    // existentes => cinza
+              enabled: true,                // permite selecionar/filtrar
+              onChanged: onChangedOrder,
             ),
             _input(
               inputsWidth,

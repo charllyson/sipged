@@ -428,7 +428,7 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
       context: context,
       builder: (_) => AlertDialog(
         title: Text('GeoJSON (${normalized ? "normalizado" : "px absolutos"})'),
-        content: SingleChildScrollView(child: SelectableText(json, style: const TextStyle(fontFamily: 'monospace'))),
+        content: SingleChildScrollView(child: SelectableText(json)),
         actions: [
           TextButton(onPressed: () async => await widget.copyToClipboard?.call(json), child: const Text('Copiar')),
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),

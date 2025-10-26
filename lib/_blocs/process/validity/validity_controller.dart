@@ -51,6 +51,9 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   late Future<List<AdditiveData>> futureAdditives = Future.value([]);
   late Future<List<ContractData>> futureContractList = Future.value([]);
 
+  // Snapshot em memória das validades (para dropdown de ordem)
+  List<ValidityData> _lastSnapshot = [];
+
   // Estado UI
   bool isSaving = false;
   bool formValidated = false;
@@ -63,11 +66,13 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   // Dados selecionados
   String? currentValidityId;
   ValidityData? selectedValidityData;
+
+  // Tipos válidos para o próximo registro (seu dropdown existente)
   List<String> availableOrders = [];
 
   // Controllers
-  final orderCtrl = TextEditingController();
-  final orderTypeCtrl = TextEditingController();
+  final orderCtrl = TextEditingController();      // número da ordem (agora vem do dropdown inteligente)
+  final orderTypeCtrl = TextEditingController();  // tipo da ordem (seu dropdown antigo)
   final orderDateCtrl = TextEditingController();
 
   // ===== SideListBox (arquivos) - compatível com String ou Attachment =====
@@ -146,13 +151,12 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
       uidContract: contract.id!,
     );
 
-    final existingOrders = validities
-        .map((v) => int.tryParse(v.orderNumber?.toString() ?? ''))
-        .whereType<int>()
-        .toList();
+    // mantém snapshot para o dropdown inteligente
+    _lastSnapshot = validities;
 
-    final nextOrder =
-    existingOrders.isEmpty ? 1 : (existingOrders.reduce((a, b) => a > b ? a : b) + 1);
+    // define próxima ordem disponível (menor buraco -> ou max+1)
+    final set = _existingOrders;
+    final nextOrder = _nextAvailableOrder(set);
 
     orderCtrl.text = nextOrder.toString();
     availableOrders = getRulesOrders(validities);
@@ -165,7 +169,7 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     await _loadValidityAndOrders();
   }
 
-  // Regras de sequência das ordens
+  // Regras de sequência das ordens (TIPO)
   List<String> getRulesOrders(List<ValidityData> validities) {
     final List<String> newOrders = [];
     final String? lastOrder = validities.isEmpty ? null : validities.last.ordertype;
@@ -182,6 +186,49 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
       newOrders.addAll(ValidityData.typeOfOrder);
     }
     return newOrders;
+  }
+
+  // =================== ORDEM (dropdown inteligente) ===================
+
+  Set<int> get _existingOrders =>
+      _lastSnapshot.map((v) => v.orderNumber ?? 0).where((n) => n > 0).toSet();
+
+  int _nextAvailableOrder(Set<int> set) {
+    if (set.isEmpty) return 1;
+    for (int i = 1; i <= set.length + 1; i++) {
+      if (!set.contains(i)) return i;
+    }
+    final max = set.reduce((a, b) => a > b ? a : b);
+    return max + 1;
+  }
+
+  /// Opções para o dropdown numérico: 1..maxExistente+1
+  List<String> get orderNumberOptions {
+    final set = _existingOrders;
+    final maxPlusOne = set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
+  }
+
+  /// Itens ocupados (renderizados em cinza)
+  Set<String> get greyOrderItems => _existingOrders.map((e) => e.toString()).toSet();
+
+  /// Seleção do dropdown:
+  /// - existente → seleciona a validade
+  /// - livre → inicia novo com essa ordem
+  void onChangeOrderNumber(String? v) {
+    final picked = int.tryParse(v ?? '');
+    if (picked == null || picked <= 0) return;
+
+    final idx = _lastSnapshot.indexWhere((x) => (x.orderNumber ?? -1) == picked);
+    if (idx >= 0) {
+      fillFields(_lastSnapshot[idx]);
+      return;
+    }
+
+    // livre → inicia novo, setando a ordem escolhida
+    createNew();
+    orderCtrl.text = picked.toString();
+    notifyListeners();
   }
 
   // Form
@@ -316,7 +363,7 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
 
   String _suggestLabelFromName(String original) {
     final base = original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
-    final ord = selectedValidityData?.orderNumber ?? 0;
+    final ord = selectedValidityData?.orderNumber ?? int.tryParse(orderCtrl.text) ?? 0;
     return 'Ordem $ord - $base';
   }
 

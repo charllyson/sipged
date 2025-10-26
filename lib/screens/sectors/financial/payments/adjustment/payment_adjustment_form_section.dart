@@ -11,6 +11,8 @@ import 'package:siged/_utils/formats/input_formatters.dart';
 
 // 🆕 SideListBox
 import 'package:siged/_widgets/list/files/side_list_box.dart';
+// 🆕 Dropdown de ordem com itens em cinza
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 import 'package:siged/_blocs/process/contracts/contract_data.dart';
@@ -40,7 +42,13 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
+    this.onEditLabelSideItem,
     this.contractData,
+
+    // 🆕 props do dropdown de ordem
+    required this.orderNumberOptions,
+    required this.greyOrderItems,
+    this.onChangedOrderNumber,
   });
 
   // controllers
@@ -63,14 +71,20 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
   final VoidCallback onSaveOrUpdate;
   final VoidCallback onClear;
 
-  // SideListBox
-  final List<String> sideItems;
+  // SideListBox (dinâmico)
+  final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
+  final void Function(int index)? onEditLabelSideItem;
 
   final ContractData? contractData;
+
+  // 🆕 Dropdown de ordem
+  final List<String> orderNumberOptions;
+  final Set<String> greyOrderItems;
+  final void Function(String? value)? onChangedOrderNumber;
 
   double _inputsWidth(BuildContext context, {required double reserved}) {
     return responsiveInputWidth(
@@ -83,7 +97,6 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
       spaceBetweenReserved: 12.0,
     );
   }
-
 
   Widget _input(
       double width, {
@@ -99,7 +112,7 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
     if (money) {
       formatters = [
         CurrencyInputFormatter(
-          leadingSymbol: 'R\$',
+          leadingSymbol: 'R\$ ',
           useSymbolPadding: true,
           thousandSeparator: ThousandSeparator.Period,
           mantissaLength: 2,
@@ -119,9 +132,8 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
       enabled: enabled,
       labelText: label,
       controller: controller,
-      keyboardType: money
-          ? TextInputType.number
-          : (date ? TextInputType.datetime : TextInputType.text),
+      keyboardType:
+      money ? TextInputType.number : (date ? TextInputType.datetime : TextInputType.text),
       inputFormatters: formatters,
     );
 
@@ -146,20 +158,40 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _input(w, controller: orderCtrl, label: 'Ordem do reajuste', enabled: false, tooltip: true),
-              _input(w, controller: processCtrl, label: 'Nº processo de pagamento do reajuste', mask: [processoMaskFormatter]),
+              // 🆕 Ordem com dropdown inteligente (itens em cinza + carrega existente)
+              DropDownButtonChange(
+                width: w,
+                labelText: 'Ordem do reajuste',
+                items: orderNumberOptions,
+                controller: orderCtrl,
+                enabled: isEditable,
+                greyItems: greyOrderItems,
+                onChanged: onChangedOrderNumber,
+              ),
+
+              _input(
+                w,
+                controller: processCtrl,
+                label: 'Nº processo de pagamento do reajuste',
+                mask: [processoMaskFormatter],
+              ),
               _input(w, controller: valueCtrl, label: 'Valor do pagamento do reajuste', money: true),
               _input(w, controller: stateCtrl, label: 'Estado do pagamento do reajuste'),
               _input(w, controller: observationCtrl, label: 'Observação do pagamento do reajuste'),
               _input(w, controller: bankCtrl, label: 'Nº do banco do pagamento do reajuste'),
-              _input(w, controller: electronicTicketCtrl, label: 'Nº do boleto eletrônico do pagamento do reajuste'),
+              _input(
+                w,
+                controller: electronicTicketCtrl,
+                label: 'Nº do boleto eletrônico do pagamento do reajuste',
+              ),
               _input(w, controller: fontCtrl, label: 'Fonte do pagamento do reajuste'),
+
               CustomDateField(
                 width: w,
                 enabled: isEditable,
                 controller: dateCtrl,
                 initialValue: selected?.datePaymentAdjustment,
-                labelText: 'Data do pagamento do reajustamento da Medição',
+                labelText: 'Data do pagamento do reajuste',
                 onChanged: (date) => (selected)?.datePaymentAdjustment = date,
               ),
               _input(w, controller: taxCtrl, label: 'Imposto do pagamento do reajuste', money: true),
@@ -197,9 +229,10 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
             title: 'Arquivos do Pagamento de Reajuste',
             items: sideItems,
             selectedIndex: selectedSideIndex,
-            onAddPressed: (selected != null) ? onAddSideItem : null,
+            onAddPressed: (selected != null && isEditable) ? onAddSideItem : null,
             onTap: onTapSideItem,
-            onDelete: onDeleteSideItem,
+            onDelete: isEditable ? onDeleteSideItem : null,
+            onEditLabel: isEditable ? onEditLabelSideItem : null,
             width: sideWidth,
           );
 

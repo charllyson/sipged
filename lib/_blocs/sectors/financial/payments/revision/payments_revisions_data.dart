@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 class PaymentsRevisionsData extends ChangeNotifier {
   String? contractId;
@@ -15,6 +16,12 @@ class PaymentsRevisionsData extends ChangeNotifier {
   String? fontPaymentRevision;
   DateTime? datePaymentRevision;
   double? taxPaymentRevision;
+
+  // Legado: um único PDF
+  String? pdfUrl;
+
+  // 🆕 Multi-anexos
+  List<Attachment>? attachments;
 
   DateTime? createdAt;
   String? createdBy;
@@ -36,6 +43,8 @@ class PaymentsRevisionsData extends ChangeNotifier {
     this.fontPaymentRevision,
     this.datePaymentRevision,
     this.taxPaymentRevision,
+    this.pdfUrl,
+    this.attachments,
     this.createdAt,
     this.createdBy,
     this.updatedAt,
@@ -44,16 +53,10 @@ class PaymentsRevisionsData extends ChangeNotifier {
     this.deletedBy,
   });
 
-  /// Firestore → Flutter
   factory PaymentsRevisionsData.fromDocument({required DocumentSnapshot snapshot}) {
-    if (!snapshot.exists) {
-      throw Exception("Pagamento de revisão não encontrado");
-    }
-
+    if (!snapshot.exists) throw Exception("Pagamento de revisão não encontrado");
     final data = snapshot.data() as Map<String, dynamic>?;
-    if (data == null) {
-      throw Exception("Os dados do pagamento da revisão estão vazios");
-    }
+    if (data == null) throw Exception("Os dados do pagamento da revisão estão vazios");
 
     final contractId = snapshot.reference.parent.parent?.id;
     final revision = PaymentsRevisionsData.fromJson(data);
@@ -62,7 +65,6 @@ class PaymentsRevisionsData extends ChangeNotifier {
     return revision;
   }
 
-  /// Flutter → Firestore
   Map<String, dynamic> toJson() {
     return {
       'contractId': contractId,
@@ -77,6 +79,10 @@ class PaymentsRevisionsData extends ChangeNotifier {
       'electronicTicketPaymentRevision': electronicTicketPaymentRevision ?? '',
       'fontPaymentRevision': fontPaymentRevision ?? '',
       'taxPaymentRevision': taxPaymentRevision ?? 0.0,
+      // Legado
+      'pdfUrl': pdfUrl,
+      // 🆕 Multi-anexos
+      'attachments': (attachments ?? const <Attachment>[]).map((a) => a.toMap()).toList(),
       'createdAt': createdAt,
       'createdBy': createdBy,
       'updatedAt': updatedAt,
@@ -87,32 +93,51 @@ class PaymentsRevisionsData extends ChangeNotifier {
   }
 
   factory PaymentsRevisionsData.fromJson(Map<String, dynamic> json) {
+    List<Attachment>? _parseAtts(dynamic v) {
+      if (v is List) {
+        return v
+            .whereType<Map<String, dynamic>>()
+            .map((m) => Attachment.fromMap(m))
+            .toList();
+      }
+      return null;
+    }
+
+    double _parseDouble(dynamic v) {
+      if (v is num) return v.toDouble();
+      return double.tryParse(v?.toString() ?? '') ?? 0.0;
+    }
+
+    DateTime? _parseDate(dynamic v) {
+      if (v is Timestamp) return v.toDate();
+      if (v is DateTime) return v;
+      if (v is String) return DateTime.tryParse(v);
+      return null;
+    }
+
     return PaymentsRevisionsData(
       idRevisionPayment: json['idRevisionPayment'] ?? '',
       orderPaymentRevision: json['orderPaymentRevision'] ?? 0,
       statePaymentRevision: json['statePaymentRevision'] ?? '',
       observationPaymentRevision: json['observationPaymentRevision'] ?? '',
       orderBankPaymentRevision: json['orderBankPaymentRevision'] ?? '',
-      datePaymentRevision: (json['datePaymentRevision'] as Timestamp?)?.toDate(),
+      datePaymentRevision: _parseDate(json['datePaymentRevision']),
       processPaymentRevision: json['numberProcessPaymentRevision'] ?? '',
-      valuePaymentRevision: (json['valuePaymentRevision'] is num)
-          ? (json['valuePaymentRevision'] as num).toDouble()
-          : double.tryParse(json['valuePaymentRevision']?.toString() ?? '') ?? 0.0,
+      valuePaymentRevision: _parseDouble(json['valuePaymentRevision']),
       electronicTicketPaymentRevision: json['electronicTicketPaymentRevision'] ?? '',
       fontPaymentRevision: json['fontPaymentRevision'] ?? '',
-      taxPaymentRevision: (json['taxPaymentRevision'] is num)
-          ? (json['taxPaymentRevision'] as num).toDouble()
-          : double.tryParse(json['taxPaymentRevision']?.toString() ?? '') ?? 0.0,
-      createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
+      taxPaymentRevision: _parseDouble(json['taxPaymentRevision']),
+      pdfUrl: json['pdfUrl'] as String?,
+      attachments: _parseAtts(json['attachments']),
+      createdAt: _parseDate(json['createdAt']),
       createdBy: json['createdBy'] ?? '',
-      updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
+      updatedAt: _parseDate(json['updatedAt']),
       updatedBy: json['updatedBy'] ?? '',
-      deletedAt: (json['deletedAt'] as Timestamp?)?.toDate(),
+      deletedAt: _parseDate(json['deletedAt']),
       deletedBy: json['deletedBy'] ?? '',
     );
   }
 
-  /// Map genérico (Excel, parser dinâmico)
   factory PaymentsRevisionsData.fromMap(Map<String, dynamic> map) {
     DateTime? parseDate(dynamic val) {
       if (val == null) return null;
@@ -128,6 +153,16 @@ class PaymentsRevisionsData extends ChangeNotifier {
       return double.tryParse(val.toString());
     }
 
+    List<Attachment>? parseAtts(dynamic v) {
+      if (v is List) {
+        return v
+            .whereType<Map<String, dynamic>>()
+            .map((m) => Attachment.fromMap(m))
+            .toList();
+      }
+      return null;
+    }
+
     return PaymentsRevisionsData(
       contractId: map['contractId'],
       idRevisionPayment: map['idRevisionPayment'] ?? '',
@@ -141,6 +176,8 @@ class PaymentsRevisionsData extends ChangeNotifier {
       electronicTicketPaymentRevision: map['electronicTicketPaymentRevision'] ?? '',
       fontPaymentRevision: map['fontPaymentRevision'] ?? '',
       taxPaymentRevision: parseDouble(map['taxPaymentRevision']) ?? 0.0,
+      pdfUrl: map['pdfUrl'] as String?,
+      attachments: parseAtts(map['attachments']),
       createdAt: parseDate(map['createdAt']),
       createdBy: map['createdBy'],
       updatedAt: parseDate(map['updatedAt']),

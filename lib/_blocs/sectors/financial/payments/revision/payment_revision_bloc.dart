@@ -1,10 +1,10 @@
-// lib/_blocs/sectors/financial/payments/revisions/payment_revision_bloc.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 /// Firestore-only para **Revisões de Pagamento**.
 /// (Upload/Storage ficou no PaymentRevisionStorageBloc.)
@@ -40,6 +40,7 @@ class PaymentRevisionBloc extends BlocBase {
       if (segs.length >= 3) {
         rev.contractId = segs[segs.length - 3];
       }
+      rev.idRevisionPayment = doc.id; // garante ID
       return rev;
     }).toList();
   }
@@ -51,10 +52,7 @@ class PaymentRevisionBloc extends BlocBase {
   Future<void> saveOrUpdatePayment(PaymentsRevisionsData data) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     final contractId = data.contractId!;
-    final col = _db
-        .collection('process')
-        .doc(contractId)
-        .collection('revisionPayments');
+    final col = _db.collection('process').doc(contractId).collection('revisionPayments');
 
     final docRef = (data.idRevisionPayment != null &&
         data.idRevisionPayment!.trim().isNotEmpty)
@@ -98,8 +96,7 @@ class PaymentRevisionBloc extends BlocBase {
   }
 
   // ---------------------------------------------------------------------------
-  // Metadado de PDF (somente URL no Firestore)
-  //  → upload/exists/getUrl/delete ficam no PaymentRevisionStorageBloc
+  // Legado: PDF único
   // ---------------------------------------------------------------------------
 
   Future<void> salvarUrlPdfDePayment({
@@ -120,6 +117,32 @@ class PaymentRevisionBloc extends BlocBase {
       });
     } catch (e) {
       debugPrint('Erro ao salvar URL do PDF da revisão: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 🆕 Multi-anexos (lista de Attachment no documento)
+  // ---------------------------------------------------------------------------
+
+  Future<void> setAttachments({
+    required String contractId,
+    required String revisionPaymentId,
+    required List<Attachment> attachments,
+  }) async {
+    try {
+      await _db
+          .collection('process')
+          .doc(contractId)
+          .collection('revisionPayments')
+          .doc(revisionPaymentId)
+          .set({
+        'attachments': attachments.map((e) => e.toMap()).toList(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Erro ao setar attachments de revisão: $e');
+      rethrow;
     }
   }
 

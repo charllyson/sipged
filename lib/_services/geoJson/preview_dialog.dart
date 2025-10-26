@@ -460,7 +460,7 @@ class _GeoJsonPreviewDialogState extends State<GeoJsonPreviewDialog> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: coords.expand<Widget>((sublist) {
                                       return sublist.map<Widget>((point) {
-                                        return Text('[${point[0]}, ${point[1]}]', style: const TextStyle(fontFamily: 'monospace', fontSize: 12));
+                                        return Text('[${point[0]}, ${point[1]}]', style: const TextStyle(fontSize: 12));
                                       }).toList();
                                     }).toList(),
                                   ),

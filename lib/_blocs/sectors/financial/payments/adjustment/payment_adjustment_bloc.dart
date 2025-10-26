@@ -1,10 +1,10 @@
-// lib/_blocs/sectors/financial/payments/adjustments/payment_adjustment_bloc.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 /// Firestore-only para Ajustes de Pagamento.
 /// (Upload/Storage ficou no PaymentsAdjustmentStorageBloc.)
@@ -99,8 +99,7 @@ class PaymentAdjustmentBloc extends BlocBase {
   }
 
   // ---------------------------------------------------------------------------
-  // Metadado de PDF (somente URL no Firestore)
-  //  → upload/exists/getUrl/delete ficam no PaymentsAdjustmentStorageBloc
+  // Metadado de PDF e anexos
   // ---------------------------------------------------------------------------
 
   Future<void> salvarUrlPdfDePayment({
@@ -121,6 +120,29 @@ class PaymentAdjustmentBloc extends BlocBase {
       });
     } catch (e) {
       debugPrint('Erro ao salvar URL do PDF do ajuste: $e');
+    }
+  }
+
+  // 🆕 define lista de anexos no doc
+  Future<void> setAttachments({
+    required String contractId,
+    required String paymentAdjustmentId,
+    required List<Attachment> attachments,
+  }) async {
+    try {
+      await _db
+          .collection('process')
+          .doc(contractId)
+          .collection('adjustmentPayments')
+          .doc(paymentAdjustmentId)
+          .set({
+        'attachments': attachments.map((e) => e.toMap()).toList(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Erro ao setar attachments de ajuste: $e');
+      rethrow;
     }
   }
 

@@ -56,10 +56,10 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
   int? selectedLine;
 
   // Controllers
-  final orderCtrl = TextEditingController();
-  final dateCtrl = TextEditingController();
-  final valueCtrl = TextEditingController();
-  final processCtrl = TextEditingController();
+  final orderController = TextEditingController();
+  final dateController = TextEditingController();
+  final valueController = TextEditingController();
+  final processController = TextEditingController();
 
   // SideListBox (String | Attachment)
   List<dynamic> sideItems = const <dynamic>[];
@@ -86,10 +86,50 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     return DateFormat('dd/MM/yyyy HH:mm').format(d);
   }
 
+  // ======= ORDENS: dropdown inteligente =======
+  Set<int> get _existingOrders =>
+      _lastSnapshot.map((v) => v.apostilleOrder ?? 0).where((n) => n > 0).toSet();
+
+  int _nextAvailableOrder(Set<int> set) {
+    if (set.isEmpty) return 1;
+    for (int i = 1; i <= set.length + 1; i++) {
+      if (!set.contains(i)) return i;
+    }
+    final max = set.reduce((a, b) => a > b ? a : b);
+    return max + 1;
+  }
+
+  /// Opções mostradas no dropdown (1 .. maxExistente+1)
+  List<String> get orderNumberOptions {
+    final set = _existingOrders;
+    final maxPlusOne = set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
+  }
+
+  /// Itens em cinza (já usados)
+  Set<String> get greyOrderItems => _existingOrders.map((e) => e.toString()).toSet();
+
+  /// Clique num item do dropdown
+  void onChangeOrderNumber(String? v) {
+    final picked = int.tryParse(v ?? '');
+    if (picked == null || picked <= 0) return;
+
+    final idx = _lastSnapshot.indexWhere((x) => (x.apostilleOrder ?? -1) == picked);
+    if (idx >= 0) {
+      // já existe -> carrega registro
+      handleApostilleSelection(_lastSnapshot[idx]);
+    } else {
+      // livre -> inicia novo naquela ordem
+      createNew();
+      orderController.text = '$picked';
+      notifyListeners();
+    }
+  }
+
   void _init() {
     futureApostilles = _getAll();
     _setNextOrder();
-    setupValidation([dateCtrl, valueCtrl, processCtrl], _validateForm);
+    setupValidation([dateController, valueController, processController], _validateForm);
   }
 
   /// Pós-frame: depende de BuildContext
@@ -123,21 +163,35 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
   Future<List<ApostillesData>> _getAll() async {
     if (contract.id == null) return [];
     await store.ensureFor(contract.id!);
-    return store.listFor(contract.id!);
+    final list = store.listFor(contract.id!);
+    _lastSnapshot = list;
+
+    // Define próxima ordem livre
+    final next = _nextAvailableOrder(_existingOrders);
+    orderController.text = '$next';
+
+    return list;
   }
 
   Future<void> reload() async {
     if (contract.id == null) return;
     await store.refreshFor(contract.id!);
-    futureApostilles = Future.value(store.listFor(contract.id!));
+    final list = store.listFor(contract.id!);
+    futureApostilles = Future.value(list);
+    _lastSnapshot = list;
+
+    // atualiza a próxima ordem
+    final next = _nextAvailableOrder(_existingOrders);
+    orderController.text = '$next';
+
     notifyListeners();
   }
 
   // VALIDATION
   void _validateForm() {
-    final valid = dateCtrl.text.isNotEmpty &&
-        valueCtrl.text.isNotEmpty &&
-        processCtrl.text.isNotEmpty;
+    final valid = dateController.text.isNotEmpty &&
+        valueController.text.isNotEmpty &&
+        processController.text.isNotEmpty;
 
     if (formValidated != valid) {
       formValidated = valid;
@@ -150,8 +204,10 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     if (contract.id == null) return;
     await store.ensureFor(contract.id!);
     final list = store.listFor(contract.id!);
-    final last = list.map((e) => e.apostilleOrder ?? 0).fold(0, (a, b) => a > b ? a : b);
-    orderCtrl.text = (last + 1).toString();
+    _lastSnapshot = list;
+
+    final next = _nextAvailableOrder(_existingOrders);
+    orderController.text = '$next';
     notifyListeners();
   }
 
@@ -160,10 +216,10 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     editingMode = true;
     currentApostilleId = data.id;
 
-    orderCtrl.text = (data.apostilleOrder ?? '').toString();
-    dateCtrl.text = data.apostilleData != null ? dateTimeToDDMMYYYY(data.apostilleData!) : '';
-    valueCtrl.text = priceToString(data.apostilleValue);
-    processCtrl.text = data.apostilleNumberProcess ?? '';
+    orderController.text = (data.apostilleOrder ?? '').toString();
+    dateController.text = data.apostilleData != null ? dateTimeToDDMMYYYY(data.apostilleData!) : '';
+    valueController.text = priceToString(data.apostilleValue);
+    processController.text = data.apostilleNumberProcess ?? '';
 
     _validateForm();
     _refreshSideList();
@@ -175,14 +231,19 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     currentApostilleId = null;
     selectedApostille = null;
 
-    dateCtrl.clear();
-    valueCtrl.clear();
-    processCtrl.clear();
+    dateController.clear();
+    valueController.clear();
+    processController.clear();
 
     sideItems = const <dynamic>[];
     selectedSideIndex = null;
 
-    _setNextOrder();
+    // mantém a ordem já escolhida no dropdown se houver; senão calcula próxima
+    if (orderController.text.trim().isEmpty) {
+      final next = _nextAvailableOrder(_existingOrders);
+      orderController.text = '$next';
+    }
+
     _validateForm();
     notifyListeners();
   }
@@ -197,16 +258,16 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
     try {
       final novo = ApostillesData(
         id: currentApostilleId,
-        apostilleOrder: int.tryParse(orderCtrl.text),
-        apostilleData: convertDDMMYYYYToDateTime(dateCtrl.text),
-        apostilleValue: stringToDouble(valueCtrl.text),
-        apostilleNumberProcess: processCtrl.text,
+        apostilleOrder: int.tryParse(orderController.text),
+        apostilleData: convertDDMMYYYYToDateTime(dateController.text),
+        apostilleValue: stringToDouble(valueController.text),
+        apostilleNumberProcess: processController.text,
         pdfUrl: selectedApostille?.pdfUrl,
         attachments: selectedApostille?.attachments,
       );
 
       await store.saveOrUpdate(contract.id!, novo);
-      futureApostilles = Future.value(store.listFor(contract.id!));
+      await reload();
       createNew();
 
       // ✅ toast sucesso
@@ -339,7 +400,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
           id: f.name,
           label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
           url: f.url,
-          path: 'contracts/${contract.id}/apostilles/${a.id}/$f.name',
+          path: 'contracts/${contract.id}/apostilles/${a.id}/${f.name}',
           ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
               .firstMatch(f.name)
               ?.group(0) ??
@@ -605,11 +666,11 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
   @override
   void dispose() {
     _userSub?.cancel();
-    removeValidation([dateCtrl, valueCtrl, processCtrl], _validateForm);
-    orderCtrl.dispose();
-    dateCtrl.dispose();
-    valueCtrl.dispose();
-    processCtrl.dispose();
+    removeValidation([dateController, valueController, processController], _validateForm);
+    orderController.dispose();
+    dateController.dispose();
+    valueController.dispose();
+    processController.dispose();
     super.dispose();
   }
 }

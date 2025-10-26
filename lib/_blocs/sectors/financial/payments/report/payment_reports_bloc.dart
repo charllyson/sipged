@@ -1,10 +1,10 @@
-// lib/_blocs/sectors/financial/payments/report/payments_report_bloc.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 /// Firestore-only para Relatórios de Pagamento.
 /// (Upload/Storage ficou no PaymentsReportStorageBloc.)
@@ -40,6 +40,7 @@ class PaymentReportBloc extends BlocBase {
       if (segs.length >= 3) {
         payment.contractId = segs[segs.length - 3];
       }
+      payment.idPaymentReport = doc.id; // garante ID
       return payment;
     }).toList();
   }
@@ -88,8 +89,7 @@ class PaymentReportBloc extends BlocBase {
   }
 
   // ---------------------------------------------------------------------------
-  // Metadado de PDF (somente URL no Firestore)
-  //  → upload/exists/getUrl/delete ficam no PaymentsReportStorageBloc
+  // Metadado de PDF (somente URL no Firestore) — legado
   // ---------------------------------------------------------------------------
 
   Future<void> salvarUrlPdfDePayment({
@@ -110,6 +110,32 @@ class PaymentReportBloc extends BlocBase {
       });
     } catch (e) {
       debugPrint('Erro ao salvar URL do PDF do relatório de pagamento: $e');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 🆕 Lista de anexos (multi-arquivo) no Firestore
+  // ---------------------------------------------------------------------------
+
+  Future<void> setAttachments({
+    required String contractId,
+    required String paymentId,
+    required List<Attachment> attachments,
+  }) async {
+    try {
+      await _db
+          .collection('process')
+          .doc(contractId)
+          .collection('reportPayments')
+          .doc(paymentId)
+          .set({
+        'attachments': attachments.map((e) => e.toMap()).toList(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Erro ao setar attachments de pagamento: $e');
+      rethrow;
     }
   }
 

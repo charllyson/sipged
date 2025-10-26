@@ -1,18 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import 'package:siged/_widgets/table/magic/bands_header.dart';
-import 'package:siged/_widgets/table/magic/body_row.dart';
+import 'package:siged/_widgets/table/magic/grid_body.dart';
+import 'package:siged/_widgets/table/magic/gutter_column.dart';
 import 'package:siged/_widgets/table/magic/gutter_header_box.dart';
-import 'package:siged/_widgets/table/magic/trailing_col_meta.dart';
+import 'package:siged/_widgets/table/magic/leading_column.dart';
+import 'package:siged/_widgets/table/magic/magic_bands_footer_totals.dart';
+
 import 'magic_table_controller.dart' as bc;
-
-// Já existentes no seu projeto
 import 'header_row.dart';
-
-typedef TrailingRowBuilder = List<Widget> Function(
-    BuildContext context,
-    int rowIndex, // 1..N (sem o header)
-    );
 
 typedef RowStyleResolver = ({Color bg, TextStyle text}) Function(int r);
 
@@ -27,14 +24,10 @@ class MagicTableChanged extends StatefulWidget {
     this.gutterWidth = 56,
     this.cellPad = const EdgeInsets.symmetric(horizontal: 12),
 
-    // painéis opcionais
+    // painel esquerdo (opcional)
     this.leadingWidth = 0,
     this.leadingHeaderBuilder,
     this.leadingCellBuilder,
-
-    // painel direito (continuação)
-    this.trailingCols = const <TrailingColMeta>[],
-    this.trailingRowBuilder,
 
     this.floatingActionsBuilder,
 
@@ -52,6 +45,9 @@ class MagicTableChanged extends StatefulWidget {
 
     /// Quando true, não há scroll vertical interno (usa o da página)
     this.useExternalVScroll = false,
+
+    /// Quando null, usa o footer de totais por grupo
+    this.footerBarBuilder,
   });
 
   final bc.MagicTableController controller;
@@ -67,9 +63,6 @@ class MagicTableChanged extends StatefulWidget {
   final double leadingWidth;
   final Widget Function(BuildContext context)? leadingHeaderBuilder;
   final Widget Function(BuildContext context, int row)? leadingCellBuilder;
-
-  final List<TrailingColMeta> trailingCols;
-  final TrailingRowBuilder? trailingRowBuilder;
 
   final List<Widget> Function(BuildContext context, bc.MagicTableController ctrl)?
   floatingActionsBuilder;
@@ -88,13 +81,15 @@ class MagicTableChanged extends StatefulWidget {
 
   final bool useExternalVScroll;
 
+  final Widget Function(BuildContext context, bc.MagicTableController ctrl)?
+  footerBarBuilder;
+
   @override
   State<MagicTableChanged> createState() => _MagicTableChangedState();
 }
 
 class _MagicTableChangedState extends State<MagicTableChanged> {
-  // Scrollers sincronizados
-  final _hHeaderCtrl = ScrollController();
+  // scrollers
   final _hGridCtrl = ScrollController();
   final _vGutterCtrl = ScrollController();
   final _vGridCtrl = ScrollController();
@@ -107,22 +102,11 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
   bool _didInit = false;
 
   static const double _bandHeight = 28;
+  double _totalRowHeight = 36;
 
   @override
   void initState() {
     super.initState();
-
-    // H: header <-> grid
-    _hGridCtrl.addListener(() {
-      if (_hHeaderCtrl.hasClients && _hHeaderCtrl.offset != _hGridCtrl.offset) {
-        _hHeaderCtrl.jumpTo(_hGridCtrl.offset);
-      }
-    });
-    _hHeaderCtrl.addListener(() {
-      if (_hGridCtrl.hasClients && _hGridCtrl.offset != _hHeaderCtrl.offset) {
-        _hGridCtrl.jumpTo(_hHeaderCtrl.offset);
-      }
-    });
 
     // V: gutter <-> grid
     _vGridCtrl.addListener(() {
@@ -145,7 +129,6 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
 
   @override
   void dispose() {
-    _hHeaderCtrl.dispose();
     _hGridCtrl.dispose();
     _vGutterCtrl.dispose();
     _vGridCtrl.dispose();
@@ -222,11 +205,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
   double get _mainGridWidth =>
       widget.controller.colWidths.fold<double>(0.0, (s, w) => s + w);
 
-  double get _trailingTotalWidth =>
-      widget.trailingCols.fold<double>(0.0, (s, e) => s + e.width);
-
-  // ===== regras visuais por linha (compartilhadas pelos subwidgets)
-
+  // ===== estilo por linha (mantido p/ leading e grid)
   bool _isUpperCase(String v) {
     final only = v.replaceAll(RegExp(r'[^A-Za-zÀ-ÿ]'), '');
     return only.isNotEmpty && only == only.toUpperCase();
@@ -236,10 +215,12 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
     return (int r) {
       final rows = widget.controller.tableData;
       final isFirst = r == 0;
-      final firstCol  = (r < rows.length && rows[r].isNotEmpty) ? rows[r][0] : '';
-      final secondCol = (r < rows.length && rows[r].length > 1) ? rows[r][1] : '';
+      final firstCol =
+      (r < rows.length && rows[r].isNotEmpty) ? rows[r][0] : '';
+      final secondCol =
+      (r < rows.length && rows[r].length > 1) ? rows[r][1] : '';
 
-      final isIntegerRow   = !isFirst && int.tryParse(firstCol) != null;
+      final isIntegerRow = !isFirst && int.tryParse(firstCol) != null;
       final isUpperCaseRow = !isFirst && _isUpperCase(secondCol);
 
       final bg = isFirst
@@ -262,22 +243,6 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
     };
   }
 
-  // ===== util: somas de largura (usadas no header de bandas)
-  double _sumMainCols(int from, int toInclusive) {
-    final w = widget.controller.colWidths;
-    double acc = 0;
-    for (int i = from; i <= toInclusive && i < w.length; i++) acc += w[i];
-    return acc;
-  }
-
-  double _sumTrailingCols(int start, int count) {
-    double acc = 0;
-    for (int i = 0; i < count && (start + i) < widget.trailingCols.length; i++) {
-      acc += widget.trailingCols[start + i].width;
-    }
-    return acc;
-  }
-
   @override
   Widget build(BuildContext context) {
     _ensureInitOnce();
@@ -286,24 +251,32 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
     final hasLeading = widget.leadingWidth > 0 &&
         (widget.leadingHeaderBuilder != null ||
             widget.leadingCellBuilder != null);
-    final hasTrailing = widget.trailingCols.isNotEmpty;
     final rowCountWithGhost = ctrl.rowCount + 1;
 
-    final tableContent = !ctrl.hasData
-        ? const Center(child: Text('Cole dados do Excel aqui (Ctrl+V).'))
-        : Column(
+    if (!ctrl.hasData) {
+      return const Center(child: Text('Cole dados do Excel aqui (Ctrl+V).'));
+    }
+
+    // largura total do conteúdo dentro do scroller horizontal único
+    final double totalHorizontalWidth =
+        widget.gutterWidth +
+            widget.gap +
+            (hasLeading ? widget.leadingWidth + widget.gap : 0) +
+            _mainGridWidth +
+            widget.rightScrollGap;
+
+    final tableColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ====== HEADER: bandas + letras no MESMO scroller
+        // ===== HEADER (bands + header row) sem scroller próprio
         Row(
           children: [
-            // gutter fixo (altura = bandas + letras)
             GutterHeaderBox(
               width: widget.gutterWidth,
               height: _bandHeight + widget.headerHeight,
             ),
             SizedBox(width: widget.gap),
 
-            // leading fixo (se houver)
             if (hasLeading)
               SizedBox(
                 width: widget.leadingWidth,
@@ -312,44 +285,32 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
               ),
             if (hasLeading) SizedBox(width: widget.gap),
 
-            // 🔹 scroller único (bandas + letras + trailing)
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _hHeaderCtrl,
-                scrollDirection: Axis.horizontal,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Bandas (Contrato / Quantidade / Valor)
-                    MagicBandsHeader(
-                      bandHeight: _bandHeight,
-                      mainGridWidth: _mainGridWidth,
-                      trailingCols: widget.trailingCols,
-                      contratoWidth: _sumMainCols(0, 5),
-                      quantidadeWidth: _sumTrailingCols(0, 4),
-                      valorWidth: _sumTrailingCols(4, 4),
-                    ),
-                    const SizedBox(height: 2),
-                    MagicHeaderRow(
-                      ctrl: ctrl,
-                      hHeaderCtrl: _hHeaderCtrl,
-                      headerHeight: widget.headerHeight,
-                      ghostColWidth: 0,
-                      rightScrollGap: 0,
-                      onAddColumn: null,
-                      onRemoveColumn: null,
-                      allowAddColumn: false,
-                      allowRemoveColumn: false,
-                      showTypeBadge: true,
-                      extraCount: widget.trailingCols.length,
-                      extraWidth: (i) => widget.trailingCols[i].width,
-                      extraLabel: (i) =>
-                          ctrl.excelColName(ctrl.colCount + i),
-                      useExternalHScroll: true,
-                      addTopBorder: true, // ✅ resolve o “vazio” no topo
-                    ),
-                  ],
-                ),
+            SizedBox(
+              width: _mainGridWidth + widget.rightScrollGap,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MagicBandsHeader(
+                    ctrl: ctrl,
+                    bandHeight: _bandHeight,
+                    addTopBorder: true,
+                  ),
+                  const SizedBox(height: 2),
+                  MagicHeaderRow(
+                    hHeaderCtrl: _hGridCtrl,
+                    ctrl: ctrl,
+                    headerHeight: widget.headerHeight,
+                    ghostColWidth: 0,
+                    rightScrollGap: 0,
+                    onAddColumn: null,
+                    onRemoveColumn: null,
+                    allowAddColumn: false,
+                    allowRemoveColumn: false,
+                    showTypeBadge: true,
+                    useExternalHScroll: true,
+                    addTopBorder: true,
+                  ),
+                ],
               ),
             ),
           ],
@@ -357,86 +318,124 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
 
         SizedBox(height: widget.gap),
 
-        // ====== CORPO
-        if (!widget.useExternalVScroll)
-          Expanded(
-            child: MagicBodyRow(
-              ctrl: ctrl,
-              rowCountWithGhost: rowCountWithGhost,
-              hasLeading: hasLeading,
-              hasTrailing: hasTrailing,
-              gutterWidth: widget.gutterWidth,
-              leadingWidth: widget.leadingWidth,
-              mainGridWidth: _mainGridWidth,
-              trailingTotalWidth: _trailingTotalWidth,
-              trailingCols: widget.trailingCols,
-              cellPad: widget.cellPad,
-              rowHeight: widget.rowHeight,
-              gap: widget.gap,
-              bottomScrollGap: widget.bottomScrollGap,
-              useExternalVScroll: widget.useExternalVScroll,
-              vGutterCtrl: _vGutterCtrl,
-              vGridCtrl: _vGridCtrl,
-              hGridCtrl: _hGridCtrl,
-              editRow: _editRow,
-              editCol: _editCol,
-              cellController: _cellController,
-              cellFocus: _cellFocus,
-              onStartEdit: _startEdit,
-              onCommitEdit: _commitEdit,
-              vPhysics: widget.useExternalVScroll
-                  ? const NeverScrollableScrollPhysics()
-                  : null,
-              leadingHeaderBuilder: widget.leadingHeaderBuilder,
-              leadingCellBuilder: widget.leadingCellBuilder,
-              rowStyleResolver: _rowStyleResolver,
-              trailingRowBuilder: widget.trailingRowBuilder,
+        // ===== BODY (usa V interno, H externo único)
+        Row(
+          children: [
+            SizedBox(
+              width: widget.gutterWidth,
+              child: MagicGutterColumn(
+                ctrl: ctrl,
+                vGutterCtrl: _vGutterCtrl,
+                rowHeight: widget.rowHeight,
+                rowCountWithGhost: rowCountWithGhost,
+                bottomScrollGap: widget.bottomScrollGap,
+                onAddRow: null,
+                addTopBorder: false,
+              ),
             ),
-          )
-        else
-          MagicBodyRow(
-            ctrl: ctrl,
-            rowCountWithGhost: rowCountWithGhost,
-            hasLeading: hasLeading,
-            hasTrailing: hasTrailing,
-            gutterWidth: widget.gutterWidth,
-            leadingWidth: widget.leadingWidth,
-            mainGridWidth: _mainGridWidth,
-            trailingTotalWidth: _trailingTotalWidth,
-            trailingCols: widget.trailingCols,
-            cellPad: widget.cellPad,
-            rowHeight: widget.rowHeight,
-            gap: widget.gap,
-            bottomScrollGap: widget.bottomScrollGap,
-            useExternalVScroll: widget.useExternalVScroll,
-            vGutterCtrl: _vGutterCtrl,
-            vGridCtrl: _vGridCtrl,
-            hGridCtrl: _hGridCtrl,
-            editRow: _editRow,
-            editCol: _editCol,
-            cellController: _cellController,
-            cellFocus: _cellFocus,
-            onStartEdit: _startEdit,
-            onCommitEdit: _commitEdit,
-            vPhysics: widget.useExternalVScroll
-                ? const NeverScrollableScrollPhysics()
-                : null,
-            leadingHeaderBuilder: widget.leadingHeaderBuilder,
-            leadingCellBuilder: widget.leadingCellBuilder,
-            rowStyleResolver: _rowStyleResolver,
-            trailingRowBuilder: widget.trailingRowBuilder,
+            SizedBox(width: widget.gap),
 
-          ),
+            if (hasLeading)
+              SizedBox(
+                width: widget.leadingWidth,
+                child: widget.useExternalVScroll
+                    ? MagicLeadingColumn(
+                  rowCount: ctrl.rowCount,
+                  rowHeight: widget.rowHeight,
+                  bottomScrollGap: widget.bottomScrollGap,
+                  leadingHeaderBuilder: widget.leadingHeaderBuilder,
+                  leadingCellBuilder: widget.leadingCellBuilder,
+                  rowStyleResolver: _rowStyleResolver,
+                )
+                    : SingleChildScrollView(
+                  controller: _vGridCtrl,
+                  child: MagicLeadingColumn(
+                    rowCount: ctrl.rowCount,
+                    rowHeight: widget.rowHeight,
+                    bottomScrollGap: widget.bottomScrollGap,
+                    leadingHeaderBuilder: widget.leadingHeaderBuilder,
+                    leadingCellBuilder: widget.leadingCellBuilder,
+                    rowStyleResolver: _rowStyleResolver,
+                  ),
+                ),
+              ),
+            if (hasLeading) SizedBox(width: widget.gap),
+
+            SizedBox(
+              width: _mainGridWidth,
+              child: MagicGridBody(
+                ctrl: ctrl,
+                vGridCtrl: _vGridCtrl,
+                hGridCtrl: _hGridCtrl, // passado, mas sem criar scroll H interno
+                rowHeight: widget.rowHeight,
+                cellPad: widget.cellPad,
+                editRow: _editRow,
+                editCol: _editCol,
+                cellController: _cellController,
+                cellFocus: _cellFocus,
+                onStartEdit: _startEdit,
+                onCommitEdit: _commitEdit,
+                bottomScrollGap: widget.bottomScrollGap,
+                rightScrollGap: 0,
+                useExternalHScroll: true, // << chave
+                useExternalVScroll: widget.useExternalVScroll,
+                vPhysics: widget.useExternalVScroll
+                    ? const NeverScrollableScrollPhysics()
+                    : null,
+              ),
+            ),
+          ],
+        ),
+
+        // ===== FOOTER (sem scroller próprio)
+        Row(
+          children: [
+            GutterHeaderBox(
+              width: widget.gutterWidth,
+              height: _totalRowHeight,
+            ),
+            SizedBox(width: widget.gap),
+
+            if (hasLeading)
+              SizedBox(
+                width: widget.leadingWidth,
+                height: _totalRowHeight,
+              ),
+            if (hasLeading) SizedBox(width: widget.gap),
+
+            SizedBox(
+              width: _mainGridWidth + widget.rightScrollGap,
+              child: widget.footerBarBuilder != null
+                  ? widget.footerBarBuilder!(context, ctrl)
+                  : MagicBandsFooterTotalsGrouped(
+                ctrl: ctrl,
+                height: _totalRowHeight,
+                labelTotais: 'TOTAIS',
+                rightScrollGap: widget.rightScrollGap,
+                groupLabelForFirstCell: 'CONTRATO',
+              ),
+            ),
+          ],
+        ),
       ],
+    );
+
+    // 🔁 scroller horizontal único envolvendo tudo
+    final tableContent = SingleChildScrollView(
+      controller: _hGridCtrl,
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: totalHorizontalWidth,
+        child: tableColumn,
+      ),
     );
 
     return Stack(
       children: [
-        if (!widget.useExternalVScroll)
-          Column(children: [Expanded(child: tableContent)])
+        if (widget.useExternalVScroll)
+          tableContent
         else
-          tableContent,
-
+          Column(children: [Expanded(child: tableContent)]),
         if (widget.floatingActionsBuilder != null)
           Positioned(
             top: 72,

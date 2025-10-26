@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../_widgets/drawer/menu_drawer_item.dart';
 import '../../../_widgets/drawer/menu_drawer_sub_item.dart';
 
-
 enum MenuItem {
   overviewDashboard,
   specificDashboard,
@@ -47,7 +46,6 @@ enum MenuItem {
 }
 
 class PagesData {
-
   /// ===== MÓDULOS =====
   static List<String> module = [
     'overview-overview-dashboard',
@@ -93,6 +91,83 @@ class PagesData {
     'active-ports-records',
     'active-ports-network',
   ];
+
+  static List<String> moduleName = [
+    'OBRAS',
+    'JURÍDICO',
+  ];
+
+  // pages_data.dart
+
+  /// Qual flag de perfil do usuário habilita cada área do dropdown?
+  static String? profileKeyForArea(String areaLabel) {
+    switch (areaLabel.trim().toUpperCase()) {
+      case 'OBRAS':
+        return 'profileWork';
+      case 'JURÍDICO':
+        return 'profileLegal';
+      default:
+        return null;
+    }
+  }
+
+
+  // mapeia o moduleName -> gradient (JURÍDICO com Bordô/Burgundy/Marsala)
+  static Gradient gradientForModule(String name) {
+    switch (name.toUpperCase()) {
+      case 'OBRAS':
+        return const LinearGradient(
+          colors: [
+            Color.fromARGB(255, 27, 32, 51),
+            Color.fromARGB(255, 144, 202, 249),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case 'JURÍDICO':
+        return const LinearGradient(
+          colors: [
+            Color(0xFF4B0016), // Bordô
+            Color(0xFF800020), // Burgundy
+            Color(0xFF955251), // Marsala
+          ],
+          stops: [0.0, 0.58, 1.0],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      default:
+        return const LinearGradient(
+          colors: [
+            Color.fromARGB(255, 27, 32, 51),
+            Color.fromARGB(255, 144, 202, 249),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+    }
+  }
+
+  /// ===== Regra de acesso por ÁREA do dropdown =====
+  /// Para considerar que o usuário tem acesso à área, ele deve possuir
+  /// permissão READ em pelo menos UM destes módulos.
+  static final Map<String, List<String>> areaRequiredModules = {
+    'OBRAS': [
+      'overview-overview-dashboard',
+      'process-hiring-records',
+      'operation-work-timeline',
+      'active-road-network',
+    ],
+    'JURÍDICO': [
+      'process-additive-records',
+      'process-apostilles-records',
+      'process-validity-records',
+      'process-hiring-records',
+    ],
+  };
+
+  static List<String> requiredModulesForArea(String areaLabel) {
+    return areaRequiredModules[areaLabel.toUpperCase()] ?? const [];
+  }
 
   /// =========== PAINÉIS =============
   static List<MenuDrawerItemModel> panelDashboard = [
@@ -185,8 +260,6 @@ class PagesData {
           menuItem: MenuItem.planningEnvironmentRecords,
           permissionModule: 'planning-environment-records',
         ),
-
-
       ],
     ),
     MenuDrawerItemModel(
@@ -325,6 +398,5 @@ class PagesData {
         ),
       ],
     ),
-
   ];
 }

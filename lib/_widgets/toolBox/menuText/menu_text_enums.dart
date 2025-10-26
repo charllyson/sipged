@@ -75,7 +75,6 @@ class TextItem {
     color: color,
     fontSize: fontSize,
     fontWeight: weight,
-    fontFamily: monospace ? 'monospace' : null,
   );
 
   /// Cópia com alterações.

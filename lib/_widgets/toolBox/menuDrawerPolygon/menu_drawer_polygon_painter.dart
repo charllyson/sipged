@@ -172,7 +172,6 @@ class MenuDrawerPolygonPainter extends CustomPainter {
         text: TextSpan(
           text: String.fromCharCode(Icons.photo_camera.codePoint),
           style: const TextStyle(
-            fontFamily: 'MaterialIcons',
             fontSize: iconSize,
             color: Colors.black87,
           ),
@@ -187,7 +186,6 @@ class MenuDrawerPolygonPainter extends CustomPainter {
         text: TextSpan(
           text: String.fromCharCode(Icons.comment_outlined.codePoint),
           style: const TextStyle(
-            fontFamily: 'MaterialIcons',
             fontSize: iconSize,
             color: Colors.black87,
           ),

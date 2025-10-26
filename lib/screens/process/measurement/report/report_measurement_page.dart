@@ -90,6 +90,7 @@ class ReportMeasurement extends StatelessWidget {
                                 dateController: ctrl.dateCtrl,
                                 valueController: ctrl.valueCtrl,
                                 reportMeasurementStorageBloc: ctrl.reportMeasurementStorageBloc,
+                                controller: ctrl,
                                 onClear: ctrl.createNew,
                                 onSave: () async {
                                   final ok = await _confirm(context, 'Deseja salvar esta medição?');

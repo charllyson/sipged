@@ -45,7 +45,7 @@ class SiGedLogo extends StatelessWidget {
             ],
           ),
           const Text(
-            'Sistema Integrado de Georreferenciamento e Gestão de dados',
+            'Sistema Integrado de Gestão de dados',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white),
           ),

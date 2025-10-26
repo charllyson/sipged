@@ -1,13 +1,15 @@
-// lib/_blocs/sectors/financial/payments/adjustment/payment_adjustment_controller.dart
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+
+import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:siged/_services/pdf/pdf_preview.dart';
 
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
@@ -20,7 +22,6 @@ import 'package:siged/_utils/date_utils.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
-// ✅ novo: papéis globais + permissões por módulo
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
 
@@ -45,6 +46,9 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   ContractData? contract;
 
   List<PaymentsAdjustmentsData> _payments = <PaymentsAdjustmentsData>[];
+  // 🆕 snapshot para suporte ao dropdown inteligente
+  List<PaymentsAdjustmentsData> _lastSnapshot = <PaymentsAdjustmentsData>[];
+
   PaymentsAdjustmentsData? _selected;
   String? _currentId;
 
@@ -56,11 +60,10 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
-  // SideListBox
-  List<String> sideItems = const <String>[];
+  // SideListBox (agora dinâmico: String | Attachment)
+  List<dynamic> sideItems = const <dynamic>[];
   int? selectedSideIndex;
   bool get canAddFile => isEditable && _selected?.idPaymentAdjustment != null;
-  String? get currentPdfUrl => _selected?.pdfUrl;
 
   // controllers
   final orderCtrl = TextEditingController();
@@ -89,11 +92,54 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   double get valorInicialBase => _valorInicial;
   double get valorAditivosTotal => _valorAditivos;
 
-  // ✅ admin via papel global
   bool get isAdmin {
     final u = currentUser;
     if (u == null) return false;
     return roles.roleForUser(u) == roles.BaseRole.ADMINISTRADOR;
+  }
+
+  // ======= ORDENS: dropdown inteligente (espelha o módulo de pagamentos) =======
+  Set<int> get _existingOrders =>
+      _lastSnapshot.map((v) => v.orderPaymentAdjustment ?? 0).where((n) => n > 0).toSet();
+
+  int _nextAvailableOrder(Set<int> set) {
+    if (set.isEmpty) return 1;
+    // primeiro buraco entre 1..N
+    for (int i = 1; i <= set.length + 1; i++) {
+      if (!set.contains(i)) return i;
+    }
+    // se não houver buraco, segue após o máximo
+    final max = set.reduce((a, b) => a > b ? a : b);
+    return max + 1;
+  }
+
+  /// Opções mostradas no dropdown (1 .. maxExistente+1)
+  List<String> get orderNumberOptions {
+    final set = _existingOrders;
+    final maxPlusOne =
+    set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
+  }
+
+  /// Itens em cinza (já usados)
+  Set<String> get greyOrderItems =>
+      _existingOrders.map((e) => e.toString()).toSet();
+
+  /// Clique num item do dropdown
+  void onChangeOrderNumber(String? v) {
+    final picked = int.tryParse(v ?? '');
+    if (picked == null || picked <= 0) return;
+
+    final idx = _lastSnapshot.indexWhere(
+            (x) => (x.orderPaymentAdjustment ?? -1) == picked);
+    if (idx >= 0) {
+      // já existe -> carrega registro
+      selectRow(_lastSnapshot[idx]);
+    } else {
+      // livre -> inicia novo naquela ordem
+      createNew(overrideOrder: picked);
+      notifyListeners();
+    }
   }
 
   Future<void> init(BuildContext context, {required ContractData? contractData}) async {
@@ -142,14 +188,10 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     super.dispose();
   }
 
-  // ✅ Permissão (módulo: payments_adjustment)
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
-
-    // Admin sempre pode
     if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) return true;
 
-    // Senão, checamos permissão de módulo (edit OU create concede edição)
     final canEdit = perms.userCanModule(
       user: user,
       module: 'payments_adjustment',
@@ -171,10 +213,12 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     _payments = await _paymentAdjustmentBloc
         .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
 
-    final last = _payments.isNotEmpty
-        ? _payments.map((e) => e.orderPaymentAdjustment ?? 0).reduce((a, b) => a > b ? a : b)
-        : 0;
-    orderCtrl.text = (last + 1).toString();
+    // 🆕 mantém snapshot para o dropdown
+    _lastSnapshot = List<PaymentsAdjustmentsData>.from(_payments);
+
+    // 🆕 define próxima ordem livre
+    final next = _nextAvailableOrder(_existingOrders);
+    orderCtrl.text = '$next';
 
     await _refreshSideList();
     notifyListeners();
@@ -213,13 +257,19 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     notifyListeners();
   }
 
-  void createNew() {
-    final last = _payments.map((e) => e.orderPaymentAdjustment ?? 0).fold(0, (a, b) => a > b ? a : b);
+  void createNew({int? overrideOrder}) {
     selectedIndex = null;
     _selected = null;
     _currentId = null;
 
-    orderCtrl.text = (last + 1).toString();
+    // 🆕 mantém o valor escolhido no dropdown; se vazio, usa próxima livre
+    if (overrideOrder != null && overrideOrder > 0) {
+      orderCtrl.text = '$overrideOrder';
+    } else if (orderCtrl.text.trim().isEmpty) {
+      final next = _nextAvailableOrder(_existingOrders);
+      orderCtrl.text = '$next';
+    }
+
     processCtrl.clear();
     valueCtrl.clear();
     dateCtrl.clear();
@@ -260,13 +310,16 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
         electronicTicketPaymentAdjustment: electronicTicketCtrl.text,
         fontPaymentAdjustment: fontCtrl.text,
         taxPaymentAdjustment: parseCurrencyToDouble(taxCtrl.text),
-        pdfUrl: _selected?.pdfUrl, // mantém se já existir
+        pdfUrl: _selected?.pdfUrl,
+        attachments: _selected?.attachments,
       );
 
       await _paymentAdjustmentBloc.saveOrUpdatePayment(data);
 
       _payments = await _paymentAdjustmentBloc
           .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
+      // 🆕 mantém snapshot atualizado
+      _lastSnapshot = List<PaymentsAdjustmentsData>.from(_payments);
 
       createNew();
       onSuccess?.call();
@@ -303,12 +356,15 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
         fontPaymentAdjustment: data.fontPaymentAdjustment,
         taxPaymentAdjustment: data.taxPaymentAdjustment,
         pdfUrl: data.pdfUrl,
+        attachments: data.attachments,
       );
 
       await _paymentAdjustmentBloc.saveOrUpdatePayment(toSave);
 
       _payments = await _paymentAdjustmentBloc
           .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
+      // 🆕 mantém snapshot atualizado
+      _lastSnapshot = List<PaymentsAdjustmentsData>.from(_payments);
 
       createNew();
       onSuccess?.call();
@@ -329,6 +385,9 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
       await _paymentAdjustmentBloc.deletarPayment(contract!.id!, idPaymentAdjustment);
       _payments = await _paymentAdjustmentBloc
           .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
+      // 🆕 mantém snapshot atualizado
+      _lastSnapshot = List<PaymentsAdjustmentsData>.from(_payments);
+
       selectedIndex = null;
       onSuccess?.call();
     } catch (_) {
@@ -338,77 +397,246 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     }
   }
 
-  // --------- PDF via SideListBox ----------
+  // ====== SideList (anexos) ======
+
+  String _suggestLabelFromName(String original) {
+    final base = original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+    final ord = _selected?.orderPaymentAdjustment ?? 0;
+    return 'Reajuste $ord - $base';
+  }
+
+  Future<String?> _askLabel(BuildContext context, {required String suggestion}) async {
+    final ctrl = TextEditingController(text: suggestion);
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Nome do arquivo'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Rótulo do arquivo'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Salvar')),
+        ],
+      ),
+    );
+  }
+
   Future<void> _refreshSideList() async {
-    if (currentPdfUrl != null && currentPdfUrl!.isNotEmpty) {
-      sideItems = const ['PDF do Pagamento de Reajuste'];
-      selectedSideIndex = 0;
-    } else {
-      sideItems = const <String>[];
+    final v = _selected;
+    if (v == null) {
+      sideItems = const <dynamic>[];
       selectedSideIndex = null;
+      notifyListeners();
+      return;
     }
-    if (hasListeners) notifyListeners();
-  }
 
-  Future<void> handleAddFile() async {
-    if (!canAddFile || contract?.id == null || _selected?.idPaymentAdjustment == null) return;
-    try {
-      isSaving = true; notifyListeners();
+    // 1) já tem attachments
+    if ((v.attachments ?? const []).isNotEmpty) {
+      sideItems = List<dynamic>.from(v.attachments!);
+      selectedSideIndex = null;
+      notifyListeners();
+      return;
+    }
 
-      final url = await _storageBloc.uploadWithPicker(
-        contract: contract!,
-        payment: _selected!,
-        onProgress: (_) {},
+    // 2) migra pdfUrl legado
+    if ((v.pdfUrl ?? '').isNotEmpty && v.idPaymentAdjustment != null && contract?.id != null) {
+      final att = Attachment(
+        id: 'legacy-pdf',
+        label: 'Documento do reajuste',
+        url: v.pdfUrl!,
+        path: '',
+        ext: '.pdf',
+        createdAt: DateTime.now(),
+        createdBy: currentUser?.id,
       );
-
-      await _paymentAdjustmentBloc.salvarUrlPdfDePayment(
+      await _paymentAdjustmentBloc.setAttachments(
         contractId: contract!.id!,
-        paymentId: _selected!.idPaymentAdjustment!,
-        url: url,
+        paymentAdjustmentId: v.idPaymentAdjustment!,
+        attachments: [att],
       );
-
-      _selected = _selected!..pdfUrl = url;
-      await _refreshSideList();
-    } finally {
-      isSaving = false; notifyListeners();
+      _selected = v..attachments = [att]..pdfUrl = null;
+      sideItems = [att];
+      selectedSideIndex = null;
+      notifyListeners();
+      return;
     }
-  }
 
-  Future<void> handleDeleteFile(int index) async {
-    if (contract?.id == null || _selected?.idPaymentAdjustment == null) return;
-    try {
-      isSaving = true; notifyListeners();
-
-      await _storageBloc.delete(contract!, _selected!);
-      await _paymentAdjustmentBloc.salvarUrlPdfDePayment(
+    // 3) materializa arquivos do Storage (se houver)
+    if (contract?.id != null && v.idPaymentAdjustment != null) {
+      final files = await _storageBloc.listarArquivosDoPagamento(
         contractId: contract!.id!,
-        paymentId: _selected!.idPaymentAdjustment!,
-        url: '',
+        paymentAdjustmentId: v.idPaymentAdjustment!,
       );
+      if (files.isNotEmpty) {
+        final list = files
+            .map((f) => Attachment(
+          id: f.name,
+          label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+          url: f.url,
+          path:
+          'contracts/${contract!.id}/adjustmentPayments/${v.idPaymentAdjustment}/${f.name}',
+          ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
+              .firstMatch(f.name)
+              ?.group(0) ??
+              '',
+          createdAt: DateTime.now(),
+          createdBy: currentUser?.id,
+        ))
+            .toList();
 
-      _selected = _selected!..pdfUrl = null;
-      await _refreshSideList();
-    } finally {
-      isSaving = false; notifyListeners();
+        await _paymentAdjustmentBloc.setAttachments(
+          contractId: contract!.id!,
+          paymentAdjustmentId: v.idPaymentAdjustment!,
+          attachments: list,
+        );
+
+        _selected = v..attachments = list;
+        sideItems = List<dynamic>.from(list);
+        selectedSideIndex = null;
+        notifyListeners();
+        return;
+      }
     }
-  }
 
-  Future<void> handleOpenFile(int index) async {
-    final url = currentPdfUrl;
-    if (url == null || url.isEmpty) return;
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  void overwriteList(List<PaymentsAdjustmentsData> newList) {
-    _payments = newList;
-    final last = _payments.isNotEmpty
-        ? _payments.map((e) => e.orderPaymentAdjustment ?? 0).reduce((a, b) => a > b ? a : b)
-        : 0;
-    if (selectedIndex == null) {
-      orderCtrl.text = (last + 1).toString();
-    }
+    sideItems = const <dynamic>[];
+    selectedSideIndex = null;
     notifyListeners();
+  }
+
+  Future<void> handleAddFile(BuildContext context) async {
+    final v = _selected;
+    if (!canAddFile || contract?.id == null || v?.idPaymentAdjustment == null || v == null) return;
+
+    try {
+      isSaving = true; notifyListeners();
+
+      final (Uint8List bytes, String originalName) = await _storageBloc.pickFileBytes();
+
+      final suggestion = _suggestLabelFromName(originalName);
+      final label = await _askLabel(context, suggestion: suggestion);
+      if (label == null) { isSaving = false; notifyListeners(); return; }
+
+      final att = await _storageBloc.uploadAttachmentBytes(
+        contract: contract!,
+        payment: v,
+        bytes: bytes,
+        originalName: originalName,
+        label: label.isEmpty ? suggestion : label,
+      );
+
+      final current = List<Attachment>.from(v.attachments ?? const []);
+      current.add(att);
+
+      await _paymentAdjustmentBloc.setAttachments(
+        contractId: contract!.id!,
+        paymentAdjustmentId: v.idPaymentAdjustment!,
+        attachments: current,
+      );
+
+      _selected = v..attachments = current;
+      await _refreshSideList();
+    } catch (_) {
+      // você pode notificar via NotificationCenter, se desejar
+    } finally {
+      isSaving = false; notifyListeners();
+    }
+  }
+
+  Future<void> handleEditLabelFile(int index, BuildContext context) async {
+    final v = _selected;
+    if (v == null || v.attachments == null || index < 0 || index >= v.attachments!.length) return;
+
+    try {
+      isSaving = true; notifyListeners();
+
+      final att = v.attachments![index];
+      final suggestion = att.label.isNotEmpty ? att.label : _suggestLabelFromName(att.id);
+      final newLabel = await _askLabel(context, suggestion: suggestion);
+      if (newLabel == null) { isSaving = false; notifyListeners(); return; }
+
+      v.attachments![index] = Attachment(
+        id: att.id,
+        label: newLabel.isEmpty ? suggestion : newLabel,
+        url: att.url,
+        path: att.path,
+        ext: att.ext,
+        size: att.size,
+        createdAt: att.createdAt,
+        createdBy: att.createdBy,
+        updatedAt: DateTime.now(),
+        updatedBy: currentUser?.id,
+      );
+
+      await _paymentAdjustmentBloc.setAttachments(
+        contractId: contract!.id!,
+        paymentAdjustmentId: v.idPaymentAdjustment!,
+        attachments: v.attachments!,
+      );
+
+      await _refreshSideList();
+    } finally {
+      isSaving = false; notifyListeners();
+    }
+  }
+
+  Future<void> handleDeleteFile(int index, BuildContext context) async {
+    final v = _selected;
+    if (v == null || v.idPaymentAdjustment == null || contract?.id == null) return;
+
+    try {
+      isSaving = true; notifyListeners();
+
+      final atts = v.attachments ?? [];
+      if (index >= 0 && index < atts.length) {
+        final removed = atts.removeAt(index);
+        if ((removed.path).isNotEmpty) {
+          await _storageBloc.deleteStorageByPath(removed.path);
+        }
+        await _paymentAdjustmentBloc.setAttachments(
+          contractId: contract!.id!,
+          paymentAdjustmentId: v.idPaymentAdjustment!,
+          attachments: atts,
+        );
+        _selected = v..attachments = atts;
+      } else if ((v.pdfUrl ?? '').isNotEmpty) {
+        await _paymentAdjustmentBloc.salvarUrlPdfDePayment(
+          contractId: contract!.id!,
+          paymentId: v.idPaymentAdjustment!,
+          url: '',
+        );
+        _selected = v..pdfUrl = null;
+      }
+
+      await _refreshSideList();
+    } finally {
+      isSaving = false; notifyListeners();
+    }
+  }
+
+  Future<void> handleOpenFile(BuildContext context, int index) async {
+    final v = _selected;
+    if (v == null) return;
+
+    String? url;
+    if ((v.attachments ?? []).isNotEmpty) {
+      if (index < 0 || index >= v.attachments!.length) return;
+      url = v.attachments![index].url;
+      selectedSideIndex = index; notifyListeners();
+    } else {
+      url = v.pdfUrl; // legado
+    }
+    if (url == null || url.isEmpty) return;
+
+    await showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.all(16),
+        child: PdfPreview(pdfUrl: url!),
+      ),
+    );
   }
 }

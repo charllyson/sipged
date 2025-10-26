@@ -14,10 +14,18 @@ import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 
 class ValidityFormSection extends StatelessWidget {
-  final TextEditingController orderCtrl;
-  final TextEditingController orderTypeCtrl;
+  final TextEditingController orderCtrl;      // número (dropdown inteligente)
+  final TextEditingController orderTypeCtrl;  // tipo (seu dropdown antigo)
   final TextEditingController orderDateCtrl;
+
+  // ▼ opções do dropdown de TIPO (já existia)
   final List<String> availableOrders;
+
+  // ⬇️ NOVO: opções do dropdown de ORDEM numérica
+  final List<String> orderNumberOptions;
+  final Set<String> greyOrderItems;
+  final void Function(String?) onChangedOrderNumber;
+
   final ValidityData? selectedValidityData;
   final bool isEditable;
   final bool isSaving;
@@ -41,6 +49,9 @@ class ValidityFormSection extends StatelessWidget {
     required this.orderTypeCtrl,
     required this.orderDateCtrl,
     required this.availableOrders,
+    required this.orderNumberOptions,
+    required this.greyOrderItems,
+    required this.onChangedOrderNumber,
     required this.selectedValidityData,
     required this.isEditable,
     required this.isSaving,
@@ -77,18 +88,18 @@ class ValidityFormSection extends StatelessWidget {
         spacing: 12,
         runSpacing: 12,
         children: [
-          Tooltip(
-            message: 'Este campo é calculado automaticamente e não pode ser editado.',
-            child: CustomTextField(
-              width: inputWidth,
-              enabled: false,
-              fillCollor: Colors.grey.shade200,
-              labelText: 'Ordem',
-              controller: orderCtrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            ),
+          // 🔄 ORDEM numérica via dropdown (existentes em cinza; livres em preto)
+          DropDownButtonChange(
+            width: inputWidth,
+            labelText: 'Ordem',
+            items: orderNumberOptions,
+            greyItems: greyOrderItems,
+            controller: orderCtrl,
+            enabled: isEditable,
+            onChanged: onChangedOrderNumber,
           ),
+
+          // ▼ TIPO da ordem (mantido)
           DropDownButtonChange(
             width: inputWidth,
             labelText: 'Tipo da ordem',
@@ -96,6 +107,7 @@ class ValidityFormSection extends StatelessWidget {
             controller: orderTypeCtrl,
             enabled: availableOrders.isNotEmpty && isEditable,
           ),
+
           CustomDateField(
             width: inputWidth,
             controller: orderDateCtrl,

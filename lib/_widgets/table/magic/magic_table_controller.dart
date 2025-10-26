@@ -329,7 +329,8 @@ class MagicTableController extends ChangeNotifier {
         final d = _parseBR(value); if (d != null) value = _formatMoneyBR(d);
         break;
       case ColumnType.number:
-        final d2 = _parseBR(value); if (d2 != null) value = _formatNumberBR(d2, decimals: 2, trimZeros: true);
+        final d2 = _parseBR(value);
+        if (d2 != null) value = _formatNumberBR(d2, decimals: 2, trimZeros: false);
         break;
       case ColumnType.boolean_:
         final v = value.toLowerCase();
@@ -547,7 +548,8 @@ class MagicTableController extends ChangeNotifier {
   // ---------- Helpers públicos ----------
   double? parseBR(String s) => _parseBR(s);
   String formatNumberBR(double d, {int decimals = 2, bool trimZeros = true}) =>
-      _formatNumberBR(d, decimals: decimals, trimZeros: true);
+      _formatNumberBR(d, decimals: decimals, trimZeros: trimZeros);
+
   String formatMoneyBR(double d) => _formatMoneyBR(d);
 
   double _measureCellWidth(String txt, TextStyle style) {
@@ -569,8 +571,10 @@ class MagicTableController extends ChangeNotifier {
           final d = _parseBR(raw); if (d != null) tableData[r][col] = _formatMoneyBR(d);
           break;
         case ColumnType.number:
-          final d2 = _parseBR(raw); if (d2 != null) tableData[r][col] = _formatNumberBR(d2, decimals: 2, trimZeros: true);
+          final d2 = _parseBR(raw);
+          if (d2 != null) tableData[r][col] = _formatNumberBR(d2, decimals: 2, trimZeros: false);
           break;
+
         case ColumnType.boolean_:
           final v = raw.toLowerCase();
           if (['true','t','sim','s','1'].contains(v)) tableData[r][col] = 'true';

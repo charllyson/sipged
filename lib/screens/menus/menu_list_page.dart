@@ -25,7 +25,7 @@ import 'package:siged/screens/process/hiring/tab_bar_contract_page.dart';
 import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_page.dart';
 import 'package:siged/screens/process/landRegularization/lane_regularization_tabs.dart';
 import 'package:siged/screens/process/measurement/tab_bar_measurement_page.dart';
-import 'package:siged/screens/process/validity/tab_bar_validity_page.dart';
+import 'package:siged/screens/process/validity/validity_tab_bar.dart';
 import 'package:siged/screens/sectors/operation/schedule/civil/schedule_civil_page.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 import 'package:siged/screens/actives/airports/network/active_airports_network_page.dart';
@@ -222,7 +222,7 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => TabBarValidityPage(contractData: contract)),
+            MaterialPageRoute(builder: (_) => ValidityTabBarPage(contractData: contract)),
           );
         }, pageTitle: 'Ordens e Vigência');
 

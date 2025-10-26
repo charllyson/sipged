@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 class PaymentsAdjustmentsData extends ChangeNotifier {
   String? contractId;
@@ -16,8 +17,11 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
   DateTime? datePaymentAdjustment;
   double? taxPaymentAdjustment;
 
-  // 🆕 URL do PDF
+  // Legado (um único PDF)
   String? pdfUrl;
+
+  // 🆕 Multi-anexos
+  List<Attachment>? attachments;
 
   DateTime? createdAt;
   String? createdBy;
@@ -39,7 +43,8 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
     this.fontPaymentAdjustment,
     this.datePaymentAdjustment,
     this.taxPaymentAdjustment,
-    this.pdfUrl, // 🆕
+    this.pdfUrl,
+    this.attachments,
     this.createdAt,
     this.createdBy,
     this.updatedAt,
@@ -74,7 +79,8 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
       'fontPaymentAdjustment': fontPaymentAdjustment ?? '',
       'datePaymentAdjustment': datePaymentAdjustment != null ? Timestamp.fromDate(datePaymentAdjustment!) : null,
       'taxPaymentAdjustment': taxPaymentAdjustment ?? 0.0,
-      'pdfUrl': pdfUrl, // 🆕
+      'pdfUrl': pdfUrl, // legado
+      'attachments': (attachments ?? const <Attachment>[]).map((a) => a.toMap()).toList(),
       'createdAt': createdAt,
       'createdBy': createdBy,
       'updatedAt': updatedAt,
@@ -85,6 +91,13 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
   }
 
   factory PaymentsAdjustmentsData.fromJson(Map<String, dynamic> json) {
+    List<Attachment>? _parseAtts(dynamic v) {
+      if (v is List) {
+        return v.whereType<Map<String, dynamic>>().map(Attachment.fromMap).toList();
+      }
+      return null;
+    }
+
     return PaymentsAdjustmentsData(
       contractId: json['contractId'],
       idPaymentAdjustment: json['idPaymentAdjustment'] ?? '',
@@ -102,7 +115,8 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
       taxPaymentAdjustment: (json['taxPaymentAdjustment'] is num)
           ? (json['taxPaymentAdjustment'] as num).toDouble()
           : double.tryParse(json['taxPaymentAdjustment']?.toString() ?? '') ?? 0.0,
-      pdfUrl: json['pdfUrl'] as String?, // 🆕
+      pdfUrl: json['pdfUrl'] as String?,
+      attachments: _parseAtts(json['attachments']),
       createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
       createdBy: json['createdBy'] ?? '',
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
@@ -125,6 +139,12 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
       if (v is num) return v.toDouble();
       return double.tryParse(v.toString());
     }
+    List<Attachment>? parseAtts(dynamic v) {
+      if (v is List) {
+        return v.whereType<Map<String, dynamic>>().map(Attachment.fromMap).toList();
+      }
+      return null;
+    }
 
     return PaymentsAdjustmentsData(
       contractId: map['contractId'],
@@ -139,7 +159,8 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
       fontPaymentAdjustment: map['fontPaymentAdjustment'] ?? '',
       datePaymentAdjustment: parseDate(map['datePaymentAdjustment']),
       taxPaymentAdjustment: parseDouble(map['taxPaymentAdjustment']) ?? 0.0,
-      pdfUrl: map['pdfUrl'] as String?, // 🆕
+      pdfUrl: map['pdfUrl'] as String?,
+      attachments: parseAtts(map['attachments']),
       createdAt: parseDate(map['createdAt']),
       createdBy: map['createdBy'],
       updatedAt: parseDate(map['updatedAt']),

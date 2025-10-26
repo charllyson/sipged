@@ -1,9 +1,11 @@
+// ==============================
 // lib/_blocs/sectors/financial/payments/report/payment_report_controller.dart
+// ==============================
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
@@ -21,9 +23,16 @@ import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/date_utils.dart'
     show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-// ✅ novo: papéis globais + permissões por módulo
+// ✅ permissões
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+
+// ✅ anexos + preview
+import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:siged/_services/pdf/pdf_preview.dart';
+
+// ✅ selo de notificação (opcional para sua UI)
+import 'package:intl/intl.dart';
 
 class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   PaymentsReportController({
@@ -48,6 +57,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
 
   // --- Dados
   List<PaymentsReportData> _reports = <PaymentsReportData>[];
+  List<PaymentsReportData> _lastSnapshot = <PaymentsReportData>[];
   PaymentsReportData? _selected;
   String? _currentId;
 
@@ -57,7 +67,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   bool isSaving = false;
   bool formValidated = false;
 
-  // --- Totais (caso use em UI)
+  // --- Totais
   double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
@@ -73,11 +83,11 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   final fontCtrl = TextEditingController();
   final taxCtrl = TextEditingController();
 
-  // --- SideListBox (PDF)
-  List<String> sideItems = const <String>[];
+  // --- SideListBox (múltiplos anexos com rótulo)
+  List<dynamic> sideItems = const <dynamic>[];
   int? selectedSideIndex;
+
   bool get canAddFile => isEditable && _selected?.idPaymentReport != null;
-  String? get currentPdfUrl => _selected?.pdfUrl;
 
   // --- Getters de lista/gráficos
   List<PaymentsReportData> get reports => _reports;
@@ -99,6 +109,46 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     final u = currentUser;
     if (u == null) return false;
     return roles.roleForUser(u) == roles.BaseRole.ADMINISTRADOR;
+  }
+
+  // ======= ORDENS: dropdown inteligente =======
+  Set<int> get _existingOrders =>
+      _lastSnapshot.map((v) => v.orderPaymentReport ?? 0).where((n) => n > 0).toSet();
+
+  int _nextAvailableOrder(Set<int> set) {
+    if (set.isEmpty) return 1;
+    for (int i = 1; i <= set.length + 1; i++) {
+      if (!set.contains(i)) return i;
+    }
+    final max = set.reduce((a, b) => a > b ? a : b);
+    return max + 1;
+  }
+
+  /// Opções mostradas no dropdown (1 .. maxExistente+1)
+  List<String> get orderNumberOptions {
+    final set = _existingOrders;
+    final maxPlusOne = set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
+  }
+
+  /// Itens em cinza (já usados)
+  Set<String> get greyOrderItems => _existingOrders.map((e) => e.toString()).toSet();
+
+  /// Clique num item do dropdown
+  void onChangeOrderNumber(String? v) {
+    final picked = int.tryParse(v ?? '');
+    if (picked == null || picked <= 0) return;
+
+    final idx = _lastSnapshot.indexWhere((x) => (x.orderPaymentReport ?? -1) == picked);
+    if (idx >= 0) {
+      // já existe -> carrega registro
+      selectRow(_lastSnapshot[idx]);
+    } else {
+      // livre -> inicia novo naquela ordem
+      createNew();
+      orderCtrl.text = '$picked';
+      notifyListeners();
+    }
   }
 
   // --- Init/Dispose
@@ -154,10 +204,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
 
-    // Admin sempre pode
     if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) return true;
 
-    // Senão, checamos permissão de módulo (edit OU create concede edição)
     final canEdit = perms.userCanModule(
       user: user,
       module: 'payments_report',
@@ -181,10 +229,11 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     _reports = await _paymentReportBloc
         .getAllReportPaymentsOfContract(contractId: contract!.id!);
 
-    final last = _reports.isNotEmpty
-        ? _reports.map((e) => e.orderPaymentReport ?? 0).reduce((a, b) => a > b ? a : b)
-        : 0;
-    orderCtrl.text = (last + 1).toString();
+    _lastSnapshot = List<PaymentsReportData>.from(_reports);
+
+    // Define próxima ordem livre
+    final next = _nextAvailableOrder(_existingOrders);
+    orderCtrl.text = '$next';
 
     await _refreshSideList();
     notifyListeners();
@@ -225,12 +274,16 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   }
 
   void createNew() {
-    final last = _reports.map((e) => e.orderPaymentReport ?? 0).fold(0, (a, b) => a > b ? a : b);
     selectedIndex = null;
     _selected = null;
     _currentId = null;
 
-    orderCtrl.text = (last + 1).toString();
+    // mantém o valor escolhido no dropdown; se vazio, usa próxima livre
+    if (orderCtrl.text.trim().isEmpty) {
+      final next = _nextAvailableOrder(_existingOrders);
+      orderCtrl.text = '$next';
+    }
+
     processCtrl.clear();
     valueCtrl.clear();
     dateCtrl.clear();
@@ -272,12 +325,15 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
         electronicTicketPaymentReport: electronicTicketCtrl.text,
         fontPaymentReport: fontCtrl.text,
         taxPaymentReport: parseCurrencyToDouble(taxCtrl.text),
-        pdfUrl: _selected?.pdfUrl, // preserva se já existir
+        pdfUrl: _selected?.pdfUrl,                  // legado preservado
+        attachments: _selected?.attachments,        // mantém anexos numa edição
       );
 
       await _paymentReportBloc.saveOrUpdatePayment(data);
       _reports = await _paymentReportBloc
           .getAllReportPaymentsOfContract(contractId: contract!.id!);
+
+      _lastSnapshot = List<PaymentsReportData>.from(_reports);
 
       createNew();
       onSuccess?.call();
@@ -314,11 +370,14 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
         fontPaymentReport: data.fontPaymentReport,
         taxPaymentReport: data.taxPaymentReport,
         pdfUrl: data.pdfUrl,
+        attachments: data.attachments,
       );
 
       await _paymentReportBloc.saveOrUpdatePayment(toSave);
       _reports = await _paymentReportBloc
           .getAllReportPaymentsOfContract(contractId: contract!.id!);
+
+      _lastSnapshot = List<PaymentsReportData>.from(_reports);
 
       createNew();
       onSuccess?.call();
@@ -339,6 +398,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
       await _paymentReportBloc.deletarPayment(contract!.id!, idPaymentReport);
       _reports = await _paymentReportBloc
           .getAllReportPaymentsOfContract(contractId: contract!.id!);
+      _lastSnapshot = List<PaymentsReportData>.from(_reports);
       selectedIndex = null;
       onSuccess?.call();
     } catch (_) {
@@ -348,70 +408,243 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
-  // ---------- PDF (lista/SideListBox) ----------
+  // ======== SideListBox (multi-anexos com rótulo) ========
   Future<void> _refreshSideList() async {
-    if (currentPdfUrl != null && currentPdfUrl!.isNotEmpty) {
-      sideItems = const ['PDF do Pagamento'];
-      selectedSideIndex = 0;
-    } else {
-      sideItems = const <String>[];
+    final p = _selected;
+    if (p == null) {
+      sideItems = const <dynamic>[];
       selectedSideIndex = null;
+      if (hasListeners) notifyListeners();
+      return;
     }
+
+    // 1) se já houver attachments no doc, usa-os
+    if ((p.attachments ?? const []).isNotEmpty) {
+      sideItems = List<dynamic>.from(p.attachments!);
+      selectedSideIndex = null;
+      if (hasListeners) notifyListeners();
+      return;
+    }
+
+    // 2) se houver pdfUrl legado, cria um attachment único e salva
+    if ((p.pdfUrl ?? '').isNotEmpty && p.idPaymentReport != null && contract?.id != null) {
+      final att = Attachment(
+        id: 'legacy-pdf',
+        label: 'Documento do pagamento',
+        url: p.pdfUrl!,
+        path: '',
+        ext: '.pdf',
+        createdAt: DateTime.now(),
+        createdBy: currentUser?.id,
+      );
+      await _paymentReportBloc.setAttachments(
+        contractId: contract!.id!,
+        paymentId: p.idPaymentReport!,
+        attachments: [att],
+      );
+      _selected = p..attachments = [att]..pdfUrl = null;
+      sideItems = [att];
+      selectedSideIndex = null;
+      if (hasListeners) notifyListeners();
+      return;
+    }
+
+    // 3) materializa arquivos do Storage (se existirem)
+    if (contract?.id != null && p.idPaymentReport != null) {
+      final files = await _storageBloc.listarArquivosDoPagamento(
+        contractId: contract!.id!,
+        paymentId: p.idPaymentReport!,
+      );
+      if (files.isNotEmpty) {
+        final list = files
+            .map((f) => Attachment(
+          id: f.name,
+          label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+          url: f.url,
+          path: 'contracts/${contract!.id}/payments/${p.idPaymentReport}/${f.name}',
+          ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
+              .firstMatch(f.name)
+              ?.group(0) ??
+              '',
+          createdAt: DateTime.now(),
+          createdBy: currentUser?.id,
+        ))
+            .toList();
+        await _paymentReportBloc.setAttachments(
+          contractId: contract!.id!,
+          paymentId: p.idPaymentReport!,
+          attachments: list,
+        );
+        _selected = p..attachments = list;
+        sideItems = List<dynamic>.from(list);
+        selectedSideIndex = null;
+        if (hasListeners) notifyListeners();
+        return;
+      }
+    }
+
+    sideItems = const <dynamic>[];
+    selectedSideIndex = null;
     if (hasListeners) notifyListeners();
   }
 
-  Future<void> handleAddFile() async {
+  String _suggestLabelFromName(String original) {
+    final base = original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+    final ord = _selected?.orderPaymentReport ?? 0;
+    return 'Pagamento $ord - $base';
+  }
+
+  Future<String?> _askLabel(BuildContext context, {required String suggestion}) async {
+    final ctrl = TextEditingController(text: suggestion);
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Nome do arquivo'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Rótulo do arquivo'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Salvar')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> handleAddFile(BuildContext context) async {
     if (!canAddFile || contract?.id == null || _selected?.idPaymentReport == null) return;
+
     try {
       isSaving = true; notifyListeners();
 
-      final url = await _storageBloc.uploadWithPicker(
+      final (Uint8List bytes, String originalName) = await _storageBloc.pickFileBytes();
+
+      final suggestion = _suggestLabelFromName(originalName);
+      final label = await _askLabel(context, suggestion: suggestion);
+      if (label == null) { isSaving = false; notifyListeners(); return; }
+
+      final att = await _storageBloc.uploadAttachmentBytes(
         contract: contract!,
         payment: _selected!,
-        onProgress: (_) {},
+        bytes: bytes,
+        originalName: originalName,
+        label: label.isEmpty ? suggestion : label,
       );
 
-      await _paymentReportBloc.salvarUrlPdfDePayment(
+      final current = List<Attachment>.from(_selected?.attachments ?? const []);
+      current.add(att);
+
+      await _paymentReportBloc.setAttachments(
         contractId: contract!.id!,
         paymentId: _selected!.idPaymentReport!,
-        url: url,
+        attachments: current,
       );
 
-      _selected = _selected!..pdfUrl = url;
+      _selected = _selected!..attachments = current;
       await _refreshSideList();
     } finally {
       isSaving = false; notifyListeners();
     }
   }
 
-  Future<void> handleDeleteFile(int index) async {
-    if (contract?.id == null || _selected?.idPaymentReport == null) return;
+  Future<void> handleEditLabelFile(int index, BuildContext context) async {
+    final p = _selected;
+    if (p == null || p.attachments == null || index < 0 || index >= p.attachments!.length) return;
+
     try {
       isSaving = true; notifyListeners();
 
-      await _storageBloc.delete(contract!, _selected!);
-      await _paymentReportBloc.salvarUrlPdfDePayment(
-        contractId: contract!.id!,
-        paymentId: _selected!.idPaymentReport!,
-        url: '',
+      final att = p.attachments![index];
+      final suggestion = att.label.isNotEmpty ? att.label : _suggestLabelFromName(att.id);
+      final newLabel = await _askLabel(context, suggestion: suggestion);
+      if (newLabel == null) { isSaving = false; notifyListeners(); return; }
+
+      p.attachments![index] = Attachment(
+        id: att.id,
+        label: newLabel.isEmpty ? suggestion : newLabel,
+        url: att.url,
+        path: att.path,
+        ext: att.ext,
+        size: att.size,
+        createdAt: att.createdAt,
+        createdBy: att.createdBy,
+        updatedAt: DateTime.now(),
+        updatedBy: currentUser?.id,
       );
 
-      _selected = _selected!..pdfUrl = null;
+      await _paymentReportBloc.setAttachments(
+        contractId: contract!.id!,
+        paymentId: p.idPaymentReport!,
+        attachments: p.attachments!,
+      );
+
       await _refreshSideList();
     } finally {
       isSaving = false; notifyListeners();
     }
   }
 
-  Future<void> handleOpenFile(int index) async {
-    final url = currentPdfUrl;
-    if (url == null || url.isEmpty) return;
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  Future<void> handleDeleteFile(int index, BuildContext context) async {
+    final p = _selected;
+    if (p == null || p.idPaymentReport == null || contract?.id == null) return;
+
+    try {
+      isSaving = true; notifyListeners();
+
+      final atts = p.attachments ?? [];
+      if (index >= 0 && index < atts.length) {
+        final removed = atts.removeAt(index);
+        if ((removed.path).isNotEmpty) {
+          await _storageBloc.deleteStorageByPath(removed.path);
+        }
+        await _paymentReportBloc.setAttachments(
+          contractId: contract!.id!,
+          paymentId: p.idPaymentReport!,
+          attachments: atts,
+        );
+        _selected = p..attachments = atts;
+      } else if ((p.pdfUrl ?? '').isNotEmpty) {
+        await _paymentReportBloc.salvarUrlPdfDePayment(
+          contractId: contract!.id!,
+          paymentId: p.idPaymentReport!,
+          url: '',
+        );
+        _selected = p..pdfUrl = null;
+      }
+
+      await _refreshSideList();
+    } finally {
+      isSaving = false; notifyListeners();
+    }
   }
 
-  // compat com widgets antigos
+  Future<void> handleOpenFile(BuildContext context, int index) async {
+    final p = _selected;
+    if (p == null) return;
+
+    String? url;
+    if ((p.attachments ?? []).isNotEmpty) {
+      final att = p.attachments![index];
+      url = att.url;
+      selectedSideIndex = index; notifyListeners();
+    } else {
+      url = p.pdfUrl;
+    }
+    if (url == null || url.isEmpty) return;
+
+    await showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.all(16),
+        child: PdfPreview(pdfUrl: url!),
+      ),
+    );
+  }
+
+  // compat para salvar URL legado diretamente (se ainda usar em algum ponto)
   Future<void> savePdfUrl(String url) async {
     if (_selected?.idPaymentReport == null || contract?.id == null) return;
     await _paymentReportBloc.salvarUrlPdfDePayment(

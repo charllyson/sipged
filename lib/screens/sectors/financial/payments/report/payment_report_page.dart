@@ -82,6 +82,8 @@ class PaymentsReportPage extends StatelessWidget {
                             selectedPaymentReportData: c.selected,
                             currentPaymentReportId: c.currentPaymentReportId,
                             contractData: c.contract,
+
+                            // controllers
                             orderPaymentReportController: c.orderCtrl,
                             processNumberPaymentReportController: c.processCtrl,
                             datePaymentReportController: c.dateCtrl,
@@ -92,6 +94,7 @@ class PaymentsReportPage extends StatelessWidget {
                             electronicTicketPaymentReportController: c.electronicTicketCtrl,
                             fontPaymentReportController: c.fontCtrl,
                             taxPaymentReportController: c.taxCtrl,
+
                             isEditable: c.isEditable,
                             formValidated: c.formValidated,
                             onSaveOrUpdate: () async {
@@ -120,12 +123,18 @@ class PaymentsReportPage extends StatelessWidget {
                             },
                             onClear: c.createNew,
 
-                            // 🆕 SideListBox hooks
+                            // 🆕 Dropdown de ordem
+                            orderNumberOptions: c.orderNumberOptions,
+                            greyOrderItems: c.greyOrderItems,
+                            onChangedOrderNumber: c.onChangeOrderNumber,
+
+                            // 🆕 SideListBox (multi anexos + rótulo)
                             sideItems: c.sideItems,
                             selectedSideIndex: c.selectedSideIndex,
-                            onAddSideItem: c.canAddFile ? c.handleAddFile : null,
-                            onTapSideItem: (i) => c.handleOpenFile(i),
-                            onDeleteSideItem: c.handleDeleteFile,
+                            onAddSideItem: c.canAddFile ? () => c.handleAddFile(context) : null,
+                            onTapSideItem: (i) => c.handleOpenFile(context, i),
+                            onDeleteSideItem: (i) => c.handleDeleteFile(i, context),
+                            onEditLabelSideItem: (i) => c.handleEditLabelFile(i, context),
                           ),
                         ),
 

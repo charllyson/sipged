@@ -116,6 +116,54 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     return DateFormat('dd/MM/yyyy HH:mm').format(d);
   }
 
+  // =================== NOVO: helpers do dropdown ===================
+
+  /// Conjunto de ordens que já existem (usadas para cinza)
+  Set<int> get _existingOrders =>
+      selectorUniverse.map((e) => e.order ?? 0).where((e) => e > 0).toSet();
+
+  /// Próxima ordem disponível (menor “buraco” a partir de 1; se não houver, max+1)
+  int get nextAvailableOrder {
+    if (_existingOrders.isEmpty) return 1;
+    for (int i = 1; i <= (_existingOrders.length + 1); i++) {
+      if (!_existingOrders.contains(i)) return i;
+    }
+    final max = _existingOrders.reduce((a, b) => a > b ? a : b);
+    return max + 1;
+  }
+
+  /// Opções para o dropdown: 1..(max+1)
+  List<String> get orderOptions {
+    final maxPlusOne = _existingOrders.isEmpty
+        ? 1
+        : _existingOrders.reduce((a, b) => a > b ? a : b) + 1;
+    return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
+  }
+
+  /// Itens “cinza” (ocupados) para o dropdown
+  Set<String> get greyOrderItems =>
+      _existingOrders.map((e) => e.toString()).toSet();
+
+  /// Ao escolher uma ordem no dropdown:
+  /// - se já existe, seleciona a medição (dispara filtros/side/etc.)
+  /// - se não existe, cria um novo formulário com essa ordem preenchida
+  void onChangeOrderDropdown(String? v) {
+    final picked = int.tryParse(v ?? '');
+    if (picked == null || picked <= 0) return;
+
+    final idx = selectorUniverse.indexWhere((m) => (m.order ?? -1) == picked);
+    if (idx >= 0) {
+      // existe -> seleciona a medição (mantém sua UX atual)
+      handleSelect(selectorUniverse[idx]);
+      return;
+    }
+
+    // não existe -> novo form com a ordem escolhida
+    createNew();
+    orderCtrl.text = picked.toString();
+    notifyListeners();
+  }
+
   // ================= LIFECYCLE =================
   void _initValidation() {
     setupValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateForm);
@@ -178,13 +226,13 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     );
   }
 
-
   // ================= LOAD / PAGE =================
   Future<void> _loadInitialData() async {
     if (contract.id == null) {
       _all = [];
       selectorUniverse = [];
       _refreshPagination();
+      orderCtrl.text = '1';
       notifyListeners();
       return;
     }
@@ -205,16 +253,14 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
 
     selectorUniverse = List<ReportMeasurementData>.from(_all);
 
-    final lastOrder = selectorUniverse.isNotEmpty
-        ? selectorUniverse.map((e) => e.order ?? 0).reduce((a, b) => a > b ? a : b)
-        : 0;
-    orderCtrl.text = (lastOrder + 1).toString();
-
     _currentPage = 1;
     _refreshPagination();
 
     sideItems = const <Attachment>[];
     selectedSideIndex = null;
+
+    // ✅ define sempre o próximo disponível
+    orderCtrl.text = nextAvailableOrder.toString();
 
     notifyListeners();
   }
@@ -262,11 +308,9 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     selectedReport  = null;
     currentReportId = null;
 
-    final nextOrder = (selectorUniverse.isNotEmpty
-        ? selectorUniverse.map((e) => e.order ?? 0).reduce((a, b) => a > b ? a : b)
-        : 0) + 1;
+    // ✅ usar a mesma regra de “próximo disponível”
+    orderCtrl.text = nextAvailableOrder.toString();
 
-    orderCtrl.text = nextOrder.toString();
     processCtrl.clear();
     valueCtrl.clear();
     dateCtrl.clear();
@@ -302,18 +346,18 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
       // ✅ toast sucesso com rótulo rico
       NotificationCenter.instance.show(
         AppNotification(
-          title: const Text('Medição salva'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: const Text('Medição salva'),
+            type: AppNotificationType.success,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } catch (e) {
       // ✅ toast erro
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao salvar: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: Text('Erro ao salvar: $e'),
+            type: AppNotificationType.error,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } finally {
@@ -336,18 +380,18 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
       // ✅ toast sucesso
       NotificationCenter.instance.show(
         AppNotification(
-          title: const Text('Medição apagada'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: const Text('Medição apagada'),
+            type: AppNotificationType.success,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } catch (e) {
       // ✅ toast erro
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao apagar: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: Text('Erro ao apagar: $e'),
+            type: AppNotificationType.error,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } finally {
@@ -501,8 +545,8 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
     if (contract.id == null || selectedReport?.id == null) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: const Text('Selecione a medição'),
-          type: AppNotificationType.warning,
+            title: const Text('Selecione a medição'),
+            type: AppNotificationType.warning,
             details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
@@ -543,17 +587,17 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
 
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Adicionado "${att.label}"'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: Text('Adicionado "${att.label}"'),
+            type: AppNotificationType.success,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } catch (e) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao anexar: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: Text('Erro ao anexar: $e'),
+            type: AppNotificationType.error,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } finally {
@@ -587,17 +631,17 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
 
       NotificationCenter.instance.show(
         AppNotification(
-          title: const Text('Nome atualizado'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: const Text('Nome atualizado'),
+            type: AppNotificationType.success,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } catch (e) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao renomear: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: Text('Erro ao renomear: $e'),
+            type: AppNotificationType.error,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } finally {
@@ -631,17 +675,17 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
 
       NotificationCenter.instance.show(
         AppNotification(
-          title: const Text('Anexo removido.'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: const Text('Anexo removido.'),
+            type: AppNotificationType.success,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } catch (e) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao remover: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
+            title: Text('Erro ao remover: $e'),
+            type: AppNotificationType.error,
+            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11))
         ),
       );
     } finally {

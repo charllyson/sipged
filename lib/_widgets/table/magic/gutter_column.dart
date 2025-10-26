@@ -10,9 +10,6 @@ class MagicGutterColumn extends StatelessWidget {
     required this.rowCountWithGhost,
     this.onAddRow,
     this.bottomScrollGap = 0,
-
-    /// Quando true, aplica borda superior na primeira célula.
-    /// Útil se o header acima não desenhar essa borda.
     this.addTopBorder = false,
   });
 
@@ -26,6 +23,7 @@ class MagicGutterColumn extends StatelessWidget {
 
   final double bottomScrollGap;
 
+  /// Quando true, aplica borda superior na primeira célula.
   final bool addTopBorder;
 
   @override
@@ -39,7 +37,6 @@ class MagicGutterColumn extends StatelessWidget {
             final isGhost = r == ctrl.rowCount;
 
             if (isGhost && onAddRow == null) {
-              // esconde a linha de “+”
               return const SizedBox.shrink();
             }
 
@@ -56,7 +53,7 @@ class MagicGutterColumn extends StatelessWidget {
                     ? Colors.grey.shade100
                     : (isFirst ? Colors.grey.shade200 : Colors.grey.shade50),
                 border: Border(
-                  top: topSide, // ✅ borda superior opcional na 1ª linha
+                  top: topSide,
                   left: BorderSide(color: Colors.grey.shade300, width: 1),
                   right: BorderSide(color: Colors.grey.shade300, width: 1),
                   bottom: BorderSide(color: Colors.grey.shade300, width: 1),
