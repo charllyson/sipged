@@ -220,11 +220,24 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
         builder: (_) => CreateDetailedReportPage(
           titulo: 'Boletim de Medição Nº $numero',
           contractData: contract,
-          measurement: selectedReport, // se null, cai no orçamento contratado
+          measurement: selectedReport,
         ),
       ),
     );
+
+    // 🔹 NOVO: refresh após voltar do boletim
+    await _loadInitialData();
+
+    // se estava em edição, re-aplica campos
+    if (currentReportId != null) {
+      final found = _all.firstWhere(
+            (m) => m.id == currentReportId,
+        orElse: () => selectedReport ?? ReportMeasurementData(id: currentReportId),
+      );
+      fillFields(found);
+    }
   }
+
 
   // ================= LOAD / PAGE =================
   Future<void> _loadInitialData() async {

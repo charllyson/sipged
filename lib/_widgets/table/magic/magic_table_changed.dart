@@ -6,7 +6,7 @@ import 'package:siged/_widgets/table/magic/grid_body.dart';
 import 'package:siged/_widgets/table/magic/gutter_column.dart';
 import 'package:siged/_widgets/table/magic/gutter_header_box.dart';
 import 'package:siged/_widgets/table/magic/leading_column.dart';
-import 'package:siged/_widgets/table/magic/magic_bands_footer_totals.dart';
+import 'package:siged/_widgets/table/magic/bands_footer.dart';
 
 import 'magic_table_controller.dart' as bc;
 import 'header_row.dart';
@@ -407,7 +407,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
               width: _mainGridWidth + widget.rightScrollGap,
               child: widget.footerBarBuilder != null
                   ? widget.footerBarBuilder!(context, ctrl)
-                  : MagicBandsFooterTotalsGrouped(
+                  : MagicBandsFooter(
                 ctrl: ctrl,
                 height: _totalRowHeight,
                 labelTotais: 'TOTAIS',

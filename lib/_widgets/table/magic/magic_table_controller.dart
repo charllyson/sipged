@@ -101,6 +101,60 @@ class MagicTableController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Limpa completamente a tabela e o schema.
+  void clear() {
+    tableData = [];
+    colWidths = [];
+    numericCols = [];
+    colTypes = [];
+    _schema = null;
+    notifyListeners();
+  }
+
+  /// Retorna o índice da coluna pelo nome exato do cabeçalho.
+  /// Case-sensitive como os headers atuais. Retorna -1 se não achar.
+  int colIndexByHeader(String headerName) {
+    final idx = headers.indexOf(headerName);
+    return idx; // -1 se não existir
+  }
+
+  /// Encontra a primeira linha (>= 1) onde o valor da coluna 'headerName'
+  /// é exatamente igual a 'value' (comparação .trim()).
+  /// Retorna null se não encontrar.
+  int? findRowByHeaderValue(String headerName, String value) {
+    final c = colIndexByHeader(headerName);
+    if (c < 0) return null;
+    final needle = value.trim();
+    for (int r = 1; r < tableData.length; r++) {
+      final row = tableData[r];
+      if (c < row.length && row[c].trim() == needle) return r;
+    }
+    return null;
+  }
+
+  /// Conveniência: tenta achar a linha pelo "código" do item.
+  /// Tenta nas colunas "Código", "Code", "Item" e, por último, na primeira coluna.
+  int? findRowByCode(String code) {
+    const candidates = ['Código', 'Code', 'Item'];
+    for (final h in candidates) {
+      final r = findRowByHeaderValue(h, code);
+      if (r != null) return r;
+    }
+    if (colCount > 0) {
+      // fallback: compara na primeira coluna
+      return findRowByHeaderValue(headers.first, code);
+    }
+    return null;
+  }
+
+  /// Define o valor de uma célula informando a coluna pelo nome do cabeçalho.
+  /// Se o cabeçalho não existir, não faz nada.
+  void setCellValueByHeader(int row, String headerName, String value) {
+    final c = colIndexByHeader(headerName);
+    if (c < 0) return;
+    setCellValue(row, c, value);
+  }
+
   /// Acrescenta colunas **à direita**
   void appendColumns(List<ColumnMeta> metas) {
     if (metas.isEmpty) return;
@@ -214,6 +268,23 @@ class MagicTableController extends ChangeNotifier {
       if (w >= maxW) { w = maxW; break; }
     }
     return w;
+  }
+
+  // MagicTableController
+  double sumColumnRaw(int col) {
+    if (!hasData || col < 0 || col >= colCount) return 0.0;
+    double acc = 0.0;
+    for (int r = 1; r < tableData.length; r++) {
+      if (col < tableData[r].length) {
+        acc += parseBR(tableData[r][col]) ?? 0.0;
+      }
+    }
+    return acc;
+  }
+
+  double sumByKey(String key) {
+    final i = colIndexByKey(key);
+    return (i < 0) ? 0.0 : sumColumnRaw(i);
   }
 
   List<double> computeColWidths(List<List<String>> rows) {

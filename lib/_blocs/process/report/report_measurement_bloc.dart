@@ -67,6 +67,7 @@ class ReportMeasurementBloc extends BlocBase {
 
   Future<void> deletarMedicao(String uidContract, String uidMedicao) async {
     await _col(uidContract).doc(uidMedicao).delete();
+    // não recalcula aqui de propósito; depende do seu fluxo
   }
 
   // -------------------------- PDF URL (só metadado) --------------------------
@@ -91,9 +92,8 @@ class ReportMeasurementBloc extends BlocBase {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final batch = _db.batch();
     final ref = _db.collection('users').doc(uid).collection('notifications').doc();
-    batch.set(ref, {
+    await ref.set({
       'tipo': 'medicao',
       'titulo': 'Nova medição nº ${report.order}',
       'contractId': contractId,
@@ -101,7 +101,6 @@ class ReportMeasurementBloc extends BlocBase {
       'createdAt': FieldValue.serverTimestamp(),
       'seen': false,
     });
-    await batch.commit();
   }
 
   Stream<List<Registro>> getNotificacoesRecentesStream(String uid) {
@@ -196,7 +195,6 @@ class ReportMeasurementBloc extends BlocBase {
   }
 
   // ==================== ITENS DA MEDIÇÃO (por item do Budget) ====================
-  // Estrutura no Firestore:
   // contracts/{contractId}/reportsMeasurement/{measurementId}/items/{budgetItemId}
 
   CollectionReference<Map<String, dynamic>> _itemsCol({
@@ -209,7 +207,6 @@ class ReportMeasurementBloc extends BlocBase {
           .doc(measurementId)
           .collection('items');
 
-  /// Carrega todos os itens já salvos e retorna um mapa por budgetItemId.
   Future<Map<String, Map<String, dynamic>>> loadItemsMap({
     required String contractId,
     required String measurementId,
@@ -235,12 +232,11 @@ class ReportMeasurementBloc extends BlocBase {
     return out;
   }
 
-  /// Upsert de um item vinculado ao `budgetItemId` (id da linha do orçamento).
   Future<void> upsertMeasurementItem({
     required String contractId,
     required String measurementId,
     required String budgetItemId,
-    required Map<String, dynamic> payload, // campos qty*/val*, já calculados
+    required Map<String, dynamic> payload,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final data = <String, dynamic>{
@@ -256,8 +252,7 @@ class ReportMeasurementBloc extends BlocBase {
         .set(data, SetOptions(merge: true));
   }
 
-  // ==================== NOVO: salvar snapshot + itens em lote + atualizar value ====================
-
+  // snapshot + itens em lote + atualizar value (inalterado)
   List<List<T>> _chunk<T>(List<T> list, int size) {
     final chunks = <List<T>>[];
     for (int i = 0; i < list.length; i += size) {
@@ -266,7 +261,6 @@ class ReportMeasurementBloc extends BlocBase {
     return chunks;
   }
 
-  /// Salva o snapshot do boletim (headers/types/widths/rows) no campo `breakdown` da medição.
   Future<void> saveBreakdownSnapshot({
     required String contractId,
     required String measurementId,
@@ -289,7 +283,6 @@ class ReportMeasurementBloc extends BlocBase {
     }, SetOptions(merge: true));
   }
 
-  /// Salva/atualiza **itens** da medição em **lote** (batch), seguindo padrão do Budget.
   Future<void> bulkUpsertMeasurementItems({
     required String contractId,
     required String measurementId,
@@ -308,18 +301,14 @@ class ReportMeasurementBloc extends BlocBase {
 
         final data = <String, dynamic>{
           'budgetItemId': budgetItemId,
-          // qty
           'qtyPrev': (m['qtyPrev'] ?? 0) is num ? (m['qtyPrev'] as num).toDouble() : 0.0,
           'qtyPeriod': (m['qtyPeriod'] ?? 0) is num ? (m['qtyPeriod'] as num).toDouble() : 0.0,
           'qtyAccum': (m['qtyAccum'] ?? 0) is num ? (m['qtyAccum'] as num).toDouble() : 0.0,
           'qtyContractBal': (m['qtyContractBal'] ?? 0) is num ? (m['qtyContractBal'] as num).toDouble() : 0.0,
-          // values (R$)
           'valPrev': (m['valPrev'] ?? 0) is num ? (m['valPrev'] as num).toDouble() : 0.0,
           'valPeriod': (m['valPeriod'] ?? 0) is num ? (m['valPeriod'] as num).toDouble() : 0.0,
           'valAccum': (m['valAccum'] ?? 0) is num ? (m['valAccum'] as num).toDouble() : 0.0,
           'valContractBal': (m['valContractBal'] ?? 0) is num ? (m['valContractBal'] as num).toDouble() : 0.0,
-
-          // meta
           'contractId': contractId,
           'measurementId': measurementId,
           'updatedAt': FieldValue.serverTimestamp(),
@@ -332,7 +321,6 @@ class ReportMeasurementBloc extends BlocBase {
     }
   }
 
-  /// Atualiza o campo `value` (R$) da medição com o total do período (somatório dos itens).
   Future<void> updateMeasurementValue({
     required String contractId,
     required String measurementId,
@@ -348,5 +336,8 @@ class ReportMeasurementBloc extends BlocBase {
   }
 
   @override
-  void dispose() { super.dispose(); }
+  void dispose() {
+    // nada a cancelar no momento
+    super.dispose();
+  }
 }

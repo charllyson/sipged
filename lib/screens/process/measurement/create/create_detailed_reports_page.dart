@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:siged/screens/process/measurement/create/launcher_pdf.dart';
@@ -10,7 +12,7 @@ import 'package:siged/_widgets/upBar/up_bar.dart';
 // Domain / Budget
 import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
-import 'package:siged/_blocs/process/budget/magic_budget_adapter.dart';
+import 'package:siged/_widgets/table/magic/magic_adapter.dart';
 import 'package:siged/_blocs/process/budget/budget_bloc.dart';
 import 'package:siged/_blocs/process/budget/budget_data.dart';
 
@@ -84,6 +86,142 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     super.dispose();
   }
 
+  void _onControllerChanged() {
+    if (!_ctrl.hasData || _idxQtyPeriod < 0) return;
+
+    for (int r = 1; r < _ctrl.tableData.length; r++) {
+      final itemId = (_ctrl.tableData[r].isNotEmpty) ? _ctrl.tableData[r][0].toString() : null;
+      if (itemId == null) continue;
+
+      _validateAndClampPeriodIfNeeded(r);
+
+      final period = _parseBR(_ctrl.tableData[r][_idxQtyPeriod]);
+      final prev   = _parseBR(_ctrl.tableData[r][_idxQtyPrev]);
+
+      final last = _lastSavedPeriod[itemId];
+      if (last == null || (period - last).abs() > 1e-9) {
+        _persistMeasurementItem(itemId, prev: prev, period: period);
+        _lastSavedPeriod[itemId] = period;
+      }
+    }
+
+    // 🔸 snapshot do grid (debounced)
+    _scheduleSaveBreakdown();
+
+    // 🔸 espelhar total do período no campo 'value' da medição
+    _updateMeasurementValueFromGrid();
+  }
+
+
+  Future<void> _persistMeasurementItem(
+      String budgetItemId, {
+        required double prev,
+        required double period,
+      }) async {
+    if (widget.contractData.id == null || widget.measurement?.id == null) return;
+
+    final accum = prev + period;
+
+    // PU e Qtd. contratual (como você já localiza no schema)
+    final row = _ctrl.tableData.indexWhere((r) => r.isNotEmpty && r[0] == budgetItemId);
+    final qtdContrato = _qtdContratoRowRobusto(row);
+    final saldoQtd = (qtdContrato - accum).clamp(0.0, double.infinity);
+    final pu = (() {
+      if (_idxPU >= 0 && row >= 0 && _idxPU < _ctrl.tableData[row].length) {
+        return _parseBR(_ctrl.tableData[row][_idxPU]) ?? 0.0;
+      }
+      return 0.0;
+    })();
+
+    // valores (R$)
+    final valPrev   = prev   * pu;
+    final valPeriod = period * pu;
+    final valAccum  = accum  * pu;
+    final valBal    = saldoQtd * pu;
+
+    final payload = {
+      // qty
+      'qtyPrev': prev,
+      'qtyPeriod': period,
+      'qtyAccum': accum,
+      'qtyContractBal': saldoQtd,
+      // val
+      'valPrev': valPrev,
+      'valPeriod': valPeriod,
+      'valAccum': valAccum,
+      'valContractBal': valBal,
+    };
+
+    _items[budgetItemId] = {...(_items[budgetItemId] ?? {}), ...payload};
+
+    try {
+      await _reportBloc.upsertMeasurementItem(
+        contractId: widget.contractData.id!,
+        measurementId: widget.measurement!.id!,
+        budgetItemId: budgetItemId,
+        payload: payload,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao salvar item: $e')),
+      );
+    }
+  }
+
+  Future<void> _saveBreakdownFromController() async {
+    final cId = widget.contractData.id;
+    final mId = widget.measurement?.id;
+    if (cId == null || mId == null) return;
+
+    final meta = _ctrl.toMetaMap(); // headers, colTypes, colWidths, version
+    final rows = _ctrl.rowsWithoutHeader;
+
+    final breakdown = {
+      'headers': meta['headers'],
+      'colTypes': meta['colTypes'],
+      'colWidths': meta['colWidths'],
+      'rows': rows,
+      'version': meta['version'],
+      'savedAt': DateTime.now().toUtc().toIso8601String(),
+      'locale': 'pt_BR',
+    };
+
+    await _reportBloc.saveBreakdownSnapshot(
+      contractId: cId,
+      measurementId: mId,
+      breakdown: breakdown,
+    );
+  }
+
+  Timer? _debounceSave;
+  void _scheduleSaveBreakdown() {
+    _debounceSave?.cancel();
+    _debounceSave = Timer(const Duration(milliseconds: 600), () {
+      _saveBreakdownFromController();
+    });
+  }
+
+  Future<void> _updateMeasurementValueFromGrid() async {
+    final cId = widget.contractData.id;
+    final mId = widget.measurement?.id;
+    if (cId == null || mId == null) return;
+
+    final totalPeriodo = _ctrl.sumByKey(_kValPeriod); // ← helper do controller
+
+    try {
+      await _reportBloc.updateMeasurementValue(
+        contractId: cId,
+        measurementId: mId,
+        value: totalPeriodo,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao atualizar valor da medição: $e')),
+      );
+    }
+  }
+
+
   Future<void> _bootstrap() async {
     setState(() {
       _loading = true;
@@ -100,7 +238,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
             widths: const <double>[],
           );
         } else {
-          MagicBudgetAdapter.loadControllerFromDomain(
+          MagicAdapter.loadControllerFromDomain(
             controller: _ctrl,
             data: budget,
           );
@@ -385,26 +523,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       _lastSavedPeriod[itemId] = period;
     }
     _ctrl.recomputeAll();
-  }
-
-  void _onControllerChanged() {
-    if (!_ctrl.hasData || _idxQtyPeriod < 0) return;
-
-    for (int r = 1; r < _ctrl.tableData.length; r++) {
-      final itemId =
-      (_ctrl.tableData[r].isNotEmpty) ? _ctrl.tableData[r][0].toString() : null;
-      if (itemId == null) continue;
-
-      _validateAndClampPeriodIfNeeded(r);
-
-      final periodTxt = _ctrl.tableData[r][_idxQtyPeriod];
-      final period = _parseBR(periodTxt);
-
-      final last = _lastSavedPeriod[itemId];
-      if (last == null || (period - last).abs() > 1e-9) {
-        _lastSavedPeriod[itemId] = period;
-      }
-    }
   }
 
   @override

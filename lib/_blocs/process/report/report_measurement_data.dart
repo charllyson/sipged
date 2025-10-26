@@ -1,3 +1,4 @@
+// lib/_blocs/process/report/report_measurement_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 
@@ -40,7 +41,7 @@ class ReportMeasurementData {
     this.updatedBy,
   });
 
-  // ---------- helpers ----------
+  // ---------- helpers (parsers) ----------
   static double? _toDouble(dynamic v) {
     if (v == null) return null;
     if (v is num) return v.toDouble();
@@ -73,14 +74,17 @@ class ReportMeasurementData {
             label: 'PDF da medição',
             url: fallbackPdfUrl,
             path: '',
-            ext: '.pdf', // padronize 'pdf' se preferir sem ponto
+            ext: '.pdf',
           )
         ];
       }
       return null;
     }
     if (v is List) {
-      return v.map((e) => Attachment.fromMap(Map<String, dynamic>.from(e))).toList();
+      return v.map<Attachment>((e) {
+        if (e is Attachment) return e;
+        return Attachment.fromMap(Map<String, dynamic>.from(e as Map));
+      }).toList();
     }
     return null;
   }
@@ -101,15 +105,26 @@ class ReportMeasurementData {
     return col(db, contractId).doc(id);
   }
 
+  // ---------- leitura segura do snapshot (tipado ou não) ----------
+  static Map<String, dynamic> _readSnapData(DocumentSnapshot snap) {
+    if (snap is DocumentSnapshot<Map<String, dynamic>>) {
+      return snap.data() ?? <String, dynamic>{};
+    }
+    final raw = snap.data();
+    return (raw is Map<String, dynamic>) ? raw : <String, dynamic>{};
+  }
+
   // ---------- from/to ----------
   factory ReportMeasurementData.fromDocument(DocumentSnapshot snap) {
-    final data = (snap.data() as Map<String, dynamic>?) ?? {};
+    final data = _readSnapData(snap);
     final _contractId = snap.reference.parent.parent?.id;
     final _pdfUrl = data['pdfUrl'] as String?;
+
     return ReportMeasurementData(
       id: (data['id'] as String?) ?? snap.id,
       order: _toInt(data['order'] ?? data['measurementorder']),
-      numberprocess: data['numberprocess'] as String? ?? data['measurementnumberprocess'] as String?,
+      numberprocess: data['numberprocess'] as String? ??
+          data['measurementnumberprocess'] as String?,
       date: _toDate(data['date'] ?? data['measurementdata']),
       value: _toDouble(data['value'] ?? data['measurementinitialvalue']),
       pdfUrl: _pdfUrl,
@@ -127,7 +142,8 @@ class ReportMeasurementData {
     return ReportMeasurementData(
       id: json['id'] as String?,
       order: _toInt(json['order'] ?? json['measurementorder']),
-      numberprocess: json['numberprocess'] as String? ?? json['measurementnumberprocess'] as String?,
+      numberprocess: json['numberprocess'] as String? ??
+          json['measurementnumberprocess'] as String?,
       date: _toDate(json['date'] ?? json['measurementdata']),
       value: _toDouble(json['value'] ?? json['measurementinitialvalue']),
       pdfUrl: _pdfUrl,
@@ -141,6 +157,7 @@ class ReportMeasurementData {
   }
 
   Map<String, dynamic> toFirestore() {
+    // Firestore SDK aceita DateTime e converte para Timestamp.
     return {
       'id': id,
       'order': order,
@@ -166,7 +183,6 @@ class ReportMeasurementData {
     double? value,
     String? contractId,
     String? pdfUrl,
-    Map<String, dynamic>? breakdown,
     List<Attachment>? attachments,
     DateTime? createdAt,
     String? createdBy,

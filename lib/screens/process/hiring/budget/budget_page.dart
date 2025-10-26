@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_blocs/process/budget/magic_budget_adapter.dart';
+import 'package:siged/_widgets/table/magic/magic_adapter.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
@@ -44,7 +44,7 @@ class _BudgetPageState extends State<BudgetPage> {
       return;
     }
 
-    MagicBudgetAdapter.loadControllerFromDomain(
+    MagicAdapter.loadControllerFromDomain(
       controller: ctrl,
       data: data,
     );
@@ -57,7 +57,7 @@ class _BudgetPageState extends State<BudgetPage> {
       ) async {
     setState(() => _saving = true);
     try {
-      final domain = MagicBudgetAdapter.buildDomainFromController(controller: c);
+      final domain = MagicAdapter.buildDomainFromController(controller: c);
       await store.saveDomain(contractId: contractId, data: domain);
       if (mounted) {
         NotificationCenter.instance.show(
