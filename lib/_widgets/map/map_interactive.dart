@@ -1,3 +1,4 @@
+// lib/_widgets/map/map_interactive.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -34,26 +35,16 @@ class MapInteractivePage<T> extends StatefulWidget {
   final bool activeMap;
   final bool showLegend;
 
-  /// Controla se um **toque no mapa** deve inserir/atualizar o pin de busca.
-  /// Default: false (não insere pin ao tocar).
   final bool dropPinOnTap;
-
-  /// Ao tocar fora de marcadores/polígonos, limpa a seleção de marcador?
-  /// Default: false (não limpa).
   final bool clearMarkerSelectionOnMapTap;
 
-  /// Base custom (ex.: Mapbox/WMS) — retorne um LayerWidget (TileLayer/WMSLayer).
   final Widget Function()? baseTileLayerBuilder;
-
-  /// Overlay de UI (ex.: editor) — fica fora do FlutterMap.
   final Widget Function(MapController mapController, GlobalKey captureKey)? overlayBuilder;
 
   // ===== Polylines
   final List<TappableChangedPolyline>? tappablePolylines;
   final Future<void> Function()? onClearPolylineSelection;
   final Future<void> Function(TappableChangedPolyline)? onSelectPolyline;
-
-  /// Tooltip de polylines
   final void Function({
   required BuildContext context,
   required Offset position,
@@ -65,15 +56,12 @@ class MapInteractivePage<T> extends StatefulWidget {
 
   // ===== Markers/Clusters
   final List<TaggedChangedMarker<T>>? taggedMarkers;
-
-  /// Constrói o layer de cluster/markers (ex.: ClusterAnimatedMarkerLayer)
   final Widget Function(
       List<TaggedChangedMarker<T>> taggedMarkers,
       LatLng? selectedMarkerPosition,
       ValueChanged<TaggedChangedMarker<T>> onMarkerSelected,
       )? clusterWidgetBuilder;
 
-  /// Marcadores extras (badges, labels, etc.)
   final List<Marker>? extraMarkers;
 
   // ===== Polígonos (genéricos)
@@ -99,14 +87,8 @@ class MapInteractivePage<T> extends StatefulWidget {
   final void Function(double zoom, LatLng center)? onCameraChanged;
 
   // ===== Sincronização externa
-  /// Toque/busca/minha localização → reverse geocode no BLoC (mapa → formulário).
   final void Function(double lat, double lon)? onMapTap;
-
-  /// Controller pronto
   final void Function(MapController controller)? onControllerReady;
-
-  /// Permite ao pai definir o pin ativo externamente.
-  /// O estado expõe (via bind) um setter: `void setActivePoint(LatLng p)`.
   final void Function(void Function(LatLng p) setActivePoint)? onBindSetActivePoint;
 
   const MapInteractivePage({
@@ -153,10 +135,8 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   final MapController _mapController = MapController();
   final GlobalKey _captureKey = GlobalKey();
 
-  // Base atual
   int _indexSelectedMap = 0;
 
-  // Animação do “meu local”
   late final AnimationController _pulseController =
   AnimationController(vsync: this, duration: const Duration(seconds: 2))
     ..repeat(reverse: true);
@@ -172,23 +152,18 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     limit: 1,
   );
 
-  // Reaproveitar provider evita piscar
   late final NetworkTileProvider _tileProvider = NetworkTileProvider();
 
-  // ===== estado leve
   LatLng? _selectedMarkerPosition;
 
-  // ValueNotifiers
   final ValueNotifier<LatLng?> _userLocationVN = ValueNotifier<LatLng?>(null);
   final ValueNotifier<LatLng?> _searchHitVN = ValueNotifier<LatLng?>(null);
   final ValueNotifier<Set<String>> _selectedRegionsVN =
   ValueNotifier<Set<String>>({});
 
-  // Inicial
   late final double _initZoom;
   late final LatLng _initCenter;
 
-  // Persistência de câmera
   LatLng _lastCenter = const LatLng(-9.65, -36.7);
   double _lastZoom = 9.0;
   bool _mapReadyOnce = false;
@@ -206,12 +181,31 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   bool get _isOsmPublic =>
       MapBaseLayer.mapBase[_indexSelectedMap].url.contains('tile.openstreetmap.org');
 
+  // ========= Fallback de cor (estável e visível) =========
+  static const List<Color> fallbackPalette = [
+    Color(0xFF546E7A), // BlueGrey 700
+    Color(0xFF5C6BC0), // Indigo 400
+    Color(0xFF26A69A), // Teal 400
+    Color(0xFF8D6E63), // Brown 400
+    Color(0xFFEF6C00), // Orange 800
+    Color(0xFF7CB342), // LightGreen 600
+    Color(0xFF00897B), // Teal 600
+    Color(0xFF8E24AA), // Purple 600
+    Color(0xFF039BE5), // LightBlue 600
+    Color(0xFFD81B60), // Pink 600
+  ];
+
+  Color _stableFallbackColor(String key) {
+    final idx = key.hashCode.abs() % fallbackPalette.length;
+    return fallbackPalette[idx];
+  }
+  // ======================================================
+
   @override
   void initState() {
     super.initState();
     _initZoom = widget.initialZoom ?? 9.0;
     _initCenter = const LatLng(-9.65, -36.7);
-
     _lastCenter = _initCenter;
     _lastZoom = _initZoom;
   }
@@ -220,7 +214,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _systemBloc = context.read<SystemBloc>();
-    // aplica seleção inicial (primeira montagem)
     if (widget.selectedRegionNames != null) {
       _selectedRegionsVN.value = _toNormSet(widget.selectedRegionNames);
     }
@@ -229,12 +222,8 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   @override
   void didUpdateWidget(covariant MapInteractivePage<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // 🔄 SINCRONIZAÇÃO: se o pai mudou selectedRegionNames, reflita aqui
     final next = _toNormSet(widget.selectedRegionNames);
     final prev = _toNormSet(oldWidget.selectedRegionNames);
-
-    // Quando mudou (inclui limpar), atualiza o ValueNotifier
     if (!_sameSet(next, prev) && !_sameSet(next, _selectedRegionsVN.value)) {
       _selectedRegionsVN.value = next;
     }
@@ -254,26 +243,18 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     if (!mounted) return;
     if (loc != null) {
       _userLocationVN.value = loc;
-      _searchHitVN.value = loc; // também vira pin ativo
+      _searchHitVN.value = loc;
       _mapController.move(loc, 16);
       _lastCenter = loc;
       _lastZoom = 16;
       _hasUserMovedCamera = true;
-
       widget.onMapTap?.call(loc.latitude, loc.longitude);
-
       NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Minha localização centralizada'),
-          type: AppNotificationType.success,
-        ),
+        AppNotification(title: Text('Minha localização centralizada'), type: AppNotificationType.success),
       );
     } else {
       NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Não foi possível obter sua localização'),
-          type: AppNotificationType.error,
-        ),
+        AppNotification(title: Text('Não foi possível obter sua localização'), type: AppNotificationType.error),
       );
     }
   }
@@ -288,10 +269,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       } catch (_) {}
     });
     NotificationCenter.instance.show(
-      AppNotification(
-        title: Text('Mapa: ${MapBaseLayer.mapBase[_indexSelectedMap].nome}'),
-        type: AppNotificationType.info,
-      ),
+      AppNotification(title: Text('Mapa: ${MapBaseLayer.mapBase[_indexSelectedMap].nome}'), type: AppNotificationType.info),
     );
   }
 
@@ -356,12 +334,26 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     _selectedRegionsVN.value = next;
   }
 
+  // ---------- helpers de properties ----------
+  String? _getProp(PolygonChanged reg, String keyWanted) {
+    final wanted = _norm(keyWanted);
+    final props = reg.properties;
+    if (props is! List<Map<String, dynamic>>) return null;
+    for (final m in props) {
+      for (final e in m.entries) {
+        if (_norm(e.key) == wanted) {
+          final v = e.value;
+          if (v is String && v.trim().isNotEmpty) return v.trim();
+        }
+      }
+    }
+    return null;
+  }
+
   Future<void> _onTapMap(TapPosition _, LatLng point) async {
-    // Só insere/atualiza o pin se a tela permitir
     if (widget.dropPinOnTap) {
       _searchHitVN.value = point;
     }
-
     widget.onMapTap?.call(point.latitude, point.longitude);
 
     // Hit-test de regiões
@@ -369,8 +361,13 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     bool hit = false;
     for (final reg in regs) {
       if (_pointInPolygon(point, reg.polygon.points)) {
+        // 🔑 Seleção por PROCESSO (title normalizado)
         _toggleRegion(_norm(reg.title));
-        widget.onRegionTap?.call(reg.title);
+
+        // Clique retorna PROCESSO (se existir), senão o title
+        final processo = _getProp(reg, 'processo') ?? reg.title;
+
+        widget.onRegionTap?.call(processo);
         hit = true;
         break;
       }
@@ -438,7 +435,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   }
 
   void _goTo(LatLng p) {
-    _searchHitVN.value = p; // pin
+    _searchHitVN.value = p;
     _mapController.move(p, widget.searchTargetZoom);
     _lastCenter = p;
     _lastZoom = widget.searchTargetZoom;
@@ -517,7 +514,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    // Polígonos regionais (coloridos por seleção)
+    // Polígonos regionais (coloridos por 'minerio' nas properties)
     final regional = _regionalPolys;
     if (regional.isNotEmpty) {
       layers.add(
@@ -526,22 +523,30 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
           builder: (_, selected, __) {
             return PolygonLayer(
               polygons: regional.map((entry) {
-                final key = _norm(entry.title);
-                final isSelected = selected.contains(key);
+                // chave de cor: properties['minerio'] (fallback: title)
+                final minerioKey   = _getProp(entry, 'minerio') ?? entry.title;
+                final colorKeyNorm = _norm(minerioKey);
 
-                final base = widget.polygonChangeColors?[key] ??
-                    widget.polygonChangeColors?[entry.title] ??
-                    widget.polygonChangeColors?[entry.title.toUpperCase()] ??
-                    widget.polygonChangeColors?[entry.title.toLowerCase()];
+                // seleção visual por PROCESSO (title)
+                final isSelected = selected.contains(_norm(entry.title));
 
-                final baseColor = base ?? Colors.white70;
-                final fill = baseColor.withOpacity(isSelected ? 1 : 0.30);
+                // tenta pegar cor do caller
+                final fromCaller = widget.polygonChangeColors?[colorKeyNorm] ??
+                    widget.polygonChangeColors?[minerioKey] ??
+                    widget.polygonChangeColors?[_norm(minerioKey)];
+
+                // 🎯 Fallback estável e VISÍVEL
+                final baseColor = fromCaller ?? _stableFallbackColor(colorKeyNorm);
+
+                final fill   = baseColor.withOpacity(isSelected ? 0.85 : 0.40);
+                final border = isSelected ? Colors.black : Colors.black54;
+                final stroke = isSelected ? 1.6 : 0.8;
 
                 return Polygon(
                   points: entry.polygon.points,
                   color: fill,
-                  borderColor: Colors.black,
-                  borderStrokeWidth: 0.3,
+                  borderColor: border,
+                  borderStrokeWidth: stroke,
                 );
               }).toList(),
             );
@@ -567,7 +572,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-    // ===== Clusters / Tagged Markers (OAEs etc.)
+    // Clusters / Tagged Markers
     final tagged = widget.taggedMarkers;
     final clusterBuilder = widget.clusterWidgetBuilder;
     if (tagged != null && tagged.isNotEmpty && clusterBuilder != null) {
@@ -577,19 +582,18 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
           _selectedMarkerPosition,
               (m) {
             _selectedMarkerPosition = m.point;
-            setState(() {}); // reflete destaque do marker no builder
+            setState(() {});
           },
         ),
       );
     }
 
-    // Marcadores extras (labels/símbolos) renderizados por cima das linhas
+    // Marcadores extras (labels/símbolos) por cima
     final extras = widget.extraMarkers;
     if (extras != null && extras.isNotEmpty) {
-      // 👇 NÃO dexe essa camada participar do hit-test
       layers.add(
         IgnorePointer(
-          ignoring: true, // ← permite que o toque “atravesse” até as polylines
+          ignoring: true,
           child: MarkerLayer(markers: extras),
         ),
       );
@@ -718,13 +722,9 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                         minZoom: widget.minZoom ?? 5.0,
                         onMapReady: () {
                           widget.onControllerReady?.call(_mapController);
-
-                          // expõe setter do pin para o pai
                           widget.onBindSetActivePoint?.call((LatLng p) {
                             _searchHitVN.value = p;
                           });
-
-                          // restaura última câmera conhecida
                           WidgetsBinding.instance.addPostFrameCallback((_) {
                             try {
                               _mapController.move(_lastCenter, _lastZoom);
@@ -744,7 +744,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                           _lastCenter = _mapController.camera.center;
                           _lastZoom = _mapController.camera.zoom;
                           _hasUserMovedCamera = true;
-
                           widget.onZoomChanged?.call(_lastZoom);
                           widget.onCameraChanged?.call(_lastZoom, _lastCenter);
                         },

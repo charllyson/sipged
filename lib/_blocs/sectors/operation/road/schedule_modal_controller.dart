@@ -4,14 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_photo_utils.dart';
+import 'package:siged/_widgets/images/carousel/photo_utils.dart';
 
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
-import 'package:siged/_widgets/modals/type.dart'; // <- tipos centralizados
+import 'package:siged/_widgets/schedule/modal/type.dart'; // <- tipos centralizados
 
-import 'package:siged/_widgets/carousel/carousel_photo.dart';
-import 'package:siged/_widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/images/carousel/carousel_photo.dart';
+import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 // 🔔 Notificações
 import 'package:siged/_widgets/notification/app_notification.dart';
@@ -187,7 +187,7 @@ class ScheduleModalController extends ChangeNotifier {
   // ——— Fotos (somente quando canAddPhotos == true) ———
   Future<void> addNewPhotoBytes(Uint8List data, {String suggestedName = 'image.jpg'}) async {
     if (!canAddPhotos) return;
-    final converted = await SchedulePhotoUtils.convertAndExtract(
+    final converted = await PhotoUtils.convertAndExtract(
       original: data,
       originalName: suggestedName,
       fallbackTakenAt: selectedDate,
@@ -217,7 +217,7 @@ class ScheduleModalController extends ChangeNotifier {
       for (final f in res.files) {
         Uint8List? data = f.bytes;
         if (data == null && f.readStream != null) {
-          data = await SchedulePhotoUtils.readAll(f.readStream!);
+          data = await PhotoUtils.readAll(f.readStream!);
         }
         if (data != null) {
           await addNewPhotoBytes(data, suggestedName: f.name);

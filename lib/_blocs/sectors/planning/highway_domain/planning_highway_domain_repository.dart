@@ -10,11 +10,15 @@ class PlanningHighwayDomainRepository {
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _col =>
-      _firestore.collection('planning_highway_domain');
+  // Subcoleção por contrato
+  CollectionReference<Map<String, dynamic>> _col(String contractId) =>
+      _firestore
+          .collection('contracts')
+          .doc(contractId)
+          .collection('planning_highway_domain');
 
-  Future<List<PlanningHighwayDomainData>> fetchAll() async {
-    final snap = await _col.orderBy('createdAt', descending: false).get();
+  Future<List<PlanningHighwayDomainData>> fetchAll({required String contractId}) async {
+    final snap = await _col(contractId).orderBy('createdAt', descending: false).get();
     return snap.docs
         .map((d) => PlanningHighwayDomainData.fromFirestore(d.id, d.data()))
         .toList();
@@ -22,13 +26,12 @@ class PlanningHighwayDomainRepository {
 
   /// Importa em lote — `linhas` = metadados por doc; `geometrias` = [{geometryType, points:[{latitude,longitude}...]}...]
   Future<void> importBatch({
+    required String contractId,
     required List<Map<String, dynamic>> linhas,
     required List<Map<String, dynamic>> geometrias,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    // Observação: assumimos que `linhas.length == geometrias.length` OU
-    // usaremos o índice mínimo comum.
     final n = (linhas.length < geometrias.length) ? linhas.length : geometrias.length;
     final now = FieldValue.serverTimestamp();
 
@@ -37,7 +40,7 @@ class PlanningHighwayDomainRepository {
       final linha = Map<String, dynamic>.from(linhas[i]);
       final geom = Map<String, dynamic>.from(geometrias[i]);
 
-      // Normaliza pontos para GeoPoint (melhor para queries geoespaciais simples)
+      // Normaliza pontos para GeoPoint
       final pts = (geom['points'] as List?) ?? const [];
       final pointsAsGeo = pts.map((p) {
         if (p is GeoPoint) return p;
@@ -54,7 +57,7 @@ class PlanningHighwayDomainRepository {
         throw Exception('Ponto inválido.');
       }).toList();
 
-      final docRef = _col.doc();
+      final docRef = _col(contractId).doc();
       final data = {
         'props': linha,
         'geometryType': (geom['geometryType'] ?? 'LineString').toString(),
@@ -69,9 +72,9 @@ class PlanningHighwayDomainRepository {
     await wb.commit();
   }
 
-  /// Remove todos os documentos da coleção (cautela!)
-  Future<void> deleteAll() async {
-    final snap = await _col.get();
+  /// Remove todos os documentos da coleção do contrato (cautela!)
+  Future<void> deleteAll({required String contractId}) async {
+    final snap = await _col(contractId).get();
     final wb = _firestore.batch();
     for (final d in snap.docs) {
       wb.delete(d.reference);

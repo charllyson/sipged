@@ -11,6 +11,9 @@ import 'package:siged/_widgets/footBar/foot_bar.dart';
 import 'package:siged/_services/geoJson/send_firebase.dart';
 import 'package:siged/_services/geoJson/check_jumps_between_points.dart';
 
+// 🔀 Layout responsivo com divisor arrastável
+import 'package:siged/_widgets/layout/responsive_split_view.dart';
+
 import '../../../../_widgets/services/floating_buttons.dart';
 import 'active_railways_map.dart';
 import 'active_railways_panel.dart';
@@ -34,7 +37,6 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
   @override
   void initState() {
     super.initState();
-    // >>> Mesma lógica do ActiveRoadsNetworkPage (sem passar repo no ctor)
     _bloc = ActiveRailwaysBloc()..add(const ActiveRailwaysWarmupRequested());
   }
 
@@ -57,7 +59,6 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
   // Import / Delete helpers
   // =========================
 
-  /// Deleta todos os documentos atualmente carregados no estado.
   void _onDeleteCollection() async {
     final ids = _bloc.state.all.map((e) => e.id).whereType<String>().toList();
     for (final id in ids) {
@@ -101,52 +102,40 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
             ],
           ),
         ),
+
         bottomNavigationBar: const FootBar(),
+
         body: Stack(
           children: [
             BlocBuilder<ActiveRailwaysBloc, ActiveRailwaysState>(
               builder: (context, state) {
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final bool isWide = constraints.maxWidth >= 980;
+                return ResponsiveSplitView(
+                  // conteúdo principal (mapa)
+                  left: ActiveRailwaysMap(state: state),
 
-                    if (isWide) {
-                      // Desktop / telas largas: mapa + painel lado a lado
-                      return Row(
-                        children: [
-                          Expanded(child: ActiveRailwaysMap(state: state)),
-                          if (_showRightPanel) ...[
-                            const VerticalDivider(width: 1),
-                            const SizedBox(
-                              width: 600,
-                              child: ActiveRailwaysPanel(),
-                            ),
-                          ],
-                        ],
-                      );
-                    } else {
-                      // Mobile / tablets: mapa sobre o painel
-                      return Column(
-                        children: [
-                          Expanded(child: ActiveRailwaysMap(state: state)),
-                          if (_showRightPanel) ...[
-                            const Divider(height: 1),
-                            const SizedBox(
-                              height: 420,
-                              child: ActiveRailwaysPanel(),
-                            ),
-                          ],
-                        ],
-                      );
-                    }
-                  },
+                  // painel lateral/inferior
+                  right: const ActiveRailwaysPanel(),
+
+                  // controle de exibição
+                  showRightPanel: _showRightPanel,
+
+                  // tamanhos e comportamento padrão
+                  breakpoint: 980.0,
+                  rightPanelWidth: 600.0,
+                  bottomPanelHeight: 420.0,
+                  showDividers: true,
                 );
               },
             ),
 
-            // Botões de Importar / Deletar GeoJSON (flutuantes)
+            // ===== Botões de GeoJSON (flutuantes) =====
             GeoJsonActionsButtons(
-              onImportGeoJson: (ctx) => GeoJsonSendFirebase(ctx),
+              collectionPath: 'actives_railways',
+              initiallyExpanded: true,
+              position: const GeoJsonActionsPosition.bottomLeft(),
+              onImportGeoJson: (ctx) async {
+                await GeoJsonSendFirebase(ctx);
+              },
               onDeleteCollection: _onDeleteCollection,
               onCheckDistances: () async {
                 final ids = await checkJumpsBetweenPoints(
@@ -157,17 +146,15 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
                 NotificationCenter.instance.show(
                   AppNotification(
                     title: const Text('Verificação concluída'),
-                    subtitle: Text('${ids.length} documento(s) com possíveis saltos > 2 km'),
+                    subtitle: Text(
+                      '${ids.length} documento(s) com possíveis saltos > 2 km',
+                    ),
                     type: ids.isEmpty
                         ? AppNotificationType.success
                         : AppNotificationType.warning,
                   ),
                 );
               },
-              collectionPath: 'actives_railways', // <<< novo param
-              initiallyExpanded: true, // opcional
-              position:
-              const GeoJsonActionsPosition.bottomLeft(), // ou .bottomRight()
             ),
           ],
         ),

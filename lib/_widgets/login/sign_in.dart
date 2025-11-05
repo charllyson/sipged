@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:siged/_blocs/system/login/login_bloc.dart';
 import 'package:siged/_blocs/system/pages/pages_data.dart';
 import 'package:siged/_widgets/background/background.dart';
-import 'package:siged/_widgets/images/sisgeo_logo.dart';
-import 'package:siged/_widgets/buttons/stream_button_.dart';
+import 'package:siged/_widgets/images/logos/sisgeo_logo.dart';
+import 'package:siged/_widgets/login/sign_in_button.dart';
 import 'package:siged/_widgets/input/custom_icon_button.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
@@ -37,12 +37,12 @@ class _SignInState extends State<SignIn> {
     super.initState();
     _emailController = TextEditingController();
     _passController = TextEditingController();
-    _companyController = TextEditingController();
+    _companyController = TextEditingController(text: 'DER');
     _emailFocus = FocusNode();
     _passFocus = FocusNode();
 
     _loginBloc = Provider.of<LoginBloc>(context, listen: false);
-    _bgGradient = PagesData.gradientForModule('');
+    _bgGradient = PagesData.gradientForModule('DER');
 
     _emailController.addListener(() {
       setState(() => _hasEmail = _emailController.text.isNotEmpty);
@@ -52,7 +52,7 @@ class _SignInState extends State<SignIn> {
     _companyController.addListener(() {
       final selected = _companyController.text.trim();
       setState(() => _bgGradient = PagesData.gradientForModule(selected));
-      _loginBloc.changeSelectedArea(selected);
+      _loginBloc.changeSelectedArea('DER');
     });
   }
 
@@ -174,7 +174,7 @@ class _SignInState extends State<SignIn> {
                   width: maxWidth,
                   controller: _companyController,
                   labelText: 'Módulo',
-                  enabled: true,
+                  enabled: false,
                   items: PagesData.moduleName,
                 ),
               ),
@@ -298,7 +298,7 @@ class _SignInState extends State<SignIn> {
               ),
 
               // Botão habilitado pelo bloc (email+senha válidos e acesso à área)
-              StreamButton(loginBloc: _loginBloc),
+              SignInButton(loginBloc: _loginBloc),
 
               StreamBuilder<LoginState>(
                 stream: _loginBloc.outState,

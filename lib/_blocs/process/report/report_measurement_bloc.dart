@@ -1,3 +1,4 @@
+// lib/_blocs/process/report/report_measurement_bloc.dart
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,12 +8,47 @@ import 'package:siged/_blocs/process/contracts/contract_data.dart';
 import 'package:siged/_widgets/registers/register_class.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 
+// domínio do orçamento (usado para mapear grid ⇄ domínio)
+import 'package:siged/_blocs/process/budget/budget_data.dart';
+
 class ReportMeasurementBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // ======================= Helpers =======================
+  static const int _kMaxBatchOps = 500;
+
+  List<List<T>> _chunk<T>(List<T> list, int size) {
+    final chunks = <List<T>>[];
+    for (int i = 0; i < list.length; i += size) {
+      chunks.add(list.sublist(i, i + size > list.length ? list.length : i + size));
+    }
+    return chunks;
+  }
+
+  String _orderKeyFromCode(String code) {
+    final parts = code.split('.');
+    return parts.map((p) => p.padLeft(4, '0')).join('');
+  }
+
+  double _asDouble(dynamic v) {
+    if (v == null) return 0.0;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.replaceAll(',', '.')) ?? 0.0;
+    return 0.0;
+  }
+
+  // ======================= Coleções base =======================
   CollectionReference<Map<String, dynamic>> _col(String contractId) =>
       _db.collection('contracts').doc(contractId).collection(ReportMeasurementData.collectionName);
 
+  DocumentReference<Map<String, dynamic>> _measurementDoc({
+    required String contractId,
+    required String measurementId,
+  }) {
+    return _col(contractId).doc(measurementId);
+  }
+
+  // ======================= Consultas =======================
   Future<List<ReportMeasurementData>> getAllMeasurementsOfContract({
     required String uidContract,
   }) async {
@@ -36,7 +72,7 @@ class ReportMeasurementBloc extends BlocBase {
     return ContractData.fromDocument(snapshot: snap);
   }
 
-  // -------------------------- CRUD: REPORT --------------------------
+  // ======================= CRUD principal =======================
   Future<void> saveOrUpdateReport(ReportMeasurementData report) async {
     final user = FirebaseAuth.instance.currentUser;
     final contractId = report.contractId;
@@ -67,10 +103,9 @@ class ReportMeasurementBloc extends BlocBase {
 
   Future<void> deletarMedicao(String uidContract, String uidMedicao) async {
     await _col(uidContract).doc(uidMedicao).delete();
-    // não recalcula aqui de propósito; depende do seu fluxo
   }
 
-  // -------------------------- PDF URL (só metadado) --------------------------
+  // ======================= PDF =======================
   Future<void> salvarUrlPdfDaMedicao({
     required String contractId,
     required String measurementId,
@@ -87,7 +122,7 @@ class ReportMeasurementBloc extends BlocBase {
     }
   }
 
-  // -------------------------- Notificações --------------------------
+  // ======================= Notificações =======================
   Future<void> _notificar(ReportMeasurementData report, String contractId) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -103,66 +138,20 @@ class ReportMeasurementBloc extends BlocBase {
     });
   }
 
-  Stream<List<Registro>> getNotificacoesRecentesStream(String uid) {
-    return _db
-        .collection('users').doc(uid).collection('notifications')
-        .orderBy('createdAt', descending: true).limit(10)
-        .snapshots()
-        .asyncMap((snapshot) async {
-      final List<Registro> out = [];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        if (data['tipo'] != 'medicao') continue;
-
-        final contractId = data['contractId'];
-        final idOriginal = data['measurementId'];
-        final originalSnap = await _db
-            .collection('contracts').doc(contractId)
-            .collection(ReportMeasurementData.collectionName).doc(idOriginal).get();
-
-        if (originalSnap.exists) {
-          final original = ReportMeasurementData.fromDocument(originalSnap);
-          out.add(Registro(
-            id: doc.id,
-            tipo: 'medicao',
-            data: data['createdAt']?.toDate() ?? DateTime.now(),
-            original: original,
-            contractData: await buscarContrato(contractId),
-          ));
-        }
-      }
-      return out;
-    });
-  }
-
-  // -------------------------- Agregações simples (Report) --------------------------
+  // ======================= Agregações =======================
   Future<double> somarValorMedicoes({
     required List<ReportMeasurementData> medicoes,
   }) async {
     return medicoes.fold<double>(0.0, (s, m) => s + (m.value ?? 0.0));
   }
 
-  // -------------------------- Util: recalcular % financeiro --------------------------
+  // ======================= % financeiro =======================
   Future<void> _recalcularFinancialPercentage(String contractId) async {
     double total = 0.0;
 
     final reps = await _db.collection('contracts').doc(contractId)
         .collection('reportsMeasurement').get();
     for (final d in reps.docs) {
-      final v = (d.data()['value'] ?? 0);
-      total += (v is num) ? v.toDouble() : 0.0;
-    }
-
-    final adjs = await _db.collection('contracts').doc(contractId)
-        .collection('adjustmentsMeasurement').get();
-    for (final d in adjs.docs) {
-      final v = (d.data()['value'] ?? 0);
-      total += (v is num) ? v.toDouble() : 0.0;
-    }
-
-    final revs = await _db.collection('contracts').doc(contractId)
-        .collection('revisionsMeasurement').get();
-    for (final d in revs.docs) {
       final v = (d.data()['value'] ?? 0);
       total += (v is num) ? v.toDouble() : 0.0;
     }
@@ -194,9 +183,7 @@ class ReportMeasurementBloc extends BlocBase {
     }, SetOptions(merge: true));
   }
 
-  // ==================== ITENS DA MEDIÇÃO (por item do Budget) ====================
-  // contracts/{contractId}/reportsMeasurement/{measurementId}/items/{budgetItemId}
-
+  // ======================= ITENS =======================
   CollectionReference<Map<String, dynamic>> _itemsCol({
     required String contractId,
     required String measurementId,
@@ -216,14 +203,14 @@ class ReportMeasurementBloc extends BlocBase {
     for (final d in qs.docs) {
       final m = d.data();
       out[d.id] = {
-        'qtyPrev': (m['qtyPrev'] ?? 0).toDouble(),
-        'qtyPeriod': (m['qtyPeriod'] ?? 0).toDouble(),
-        'qtyAccum': (m['qtyAccum'] ?? 0).toDouble(),
-        'qtyContractBal': (m['qtyContractBal'] ?? 0).toDouble(),
-        'valPrev': (m['valPrev'] ?? 0).toDouble(),
-        'valPeriod': (m['valPeriod'] ?? 0).toDouble(),
-        'valAccum': (m['valAccum'] ?? 0).toDouble(),
-        'valContractBal': (m['valContractBal'] ?? 0).toDouble(),
+        'qtyPrev':        _asDouble(m['qtyPrev']),
+        'qtyPeriod':      _asDouble(m['qtyPeriod']),
+        'qtyAccum':       _asDouble(m['qtyAccum']),
+        'qtyContractBal': _asDouble(m['qtyContractBal']),
+        'valPrev':        _asDouble(m['valPrev']),
+        'valPeriod':      _asDouble(m['valPeriod']),
+        'valAccum':       _asDouble(m['valAccum']),
+        'valContractBal': _asDouble(m['valContractBal']),
         'updatedAt': m['updatedAt'],
         'updatedBy': m['updatedBy'],
         'budgetItemId': m['budgetItemId'] ?? d.id,
@@ -252,75 +239,7 @@ class ReportMeasurementBloc extends BlocBase {
         .set(data, SetOptions(merge: true));
   }
 
-  // snapshot + itens em lote + atualizar value (inalterado)
-  List<List<T>> _chunk<T>(List<T> list, int size) {
-    final chunks = <List<T>>[];
-    for (int i = 0; i < list.length; i += size) {
-      chunks.add(list.sublist(i, i + size > list.length ? list.length : i + size));
-    }
-    return chunks;
-  }
-
-  Future<void> saveBreakdownSnapshot({
-    required String contractId,
-    required String measurementId,
-    required Map<String, dynamic> breakdown,
-  }) async {
-    await _col(contractId).doc(measurementId).set({
-      'breakdown': {
-        'headers': List<String>.from(breakdown['headers'] ?? const <String>[]),
-        'colTypes': List<String>.from(breakdown['colTypes'] ?? const <String>[]),
-        'colWidths': List<double>.from(
-          (breakdown['colWidths'] as List? ?? const <double>[])
-              .map((e) => (e is num) ? e.toDouble() : double.tryParse('$e') ?? 120.0),
-        ),
-        'rows': List<List<String>>.from(
-          (breakdown['rows'] as List? ?? const <List<dynamic>>[])
-              .map((r) => List<String>.from(r.map((e) => '$e'))),
-        ),
-      },
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  Future<void> bulkUpsertMeasurementItems({
-    required String contractId,
-    required String measurementId,
-    required Map<String, Map<String, dynamic>> items,
-  }) async {
-    if (items.isEmpty) return;
-
-    final entries = items.entries.toList();
-    const int kMaxBatch = 500;
-    for (final chunk in _chunk(entries, kMaxBatch)) {
-      final batch = _db.batch();
-      for (final e in chunk) {
-        final budgetItemId = e.key;
-        final m = e.value;
-        final docRef = _itemsCol(contractId: contractId, measurementId: measurementId).doc(budgetItemId);
-
-        final data = <String, dynamic>{
-          'budgetItemId': budgetItemId,
-          'qtyPrev': (m['qtyPrev'] ?? 0) is num ? (m['qtyPrev'] as num).toDouble() : 0.0,
-          'qtyPeriod': (m['qtyPeriod'] ?? 0) is num ? (m['qtyPeriod'] as num).toDouble() : 0.0,
-          'qtyAccum': (m['qtyAccum'] ?? 0) is num ? (m['qtyAccum'] as num).toDouble() : 0.0,
-          'qtyContractBal': (m['qtyContractBal'] ?? 0) is num ? (m['qtyContractBal'] as num).toDouble() : 0.0,
-          'valPrev': (m['valPrev'] ?? 0) is num ? (m['valPrev'] as num).toDouble() : 0.0,
-          'valPeriod': (m['valPeriod'] ?? 0) is num ? (m['valPeriod'] as num).toDouble() : 0.0,
-          'valAccum': (m['valAccum'] ?? 0) is num ? (m['valAccum'] as num).toDouble() : 0.0,
-          'valContractBal': (m['valContractBal'] ?? 0) is num ? (m['valContractBal'] as num).toDouble() : 0.0,
-          'contractId': contractId,
-          'measurementId': measurementId,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-        };
-
-        batch.set(docRef, data, SetOptions(merge: true));
-      }
-      await batch.commit();
-    }
-  }
-
+  // ======================= Update valor total =======================
   Future<void> updateMeasurementValue({
     required String contractId,
     required String measurementId,
@@ -335,9 +254,177 @@ class ReportMeasurementBloc extends BlocBase {
     await _recalcularFinancialPercentage(contractId);
   }
 
+  // ======================= BREAKDOWN (rows + rows_v) =======================
+  Future<void> saveBreakdownDomain({
+    required String contractId,
+    required String measurementId,
+    required BudgetData data,
+  }) async {
+    final metaRef = _measurementDoc(contractId: contractId, measurementId: measurementId)
+        .collection('breakdownMeta')
+        .doc('meta');
+
+    // 1) schema
+    await metaRef.set({
+      'headers': data.schema.headerNames,
+      'colTypes': data.schema.headerTypes,
+      'colWidths': data.schema.headerWidths,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    // 2) nova versão
+    final writeId = DateTime.now().millisecondsSinceEpoch.toString();
+    final rowsVersionDoc = metaRef.collection('rows_v').doc(writeId);
+    final groupsCol = rowsVersionDoc.collection('groups');
+
+    final pendingGroupSets = <MapEntry<DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>>[];
+    final pendingItemSets  = <MapEntry<DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>>[];
+
+    int runningIndex = 0;
+    int currentGroupOrder = -1;
+    String currentGroupId = '';
+
+    for (final entry in data.entries) {
+      if (entry is BudgetSection) {
+        currentGroupOrder = entry.order;
+        currentGroupId = currentGroupOrder.toString();
+        final gRef = groupsCol.doc(currentGroupId);
+        pendingGroupSets.add(MapEntry(gRef, {
+          'order': entry.order,
+          'title': entry.title,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }));
+      } else if (entry is BudgetItem) {
+        if (currentGroupId.isEmpty) {
+          currentGroupOrder = 0;
+          currentGroupId = '0';
+          final gRef = groupsCol.doc(currentGroupId);
+          pendingGroupSets.add(MapEntry(gRef, {
+            'order': currentGroupOrder,
+            'title': '',
+            'updatedAt': FieldValue.serverTimestamp(),
+          }));
+        }
+        final itemsCol = groupsCol.doc(currentGroupId).collection('items');
+        final orderKey = _orderKeyFromCode(entry.code);
+        final docId = ('${orderKey}_$runningIndex').padRight(40, '0').substring(0, 40);
+
+        final fixedRow = List<String>.generate(
+          data.schema.columns.length,
+              (i) => (i < entry.values.length) ? entry.values[i] : '',
+        );
+
+        pendingItemSets.add(MapEntry(itemsCol.doc(docId), {
+          'code': entry.code,
+          'depth': entry.depth,
+          'index': runningIndex,
+          'orderKey': orderKey,
+          'values': fixedRow,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }));
+
+        runningIndex++;
+      }
+    }
+
+    // 3) salvar rows_v
+    for (final chunk in _chunk(pendingGroupSets, _kMaxBatchOps)) {
+      final batch = _db.batch();
+      for (final e in chunk) {
+        batch.set(e.key, e.value, SetOptions(merge: true));
+      }
+      await batch.commit();
+    }
+    for (final chunk in _chunk(pendingItemSets, _kMaxBatchOps)) {
+      final batch = _db.batch();
+      for (final e in chunk) {
+        batch.set(e.key, e.value, SetOptions(merge: true));
+      }
+      await batch.commit();
+    }
+
+    // 3b) também atualiza `rows` corrente (espelho)
+    final rowsCol = metaRef.collection('rows');
+    final existingGroups = await rowsCol.get();
+    for (final g in existingGroups.docs) {
+      final its = await g.reference.collection('items').get();
+      for (final chunk in _chunk(its.docs, _kMaxBatchOps)) {
+        final batch = _db.batch();
+        for (final d in chunk) batch.delete(d.reference);
+        await batch.commit();
+      }
+      await g.reference.delete();
+    }
+
+    final batchGroups = _db.batch();
+    for (final e in pendingGroupSets) {
+      final groupId = e.key.id;
+      final gRef = rowsCol.doc(groupId);
+      batchGroups.set(gRef, {
+        'order': e.value['order'],
+        'title': e.value['title'],
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+    await batchGroups.commit();
+
+    final byGroup = <String, List<MapEntry<DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>>>{};
+    for (final it in pendingItemSets) {
+      final groupId = it.key.parent.parent!.id;
+      (byGroup[groupId] ??= []).add(it);
+    }
+    for (final entry in byGroup.entries) {
+      final groupId = entry.key;
+      final itemsCol = rowsCol.doc(groupId).collection('items');
+      for (final chunk in _chunk(entry.value, _kMaxBatchOps)) {
+        final batch = _db.batch();
+        for (final it in chunk) {
+          final docId = it.key.id;
+          final data = it.value;
+          batch.set(itemsCol.doc(docId), data, SetOptions(merge: true));
+        }
+        await batch.commit();
+      }
+    }
+
+    // 4) swap ativo
+    await metaRef.set({
+      'activeWriteId': writeId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    // 5) limpeza antiga
+    await _cleanupOldBreakdownVersions(metaRef, keepLast: 2);
+  }
+
+  Future<void> _cleanupOldBreakdownVersions(
+      DocumentReference<Map<String, dynamic>> metaRef, {
+        int keepLast = 2,
+      }) async {
+    try {
+      final rowsV = await metaRef.collection('rows_v').get();
+      if (rowsV.docs.length <= keepLast) return;
+      final docs = rowsV.docs..sort((a, b) => a.id.compareTo(b.id));
+      final toDelete = docs.take(docs.length - keepLast).toList();
+
+      for (final d in toDelete) {
+        final groups = await d.reference.collection('groups').get();
+        for (final g in groups.docs) {
+          final items = await g.reference.collection('items').get();
+          for (final chunk in _chunk(items.docs, _kMaxBatchOps)) {
+            final batch = _db.batch();
+            for (final it in chunk) batch.delete(it.reference);
+            await batch.commit();
+          }
+          await g.reference.delete();
+        }
+        await d.reference.delete();
+      }
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
-    // nada a cancelar no momento
     super.dispose();
   }
 }

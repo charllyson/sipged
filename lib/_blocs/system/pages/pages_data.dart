@@ -1,3 +1,4 @@
+// lib/_blocs/system/pages/pages_data.dart
 import 'package:flutter/material.dart';
 import '../../../_widgets/drawer/menu_drawer_item.dart';
 import '../../../_widgets/drawer/menu_drawer_sub_item.dart';
@@ -43,6 +44,8 @@ enum MenuItem {
 
   activeRegistrationPorts,
   activePortsNetwork,
+
+  crmLegal,
 }
 
 class PagesData {
@@ -60,8 +63,8 @@ class PagesData {
 
     'operation-work-timeline',
 
-    'planning-projects-overview-dashboard',
-    'planning-projects-records',
+    'planning-sigmine-overview-dashboard',
+    'planning-sigmine-records',
     'planning-rightWay-records',
     'planning-environment-overview-dashboard',
     'planning-environment-records',
@@ -90,32 +93,46 @@ class PagesData {
 
     'active-ports-records',
     'active-ports-network',
+
+    'crm-legal',
   ];
 
   static List<String> moduleName = [
-    'OBRAS',
-    'JURÍDICO',
+    'DER',
+    'DNIT-RO',
+    'AM PRECATÓRIOS',
   ];
-
-  // pages_data.dart
 
   /// Qual flag de perfil do usuário habilita cada área do dropdown?
   static String? profileKeyForArea(String areaLabel) {
     switch (areaLabel.trim().toUpperCase()) {
-      case 'OBRAS':
+      case 'DNIT-RO':
         return 'profileWork';
-      case 'JURÍDICO':
+      case 'AM PRECATÓRIOS':
         return 'profileLegal';
+      case 'DER':
       default:
-        return null;
+        return 'profileWork';
     }
   }
 
+  /// Helper opcional (se precisar fora do TenantFirebase)
+  static String flavorForArea(String areaLabel) {
+    switch (areaLabel.trim().toUpperCase()) {
+      case 'DNIT-RO':
+        return 'dnitro';
+      case 'AM PRECATÓRIOS':
+        return 'amprecatorios';
+      case 'DER':
+      default:
+        return 'der';
+    }
+  }
 
-  // mapeia o moduleName -> gradient (JURÍDICO com Bordô/Burgundy/Marsala)
+  /// mapeia o moduleName -> gradient (JURÍDICO com Bordô/Burgundy/Marsala)
   static Gradient gradientForModule(String name) {
     switch (name.toUpperCase()) {
-      case 'OBRAS':
+      case 'DNIT-RO':
         return const LinearGradient(
           colors: [
             Color.fromARGB(255, 27, 32, 51),
@@ -124,7 +141,7 @@ class PagesData {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
-      case 'JURÍDICO':
+      case 'AM PRECATÓRIOS':
         return const LinearGradient(
           colors: [
             Color(0xFF4B0016), // Bordô
@@ -135,6 +152,7 @@ class PagesData {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
+      case 'DER':
       default:
         return const LinearGradient(
           colors: [
@@ -145,28 +163,6 @@ class PagesData {
           end: Alignment.bottomRight,
         );
     }
-  }
-
-  /// ===== Regra de acesso por ÁREA do dropdown =====
-  /// Para considerar que o usuário tem acesso à área, ele deve possuir
-  /// permissão READ em pelo menos UM destes módulos.
-  static final Map<String, List<String>> areaRequiredModules = {
-    'OBRAS': [
-      'overview-overview-dashboard',
-      'process-hiring-records',
-      'operation-work-timeline',
-      'active-road-network',
-    ],
-    'JURÍDICO': [
-      'process-additive-records',
-      'process-apostilles-records',
-      'process-validity-records',
-      'process-hiring-records',
-    ],
-  };
-
-  static List<String> requiredModulesForArea(String areaLabel) {
-    return areaRequiredModules[areaLabel.toUpperCase()] ?? const [];
   }
 
   /// =========== PAINÉIS =============
@@ -179,11 +175,13 @@ class PagesData {
           label: 'GERAL',
           menuItem: MenuItem.overviewDashboard,
           permissionModule: 'overview-overview-dashboard',
+          homeIcon: Icons.insights, // ícone exclusivo do card da Home
         ),
         MenuDrawerSubItem(
           label: 'ESPECÍFICO',
           menuItem: MenuItem.specificDashboard,
           permissionModule: 'specific-overview-dashboard',
+          homeIcon: Icons.analytics,
         ),
       ],
     ),
@@ -199,31 +197,37 @@ class PagesData {
           label: 'CONTRATAÇÃO',
           menuItem: MenuItem.processHiringRecords,
           permissionModule: 'process-hiring-records',
+          homeIcon: Icons.gavel,
         ),
         MenuDrawerSubItem(
           label: 'VIGÊNCIAS',
           menuItem: MenuItem.processValidityRecords,
           permissionModule: 'process-validity-records',
+          homeIcon: Icons.task_alt,
         ),
         MenuDrawerSubItem(
           label: 'ADITIVOS',
           menuItem: MenuItem.processAdditiveRecords,
           permissionModule: 'process-additive-records',
+          homeIcon: Icons.edit_note,
         ),
         MenuDrawerSubItem(
           label: 'APOSTILAMENTOS',
           menuItem: MenuItem.processApostillesRecords,
           permissionModule: 'process-apostilles-records',
+          homeIcon: Icons.bookmark_added,
         ),
         MenuDrawerSubItem(
           label: 'MEDIÇÕES',
           menuItem: MenuItem.processMeasurementsRecords,
           permissionModule: 'process-measurements-records',
+          homeIcon: Icons.receipt_long,
         ),
         MenuDrawerSubItem(
           label: 'REGULARIZAÇÃO DE TERRENOS',
           menuItem: MenuItem.processLandRegularizationRecords,
           permissionModule: 'process-land-regularization-records',
+          homeIcon: Icons.layers,
         ),
       ],
     ),
@@ -231,92 +235,104 @@ class PagesData {
 
   static List<MenuDrawerItemModel> drawerDepartments = [
     MenuDrawerItemModel(
-      label: 'DOIRC',
+      label: 'OPERACIONAL',
       icon: Icons.engineering_outlined,
       subItems: [
         MenuDrawerSubItem(
-          label: 'CRONOGRAMA\nFÍSICO',
+          label: 'DIÁRIO DE OBRA',
           menuItem: MenuItem.operationMonitoringWork,
           permissionModule: 'operation-work-timeline',
+          homeIcon: Icons.timeline,
         ),
       ],
     ),
     MenuDrawerItemModel(
-      label: 'DIPLA',
+      label: 'PLANEJAMENTO',
       icon: Icons.bar_chart,
       subItems: [
         MenuDrawerSubItem(
           label: 'PROJETOS',
           menuItem: MenuItem.planningProjectRegistration,
-          permissionModule: 'planning-projects-records',
+          permissionModule: 'planning-sigmine-records',
+          homeIcon: Icons.architecture,
         ),
         MenuDrawerSubItem(
           label: 'FAIXA DE DOMÍNIO',
           menuItem: MenuItem.planningRightOfWayRecords,
           permissionModule: 'planning-rightWay-records',
+          homeIcon: Icons.signpost_outlined,
         ),
         MenuDrawerSubItem(
           label: 'MEIO AMBIENTE',
           menuItem: MenuItem.planningEnvironmentRecords,
           permissionModule: 'planning-environment-records',
+          homeIcon: Icons.local_florist_outlined,
         ),
       ],
     ),
     MenuDrawerItemModel(
-      label: 'DTT',
+      label: 'TRÁFEGO',
       icon: Icons.traffic,
       subItems: [
         MenuDrawerSubItem(
-          label: 'PAINEL',
+          label: 'PAINEL DOS SINISTROS',
           menuItem: MenuItem.trafficAccidentsDashboard,
           permissionModule: 'traffic-accidents-overview-dashboard',
+          homeIcon: Icons.query_stats,
         ),
         MenuDrawerSubItem(
-          label: 'SINISTROS',
+          label: 'BOLETIM DE SINISTRO',
           menuItem: MenuItem.trafficAccidentsRecords,
           permissionModule: 'traffic-accidents-records',
+          homeIcon: Icons.report,
         ),
         MenuDrawerSubItem(
-          label: 'PAINEL',
+          label: 'PAINEL DAS INFRAÇÕES',
           menuItem: MenuItem.trafficInfractionsDashboard,
           permissionModule: 'traffic-infractions-overview-dashboard',
+          homeIcon: Icons.rule_folder,
         ),
         MenuDrawerSubItem(
-          label: 'INFRAÇÕES',
+          label: 'BOLETIM DE INFRAÇÃO',
           menuItem: MenuItem.trafficInfractionsRecords,
           permissionModule: 'traffic-infractions-records',
+          homeIcon: Icons.rule,
         ),
       ],
     ),
     MenuDrawerItemModel(
-      label: 'DIF',
+      label: 'FINANCEIRO',
       icon: Icons.attach_money,
       subItems: [
         MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.financialPaymentsDashboard,
           permissionModule: 'financial-payments-overview-dashboard',
+          homeIcon: Icons.stacked_line_chart,
         ),
         MenuDrawerSubItem(
           label: 'PAGAMENTOS',
           menuItem: MenuItem.financialPaymentsRecords,
           permissionModule: 'financial-payments-records',
+          homeIcon: Icons.payments,
         ),
         MenuDrawerSubItem(
           label: 'PAINEL',
           menuItem: MenuItem.financialCommitmentDashboard,
           permissionModule: 'financial-commitment-overview-dashboard',
+          homeIcon: Icons.auto_graph,
         ),
         MenuDrawerSubItem(
           label: 'EMPENHOS',
           menuItem: MenuItem.financialCommitmentRecords,
           permissionModule: 'financial-commitment-records',
+          homeIcon: Icons.receipt_long_outlined,
         ),
       ],
     ),
   ];
 
-  /// ===== MODULOS =====
+  /// ===== ATIVOS =====
   static List<MenuDrawerItemModel> drawerActives = [
     MenuDrawerItemModel(
       label: 'RODOVIAS',
@@ -326,11 +342,13 @@ class PagesData {
           label: 'MALHA RODOVIÁRIA',
           menuItem: MenuItem.activeRoadNetwork,
           permissionModule: 'active-road-network',
+          homeIcon: Icons.alt_route,
         ),
         MenuDrawerSubItem(
           label: 'SISTEMA RODOVIÁRIO',
           menuItem: MenuItem.activeRoadRegistration,
           permissionModule: 'active-road-records',
+          homeIcon: Icons.map_outlined,
         ),
       ],
     ),
@@ -342,11 +360,13 @@ class PagesData {
           label: 'MALHA OAEs',
           menuItem: MenuItem.activesOAEsNetwork,
           permissionModule: 'active-oaes-network',
+          homeIcon: Icons.construction,
         ),
         MenuDrawerSubItem(
           label: 'LEVANTAMENTO',
           menuItem: MenuItem.activeOAEsRegistration,
           permissionModule: 'active-oaes-records',
+          homeIcon: Icons.assignment_outlined,
         ),
       ],
     ),
@@ -358,11 +378,13 @@ class PagesData {
           label: 'MALHA AEROPORTUÁRIA',
           menuItem: MenuItem.activeAirportsNetwork,
           permissionModule: 'active-airports-network',
+          homeIcon: Icons.flight_takeoff,
         ),
         MenuDrawerSubItem(
           label: 'LEVANTAMENTO',
           menuItem: MenuItem.activeAirportsRegistration,
           permissionModule: 'active-airports-records',
+          homeIcon: Icons.assignment_turned_in_outlined,
         ),
       ],
     ),
@@ -374,11 +396,13 @@ class PagesData {
           label: 'MALHA FERROVIÁRIA',
           menuItem: MenuItem.activeRailwaysNetwork,
           permissionModule: 'active-railways-network',
+          homeIcon: Icons.train_outlined,
         ),
         MenuDrawerSubItem(
           label: 'LEVANTAMENTO',
           menuItem: MenuItem.activeRailwaysRegistration,
           permissionModule: 'active-railways-records',
+          homeIcon: Icons.fact_check_outlined,
         ),
       ],
     ),
@@ -390,11 +414,29 @@ class PagesData {
           label: 'MALHA PORTUÁRIA',
           menuItem: MenuItem.activePortsNetwork,
           permissionModule: 'active-ports-network',
+          homeIcon: Icons.sailing_outlined,
         ),
         MenuDrawerSubItem(
           label: 'LEVANTAMENTO',
           menuItem: MenuItem.activeRegistrationPorts,
           permissionModule: 'active-ports-records',
+          homeIcon: Icons.checklist_outlined,
+        ),
+      ],
+    ),
+  ];
+
+  /// =========== JURÍDICO =============
+  static List<MenuDrawerItemModel> crmLegal = [
+    MenuDrawerItemModel(
+      label: 'PROCESSOS',
+      icon: Icons.area_chart,
+      subItems: [
+        MenuDrawerSubItem(
+          label: 'CRM',
+          menuItem: MenuItem.crmLegal,
+          permissionModule: 'crm-legal',
+          homeIcon: Icons.account_tree_outlined,
         ),
       ],
     ),

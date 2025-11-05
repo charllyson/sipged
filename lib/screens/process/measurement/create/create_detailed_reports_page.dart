@@ -168,28 +168,21 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     }
   }
 
+  // --- troque estes dois métodos na CreateDetailedReportPage ---
+
   Future<void> _saveBreakdownFromController() async {
     final cId = widget.contractData.id;
     final mId = widget.measurement?.id;
     if (cId == null || mId == null) return;
 
-    final meta = _ctrl.toMetaMap(); // headers, colTypes, colWidths, version
-    final rows = _ctrl.rowsWithoutHeader;
+    // 👉 agora converte o grid -> domínio BudgetData:
+    final domain = MagicAdapter.buildDomainFromController(controller: _ctrl);
 
-    final breakdown = {
-      'headers': meta['headers'],
-      'colTypes': meta['colTypes'],
-      'colWidths': meta['colWidths'],
-      'rows': rows,
-      'version': meta['version'],
-      'savedAt': DateTime.now().toUtc().toIso8601String(),
-      'locale': 'pt_BR',
-    };
-
-    await _reportBloc.saveBreakdownSnapshot(
+    // salva usando a mesma estratégia (versão/grupos/itens) do Budget:
+    await _reportBloc.saveBreakdownDomain(
       contractId: cId,
       measurementId: mId,
-      breakdown: breakdown,
+      data: domain,
     );
   }
 

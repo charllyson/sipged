@@ -12,12 +12,12 @@ import 'package:siged/_widgets/input/in_line_text_box.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/modals/type.dart';
+import 'package:siged/_widgets/schedule/modal/type.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
 
 // Modal unificado + tipos
-import 'package:siged/_widgets/schedule/linear/schedule_modal_square.dart';
+import 'package:siged/_widgets/schedule/modal/schedule_modal_square.dart';
 
 // Civil (render e UI)
 import 'package:siged/_services/dxf/dxf_empty_hint.dart';
@@ -31,7 +31,7 @@ import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
 
 // Domínio
 import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
-import 'package:siged/_widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 // BLoC/Auth
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -675,25 +675,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     if (!_didFitViewport) _applyFitToContent();
   }
 
-  // ========= UI =========
-  PreferredSizeWidget _buildUpBar() {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(72),
-      child: Material(
-        color: const Color(0xFF151B2B),
-        elevation: 0,
-        child: SafeArea(
-          bottom: false,
-          child: UpBar(
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildInteractiveViewer() {
     final ctrl = widget.controller;
@@ -1099,7 +1080,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
         // erro de render
         if (_error != null || _dxf.error != null) {
           return Scaffold(
-            appBar: _buildUpBar(),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -1112,7 +1092,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
         // ainda sem DXF
         if (_docBytes == null || _dxf.image == null || _dxf.sizePx == null) {
           return Scaffold(
-            appBar: _buildUpBar(),
             body: Stack(
               children: [
                 const BackgroundClean(),
@@ -1138,7 +1117,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
         // normal
         return Scaffold(
-          appBar: _buildUpBar(),
           body: Stack(
             children: [
               const BackgroundClean(),

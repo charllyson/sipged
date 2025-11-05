@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// ===============================
@@ -29,6 +28,34 @@ class Attachment {
     this.updatedBy,
   });
 
+  // ---------- copyWith ----------
+  Attachment copyWith({
+    String? id,
+    String? label,
+    String? url,
+    String? path,
+    String? ext,
+    int? size,
+    DateTime? createdAt,
+    String? createdBy,
+    DateTime? updatedAt,
+    String? updatedBy,
+  }) {
+    return Attachment(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      url: url ?? this.url,
+      path: path ?? this.path,
+      ext: ext ?? this.ext,
+      size: size ?? this.size,
+      createdAt: createdAt ?? this.createdAt,
+      createdBy: createdBy ?? this.createdBy,
+      updatedAt: updatedAt ?? this.updatedAt,
+      updatedBy: updatedBy ?? this.updatedBy,
+    );
+  }
+
+  // ---------- Helpers ----------
   static DateTime? _toDate(dynamic v) {
     if (v == null) return null;
     if (v is DateTime) return v;
@@ -45,6 +72,7 @@ class Attachment {
     return null;
   }
 
+  // ---------- Serialização ----------
   factory Attachment.fromMap(Map<String, dynamic> map) {
     return Attachment(
       id: (map['id'] as String?) ?? '',
@@ -72,4 +100,8 @@ class Attachment {
     'updatedAt': updatedAt,
     'updatedBy': updatedBy,
   }..removeWhere((k, v) => v == null);
+
+  @override
+  String toString() =>
+      'Attachment(id: $id, label: $label, url: $url, ext: $ext, size: $size)';
 }

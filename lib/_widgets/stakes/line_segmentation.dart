@@ -1,3 +1,4 @@
+// lib/_widgets/stakes/line_segmentation.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart'; // Color
 import 'package:flutter/widgets.dart';
@@ -112,7 +113,7 @@ List<_Sample> _sampleAlong(List<LatLng> axis, double stepMeters) {
 List<TaggedChangedMarker<Map<String, dynamic>>> buildStakeMarkersUprightWithTickRight({
   required List<LatLng> axis,
   double stepMeters = 20.0,
-  double offsetRightMeters = 6.0,
+  double offsetRightMeters = 6.0, // (reservado p/ futuros estilos)
   required double zoom,
   double minLabelPixelGap = 100,
 }) {
@@ -141,7 +142,7 @@ List<TaggedChangedMarker<Map<String, dynamic>>> buildStakeMarkersUprightWithTick
 
     out.add(TaggedChangedMarker<Map<String, dynamic>>(
       point: anchor,
-      properties: {'idx': i, 'label': '$i', 'normalAngle': nAngle},
+      properties: {'idx': i, 'label': '$i', 'normalAngle': nAngle, 'tickPx': 12.0},
       data: <String, dynamic>{},
     ));
   }
@@ -149,7 +150,9 @@ List<TaggedChangedMarker<Map<String, dynamic>>> buildStakeMarkersUprightWithTick
   return out;
 }
 
-// ===== Segmentação da polyline central em 20 m =====
+// ======================================================
+// 🔹 Segmentação do eixo e helpers de paralelas
+// ======================================================
 
 class SegmentedAxis {
   /// segmento i vai de stake i a stake i+1
@@ -272,8 +275,6 @@ List<TappableChangedPolyline> buildSegmentPolylines({
   return out;
 }
 
-// ===== Paralelas segmentadas, alinhadas índice-a-índice à central =====
-
 /// Desloca uma lista de pontos seguindo a normal local ponto-a-ponto.
 List<LatLng> _offsetPolylineByNormal(List<LatLng> pts, double offsetMeters, {required bool right}) {
   if (pts.length < 2) return pts;
@@ -302,7 +303,7 @@ List<LatLng> _offsetPolylineByNormal(List<LatLng> pts, double offsetMeters, {req
   return out;
 }
 
-/// Constrói segmentos paralelos à direita/esquerda com a mesma divisão da central.
+/// Paralelas segmentadas, alinhadas índice-a-índice à central.
 List<TappableChangedPolyline> buildParallelSegmentPolylines({
   required SegmentedAxis segmented,
   double offsetMeters = 3.5,
@@ -357,4 +358,24 @@ List<TappableChangedPolyline> buildParallelSegmentPolylines({
   }
 
   return out;
+}
+
+// ======================================================
+// 🔹 EXTENSÃO: Helpers de deslocamento por segmento (direita/esquerda)
+// ======================================================
+extension SegmentedAxisHelpers on SegmentedAxis {
+  /// Número total de segmentos (entre estacas)
+  int get segmentCount => segments.length;
+
+  /// Segmento deslocado para a direita em relação ao eixo central
+  List<LatLng> offsetSegmentRight(int idx, double offsetMeters) {
+    if (idx < 0 || idx >= segments.length) return const [];
+    return _offsetPolylineByNormal(segments[idx], offsetMeters, right: true);
+  }
+
+  /// Segmento deslocado para a esquerda em relação ao eixo central
+  List<LatLng> offsetSegmentLeft(int idx, double offsetMeters) {
+    if (idx < 0 || idx >= segments.length) return const [];
+    return _offsetPolylineByNormal(segments[idx], offsetMeters, right: false);
+  }
 }

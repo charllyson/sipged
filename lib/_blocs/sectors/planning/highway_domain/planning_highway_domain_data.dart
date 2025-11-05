@@ -9,10 +9,10 @@ class PlanningHighwayDomainData extends Equatable {
   /// Metadados (vindos de KML/KMZ/GeoJSON properties)
   final Map<String, dynamic> properties;
 
-  /// Sempre “LineString” no Firestore (Multi vira vários docs antes)
+  /// Ex.: "LineString" ou "Polygon" (você pode padronizar no import)
   final String geometryType;
 
-  /// Polyline para UI
+  /// Polyline/Polygon para UI
   final List<LatLng> points;
 
   /// Auditoria (opcional)
@@ -32,7 +32,6 @@ class PlanningHighwayDomainData extends Equatable {
     this.updatedBy,
   });
 
-  // Equatable: agora o getter `props` é só para o Equatable
   @override
   List<Object?> get props => [
     id,
@@ -74,7 +73,7 @@ class PlanningHighwayDomainData extends Equatable {
 
     return PlanningHighwayDomainData(
       id: id,
-      properties: Map<String, dynamic>.from((m['props'] as Map?) ?? const {}), // Firestore ainda usa 'props'
+      properties: Map<String, dynamic>.from((m['props'] as Map?) ?? const {}),
       geometryType: (m['geometryType'] ?? 'LineString').toString(),
       points: pts,
       createdAt: _d(m['createdAt']),
@@ -87,10 +86,9 @@ class PlanningHighwayDomainData extends Equatable {
   // -------- Modelo -> Firestore --------
   Map<String, dynamic> toFirestore() {
     return {
-      'props': properties, // chave no Firestore segue como 'props'
+      'props': properties,
       'geometryType': geometryType,
       'points': points.map((p) => {'latitude': p.latitude, 'longitude': p.longitude}).toList(),
-      // created/updated ficam a cargo do repositório
     };
   }
 }

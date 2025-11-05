@@ -18,15 +18,16 @@ import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_services/dxf/map_overlay_cubit.dart';
 import 'package:siged/_widgets/list/demand/list_demand_page.dart';
 import 'package:siged/home_page.dart';
+import 'package:siged/screens/legal/crm/tab_bar_crm_precatory_page.dart';
 import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_page.dart';
 import 'package:siged/screens/process/additive/tab_bar_additive_page.dart';
 import 'package:siged/screens/process/apostilles/tab_bar_apostilles_page.dart';
 import 'package:siged/screens/process/hiring/tab_bar_contract_page.dart';
 import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_page.dart';
-import 'package:siged/screens/process/landRegularization/lane_regularization_tabs.dart';
+import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_tabs.dart';
 import 'package:siged/screens/process/measurement/tab_bar_measurement_page.dart';
 import 'package:siged/screens/process/validity/validity_tab_bar.dart';
-import 'package:siged/screens/sectors/operation/schedule/civil/schedule_civil_page.dart';
+import 'package:siged/screens/sectors/operation/schedule/civil/schedule_civil_workspace_page.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 import 'package:siged/screens/actives/airports/network/active_airports_network_page.dart';
 import 'package:siged/screens/actives/airports/records/active_airports_records_page.dart';
@@ -43,9 +44,9 @@ import 'package:siged/screens/actives/oaes/records/active_oaes_records_page.dart
 import 'package:siged/screens/actives/roads/records/active_roads_records_page.dart';
 import 'package:siged/_blocs/system/pages/pages_data.dart';
 import 'package:siged/_widgets/buttons/float_button_menu.dart';
-import 'package:siged/screens/sectors/planning/rightWay/planning_right_way_workspace.dart';
-import 'package:siged/screens/sectors/traffic/accidents/accidents_records_page.dart';
-import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_page.dart';
+import 'package:siged/screens/sectors/planning/rightWay/planning_right_way_workspace_page.dart';
+import 'package:siged/screens/sectors/traffic/accidents/accidents_records_network_page.dart';
+import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_network_page.dart';
 import 'package:siged/screens/sectors/traffic/infractions-dashboard/infractions_dashboard_page.dart';
 import 'package:siged/screens/sectors/traffic/infrations-records/infractions_records_page.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
@@ -57,6 +58,8 @@ import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
+
+import '../sectors/planning/sigmine/sigmine_network_page.dart';
 
 class MenuListPage extends StatefulWidget {
   const MenuListPage({super.key});
@@ -121,7 +124,7 @@ class _MenuListPageState extends State<MenuListPage> {
               BlocProvider<MapOverlayCubit>(create: (_) => MapOverlayCubit()),
             ],
             child: Scaffold(
-              body: ScheduleCivilPage(
+              body: ScheduleCivilWorkspacePage(
                 title: 'Cronograma Residencial',
                 pageNumber: 1,
                 controller: scheduleCtrl,
@@ -262,38 +265,28 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           _navigateByWorkType(context, contract);
-        }, pageTitle: 'Cronograma Físico');
+        }, pageTitle: 'Diário de Obra');
 
       case MenuItem.planningProjectRegistration:
-        return _buildContractsListPage((context, contract) {
-          context.read<ContractsStore>().select(contract);
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => BlocProvider<MapOverlayCubit>(
-                create: (_) => MapOverlayCubit(),
-                child: Container(),
-              ),
-            ),
-          );
-        }, pageTitle: 'Todos os contratos');
+        return SigmineNetworkPage();
 
       case MenuItem.planningRightOfWayRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ContractsStore>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => PlanningRightWayPropertyWorkspace(contractData: contract),
+              builder: (_) => PlanningRightWayWorkspacePage(contractData: contract),
             ),
           );
         }, pageTitle: 'Desapropriações');
 
       case MenuItem.planningEnvironmentRecords:
-        return const PlanningEnvironmentDashboardPage();
+        return const SigmineNetworkPage();
 
       case MenuItem.trafficAccidentsDashboard:
-        return const AccidentsDashboardPage();
+        return const AccidentsDashboardNetworkPage();
       case MenuItem.trafficAccidentsRecords:
-        return const AccidentsRecordsPage();
+        return const AccidentsRecordsNetworkPage();
       case MenuItem.trafficInfractionsDashboard:
         return const InfractionsDashboardPage();
       case MenuItem.trafficInfractionsRecords:
@@ -339,6 +332,9 @@ class _MenuListPageState extends State<MenuListPage> {
         return const ActiveRoadsNetworkPage();
       case MenuItem.activeRegistrationPorts:
         return const ActiveRoadsRecordsPage();
+
+      case MenuItem.crmLegal:
+        return TabBarCrmPrecatoryPage();
     }
   }
 

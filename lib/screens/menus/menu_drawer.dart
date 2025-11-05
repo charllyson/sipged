@@ -7,7 +7,7 @@ import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/drawer/menu_drawer_sub_item.dart';
 import 'package:siged/_blocs/system/pages/pages_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_widgets/images/sisgeo_logo.dart';
+import 'package:siged/_widgets/images/logos/sisgeo_logo.dart';
 
 // BLoC
 import 'package:siged/_blocs/system/user/user_bloc.dart';
@@ -124,6 +124,14 @@ class _DrawerMenuState extends State<DrawerMenu> {
           colorSubTitle: palette.sectionSubtitle,
           items: PagesData.drawerActives,
         ),
+
+        ..._buildSection(
+          title: 'PROCESSOS',
+          user: userData,
+          colorTitle: palette.sectionTitle,
+          colorSubTitle: palette.sectionSubtitle,
+          items: PagesData.crmLegal,
+        )
       ],
     );
   }

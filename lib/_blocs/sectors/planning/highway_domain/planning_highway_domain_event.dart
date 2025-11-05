@@ -1,3 +1,4 @@
+// lib/_blocs/planning/highway_domain/planning_highway_domain_event.dart
 import 'package:equatable/equatable.dart';
 
 abstract class PlanningHighwayDomainEvent extends Equatable {

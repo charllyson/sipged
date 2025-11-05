@@ -26,7 +26,7 @@ class ScheduleSubHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = textStyle ?? const TextStyle(color: Colors.white);
+    final style = textStyle;
 
     final row = Row(
       mainAxisSize: MainAxisSize.min,

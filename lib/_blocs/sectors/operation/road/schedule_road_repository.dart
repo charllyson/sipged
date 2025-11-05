@@ -13,7 +13,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
-import 'package:siged/_widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 class ScheduleRoadRepository {
   ScheduleRoadRepository(

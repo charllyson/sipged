@@ -1,8 +1,10 @@
+// lib/_blocs/actives/oaes/active_oaes_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 class ActiveOaesData extends ChangeNotifier {
   String? id;
@@ -38,6 +40,9 @@ class ActiveOaesData extends ChangeNotifier {
   DateTime? deletedAt;
   String? deletedBy;
 
+  // anexos (projetos, PDFs etc.)
+  List<Attachment>? attachments;
+
   ActiveOaesData({
     this.id,
     this.order,
@@ -65,140 +70,150 @@ class ActiveOaesData extends ChangeNotifier {
     this.updatedBy,
     this.deletedAt,
     this.deletedBy,
+    this.attachments,
   });
 
-  // ---------- FACTORIES ----------
-  factory ActiveOaesData.fromDocument(DocumentSnapshot snapshot) {
-    final data = snapshot.data() as Map<String, dynamic>?;
-    if (data == null) throw Exception('Dados da OAE não encontrados');
+  // ---------- helpers ----------
+  static Map<String, dynamic> _readSnapData(DocumentSnapshot snap) {
+    if (snap is DocumentSnapshot<Map<String, dynamic>>) {
+      return snap.data() ?? <String, dynamic>{};
+    }
+    final raw = snap.data();
+    return (raw is Map<String, dynamic>) ? raw : <String, dynamic>{};
+  }
 
+  static DateTime? _toDate(dynamic v) {
+    if (v == null) return null;
+    if (v is DateTime) return v;
+    if (v is Timestamp) return v.toDate();
+    if (v is int) { try { return DateTime.fromMillisecondsSinceEpoch(v); } catch (_) {} }
+    if (v is String) return DateTime.tryParse(v);
+    return null;
+  }
+
+  static double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.replaceAll(',', '.'));
+    return null;
+  }
+
+  static int? _toInt(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
+  }
+
+  static List<Attachment>? _toAttachments(dynamic v) {
+    if (v == null) return null;
+    if (v is List) {
+      return v.map<Attachment>((e) {
+        if (e is Attachment) return e;
+        return Attachment.fromMap(Map<String, dynamic>.from(e as Map));
+      }).toList(growable: true);
+    }
+    return null;
+  }
+
+  // ---------- factories ----------
+  factory ActiveOaesData.fromDocument(DocumentSnapshot snap) {
+    final data = _readSnapData(snap);
     return ActiveOaesData(
-      id: snapshot.id,
-      order: (data['order'] as num?)?.toInt(),
-      score: (data['score'] as num?)?.toDouble(),
-      state: data['state'],
-      road: data['road'],
-      region: data['region'],
-      identificationName: data['identificationName'],
-      extension: (data['extension'] as num?)?.toDouble(),
-      width: (data['width'] as num?)?.toDouble(),
-      area: (data['area'] as num?)?.toDouble(),
-      structureType: data['structureType'],
-      relatedContracts: data['relatedContracts'],
-      valueIntervention: (data['valueIntervention'] as num?)?.toDouble(),
-      linearCostMedia: (data['linearCostMedia'] as num?)?.toDouble(),
-      costEstimate: (data['costEstimate'] as num?)?.toDouble(),
-      lastDateIntervention: _parseDate(data['lastDateIntervention']), // ✅
-      companyBuild: data['companyBuild'],
-      latitude: (data['latitude'] as num?)?.toDouble(),
-      longitude: (data['longitude'] as num?)?.toDouble(),
-      altitude: (data['altitude'] as num?)?.toDouble(),
-      createdAt: _parseDate(data['createdAt']),
-      createdBy: data['createdBy'],
-      updatedAt: _parseDate(data['updatedAt']),
-      updatedBy: data['updatedBy'],
-      deletedAt: _parseDate(data['deletedAt']),
-      deletedBy: data['deletedBy'],
+      id: snap.id,
+      order: _toInt(data['order']),
+      score: _toDouble(data['score']),
+      state: data['state'] as String?,
+      road: data['road'] as String?,
+      region: data['region'] as String?,
+      identificationName: data['identificationName'] as String?,
+      extension: _toDouble(data['extension']),
+      width: _toDouble(data['width']),
+      area: _toDouble(data['area']),
+      structureType: data['structureType'] as String?,
+      relatedContracts: data['relatedContracts'] as String?,
+      valueIntervention: _toDouble(data['valueIntervention']),
+      linearCostMedia: _toDouble(data['linearCostMedia']),
+      costEstimate: _toDouble(data['costEstimate']),
+      lastDateIntervention: _toDate(data['lastDateIntervention']),
+      companyBuild: data['companyBuild'] as String?,
+      latitude: _toDouble(data['latitude']),
+      longitude: _toDouble(data['longitude']),
+      altitude: _toDouble(data['altitude']),
+      createdAt: _toDate(data['createdAt']),
+      createdBy: data['createdBy'] as String?,
+      updatedAt: _toDate(data['updatedAt']),
+      updatedBy: data['updatedBy'] as String?,
+      deletedAt: _toDate(data['deletedAt']),
+      deletedBy: data['deletedBy'] as String?,
+      attachments: _toAttachments(data['attachments']),
     );
   }
 
   factory ActiveOaesData.fromMap(Map<String, dynamic> map) {
     return ActiveOaesData(
-      id: map['id'],
-      order: (map['order'] as num?)?.toInt(),
-      score: (map['score'] as num?)?.toDouble(),
-      state: map['state'],
-      road: map['road'],
-      region: map['region'],
-      identificationName: map['identificationName'],
-      extension: (map['extension'] as num?)?.toDouble(),
-      width: (map['width'] as num?)?.toDouble(),
-      area: (map['area'] as num?)?.toDouble(),
-      structureType: map['structureType'],
-      relatedContracts: map['relatedContracts'],
-      valueIntervention: (map['valueIntervention'] as num?)?.toDouble(),
-      linearCostMedia: (map['linearCostMedia'] as num?)?.toDouble(),
-      costEstimate: (map['costEstimate'] as num?)?.toDouble(),
-      companyBuild: map['companyBuild'],
-      latitude: (map['latitude'] as num?)?.toDouble(),
-      longitude: (map['longitude'] as num?)?.toDouble(),
-      altitude: (map['altitude'] as num?)?.toDouble(),
-      lastDateIntervention: _parseDate(map['lastDateIntervention']),
-      createdAt: _parseDate(map['createdAt']),
-      createdBy: map['createdBy'],
-      updatedAt: _parseDate(map['updatedAt']),
-      updatedBy: map['updatedBy'],
-      deletedAt: _parseDate(map['deletedAt']),
-      deletedBy: map['deletedBy'],
+      id: map['id'] as String?,
+      order: _toInt(map['order']),
+      score: _toDouble(map['score']),
+      state: map['state'] as String?,
+      road: map['road'] as String?,
+      region: map['region'] as String?,
+      identificationName: map['identificationName'] as String?,
+      extension: _toDouble(map['extension']),
+      width: _toDouble(map['width']),
+      area: _toDouble(map['area']),
+      structureType: map['structureType'] as String?,
+      relatedContracts: map['relatedContracts'] as String?,
+      valueIntervention: _toDouble(map['valueIntervention']),
+      linearCostMedia: _toDouble(map['linearCostMedia']),
+      costEstimate: _toDouble(map['costEstimate']),
+      companyBuild: map['companyBuild'] as String?,
+      latitude: _toDouble(map['latitude']),
+      longitude: _toDouble(map['longitude']),
+      altitude: _toDouble(map['altitude']),
+      lastDateIntervention: _toDate(map['lastDateIntervention']),
+      createdAt: _toDate(map['createdAt']),
+      createdBy: map['createdBy'] as String?,
+      updatedAt: _toDate(map['updatedAt']),
+      updatedBy: map['updatedBy'] as String?,
+      deletedAt: _toDate(map['deletedAt']),
+      deletedBy: map['deletedBy'] as String?,
+      attachments: _toAttachments(map['attachments']),
     );
   }
 
-  // ---------- CLONES ----------
+  // ---------- clone/copy ----------
   ActiveOaesData.fromData(ActiveOaesData d) {
     id = d.id;
     order = d.order;
-    identificationName = d.identificationName;
-    latitude = d.latitude;
-    longitude = d.longitude;
     score = d.score;
     state = d.state;
     road = d.road;
     region = d.region;
+    identificationName = d.identificationName;
     extension = d.extension;
     width = d.width;
     area = d.area;
     structureType = d.structureType;
     relatedContracts = d.relatedContracts;
-    valueIntervention = d.valueIntervention; // ✅ faltava
+    valueIntervention = d.valueIntervention;
     linearCostMedia = d.linearCostMedia;
     costEstimate = d.costEstimate;
-    companyBuild = d.companyBuild;
     lastDateIntervention = d.lastDateIntervention;
+    companyBuild = d.companyBuild;
+    latitude = d.latitude;
+    longitude = d.longitude;
     altitude = d.altitude;
-
-    // timestamps/autoria (opcional nos clones de formulário)
     createdAt = d.createdAt;
     createdBy = d.createdBy;
     updatedAt = d.updatedAt;
     updatedBy = d.updatedBy;
     deletedAt = d.deletedAt;
     deletedBy = d.deletedBy;
+    attachments = d.attachments == null ? null : List<Attachment>.from(d.attachments!);
   }
 
   ActiveOaesData toData() => ActiveOaesData.fromData(this);
-
-  // ---------- SERIALIZAÇÃO ----------
-  /// Mapa completo (com nulls) — útil pra debug/UI
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'order': order,
-      'score': score,
-      'state': state,
-      'road': road,
-      'region': region,
-      'identificationName': identificationName,
-      'extension': extension,
-      'width': width,
-      'area': area,
-      'structureType': structureType,
-      'relatedContracts': relatedContracts,
-      'valueIntervention': valueIntervention,
-      'linearCostMedia': linearCostMedia,
-      'costEstimate': costEstimate,
-      'lastDateIntervention': lastDateIntervention?.toIso8601String(),
-      'companyBuild': companyBuild,
-      'latitude': latitude,
-      'longitude': longitude,
-      'altitude': altitude,
-      'createdAt': createdAt?.toIso8601String(),
-      'createdBy': createdBy,
-      'updatedAt': updatedAt?.toIso8601String(),
-      'updatedBy': updatedBy,
-      'deletedAt': deletedAt?.toIso8601String(),
-      'deletedBy': deletedBy,
-    };
-  }
 
   ActiveOaesData copyWith({
     String? id,
@@ -227,6 +242,7 @@ class ActiveOaesData extends ChangeNotifier {
     String? updatedBy,
     DateTime? deletedAt,
     String? deletedBy,
+    List<Attachment>? attachments,
   }) {
     return ActiveOaesData(
       id: id ?? this.id,
@@ -255,13 +271,45 @@ class ActiveOaesData extends ChangeNotifier {
       updatedBy: updatedBy ?? this.updatedBy,
       deletedAt: deletedAt ?? this.deletedAt,
       deletedBy: deletedBy ?? this.deletedBy,
+      attachments: attachments ?? this.attachments,
     );
   }
 
+  // ---------- serialização ----------
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'order': order,
+      'score': score,
+      'state': state,
+      'road': road,
+      'region': region,
+      'identificationName': identificationName,
+      'extension': extension,
+      'width': width,
+      'area': area,
+      'structureType': structureType,
+      'relatedContracts': relatedContracts,
+      'valueIntervention': valueIntervention,
+      'linearCostMedia': linearCostMedia,
+      'costEstimate': costEstimate,
+      'lastDateIntervention': lastDateIntervention?.toIso8601String(),
+      'companyBuild': companyBuild,
+      'latitude': latitude,
+      'longitude': longitude,
+      'altitude': altitude,
+      'createdAt': createdAt?.toIso8601String(),
+      'createdBy': createdBy,
+      'updatedAt': updatedAt?.toIso8601String(),
+      'updatedBy': updatedBy,
+      'deletedAt': deletedAt?.toIso8601String(),
+      'deletedBy': deletedBy,
+      'attachments': attachments?.map((a) => a.toMap()).toList(),
+    };
+  }
 
-  /// Mapa “limpo” para Firestore (sem nulls) — evita sobrescrever campos com null.
   Map<String, dynamic> toFirestore() {
-    final m = <String, dynamic>{
+    return {
       if (order != null) 'order': order,
       if (score != null) 'score': score,
       if (state != null) 'state': state,
@@ -282,23 +330,13 @@ class ActiveOaesData extends ChangeNotifier {
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
       if (altitude != null) 'altitude': altitude,
-      // created*/updated* são geridos pelo Repository com serverTimestamp
+      if (attachments != null) 'attachments': attachments!.map((a) => a.toMap()).toList(),
+      // created*/updated* normalmente via Repository com serverTimestamp
     };
-    return m;
-  }
-
-  static DateTime? _parseDate(dynamic value) {
-    if (value == null) return null;
-    if (value is Timestamp) return value.toDate();
-    if (value is String) return DateTime.tryParse(value);
-    if (value is int) {
-      // Se vier epoch ms em algum fluxo
-      try { return DateTime.fromMillisecondsSinceEpoch(value); } catch (_) {}
-    }
-    return null;
   }
 }
 
+// helper para Marker
 extension OAEsDataExtension on ActiveOaesData {
   TaggedChangedMarker<ActiveOaesData>? toTaggedMarker() {
     if (latitude == null || longitude == null) return null;

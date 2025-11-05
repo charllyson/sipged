@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:siged/_widgets/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 class CivilScheduleRepository {
   CivilScheduleRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})

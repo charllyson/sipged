@@ -1,17 +1,14 @@
 // lib/screens/sectors/traffic/accidents/accidents_table_section.dart
 import 'package:flutter/material.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 import 'package:siged/_widgets/table/paged/paged_table_changed.dart';
-import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
-import '../../../../_utils/date_utils.dart';
-import '../../../../_utils/formats/format_field.dart'; // convertDateTimeToDDMMYYYY, hourToString
 
 class AccidentsTableSection extends StatelessWidget {
   final List<AccidentsData> listData;
   final AccidentsData? selectedItem;
-
   final void Function(AccidentsData item) onTapItem;
   final void Function(String id) onDelete;
-
+  final void Function(AccidentsData item) onPrint;
   final int currentPage;
   final int totalPages;
   final Future<void> Function(int page) onPageChange;
@@ -25,88 +22,53 @@ class AccidentsTableSection extends StatelessWidget {
     required this.currentPage,
     required this.totalPages,
     required this.onPageChange,
+    required this.onPrint,
   });
 
   @override
   Widget build(BuildContext context) {
     return PagedTableChanged<AccidentsData>(
-      // dados e seleção
       listData: listData,
       getKey: (d) => d.id ?? '',
       selectedKey: selectedItem?.id,
-      keepSelectionInternally: false, // seleção controlada de fora (controller)
-
-      // ações de linha
+      keepSelectionInternally: false,
       onTapItem: onTapItem,
       onDelete: (d) {
         final id = d.id;
         if (id != null && id.isNotEmpty) onDelete(id);
       },
-
-      // paginação
       currentPage: currentPage,
       totalPages: totalPages,
-      onPageChange: onPageChange, // controller.loadPage
-
-      // colunas
+      onPageChange: onPageChange,
       columns: [
+        PagedColumnSpec<AccidentsData>(
+          title: 'IMPR.',
+          maxWidth: 72,
+          cellBuilder: (d) => IconButton(
+            tooltip: 'Imprimir etiqueta',
+            icon: const Icon(Icons.confirmation_num),
+            onPressed: () => onPrint(d),
+          ),
+        ),
         PagedColumnSpec<AccidentsData>(
           title: 'ORDEM',
           getter: (d) => (d.order ?? '-').toString(),
           textAlign: TextAlign.center,
-          maxWidth: 100,
-        ),
-        PagedColumnSpec<AccidentsData>(
-          title: 'RODOVIA',
-          getter: (d) => d.highway ?? '-',
-          textAlign: TextAlign.center,
-          maxWidth: 140,
-        ),
-        PagedColumnSpec<AccidentsData>(
-          title: 'DATA',
-          getter: (d) => d.date != null ? dateTimeToDDMMYYYY(d.date!) : '-',
-          textAlign: TextAlign.center,
-          maxWidth: 120,
-        ),
-        PagedColumnSpec<AccidentsData>(
-          title: 'HORA',
-          getter: (d) => d.date != null ? convertTimestampHHMM(d.date!) : '-',
-          textAlign: TextAlign.center,
-          maxWidth: 100,
+          maxWidth: 80,
         ),
         PagedColumnSpec<AccidentsData>(
           title: 'CIDADE',
           getter: (d) => d.city ?? '-',
-          textAlign: TextAlign.center,
           maxWidth: 160,
         ),
         PagedColumnSpec<AccidentsData>(
-          title: 'PONTO DE\nREFERÊNCIA',
-          getter: (d) => d.referencePoint ?? '-',
-          textAlign: TextAlign.center,
-          maxWidth: 200,
-        ),
-        PagedColumnSpec<AccidentsData>(
-          title: 'TIPO DE\nACIDENTE',
+          title: 'TIPO',
           getter: (d) => d.typeOfAccident ?? '-',
-          textAlign: TextAlign.center,
-          maxWidth: 180,
+          maxWidth: 160,
         ),
         PagedColumnSpec<AccidentsData>(
-          title: 'VÍTIMAS COM\nESCOREAÇÕES',
-          getter: (d) => (d.scoresVictims ?? 0).toString(),
-          textAlign: TextAlign.center,
-          maxWidth: 120,
-        ),
-        PagedColumnSpec<AccidentsData>(
-          title: 'MORTE',
-          getter: (d) => (d.death ?? 0).toString(),
-          textAlign: TextAlign.center,
-          maxWidth: 120,
-        ),
-        PagedColumnSpec<AccidentsData>(
-          title: 'AUTOMÓVEIS\nENVOLVIDOS',
-          getter: (d) => (d.transportInvolved ?? 0).toString(),
+          title: 'DATA',
+          getter: (d) => d.date?.toString().split(' ').first ?? '-',
           textAlign: TextAlign.center,
           maxWidth: 120,
         ),

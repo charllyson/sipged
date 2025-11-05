@@ -26,7 +26,7 @@ class PlanningHighwayDomainBloc
       PlanningHighwayDomainRefreshRequested e, Emitter<PlanningHighwayDomainState> emit) async {
     emit(state.copyWith(loading: true, error: null));
     try {
-      final items = await _repo.fetchAll();
+      final items = await _repo.fetchAll(contractId: e.contractId);
       emit(state.copyWith(
         initialized: true,
         loading: false,
@@ -43,9 +43,13 @@ class PlanningHighwayDomainBloc
       PlanningHighwayDomainImportBatchRequested e, Emitter<PlanningHighwayDomainState> emit) async {
     emit(state.copyWith(saving: true, error: null));
     try {
-      await _repo.importBatch(linhas: e.linhasPrincipais, geometrias: e.geometrias);
+      await _repo.importBatch(
+        contractId: e.contractId,
+        linhas: e.linhasPrincipais,
+        geometrias: e.geometrias,
+      );
       // Recarrega após import
-      final items = await _repo.fetchAll();
+      final items = await _repo.fetchAll(contractId: e.contractId);
       emit(state.copyWith(
         saving: false,
         items: items,
@@ -62,7 +66,7 @@ class PlanningHighwayDomainBloc
       PlanningHighwayDomainDeleteAllRequested e, Emitter<PlanningHighwayDomainState> emit) async {
     emit(state.copyWith(saving: true, error: null));
     try {
-      await _repo.deleteAll();
+      await _repo.deleteAll(contractId: e.contractId);
       emit(state.copyWith(saving: false, items: const []));
     } catch (err, st) {
       debugPrint('HighwayDomain delete-all error: $err\n$st');

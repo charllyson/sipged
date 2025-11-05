@@ -5,8 +5,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
+
 import 'package:siged/_widgets/upBar/up_bar.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart'; // 👈 ajuste o path se necessário
+import 'package:siged/_widgets/footBar/foot_bar.dart';
+
+// 🔀 Split responsivo com divisor arrastável (↔/↕)
+import 'package:siged/_widgets/layout/responsive_split_view.dart';
 
 import 'active_airports_map.dart';
 import 'active_airports_panel.dart';
@@ -15,11 +19,14 @@ class ActiveAirportsNetworkPage extends StatefulWidget {
   const ActiveAirportsNetworkPage({super.key});
 
   @override
-  State<ActiveAirportsNetworkPage> createState() => _ActiveAirportsNetworkPageState();
+  State<ActiveAirportsNetworkPage> createState() =>
+      _ActiveAirportsNetworkPageState();
 }
 
 class _ActiveAirportsNetworkPageState extends State<ActiveAirportsNetworkPage> {
   late final ActiveOaesBloc _bloc;
+
+  /// Controle de exibição do painel (lado a lado em telas largas; embaixo no mobile)
   bool _showRightPanel = false;
 
   @override
@@ -33,7 +40,6 @@ class _ActiveAirportsNetworkPageState extends State<ActiveAirportsNetworkPage> {
     _bloc.close();
     super.dispose();
   }
-
 
   void _clearFilters() {
     _bloc.add(const ActiveOaesPieFilterChanged(null));
@@ -62,7 +68,9 @@ class _ActiveAirportsNetworkPageState extends State<ActiveAirportsNetworkPage> {
               IconButton(
                 tooltip: _showRightPanel ? 'Ocultar painel' : 'Mostrar painel',
                 icon: Icon(
-                  _showRightPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                  _showRightPanel
+                      ? Icons.view_sidebar
+                      : Icons.view_sidebar_outlined,
                   color: Colors.white,
                 ),
                 onPressed: _toggleRightPanel,
@@ -71,60 +79,35 @@ class _ActiveAirportsNetworkPageState extends State<ActiveAirportsNetworkPage> {
           ),
         ),
 
-        // 👉 FootBar fixado no fim
+        // ▶️ FootBar fixo
         bottomNavigationBar: const FootBar(),
 
-        body: Stack(
-          children: [
-            BlocBuilder<ActiveOaesBloc, ActiveOaesState>(
-              builder: (context, state) {
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final bool isWide = constraints.maxWidth >= 980;
+        body: BlocBuilder<ActiveOaesBloc, ActiveOaesState>(
+          builder: (context, state) {
+            return ResponsiveSplitView(
+              // conteúdo principal (mapa)
+              left: ActiveAirportsMap(state: state),
 
-                    if (isWide) {
-                      // Layout lado a lado
-                      return Row(
-                        children: [
-                          Expanded(
-                            flex: 1,
-                            child: ActiveAirportsMap(state: state),
-                          ),
-                          if (_showRightPanel) ...[
-                            const VerticalDivider(width: 1),
-                            SizedBox(
-                              width: 600, // largura do painel direito
-                              child: ActiveAirportsPanel(
-                                onClose: _toggleRightPanel,
-                              ),
-                            ),
-                          ],
-                        ],
-                      );
-                    } else {
-                      // Layout empilhado (mobile/tablet)
-                      return Column(
-                        children: [
-                          Expanded(
-                            child: ActiveAirportsMap(state: state),
-                          ),
-                          if (_showRightPanel) ...[
-                            const Divider(height: 1),
-                            SizedBox(
-                              height: 420,
-                              child: ActiveAirportsPanel(
-                                onClose: _toggleRightPanel,
-                              ),
-                            ),
-                          ],
-                        ],
-                      );
-                    }
-                  },
-                );
-              },
-            ),
-          ],
+              // painel (detalhes/controles)
+              right: ActiveAirportsPanel(
+                onClose: _toggleRightPanel,
+              ),
+
+              // visibilidade do painel
+              showRightPanel: _showRightPanel,
+
+              // mesmas métricas padrão do SIGED (podem ser ajustadas)
+              breakpoint: 980.0,          // >= 980 lado a lado; senão empilhado
+              rightPanelWidth: 600.0,     // largura inicial do painel (↔)
+              bottomPanelHeight: 420.0,   // altura inicial no mobile (↕)
+
+              // opcional: limites e espessura do divisor
+              // minRightPanelWidth: 320,
+              // minBottomPanelHeight: 260,
+              // dividerThickness: 12.0,
+              showDividers: true,
+            );
+          },
         ),
       ),
     );

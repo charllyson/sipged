@@ -36,13 +36,7 @@ class ContractTabDescriptor {
   });
 }
 
-/// Scaffold reutilizável de abas para contratos.
-/// - Renderiza UpBar com TabBar
-/// - Mostra banner com resumo/participantes (clicável p/ gerenciar)
-/// - Bloqueia abas que exigem contrato salvo
-/// - Mantém o ContractData local atualizado após editar participantes
-// ... imports iguais
-
+/// Scaffold reutilizável de abas para contratos com barra superior customizável.
 class TabChangedWidget extends StatefulWidget {
   final UserData? userData;
   final ContractData? contractData;
@@ -51,6 +45,40 @@ class TabChangedWidget extends StatefulWidget {
   final List<ContractTabDescriptor> tabs;
   final String Function(ContractData c)? bannerTitleBuilder;
   final String blockedMessage;
+
+  // ======== NOVOS PARÂMETROS DE ESTILO DA BARRA SUPERIOR ========
+  /// Altura da barra (sem considerar o safeTop).
+  final double topBarHeight;
+
+  /// Gradient da barra. Se fornecido, tem prioridade sobre [topBarColor].
+  final List<Color>? topBarColors;
+
+  /// Cor sólida da barra (usada se [topBarColors] for null).
+  final Color? topBarColor;
+
+  /// Direção do gradient (se [topBarColors] for usado).
+  final Alignment topBarBegin;
+  final Alignment topBarEnd;
+
+  /// Cor da borda inferior da barra.
+  final Color topBarBorderColor;
+
+  /// Cores do TabBar
+  final Color labelColor;
+  final Color unselectedLabelColor;
+  final Color indicatorColor;
+
+  /// Espessura do indicador
+  final double indicatorWeight;
+
+  /// Se as abas são roláveis
+  final bool tabsIsScrollable;
+
+  /// Alinhamento das abas
+  final TabAlignment tabAlignment;
+
+  /// Widget à direita na barra (ex.: foto, menu, etc.)
+  final Widget? trailing;
 
   const TabChangedWidget({
     super.key,
@@ -62,6 +90,21 @@ class TabChangedWidget extends StatefulWidget {
     this.bannerTitleBuilder,
     this.blockedMessage =
     '⚠️ Para acessar esta aba, salve primeiro as informações principais do contrato.',
+
+    // ======== defaults (mantêm aparência atual) ========
+    this.topBarHeight = 72.0,
+    this.topBarColors = const [Color(0xFF1B2031), Color(0xFF1B2039)],
+    this.topBarColor,
+    this.topBarBegin = Alignment.topCenter,
+    this.topBarEnd = Alignment.bottomCenter,
+    this.topBarBorderColor = Colors.white,
+    this.labelColor = Colors.white,
+    this.unselectedLabelColor = Colors.grey,
+    this.indicatorColor = Colors.white,
+    this.indicatorWeight = 2.0,
+    this.tabsIsScrollable = true,
+    this.tabAlignment = TabAlignment.start,
+    this.trailing = const PopUpPhotoMenu(),
   });
 
   @override
@@ -80,16 +123,14 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
   @override
   Widget build(BuildContext context) {
     final double safeTop = MediaQuery.of(context).padding.top;
-    const double barHeight = 72.0;
-    final double topBarTotal = safeTop + barHeight;
+    final double topBarTotal = safeTop + widget.topBarHeight;
 
     final tabs = widget.tabs;
     final labels = tabs.map((t) => t.label).toList();
 
     return DefaultTabController(
       length: tabs.length,
-      initialIndex:
-      widget.initialTabIndex.clamp(0, tabs.length - 1).toInt(),
+      initialIndex: widget.initialTabIndex.clamp(0, tabs.length - 1).toInt(),
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Stack(
@@ -106,8 +147,7 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
                     ),
                   Expanded(
                     child: TabBarView(
-                      physics:
-                      const NeverScrollableScrollPhysics(),
+                      physics: const NeverScrollableScrollPhysics(),
                       children: [
                         for (final t in tabs)
                           t.requireSavedContract && (_contractData?.id == null)
@@ -127,33 +167,43 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
               right: 0,
               child: Container(
                 height: topBarTotal,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF1B2031), Color(0xFF1B2039)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
+                decoration: BoxDecoration(
+                  gradient: (widget.topBarColors != null &&
+                      widget.topBarColors!.isNotEmpty)
+                      ? LinearGradient(
+                    colors: widget.topBarColors!,
+                    begin: widget.topBarBegin,
+                    end: widget.topBarEnd,
+                  )
+                      : null,
+                  color: (widget.topBarColors == null ||
+                      widget.topBarColors!.isEmpty)
+                      ? (widget.topBarColor ?? const Color(0xFF1B2031))
+                      : null,
                   border: Border(
-                    bottom: BorderSide(color: Colors.white, width: 1),
+                    bottom: BorderSide(
+                      color: widget.topBarBorderColor,
+                      width: 1,
+                    ),
                   ),
                 ),
                 padding: EdgeInsets.only(top: safeTop),
                 child: Row(
                   children: [
-                    const SizedBox(width: 12),
-                    const BackCircleButton(),
+                    const SizedBox(width: 60),
                     Expanded(
                       child: TabBar(
-                        isScrollable: true,
+                        isScrollable: widget.tabsIsScrollable,
                         dividerHeight: 0,
-                        tabAlignment: TabAlignment.start,
-                        labelColor: Colors.white,
-                        indicatorColor: Colors.white,
-                        unselectedLabelColor: Colors.grey,
+                        tabAlignment: widget.tabAlignment,
+                        labelColor: widget.labelColor,
+                        indicatorColor: widget.indicatorColor,
+                        unselectedLabelColor: widget.unselectedLabelColor,
+                        indicatorWeight: widget.indicatorWeight,
                         tabs: [for (final l in labels) Tab(text: l)],
                       ),
                     ),
-                    const PopUpPhotoMenu(),
+                    if (widget.trailing != null) widget.trailing!,
                     const SizedBox(width: 12),
                   ],
                 ),
@@ -165,4 +215,3 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
     );
   }
 }
-

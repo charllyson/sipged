@@ -1,7 +1,7 @@
 // lib/_widgets/appbar/pop_up_photo_menu.dart
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/system/login/login_bloc.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
@@ -9,41 +9,16 @@ import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/images/photo_circle/photo_circle.dart';
 import 'package:siged/admPanel/settings_system_hub_page.dart';
 
-// ✅ novo helper de papéis globais
+// ✅ helper de papéis globais
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/screens/menus/profile_page.dart';
 
-class PopUpPhotoMenu extends StatefulWidget {
+class PopUpPhotoMenu extends StatelessWidget {
   const PopUpPhotoMenu({super.key});
 
   @override
-  State<PopUpPhotoMenu> createState() => _PopUpPhotoMenuState();
-}
-
-class _PopUpPhotoMenuState extends State<PopUpPhotoMenu> {
-  late final LoginBloc _loginBloc;
-  final User? firebaseUser = FirebaseAuth.instance.currentUser;
-
-  @override
-  void initState() {
-    super.initState();
-    _loginBloc = LoginBloc();
-    _loginBloc.outState.listen((_) {});
-  }
-
-  @override
-  void dispose() {
-    // se o LoginBloc tiver dispose(), chame aqui
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (firebaseUser == null) {
-      return const SizedBox.shrink();
-    }
-
-    // Lê o usuário atual do UserBloc
+    // Lê o usuário atual do UserBloc (se ainda não carregou, mostra loading)
     final userData = context.select<UserBloc, UserData?>(
           (b) => b.state.initialized ? b.state.current : null,
     );
@@ -54,7 +29,7 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu> {
           width: 20,
           height: 20,
           child: CircularProgressIndicator(strokeWidth: 2),
-        ),//
+        ),
       );
     }
 
@@ -64,33 +39,38 @@ class _PopUpPhotoMenuState extends State<PopUpPhotoMenu> {
 
     return PopupMenuButton<String>(
       color: Colors.white,
-      onSelected: (value) {
+      onSelected: (value) async {
         switch (value) {
+          case 'perfil':
+          // navega para a página de perfil
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const UserProfilePage()),
+            );
+            break;
+
           case 'administrador':
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => SettingsSystemHubPage()),
             );
             break;
+
           case 'sair':
-            _loginBloc.signOut();
+          // ❌ NÃO crie LoginBloc(); ✅ use o provido no contexto
+            await context.read<LoginBloc>().signOut();
             break;
         }
       },
       itemBuilder: (context) => [
         PopupMenuItem<String>(
-          onTap: (){
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const UserProfilePage()),
-            );
-          },
+          value: 'perfil',
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Olá, ${userData.name ?? ''}',
-              ),
+              Text('Olá, ${userData.name ?? ''}'),
+              const SizedBox(height: 2),
               Text(
                 userData.baseProfile ?? '',
-                style: TextStyle(color: Colors.grey, fontSize: 12),//
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ],
           ),

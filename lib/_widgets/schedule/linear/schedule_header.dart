@@ -29,7 +29,7 @@ class ScheduleHeader extends StatelessWidget {
       overflow: shrinkToFit ? TextOverflow.visible : TextOverflow.ellipsis,
       style: (titleStyle ??
           const TextStyle(
-            fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white,
+            fontSize: 18, fontWeight: FontWeight.bold,
           )),
     );
 

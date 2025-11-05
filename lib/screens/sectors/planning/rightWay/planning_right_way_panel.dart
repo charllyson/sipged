@@ -9,7 +9,7 @@ import 'package:siged/_services/geoJson/send_firebase.dart';
 import 'package:siged/_blocs/process/contracts/contract_data.dart';
 
 // página de imóveis (tabs)
-import 'package:siged/screens/process/landRegularization/lane_regularization_tabs.dart';
+import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_tabs.dart';
 
 import '../../../../_blocs/sectors/planning/highway_domain/planning_highway_domain_bloc.dart';
 import '../../../../_blocs/sectors/planning/highway_domain/planning_highway_domain_event.dart';

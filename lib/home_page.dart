@@ -10,9 +10,10 @@ import 'package:siged/_widgets/background/background_cleaner.dart';
 
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
-import 'package:siged/_blocs/system/pages/pages_data.dart'; // MenuItem
+import 'package:siged/_blocs/system/pages/pages_data.dart'; // MenuItem + PagesData
 import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
 import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_widgets/drawer/menu_drawer_item.dart'; // tipos do drawer
 
 // Corpo reutilizável (é este que usamos dentro do MenuListPage)
 class HomeBody extends StatelessWidget {
@@ -41,9 +42,7 @@ class HomeBody extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          SafeArea(
-                              top: true,
-                              child: _HeroHeader(user: user)),
+                          SafeArea(top: true, child: _HeroHeader(user: user)),
                           const SizedBox(height: 24),
                           _ThemedActionsGrid(onSelect: onSelect, user: user),
                           const SizedBox(height: 24),
@@ -89,7 +88,8 @@ class _HeroHeader extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('SiGed',
+                Text(
+                  'SiGed',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     color: accent,
@@ -98,7 +98,7 @@ class _HeroHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Sistema Integrado de Georreferenciamento e Gestão de Dados',
+                  'Sistema Integrado de Planejamento e Gestão de Dados',
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: accent.withOpacity(.85),
                     fontWeight: FontWeight.w600,
@@ -113,10 +113,11 @@ class _HeroHeader extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              PopUpPhotoMenu(),
+              const PopUpPhotoMenu(),
               const SizedBox(width: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(.6),
                   borderRadius: BorderRadius.circular(12),
@@ -158,66 +159,16 @@ class _ThemedActionsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     if (user == null) return const SizedBox.shrink();
 
-    final panels = <_ActionItem>[
-      _ActionItem(Icons.area_chart, 'Painel Geral', 'Indicadores e resumos',
-          const Color(0xFF2563EB), MenuItem.overviewDashboard, 'overview-overview-dashboard'),
-      _ActionItem(Icons.dashboard_customize, 'Planejamento Específico', 'KPIs do contrato',
-          const Color(0xFF1D4ED8), MenuItem.specificDashboard, 'specific-overview-dashboard'),
-    ];
+    // ---- 1) Constrói seções dinâmicas a partir do PagesData ----
+    final sections = <_SectionSpec>[
+      _fromPagesGroup('PAINÉIS', PagesData.panelDashboard, user!, _can),
+      _fromPagesGroup('PROCESSOS', PagesData.drawerDocuments, user!, _can),
+      _fromPagesGroup('SETORES', PagesData.drawerDepartments, user!, _can),
+      _fromPagesGroup('ATIVOS', PagesData.drawerActives, user!, _can),
+      _fromPagesGroup('JURÍDICO', PagesData.crmLegal, user!, _can),
+    ].where((s) => s.items.isNotEmpty).toList();
 
-    final processos = <_ActionItem>[
-      _ActionItem(Icons.list_alt, 'Contratação', 'Editais/Contratos',
-          const Color(0xFF0EA5E9), MenuItem.processHiringRecords, 'process-hiring-records'),
-      _ActionItem(Icons.note_add, 'Aditivos', 'Termos e prazos',
-          const Color(0xFFF59E0B), MenuItem.processAdditiveRecords, 'process-additive-records'),
-      _ActionItem(Icons.receipt_long, 'Medições', 'Relatórios e pagamentos',
-          const Color(0xFFDB2777), MenuItem.processMeasurementsRecords, 'process-measurements-records'),
-      _ActionItem(Icons.task_alt, 'Vigências', 'Ordens e prazos',
-          const Color(0xFF10B981), MenuItem.processValidityRecords, 'process-validity-records'),
-      _ActionItem(Icons.bookmark_added_outlined, 'Apostilamentos', 'Registros complementares',
-          const Color(0xFF8B5CF6), MenuItem.processApostillesRecords, 'process-apostilles-records'),
-      _ActionItem(Icons.layers_outlined, 'Regularização de Terrenos', 'Processos fundiários',
-          const Color(0xFF7C3AED), MenuItem.processLandRegularizationRecords, 'process-land-regularization-records'),
-    ];
-
-    final setores = <_ActionItem>[
-      _ActionItem(Icons.timeline, 'Cronograma Físico', 'Obras rodoviárias',
-          const Color(0xFF059669), MenuItem.operationMonitoringWork, 'operation-work-timeline'),
-      _ActionItem(Icons.local_florist_outlined, 'Meio Ambiente', 'Gestão ambiental',
-          const Color(0xFF16A34A), MenuItem.planningEnvironmentRecords, 'planning-environment-records'),
-      _ActionItem(Icons.signpost_outlined, 'Faixa de Domínio', 'Direito de passagem',
-          const Color(0xFF1E40AF), MenuItem.planningRightOfWayRecords, 'planning-rightWay-records'),
-      _ActionItem(Icons.traffic, 'Trânsito', 'Sinistros e infrações',
-          const Color(0xFFEA580C), MenuItem.trafficAccidentsDashboard, 'traffic-accidents-overview-dashboard'),
-    ];
-
-    final ativos = <_ActionItem>[
-      _ActionItem(Icons.alt_route, 'Rodovias', 'Malha e cadastro',
-          const Color(0xFF334155), MenuItem.activeRoadNetwork, 'active-road-network'),
-      _ActionItem(Icons.car_repair, 'OAEs', 'Pontes e viadutos',
-          const Color(0xFF64748B), MenuItem.activesOAEsNetwork, 'active-oaes-network'),
-      _ActionItem(Icons.local_airport, 'Aeroportos', 'Malha aeroportuária',
-          const Color(0xFF0D9488), MenuItem.activeAirportsNetwork, 'active-airports-network'),
-      _ActionItem(Icons.train, 'Ferrovias', 'Malha ferroviária',
-          const Color(0xFF1E293B), MenuItem.activeRailwaysNetwork, 'active-railways-network'),
-      _ActionItem(Icons.directions_boat, 'Portos e Balsas', 'Malha portuária',
-          const Color(0xFF0369A1), MenuItem.activePortsNetwork, 'active-ports-network'),
-    ];
-
-    List<_ActionItem> filter(List<_ActionItem> list) =>
-        list.where((e) => _can(user, e.moduleKey)).toList();
-
-    final panelsAllowed    = filter(panels);
-    final processosAllowed = filter(processos);
-    final setoresAllowed   = filter(setores);
-    final ativosAllowed    = filter(ativos);
-
-    final nothing = panelsAllowed.isEmpty &&
-        processosAllowed.isEmpty &&
-        setoresAllowed.isEmpty &&
-        ativosAllowed.isEmpty;
-
-    if (nothing) {
+    if (sections.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 6),
         child: _GlassCard(
@@ -237,30 +188,100 @@ class _ThemedActionsGrid extends StatelessWidget {
       );
     }
 
+    // ---- 2) Renderiza seções ----
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (panelsAllowed.isNotEmpty)
-          _SectionGrid(title: 'PAINÉIS', items: panelsAllowed, onSelect: onSelect),
-        if (processosAllowed.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          _SectionGrid(title: 'PROCESSOS', items: processosAllowed, onSelect: onSelect),
-        ],
-        if (setoresAllowed.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          _SectionGrid(title: 'SETORES', items: setoresAllowed, onSelect: onSelect),
-        ],
-        if (ativosAllowed.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          _SectionGrid(title: 'ATIVOS', items: ativosAllowed, onSelect: onSelect),
+        for (int i = 0; i < sections.length; i++) ...[
+          if (i > 0) const SizedBox(height: 16),
+          _SectionGrid(
+            title: sections[i].title,
+            items: sections[i].items,
+            onSelect: onSelect,
+          ),
         ],
       ],
     );
   }
+
+  // Constrói uma seção (_SectionSpec) a partir de um grupo de MenuDrawerItemModel do PagesData
+  _SectionSpec _fromPagesGroup(
+      String title,
+      List<MenuDrawerItemModel> groups,
+      UserData user,
+      bool Function(UserData?, String) can,
+      ) {
+    final items = <_ActionItem>[];
+
+    for (final group in groups) {
+      for (final sub in group.subItems) {
+        if (!can(user, sub.permissionModule)) continue;
+        // usa ícone específico do card se existir; senão, herda do grupo
+        final iconForCard = sub.homeIcon ?? group.icon;
+
+        items.add(
+          _ActionItem(
+            icon: iconForCard,
+            title: sub.label,
+            subtitle: _subtitleForModule(sub.permissionModule),
+            color: _colorForModule(sub.permissionModule),
+            item: sub.menuItem,
+            moduleKey: sub.permissionModule,
+          ),
+        );
+      }
+    }
+
+    return _SectionSpec(title: title, items: items);
+  }
+
+  // Subtítulo opcional por prefixo do módulo (ajuste livre)
+  String _subtitleForModule(String module) {
+    if (module.startsWith('overview-')) return 'Indicadores e resumos';
+    if (module.startsWith('specific-')) return 'KPIs e análises por contrato';
+    if (module.startsWith('process-')) return 'Fluxos e registros de processo';
+    if (module.startsWith('operation-')) return 'Execução e acompanhamento';
+    if (module.startsWith('planning-')) return 'Planejamento e cadastros';
+    if (module.startsWith('traffic-')) return 'Sinistros e infrações';
+    if (module.startsWith('financial-')) return 'Pagamentos e empreendimentos';
+    if (module.startsWith('active-')) return 'Malha e levantamentos';
+    if (module.startsWith('crm-')) return 'Pipeline e relacionamento';
+    return 'Acesso autorizado';
+  }
+
+  // Paleta por prefixo + fallback determinístico
+  Color _colorForModule(String module) {
+    const p = {
+      'overview-': Color(0xFF2563EB),
+      'specific-': Color(0xFF1D4ED8),
+      'process-': Color(0xFF0EA5E9),
+      'operation-': Color(0xFF059669),
+      'planning-': Color(0xFF1E40AF),
+      'traffic-': Color(0xFFEA580C),
+      'financial-': Color(0xFF0D9488),
+      'active-': Color(0xFF334155),
+      'crm-': Color(0xFF800020), // jurídico (bordô)
+    };
+
+    for (final k in p.keys) {
+      if (module.startsWith(k)) return p[k]!;
+    }
+    // Fallback: cor baseada em hash do módulo (estável)
+    final hash = module.codeUnits.fold<int>(0, (a, b) => a + b);
+    final hue = (hash % 360).toDouble();
+    return HSVColor.fromAHSV(1, hue, 0.50, 0.50).toColor();
+  }
+}
+
+class _SectionSpec {
+  final String title;
+  final List<_ActionItem> items;
+  _SectionSpec({required this.title, required this.items});
 }
 
 class _SectionGrid extends StatelessWidget {
-  const _SectionGrid({required this.title, required this.items, required this.onSelect});
+  const _SectionGrid(
+      {required this.title, required this.items, required this.onSelect});
   final String title;
   final List<_ActionItem> items;
   final void Function(MenuItem item)? onSelect;
@@ -277,7 +298,10 @@ class _SectionGrid extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w800, letterSpacing: .6, color: titleColor),
+              fontWeight: FontWeight.w800,
+              letterSpacing: .6,
+              color: titleColor,
+            ),
           ),
         ),
         LayoutBuilder(
@@ -301,9 +325,7 @@ class _SectionGrid extends StatelessWidget {
                 final a = items[i];
                 return _ActionCard(
                   item: a,
-                  onTap: () {
-                    if (onSelect != null) onSelect!(a.item); // navega
-                  },
+                  onTap: () => onSelect?.call(a.item),
                 );
               },
             );
@@ -321,7 +343,14 @@ class _ActionItem {
   final Color color;
   final MenuItem item;
   final String moduleKey;
-  _ActionItem(this.icon, this.title, this.subtitle, this.color, this.item, this.moduleKey);
+  _ActionItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.item,
+    required this.moduleKey,
+  });
 }
 
 class _ActionCard extends StatelessWidget {
@@ -350,22 +379,32 @@ class _ActionCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.title,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800, letterSpacing: .2, color: Colors.blueGrey.shade900,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .2,
+                    color: Colors.blueGrey.shade900,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(item.subtitle,
-                  maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.blueGrey.shade700),
+                Text(
+                  item.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: Colors.blueGrey.shade700),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.black38),
+          const Icon(Icons.arrow_forward_ios_rounded,
+              size: 16, color: Colors.black38),
         ],
       ),
     );
@@ -386,7 +425,10 @@ class _GlassCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.black.withOpacity(.06)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 22, offset: const Offset(0, 10)),
+          BoxShadow(
+              color: Colors.black.withOpacity(.05),
+              blurRadius: 22,
+              offset: const Offset(0, 10)),
         ],
         backgroundBlendMode: BlendMode.screen,
       ),
@@ -395,7 +437,11 @@ class _GlassCard extends StatelessWidget {
     if (onTap == null) return content;
     return Material(
       color: Colors.transparent,
-      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(18), child: content),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: content,
+      ),
     );
   }
 }
@@ -407,20 +453,38 @@ class _SoftBubbles extends StatelessWidget {
     return IgnorePointer(
       child: Stack(
         children: [
-          Positioned(top: -60, left: -40, child: _bubble(const Color(0xFF60A5FA).withOpacity(.18), 220)),
-          Positioned(bottom: -50, right: -30, child: _bubble(const Color(0xFF34D399).withOpacity(.16), 200)),
-          Positioned(top: 220, right: -60, child: _bubble(const Color(0xFFFBBF24).withOpacity(.14), 160)),
-          Positioned(bottom: 180, left: -50, child: _bubble(const Color(0xFFF472B6).withOpacity(.14), 140)),
+          Positioned(
+              top: -60,
+              left: -40,
+              child: _bubble(const Color(0xFF60A5FA).withOpacity(.18), 220)),
+          Positioned(
+              bottom: -50,
+              right: -30,
+              child: _bubble(const Color(0xFF34D399).withOpacity(.16), 200)),
+          Positioned(
+              top: 220,
+              right: -60,
+              child: _bubble(const Color(0xFFFBBF24).withOpacity(.14), 160)),
+          Positioned(
+              bottom: 180,
+              left: -50,
+              child: _bubble(const Color(0xFFF472B6).withOpacity(.14), 140)),
         ],
       ),
     );
   }
+
   Widget _bubble(Color color, double size) {
     return Container(
-      height: size, width: size,
+      height: size,
+      width: size,
       decoration: BoxDecoration(
-        color: color, shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: color.withOpacity(.5), blurRadius: 60, spreadRadius: 10)],
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+              color: color.withOpacity(.5), blurRadius: 60, spreadRadius: 10)
+        ],
       ),
     );
   }

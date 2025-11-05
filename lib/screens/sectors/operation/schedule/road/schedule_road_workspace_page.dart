@@ -1,7 +1,8 @@
-// lib/screens/sectors/planning/projects/schedule_road_workspace_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 
+import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
@@ -12,17 +13,17 @@ import 'package:siged/_widgets/schedule/linear/schedule_menu_buttons.dart';
 
 import 'package:siged/_blocs/process/contracts/contract_data.dart';
 
-// Estado unificado do BOARD
+// BLoC do cronograma rodoviário
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
-import 'package:siged/screens/sectors/operation/schedule/road/map/schedule_road_map.dart';
+import 'package:siged/screens/sectors/operation/schedule/road/schedule_road_map.dart';
+import 'package:siged/screens/sectors/operation/schedule/road/schedule_road_panel.dart';
 
-import 'board/schedule_road_board.dart';
+// Board
+import '../../../../../_widgets/schedule/linear/schedule_road_board.dart';
 
-// Painéis à direita
-import 'schedule_road_panel.dart'; // INFO
-import 'package:siged/screens/sectors/operation/schedule/road/schedule_road_edit.dart'; // EDIT
+// ✅ Layout unificado (lado a lado vs empilhado)
+import 'package:siged/_widgets/layout/responsive_split_view.dart';
 
 class ScheduleRoadWorkspacePage extends StatefulWidget {
   final ContractData contractData;
@@ -34,13 +35,11 @@ class ScheduleRoadWorkspacePage extends StatefulWidget {
 }
 
 enum _ViewMode { board, map }
-enum _PanelKind { info, edit }
 
 class _ScheduleRoadWorkspacePageState
     extends State<ScheduleRoadWorkspacePage> {
   _ViewMode _mode = _ViewMode.board;
   bool _panelOpen = false;
-  _PanelKind _panelKind = _PanelKind.info;
 
   // sincroniza o painel com o mapa (o mapa só lê este valor)
   final ValueNotifier<bool> _panelVN = ValueNotifier<bool>(false);
@@ -56,22 +55,6 @@ class _ScheduleRoadWorkspacePageState
     _panelVN.value = _panelOpen;
   }
 
-  void _openEditPanel() {
-    setState(() {
-      _panelKind = _PanelKind.edit;
-      _panelOpen = true;
-    });
-    _panelVN.value = true;
-  }
-
-  void _openInfoPanel() {
-    setState(() {
-      _panelKind = _PanelKind.info;
-      _panelOpen = true;
-    });
-    _panelVN.value = true;
-  }
-
   @override
   void dispose() {
     _panelVN.dispose();
@@ -80,7 +63,10 @@ class _ScheduleRoadWorkspacePageState
 
   @override
   Widget build(BuildContext context) {
+    // Constantes visuais do container responsivo
     const double kRightPanelWidth = 600.0;
+    const double kBottomPanelHeight = 420.0;
+    const double kBreakpoint = 980.0;
     const double kCardMaxWidth = 520.0;
 
     final isMap = _mode == _ViewMode.map;
@@ -90,48 +76,22 @@ class _ScheduleRoadWorkspacePageState
         preferredSize: const Size.fromHeight(74),
         child: BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
           builder: (ctx, state) {
-            final isLoading =
-                state.loadingServices || state.loadingLanes || state.loadingExecucoes;
+            // não mostramos spinner no header; overlay central cuida do loading
+            const showHeaderSpinner = false;
 
             return UpBar(
-              leading: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const SizedBox(width: 12),
-                  const BackCircleButton(),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ScheduleHeader(
-                          title: state.titleForHeader.isEmpty
-                              ? (widget.contractData.summarySubjectContract ?? 'Cronograma')
-                              : state.titleForHeader,
-                          colorStripe: state.colorForHeader,
-                          leftPadding: 0,
-                        ),
-                        const SizedBox(height: 6),
-                        ScheduleSubHeader(
-                          isLoading: isLoading,
-                          pctConcluido: state.pctConcluido,
-                          pctAndamento: state.pctAndamento,
-                          pctAIniciar: state.pctAIniciar,
-                          leftPadding: 0,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              leading: Padding(
+                padding: const EdgeInsets.only(left: 12.0),
+                child: const BackCircleButton(),
               ),
               actions: [
                 // Alternar Board <-> Mapa (sem push)
                 IconButton(
                   tooltip: isMap ? 'Ver Board' : 'Ver Mapa',
-                  icon: Icon(isMap ? Icons.table_view : Icons.map_outlined, color: Colors.white),
+                  icon: Icon(
+                    isMap ? Icons.table_view : Icons.map_outlined,
+                    color: Colors.white,
+                  ),
                   onPressed: _toggleView,
                 ),
 
@@ -139,17 +99,12 @@ class _ScheduleRoadWorkspacePageState
                 IconButton(
                   tooltip: _panelOpen ? 'Ocultar painel' : 'Mostrar painel',
                   icon: Icon(
-                    _panelOpen ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                    _panelOpen
+                        ? Icons.view_sidebar
+                        : Icons.view_sidebar_outlined,
                     color: Colors.white,
                   ),
                   onPressed: _togglePanel,
-                ),
-
-                // Botão EDITAR — abre o painel no modo edição
-                IconButton(
-                  tooltip: 'Editar',
-                  icon: const Icon(Icons.edit_outlined, color: Colors.white),
-                  onPressed: _openEditPanel,
                 ),
               ],
             );
@@ -157,88 +112,144 @@ class _ScheduleRoadWorkspacePageState
         ),
       ),
 
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 980;
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const BackgroundClean(),
 
-          final left = IndexedStack(
-            index: isMap ? 1 : 0,
-            children: [
-              // BOARD
-              ScheduleRoadBoard(contractData: widget.contractData),
-              // MAPA — mesmo BLoC; recebe o ValueNotifier para refletir o painel
-              ScheduleRoadMap(
-                contractData: widget.contractData,
-                externalPanelController: _panelVN,
-              ),
-            ],
-          );
+          // === conteúdo central (Board/Mapa + Painel responsivo unificado) ===
+          Builder(
+            builder: (context) {
+              final left = IndexedStack(
+                index: isMap ? 1 : 0,
+                children: [
+                  // BOARD
+                  ScheduleRoadBoard(contractData: widget.contractData),
+                  // MAPA — mesmo BLoC; recebe o ValueNotifier para refletir o painel
+                  ScheduleRoadMap(
+                    contractData: widget.contractData,
+                    externalPanelController: _panelVN,
+                  ),
+                ],
+              );
 
-          final rightPanel = _panelKind == _PanelKind.info
-              ? const PlanningProjectPanel()
-              : PlanningProjectEditPanel(
-            contract: widget.contractData,
-            onSaved: _openInfoPanel,
-          );
+              // único painel à direita (INFO)
+              final rightPanel =
+              ScheduleRoadPanel(contract: widget.contractData);
 
-          // conteúdo central (board/map + painel opcional)
-          final content = isWide
-              ? Row(
-            children: [
-              Expanded(child: left),
-              if (_panelOpen) ...[
-                const VerticalDivider(width: 1),
-                SizedBox(width: kRightPanelWidth, child: rightPanel),
-              ],
-            ],
-          )
-              : Column(
-            children: [
-              Expanded(child: left),
-              if (_panelOpen) ...[
-                const Divider(height: 1),
-                SizedBox(height: 420, child: rightPanel),
-              ],
-            ],
-          );
+              // Usa o layout padrão responsivo
+              final content = ResponsiveSplitView(
+                left: left,
+                right: rightPanel,
+                showRightPanel: _panelOpen,
+                breakpoint: kBreakpoint,
+                rightPanelWidth: kRightPanelWidth,
+                bottomPanelHeight: kBottomPanelHeight,
+                showDividers: true,
+              );
 
-          // desloca o seletor quando o painel direito estiver aberto (evitar overlap)
-          final double rightOffset =
-          isWide && _panelOpen ? (kRightPanelWidth + 16) : 16;
+              // desloca o seletor quando o painel direito estiver aberto (evitar overlap)
+              final isWide =
+                  MediaQuery.sizeOf(context).width >= kBreakpoint;
+              final double rightOffset =
+              isWide && _panelOpen ? (kRightPanelWidth + 16) : 16;
 
-          return Stack(
-            children: [
-              // base
-              Positioned.fill(child: content),
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  // base
+                  Positioned.fill(child: content),
 
-              // === seletor de serviços flutuante (inferior-direito) ===
-              BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
-                builder: (context, state) {
-                  if (state.services.isEmpty) return const SizedBox.shrink();
+                  // === seletor de serviços flutuante (inferior-direito) ===
+                  BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
+                    builder: (context, state) {
+                      if (state.services.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
 
-                  return Positioned(
-                    right: rightOffset,
-                    bottom: 12, // fica acima da FootBar
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: kCardMaxWidth),
-                      child: ScheduleMenuButtons(
-                        options: state.services,
-                        current: state.currentServiceKey,
-                        onSelect: (key) => context
-                            .read<ScheduleRoadBloc>()
-                            .add(ScheduleServiceSelected(key)),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          );
-        },
+                      return Positioned(
+                        right: rightOffset,
+                        bottom: 12, // fica acima da FootBar
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                              maxWidth: kCardMaxWidth),
+                          child: ScheduleMenuButtons(
+                            options: state.services,
+                            current: state.currentServiceKey,
+                            onSelect: (key) => context
+                                .read<ScheduleRoadBloc>()
+                                .add(ScheduleServiceSelected(key)),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // === ÚNICO OVERLAY: "Preparando dados..." (apenas enquanto !initialized) ===
+                  BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
+                    buildWhen: (p, c) => p.initialized != c.initialized,
+                    builder: (context, state) {
+                      if (state.initialized) return const SizedBox.shrink();
+
+                      return Positioned.fill(
+                        child: IgnorePointer(
+                          ignoring: false, // bloqueia cliques enquanto carrega
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: Container(
+                              // Transparência para deixar o BackgroundClean "vazar"
+                              color: Colors.black.withOpacity(0.18),
+                              alignment: Alignment.center,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      blurRadius: 14,
+                                      color: Colors.black26,
+                                    ),
+                                  ],
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'Preparando dados...',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
 
       bottomNavigationBar: const FootBar(),
     );
   }
 }
-

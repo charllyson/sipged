@@ -1,8 +1,9 @@
+// lib/screens/menus/sign_up.dart (ajuste o path conforme o seu projeto)
 import 'package:brasil_fields/brasil_fields.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
@@ -36,14 +37,16 @@ class _SignUpState extends State<SignUp> with LoginValidators {
   final _passController = TextEditingController();
   final _repeatPassController = TextEditingController();
 
-  late LoginBloc _loginBloc;
+  late LoginBloc _loginBloc; // ⚠️ será obtido do Provider
   final ValueNotifier<bool> _loading = ValueNotifier<bool>(false);
 
   @override
   void initState() {
     super.initState();
-    _loginBloc = LoginBloc();
-    _loginBloc.outState.listen((_) {});
+    // ✅ NÃO instancie LoginBloc(); pegue do contexto (já com tenant)
+    _loginBloc = context.read<LoginBloc>();
+    // opcional: escutar estado se quiser
+    // _loginBloc.outState.listen((_) {});
   }
 
   @override
@@ -54,7 +57,7 @@ class _SignUpState extends State<SignUp> with LoginValidators {
     _passController.dispose();
     _repeatPassController.dispose();
     _loading.dispose();
-    _loginBloc.dispose();
+    // ❌ não dispose _loginBloc aqui (é gerenciado pelo Provider)
     super.dispose();
   }
 
@@ -79,7 +82,6 @@ class _SignUpState extends State<SignUp> with LoginValidators {
       _repeatPassController.clear();
       if (!mounted) return;
 
-      // Mantém o alerta visual explícito para esse caso
       showDialog(
         context: context,
         builder: (context) => const CupertinoAlertDialog(
@@ -97,38 +99,42 @@ class _SignUpState extends State<SignUp> with LoginValidators {
 
     _loading.value = true;
     try {
-      // 2) cria no Auth
-      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passController.text,
-      );
-      final uid = cred.user!.uid;
-
-      // 3) monta UserData e salva no Firestore via UserRepository
+      // 2) monta UserData (sem usar FirebaseAuth.instance direto)
       final repo = context.read<UserRepository>();
       final newUser = widget.userData
-        ..id = uid
         ..email = _emailController.text.trim()
         ..name = _nameController.text.trim()
         ..surname = _surnameController.text.trim();
 
-      await repo.save(newUser);
+      // 3) Cria via LoginBloc (usa o tenant certo e já grava no Firestore)
+      final ok = await _loginBloc.signUp(
+        userData: newUser,
+        pass: _passController.text,
+      );
 
-      // 4) avisa o UserBloc para refletir no estado (cache/byId/current)
-      final bloc = context.read<UserBloc>();
-      bloc.add(UserFetchByIdRequested(uid));
-      bloc.add(const CurrentUserBindToggleRequested(true));
+      if (!ok) {
+        if (!mounted) return;
+        _notify(
+          'Erro ao cadastrar',
+          subtitle: 'Verifique os dados e tente novamente.',
+          type: AppNotificationType.error,
+        );
+        return;
+      }
+
+      // 4) Atualiza caches do UserBloc (opcional mas recomendado)
+      final uid = _loginBloc.firebaseUser?.uid;
+      if (uid != null) {
+        await repo.save(newUser..id = uid); // id garantido
+        final bloc = context.read<UserBloc>();
+        bloc
+          ..add(UserFetchByIdRequested(uid))
+          ..add(const CurrentUserBindToggleRequested(true));
+      }
 
       if (!mounted) return;
       _notify('Cadastro realizado com sucesso!', type: AppNotificationType.success);
       Navigator.of(context).pop(); // fecha a tela de cadastro
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      _notify(
-        'Erro ao cadastrar',
-        subtitle: e.message ?? e.code,
-        type: AppNotificationType.error,
-      );
     } catch (e) {
       if (!mounted) return;
       _notify(
@@ -179,6 +185,7 @@ class _SignUpState extends State<SignUp> with LoginValidators {
                                 prefix: const Icon(Icons.account_circle),
                                 validator: validateSurname,
                               ),
+                              // ⚠️ Usa stream/validação do LoginBloc provido
                               CustomTextField(
                                 controller: _emailController,
                                 stream: _loginBloc.outEmail,
@@ -191,7 +198,7 @@ class _SignUpState extends State<SignUp> with LoginValidators {
                                 validator: validateEmailLogin,
                               ),
                               CustomTextField(
-                                initialValue: addFormatCpf(widget.userData.cpf!),
+                                initialValue: addFormatCpf(widget.userData.cpf ?? ''),
                                 labelText: 'CPF',
                                 enabled: false,
                                 prefix: const Icon(Icons.account_box),
@@ -294,16 +301,16 @@ class _BlockingOverlay extends StatelessWidget {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(
+                children: const [
+                  SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2.6),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Text(
-                    message,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    'Criando conta…',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
