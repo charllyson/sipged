@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_controller.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_store.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 
@@ -15,7 +15,7 @@ import 'apostilles_graph_section.dart';
 import 'apostilles_table_section.dart';
 
 class ApostillesPage extends StatelessWidget {
-  final ContractData contractData;
+  final ProcessData contractData;
   const ApostillesPage({super.key, required this.contractData});
 
   @override

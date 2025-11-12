@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_blocs/panels/overview-dashboard/overview_dashboard_style.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_widgets/summary/summary_expandable_card.dart';
-import 'package:siged/_blocs/process/contracts/contract_rules.dart';
-import '../../../_blocs/process/contracts/contracts_controller.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
+import '../../../_blocs/_process/process_controller.dart';
 
 class OverviewDashboardSummary extends StatelessWidget {
   const OverviewDashboardSummary({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<ContractsController>();
+    final controller = context.watch<DemandsDashboardController>();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -20,15 +22,15 @@ class OverviewDashboardSummary extends StatelessWidget {
         child: Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ContractRules.statusTypes.map((status) {
+          children: DfdData.statusTypes.map((status) {
             final inicial  = controller.totaisStatusIniciais[status] ?? 0.0;
             final aditivo  = controller.totaisStatusAditivos[status] ?? 0.0;
             final apostila = controller.totaisStatusApostilas[status] ?? 0.0;
             return SummaryExpandableCard(
               subTitles: const ['Inicial','Aditivo','Apostila'],
-              title: ContractRules.getTitleByStatus(status),
-              icon: OverviewDashboardStyle.iconStatus(status),
-              colorIcon: OverviewDashboardStyle.getColorByStatus(status),
+              title: DfdData.getTitleByStatus(status),
+              icon: DemandsDashboardOverviewStyle.iconStatus(status),
+              colorIcon: DemandsDashboardOverviewStyle.getColorByStatus(status),
               valoresIndividuais: [inicial, aditivo, apostila],
               loading: !controller.initialized,
             );

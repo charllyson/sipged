@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../../_widgets/roads/active_road_class.dart';
+import '../../../_widgets/map/active_road_class.dart';
 
 class ActiveRailwaysStyle extends ChangeNotifier {
   /// status esperado (código canônico):

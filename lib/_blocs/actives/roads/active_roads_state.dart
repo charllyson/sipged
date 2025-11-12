@@ -11,9 +11,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
 import 'package:siged/_blocs/actives/roads/active_road_style.dart';
 import 'package:siged/_blocs/actives/roads/active_road_rules.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_blocs/process/contracts/contract_rules.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
 
 enum ActiveRoadsLoadStatus { idle, loading, success, failure }
 
@@ -265,7 +266,7 @@ class ActiveRoadsState extends Equatable {
   // ===========================================================================
   // REGIÕES — soma de extensão (km)
   // ===========================================================================
-  List<String> get regionLabels => ContractRules.regions;
+  List<String> get regionLabels => DfdData.regions;
 
   List<double> get regionSumsKm {
     final values = <double>[];

@@ -6,7 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 
@@ -21,14 +21,14 @@ class ReportMeasurementStorageBloc extends BlocBase {
   // ---------- Utils ----------
   String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ContractData c, ReportMeasurementData m) {
+  String fileName(ProcessData c, ReportMeasurementData m) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem    = (m.order ?? 0).toString();
     final proc     = _sanitize(m.numberprocess ?? 'processo');
     return 'report-$contrato-$ordem-$proc.pdf';
   }
 
-  String pathFor(ContractData c, ReportMeasurementData m) =>
+  String pathFor(ProcessData c, ReportMeasurementData m) =>
       'contracts/${c.id}/measurements/${m.id}/${fileName(c, m)}';
 
   // ======= helpers anexos múltiplos =======
@@ -45,7 +45,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
     return s.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
   }
 
-  String attachmentsDir(ContractData c, ReportMeasurementData m) =>
+  String attachmentsDir(ProcessData c, ReportMeasurementData m) =>
       'contracts/${c.id}/measurements/${m.id}/attachments';
 
   String storedFileName(String originalName) {
@@ -57,7 +57,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
   }
 
   // ---------- API antiga (único PDF) ----------
-  Future<bool> exists(ContractData c, ReportMeasurementData m) async {
+  Future<bool> exists(ProcessData c, ReportMeasurementData m) async {
     try {
       await _storage.ref(pathFor(c, m)).getMetadata();
       return true;
@@ -66,7 +66,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
     }
   }
 
-  Future<String?> getUrl(ContractData c, ReportMeasurementData m) async {
+  Future<String?> getUrl(ProcessData c, ReportMeasurementData m) async {
     try {
       return await _storage.ref(pathFor(c, m)).getDownloadURL();
     } catch (e) {
@@ -76,7 +76,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
   }
 
   Future<String> uploadWithPicker({
-    required ContractData contract,
+    required ProcessData contract,
     required ReportMeasurementData reportMeasurement,
     required void Function(double progress) onProgress,
   }) async {
@@ -95,7 +95,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
   }
 
   Future<String> uploadBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required ReportMeasurementData measurement,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
@@ -111,7 +111,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ContractData c, ReportMeasurementData m) async {
+  Future<bool> delete(ProcessData c, ReportMeasurementData m) async {
     try {
       await _storage.ref(pathFor(c, m)).delete();
       return true;
@@ -123,17 +123,17 @@ class ReportMeasurementStorageBloc extends BlocBase {
 
   // ---------- Compat (mantém API antiga da UI) ----------
   Future<bool> verificarSePdfDeMedicaoExiste({
-    required ContractData contract,
+    required ProcessData contract,
     required ReportMeasurementData measurement,
   }) => exists(contract, measurement);
 
   Future<String?> getPdfUrlDaMedicao({
-    required ContractData contract,
+    required ProcessData contract,
     required ReportMeasurementData measurement,
   }) => getUrl(contract, measurement);
 
   Future<void> sendPdf({
-    required ContractData? contract,
+    required ProcessData? contract,
     required ReportMeasurementData? measurement,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded,
@@ -175,7 +175,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
   // ======= NOVOS MÉTODOS: múltiplos anexos com rótulo =======
 
   Future<Attachment> pickAndUploadAttachment({
-    required ContractData contract,
+    required ProcessData contract,
     required ReportMeasurementData measurement,
     required String label,
     void Function(double progress)? onProgress,
@@ -201,7 +201,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
   }
 
   Future<Attachment> uploadAttachmentBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required ReportMeasurementData measurement,
     required Uint8List bytes,
     required String originalName,

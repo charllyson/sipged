@@ -11,7 +11,7 @@ import 'package:siged/_widgets/schedule/linear/schedule_header.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_sub_header.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_menu_buttons.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 // BLoC do cronograma rodoviário
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
@@ -26,7 +26,7 @@ import '../../../../../_widgets/schedule/linear/schedule_road_board.dart';
 import 'package:siged/_widgets/layout/responsive_split_view.dart';
 
 class ScheduleRoadWorkspacePage extends StatefulWidget {
-  final ContractData contractData;
+  final ProcessData contractData;
   const ScheduleRoadWorkspacePage({super.key, required this.contractData});
 
   @override

@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:siged/_blocs/process/additives/additive_store.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 import 'package:siged/_blocs/process/validity/validity_bloc.dart';
 import 'package:siged/_blocs/process/validity/validity_storage_bloc.dart';
@@ -172,7 +172,7 @@ class ValidityStore extends ChangeNotifier {
   }
 
   Future<bool> pdfExists({
-    required ContractData contract,
+    required ProcessData contract,
     required ValidityData validity,
   }) =>
       _storage.verificarSePdfDeValidadeExiste(
@@ -181,7 +181,7 @@ class ValidityStore extends ChangeNotifier {
       );
 
   Future<String?> getPdfUrl({
-    required ContractData contract,
+    required ProcessData contract,
     required ValidityData validity,
   }) =>
       _storage.getPdfUrlDaValidade(
@@ -211,25 +211,25 @@ class ValidityStore extends ChangeNotifier {
   }
 
   Future<DateTime?> calcularDataFinalContrato({
-    required ContractData contract,
+    required ProcessData contract,
     required AdditivesStore additivesStore,
   }) async {
-    if (contract.id == null || contract.publicationDateDoe == null) return null;
+    if (contract.id == null || contract.publicationDate == null) return null;
 
     await additivesStore.ensureFor(contract.id!);
     final aditivos = additivesStore.listFor(contract.id!);
 
-    final int diasValidadeInicial = contract.initialValidityContractDays ?? 0;
+    final int diasValidadeInicial = contract.initialValidityContract ?? 0;
     final int diasAditivos = aditivos.fold<int>(
       0, (soma, a) => soma + (a.additiveValidityContractDays ?? 0),
     );
 
     final int totalDias = diasValidadeInicial + diasAditivos;
-    return contract.publicationDateDoe!.add(Duration(days: totalDias));
+    return contract.publicationDate!.add(Duration(days: totalDias));
   }
 
   Future<DateTime?> calcularDataFinalExecucao({
-    required ContractData contract,
+    required ProcessData contract,
     required AdditivesStore additivesStore,
   }) async {
     if (contract.id == null) return null;
@@ -248,7 +248,7 @@ class ValidityStore extends ChangeNotifier {
     final aditivos = additivesStore.listFor(contract.id!);
 
     final int diasParalisados = calcularDiasParalisados(validades);
-    final int diasExecucaoInicial = contract.initialValidityExecutionDays ?? 0;
+    final int diasExecucaoInicial = contract.initialValidityExecution ?? 0;
     final int diasExecucaoAditivos = aditivos.fold<int>(
       0, (soma, a) => soma + (a.additiveValidityExecutionDays ?? 0),
     );

@@ -6,7 +6,7 @@ import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_blocs/process/additives/additive_data.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/validity/validity_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/registers/register_class.dart';
@@ -22,21 +22,21 @@ class ValidityBloc extends BlocBase {
   // CONTRATOS (apoio)
   // ---------------------------------------------------------------------------
 
-  Future<List<ContractData>> getAllContracts() async {
+  Future<List<ProcessData>> getAllContracts() async {
     final snapshot = await _db.collection('contracts').get();
-    return snapshot.docs.map((doc) => ContractData.fromDocument(snapshot: doc)).toList();
+    return snapshot.docs.map((doc) => ProcessData.fromDocument(snapshot: doc)).toList();
   }
 
-  Future<ContractData?> getSpecificContract({required String uid}) async {
+  Future<ProcessData?> getSpecificContract({required String uid}) async {
     final snapshot = await _db.collection('contracts').doc(uid).get();
     if (!snapshot.exists) return null;
-    return ContractData.fromDocument(snapshot: snapshot);
+    return ProcessData.fromDocument(snapshot: snapshot);
   }
 
-  Future<ContractData?> buscarContrato(String contractId) async {
+  Future<ProcessData?> buscarContrato(String contractId) async {
     final snapshot = await _db.collection('contracts').doc(contractId).get();
     if (!snapshot.exists) return null;
-    return ContractData.fromDocument(snapshot: snapshot);
+    return ProcessData.fromDocument(snapshot: snapshot);
   }
 
   // ---------------------------------------------------------------------------
@@ -170,23 +170,23 @@ class ValidityBloc extends BlocBase {
   // ---------------------------------------------------------------------------
 
   Future<DateTime?> calcularDataFinalContrato({
-    required ContractData contract,
+    required ProcessData contract,
   }) async {
-    if (contract.id == null || contract.publicationDateDoe == null) return null;
+    if (contract.id == null || contract.publicationDate == null) return null;
 
     final additives = await _buscarAditivos(contract.id!);
 
-    final diasValidadeInicial = contract.initialValidityContractDays ?? 0;
+    final diasValidadeInicial = contract.initialValidityContract ?? 0;
     final diasAditivos = additives.fold<int>(
       0, (soma, a) => soma + (a.additiveValidityContractDays ?? 0),
     );
 
     final totalDias = diasValidadeInicial + diasAditivos;
-    return contract.publicationDateDoe!.add(Duration(days: totalDias));
+    return contract.publicationDate!.add(Duration(days: totalDias));
   }
 
   Future<DateTime?> calcularDataFinalExecucao({
-    required ContractData contract,
+    required ProcessData contract,
   }) async {
     if (contract.id == null) return null;
 
@@ -201,7 +201,7 @@ class ValidityBloc extends BlocBase {
     if (ordemInicio == null) return null;
 
     final diasParalisados = calcularDiasParalisados(validities);
-    final diasExecucaoInicial = contract.initialValidityExecutionDays ?? 0;
+    final diasExecucaoInicial = contract.initialValidityExecution ?? 0;
     final diasExecucaoAditivos = additives.fold<int>(
       0, (soma, a) => soma + (a.additiveValidityExecutionDays ?? 0),
     );

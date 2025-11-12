@@ -1,9 +1,9 @@
+// lib/screens/commons/listContracts/list_demand_status.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
-import '../../../_blocs/process/contracts/list_contracts_controller.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'list_demand_table.dart';
 
-typedef DemandNavigationCallback = void Function(BuildContext context, ContractData contract);
+typedef DemandNavigationCallback = void Function(BuildContext context, ProcessData contract);
 
 class ListDemandStatus extends StatelessWidget {
   const ListDemandStatus({
@@ -19,47 +19,39 @@ class ListDemandStatus extends StatelessWidget {
     required this.onDelete,
     required this.onTapItem,
 
-    // compat (não usados p/ estado)
+    // controle de expansão
     this.initiallyExpanded = false,
     this.onExpansionChanged,
   });
 
   final String title;
   final String statusKey;
-  final List<ContractData> items;
+  final List<ProcessData> items;
 
   final BoxConstraints constraints;
   final int? sortColumnIndex;
   final bool isAscending;
-  final void Function(int, String Function(ContractData)) onSort;
-  final Future<void> Function(ContractData) onDelete;
+  final void Function(int, String Function(ProcessData)) onSort;
+  final Future<void> Function(ProcessData) onDelete;
   final DemandNavigationCallback onTapItem;
 
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
 
+  String _norm(String k) => k.trim().toUpperCase();
+
   @override
   Widget build(BuildContext context) {
-    final controller = ListContractsController.of(context);
-    final k = statusKey.trim().toUpperCase();
+    final k = _norm(statusKey);
     final total = items.length;
-    final expandedNow = controller.isExpanded(k);
 
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
-        // 🔒 key estável (não depende do estado)
         key: ValueKey('tile_$k'),
-        controller: controller.tileControllerFor(k), // deve ser estável por k
-        initiallyExpanded: expandedNow,
-        // mantém subárvore viva mesmo recolhida
+        initiallyExpanded: initiallyExpanded,
         maintainState: true,
-
-        onExpansionChanged: (open) {
-          controller.setExpanded(k, open); // não recrie controller aqui
-          onExpansionChanged?.call(open);
-        },
-
+        onExpansionChanged: onExpansionChanged,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         childrenPadding: const EdgeInsets.only(bottom: 12),
 
@@ -80,7 +72,6 @@ class ListDemandStatus extends StatelessWidget {
 
         children: [
           ListDemandTable(
-            // ✅ key de PageStorage estável
             key: PageStorageKey<String>('table_scroll_$k'),
             listContractData: items,
             constraints: constraints,
@@ -89,7 +80,7 @@ class ListDemandStatus extends StatelessWidget {
             sortColumnIndex: sortColumnIndex,
             isAscending: isAscending,
             onSort: onSort,
-            onDelete: (item) async => onDelete(item),
+            onDelete: onDelete,
             onTapItem: onTapItem,
           ),
         ],

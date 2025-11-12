@@ -108,7 +108,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
   void initState() {
     super.initState();
 
-    // V: gutter <-> grid
+    // V: manter gutter e grid sincronizados
     _vGridCtrl.addListener(() {
       if (_vGutterCtrl.hasClients && _vGutterCtrl.offset != _vGridCtrl.offset) {
         _vGutterCtrl.jumpTo(_vGridCtrl.offset);
@@ -265,89 +265,103 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
             _mainGridWidth +
             widget.rightScrollGap;
 
-    final tableColumn = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ===== HEADER (bands + header row) sem scroller próprio
-        Row(
-          children: [
-            GutterHeaderBox(
-              width: widget.gutterWidth,
+    // ====== CONSTRUÇÃO COM CONSTRAINT VERTICAL (evita overflow)
+    Widget buildTableContent(BoxConstraints constraints) {
+      // Altura disponível (quando estamos dentro do Expanded)
+      final maxH = constraints.maxHeight.isFinite
+          ? constraints.maxHeight
+          : MediaQuery.of(context).size.height;
+
+      // Alturas fixas dos blocos
+      final headerBlockH = _bandHeight + widget.headerHeight; // bands + header
+      final footerBlockH = _totalRowHeight;                    // footer totals
+      // gaps e pequenos espaçamentos verticais
+      final extraGaps = widget.gap /* gap entre header e body */ + 2 /* margens internas */;
+
+      // Altura disponível para o BODY (apenas quando usamos scroll interno)
+      final double bodyHeight = (maxH - headerBlockH - footerBlockH - extraGaps)
+          .clamp(120.0, maxH);
+
+      final headerRow = Row(
+        children: [
+          GutterHeaderBox(
+            width: widget.gutterWidth,
+            height: _bandHeight + widget.headerHeight,
+          ),
+          SizedBox(width: widget.gap),
+
+          if (hasLeading)
+            SizedBox(
+              width: widget.leadingWidth,
               height: _bandHeight + widget.headerHeight,
+              child: widget.leadingHeaderBuilder?.call(context),
             ),
-            SizedBox(width: widget.gap),
+          if (hasLeading) SizedBox(width: widget.gap),
 
-            if (hasLeading)
-              SizedBox(
-                width: widget.leadingWidth,
-                height: _bandHeight + widget.headerHeight,
-                child: widget.leadingHeaderBuilder?.call(context),
-              ),
-            if (hasLeading) SizedBox(width: widget.gap),
-
-            SizedBox(
-              width: _mainGridWidth + widget.rightScrollGap,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  MagicBandsHeader(
-                    ctrl: ctrl,
-                    bandHeight: _bandHeight,
-                    addTopBorder: true,
-                  ),
-                  const SizedBox(height: 2),
-                  MagicHeaderRow(
-                    hHeaderCtrl: _hGridCtrl,
-                    ctrl: ctrl,
-                    headerHeight: widget.headerHeight,
-                    ghostColWidth: 0,
-                    rightScrollGap: 0,
-                    onAddColumn: null,
-                    onRemoveColumn: null,
-                    allowAddColumn: false,
-                    allowRemoveColumn: false,
-                    showTypeBadge: true,
-                    useExternalHScroll: true,
-                    addTopBorder: true,
-                  ),
-                ],
-              ),
+          SizedBox(
+            width: _mainGridWidth + widget.rightScrollGap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MagicBandsHeader(
+                  ctrl: ctrl,
+                  bandHeight: _bandHeight,
+                  addTopBorder: true,
+                ),
+                const SizedBox(height: 2),
+                MagicHeaderRow(
+                  hHeaderCtrl: _hGridCtrl,
+                  ctrl: ctrl,
+                  headerHeight: widget.headerHeight,
+                  ghostColWidth: 0,
+                  rightScrollGap: 0,
+                  onAddColumn: null,
+                  onRemoveColumn: null,
+                  allowAddColumn: false,
+                  allowRemoveColumn: false,
+                  showTypeBadge: true,
+                  useExternalHScroll: true,
+                  addTopBorder: true,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
+      );
 
-        SizedBox(height: widget.gap),
+      // BODY: com ou sem altura limitada dependendo do useExternalVScroll
+      final bodyRow = Row(
+        children: [
+          SizedBox(
+            width: widget.gutterWidth,
+            child: MagicGutterColumn(
+              ctrl: ctrl,
+              vGutterCtrl: _vGutterCtrl,
+              rowHeight: widget.rowHeight,
+              rowCountWithGhost: rowCountWithGhost,
+              bottomScrollGap: widget.bottomScrollGap,
+              onAddRow: null,
+              addTopBorder: false,
+            ),
+          ),
+          SizedBox(width: widget.gap),
 
-        // ===== BODY (usa V interno, H externo único)
-        Row(
-          children: [
+          if (hasLeading)
             SizedBox(
-              width: widget.gutterWidth,
-              child: MagicGutterColumn(
-                ctrl: ctrl,
-                vGutterCtrl: _vGutterCtrl,
+              width: widget.leadingWidth,
+              child: widget.useExternalVScroll
+                  ? MagicLeadingColumn(
+                rowCount: ctrl.rowCount,
                 rowHeight: widget.rowHeight,
-                rowCountWithGhost: rowCountWithGhost,
                 bottomScrollGap: widget.bottomScrollGap,
-                onAddRow: null,
-                addTopBorder: false,
-              ),
-            ),
-            SizedBox(width: widget.gap),
-
-            if (hasLeading)
-              SizedBox(
-                width: widget.leadingWidth,
-                child: widget.useExternalVScroll
-                    ? MagicLeadingColumn(
-                  rowCount: ctrl.rowCount,
-                  rowHeight: widget.rowHeight,
-                  bottomScrollGap: widget.bottomScrollGap,
-                  leadingHeaderBuilder: widget.leadingHeaderBuilder,
-                  leadingCellBuilder: widget.leadingCellBuilder,
-                  rowStyleResolver: _rowStyleResolver,
-                )
-                    : SingleChildScrollView(
+                leadingHeaderBuilder: widget.leadingHeaderBuilder,
+                leadingCellBuilder: widget.leadingCellBuilder,
+                rowStyleResolver: _rowStyleResolver,
+              )
+                  : Scrollbar( // Scrollbar apenas sobre o scroll vertical interno do leading
+                controller: _vGridCtrl,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
                   controller: _vGridCtrl,
                   child: MagicLeadingColumn(
                     rowCount: ctrl.rowCount,
@@ -359,14 +373,18 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
                   ),
                 ),
               ),
-            if (hasLeading) SizedBox(width: widget.gap),
+            ),
+          if (hasLeading) SizedBox(width: widget.gap),
 
-            SizedBox(
-              width: _mainGridWidth,
+          SizedBox(
+            width: _mainGridWidth,
+            child: Scrollbar( // Scrollbar vertical aplicada apenas ao grid (quando interno)
+              controller: _vGridCtrl,
+              thumbVisibility: true,
               child: MagicGridBody(
                 ctrl: ctrl,
                 vGridCtrl: _vGridCtrl,
-                hGridCtrl: _hGridCtrl, // passado, mas sem criar scroll H interno
+                hGridCtrl: _hGridCtrl, // scroll H externo
                 rowHeight: widget.rowHeight,
                 cellPad: widget.cellPad,
                 editRow: _editRow,
@@ -377,65 +395,94 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
                 onCommitEdit: _commitEdit,
                 bottomScrollGap: widget.bottomScrollGap,
                 rightScrollGap: 0,
-                useExternalHScroll: true, // << chave
+                useExternalHScroll: true,
                 useExternalVScroll: widget.useExternalVScroll,
                 vPhysics: widget.useExternalVScroll
                     ? const NeverScrollableScrollPhysics()
                     : null,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
+      );
 
-        // ===== FOOTER (sem scroller próprio)
-        Row(
-          children: [
-            GutterHeaderBox(
-              width: widget.gutterWidth,
+      final footerRow = Row(
+        children: [
+          GutterHeaderBox(
+            width: widget.gutterWidth,
+            height: _totalRowHeight,
+          ),
+          SizedBox(width: widget.gap),
+
+          if (hasLeading)
+            SizedBox(
+              width: widget.leadingWidth,
               height: _totalRowHeight,
             ),
-            SizedBox(width: widget.gap),
+          if (hasLeading) SizedBox(width: widget.gap),
 
-            if (hasLeading)
-              SizedBox(
-                width: widget.leadingWidth,
-                height: _totalRowHeight,
-              ),
-            if (hasLeading) SizedBox(width: widget.gap),
-
-            SizedBox(
-              width: _mainGridWidth + widget.rightScrollGap,
-              child: widget.footerBarBuilder != null
-                  ? widget.footerBarBuilder!(context, ctrl)
-                  : MagicBandsFooter(
-                ctrl: ctrl,
-                height: _totalRowHeight,
-                labelTotais: 'TOTAIS',
-                rightScrollGap: widget.rightScrollGap,
-                groupLabelForFirstCell: 'CONTRATO',
-              ),
+          SizedBox(
+            width: _mainGridWidth + widget.rightScrollGap,
+            child: widget.footerBarBuilder != null
+                ? widget.footerBarBuilder!(context, ctrl)
+                : MagicBandsFooter(
+              ctrl: ctrl,
+              height: _totalRowHeight,
+              labelTotais: 'TOTAIS',
+              rightScrollGap: widget.rightScrollGap,
+              groupLabelForFirstCell: 'CONTRATO',
             ),
-          ],
+          ),
+        ],
+      );
+
+      // Montagem vertical da tabela
+      final tableColumn = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          headerRow,
+          SizedBox(height: widget.gap),
+          // Se usamos scroll interno, limitamos a altura do BODY para evitar overflow
+          if (!widget.useExternalVScroll)
+            SizedBox(height: bodyHeight, child: bodyRow)
+          else
+            bodyRow,
+          footerRow,
+        ],
+      );
+
+      // Scroller horizontal único com Scrollbar horizontal
+      final horizontal = Scrollbar(
+        controller: _hGridCtrl,
+        thumbVisibility: true,
+        notificationPredicate: (n) => n.metrics.axis == Axis.horizontal,
+        child: SingleChildScrollView(
+          controller: _hGridCtrl,
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: totalHorizontalWidth,
+            child: tableColumn,
+          ),
+        ),
+      );
+
+      return horizontal;
+    }
+
+    // ===== retorno final com/sem Expanded e com FABs
+    final mainContent = widget.useExternalVScroll
+        ? LayoutBuilder(builder: (ctx, c) => buildTableContent(c))
+        : Column(
+      children: [
+        Expanded(
+          child: LayoutBuilder(builder: (ctx, c) => buildTableContent(c)),
         ),
       ],
     );
 
-    // 🔁 scroller horizontal único envolvendo tudo
-    final tableContent = SingleChildScrollView(
-      controller: _hGridCtrl,
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(
-        width: totalHorizontalWidth,
-        child: tableColumn,
-      ),
-    );
-
     return Stack(
       children: [
-        if (widget.useExternalVScroll)
-          tableContent
-        else
-          Column(children: [Expanded(child: tableContent)]),
+        mainContent,
         if (widget.floatingActionsBuilder != null)
           Positioned(
             top: 72,

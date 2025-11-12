@@ -1,3 +1,4 @@
+/*
 import 'dart:typed_data';
 import 'ble_client_iface.dart';
 
@@ -10,3 +11,4 @@ class _StubClient implements LabelBleClient {
 }
 
 LabelBleClient createBleClient() => _StubClient();
+*/

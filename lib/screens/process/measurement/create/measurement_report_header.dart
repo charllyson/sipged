@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/screens/process/measurement/create/create_detailed_reports_page.dart';
 import 'package:siged/screens/process/measurement/create/info_grid.dart';
@@ -15,7 +15,7 @@ class MeasurementReportHeader extends StatelessWidget {
     this.measurement,
   });
 
-  final ContractData contract;
+  final ProcessData contract;
   final ReportMeasurementData? measurement;
 
   String _dashIfEmpty(String? s) {
@@ -33,19 +33,19 @@ class MeasurementReportHeader extends StatelessWidget {
 
     // ==== Mapeamento para os campos que EXISTEM no seu ContractData ====
     final obra = _dashIfEmpty(
-      contract.summarySubjectContract ?? contract.contractObjectDescription,
+      contract.summarySubject ?? '',
     );
-    final local = _dashIfEmpty(contract.regionOfState);
+    final local = _dashIfEmpty(contract.region);
     final construtora = _dashIfEmpty(contract.companyLeader);
     final contratoNum = _dashIfEmpty(contract.contractNumber);
 
     final valorContrato = _money(contract.initialValueContract ?? 0);
 
-    final prazoExecStr = (contract.initialValidityExecutionDays == null)
+    final prazoExecStr = (contract.initialValidityExecution == null)
         ? '–'
-        : '${contract.initialValidityExecutionDays}';
+        : '${contract.initialValidityExecution}';
 
-    final assinatura = _date(contract.publicationDateDoe); // data pública mais próxima que temos
+    final assinatura = _date(contract.publicationDate); // data pública mais próxima que temos
     final aditivosParalisacoesDias = '–'; // não há esse campo no modelo
     final ordemServico = '–'; // não há esse campo no modelo
     final conclusao = '–'; // não há esse campo no modelo

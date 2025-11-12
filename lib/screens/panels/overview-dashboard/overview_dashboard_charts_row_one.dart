@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/panels/overview-dashboard/overview_dashboard_style.dart';
-import 'package:siged/_blocs/process/contracts/contract_rules.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
 import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
-import '../../../_blocs/process/contracts/contracts_controller.dart';
+import '../../../_blocs/_process/process_controller.dart';
 import '../../../../_widgets/charts/radar/radar_chart_changed_widget.dart';
 
 class OverviewDashboardChartRowOne extends StatelessWidget {
-  final ContractsController controller;
+  final DemandsDashboardController controller;
 
   const OverviewDashboardChartRowOne({super.key, required this.controller});
 
@@ -26,9 +28,9 @@ class OverviewDashboardChartRowOne extends StatelessWidget {
 
     final labels = controller.radarServiceLabels;
     final datasets = controller.radarDatasetsServices(
-      primary: OverviewDashboardStyle.kPrimary,
-      warning: OverviewDashboardStyle.kWarning,
-      success: OverviewDashboardStyle.kSuccess,
+      primary: DemandsDashboardOverviewStyle.kPrimary,
+      warning: DemandsDashboardOverviewStyle.kWarning,
+      success: DemandsDashboardOverviewStyle.kSuccess,
     );
 
     return LayoutBuilder(
@@ -58,7 +60,7 @@ class OverviewDashboardChartRowOne extends StatelessWidget {
                   sliceRadius: 50,
                   useExternalLegend: true,
                   coresPersonalizadas: controller.labelsStatusGeneralContracts
-                      .map(OverviewDashboardStyle.getColorByStatus)
+                      .map(DemandsDashboardOverviewStyle.getColorByStatus)
                       .toList(),
                   showPercentageOutside: true,
                   labels: controller.labelsStatusGeneralContracts,
@@ -89,7 +91,7 @@ class OverviewDashboardChartRowOne extends StatelessWidget {
                 child: BarChartChanged(
                   expandToMaxWidth: true,     // <<--- faz o widget ocupar a largura disponível
                   heightGraphic: 260,
-                  labels: ContractRules.regions,
+                  labels: DfdData.regions,
                   values: controller.valuesRegionOfMap,
                   selectedIndex: controller.selectedRegionIndex,
                   onBarTap: controller.onRegionSelected,

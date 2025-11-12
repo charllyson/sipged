@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
-import 'package:siged/_widgets/loading/loading_progress.dart';
+import 'package:siged/_widgets/overlays/loading_progress.dart';
 import 'package:siged/_blocs/process/validity/validity_data.dart';
 
 class ValidityTableSection extends StatelessWidget {

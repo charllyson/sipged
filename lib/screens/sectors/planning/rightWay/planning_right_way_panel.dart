@@ -6,7 +6,7 @@ import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_services/geoJson/send_firebase.dart';
 
 // contrato
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 // página de imóveis (tabs)
 import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_tabs.dart';
@@ -19,7 +19,7 @@ import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
 class PlanningRightWayPropertyPanel extends StatelessWidget {
-  final ContractData contractData;
+  final ProcessData contractData;
 
   /// ✅ callback para forçar o refresh do mapa ao voltar do formulário
   final VoidCallback? onRequestMapRefresh;

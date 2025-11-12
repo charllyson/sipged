@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_bloc.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:siged/screens/process/apostilles/apostilles_page.dart';
 
 class TabBarApostillesPage extends StatelessWidget {
-  final ContractData? contractData;
-  final ContractBloc? contractsBloc;
+  final ProcessData? contractData;
+  final ProcessBloc? contractsBloc;
   final int initialTabIndex;
 
   const TabBarApostillesPage({

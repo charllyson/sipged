@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/additives/additive_store.dart';
 import 'package:siged/_blocs/process/validity/validity_store.dart';
 
 class AlertValidity extends StatelessWidget {
-  final ContractData contract;
+  final ProcessData contract;
 
   const AlertValidity({
     super.key,
@@ -15,7 +15,7 @@ class AlertValidity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = contract.contractStatus?.toUpperCase();
+    final status = contract.status?.toUpperCase();
 
     // Mostra ícone só para contratos em andamento ou a iniciar
     if (status != 'EM ANDAMENTO' && status != 'A INICIAR') {

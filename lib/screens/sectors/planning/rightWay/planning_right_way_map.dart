@@ -15,7 +15,7 @@ import 'package:siged/_services/geometry/geometry_utils.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 // cluster animado
 import 'package:siged/_widgets/map/clusters/cluster_animated_marker_widget.dart';
@@ -25,7 +25,7 @@ import 'package:siged/_widgets/map/pin/pin_changed.dart';
 // tooltip visual
 
 class PlanningRightWayPropertyMap extends StatefulWidget {
-  final ContractData contractData;
+  final ProcessData contractData;
 
   /// Controla abrir/fechar o painel lateral (true = abrir).
   final ValueNotifier<bool>? externalPanelController;

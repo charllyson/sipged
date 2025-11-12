@@ -4,7 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 
@@ -18,7 +18,7 @@ class PaymentsReportStorageBloc extends BlocBase {
   String _sanitize(String s) =>
       s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ContractData c, PaymentsReportData p, {String? originalName}) {
+  String fileName(ProcessData c, PaymentsReportData p, {String? originalName}) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem    = (p.orderPaymentReport ?? '0').toString();
     final proc     = _sanitize(p.processPaymentReport ?? 'processo');
@@ -28,10 +28,10 @@ class PaymentsReportStorageBloc extends BlocBase {
     return '$contrato-$ordem-$proc.pdf';
   }
 
-  String folderFor(ContractData c, PaymentsReportData p) =>
+  String folderFor(ProcessData c, PaymentsReportData p) =>
       'contracts/${c.id}/payments/${p.idPaymentReport}';
 
-  String pathFor(ContractData c, PaymentsReportData p, String file) =>
+  String pathFor(ProcessData c, PaymentsReportData p, String file) =>
       '${folderFor(c, p)}/$file';
 
   // ---------- Métodos utilitários usados pelo controller novo ----------
@@ -48,7 +48,7 @@ class PaymentsReportStorageBloc extends BlocBase {
 
   /// Faz upload de um anexo (a partir de bytes) e retorna um Attachment completo.
   Future<Attachment> uploadAttachmentBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsReportData payment,
     required Uint8List bytes,
     required String originalName,
@@ -110,7 +110,7 @@ class PaymentsReportStorageBloc extends BlocBase {
 
   // ---------- Métodos antigos (compatibilidade) ----------
 
-  Future<bool> exists(ContractData c, PaymentsReportData p) async {
+  Future<bool> exists(ProcessData c, PaymentsReportData p) async {
     try {
       // verifica apenas o primeiro arquivo padrão .pdf
       await _storage.ref(pathFor(c, p, fileName(c, p))).getMetadata();
@@ -120,7 +120,7 @@ class PaymentsReportStorageBloc extends BlocBase {
     }
   }
 
-  Future<String?> getUrl(ContractData c, PaymentsReportData p) async {
+  Future<String?> getUrl(ProcessData c, PaymentsReportData p) async {
     try {
       return await _storage.ref(pathFor(c, p, fileName(c, p))).getDownloadURL();
     } catch (e) {
@@ -130,7 +130,7 @@ class PaymentsReportStorageBloc extends BlocBase {
   }
 
   Future<String> uploadWithPicker({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsReportData payment,
     required void Function(double progress) onProgress,
   }) async {
@@ -149,7 +149,7 @@ class PaymentsReportStorageBloc extends BlocBase {
   }
 
   Future<String> uploadBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsReportData payment,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
@@ -168,7 +168,7 @@ class PaymentsReportStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ContractData c, PaymentsReportData p) async {
+  Future<bool> delete(ProcessData c, PaymentsReportData p) async {
     try {
       await _storage.ref(pathFor(c, p, fileName(c, p))).delete();
       return true;
@@ -179,17 +179,17 @@ class PaymentsReportStorageBloc extends BlocBase {
   }
 
   Future<bool> verificarSePdfDePaymentExiste({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsReportData payment,
   }) => exists(contract, payment);
 
   Future<String?> getPdfUrlDaPayment({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsReportData payment,
   }) => getUrl(contract, payment);
 
   Future<void> sendPdf({
-    required ContractData? contract,
+    required ProcessData? contract,
     required PaymentsReportData? paymentReport,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded,

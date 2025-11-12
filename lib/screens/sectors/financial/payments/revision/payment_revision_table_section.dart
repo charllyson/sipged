@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/totalTableRows/footer_rows_generic.dart';
@@ -12,7 +12,7 @@ class PaymentRevisionTableSection extends StatelessWidget {
   final void Function(String additiveId) onDelete;
   final List<PaymentsRevisionsData> paymentsRevisionsData;
   final PaymentsRevisionsData? selectedPaymentsRevisionsData;
-  final ContractData? contractData;
+  final ProcessData? contractData;
 
   final double valorInicial;
   final double valorAditivos;

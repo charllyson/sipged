@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/mask_class.dart';
+import 'package:siged/_utils/formats/mask_class.dart';
 
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_event.dart';

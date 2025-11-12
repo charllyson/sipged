@@ -5,12 +5,12 @@ import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 import 'package:siged/_blocs/process/report/report_measurement_controller.dart';
 
 import 'package:siged/_blocs/process/report/report_measurement_storage_bloc.dart';
-import 'package:siged/_utils/responsive_utils.dart';
+import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/mask_class.dart';
+import 'package:siged/_utils/formats/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 import 'package:siged/screens/process/measurement/create/create_detailed_reports_page.dart';
 
@@ -24,7 +24,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
   final ReportMeasurementData? selectedReportMeasurement;
   final String? currentReportMeasurementId;
 
-  final ContractData contractData;
+  final ProcessData contractData;
   final ReportMeasurementStorageBloc reportMeasurementStorageBloc;
   final ReportMeasurementController controller;
 

@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/revision/revision_measurement_data.dart';
-import 'package:siged/_utils/responsive_utils.dart';
+import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/mask_class.dart';
+import 'package:siged/_utils/formats/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
@@ -20,7 +20,7 @@ class RevisionMeasurementFormSection extends StatelessWidget {
   final bool formValidated;
   final RevisionMeasurementData? selectedRevisionMeasurement;
   final String? currentRevisionMeasurementId;
-  final ContractData contractData;
+  final ProcessData contractData;
 
   final TextEditingController orderRevisionController;
   final TextEditingController processNumberRevisionController;

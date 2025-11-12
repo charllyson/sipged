@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 
-import '../../../_blocs/process/contracts/contracts_controller.dart';
+import '../../../_blocs/_process/process_controller.dart';
 
 class OverviewDashboardTypeFiltered extends StatelessWidget {
-  final ContractsController controller;
+  final DemandsDashboardController controller;
 
   const OverviewDashboardTypeFiltered({
     super.key,

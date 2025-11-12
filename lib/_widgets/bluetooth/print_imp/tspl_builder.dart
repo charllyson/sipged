@@ -1,3 +1,4 @@
+/*
 int _mmToDots(double mm, {int dpi = 203}) => (mm * dpi / 25.4).round();
 
 /// TSPL básico. Algumas impressoras exigem FORM antes do PRINT.
@@ -44,3 +45,4 @@ String buildCpclHello({bool center = true, String text = 'HELLO'}) {
   ];
   return lines.join('\r\n');
 }
+*/

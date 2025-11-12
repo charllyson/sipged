@@ -9,7 +9,7 @@ import 'package:siged/_widgets/login/sign_in_button.dart';
 import 'package:siged/_widgets/input/custom_icon_button.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_widgets/loading/loading_progress.dart';
+import 'package:siged/_widgets/overlays/loading_progress.dart';
 
 class SignIn extends StatefulWidget {
   const SignIn({super.key});

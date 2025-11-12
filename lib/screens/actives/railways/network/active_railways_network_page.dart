@@ -14,7 +14,7 @@ import 'package:siged/_services/geoJson/check_jumps_between_points.dart';
 // 🔀 Layout responsivo com divisor arrastável
 import 'package:siged/_widgets/layout/responsive_split_view.dart';
 
-import '../../../../_widgets/services/floating_buttons.dart';
+import '../../../../_services/floating_buttons.dart';
 import 'active_railways_map.dart';
 import 'active_railways_panel.dart';
 

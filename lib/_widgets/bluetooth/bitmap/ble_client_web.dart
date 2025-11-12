@@ -1,3 +1,4 @@
+/*
 // lib/_widgets/bluetooth/bitmap/ble_client_web.dart
 import 'dart:async';
 import 'dart:math' as math;
@@ -81,3 +82,4 @@ class _WebClient implements LabelBleClient {
 }
 
 LabelBleClient createBleClient() => _WebClient();
+*/

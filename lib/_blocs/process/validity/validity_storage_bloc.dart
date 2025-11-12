@@ -8,7 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 import 'package:siged/_blocs/process/validity/validity_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -46,23 +46,23 @@ class ValidityStorageBloc extends BlocBase {
   }
 
   // pastas
-  String folderFor(ContractData c, ValidityData v) =>
+  String folderFor(ProcessData c, ValidityData v) =>
       'contracts/${c.id}/orders/${v.id}/';
 
   // caminho legado (um único pdf “padrão”)
-  String legacyFileName(ContractData c, ValidityData v) {
+  String legacyFileName(ProcessData c, ValidityData v) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem    = (v.orderNumber ?? 0).toString().padLeft(3, '0');
     final tipo     = _sanitize(v.ordertype ?? 'tipo');
     return '$contrato-$ordem-$tipo.pdf';
   }
 
-  String legacyPathFor(ContractData c, ValidityData v) =>
+  String legacyPathFor(ProcessData c, ValidityData v) =>
       '${folderFor(c, v)}${legacyFileName(c, v)}';
 
   // ---------- Operações principais (multi + legado) ----------
 
-  Future<bool> exists(ContractData c, ValidityData v) async {
+  Future<bool> exists(ProcessData c, ValidityData v) async {
     try {
       await _storage.ref(legacyPathFor(c, v)).getMetadata();
       return true;
@@ -71,7 +71,7 @@ class ValidityStorageBloc extends BlocBase {
     }
   }
 
-  Future<String?> getUrl(ContractData c, ValidityData v) async {
+  Future<String?> getUrl(ProcessData c, ValidityData v) async {
     try {
       return await _storage.ref(legacyPathFor(c, v)).getDownloadURL();
     } catch (e) {
@@ -90,7 +90,7 @@ class ValidityStorageBloc extends BlocBase {
   }
 
   Future<Attachment> uploadAttachmentBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required ValidityData validity,
     required Uint8List bytes,
     required String originalName,
@@ -163,7 +163,7 @@ class ValidityStorageBloc extends BlocBase {
 
   // ======= Legado (um arquivo) =======
   Future<String> uploadWithPicker({
-    required ContractData contract,
+    required ProcessData contract,
     required ValidityData validade,
     required void Function(double progress) onProgress,
   }) async {
@@ -182,7 +182,7 @@ class ValidityStorageBloc extends BlocBase {
   }
 
   Future<String> uploadBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required ValidityData validade,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
@@ -201,7 +201,7 @@ class ValidityStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ContractData c, ValidityData v) async {
+  Future<bool> delete(ProcessData c, ValidityData v) async {
     try {
       await _storage.ref(legacyPathFor(c, v)).delete();
       return true;
@@ -235,17 +235,17 @@ class ValidityStorageBloc extends BlocBase {
 
   // ---------- Helpers de compatibilidade ----------
   Future<bool> verificarSePdfDeValidadeExiste({
-    required ContractData contract,
+    required ProcessData contract,
     required ValidityData validade,
   }) => exists(contract, validade);
 
   Future<String?> getPdfUrlDaValidade({
-    required ContractData contract,
+    required ProcessData contract,
     required ValidityData validade,
   }) => getUrl(contract, validade);
 
   Future<void> sendPdf({
-    required ContractData contract,
+    required ProcessData contract,
     required ValidityData validade,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded,

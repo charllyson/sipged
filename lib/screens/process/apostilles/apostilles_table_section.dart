@@ -2,10 +2,10 @@
 // lib/screens/contracts/apostilles/apostilles_table_section.dart
 // ==============================
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
-import 'package:siged/_widgets/loading/loading_progress.dart';
+import 'package:siged/_widgets/overlays/loading_progress.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 

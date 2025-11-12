@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 
 import 'package:siged/_blocs/process/validity/validity_bloc.dart';
 import 'package:siged/_blocs/process/additives/additive_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/validity/validity_data.dart';
 
 class TimelineItem {
@@ -24,7 +24,7 @@ class TimelineItem {
 
 class TimelineClass extends StatelessWidget {
   final Future<List<ValidityData>> futureValidity;
-  final Future<List<ContractData>> futureContractList;
+  final Future<List<ProcessData>> futureContractList;
   final Future<List<AdditiveData>> futureAdditiveList;
 
   const TimelineClass({
@@ -46,7 +46,7 @@ class TimelineClass extends StatelessWidget {
         if (!snapshot.hasData) return const SizedBox.shrink();
 
         final validities = snapshot.data![0] as List<ValidityData>;
-        final contracts = snapshot.data![1] as List<ContractData>;
+        final contracts = snapshot.data![1] as List<ProcessData>;
         final additives = snapshot.data![2] as List<AdditiveData>;
 
         final contract = contracts.firstOrNull;
@@ -82,7 +82,7 @@ class TimelineClass extends StatelessWidget {
   }
 
   List<TimelineItem> _gerarTimelineItems({
-    required ContractData contract,
+    required ProcessData contract,
     required List<AdditiveData> additives,
     required List<ValidityData> validities,
     required DateTime? dataFinalContrato,
@@ -114,10 +114,10 @@ class TimelineClass extends StatelessWidget {
       ));
     }
 
-    if (contract.publicationDateDoe != null) {
+    if (contract.publicationDate != null) {
       items.add(TimelineItem(
         title: 'PUBLICAÇÃO',
-        date: contract.publicationDateDoe,
+        date: contract.publicationDate,
         source: '0.resume',
         original: contract,
       ));
@@ -156,8 +156,8 @@ class TimelineClass extends StatelessWidget {
       ..sort((a, b) => a.date!.compareTo(b.date!));
   }
 
-  Widget _buildTimeline(List<TimelineItem> items, ContractData contract) {
-    final contractStatus = contract.contractStatus?.toUpperCase() ?? '';
+  Widget _buildTimeline(List<TimelineItem> items, ProcessData contract) {
+    final contractStatus = contract.status?.toUpperCase() ?? '';
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,

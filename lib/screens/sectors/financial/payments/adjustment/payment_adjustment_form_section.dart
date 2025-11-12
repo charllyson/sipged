@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
-import 'package:siged/_utils/responsive_utils.dart';
+import 'package:siged/_widgets/layout/responsive_utils.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/mask_class.dart';
+import 'package:siged/_utils/formats/mask_class.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 
 // 🆕 SideListBox
@@ -15,7 +15,7 @@ import 'package:siged/_widgets/list/files/side_list_box.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 class PaymentAdjustmentFormSection extends StatelessWidget {
   const PaymentAdjustmentFormSection({
@@ -79,7 +79,7 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
   final void Function(int index)? onDeleteSideItem;
   final void Function(int index)? onEditLabelSideItem;
 
-  final ContractData? contractData;
+  final ProcessData? contractData;
 
   // 🆕 Dropdown de ordem
   final List<String> orderNumberOptions;

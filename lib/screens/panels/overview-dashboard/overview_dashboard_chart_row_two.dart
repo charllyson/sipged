@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
 import 'package:siged/_widgets/charts/treemap/treemap_chart_changed.dart';
-import '../../../_blocs/process/contracts/contracts_controller.dart';
+import '../../../_blocs/_process/process_controller.dart';
 
 class OverviewDashboardChartRowTwo extends StatelessWidget {
-  final ContractsController controller;
+  final DemandsDashboardController controller;
 
   const OverviewDashboardChartRowTwo({super.key, required this.controller});
 

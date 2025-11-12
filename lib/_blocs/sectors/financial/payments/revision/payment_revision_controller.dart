@@ -13,10 +13,10 @@ import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/date_utils.dart'
+import 'package:siged/_utils/formats/date_utils.dart'
     show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
@@ -46,7 +46,7 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
 
   // --- Contexto
   UserData? currentUser;
-  ContractData? contract;
+  ProcessData? contract;
 
   // --- Dados
   List<PaymentsRevisionsData> _revisions = <PaymentsRevisionsData>[];
@@ -145,7 +145,7 @@ class PaymentsRevisionController extends ChangeNotifier with FormValidationMixin
   }
 
   // --- Init/Dispose
-  Future<void> init(BuildContext context, {required ContractData? contractData}) async {
+  Future<void> init(BuildContext context, {required ProcessData? contractData}) async {
     contract = contractData;
     if (contract?.id == null) return;
 

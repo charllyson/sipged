@@ -7,9 +7,9 @@ import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/images/mini_avatars/mini_avatars.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_store.dart';
+import 'package:siged/_blocs/_process/process_bloc.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/_process/process_store.dart';
 
 import 'package:siged/_widgets/list/search/search_user_permission_widget.dart';
 
@@ -17,12 +17,9 @@ import 'package:siged/_widgets/list/search/search_user_permission_widget.dart';
 import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 
-/// Banner reutilizável que exibe o resumo do contrato + participantes.
-/// AGORA INTERATIVO: se [interactive] = true, o próprio banner abre o diálogo
-/// de participantes com checagens de permissão e sincroniza o contrato local.
-/// - Usa UserBloc para resolver nomes/avatars dos UIDs em `permissionContractId`.
-/// - Se não houver título (ou vier vazio), não renderiza nada.
-/// - Você ainda pode passar [onTap] para sobrepor o comportamento padrão.
+// selo reutilizável
+import 'package:siged/_widgets/stamp/stamp.dart';
+
 class TabBanner extends StatefulWidget {
   const TabBanner({
     super.key,
@@ -32,31 +29,41 @@ class TabBanner extends StatefulWidget {
     this.interactive = true,
     this.userData,
     this.contractsBloc,
+    this.showStamp = false,
+    this.stampApproved = false,
+    this.stampScaleFactor = 1.0,
+    this.stampApprovedLabel = 'Aprovado',
+    this.stampPendingLabel = 'Pendente',
+    this.stampApprovedIcon = Icons.verified_outlined,
+    this.stampPendingIcon = Icons.verified_user_outlined,
+    this.stampApprovedColor,
+    this.stampPendingColor,
   });
 
-  final ContractData contract;
-
-  /// Caso informado, define o texto do título no lugar de `summarySubjectContract`.
-  final String Function(ContractData c)? titleBuilder;
-
-  /// Callback opcional ao tocar no banner (sobrepõe o comportamento padrão).
+  final ProcessData contract;
+  final String Function(ProcessData c)? titleBuilder;
   final VoidCallback? onTap;
-
-  /// Se true, o banner abre o diálogo de participantes ao clicar (se onTap == null).
   final bool interactive;
-
-  /// (Opcional) Para evitar leituras repetidas do UserBloc
   final UserData? userData;
+  final ProcessBloc? contractsBloc;
 
-  /// (Opcional) Injetar bloc explicitamente; senão pega do Provider.
-  final ContractBloc? contractsBloc;
+  // Selo
+  final bool showStamp;
+  final bool stampApproved;
+  final double stampScaleFactor;
+  final String stampApprovedLabel;
+  final String stampPendingLabel;
+  final IconData stampApprovedIcon;
+  final IconData stampPendingIcon;
+  final Color? stampApprovedColor;
+  final Color? stampPendingColor;
 
   @override
   State<TabBanner> createState() => _TabBannerState();
 }
 
 class _TabBannerState extends State<TabBanner> {
-  late ContractData _contractData;
+  late ProcessData _contractData;
 
   @override
   void initState() {
@@ -64,8 +71,7 @@ class _TabBannerState extends State<TabBanner> {
     _contractData = widget.contract;
   }
 
-  // ======== Permissão contextual no contrato ========
-  bool _can(String action, {ContractData? c}) {
+  bool _can(String action, {ProcessData? c}) {
     final userState = context.read<UserBloc>().state;
     final currentUser = widget.userData ?? userState.current;
     final contract = c ?? _contractData;
@@ -73,14 +79,12 @@ class _TabBannerState extends State<TabBanner> {
     return perms.userCanOnContract(user: currentUser, contract: contract, action: action);
   }
 
-  // ======== Diálogo de participantes (embutido) ========
   Future<void> _openParticipantsDialogFromBanner(
       BuildContext context,
-      ContractData contrato,
+      ProcessData contrato,
       ) async {
-    final contractBloc = widget.contractsBloc ?? context.read<ContractBloc>();
+    final contractBloc = widget.contractsBloc ?? context.read<ProcessBloc>();
     final userState = context.read<UserBloc>().state;
-
     final canEditParticipants = _can('edit', c: contrato);
     final users = userState.all;
 
@@ -96,8 +100,6 @@ class _TabBannerState extends State<TabBanner> {
             return AlertDialog(
               insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               contentPadding: EdgeInsets.zero,
-              titlePadding: EdgeInsets.zero,
-              actionsPadding: EdgeInsets.zero,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               clipBehavior: Clip.antiAlias,
               content: SizedBox(
@@ -114,7 +116,9 @@ class _TabBannerState extends State<TabBanner> {
                   getRole: (uid) {
                     final st = context.read<UserBloc>().state;
                     final u = st.byId[uid];
-                    final base = (u != null) ? roles.roleForUser(u) : roles.BaseRole.LEITOR;
+                    final base = (u != null)
+                        ? roles.roleForUser(u)
+                        : roles.BaseRole.LEITOR;
                     return roles.baseRoleLabel(base);
                   },
                   getPerms: (uid) {
@@ -126,11 +130,9 @@ class _TabBannerState extends State<TabBanner> {
                   onChanged: canEditParticipants
                       ? (uids) async {
                     if (contrato.id == null) return;
-                    final atuais = Map<String, Map<String, bool>>.from(
-                      contrato.permissionContractId,
-                    );
+                    final atuais =
+                    Map<String, Map<String, bool>>.from(contrato.permissionContractId);
 
-                    // Remoções
                     for (final uid in atuais.keys.toList()) {
                       if (!uids.contains(uid)) {
                         await contractBloc.removeParticipant(
@@ -140,8 +142,6 @@ class _TabBannerState extends State<TabBanner> {
                         contrato.removeParticipantLocal(uid);
                       }
                     }
-
-                    // Inclusões
                     for (final uid in uids) {
                       if (!atuais.containsKey(uid)) {
                         final initialPerms = perms.initialDocPerms();
@@ -160,47 +160,7 @@ class _TabBannerState extends State<TabBanner> {
                         );
                       }
                     }
-
-                    await context.read<ContractsStore>().refresh();
-                    await _refreshLocalContract(
-                      contrato,
-                      rebuildDialog: () => setStateSB(() {}),
-                    );
-                  }
-                      : null,
-                  onTogglePerm: canEditParticipants
-                      ? (uid, key, val) async {
-                    if (contrato.id == null) return;
-                    final current = Map<String, bool>.from(
-                      contrato.permissionContractId[uid] ?? const {},
-                    );
-                    final normalized = perms.normalizePermMap(current);
-                    normalized[key] = val;
-
-                    await contractBloc.setParticipantPerms(
-                      contractId: contrato.id!,
-                      userId: uid,
-                      perms: normalized,
-                    );
-
-                    contrato.permissionContractId[uid] = normalized;
-
-                    await context.read<ContractsStore>().refresh();
-                    await _refreshLocalContract(
-                      contrato,
-                      rebuildDialog: () => setStateSB(() {}),
-                    );
-                  }
-                      : null,
-                  onRemove: canEditParticipants
-                      ? (uid) async {
-                    if (contrato.id == null) return;
-                    await contractBloc.removeParticipant(
-                      contractId: contrato.id!,
-                      userId: uid,
-                    );
-                    contrato.removeParticipantLocal(uid);
-                    await context.read<ContractsStore>().refresh();
+                    await context.read<ProcessStore>().refresh();
                     await _refreshLocalContract(
                       contrato,
                       rebuildDialog: () => setStateSB(() {}),
@@ -216,29 +176,15 @@ class _TabBannerState extends State<TabBanner> {
     );
   }
 
-  // ======== Sincroniza contrato local após mudar participantes/permissões ========
   Future<void> _refreshLocalContract(
-      ContractData contrato, {
+      ProcessData contrato, {
         VoidCallback? rebuildDialog,
       }) async {
-    final bloc = widget.contractsBloc ?? context.read<ContractBloc>();
+    final bloc = widget.contractsBloc ?? context.read<ProcessBloc>();
     if (contrato.id == null) return;
-
     final fresh = await bloc.getContractById(contrato.id!);
-    if (fresh == null) return;
-
-    if (!mounted) return;
-    setState(() {
-      contrato.permissionContractId
-        ..clear()
-        ..addAll(fresh.permissionContractId);
-      contrato.participantsInfo
-        ..clear()
-        ..addAll(fresh.participantsInfo);
-
-      _contractData = fresh;
-    });
-
+    if (fresh == null || !mounted) return;
+    setState(() => _contractData = fresh);
     rebuildDialog?.call();
   }
 
@@ -247,111 +193,127 @@ class _TabBannerState extends State<TabBanner> {
     final userState = context.read<UserBloc>().state;
     final contract = _contractData;
 
-    // Título
-    final titleText = (widget.titleBuilder != null)
-        ? widget.titleBuilder!(contract)
-        : (contract.summarySubjectContract ?? '');
+    final titleText =
+        widget.titleBuilder?.call(contract) ?? (contract.summarySubject ?? '');
+    if (titleText.trim().isEmpty) return const SizedBox.shrink();
 
-    if ((titleText.trim()).isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    // Participantes visíveis
     final ids = contract.permissionContractId.keys.toList();
     final users = ids.map((id) => userState.byId[id] ?? UserData(id: id)).toList();
 
-    final visible = users
-        .where((u) => ((u.name ?? '').trim().isNotEmpty) || ((u.email ?? '').trim().isNotEmpty))
-        .toList();
+    final visible = users.where((u) =>
+    (u.name?.trim().isNotEmpty ?? false) || (u.email?.trim().isNotEmpty ?? false)
+    ).toList();
 
-    final primary = visible.isNotEmpty ? visible.first : (users.isNotEmpty ? users.first : null);
-    final primaryName = (primary?.name?.trim().isNotEmpty ?? false)
-        ? primary!.name!.trim()
-        : (primary?.email?.trim().isNotEmpty ?? false)
-        ? primary!.email!.trim()
-        : (primary?.id ?? 'usuário');
+    final primary = visible.isNotEmpty ? visible.first : null;
+    final primaryName = primary?.name?.trim().isNotEmpty == true
+        ? primary!.name!
+        : (primary?.email?.trim().isNotEmpty == true ? primary!.email! : (primary?.id ?? 'usuário'));
     final others = (users.length > 1) ? users.length - 1 : 0;
 
-    Widget rightBlock(TextStyle style) => Wrap(
+    final isMobile = MediaQuery.of(context).size.width < 720;
+    final isNarrow = MediaQuery.of(context).size.width < 520;
+
+    // === Estilos "como antes" ===
+    final titleStyle = const TextStyle(
+      color: Colors.black87,
+      fontSize: 13.5,           // <- voltou
+      fontWeight: FontWeight.w500, // <- voltou
+    );
+    final metaStyle = const TextStyle(
+      color: Colors.black54,
+      fontSize: 12.0,
+      fontWeight: FontWeight.w500,
+    );
+
+    final participantsRow = Wrap(
       spacing: 6,
-      runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
-      alignment: WrapAlignment.end,
       children: [
         MiniAvatars(users: visible),
         Text(
           others > 0
               ? 'visível para $primaryName e outras $others pessoas'
               : 'visível só para você',
-          style: style,
+          style: metaStyle,
           overflow: TextOverflow.ellipsis,
         ),
       ],
     );
 
-    return LayoutBuilder(
-      builder: (context, cons) {
-        final isNarrow = cons.maxWidth < 520;
-        final titleStyle = const TextStyle(
-          color: Colors.black87,
-          fontSize: 13.5,
-          fontWeight: FontWeight.w500,
-        );
-        final metaStyle = const TextStyle(
-          color: Colors.black54,
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        );
+    final stampWidget = widget.showStamp
+        ? Stamp(
+      approved: widget.stampApproved,
+      compact: isNarrow,                      // mobile: ícone-only
+      dense: true,                            // <- compacto p/ travar altura
+      scaleFactor: widget.stampScaleFactor * (isNarrow ? 0.9 : 1.0),
+      approvedLabel: widget.stampApprovedLabel,
+      pendingLabel: widget.stampPendingLabel,
+      approvedIcon: widget.stampApprovedIcon,
+      pendingIcon: widget.stampPendingIcon,
+      approvedColor: widget.stampApprovedColor ?? Colors.green,
+      pendingColor: widget.stampPendingColor ?? Colors.grey,
+    )
+        : null;
 
-        final banner = Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(
-            vertical: isNarrow ? 4 : 8,
-            horizontal: 12,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.yellow.shade100,
-            border: Border.all(color: Colors.grey.shade400),
-          ),
-          child: isNarrow
-              ? Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(titleText, textAlign: TextAlign.center, style: titleStyle),
-              const SizedBox(height: 2),
-              rightBlock(metaStyle.copyWith(fontSize: 11.5)),
-            ],
-          )
-              : Stack(
-            alignment: Alignment.center,
-            children: [
-              Center(
-                child: Text(titleText, textAlign: TextAlign.center, style: titleStyle),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: rightBlock(metaStyle),
-              ),
-            ],
-          ),
-        );
-
-        return InkWell(
-          onTap: () async {
-            // Preferência do chamador:
-            if (widget.onTap != null) {
-              widget.onTap!();
-              return;
-            }
-            // Comportamento padrão interativo:
-            if (widget.interactive) {
-              await _openParticipantsDialogFromBanner(context, _contractData);
-            }
-          },
-          borderRadius: BorderRadius.circular(4),
-          child: banner,
-        );
+    // === Banner ===
+    return InkWell(
+      onTap: widget.onTap ?? () async {
+        if (widget.interactive) {
+          await _openParticipantsDialogFromBanner(context, _contractData);
+        }
       },
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12), // <- menor, como antes
+        decoration: BoxDecoration(
+          color: Colors.yellow.shade100,
+          border: Border.all(color: Colors.grey.shade400),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Conteúdo principal
+            Expanded(
+              child: isMobile
+              // MOBILE: 2 linhas (título em cima, visibilidade embaixo)
+                  ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(titleText, textAlign: TextAlign.center, style: titleStyle),
+                  const SizedBox(height: 2),
+                  participantsRow,
+                ],
+              )
+              // DESKTOP: 1 linha, altura travada ~40px
+                  : SizedBox(
+                height: 36, // <- trava a altura do miolo (como antes)
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        titleText,
+                        style: titleStyle,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Flexible(child: participantsRow),
+                  ],
+                ),
+              ),
+            ),
+
+            if (widget.showStamp) ...[
+              const SizedBox(width: 12),
+              Align(alignment: Alignment.centerRight, child: stampWidget),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

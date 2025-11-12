@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 
 import 'package:siged/_blocs/process/revision/revision_measurement_bloc.dart';
@@ -17,7 +17,7 @@ import 'revision_measurement_table_section.dart';
 
 class RevisionMeasurement extends StatelessWidget {
   const RevisionMeasurement({super.key, required this.contractData});
-  final ContractData contractData;
+  final ProcessData contractData;
 
   Future<bool> _confirm(BuildContext context, String msg) async {
     return await showDialog<bool>(

@@ -1,8 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 
-import 'package:siged/_blocs/panels/overview-dashboard/overview_dashboard_style.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
 import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
 import 'package:siged/_widgets/charts/radar/radar_chart_changed_widget.dart';
@@ -13,12 +14,12 @@ import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
-import 'package:siged/_blocs/process/contracts/contracts_controller.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/_process/process_controller.dart';
 
 class SpecificDashboardChartRowOne extends StatelessWidget {
-  final ContractsController controller;
-  final ContractData contract;
+  final DemandsDashboardController controller;
+  final ProcessData contract;
 
   const SpecificDashboardChartRowOne({
     super.key,
@@ -80,7 +81,7 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
 
     final lanes = await repo.loadFaixas(contractId);
 
-    final km = contract.contractExtKm ?? 0.0;
+    final km = contract.ext ?? 0.0;
     final totalEstacas = max(0, ((km * 1000) / 20).ceil());
 
     final List<String> labels = <String>[];
@@ -141,9 +142,9 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
 
     final labelsRadar = controller.radarServiceLabels;
     final datasets = controller.radarDatasetsServices(
-      primary: OverviewDashboardStyle.kPrimary,
-      warning: OverviewDashboardStyle.kWarning,
-      success: OverviewDashboardStyle.kSuccess,
+      primary: DemandsDashboardOverviewStyle.kPrimary,
+      warning: DemandsDashboardOverviewStyle.kWarning,
+      success: DemandsDashboardOverviewStyle.kSuccess,
     );
 
     return LayoutBuilder(

@@ -9,7 +9,7 @@ import 'package:siged/_widgets/footBar/foot_bar.dart';
 // ✅ Split responsivo
 import 'package:siged/_widgets/layout/responsive_split_view.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_details.dart';
 
 // MAPA e PAINEL
@@ -20,7 +20,7 @@ import 'package:siged/screens/sectors/planning/rightWay/planning_right_way_panel
 import 'package:siged/_blocs/sectors/planning/highway_domain/planning_highway_domain_bloc.dart';
 
 class PlanningRightWayWorkspacePage extends StatefulWidget {
-  final ContractData contractData;
+  final ProcessData contractData;
   const PlanningRightWayWorkspacePage({super.key, required this.contractData});
 
   @override

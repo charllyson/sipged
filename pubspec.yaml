@@ -88,6 +88,12 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_launcher_icons: ^0.14.1
 
+  flutter_blue_plus: ^1.32.5        # Android/iOS
+  flutter_web_bluetooth: ^1.1.0    # Web Bluetooth (Chrome / Edge)
+  web: ^1.1.1
+  qr: ^3.0.1
+  qr_flutter: ^4.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -112,6 +118,7 @@ flutter:
   assets:
     - assets/geojson/limits/limites_regionais_der_al.geojson
     - assets/geojson/limits/limites_cidades_al.geojson
+    - assets/geojson/limits/limites_territoriais.geojson
     - assets/logos/deral/logo-deral.png
     - assets/images/default_avatar.png
     - assets/logos/siged/siged.png

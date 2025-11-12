@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import '../../../../_blocs/process/adjustment/adjustment_measurement_controller.dart';
 import 'adjustment_measurement_form_section.dart';
 import 'adjustment_measurement_graph_section.dart';
@@ -11,7 +11,7 @@ import 'adjustment_measurement_table_section.dart';
 
 class AdjustmentMeasurement extends StatelessWidget {
   const AdjustmentMeasurement({super.key, required this.contractData});
-  final ContractData contractData;
+  final ProcessData contractData;
 
   Future<bool> _confirm(BuildContext context, String msg) async {
     return await showDialog<bool>(

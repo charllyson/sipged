@@ -6,7 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/adjustment/adjustment_measurement_data.dart';
 // Reaproveita o mesmo modelo de anexo
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -21,7 +21,7 @@ class AdjustmentMeasurementStorageBloc extends BlocBase {
 
   String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ContractData c, AdjustmentMeasurementData a) {
+  String fileName(ProcessData c, AdjustmentMeasurementData a) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem    = (a.order ?? 0).toString();
     final proc     = _sanitize(a.numberprocess ?? 'processo');
@@ -29,13 +29,13 @@ class AdjustmentMeasurementStorageBloc extends BlocBase {
   }
 
   String pathFor({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required AdjustmentMeasurementData adj,
   }) => 'contracts/${contract.id}/measurements/$measurementId/${fileName(contract, adj)}';
 
   // ======= Suporte a multi-anexos =======
-  String attachmentsDir(ContractData c, AdjustmentMeasurementData a) =>
+  String attachmentsDir(ProcessData c, AdjustmentMeasurementData a) =>
       'contracts/${c.id}/measurements/${a.id}/attachments';
 
   String _extFromName(String name) {
@@ -69,7 +69,7 @@ class AdjustmentMeasurementStorageBloc extends BlocBase {
 
   /// Upload a partir de bytes com rótulo decidido após o pick
   Future<Attachment> uploadAttachmentBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required AdjustmentMeasurementData adjustment,
     required Uint8List bytes,
     required String originalName,
@@ -116,7 +116,7 @@ class AdjustmentMeasurementStorageBloc extends BlocBase {
 
   // ======= API legado (PDF único) mantida =======
   Future<bool> exists({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required AdjustmentMeasurementData adj,
   }) async {
@@ -129,7 +129,7 @@ class AdjustmentMeasurementStorageBloc extends BlocBase {
   }
 
   Future<String?> getUrl({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required AdjustmentMeasurementData adj,
   }) async {
@@ -144,7 +144,7 @@ class AdjustmentMeasurementStorageBloc extends BlocBase {
   }
 
   Future<String> uploadWithPicker({
-    required ContractData contract,
+    required ProcessData contract,
     required String adjustmentId,
     required AdjustmentMeasurementData adj,
     required void Function(double progress) onProgress,
@@ -165,7 +165,7 @@ class AdjustmentMeasurementStorageBloc extends BlocBase {
   }
 
   Future<bool> delete({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required AdjustmentMeasurementData adj,
   }) async {

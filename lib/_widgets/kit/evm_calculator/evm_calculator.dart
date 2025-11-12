@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 
 class EvmSnapshot {
@@ -69,7 +69,7 @@ class EvmCalculator {
   }
 
   static EvmSnapshot snapshot({
-    required ContractData contract,
+    required ProcessData contract,
     required List<ReportMeasurementData> measurementsOfThisContract,
     required double totalContractValue,
     required DateTime start,

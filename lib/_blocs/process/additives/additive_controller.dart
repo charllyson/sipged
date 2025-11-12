@@ -25,11 +25,11 @@ import 'package:siged/_blocs/process/additives/additive_store.dart';
 // ✅ NOVO: store dedicado do cronograma físico-financeiro
 import 'package:siged/_blocs/process/phys_fin/physics_finance_store.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/handle_selection_utils.dart';
+import 'package:siged/_utils/handle/handle_selection_utils.dart';
 
 // viewer interno PDF
 import 'package:siged/_services/pdf/pdf_preview.dart';
@@ -41,7 +41,7 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 
 class AdditiveController extends ChangeNotifier with FormValidationMixin {
   final AdditivesStore store;
-  final ContractData contract;
+  final ProcessData contract;
   final AdditivesStorageBloc additivesStorageBloc;
 
   StreamSubscription<UserState>? _userSub;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_bloc.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 import 'package:siged/_widgets/menu/tab/tab_split.dart';
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
@@ -16,8 +16,8 @@ import 'package:siged/_blocs/process/laneRegularization/lane_regularization_stor
 import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_table.dart';
 
 class TabLaneRegularizationPage extends StatefulWidget {
-  final ContractData? contractData;
-  final ContractBloc? contractsBloc;
+  final ProcessData? contractData;
+  final ProcessBloc? contractsBloc;
   final int initialTabIndex;
 
   const TabLaneRegularizationPage({
@@ -32,7 +32,7 @@ class TabLaneRegularizationPage extends StatefulWidget {
 }
 
 class _TabLaneRegularizationPageState extends State<TabLaneRegularizationPage> {
-  late ContractData? _contractData;
+  late ProcessData? _contractData;
 
   // Store e Controller do Right Way
   late final LaneRegularizationStore _store;

@@ -14,7 +14,7 @@ import 'package:siged/_blocs/process/phys_fin/physics_finance_store.dart';
 
 // SIGED deps
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
@@ -30,7 +30,7 @@ import 'physfin_models.dart';
 void _unawaited(Future<void> f) {}
 
 class SchedulePhysicalFinancialWidget extends StatefulWidget {
-  final ContractData contractData;
+  final ProcessData contractData;
 
   /// false => Licitação (só o contratado, azul, editável)
   /// true  => Aditivos (contratado cinza bloqueado + termos editáveis, com possíveis períodos extras)

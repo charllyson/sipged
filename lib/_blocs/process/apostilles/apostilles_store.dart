@@ -7,7 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_bloc.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_storage_bloc.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'apostilles_data.dart';
 
@@ -165,7 +165,7 @@ class ApostillesStore extends ChangeNotifier {
   }
 
   Future<void> uploadPdfWithProgress({
-    required ContractData contract,
+    required ProcessData contract,
     required ApostillesData apostille,
     required void Function(double progress) onProgress,
   }) async {
@@ -178,7 +178,7 @@ class ApostillesStore extends ChangeNotifier {
   }
 
   Future<bool> pdfExists({
-    required ContractData contract,
+    required ProcessData contract,
     required ApostillesData apostille,
   }) {
     return _storage.verificarSePdfDeApostilaExiste(
@@ -188,7 +188,7 @@ class ApostillesStore extends ChangeNotifier {
   }
 
   Future<String?> getPdfUrl({
-    required ContractData contract,
+    required ProcessData contract,
     required ApostillesData apostille,
   }) {
     return _storage.getPdfUrlDaApostila(
@@ -198,7 +198,7 @@ class ApostillesStore extends ChangeNotifier {
   }
 
   Future<void> deletePdf({
-    required ContractData contract,
+    required ProcessData contract,
     required ApostillesData apostille,
   }) async {
     await _storage.delete(contract, apostille);

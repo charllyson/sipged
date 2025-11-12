@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/monetary_utils.dart';
+import 'package:siged/_utils/formats/monetary_utils.dart';
 import 'package:siged/_widgets/charts/radar/radar_chart_shimmer.dart';
 import 'package:siged/_widgets/charts/radar/radar_series_data.dart';
 

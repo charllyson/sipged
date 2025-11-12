@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/panels/overview-dashboard/overview_dashboard_style.dart';
-import 'package:siged/_services/geo_json_manager.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
+import 'package:siged/_services/geoJson/geo_json_manager.dart';
 import 'package:siged/_widgets/map/map_interactive.dart';
 
 class OverviewDashboardMap extends StatelessWidget {
@@ -36,7 +36,7 @@ class OverviewDashboardMap extends StatelessWidget {
             initialZoom: 7.3,
             allowMultiSelect: false,
             showLegend: true,
-            polygonChangeColors: OverviewDashboardStyle.regionsColors,
+            polygonChangeColors: DemandsDashboardOverviewStyle.regionsColors,
           ),
         ),
       ),

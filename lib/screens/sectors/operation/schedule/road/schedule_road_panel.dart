@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 // BLoC do cronograma
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
@@ -26,7 +26,7 @@ import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadPanel extends StatefulWidget {
-  final ContractData contract;
+  final ProcessData contract;
   final bool enabled;
   final VoidCallback? onSaved; // callback após salvar (opcional)
 
@@ -99,7 +99,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                   // ===================== Header / SubHeader =====================
                   ScheduleHeader(
                     title: st.titleForHeader.isEmpty
-                        ? (widget.contract.summarySubjectContract ?? 'Cronograma')
+                        ? (widget.contract.summarySubject ?? 'Cronograma')
                         : st.titleForHeader,
                     colorStripe: st.colorForHeader,
                     leftPadding: 0,

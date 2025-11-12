@@ -4,12 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/registers/register_class.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 
 // domínio do orçamento (usado para mapear grid ⇄ domínio)
-import 'package:siged/_blocs/process/budget/budget_data.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_data.dart';
 
 class ReportMeasurementBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -66,10 +66,10 @@ class ReportMeasurementBloc extends BlocBase {
     }).toList();
   }
 
-  Future<ContractData?> buscarContrato(String contractId) async {
+  Future<ProcessData?> buscarContrato(String contractId) async {
     final snap = await _db.collection('contracts').doc(contractId).get();
     if (!snap.exists) return null;
-    return ContractData.fromDocument(snapshot: snap);
+    return ProcessData.fromDocument(snapshot: snap);
   }
 
   // ======================= CRUD principal =======================

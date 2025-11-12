@@ -6,7 +6,7 @@ import 'package:siged/_services/firestore/migrate/migrateDocForSubCollection.dar
 import 'package:siged/_services/firestore/migrate/migration.dart';
 
 // Importando suas páginas/tiles já existentes
-import 'package:siged/_utils/firebase_utils.dart';
+import 'package:siged/_services/firestore/firebase_utils.dart';
 import 'package:siged/_services/excel/excel_import_controller.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';

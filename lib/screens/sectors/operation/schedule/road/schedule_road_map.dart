@@ -24,7 +24,7 @@ import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
 
 import 'package:siged/_widgets/stakes/line_segmentation.dart';
 import 'package:siged/_services/geoJson/send_firebase.dart';
-import 'package:siged/_widgets/services/floating_buttons.dart';
+import 'package:siged/_services/floating_buttons.dart';
 import 'package:siged/_widgets/stakes/zoom_listener.dart';
 
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
@@ -33,7 +33,7 @@ import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/stakes/stakes_up_right.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 
 // ✅ Toolbox flutuante (mesmo da página do Civil/Board)
@@ -45,7 +45,7 @@ const double kLaneStrokeWidthSelected = 10.0;
 const double kHitStrokeMin = 22.0; // área mínima de toque
 
 class ScheduleRoadMap extends StatefulWidget {
-  final ContractData contractData;
+  final ProcessData contractData;
 
   /// Mantido apenas para compatibilidade com o Workspace (não é mais usado aqui).
   final ValueNotifier<bool>? externalPanelController;

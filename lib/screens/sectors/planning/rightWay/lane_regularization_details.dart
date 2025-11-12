@@ -3,9 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 
 import 'package:siged/_blocs/process/laneRegularization/lane_regularization_data.dart';
 import 'package:siged/_blocs/process/laneRegularization/lane_regularization_storage_bloc.dart';
@@ -17,7 +17,7 @@ import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
 class LaneRegularizationDetailsPanel extends StatefulWidget {
-  final ContractData contract;
+  final ProcessData contract;
   final String propertyId;
 
   const LaneRegularizationDetailsPanel({

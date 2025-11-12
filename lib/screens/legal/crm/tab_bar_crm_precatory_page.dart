@@ -5,8 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/_process/process_bloc.dart';
 
 // Página genérica + base/controller e helpers
 import 'package:siged/screens/legal/crm/crm_step_controllers.dart';
@@ -18,8 +18,8 @@ import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
 class TabBarCrmPrecatoryPage extends StatelessWidget {
-  final ContractData? contractData;
-  final ContractBloc? contractsBloc;
+  final ProcessData? contractData;
+  final ProcessBloc? contractsBloc;
   final int initialTabIndex;
 
   const TabBarCrmPrecatoryPage({

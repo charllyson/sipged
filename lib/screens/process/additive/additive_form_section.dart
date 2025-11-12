@@ -8,11 +8,11 @@ import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
-import 'package:siged/_utils/responsive_utils.dart';
-import 'package:siged/_utils/mask_class.dart';
+import 'package:siged/_widgets/layout/responsive_utils.dart';
+import 'package:siged/_utils/formats/mask_class.dart';
 import 'package:siged/_blocs/process/additives/additive_rules.dart';
 import 'package:siged/_blocs/process/additives/additive_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 
 class AdditiveFormSection extends StatelessWidget {
@@ -21,7 +21,7 @@ class AdditiveFormSection extends StatelessWidget {
   final bool formValidated;
   final AdditiveData? selectedAdditive;
   final String? currentAdditiveId;
-  final ContractData contractData;
+  final ProcessData contractData;
 
   final TextEditingController orderController;
   final TextEditingController processController;

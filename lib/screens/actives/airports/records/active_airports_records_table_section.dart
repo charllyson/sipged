@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_widgets/loading/loading_progress.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_widgets/overlays/loading_progress.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/table/virtualized/virtualized_table_changed.dart';
 

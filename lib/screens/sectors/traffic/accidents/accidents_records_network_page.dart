@@ -1,4 +1,5 @@
 // lib/screens/sectors/traffic/accidents/accidents_records_network_page.dart
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +27,8 @@ import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
 // SEÇÕES
+import '../../../../_services/print/label_bitmap.dart';
+import '../../../../_widgets/bluetooth/bitmap/ble_client.dart';
 import 'accidents_form_section.dart';
 import 'accidents_selector_dates_section.dart';
 import 'accidents_table_section.dart';
@@ -308,12 +311,15 @@ class _AccidentsRecordsNetworkPageState extends State<AccidentsRecordsNetworkPag
     required AccidentsState state,
   }) {
     final tableCore = AccidentsTableSection(
-      onPrint: (item) => LabelPrintService.printAccident(
+      /*onPrint: (item) => LabelPrintService.printAccident(
         context,
         item,
         presetIndex: 0, // 14×30, 14×40, 14×50
         gapMm: 10, // padrão 10mm
-      ),
+      ),*/
+      onPrint: (a){
+
+      },
       listData: pageItems,
       selectedItem: selectedAccident,
       currentPage: state.currentPage,
@@ -573,6 +579,74 @@ class _AccidentsRecordsNetworkPageState extends State<AccidentsRecordsNetworkPag
             child: UpBar(
               showPhotoMenu: true,
               actions: [
+                /*FilledButton(
+                  onPressed: () async {
+                    final ble = createBleClient();
+                    await ble.connect();
+
+                    // Tamanho da etiqueta (14×30 mm)
+                    const larguraMm = 14.0;
+                    const alturaMm = 30.0;
+                    const dpi = 203;
+
+                    // Converte mm → px (com múltiplo de 8)
+                    int _mmToPx(double mm) {
+                      final px = (mm * dpi / 25.4).round();
+                      return px + (8 - px % 8) % 8; // força múltiplo de 8
+                    }
+
+                    final width = _mmToPx(larguraMm);
+                    final height = _mmToPx(alturaMm);
+                    final bytesPerRow = (width + 7) >> 3;
+                    final totalBytes = bytesPerRow * height;
+
+                    // Cria imagem preta sólida
+                    final blackData = Uint8List.fromList(List.generate(totalBytes, (_) => 0xFF));
+                    //final mono = MonoBitmap(blackData, width, height);
+
+                    // Monta ESC/POS job simples com GAP + Feed
+                    final job = BytesBuilder();
+
+                    // ESC @ init
+                    job.add([0x1B, 0x40]);
+
+                    // Alinhamento: left
+                    job.add([0x1B, 0x61, 0x00]);
+
+                    // Bold ON
+                    job.add([0x1B, 0x45, 1]);
+
+                    // GS v 0 m xL xH yL yH {data}
+                    final xL = bytesPerRow & 0xFF;
+                    final xH = (bytesPerRow >> 8) & 0xFF;
+                    final yL = height & 0xFF;
+                    final yH = (height >> 8) & 0xFF;
+                    job.add([0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH]);
+                    job.add(blackData);
+
+                    // GAP: avança papel ~10 mm (80 dots)
+                    job.add([0x1B, 0x4A, 80]);
+
+                    // Feed final (reforço)
+                    job.add([0x0A]);
+
+                    final bytes = job.toBytes();
+
+                    // Envia com chunk de 12 e delay maior
+                    await ble.writeAll(bytes, chunk: 12);
+                    await Future.delayed(const Duration(milliseconds: 30));
+                    await ble.disconnect();
+                    await ble.writeAll(bytes, chunk: 12);
+
+                    // Feedback
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Etiqueta preta enviada para a impressora.')),
+                      );
+                    }
+                  },
+                  child: const Text('Teste etiqueta preta'),
+                ),*/
                 IconButton(
                   tooltip: 'Formulário',
                   icon: Icon(

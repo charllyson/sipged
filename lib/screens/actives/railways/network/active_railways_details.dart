@@ -3,7 +3,7 @@ import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
 
-import 'package:siged/_utils/responsive_utils.dart';
+import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 
 class ActiveRailwaysDetails extends StatefulWidget {

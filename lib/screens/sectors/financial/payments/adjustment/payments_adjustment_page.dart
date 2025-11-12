@@ -6,7 +6,7 @@ import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adju
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_controller.dart';
 
 import 'package:siged/_blocs/process/additives/additives_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_services/excel/import_excel_page.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
@@ -21,7 +21,7 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 
 class PaymentsAdjustmentPage extends StatelessWidget {
   const PaymentsAdjustmentPage({super.key, this.contractData});
-  final ContractData? contractData;
+  final ProcessData? contractData;
 
   @override
   Widget build(BuildContext context) {

@@ -16,9 +16,9 @@ import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'package:siged/_blocs/process/additives/additives_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
@@ -43,7 +43,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
   PaymentAdjustmentBloc get bloc => _paymentAdjustmentBloc;
 
   UserData? currentUser;
-  ContractData? contract;
+  ProcessData? contract;
 
   List<PaymentsAdjustmentsData> _payments = <PaymentsAdjustmentsData>[];
   // 🆕 snapshot para suporte ao dropdown inteligente
@@ -142,7 +142,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
     }
   }
 
-  Future<void> init(BuildContext context, {required ContractData? contractData}) async {
+  Future<void> init(BuildContext context, {required ProcessData? contractData}) async {
     contract = contractData;
     if (contract?.id == null) return;
 

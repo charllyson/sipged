@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/panels/overview-dashboard/overview_dashboard_style.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_rules.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
-import 'package:siged/screens/process/hiring/tab_bar_contract_page.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/screens/process/hiring/tab_bar_hiring_page.dart';
 
 class ListResumed extends StatelessWidget {
-  final List<ContractData> contract;
+  final List<ProcessData> contract;
 
   const ListResumed({super.key, required this.contract});
 
@@ -15,18 +16,18 @@ class ListResumed extends StatelessWidget {
   Widget build(BuildContext context) {
     if (contract.isEmpty) return const SizedBox();
 
-    final contratosOrdenados = List<ContractData>.from(contract)
+    final contratosOrdenados = List<ProcessData>.from(contract)
       ..sort((a, b) {
-        final statusA = a.contractStatus?.toUpperCase() ?? '';
-        final statusB = b.contractStatus?.toUpperCase() ?? '';
-        final prioridadeA = ContractRules.priorityStatus[statusA] ?? 99;
-        final prioridadeB = ContractRules.priorityStatus[statusB] ?? 99;
+        final statusA = a.status?.toUpperCase() ?? '';
+        final statusB = b.status?.toUpperCase() ?? '';
+        final prioridadeA = DfdData.priorityStatus[statusA] ?? 99;
+        final prioridadeB = DfdData.priorityStatus[statusB] ?? 99;
 
         if (prioridadeA != prioridadeB) {
           return prioridadeA.compareTo(prioridadeB);
         }
 
-        return (a.summarySubjectContract ?? '').compareTo(b.summarySubjectContract ?? '');
+        return (a.summarySubject ?? '').compareTo(b.summarySubject ?? '');
       });
 
     return Padding(
@@ -68,9 +69,9 @@ class ListResumed extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            contrato.contractStatus ?? '',
+                            contrato.status ?? '',
                             style: TextStyle(
-                              color: OverviewDashboardStyle.statusColors[contrato.contractStatus?.toUpperCase()] ?? Colors.black,
+                              color: DemandsDashboardOverviewStyle.statusColors[contrato.status?.toUpperCase()] ?? Colors.black,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -78,7 +79,7 @@ class ListResumed extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${contrato.contractNumber} - ${contrato.summarySubjectContract}',
+                        '${contrato.contractNumber} - ${contrato.summarySubject}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),

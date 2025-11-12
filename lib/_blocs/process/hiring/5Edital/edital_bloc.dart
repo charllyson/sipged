@@ -1,0 +1,94 @@
+import 'dart:async';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_sections.dart';
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
+import 'edital_repository.dart';
+
+part 'edital_event.dart';
+part 'edital_state.dart';
+
+class EditalBloc extends Bloc<EditalEvent, EditalState> {
+  final EditalRepository repo;
+
+  EditalBloc(this.repo) : super(EditalState.initial()) {
+    on<EditalLoadRequested>(_onLoad);
+    on<EditalSaveRequested>(_onSaveAll);
+    on<EditalSaveOneSectionRequested>(_onSaveOne);
+    on<EditalClearSuccessRequested>((e, emit) {
+      if (state.saveSuccess) emit(state.copyWith(saveSuccess: false));
+    });
+  }
+
+  Future<void> _onLoad(EditalLoadRequested e, Emitter<EditalState> emit) async {
+    emit(state.copyWith(loading: true, error: null, saveSuccess: false));
+    try {
+      final ids = await repo.ensureEditalStructure(e.contractId);
+      final data = await repo.loadAllSections(
+        contractId: e.contractId,
+        editalId: ids.editalId,
+        sectionIds: ids.sectionIds,
+      );
+      emit(state.copyWith(
+        loading: false,
+        editalId: ids.editalId,
+        sectionIds: ids.sectionIds,
+        sectionsData: data,
+      ));
+    } catch (err) {
+      emit(state.copyWith(loading: false, error: err.toString()));
+    }
+  }
+
+  Future<void> _onSaveAll(EditalSaveRequested e, Emitter<EditalState> emit) async {
+    if (!state.hasValidPath) return;
+    emit(state.copyWith(saving: true, saveSuccess: false, error: null));
+    try {
+      await repo.saveSectionsBatch(
+        contractId: e.contractId,
+        editalId: state.editalId!,
+        sectionIds: state.sectionIds,
+        sectionsData: e.sectionsData,
+      );
+
+      final merged = {...state.sectionsData};
+      e.sectionsData.forEach((k, v) {
+        merged[k] = {...(merged[k] ?? const {}), ...v};
+      });
+
+      emit(state.copyWith(saving: false, saveSuccess: true, sectionsData: merged));
+    } catch (err) {
+      emit(state.copyWith(saving: false, saveSuccess: false, error: err.toString()));
+    }
+  }
+
+  Future<void> _onSaveOne(EditalSaveOneSectionRequested e, Emitter<EditalState> emit) async {
+    if (!state.hasValidPath) return;
+    emit(state.copyWith(saving: true, saveSuccess: false, error: null));
+    try {
+      final sectionId = state.sectionIds[e.sectionKey];
+      if (sectionId == null) {
+        emit(state.copyWith(
+          saving: false,
+          saveSuccess: false,
+          error: 'Seção inválida: ${e.sectionKey}',
+        ));
+        return;
+      }
+
+      await repo.saveSection(
+        contractId: e.contractId,
+        editalId: state.editalId!,
+        sectionKey: e.sectionKey,
+        sectionDocId: sectionId,
+        data: e.data,
+      );
+
+      final merged = {...state.sectionsData};
+      merged[e.sectionKey] = {...(merged[e.sectionKey] ?? const {}), ...e.data};
+
+      emit(state.copyWith(saving: false, saveSuccess: true, sectionsData: merged));
+    } catch (err) {
+      emit(state.copyWith(saving: false, saveSuccess: false, error: err.toString()));
+    }
+  }
+}

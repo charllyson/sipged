@@ -31,7 +31,7 @@ class BackCircleButton extends StatelessWidget {
       child: IconButton(
         icon: Icon(icon, size: radius * 0.9),
         color: iconClr,
-        onPressed: onPressed ?? () => Navigator.of(context).pop(),
+        onPressed: onPressed ?? () => Navigator.of(context).maybePop(),
         tooltip: tooltip,
       ),
     );

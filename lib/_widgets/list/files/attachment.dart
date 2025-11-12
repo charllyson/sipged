@@ -1,27 +1,44 @@
+// lib/_widgets/list/files/attachment.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// ===============================
 /// Modelo leve de anexo com rótulo
 /// ===============================
 class Attachment {
+  /// ID do documento no Firestore (quando disponível)
   String id;
+
+  /// Rótulo amigável para exibição
   String label;
+
+  /// URL pública (downloadURL)
   String url;
+
+  /// Caminho no Firebase Storage
   String path;
+
+  /// Extensão do arquivo (ex.: pdf, png)
   String ext;
+
+  /// Tamanho em bytes
   int? size;
+
+  /// Content-Type/MIME (ex.: application/pdf)
+  String? contentType;
+
   DateTime? createdAt;
   String? createdBy;
   DateTime? updatedAt;
   String? updatedBy;
 
   Attachment({
-    required this.id,
-    required this.label,
-    required this.url,
-    required this.path,
-    required this.ext,
+    this.id = '',
+    this.label = 'Arquivo',
+    this.url = '',
+    this.path = '',
+    this.ext = '',
     this.size,
+    this.contentType,
     this.createdAt,
     this.createdBy,
     this.updatedAt,
@@ -36,6 +53,7 @@ class Attachment {
     String? path,
     String? ext,
     int? size,
+    String? contentType,
     DateTime? createdAt,
     String? createdBy,
     DateTime? updatedAt,
@@ -48,6 +66,7 @@ class Attachment {
       path: path ?? this.path,
       ext: ext ?? this.ext,
       size: size ?? this.size,
+      contentType: contentType ?? this.contentType,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -73,14 +92,15 @@ class Attachment {
   }
 
   // ---------- Serialização ----------
-  factory Attachment.fromMap(Map<String, dynamic> map) {
+  factory Attachment.fromMap(Map<String, dynamic> map, {String id = ''}) {
     return Attachment(
-      id: (map['id'] as String?) ?? '',
-      label: (map['label'] as String?) ?? 'Arquivo',
+      id: id,
+      label: (map['label'] as String?) ?? (map['name'] as String?) ?? 'Arquivo',
       url: (map['url'] as String?) ?? '',
       path: (map['path'] as String?) ?? '',
       ext: (map['ext'] as String?) ?? '',
       size: _toInt(map['size']),
+      contentType: map['contentType'] as String?,
       createdAt: _toDate(map['createdAt']),
       createdBy: map['createdBy'] as String?,
       updatedAt: _toDate(map['updatedAt']),
@@ -88,13 +108,20 @@ class Attachment {
     );
   }
 
+  factory Attachment.fromFirestore(
+      DocumentSnapshot<Map<String, dynamic>> doc,
+      ) {
+    final data = doc.data() ?? <String, dynamic>{};
+    return Attachment.fromMap(data, id: doc.id);
+  }
+
   Map<String, dynamic> toMap() => {
-    'id': id,
     'label': label,
     'url': url,
     'path': path,
     'ext': ext,
     'size': size,
+    'contentType': contentType,
     'createdAt': createdAt,
     'createdBy': createdBy,
     'updatedAt': updatedAt,
@@ -103,5 +130,5 @@ class Attachment {
 
   @override
   String toString() =>
-      'Attachment(id: $id, label: $label, url: $url, ext: $ext, size: $size)';
+      'Attachment(id: $id, label: $label, url: $url, ext: $ext, size: $size, contentType: $contentType)';
 }

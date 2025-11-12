@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 import 'package:siged/_widgets/schedule/physical_financial/percent_dialog.dart';
@@ -13,8 +13,8 @@ import '../../../_widgets/schedule/physical_financial/physfin_models.dart';
 
 class PhysicsFinanceController {
   /// Constrói a lista de dias a partir do contrato: múltiplos de 30 até o limite.
-  static List<int> daysFromContract(ContractData c) {
-    final int maxDays = (c.initialValidityExecutionDays ?? 0);
+  static List<int> daysFromContract(ProcessData c) {
+    final int maxDays = (c.initialValidityExecution ?? 0);
     if (maxDays <= 0) {
       // fallback: 12 períodos mensais (30 dias)
       return List<int>.generate(12, (i) => (i + 1) * 30);

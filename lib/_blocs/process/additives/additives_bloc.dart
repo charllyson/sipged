@@ -4,7 +4,7 @@ import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:siged/_blocs/process/additives/additive_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/registers/register_class.dart';
 
@@ -72,17 +72,17 @@ class AdditivesBloc extends BlocBase {
     });
   }
 
-  Future<ContractData?> buscarContrato(String contractId) async {
+  Future<ProcessData?> buscarContrato(String contractId) async {
     final snap = await _db.collection('contracts').doc(contractId).get();
     if (!snap.exists) return null;
-    return ContractData.fromDocument(snapshot: snap);
+    return ProcessData.fromDocument(snapshot: snap);
   }
 
   // -----------------------------
   // Agregações
   // -----------------------------
   Future<double> getValorPorStatus(
-      List<ContractData> contratos,
+      List<ProcessData> contratos,
       String statusDesejado,
       ) async {
     if (contratos.isEmpty) return 0.0;
@@ -91,7 +91,7 @@ class AdditivesBloc extends BlocBase {
     final filtrados = contratos
         .where((c) =>
     (c.id?.isNotEmpty ?? false) &&
-        ((c.contractStatus ?? '').toUpperCase() == alvo))
+        ((c.status ?? '').toUpperCase() == alvo))
         .toList();
 
     if (filtrados.isEmpty) return 0.0;
@@ -124,11 +124,11 @@ class AdditivesBloc extends BlocBase {
   }
 
   Future<double> somarValoresAditivosPorStatus({
-    required List<ContractData> contratos,
+    required List<ProcessData> contratos,
     required String status,
   }) async {
     double total = 0.0;
-    final filtrados = contratos.where((c) => c.contractStatus == status).toList();
+    final filtrados = contratos.where((c) => c.status == status).toList();
     for (final c in filtrados) {
       final s = await _db.collection('contracts').doc(c.id).collection('additives').get();
       for (final d in s.docs) {

@@ -8,11 +8,12 @@ import 'package:latlong2/latlong.dart';
 import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_rules.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_style.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_blocs/process/contracts/contract_rules.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
 
 import 'package:siged/screens/actives/railways/network/railway_ties.dart';
-import 'package:siged/_utils/multi_line_simplifier.dart';
+import 'package:siged/_utils/map/multi_line_simplifier.dart';
 
 enum ActiveRailwaysLoadStatus { idle, loading, success, failure }
 
@@ -85,7 +86,7 @@ class ActiveRailwaysState extends Equatable {
   // =========================
   // Regiões (reuso de ContractRules.regions)
   // =========================
-  List<String> get regionLabels => ContractRules.regions;
+  List<String> get regionLabels => DfdData.regions;
 
   String _canonRegion(String? s) =>
       ActiveRailwaysRules.canonRegion(s, regionLabels);

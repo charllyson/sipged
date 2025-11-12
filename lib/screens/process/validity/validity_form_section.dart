@@ -3,13 +3,13 @@
 // ==============================
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/validity/validity_data.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_utils/responsive_utils.dart';
+import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 
@@ -33,7 +33,7 @@ class ValidityFormSection extends StatelessWidget {
   final VoidCallback onSaveOrUpdate;
   final VoidCallback onClear;
   final Function(DateTime?) onChangeDate;
-  final ContractData? contractData;
+  final ProcessData? contractData;
 
   // SideListBox (agora List<dynamic> + editar rótulo)
   final List<dynamic> sideItems;

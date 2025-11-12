@@ -6,7 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/revision/revision_measurement_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 
@@ -20,7 +20,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
 
   String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ContractData c, RevisionMeasurementData r) {
+  String fileName(ProcessData c, RevisionMeasurementData r) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem = (r.order ?? 0).toString();
     final proc = _sanitize(r.numberprocess ?? 'processo');
@@ -28,14 +28,14 @@ class RevisionMeasurementStorageBloc extends BlocBase {
   }
 
   String pathFor({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
   }) =>
       'contracts/${contract.id}/measurements/$measurementId/${fileName(contract, rev)}';
 
   // ======= Suporte a multi-anexos =======
-  String attachmentsDir(ContractData c, RevisionMeasurementData r) =>
+  String attachmentsDir(ProcessData c, RevisionMeasurementData r) =>
       'contracts/${c.id}/measurements/${r.id}/attachments';
 
   String _extFromName(String name) {
@@ -72,7 +72,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
   }
 
   Future<Attachment> uploadAttachmentBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required RevisionMeasurementData revision,
     required Uint8List bytes,
     required String originalName,
@@ -122,7 +122,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
 
   // ====== API legado (PDF único) ======
   Future<bool> exists({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
   }) async {
@@ -137,7 +137,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
   }
 
   Future<String?> getUrl({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
   }) async {
@@ -152,7 +152,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
   }
 
   Future<String> uploadWithPicker({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
     required void Function(double progress) onProgress,
@@ -175,7 +175,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
   }
 
   Future<String> uploadBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
     required Uint8List bytes,
@@ -195,7 +195,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
   }
 
   Future<bool> delete({
-    required ContractData contract,
+    required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
   }) async {

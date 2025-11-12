@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_utils/colors/colors_system_change.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -113,9 +114,9 @@ class SideListBox extends StatelessWidget {
             // Cabeçalho
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1B2039),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+              decoration: BoxDecoration(
+                color: ColorsSystemChange.primaryColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               ),
               child: Row(
                 children: [

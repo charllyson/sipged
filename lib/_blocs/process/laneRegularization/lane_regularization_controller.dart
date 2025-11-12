@@ -9,9 +9,9 @@ import 'lane_regularization_store.dart';
 import 'lane_regularization_storage_bloc.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 // ✅ helpers papel
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
@@ -28,7 +28,7 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 
 class LaneRegularizationController extends ChangeNotifier
     with FormValidationMixin {
-  final ContractData contract;
+  final ProcessData contract;
   final LaneRegularizationStore store;
   final LaneRegularizationStorageBloc storage;
 

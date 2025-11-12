@@ -2,12 +2,13 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_rules.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_style.dart';
 
 // 👇 GeoJSON
 import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
-import 'package:siged/_services/geo_json_manager.dart';
+import 'package:siged/_services/geoJson/geo_json_manager.dart';
 
 enum ActiveOaesLoadStatus { idle, loading, success, failure }
 
@@ -215,7 +216,7 @@ class ActiveOaesState extends Equatable {
   // ===========================================================================
   // REGIÕES (Bar Chart)
   // ===========================================================================
-  List<String> get regionLabels => ContractRules.regions;
+  List<String> get regionLabels => DfdData.regions;
 
   List<double> get regionCounts {
     final labels = regionLabels;

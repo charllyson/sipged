@@ -5,7 +5,7 @@ import 'package:siged/_blocs/sectors/financial/payments/report/payment_report_co
 import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
@@ -27,7 +27,7 @@ class PaymentsReportPage extends StatelessWidget {
     this.reportData = const [],
   });
 
-  final ContractData? contractData;
+  final ProcessData? contractData;
   final List<ReportMeasurementData> reportData;
 
   @override

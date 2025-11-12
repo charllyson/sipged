@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 import 'package:siged/_widgets/list/resume/list_resumed.dart';
 import 'package:siged/_widgets/summary/summary_expandable_card.dart';
 import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_chart_row_two.dart';
@@ -14,7 +15,7 @@ import '../../../../_widgets/upBar/up_bar.dart';
 
 import 'overview_dashboard_type.dart';
 import 'overview_dashboard_charts_row_one.dart';
-import '../../../_blocs/process/contracts/contracts_controller.dart';
+import '../../../_blocs/_process/process_controller.dart';
 import 'overview_dashboard_list.dart';
 import 'overview_dashboard_map.dart';
 import 'overview_dashboard_summary.dart';
@@ -33,7 +34,7 @@ class _OverviewDashboardPageState extends State<OverviewDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<ContractsController>();
+    final controller = context.watch<DemandsDashboardController>();
 
     return Stack(
       children: [
@@ -53,7 +54,6 @@ class _OverviewDashboardPageState extends State<OverviewDashboardPage> {
                   const SizedBox(height: 8),
                   const OverviewDashboardSummary(),
                   const SizedBox(height: 12),
-
                   OverviewDashboardTypeFiltered(controller: controller),
                   const SizedBox(height: 12),
 
@@ -144,7 +144,7 @@ class _OverviewDashboardPageState extends State<OverviewDashboardPage> {
                       String? resumo;
                       if (contractId != null) {
                         final contrato = await controller.store.getById(contractId);
-                        resumo = contrato?.summarySubjectContract ?? 'Contrato não encontrado';
+                        resumo = contrato?.summarySubject ?? 'Contrato não encontrado';
                         if (contrato != null) controller.store.select(contrato);
                       }
 

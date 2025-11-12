@@ -10,9 +10,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 // ===== SIGED: Models / Stores / Controllers =====
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
-import 'package:siged/_blocs/process/contracts/contracts_controller.dart';
-import 'package:siged/_blocs/process/contracts/contract_storage_bloc.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/_process/process_controller.dart';
+import 'package:siged/_blocs/_process/process_storage_bloc.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 
 import 'package:siged/_blocs/process/additives/additive_data.dart';
 import 'package:siged/_blocs/process/adjustment/adjustment_measurement_store.dart';
@@ -60,7 +61,7 @@ import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_list.
 
 // Timeline
 import 'package:siged/_widgets/timeline/timeline_class.dart';
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 
 class SpecificDashboardPage extends StatefulWidget {
   const SpecificDashboardPage({
@@ -68,7 +69,7 @@ class SpecificDashboardPage extends StatefulWidget {
     required this.contractData,
   });
 
-  final ContractData contractData;
+  final ProcessData contractData;
 
   @override
   State<SpecificDashboardPage> createState() => _SpecificDashboardPageState();
@@ -86,14 +87,14 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
 
   // ===== TIMELINE: futures memorizados =====
   late Future<List<ValidityData>> _futureValidity;
-  late Future<List<ContractData>> _futureContractList;
+  late Future<List<ProcessData>> _futureContractList;
   late Future<List<AdditiveData>> _futureAdditiveList;
   bool _timelineInitialized = false;
 
   String _norm(String? s) => (s ?? '').trim().toUpperCase();
 
   // ---------- Helpers: Totais contrato + AA ----------
-  double _totalContratadoMaisAA(ContractsController controller, ContractData k) {
+  double _totalContratadoMaisAA(DemandsDashboardController controller, ProcessData k) {
     final id = k.id ?? '';
     final contratado = (k.initialValueContract ?? 0).toDouble();
 
@@ -108,15 +109,15 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     return contratado + aditivos + apostilas;
   }
 
-  Map<String, double>? _benchmarksDoServico(ContractsController controller, ContractData c) {
-    final svcRaw = c.contractServices ?? '';
+  Map<String, double>? _benchmarksDoServico(DemandsDashboardController controller, ProcessData c) {
+    final svcRaw = c.services ?? '';
     final svc = _norm(svcRaw);
     if (svc.isEmpty) return null;
 
     final mesmaBase = controller.filteredContracts.where((k) {
-      final km = (k.contractExtKm ?? 0).toDouble();
+      final km = (k.ext ?? 0).toDouble();
       final total = _totalContratadoMaisAA(controller, k);
-      return _norm(k.contractServices) == svc && km > 0 && total > 0;
+      return _norm(k.services) == svc && km > 0 && total > 0;
     }).toList();
 
     if (mesmaBase.isEmpty) return null;
@@ -127,7 +128,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
 
     for (final k in mesmaBase) {
       final total = _totalContratadoMaisAA(controller, k);
-      final km = (k.contractExtKm ?? 0).toDouble();
+      final km = (k.ext ?? 0).toDouble();
       if (km <= 0) continue;
 
       somaTotal += total;
@@ -221,9 +222,9 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
 
   // ---------- PV multi-séries ----------
   Future<void> _refreshPv({
-    required ContractsController controller,
+    required DemandsDashboardController controller,
     required ScheduleRoadState scheduleState,
-    required ContractData contract,
+    required ProcessData contract,
   }) async {
     if (!mounted) return;
 
@@ -395,7 +396,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
   }
 
   Future<List<AdditiveData>> _loadAdditives(String contractId) async {
-    final controller = context.read<ContractsController>();
+    final controller = context.read<ProcessController>();
     final addStore = controller.additivesStore;
     await addStore.ensureFor(contractId);
     return addStore.listFor(contractId);
@@ -408,7 +409,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
 
     _futureValidity = _loadValidities(cid);
     _futureAdditiveList = _loadAdditives(cid);
-    _futureContractList = Future<List<ContractData>>.value([widget.contractData]);
+    _futureContractList = Future<List<ProcessData>>.value([widget.contractData]);
 
     _timelineInitialized = true;
   }
@@ -419,7 +420,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     // Inicializa futures da Timeline
     _initTimelineFuturesIfNeeded();
 
-    final controller = context.read<ContractsController>();
+    final controller = context.read<DemandsDashboardController>();
     final scheduleState = context.read<ScheduleRoadBloc>().state;
     _refreshPv(
       controller: controller,
@@ -430,7 +431,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<ContractsController>();
+    final controller = context.watch<DemandsDashboardController>();
     final adjStore = context.watch<AdjustmentsMeasurementStore>();
     final revStore = context.watch<RevisionsMeasurementStore>();
 
@@ -472,9 +473,6 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     final DateTime start = DateTime(DateTime.now().year - 1, 1, 1);
     final DateTime end = DateTime(DateTime.now().year, 12, 31);
     final DateTime asOf = DateTime.now();
-    final double phys =
-    ((widget.contractData.physicalPercentage ?? 0) / 100.0).clamp(0.0, 1.0);
-
     final evm = EvmCalculator.snapshot(
       contract: widget.contractData,
       measurementsOfThisContract: contractMeasurements,
@@ -482,7 +480,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
       start: start,
       end: end,
       asOf: asOf,
-      physicalPercent: phys,
+      physicalPercent: 0
     );
 
     final pvCurve = EvmCalculator.plannedCumulative(
@@ -510,8 +508,8 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     final qualityScore = 100.0;
     final riskScore = 80.0;
 
-    final custoPorKmAtual = (widget.contractData.contractExtKm ?? 0) > 0
-        ? totalContratoAA / (widget.contractData.contractExtKm ?? 1)
+    final custoPorKmAtual = (widget.contractData.ext ?? 0) > 0
+        ? totalContratoAA / (widget.contractData.ext ?? 1)
         : 0.0;
 
     final alerts = AlertRules.evaluate(
@@ -520,8 +518,8 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
       costPerKm: custoPorKmAtual,
       mediaServico: bm?['Média'],
       tetoServico: bm?['Teto'],
-      toContractEnd: widget.contractData.initialValidityContractDays != null
-          ? Duration(days: widget.contractData.initialValidityContractDays!)
+      toContractEnd: widget.contractData.initialValidityContract != null
+          ? Duration(days: widget.contractData.initialValidityContract!)
           : null,
     );
 
@@ -578,9 +576,9 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                         const SizedBox(width: 12),
                         CostPerKmRuler(
                           totalValueBRL: totalContratoAA,
-                          lengthKm: widget.contractData.contractExtKm ?? 0,
+                          lengthKm: widget.contractData.ext ?? 0,
                           title: 'Custo por km',
-                          serviceName: widget.contractData.contractServices, // se o widget aceitar
+                          serviceName: widget.contractData.services, // se o widget aceitar
                           benchmarks: bm,
                         ),
                         const SizedBox(width: 12),
@@ -721,7 +719,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                           if (contractId != null) {
                             final contrato =
                             await controller.store.getById(contractId);
-                            resumo = contrato?.summarySubjectContract ??
+                            resumo = contrato?.summarySubject ??
                                 'Contrato não encontrado';
                             if (contrato != null) controller.store.select(contrato);
                           }

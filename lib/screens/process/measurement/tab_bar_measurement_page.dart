@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_bloc.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:siged/screens/process/measurement/report/report_measurement_page.dart';
@@ -9,8 +9,8 @@ import 'package:siged/screens/process/measurement/adjustment/adjustment_measurem
 import 'package:siged/screens/process/measurement/revision/revision_measurement_page.dart';
 
 class TabBarMeasurementPage extends StatelessWidget {
-  final ContractData? contractData;
-  final ContractBloc? contractsBloc;
+  final ProcessData? contractData;
+  final ProcessBloc? contractsBloc;
   final int initialTabIndex;
 
   const TabBarMeasurementPage({

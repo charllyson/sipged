@@ -9,8 +9,8 @@ import 'package:intl/intl.dart';
 
 import 'package:siged/_blocs/process/additives/additive_data.dart';
 import 'package:siged/_blocs/process/additives/additives_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_bloc.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/validity/validity_bloc.dart';
 import 'package:siged/_blocs/process/validity/validity_data.dart';
 import 'package:siged/_blocs/process/validity/validity_storage_bloc.dart';
@@ -29,7 +29,7 @@ import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
 // ✅ util
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 
 // 🔔 Notificações (novo)
@@ -38,18 +38,18 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ValidityController extends ChangeNotifier with FormValidationMixin {
   // Blocs Firestore
-  final ContractBloc _contractsBloc = ContractBloc();
+  final ProcessBloc _contractsBloc = ProcessBloc();
   final AdditivesBloc _additivesBloc = AdditivesBloc();
   final ValidityBloc _validityBloc = ValidityBloc();
 
   // Store + Storage
   final ValidityStorageBloc validityStorageBloc;
-  final ContractData contract;
+  final ProcessData contract;
 
   // Futures usados na tela/Timeline
   late Future<List<ValidityData>> futureValidity = Future.value([]);
   late Future<List<AdditiveData>> futureAdditives = Future.value([]);
-  late Future<List<ContractData>> futureContractList = Future.value([]);
+  late Future<List<ProcessData>> futureContractList = Future.value([]);
 
   // Snapshot em memória das validades (para dropdown de ordem)
   List<ValidityData> _lastSnapshot = [];

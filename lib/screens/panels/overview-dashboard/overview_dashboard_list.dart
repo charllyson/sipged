@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_store.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_store.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 // REPORT (lista base do gráfico)
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
@@ -14,7 +14,7 @@ import 'package:siged/_blocs/process/revision/revision_measurement_data.dart';
 import 'package:siged/_blocs/process/revision/revision_measurement_store.dart';
 
 import 'package:siged/_widgets/chip/build_value_chip.dart';
-import 'package:siged/screens/process/hiring/tab_bar_contract_page.dart';
+import 'package:siged/screens/process/hiring/tab_bar_hiring_page.dart';
 
 class OverviewDashboardList extends StatelessWidget {
   final List<ReportMeasurementData> currentFiltered;
@@ -93,8 +93,8 @@ class OverviewDashboardList extends StatelessWidget {
               onTap: () async {
                 if (contractId == null) return;
 
-                final store = context.read<ContractsStore>();
-                final ContractData? contrato = await store.getById(contractId);
+                final store = context.read<ProcessStore>();
+                final ProcessData? contrato = await store.getById(contractId);
                 if (contrato == null) return;
 
                 store.select(contrato);

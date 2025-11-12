@@ -12,7 +12,8 @@ enum MenuItem {
   processAdditiveRecords,
   processApostillesRecords,
   processMeasurementsRecords,
-  processLandRegularizationRecords,
+  processHiringBudget,
+  processHiringSchedule,
 
   operationMonitoringWork,
 
@@ -59,7 +60,8 @@ class PagesData {
     'process-additive-records',
     'process-apostilles-records',
     'process-measurements-records',
-    'process-land-regularization-records',
+    'process-hiring-budget'
+    'process-hiring-schedule',
 
     'operation-work-timeline',
 
@@ -224,10 +226,16 @@ class PagesData {
           homeIcon: Icons.receipt_long,
         ),
         MenuDrawerSubItem(
-          label: 'REGULARIZAÇÃO DE TERRENOS',
-          menuItem: MenuItem.processLandRegularizationRecords,
-          permissionModule: 'process-land-regularization-records',
-          homeIcon: Icons.layers,
+          label: 'ORÇAMENTO',
+          menuItem: MenuItem.processHiringBudget,
+          permissionModule: 'process-hiring-budget',
+          homeIcon: Icons.attach_money,
+        ),
+        MenuDrawerSubItem(
+          label: 'CRONOGRAMA',
+          menuItem: MenuItem.processHiringSchedule,
+          permissionModule: 'process-hiring-schedule',
+          homeIcon: Icons.calendar_month,
         ),
       ],
     ),

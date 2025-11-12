@@ -8,7 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:siged/_blocs/process/additives/additive_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 // ✅ usamos o mesmo modelo de anexo do módulo de Relatório
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -25,11 +25,11 @@ class AdditivesStorageBloc extends BlocBase {
   String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
   // pasta do aditivo (para múltiplos arquivos)
-  String folderFor(ContractData c, AdditiveData a) =>
+  String folderFor(ProcessData c, AdditiveData a) =>
       'contracts/${c.id}/additives/${a.id}/';
 
   // nome “legado” (um único pdf)
-  String legacyFileName(ContractData c, AdditiveData a) {
+  String legacyFileName(ProcessData c, AdditiveData a) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem    = (a.additiveOrder ?? 0).toString().padLeft(3, '0');
     final proc     = _sanitize(a.additiveNumberProcess ?? 'processo');
@@ -37,7 +37,7 @@ class AdditivesStorageBloc extends BlocBase {
   }
 
   // caminho legado (mantido para compatibilidade)
-  String legacyPathFor(ContractData c, AdditiveData a) =>
+  String legacyPathFor(ProcessData c, AdditiveData a) =>
       '${folderFor(c, a)}${legacyFileName(c, a)}';
 
   // ===== helpers de nome/metadata para multi-anexos =====
@@ -65,7 +65,7 @@ class AdditivesStorageBloc extends BlocBase {
   // ---------- Operações principais (multi-arquivos + legado) ----------
 
   /// Verifica se existe **arquivo legado** no caminho fixo.
-  Future<bool> exists(ContractData c, AdditiveData a) async {
+  Future<bool> exists(ProcessData c, AdditiveData a) async {
     try {
       await _storage.ref(legacyPathFor(c, a)).getMetadata();
       return true;
@@ -75,7 +75,7 @@ class AdditivesStorageBloc extends BlocBase {
   }
 
   /// Retorna a URL do **arquivo legado** (se existir).
-  Future<String?> getUrl(ContractData c, AdditiveData a) async {
+  Future<String?> getUrl(ProcessData c, AdditiveData a) async {
     try {
       return await _storage.ref(legacyPathFor(c, a)).getDownloadURL();
     } catch (e) {
@@ -87,7 +87,7 @@ class AdditivesStorageBloc extends BlocBase {
   /// Abre seletor e faz upload (multi-arquivos).
   /// Salva em `contracts/{cid}/additives/{aid}/{arquivo_original}_{timestamp}.pdf`
   Future<String> uploadWithPicker({
-    required ContractData contract,
+    required ProcessData contract,
     required AdditiveData additive,
     required void Function(double progress) onProgress,
   }) async {
@@ -144,7 +144,7 @@ class AdditivesStorageBloc extends BlocBase {
 
   /// Upload **legado** (um arquivo fixo – mantém compat).
   Future<String> uploadBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required AdditiveData additive,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
@@ -159,7 +159,7 @@ class AdditivesStorageBloc extends BlocBase {
   }
 
   /// Apaga o **arquivo legado** (se existir).
-  Future<bool> delete(ContractData c, AdditiveData a) async {
+  Future<bool> delete(ProcessData c, AdditiveData a) async {
     try {
       await _storage.ref(legacyPathFor(c, a)).delete();
       return true;
@@ -212,7 +212,7 @@ class AdditivesStorageBloc extends BlocBase {
 
   /// Upload (multi-anexos) retornando **ReportMeasurementAttachment**.
   Future<Attachment> uploadAttachmentBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required AdditiveData additive,
     required Uint8List bytes,
     required String originalName,
@@ -292,7 +292,7 @@ class AdditivesStorageBloc extends BlocBase {
 
   /// (LEGADO) Envia um PDF abrindo o seletor; ao concluir, chama [onUploaded] com a URL.
   Future<void> sendPdf({
-    required ContractData? contract,
+    required ProcessData? contract,
     required AdditiveData? additive,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded,
@@ -317,7 +317,7 @@ class AdditivesStorageBloc extends BlocBase {
 
   /// (LEGADO) Verifica existência do PDF legado.
   Future<bool> verificarSePdfDeAditivoExiste({
-    required ContractData contract,
+    required ProcessData contract,
     required AdditiveData additive,
   }) {
     return exists(contract, additive);
@@ -325,7 +325,7 @@ class AdditivesStorageBloc extends BlocBase {
 
   /// (LEGADO) Obtém a URL do PDF legado.
   Future<String?> getPdfUrlDoAditivo({
-    required ContractData contract,
+    required ProcessData contract,
     required AdditiveData additive,
   }) {
     return getUrl(contract, additive);

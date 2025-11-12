@@ -8,7 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_storage_bloc.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_store.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 
 // ⬇️ abre dentro do app
@@ -18,10 +18,10 @@ import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/handle_selection_utils.dart';
+import 'package:siged/_utils/handle/handle_selection_utils.dart';
 
 // ✅ papéis/permissões
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
@@ -35,7 +35,7 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 class ApostillesController extends ChangeNotifier with FormValidationMixin {
   // Injetados
   final ApostillesStore store;
-  final ContractData contract;
+  final ProcessData contract;
   final ApostillesStorageBloc apostillesStorageBloc;
 
   // User (via UserBloc)

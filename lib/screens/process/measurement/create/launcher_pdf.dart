@@ -4,12 +4,12 @@ import 'package:pdf/widgets.dart' as pw;
 
 import 'package:printing/printing.dart' show PdfGoogleFonts;
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 
 Future<Uint8List> buildPdfBytes({
   required MagicTableController ctrl,
-  required ContractData contractData,
+  required ProcessData contractData,
   required ReportMeasurementData? measurement,
 }) async {
   // === Fontes (Unicode) ===
@@ -242,7 +242,7 @@ Future<Uint8List> buildPdfBytes({
 
 /// ======== Cabeçalho PDF (repetido em todas as páginas) ========
 pw.Widget _pdfHeader({
-  required ContractData contractData,
+  required ProcessData contractData,
   required ReportMeasurementData? measurement,
   required DateTime emittedAt,
 }) {
@@ -266,15 +266,13 @@ pw.Widget _pdfHeader({
     return '$dd/$mm/$yy';
   }
 
-  final obra = dash(contractData.summarySubjectContract ??
-      contractData.contractObjectDescription);
-  final local = dash(contractData.regionOfState);
+  final local = dash(contractData.region);
   final construtora = dash(contractData.companyLeader);
   final contratoNum = dash(contractData.contractNumber);
   final valorContrato = money(contractData.initialValueContract ?? 0);
   final prazoExec =
-      contractData.initialValidityExecutionDays?.toString() ?? '–';
-  final assinatura = dateStr(contractData.publicationDateDoe);
+      contractData.initialValidityExecution?.toString() ?? '–';
+  final assinatura = dateStr(contractData.publicationDate);
   final ordemServ = '–';
   final aditPar = '–';
   final conclusao = '–';
@@ -338,7 +336,7 @@ pw.Widget _pdfHeader({
           pw.Expanded(
             flex: 3,
             child: box([
-              cell('OBRA:', obra),
+              cell('OBRA:', ''),
               pw.Divider(color: PdfColors.grey400, height: 0.6),
               cell('LOCAL:', local),
               pw.Divider(color: PdfColors.grey400, height: 0.6),

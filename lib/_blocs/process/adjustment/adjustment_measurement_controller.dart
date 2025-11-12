@@ -12,16 +12,16 @@ import 'package:siged/_services/pdf/pdf_preview.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 
-import 'package:siged/_utils/date_utils.dart';
+import 'package:siged/_utils/formats/date_utils.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
 import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_bloc.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/handle_selection_utils.dart';
+import 'package:siged/_utils/handle/handle_selection_utils.dart';
 
 import 'package:siged/_blocs/process/adjustment/adjustment_measurement_bloc.dart';
 import 'package:siged/_blocs/process/adjustment/adjustment_measurement_data.dart';
@@ -55,7 +55,7 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
   final AdditivesBloc _additivesBloc;
   final ApostillesBloc _apostillesBloc;
 
-  final ContractData contract;
+  final ProcessData contract;
 
   StreamSubscription<UserState>? _userSub;
   UserData? _currentUser;

@@ -5,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
 
 /// Storage-only para PDFs e anexos de Ajustes de Pagamento.
@@ -17,7 +17,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
   // ---------- Utils ----------
   String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ContractData c, PaymentsAdjustmentsData p) {
+  String fileName(ProcessData c, PaymentsAdjustmentsData p) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem    = (p.orderPaymentAdjustment ?? '0').toString();
     final proc     = _sanitize(p.processPaymentAdjustment ?? 'processo');
@@ -25,18 +25,18 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
   }
 
   // legacy helpers (mantidos)
-  String pathFor(ContractData c, PaymentsAdjustmentsData p) =>
+  String pathFor(ProcessData c, PaymentsAdjustmentsData p) =>
       'process/${c.id}/adjustmentPayments/${p.idPaymentAdjustment}/${fileName(c, p)}';
 
   // nova pasta padrão para anexos
-  String folderFor(ContractData c, PaymentsAdjustmentsData p) =>
+  String folderFor(ProcessData c, PaymentsAdjustmentsData p) =>
       'contracts/${c.id}/adjustmentPayments/${p.idPaymentAdjustment}';
 
-  String fullPath(ContractData c, PaymentsAdjustmentsData p, String file) =>
+  String fullPath(ProcessData c, PaymentsAdjustmentsData p, String file) =>
       '${folderFor(c, p)}/$file';
 
   // ---------- Operações principais ----------
-  Future<bool> exists(ContractData c, PaymentsAdjustmentsData p) async {
+  Future<bool> exists(ProcessData c, PaymentsAdjustmentsData p) async {
     try {
       await _storage.ref(pathFor(c, p)).getMetadata();
       return true;
@@ -45,7 +45,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
     }
   }
 
-  Future<String?> getUrl(ContractData c, PaymentsAdjustmentsData p) async {
+  Future<String?> getUrl(ProcessData c, PaymentsAdjustmentsData p) async {
     try {
       return await _storage.ref(pathFor(c, p)).getDownloadURL();
     } catch (e) {
@@ -56,7 +56,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
 
   /// Upload via seletor (Web/desktop). Retorna a URL https.
   Future<String> uploadWithPicker({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsAdjustmentsData payment,
     required void Function(double progress) onProgress,
   }) async {
@@ -76,7 +76,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
 
   /// Upload a partir de bytes; retorna URL https. (legado)
   Future<String> uploadBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsAdjustmentsData payment,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
@@ -95,7 +95,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ContractData c, PaymentsAdjustmentsData p) async {
+  Future<bool> delete(ProcessData c, PaymentsAdjustmentsData p) async {
     try {
       await _storage.ref(pathFor(c, p)).delete();
       return true;
@@ -118,7 +118,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
 
   /// Upload de anexo a partir de bytes, gerando um Attachment completo.
   Future<Attachment> uploadAttachmentBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsAdjustmentsData payment,
     required Uint8List bytes,
     required String originalName,
@@ -174,17 +174,17 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
 
   // ---------- Compat (mantém API antiga da UI) ----------
   Future<bool> verificarSePdfDePaymentExiste({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsAdjustmentsData paymentsAdjustmentsData,
   }) => exists(contract, paymentsAdjustmentsData);
 
   Future<String?> getPdfUrlDaPayment({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsAdjustmentsData paymentsAdjustmentsData,
   }) => getUrl(contract, paymentsAdjustmentsData);
 
   Future<void> sendPdf({
-    required ContractData? contract,
+    required ProcessData? contract,
     required PaymentsAdjustmentsData? paymentsAdjustment,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded, // opcional

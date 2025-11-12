@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/additives/additive_data.dart';
 import 'package:siged/_blocs/process/additives/additive_store.dart';
 
@@ -16,7 +16,7 @@ import 'additive_table_section.dart';
 
 class AdditivePage extends StatelessWidget {
   const AdditivePage({super.key, required this.contractData});
-  final ContractData contractData;
+  final ProcessData contractData;
 
   @override
   Widget build(BuildContext context) {

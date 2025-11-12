@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/mask_class.dart';
+import 'package:siged/_utils/formats/mask_class.dart';
 
 import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';

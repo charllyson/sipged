@@ -14,7 +14,7 @@ import 'package:siged/_widgets/layout/responsive_split_view.dart';
 
 // Mapa (reuso)
 import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
-import 'package:siged/_services/geo_json_service.dart';
+import 'package:siged/_services/geoJson/geo_json_service.dart';
 
 // Bloc
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_bloc.dart';

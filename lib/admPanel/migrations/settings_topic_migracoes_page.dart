@@ -3,7 +3,7 @@ import 'package:siged/_services/firestore/cleanup/cleanup_subcollections_tile.da
 import 'package:siged/_services/firestore/cleanup/selective_delete_tile.dart';
 import 'package:siged/_services/firestore/migrate/migrateDocForSubCollection.dart';
 import 'package:siged/_services/firestore/migrate/migration.dart';
-import 'package:siged/_utils/firebase_utils.dart';
+import 'package:siged/_services/firestore/firebase_utils.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';
 import '../../_widgets/upBar/up_bar.dart';

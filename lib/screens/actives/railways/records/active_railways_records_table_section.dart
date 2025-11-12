@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/loading/loading_progress.dart';
+import 'package:siged/_widgets/overlays/loading_progress.dart';
 import 'package:siged/_widgets/table/virtualized/virtualized_table_changed.dart';
 import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
 

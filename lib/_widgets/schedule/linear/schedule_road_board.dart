@@ -7,7 +7,7 @@ import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/schedule/modal/type.dart';
 
 // Domínio / dados
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 
 // Widgets do Schedule
@@ -30,7 +30,7 @@ import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadBoard extends StatefulWidget {
-  final ContractData? contractData;
+  final ProcessData? contractData;
   const ScheduleRoadBoard({super.key, this.contractData});
 
   @override
@@ -97,7 +97,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       );
     }
 
-    final km = widget.contractData?.contractExtKm ?? 0.0;
+    final km = widget.contractData?.ext ?? 0.0;
     final totalEstacas = ((km * 1000) / 20).ceil();
     final contractId = widget.contractData?.id ?? '';
 
@@ -116,7 +116,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
     final oldId = oldWidget.contractData?.id ?? '';
     final newId = widget.contractData?.id ?? '';
     if (oldId != newId) {
-      final km = widget.contractData?.contractExtKm ?? 0.0;
+      final km = widget.contractData?.ext ?? 0.0;
       final totalEstacas = ((km * 1000) / 20).ceil();
       final contractId = widget.contractData?.id ?? '';
       context.read<ScheduleRoadBloc>().add(

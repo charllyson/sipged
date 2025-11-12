@@ -2,7 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as up;
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
 /// ====== CHAVES PADRÃO ======
 const kPermKeys = <String>['read','create','edit','delete','approve'];
@@ -146,7 +146,7 @@ bool userCanModule({
 /// e travar botões de edição quando o documento não conceder.
 bool userCanOnContract({
   required UserData user,
-  required ContractData contract,
+  required ProcessData contract,
   required String action, // read|create|edit|delete|approve
 }) {
   // Primeiro: precisa ter acesso ao módulo 'contracts' para a ação.

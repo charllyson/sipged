@@ -1,8 +1,8 @@
 // lib/screens/process/hiring/physical_financial/tab_bar_additive_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_bloc.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
@@ -10,8 +10,8 @@ import 'package:siged/_widgets/schedule/physical_financial/schedule_physical_fin
 import 'package:siged/screens/process/additive/additive_page.dart';
 
 class TabBarAdditivePage extends StatelessWidget {
-  final ContractData? contractData;
-  final ContractBloc? contractsBloc;
+  final ProcessData? contractData;
+  final ProcessBloc? contractsBloc;
   final int initialTabIndex;
 
   const TabBarAdditivePage({

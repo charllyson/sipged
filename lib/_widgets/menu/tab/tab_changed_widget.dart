@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_bloc.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_store.dart';
+import 'package:siged/_blocs/_process/process_bloc.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/_process/process_store.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
@@ -17,14 +17,14 @@ import 'package:siged/_widgets/list/search/search_user_permission_widget.dart';
 // permissões globais & por documento
 import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_widgets/menu/tab/tab_blocked.dart';
 
-import 'tab_banner.dart';
+import 'package:siged/_widgets/menu/tab/tab_blocked.dart';
+import 'package:siged/_widgets/menu/tab/tab_banner.dart';
 
 /// Descriptor de cada aba (rótulo + builder da página)
 class ContractTabDescriptor {
   final String label;
-  final Widget Function(ContractData? contract) builder;
+  final Widget Function(ProcessData? contract) builder;
 
   /// Se true, a aba mostra um bloqueio quando o contrato não foi salvo (id == null)
   final bool requireSavedContract;
@@ -36,49 +36,70 @@ class ContractTabDescriptor {
   });
 }
 
+/// Config do selo por aba
+class StampConfig {
+  final bool show;
+  final bool approved;
+  final String? approvedLabel;
+  final String? pendingLabel;
+  final IconData? approvedIcon;
+  final IconData? pendingIcon;
+  final Color? approvedColor;
+  final Color? pendingColor;
+  final double scaleFactor;
+
+  const StampConfig({
+    required this.show,
+    required this.approved,
+    this.approvedLabel,
+    this.pendingLabel,
+    this.approvedIcon,
+    this.pendingIcon,
+    this.approvedColor,
+    this.pendingColor,
+    this.scaleFactor = 1.0,
+  });
+
+  static const hidden = StampConfig(show: false, approved: false);
+}
+
+/// Decide o selo por aba
+typedef ResolveStampForTab = StampConfig Function({
+required int tabIndex,
+required ProcessData contract,
+});
+
 /// Scaffold reutilizável de abas para contratos com barra superior customizável.
 class TabChangedWidget extends StatefulWidget {
   final UserData? userData;
-  final ContractData? contractData;
-  final ContractBloc? contractsBloc;
+  final ProcessData? contractData;
+  final ProcessBloc? contractsBloc;
   final int initialTabIndex;
   final List<ContractTabDescriptor> tabs;
-  final String Function(ContractData c)? bannerTitleBuilder;
+  final String Function(ProcessData c)? bannerTitleBuilder;
   final String blockedMessage;
 
-  // ======== NOVOS PARÂMETROS DE ESTILO DA BARRA SUPERIOR ========
-  /// Altura da barra (sem considerar o safeTop).
+  // ===== Estilo da barra superior =====
   final double topBarHeight;
-
-  /// Gradient da barra. Se fornecido, tem prioridade sobre [topBarColor].
   final List<Color>? topBarColors;
-
-  /// Cor sólida da barra (usada se [topBarColors] for null).
   final Color? topBarColor;
-
-  /// Direção do gradient (se [topBarColors] for usado).
   final Alignment topBarBegin;
   final Alignment topBarEnd;
-
-  /// Cor da borda inferior da barra.
   final Color topBarBorderColor;
 
-  /// Cores do TabBar
+  // TabBar
   final Color labelColor;
   final Color unselectedLabelColor;
   final Color indicatorColor;
-
-  /// Espessura do indicador
   final double indicatorWeight;
-
-  /// Se as abas são roláveis
   final bool tabsIsScrollable;
-
-  /// Alinhamento das abas
   final TabAlignment tabAlignment;
 
-  /// Widget à direita na barra (ex.: foto, menu, etc.)
+  // Trailing (foto/menu)
   final Widget? trailing;
+
+  // Resolver selo por aba
+  final ResolveStampForTab? resolveStampForTab;
 
   const TabChangedWidget({
     super.key,
@@ -90,8 +111,6 @@ class TabChangedWidget extends StatefulWidget {
     this.bannerTitleBuilder,
     this.blockedMessage =
     '⚠️ Para acessar esta aba, salve primeiro as informações principais do contrato.',
-
-    // ======== defaults (mantêm aparência atual) ========
     this.topBarHeight = 72.0,
     this.topBarColors = const [Color(0xFF1B2031), Color(0xFF1B2039)],
     this.topBarColor,
@@ -105,6 +124,7 @@ class TabChangedWidget extends StatefulWidget {
     this.tabsIsScrollable = true,
     this.tabAlignment = TabAlignment.start,
     this.trailing = const PopUpPhotoMenu(),
+    this.resolveStampForTab,
   });
 
   @override
@@ -112,7 +132,7 @@ class TabChangedWidget extends StatefulWidget {
 }
 
 class _TabChangedWidgetState extends State<TabChangedWidget> {
-  late ContractData? _contractData;
+  late ProcessData? _contractData;
 
   @override
   void initState() {
@@ -136,14 +156,48 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
         body: Stack(
           children: [
             const BackgroundClean(),
+
+            // Conteúdo abaixo da UpBar
             Padding(
               padding: EdgeInsets.only(top: topBarTotal),
               child: Column(
                 children: [
                   if (_contractData != null)
-                    TabBanner(
-                      contract: _contractData!,
-                      titleBuilder: widget.bannerTitleBuilder,
+                    Builder(
+                      builder: (context) {
+                        final tabController = DefaultTabController.of(context);
+                        return AnimatedBuilder(
+                          animation: tabController!,
+                          builder: (context, _) {
+                            final idx = tabController.index;
+                            final c = _contractData!;
+                            final cfg = widget.resolveStampForTab?.call(
+                              tabIndex: idx,
+                              contract: c,
+                            ) ??
+                                StampConfig.hidden;
+
+                            return TabBanner(
+                              contract: c,
+                              titleBuilder: widget.bannerTitleBuilder,
+                              // Selo ao fim do banner (não altera o resto)
+                              showStamp: cfg.show,
+                              stampApproved: cfg.approved,
+                              stampApprovedLabel:
+                              cfg.approvedLabel ?? 'Aprovado',
+                              stampPendingLabel:
+                              cfg.pendingLabel ?? 'Pendente',
+                              stampApprovedIcon:
+                              cfg.approvedIcon ?? Icons.verified_outlined,
+                              stampPendingIcon: cfg.pendingIcon ??
+                                  Icons.verified_user_outlined,
+                              stampApprovedColor: cfg.approvedColor,
+                              stampPendingColor: cfg.pendingColor,
+                              stampScaleFactor: cfg.scaleFactor,
+                            );
+                          },
+                        );
+                      },
                     ),
                   Expanded(
                     child: TabBarView(
@@ -160,7 +214,7 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
               ),
             ),
 
-            // UpBar com TabBar
+            // UpBar com Back + Tabs + Trailing
             Positioned(
               top: 0,
               left: 0,
@@ -189,8 +243,13 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
                 ),
                 padding: EdgeInsets.only(top: safeTop),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(width: 60),
+                    const SizedBox(width: 8),
+                    // === BackCircleButton (como antes) ===
+                    BackCircleButton(),
+                    const SizedBox(width: 12),
+                    // Tabs
                     Expanded(
                       child: TabBar(
                         isScrollable: widget.tabsIsScrollable,

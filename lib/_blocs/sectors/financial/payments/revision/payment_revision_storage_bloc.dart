@@ -4,7 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 
@@ -17,7 +17,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
   // ---------- Utils ----------
   String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ContractData c, PaymentsRevisionsData p, {String? originalName}) {
+  String fileName(ProcessData c, PaymentsRevisionsData p, {String? originalName}) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem    = (p.orderPaymentRevision ?? '0').toString();
     final proc     = _sanitize(p.processPaymentRevision ?? 'processo');
@@ -28,18 +28,18 @@ class PaymentRevisionStorageBloc extends BlocBase {
   }
 
   // Legado: caminho único para PDF
-  String pathFor(ContractData c, PaymentsRevisionsData p) =>
+  String pathFor(ProcessData c, PaymentsRevisionsData p) =>
       'process/${c.id}/revisionPayments/${p.idRevisionPayment}/${fileName(c, p)}';
 
   // Nova pasta padrão para múltiplos anexos
-  String folderFor(ContractData c, PaymentsRevisionsData p) =>
+  String folderFor(ProcessData c, PaymentsRevisionsData p) =>
       'contracts/${c.id}/revisionPayments/${p.idRevisionPayment}';
 
-  String fullPath(ContractData c, PaymentsRevisionsData p, String file) =>
+  String fullPath(ProcessData c, PaymentsRevisionsData p, String file) =>
       '${folderFor(c, p)}/$file';
 
   // ---------- Operações principais (legado) ----------
-  Future<bool> exists(ContractData c, PaymentsRevisionsData p) async {
+  Future<bool> exists(ProcessData c, PaymentsRevisionsData p) async {
     try {
       await _storage.ref(pathFor(c, p)).getMetadata();
       return true;
@@ -48,7 +48,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
     }
   }
 
-  Future<String?> getUrl(ContractData c, PaymentsRevisionsData p) async {
+  Future<String?> getUrl(ProcessData c, PaymentsRevisionsData p) async {
     try {
       return await _storage.ref(pathFor(c, p)).getDownloadURL();
     } catch (e) {
@@ -59,7 +59,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
 
   /// Upload via seletor (Web/desktop). Retorna a URL https. (legado)
   Future<String> uploadWithPicker({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsRevisionsData payment,
     required void Function(double progress) onProgress,
   }) async {
@@ -79,7 +79,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
 
   /// Upload a partir de bytes; retorna URL https. (legado)
   Future<String> uploadBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsRevisionsData payment,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
@@ -98,7 +98,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ContractData c, PaymentsRevisionsData p) async {
+  Future<bool> delete(ProcessData c, PaymentsRevisionsData p) async {
     try {
       await _storage.ref(pathFor(c, p)).delete();
       return true;
@@ -121,7 +121,7 @@ class PaymentRevisionStorageBloc extends BlocBase {
 
   /// Upload de anexo a partir de bytes, gerando um Attachment completo.
   Future<Attachment> uploadAttachmentBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsRevisionsData payment,
     required Uint8List bytes,
     required String originalName,
@@ -177,17 +177,17 @@ class PaymentRevisionStorageBloc extends BlocBase {
 
   // ---------- Compat (UI antiga) ----------
   Future<bool> verificarSePdfDePaymentExiste({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsRevisionsData paymentsRevisionsData,
   }) => exists(contract, paymentsRevisionsData);
 
   Future<String?> getPdfUrlDaPayment({
-    required ContractData contract,
+    required ProcessData contract,
     required PaymentsRevisionsData paymentsRevisionsData,
   }) => getUrl(contract, paymentsRevisionsData);
 
   Future<void> sendPdf({
-    required ContractData? contract,
+    required ProcessData? contract,
     required PaymentsRevisionsData? payment,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded,

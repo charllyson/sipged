@@ -3,7 +3,7 @@
 // ==============================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/validity/validity_controller.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/footBar/foot_bar.dart';
@@ -14,7 +14,7 @@ import 'validity_table_section.dart';
 
 class ValidityPage extends StatelessWidget {
   const ValidityPage({super.key, required this.contractData});
-  final ContractData contractData;
+  final ProcessData contractData;
 
   Future<bool> _confirm(BuildContext context) async {
     return await showDialog<bool>(

@@ -6,7 +6,7 @@ import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
 
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/registers/register_class.dart';
 
@@ -44,10 +44,10 @@ class ApostillesBloc extends BlocBase {
         .toList();
   }
 
-  Future<ContractData?> buscarContrato(String contractId) async {
+  Future<ProcessData?> buscarContrato(String contractId) async {
     final snapshot = await _db.collection('contracts').doc(contractId).get();
     if (!snapshot.exists) return null;
-    return ContractData.fromDocument(snapshot: snapshot);
+    return ProcessData.fromDocument(snapshot: snapshot);
   }
 
   // ---------------------------------------------------------------------------
@@ -185,9 +185,9 @@ class ApostillesBloc extends BlocBase {
   // Agregações
   // ---------------------------------------------------------------------------
 
-  Future<double> getValorPorStatus(List<ContractData> contratos, String statusDesejado) async {
+  Future<double> getValorPorStatus(List<ProcessData> contratos, String statusDesejado) async {
     final contratosFiltrados = contratos.where(
-          (c) => (c.contractStatus ?? '').toUpperCase() == statusDesejado.toUpperCase(),
+          (c) => (c.status ?? '').toUpperCase() == statusDesejado.toUpperCase(),
     ).toList();
 
     final futures = contratosFiltrados.map((contrato) async {
@@ -208,13 +208,13 @@ class ApostillesBloc extends BlocBase {
   }
 
   Future<double> somarValoresApostilamentosPorStatus({
-    required List<ContractData> contratos,
+    required List<ProcessData> contratos,
     required String status,
   }) async {
     double total = 0.0;
 
     for (final contrato in contratos) {
-      if (contrato.contractStatus != status) continue;
+      if (contrato.status != status) continue;
 
       final apostillesSnapshot =
       await _db.collection('contracts').doc(contrato.id).collection('apostilles').get();

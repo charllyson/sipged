@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
-import 'package:siged/_blocs/process/contracts/contract_rules.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import '../../alerts/alert_validity.dart';
 
-typedef ContractNavigationCallback = void Function(BuildContext context, ContractData contract);
+typedef ContractNavigationCallback = void Function(BuildContext context, ProcessData contract);
 
 class ListDemandTable extends StatelessWidget {
-  final List<ContractData> listContractData;
+  final List<ProcessData> listContractData;
   final BoxConstraints constraints;
   final String statusLabel;
   final String statusFilter;
   final int? sortColumnIndex;
   final bool isAscending;
-  final void Function(int, String Function(ContractData)) onSort;
-  final void Function(ContractData) onDelete;
+  final void Function(int, String Function(ProcessData)) onSort;
+  final void Function(ProcessData) onDelete;
   final ContractNavigationCallback onTapItem;
 
   const ListDemandTable({
@@ -32,13 +33,13 @@ class ListDemandTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sortedContracts = List<ContractData>.from(listContractData)..sort((a, b) {
-      final statusA = a.contractStatus?.toUpperCase() ?? '';
-      final statusB = b.contractStatus?.toUpperCase() ?? '';
-      final prioridadeA = ContractRules.priorityStatus[statusA] ?? 99;
-      final prioridadeB = ContractRules.priorityStatus[statusB] ?? 99;
+    final sortedContracts = List<ProcessData>.from(listContractData)..sort((a, b) {
+      final statusA = a.status?.toUpperCase() ?? '';
+      final statusB = b.status?.toUpperCase() ?? '';
+      final prioridadeA = DfdData.priorityStatus[statusA] ?? 99;
+      final prioridadeB = DfdData.priorityStatus[statusB] ?? 99;
       if (prioridadeA != prioridadeB) return prioridadeA.compareTo(prioridadeB);
-      return (a.summarySubjectContract ?? '').compareTo(b.summarySubjectContract ?? '');
+      return (a.summarySubject ?? '').compareTo(b.summarySubject ?? '');
     });
 
     return SingleChildScrollView(
@@ -46,7 +47,7 @@ class ListDemandTable extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: 12),
-          SimpleTableChanged<ContractData>(
+          SimpleTableChanged<ProcessData>(
             listData: sortedContracts,
             constraints: constraints,
             sortColumnIndex: sortColumnIndex,
@@ -66,10 +67,10 @@ class ListDemandTable extends StatelessWidget {
             ],
             columnGetters: [
                   (d) => d.contractNumber ?? '',
-                  (d) => d.summarySubjectContract ?? '',
-                  (d) => d.regionOfState ?? '',
+                  (d) => d.summarySubject ?? '',
+                  (d) => d.region ?? '',
                   (d) => d.companyLeader ?? '',
-                  (d) => d.contractNumberProcess ?? '',
+                  (d) => d.numberProcess ?? '',
             ],
 
             // ⚠️ 5 (dados) + 1 (leading) + 1 (delete) = 7 larguras
@@ -93,7 +94,7 @@ class ListDemandTable extends StatelessWidget {
             ],
 
             groupLabel: 'SERVIÇO',
-            groupBy: (d) => d.contractServices ?? 'Sem serviço definido',
+            groupBy: (d) => d.services ?? 'Sem serviço definido',
           ),
 
         ],

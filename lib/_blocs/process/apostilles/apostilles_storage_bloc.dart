@@ -9,7 +9,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
-import 'package:siged/_blocs/process/contracts/contract_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 
 /// Storage (upload/list/getUrl/delete) de PDFs/arquivos de **apostilamentos**.
@@ -38,18 +38,18 @@ class ApostillesStorageBloc extends BlocBase {
   }
 
   // legados (um arquivo “principal” por apostila)
-  String fileName(ContractData c, ApostillesData a) {
+  String fileName(ProcessData c, ApostillesData a) {
     final contrato = _sanitize(c.contractNumber ?? 'contrato');
     final ordem    = ((a.apostilleOrder ?? 0)).toString().padLeft(3, '0');
     final proc     = _sanitize(a.apostilleNumberProcess ?? 'processo');
     return '$contrato-$ordem-$proc.pdf';
   }
 
-  String pathFor(ContractData c, ApostillesData a) =>
+  String pathFor(ProcessData c, ApostillesData a) =>
       'contracts/${c.id}/apostilles/${a.id}/${fileName(c, a)}';
 
   // multi-arquivos
-  String folderFor(ContractData c, ApostillesData a) =>
+  String folderFor(ProcessData c, ApostillesData a) =>
       'contracts/${c.id}/apostilles/${a.id}/';
 
   String storedFileName(String original) {
@@ -60,7 +60,7 @@ class ApostillesStorageBloc extends BlocBase {
   }
 
   // ---------- Métodos legados ----------
-  Future<bool> exists(ContractData c, ApostillesData a) async {
+  Future<bool> exists(ProcessData c, ApostillesData a) async {
     try {
       await _storage.ref(pathFor(c, a)).getMetadata();
       return true;
@@ -69,7 +69,7 @@ class ApostillesStorageBloc extends BlocBase {
     }
   }
 
-  Future<String?> getUrl(ContractData c, ApostillesData a) async {
+  Future<String?> getUrl(ProcessData c, ApostillesData a) async {
     try {
       return await _storage.ref(pathFor(c, a)).getDownloadURL();
     } catch (e) {
@@ -79,7 +79,7 @@ class ApostillesStorageBloc extends BlocBase {
   }
 
   Future<String> uploadWithPicker({
-    required ContractData contract,
+    required ProcessData contract,
     required ApostillesData apostille,
     required void Function(double progress) onProgress,
   }) async {
@@ -98,7 +98,7 @@ class ApostillesStorageBloc extends BlocBase {
   }
 
   Future<String> uploadBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required ApostillesData apostille,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
@@ -117,7 +117,7 @@ class ApostillesStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ContractData c, ApostillesData a) async {
+  Future<bool> delete(ProcessData c, ApostillesData a) async {
     try {
       await _storage.ref(pathFor(c, a)).delete();
       return true;
@@ -129,17 +129,17 @@ class ApostillesStorageBloc extends BlocBase {
 
   // ---------- COMPAT wrappers ----------
   Future<bool> verificarSePdfDeApostilaExiste({
-    required ContractData contract,
+    required ProcessData contract,
     required ApostillesData apostille,
   }) => exists(contract, apostille);
 
   Future<String?> getPdfUrlDaApostila({
-    required ContractData contract,
+    required ProcessData contract,
     required ApostillesData apostille,
   }) => getUrl(contract, apostille);
 
   Future<void> sendPdf({
-    required ContractData? contract,
+    required ProcessData? contract,
     required ApostillesData? apostille,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded,
@@ -171,7 +171,7 @@ class ApostillesStorageBloc extends BlocBase {
   }
 
   Future<Attachment> uploadAttachmentBytes({
-    required ContractData contract,
+    required ProcessData contract,
     required ApostillesData apostille,
     required Uint8List bytes,
     required String originalName,
