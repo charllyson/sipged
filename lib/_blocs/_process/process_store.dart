@@ -1,23 +1,32 @@
 // lib/screens/commons/listContracts/contracts_store.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+
 import 'package:siged/_blocs/_process/process_bloc.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/_process/process_storage_bloc.dart';
-
 import 'package:siged/_blocs/system/user/user_data.dart';
 
-/// Store de contratos com:
+// 🔹 DFD: para status/região vindos das seções
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+
+/// Store de processos com:
 /// - Warmup idempotente por usuário
 /// - Cache local por id
 /// - Upsert/refresh seguros (notify pós-frame)
 /// - Integração com Storage (PDF) + Firestore
+/// - Status/Região vindos **exclusivamente** do DFD (identificação/localização)
 class ProcessStore extends ChangeNotifier {
   // ===== Injeções =====
   final ProcessBloc bloc;               // Firestore (CRUD, permissões, consultas)
   final ProcessStorageBloc storageBloc; // Storage (upload/exists/url/delete)
+  final DfdRepository dfdRepo;          // Leitura leve do DFD
 
-  ProcessStore(this.bloc, this.storageBloc);
+  ProcessStore(
+      this.bloc,
+      this.storageBloc, {
+        DfdRepository? dfdRepository,
+      }) : dfdRepo = dfdRepository ?? DfdRepository();
 
   bool _loading = false;
   bool get loading => _loading;
@@ -33,6 +42,11 @@ class ProcessStore extends ChangeNotifier {
 
   final Map<String, ProcessData> _cache = {};
   UserData? _currentUser;
+
+  /// Status/Região vindos do DFD
+  /// key = contractId/processId
+  final Map<String, String?> _dfdStatusById = {};
+  final Map<String, String?> _dfdRegionalById = {};
 
   // --------- notifyListeners seguro (evita setState/markNeedsBuild durante build)
   void _notifySafe() {
@@ -51,6 +65,7 @@ class ProcessStore extends ChangeNotifier {
   // ========= Carregamento / Warmup =========
 
   /// Carrega 1x por usuário (idempotente) e cacheia todos.
+  /// Também pré-carrega status/região via DFD.
   Future<void> warmup(UserData currentUser) async {
     if (_initialized && _currentUser?.id == currentUser.id && _all.isNotEmpty) return;
 
@@ -60,6 +75,9 @@ class ProcessStore extends ChangeNotifier {
 
     final lista = await bloc.getFilteredContracts(currentUser: currentUser);
     _setAll(lista);
+
+    // 🔹 Pré-carrega status/região do DFD para os processos da lista
+    await _preloadDfdLightFields(lista);
 
     _loading = false;
     _initialized = true;
@@ -75,6 +93,9 @@ class ProcessStore extends ChangeNotifier {
     final lista = await bloc.getFilteredContracts(currentUser: _currentUser!);
     _setAll(lista);
 
+    // 🔹 Atualiza cache de status/região via DFD
+    await _preloadDfdLightFields(lista);
+
     if (_selected != null) {
       final id = _selected!.id;
       _selected = (id != null) ? _cache[id] : null;
@@ -89,6 +110,29 @@ class ProcessStore extends ChangeNotifier {
     _cache
       ..clear()
       ..addEntries(_all.where((c) => c.id != null).map((c) => MapEntry(c.id!, c)));
+  }
+
+  /// 🔹 Pré-carrega statusContrato / regional a partir do DFD
+  Future<void> _preloadDfdLightFields(List<ProcessData> lista) async {
+    _dfdStatusById.clear();
+    _dfdRegionalById.clear();
+
+    for (final c in lista) {
+      final id = c.id;
+      if (id == null || id.isEmpty) continue;
+
+      try {
+        // status + tipoObra + extensaoKm
+        final leve = await dfdRepo.readLightFields(id);
+        _dfdStatusById[id] = leve.status;
+
+        // regional
+        final reg = await dfdRepo.readRegionalLabel(id);
+        _dfdRegionalById[id] = reg;
+      } catch (_) {
+        // Falha em um item não deve quebrar o carregamento global
+      }
+    }
   }
 
   // ========= Seleção =========
@@ -118,10 +162,25 @@ class ProcessStore extends ChangeNotifier {
 
   // ========= CRUD via Bloc (com cache local) =========
 
-  /// Salva/atualiza contrato via Firestore e reflete no cache/local.
+  /// Salva/atualiza processo via Firestore e reflete no cache/local.
   Future<ProcessData> saveOrUpdate(ProcessData c) async {
     final saved = await bloc.salvarOuAtualizarContrato(c);
     upsert(saved);
+
+    // 🔹 Atualiza status/região do DFD para este id especificamente
+    final id = saved.id;
+    if (id != null && id.isNotEmpty) {
+      try {
+        final leve = await dfdRepo.readLightFields(id);
+        _dfdStatusById[id] = leve.status;
+        final reg = await dfdRepo.readRegionalLabel(id);
+        _dfdRegionalById[id] = reg;
+      } catch (_) {
+        // ignore
+      }
+      _notifySafe();
+    }
+
     return saved;
   }
 
@@ -150,6 +209,17 @@ class ProcessStore extends ChangeNotifier {
         tmp[idx] = c;
         _all = List.unmodifiable(tmp);
       }
+
+      // 🔹 Garante que status/região via DFD sejam carregados para esse id
+      try {
+        final leve = await dfdRepo.readLightFields(id);
+        _dfdStatusById[id] = leve.status;
+        final reg = await dfdRepo.readRegionalLabel(id);
+        _dfdRegionalById[id] = reg;
+      } catch (_) {
+        // ignore
+      }
+
       _notifySafe();
     }
     return c;
@@ -181,12 +251,17 @@ class ProcessStore extends ChangeNotifier {
     final tmp = [..._all]..removeWhere((e) => e.id == id);
     _all = List.unmodifiable(tmp);
     if (_selected?.id == id) _selected = null;
+
+    // Remove também do cache DFD
+    _dfdStatusById.remove(id);
+    _dfdRegionalById.remove(id);
+
     _notifySafe();
   }
 
   // ========= DELETE (Firestore + opcional Storage) =========
 
-  /// Deleta o contrato no Firestore e remove do store.
+  /// Deleta o processo no Firestore e remove do store.
   /// Se [deleteFiles] for `true`, tenta remover o PDF do Storage e limpar a URL.
   Future<void> delete(String id, {bool deleteFiles = false}) async {
     ProcessData? c = _cache[id] ?? await bloc.getContractById(id);
@@ -211,21 +286,6 @@ class ProcessStore extends ChangeNotifier {
     final id = c.id;
     if (id == null || id.isEmpty) return;
     await delete(id, deleteFiles: deleteFiles);
-  }
-
-  // ========= Helpers de PDF (Storage + Firestore) =========
-
-  /// Verifica se o PDF existe no Storage (considera fallback legado).
-  Future<bool> pdfExists(ProcessData c) => storageBloc.exists(c);
-
-  /// Obtém a URL https do Storage (considera fallback). Se tiver no Firestore, prefira-a.
-  Future<String?> getPdfUrl(ProcessData c, {bool preferirFirestore = true}) async {
-    if (preferirFirestore && c.id != null) {
-      final fresh = await bloc.getContractById(c.id!);
-      final saved = fresh?.urlContractPdf;
-      if (saved != null && saved.isNotEmpty) return saved;
-    }
-    return storageBloc.getUrl(c);
   }
 
   /// Upload via seletor (Web) e já salva a URL no Firestore; atualiza cache.
@@ -291,6 +351,9 @@ class ProcessStore extends ChangeNotifier {
 
   // ========= Filtros em memória =========
 
+  /// `status` e `regionContains` vêm **apenas** do DFD:
+  /// - statusContrato (identificacao.statusContrato)
+  /// - regional (identificacao/regional ou localização/regional)
   List<ProcessData> filter({
     String? status,
     String? company,
@@ -300,17 +363,29 @@ class ProcessStore extends ChangeNotifier {
     Iterable<ProcessData> r = _all;
 
     if (status != null && status.isNotEmpty) {
-      r = r.where((c) => _strEq(c.status, status));
+      r = r.where((c) {
+        final id = c.id;
+        if (id == null || id.isEmpty) return false;
+        final statusFromDfd = _dfdStatusById[id];
+        if (statusFromDfd == null || statusFromDfd.trim().isEmpty) return false;
+        return _strEq(statusFromDfd, status);
+      });
     }
 
     if (company != null && company.isNotEmpty) {
+      // company ainda vem do próprio ProcessData (raiz)
       r = r.where((c) => _strEq(c.companyLeader, company));
     }
 
     if (regionContains != null && regionContains.isNotEmpty) {
       r = r.where((c) {
-        final regions = _normalizeRegions(c.region);
-        // faz match por “contains” também para permitir buscas parciais
+        final id = c.id;
+        if (id == null || id.isEmpty) return false;
+
+        final regionSource = _dfdRegionalById[id];
+        if (regionSource == null || regionSource.trim().isEmpty) return false;
+
+        final regions = _normalizeRegions(regionSource);
         return _listContainsIgnoreCase(regions, regionContains);
       });
     }

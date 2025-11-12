@@ -247,15 +247,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                 labelText: 'Data da solicitação',
               ),
             ),
-            SizedBox(
-              width: w4,
-              child: CustomTextField(
-                controller: controller.dfdProtocoloSeiCtrl,
-                enabled: controller.isEditable,
-                validator: validateRequired,
-                labelText: 'Nº do processo/SEI/Protocolo',
-              ),
-            ),
+
           ]);
         }),
         const SizedBox(height: 16),

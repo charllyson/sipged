@@ -35,7 +35,7 @@ class MeasurementReportHeader extends StatelessWidget {
     final obra = _dashIfEmpty(
       contract.summarySubject ?? '',
     );
-    final local = _dashIfEmpty(contract.region);
+    final local = _dashIfEmpty(''/*contract.region*/);
     final construtora = _dashIfEmpty(contract.companyLeader);
     final contratoNum = _dashIfEmpty(contract.contractNumber);
 

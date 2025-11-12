@@ -1,4 +1,3 @@
-// lib/screens/commons/listContracts/list_contracts_filtered_page.dart
 import 'dart:async';
 import 'package:extended_image/extended_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -22,6 +21,10 @@ import 'package:siged/screens/process/hiring/tab_bar_hiring_page.dart';
 
 import 'package:siged/_blocs/_process/process_store.dart';
 import 'list_demand_status.dart';
+
+// 🆕 DFD
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
 
 typedef DemandNavigationCallback = void Function(
     BuildContext context,
@@ -58,6 +61,13 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
   Timer? _debounce;
 
+  // 🆕 caches DFD
+  final Map<String, String> _regionById = {};
+  final Map<String, String> _processNumberById = {};
+  final Map<String, String> _statusById = {}; // 🔸 status do DFD
+
+  final DfdRepository _dfdRepo = DfdRepository();
+
   String _norm(String k) => k.trim().toUpperCase();
 
   @override
@@ -93,68 +103,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_prefsExpandedKey, _expandedKeys.toList());
     } catch (_) {}
-  }
-
-  Future<void> _applyFilters(ProcessStore store) async {
-    setState(() => _loading = true);
-    try {
-      final status = _statusCtrl.text.isNotEmpty ? _statusCtrl.text : null;
-      final search = _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim();
-
-      final list = store.filter(status: status, searchText: search);
-
-      _cachedByStatus
-        ..clear();
-
-      for (final c in list) {
-        final k = _norm(c.status ?? 'SEM STATUS');
-        _cachedByStatus.putIfAbsent(k, () => <ProcessData>[]).add(c);
-      }
-
-      _applyLocalSortIfAny();
-
-      final hasSearch = _searchCtrl.text.trim().isNotEmpty;
-      if (hasSearch) {
-        _preSearchExpandedSnapshot = _preSearchExpandedSnapshot.isEmpty
-            ? Set<String>.from(_expandedKeys)
-            : _preSearchExpandedSnapshot;
-
-        final expandedNow = _cachedByStatus.entries
-            .where((e) => e.value.isNotEmpty)
-            .map((e) => e.key)
-            .toSet();
-
-        setState(() {
-          _expandedKeys
-            ..clear()
-            ..addAll(expandedNow);
-        });
-        await _saveExpandedToPrefs();
-      } else {
-        if (_preSearchExpandedSnapshot.isNotEmpty) {
-          setState(() {
-            _expandedKeys
-              ..clear()
-              ..addAll(_preSearchExpandedSnapshot);
-            _preSearchExpandedSnapshot = {};
-          });
-          await _saveExpandedToPrefs();
-        }
-
-        setState(() {
-          _expandedKeys.removeWhere(
-                (k) => _cachedByStatus.containsKey(k) &&
-                (_cachedByStatus[k]?.isEmpty ?? true),
-          );
-        });
-        await _saveExpandedToPrefs();
-
-        // sincroniza pós-frame (só visual; ExpansionTile renderiza a partir do estado)
-        SchedulerBinding.instance.addPostFrameCallback((_) {});
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
   }
 
   void _applyLocalSortIfAny() {
@@ -210,8 +158,147 @@ class _ListDemandPageState extends State<ListDemandPage> {
   Future<void> _refresh(ProcessStore store) async {
     setState(() => _loading = true);
     try {
-      await store.refresh();
       await _applyFilters(store);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String? _idToString(Object? id) {
+    if (id == null) return null;
+    try {
+      final dyn = id as dynamic;
+      final hasId = (() {
+        try {
+          return (dyn as dynamic).id is String;
+        } catch (_) {
+          return false;
+        }
+      })();
+      if (hasId) return (dyn as dynamic).id as String;
+    } catch (_) {}
+    return id.toString();
+  }
+
+  Future<void> _ensureDfdLightForIds(Iterable<String> ids) async {
+    final futures = <Future<void>>[];
+    for (final id in ids) {
+      // status
+      if (!_statusById.containsKey(id)) {
+        futures.add(() async {
+          final leve = await _dfdRepo.readLightFields(id);
+          final s = (leve.status ?? '').trim();
+          if (s.isNotEmpty) _statusById[id] = s;
+        }());
+      }
+      // regional
+      if (!_regionById.containsKey(id)) {
+        futures.add(_dfdRepo.readRegionalLabel(id).then((v) {
+          if (v != null && v.trim().isNotEmpty) _regionById[id] = v.trim();
+        }));
+      }
+      // nº processo
+      if (!_processNumberById.containsKey(id)) {
+        futures.add(_dfdRepo.readProcessNumber(id).then((v) {
+          if (v != null && v.trim().isNotEmpty) _processNumberById[id] = v.trim();
+        }));
+      }
+    }
+    if (futures.isNotEmpty) {
+      await Future.wait(futures);
+    }
+  }
+
+  /// Aplica filtros locais com status vindo do DFD
+  Future<void> _applyFilters(ProcessStore store) async {
+    setState(() => _loading = true);
+    try {
+      final statusFiltro = _statusCtrl.text.isNotEmpty ? _statusCtrl.text : null;
+      final search = _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim();
+
+      final base = store.all;
+      final ids = <String>{
+        for (final c in base)
+          if (_idToString(c.id) != null) _idToString(c.id)!,
+      };
+
+      // garante status/região/nº processo do DFD
+      await _ensureDfdLightForIds(ids);
+
+      Iterable<ProcessData> r = base;
+
+      // 🔸 filtra por status do DFD (não por c.status)
+      if (statusFiltro != null && statusFiltro.isNotEmpty) {
+        final alvo = statusFiltro.trim().toUpperCase();
+        r = r.where((c) {
+          final id = _idToString(c.id);
+          final st = id != null ? _statusById[id] : null;
+          return (st ?? '').toUpperCase() == alvo;
+        });
+      }
+
+      if (search != null && search.isNotEmpty) {
+        final s = search.toUpperCase();
+        r = r.where((c) =>
+        (c.summarySubject ?? '').toUpperCase().contains(s) ||
+            (c.contractNumber ?? '').toUpperCase().contains(s) ||
+            (c.companyLeader ?? '').toUpperCase().contains(s));
+      }
+
+      final list = r.toList(growable: false);
+
+      // 🔸 reagrupa por status do DFD
+      _cachedByStatus
+        ..clear();
+
+      for (final c in list) {
+        final id = _idToString(c.id);
+        final st = id != null ? (_statusById[id] ?? 'SEM STATUS') : 'SEM STATUS';
+        final k = _norm(st);
+        _cachedByStatus.putIfAbsent(k, () => <ProcessData>[]).add(c);
+      }
+
+      _applyLocalSortIfAny();
+
+      final hasSearch = _searchCtrl.text.trim().isNotEmpty;
+      if (hasSearch) {
+        _preSearchExpandedSnapshot = _preSearchExpandedSnapshot.isEmpty
+            ? Set<String>.from(_expandedKeys)
+            : _preSearchExpandedSnapshot;
+
+        final expandedNow = _cachedByStatus.entries
+            .where((e) => e.value.isNotEmpty)
+            .map((e) => e.key)
+            .toSet();
+
+        setState(() {
+          _expandedKeys
+            ..clear()
+            ..addAll(expandedNow);
+        });
+        await _saveExpandedToPrefs();
+      } else {
+        if (_preSearchExpandedSnapshot.isNotEmpty) {
+          setState(() {
+            _expandedKeys
+              ..clear()
+              ..addAll(_preSearchExpandedSnapshot);
+            _preSearchExpandedSnapshot = {};
+          });
+          await _saveExpandedToPrefs();
+        }
+
+        setState(() {
+          _expandedKeys.removeWhere(
+                (k) => _cachedByStatus.containsKey(k) &&
+                (_cachedByStatus[k]?.isEmpty ?? true),
+          );
+        });
+        await _saveExpandedToPrefs();
+
+        // sincroniza pós-frame (apenas visual)
+        SchedulerBinding.instance.addPostFrameCallback((_) {});
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -231,17 +318,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
         backgroundColor: Colors.white,
         body: Center(child: CircularProgressIndicator()),
       );
-    }
-
-    // primeira carga
-    if (!_loading && _cachedByStatus.isEmpty) {
-      // garante dados do store e monta agrupamento
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (store.all.isEmpty && !store.loading) {
-          await store.refresh();
-        }
-        if (mounted) await _applyFilters(store);
-      });
     }
 
     return Scaffold(
@@ -295,6 +371,10 @@ class _ListDemandPageState extends State<ListDemandPage> {
                               onTapItem: widget.onTapItem,
                               initiallyExpanded: _isExpanded(k),
                               onExpansionChanged: (open) => _setExpanded(k, open),
+
+                              // repasse dos mapas DFD
+                              regionByContractId: _regionById,
+                              processNumberByContractId: _processNumberById,
                             );
                           }).toList(),
                         ),

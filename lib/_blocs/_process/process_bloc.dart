@@ -3,9 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 
-import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
@@ -18,6 +19,10 @@ class ProcessBloc extends BlocBase {
   ProcessBloc();
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // 🔹 DFD (status por contrato)
+  final DfdRepository _dfdRepo = DfdRepository();
+  final Map<String, String> _dfdStatusByContractId = {};
 
   // -------------------- Streams de estado --------------------
   final _createdController = BehaviorSubject<bool>();
@@ -39,6 +44,37 @@ class ProcessBloc extends BlocBase {
 
   // -------------------- Helpers internos --------------------
   Map<String, bool> _norm(Map<String, bool>? m) => perms.normalizePermMap(m);
+
+  Future<void> _ensureDfdStatusForIds(Iterable<String> ids) async {
+    final futures = <Future<void>>[];
+
+    for (final id in ids) {
+      if (id.isEmpty) continue;
+      if (_dfdStatusByContractId.containsKey(id)) continue;
+
+      futures.add(() async {
+        try {
+          final light = await _dfdRepo.readLightFields(id);
+          final s = (light.status ?? '').trim();
+          if (s.isNotEmpty) {
+            _dfdStatusByContractId[id] = s;
+          }
+        } catch (e) {
+          debugPrint('Erro ao ler status leve do DFD ($id): $e');
+        }
+      }());
+    }
+
+    if (futures.isNotEmpty) {
+      await Future.wait(futures);
+    }
+  }
+
+  String _dfdStatusFor(ProcessData c) {
+    final id = c.id;
+    if (id == null || id.isEmpty) return '';
+    return (_dfdStatusByContractId[id] ?? '').toUpperCase();
+  }
 
   // -------------------- CRUD / Metadados --------------------
 
@@ -83,7 +119,7 @@ class ProcessBloc extends BlocBase {
   // -------------------- Listagem / Filtro / Busca --------------------
 
   Future<List<ProcessData>> getAllContracts({
-    String? statusFilter,
+    String? statusFilter, // 🔸 ainda usado no WHERE do contrato (campo contractstatus)
     String? searchQuery,
   }) async {
     if (_cachedContracts != null) {
@@ -92,6 +128,7 @@ class ProcessBloc extends BlocBase {
 
     Query query = _db.collection('contracts');
     if (statusFilter != null && statusFilter.isNotEmpty) {
+      // 🔹 Filtro de contrato (campo contractstatus) — legado/apoio
       query = query.where('contractstatus', isEqualTo: statusFilter);
     }
 
@@ -109,6 +146,8 @@ class ProcessBloc extends BlocBase {
     return ProcessData.fromDocument(snapshot: doc);
   }
 
+  /// Filtro em memória AGORA só por busca textual.
+  /// Qualquer filtro por status visual deve usar o status do DFD em outro ponto.
   List<ProcessData> _filterCached(
       List<ProcessData> src,
       String? statusFilter,
@@ -116,18 +155,15 @@ class ProcessBloc extends BlocBase {
       ) {
     var list = src;
 
-    if (statusFilter != null && statusFilter.isNotEmpty) {
-      final f = statusFilter.toUpperCase();
-      list = list.where((c) => (c.status ?? '').toUpperCase() == f).toList();
-    }
+    // 🔸 NÃO usamos mais (c.status) aqui.
+    // O filtro por status no Firestore (contractstatus) já foi aplicado no getAllContracts.
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
       final q = normalize(searchQuery);
       list = list
           .where((c) =>
       normalize(c.summarySubject ?? '').contains(q) ||
-          normalize(c.contractNumber ?? '').contains(q) ||
-          normalize(c.numberProcess ?? '').contains(q))
+          normalize(c.contractNumber ?? '').contains(q))
           .toList();
     }
 
@@ -250,69 +286,52 @@ class ProcessBloc extends BlocBase {
   }
 
   // -------------------- Agregações / Relatórios --------------------
+  //
+  // 🔥 A partir daqui, status é SEMPRE o do DFD (não usamos mais ProcessData.status).
 
   Future<Map<String, double>> getValoresTotaisPorStatus(
-      List<ProcessData> contratos) async {
+      List<ProcessData> contratos,
+      ) async {
+    // Mapa base com todos os status conhecidos do DFD
     final Map<String, double> totais = {
       for (final tipo in DfdData.statusTypes) tipo.toUpperCase(): 0.0,
     };
+
+    final ids = contratos.map((c) => c.id).whereType<String>().toSet();
+    await _ensureDfdStatusForIds(ids);
+
     for (final c in contratos) {
-      final status = c.status?.toUpperCase();
-      if (status != null && totais.containsKey(status)) {
-        totais[status] = (totais[status]! + (c.initialValueContract ?? 0));
+      final st = _dfdStatusFor(c); // status vindo do DFD
+      if (st.isEmpty) continue;
+
+      if (!totais.containsKey(st)) {
+        // caso apareça um status novo ainda não mapeado em statusTypes
+        totais[st] = 0.0;
       }
+
+      totais[st] = (totais[st]! + (c.initialValueContract ?? 0.0));
     }
+
     return totais;
   }
 
-  Future<Map<String, double>> getValoresPorRegiao(
-      List<ProcessData> contratos) async {
-    final Map<String, double> valores = {
-      for (var r in DfdData.regions) r: 0.0
-    };
-    for (final c in contratos) {
-      final regiaoStr = c.region?.toUpperCase() ?? '';
-      final valor = c.initialValueContract ?? 0;
-      for (var r in DfdData.regions) {
-        if (regiaoStr.contains(r)) {
-          valores[r] = (valores[r]! + valor);
-        }
-      }
-    }
-    return valores;
-  }
-
-  Future<Map<String, double>> getValoresPorEmpresa({
-    required List<ProcessData> contratos,
-    String? selectedRegion,
-    required List<String> empresas,
-  }) async {
-    final Map<String, double> mapa = {for (var e in empresas) e: 0.0};
-
-    for (final c in contratos) {
-      final empresa = (c.companyLeader ?? 'NÃO INFORMADO').trim().toUpperCase();
-      final pertenceRegiao = selectedRegion == null ||
-          (c.region?.toUpperCase().contains(
-            selectedRegion.toUpperCase(),
-          ) ??
-              false);
-
-      if (pertenceRegiao && mapa.containsKey(empresa)) {
-        mapa[empresa] = (mapa[empresa]! + (c.initialValueContract ?? 0));
-      }
-    }
-    return mapa;
-  }
-
   Future<double> getValorPorStatus(
-      List<ProcessData> contratos, String statusDesejado) async {
+      List<ProcessData> contratos,
+      String statusDesejado,
+      ) async {
     double total = 0.0;
+    final alvo = statusDesejado.toUpperCase();
+
+    final ids = contratos.map((c) => c.id).whereType<String>().toSet();
+    await _ensureDfdStatusForIds(ids);
+
     for (final contrato in contratos) {
-      final status = contrato.status?.toUpperCase();
-      if (status == statusDesejado.toUpperCase()) {
+      final st = _dfdStatusFor(contrato); // status do DFD
+      if (st == alvo) {
         total += contrato.initialValueContract ?? 0.0;
       }
     }
+
     return total;
   }
 
@@ -326,8 +345,9 @@ class ProcessBloc extends BlocBase {
   }
 }
 
+/// Helpers relacionados a participantes do contrato
 extension ContractParticipants on ProcessBloc {
-  // depois
+  /// Adiciona participante com permissões iniciais normalizadas
   Future<void> addParticipant({
     required String contractId,
     required String userId,
@@ -336,9 +356,12 @@ extension ContractParticipants on ProcessBloc {
   }) async {
     try {
       _loadingController.add(true);
-      final init = _norm(permMap ?? perms.initialDocPerms()); // ✅ usa o alias do import
+
+      // usa o normalizador centralizado + perms iniciais
+      final initPerms = _norm(permMap ?? perms.initialDocPerms());
+
       await _db.collection('contracts').doc(contractId).update({
-        'permissionContractId.$userId': init,
+        'permissionContractId.$userId': initPerms,
         if (meta.isNotEmpty) 'participantsInfo.$userId': meta,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
@@ -347,7 +370,6 @@ extension ContractParticipants on ProcessBloc {
       _loadingController.add(false);
     }
   }
-
 
   Future<void> removeParticipant({
     required String contractId,
@@ -383,39 +405,28 @@ extension ContractParticipants on ProcessBloc {
     }
   }
 
-  Future<void> setParticipantPerms({
+  /// Versões "helper" opcionais, se quiser chamar via extensão
+  Future<void> setParticipantPermsExt({
     required String contractId,
     required String userId,
-    required Map<String, bool> perms,
+    required Map<String, bool> permsMap,
   }) async {
-    try {
-      _loadingController.add(true);
-      final normalized = _norm(perms);
-      await _db.collection('contracts').doc(contractId).update({
-        'permissionContractId.$userId': normalized,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-      });
-    } finally {
-      _loadingController.add(false);
-    }
+    await setParticipantPerms(
+      contractId: contractId,
+      userId: userId,
+      perms: permsMap,
+    );
   }
 
-  /// Papel é global; aqui apenas armazenamos o rótulo para exibição no documento.
-  Future<void> setParticipantRole({
+  Future<void> setParticipantRoleExt({
     required String contractId,
     required String userId,
     required String role,
   }) async {
-    try {
-      _loadingController.add(true);
-      await _db.collection('contracts').doc(contractId).update({
-        'participantsInfo.$userId.role': role,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-      });
-    } finally {
-      _loadingController.add(false);
-    }
+    await setParticipantRole(
+      contractId: contractId,
+      userId: userId,
+      role: role,
+    );
   }
 }

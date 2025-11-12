@@ -1,22 +1,29 @@
+// lib/screens/commons/listContracts/list_demand_table.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
+
 import '../../alerts/alert_validity.dart';
 
-typedef ContractNavigationCallback = void Function(BuildContext context, ProcessData contract);
+typedef ContractNavigationCallback = void Function(
+    BuildContext context,
+    ProcessData contract,
+    );
 
 class ListDemandTable extends StatelessWidget {
   final List<ProcessData> listContractData;
   final BoxConstraints constraints;
-  final String statusLabel;
-  final String statusFilter;
+  final String statusLabel;   // apenas rótulo visual do grupo
+  final String statusFilter;  // chave do grupo (status do DFD já aplicado “a montante”)
   final int? sortColumnIndex;
   final bool isAscending;
   final void Function(int, String Function(ProcessData)) onSort;
   final void Function(ProcessData) onDelete;
   final ContractNavigationCallback onTapItem;
+
+  // Mapas opcionais (contractId -> valor vindo do DFD)
+  final Map<String, String>? regionByContractId;        // REGIÃO do DFD
+  final Map<String, String>? processNumberByContractId; // Nº PROCESSO do DFD
 
   const ListDemandTable({
     super.key,
@@ -29,18 +36,37 @@ class ListDemandTable extends StatelessWidget {
     required this.onSort,
     required this.onDelete,
     required this.onTapItem,
+    this.regionByContractId,
+    this.processNumberByContractId,
   });
+
+  String _regionalFor(ProcessData c) {
+    final id = c.id ?? '';
+    if (id.isEmpty) return '—';
+    final v = regionByContractId?[id];
+    if (v == null || v.trim().isEmpty) return '—';
+    return v.trim();
+  }
+
+  String _processNumberFor(ProcessData c) {
+    // 🔒 Somente DFD. Sem fallback para campos antigos do ProcessData.
+    final id = c.id ?? '';
+    if (id.isEmpty) return '—';
+    final v = processNumberByContractId?[id];
+    if (v == null || v.trim().isEmpty) return '—';
+    return v.trim();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final sortedContracts = List<ProcessData>.from(listContractData)..sort((a, b) {
-      final statusA = a.status?.toUpperCase() ?? '';
-      final statusB = b.status?.toUpperCase() ?? '';
-      final prioridadeA = DfdData.priorityStatus[statusA] ?? 99;
-      final prioridadeB = DfdData.priorityStatus[statusB] ?? 99;
-      if (prioridadeA != prioridadeB) return prioridadeA.compareTo(prioridadeB);
-      return (a.summarySubject ?? '').compareTo(b.summarySubject ?? '');
-    });
+    // Como os itens já chegam agrupados por status do DFD,
+    // não precisamos ordenar por status aqui. Mantemos um sort simples por OBRA.
+    final sortedContracts = List<ProcessData>.from(listContractData)
+      ..sort((a, b) {
+        final an = (a.summarySubject ?? '').toUpperCase();
+        final bn = (b.summarySubject ?? '').toUpperCase();
+        return an.compareTo(bn);
+      });
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -52,6 +78,7 @@ class ListDemandTable extends StatelessWidget {
             constraints: constraints,
             sortColumnIndex: sortColumnIndex,
             isAscending: isAscending,
+            // A coluna “CONTRATO” pode ser reordenada pelo cabeçalho via onSort
             sortField: (d) => d.contractNumber ?? '',
             onSort: onSort,
             onTapItem: (contractData) => onTapItem(context, contractData),
@@ -68,9 +95,9 @@ class ListDemandTable extends StatelessWidget {
             columnGetters: [
                   (d) => d.contractNumber ?? '',
                   (d) => d.summarySubject ?? '',
-                  (d) => d.region ?? '',
+                  (d) => _regionalFor(d),      // vem do DFD (mapa)
                   (d) => d.companyLeader ?? '',
-                  (d) => d.numberProcess ?? '',
+                  (d) => _processNumberFor(d), // vem do DFD (mapa) — sem fallback legado
             ],
 
             // ⚠️ 5 (dados) + 1 (leading) + 1 (delete) = 7 larguras
@@ -81,7 +108,7 @@ class ListDemandTable extends StatelessWidget {
               100, // REGIÃO
               200, // EMPRESA
               190, // Nº PROCESSO
-              100,  // delete (ícone)
+              100, // delete (ícone)
             ],
 
             // ⚠️ Um alinhamento por título (apenas dados): 5 itens
@@ -89,14 +116,13 @@ class ListDemandTable extends StatelessWidget {
               TextAlign.center, // CONTRATO
               TextAlign.left,   // OBRA
               TextAlign.center, // REGIÃO
-              TextAlign.center,   // EMPRESA
+              TextAlign.center, // EMPRESA
               TextAlign.center, // Nº PROCESSO
             ],
 
             groupLabel: 'SERVIÇO',
             groupBy: (d) => d.services ?? 'Sem serviço definido',
           ),
-
         ],
       ),
     );

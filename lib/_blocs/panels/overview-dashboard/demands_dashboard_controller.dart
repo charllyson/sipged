@@ -18,6 +18,9 @@ import 'package:siged/_blocs/process/revision/revision_measurement_store.dart';
 import 'package:siged/_blocs/process/additives/additive_store.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_store.dart';
 
+// NOVO: para ler rodovia, regional e status do DFD
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+
 class DemandsDashboardController extends ChangeNotifier {
   DemandsDashboardController({
     required this.store,
@@ -26,8 +29,10 @@ class DemandsDashboardController extends ChangeNotifier {
     required this.revisionsStore,
     required this.additivesStore,
     required this.apostillesStore,
+    DfdRepository? dfdRepository,
     GeoJsonManager? geoManager,
-  }) : geoManager = geoManager ?? GeoJsonManager();
+  })  : dfdRepository = dfdRepository ?? DfdRepository(),
+        geoManager = geoManager ?? GeoJsonManager();
 
   // Injeções
   final ProcessStore store;
@@ -37,6 +42,7 @@ class DemandsDashboardController extends ChangeNotifier {
   final AdditivesStore additivesStore;
   final ApostillesStore apostillesStore;
   final GeoJsonManager geoManager;
+  final DfdRepository dfdRepository; // NOVO
 
   bool initialized = false;
   bool _disposed = false;
@@ -85,6 +91,79 @@ class DemandsDashboardController extends ChangeNotifier {
   double? get totaisReajustes => _totalReajustes;
   double? get totaisRevisoes => _totalRevisoes;
 
+  // ===== caches do DFD =====
+  final Map<String, String> _roadNameByContract = {};
+  final Map<String, String> _regionByContract = {};
+  final Map<String, String> _statusByContract = {}; // NOVO: status do DFD
+
+  Future<void> _preloadDfdLabels(Iterable<ProcessData> base) async {
+    final futures = <Future<void>>[];
+    for (final c in base) {
+      final id = _idToString(c.id);
+      if (id == null) continue;
+
+      // rodovia
+      if (!_roadNameByContract.containsKey(id)) {
+        futures.add(() async {
+          final v = await dfdRepository.readRoadLabel(id);
+          if (v != null && v.isNotEmpty) _roadNameByContract[id] = v;
+        }());
+      }
+
+      // regional
+      if (!_regionByContract.containsKey(id)) {
+        futures.add(() async {
+          final r = await dfdRepository.readRegionalLabel(id);
+          if (r != null && r.isNotEmpty) _regionByContract[id] = r;
+        }());
+      }
+
+      // NOVO: status (identificacao.statusContrato)
+      if (!_statusByContract.containsKey(id)) {
+        futures.add(() async {
+          final leve = await dfdRepository.readLightFields(id);
+          final s = (leve.status ?? '').trim();
+          if (s.isNotEmpty) _statusByContract[id] = s;
+        }());
+      }
+    }
+    if (futures.isNotEmpty) {
+      await Future.wait(futures);
+    }
+  }
+
+  String _getRoadLabel(ProcessData c) {
+    final id = _idToString(c.id);
+    final cached = (id != null) ? _roadNameByContract[id] : null;
+    if (cached != null && cached.trim().isNotEmpty) return cached;
+
+    // Fallback legado
+    try {
+      final legacy = (c as dynamic).mainHighway as String?;
+      if (legacy != null && legacy.trim().isNotEmpty) return legacy.trim();
+    } catch (_) {}
+
+    return 'SEM RODOVIA';
+  }
+
+  String _getRegionLabel(ProcessData c) {
+    final id = _idToString(c.id);
+    final cached = (id != null) ? _regionByContract[id] : null;
+    return (cached != null && cached.trim().isNotEmpty)
+        ? cached.trim()
+        : 'SEM REGIÃO';
+  }
+
+  // NOVO: status vindo do DFD (com fallback “SEM STATUS”)
+  String _getStatusLabel(ProcessData c) {
+    final id = _idToString(c.id);
+    final cached = (id != null) ? _statusByContract[id] : null;
+    final v = (cached ?? '').trim();
+    if (v.isNotEmpty) return v;
+    return 'SEM STATUS';
+  }
+
+
   // ===== Ciclo de vida / init =====
   @override
   void dispose() {
@@ -101,10 +180,13 @@ class DemandsDashboardController extends ChangeNotifier {
 
     allContracts = store.all;
     if (allContracts.isEmpty && !store.loading) {
-      await store.refresh();
       if (_disposed) return;
       allContracts = store.all;
     }
+
+    // Pré-carrega rodovia, regional e status do DFD
+    await _preloadDfdLabels(allContracts);
+    if (_disposed) return;
 
     await reportsMeasurementStore.ensureAllLoaded();
     await adjustmentsStore.ensureAllLoaded();
@@ -137,21 +219,26 @@ class DemandsDashboardController extends ChangeNotifier {
   bool get houveInteracaoComFiltros =>
       selectedStatus != null || selectedCompany != null || selectedRegions.isNotEmpty;
 
-  // ===== Handlers de seleção (iguais aos originais) =====
+  // ===== Handlers de seleção =====
   Future<void> onStatusSelected(String? status) async {
-    if ((selectedStatus ?? '').toUpperCase() == (status ?? '').toUpperCase()) {
+    final sel = status?.trim();
+    final same =
+        (selectedStatus ?? '').toUpperCase() == (sel ?? '').toUpperCase();
+
+    if (sel == null || same) {
       _limparTudo();
     } else {
-      selectedStatus = status;
+      selectedStatus = sel;
       selectedCompany = null;
       selectedCompanyIndex = null;
       selectedRegion = null;
       selectedRegionIndex = null;
 
+      // regiões relacionadas aos contratos que possuem esse STATUS (via DFD)
       selectedRegions = store.all
-          .where((c) => (c.status ?? '').toUpperCase() == status?.toUpperCase())
-          .map((c) => (c.region ?? '').trim().toUpperCase())
-          .where((r) => r.isNotEmpty)
+          .where((c) => _getStatusLabel(c).toUpperCase() == sel.toUpperCase())
+          .map((c) => _getRegionLabel(c).toUpperCase())
+          .where((r) => r.isNotEmpty && r != 'SEM REGIÃO')
           .toSet()
           .toList();
     }
@@ -159,23 +246,24 @@ class DemandsDashboardController extends ChangeNotifier {
   }
 
   Future<void> onCompanySelected(String company) async {
-    final isSame = (selectedCompany ?? '').toUpperCase() == company.toUpperCase();
+    final isSame =
+        (selectedCompany ?? '').toUpperCase() == company.toUpperCase();
     if (isSame) {
       selectedCompany = null;
       selectedCompanyIndex = null;
       selectedRegions = [];
     } else {
       selectedCompany = company;
-      selectedCompanyIndex =
-          uniqueCompanies.indexWhere((e) => e.toUpperCase() == company.toUpperCase());
+      selectedCompanyIndex = uniqueCompanies
+          .indexWhere((e) => e.toUpperCase() == company.toUpperCase());
 
       final contratosEmpresa = store.all.where(
             (c) => (c.companyLeader ?? '').toUpperCase() == company.toUpperCase(),
       );
 
       selectedRegions = contratosEmpresa
-          .map((c) => (c.region ?? '').trim().toUpperCase())
-          .where((r) => r.isNotEmpty)
+          .map((c) => _getRegionLabel(c).toUpperCase())
+          .where((r) => r.isNotEmpty && r != 'SEM REGIÃO')
           .toSet()
           .toList();
     }
@@ -191,7 +279,8 @@ class DemandsDashboardController extends ChangeNotifier {
     } else {
       selectedRegion = region;
       selectedRegions = [region.toUpperCase()];
-      selectedRegionIndex = DfdData.regions.indexWhere((r) => r.toUpperCase() == region.toUpperCase());
+      selectedRegionIndex =
+          DfdData.regions.indexWhere((r) => r.toUpperCase() == region.toUpperCase());
     }
     await aplicarFiltrosERecalcular();
   }
@@ -221,20 +310,25 @@ class DemandsDashboardController extends ChangeNotifier {
     final base = allContracts;
 
     filteredContracts = base.where((c) {
-      final region = (c.region ?? '').toUpperCase();
+      final region = _getRegionLabel(c).toUpperCase();
       final company = (c.companyLeader ?? '').toUpperCase();
-      final status  = (c.status ?? '').toUpperCase();
+      final statusDfd = _getStatusLabel(c).toUpperCase();
 
-      final matchCompany = selectedCompany == null || company == selectedCompany!.toUpperCase();
-      final matchRegion  = selectedRegions.isEmpty || selectedRegions.any((r) => region.contains(r));
-      final matchStatus  = selectedStatus == null || status == selectedStatus!.toUpperCase();
+      final matchCompany =
+          selectedCompany == null || company == (selectedCompany!.toUpperCase());
+      final matchRegion =
+          selectedRegions.isEmpty || selectedRegions.any((r) => region.contains(r));
+      final matchStatus =
+          selectedStatus == null || statusDfd == (selectedStatus!.toUpperCase());
 
       return matchCompany && matchRegion && matchStatus;
     }).toList();
   }
 
   List<String> _extractCompanies(List<ProcessData> data) {
-    final set = <String>{ for (final c in data) (c.companyLeader ?? 'NÃO INFORMADO').trim().toUpperCase() };
+    final set = <String>{
+      for (final c in data) (c.companyLeader ?? 'NÃO INFORMADO').trim().toUpperCase()
+    };
     final list = set.toList()..sort();
     return list;
   }
@@ -244,7 +338,11 @@ class DemandsDashboardController extends ChangeNotifier {
     try {
       final dynamic dyn = id;
       final hasId = (() {
-        try { return (dyn as dynamic).id is String; } catch (_) { return false; }
+        try {
+          return (dyn as dynamic).id is String;
+        } catch (_) {
+          return false;
+        }
       })();
       if (hasId) return (dyn as dynamic).id as String;
     } catch (_) {}
@@ -269,19 +367,17 @@ class DemandsDashboardController extends ChangeNotifier {
 
   String? _extractContractId(dynamic entry) {
     try {
-      final direct =
-          _dynString((entry as dynamic).contractId) ??
-              _dynString((entry as dynamic).idContract) ??
-              _dynString((entry as dynamic).contractRef);
+      final direct = _dynString((entry as dynamic).contractId) ??
+          _dynString((entry as dynamic).idContract) ??
+          _dynString((entry as dynamic).contractRef);
       if (direct != null) return direct;
 
-      final path =
-          (entry as dynamic).path ??
-              (entry as dynamic).docPath ??
-              (entry as dynamic).parentPath ??
-              (entry as dynamic).fullPath ??
-              (entry as dynamic).storagePath ??
-              (entry as dynamic).measurementPath;
+      final path = (entry as dynamic).path ??
+          (entry as dynamic).docPath ??
+          (entry as dynamic).parentPath ??
+          (entry as dynamic).fullPath ??
+          (entry as dynamic).storagePath ??
+          (entry as dynamic).measurementPath;
 
       final fromPath = _parseContractIdFromPath(path?.toString());
       if (fromPath != null) return fromPath;
@@ -293,27 +389,31 @@ class DemandsDashboardController extends ChangeNotifier {
     return null;
   }
 
-  // ===== Cálculos (mesmos do controller atual) =====
+  // ===== Cálculos =====
   Future<void> _calcularTotaisIniciais() async {
     totaisStatusIniciais.clear();
     totaisEmpresaIniciais.clear();
     totaisRegiaoIniciais.clear();
 
     for (final c in filteredContracts) {
-      final status = c.status ?? 'SEM STATUS';
+      final status = _getStatusLabel(c);           // <-- status DFD
       final empresa = c.companyLeader ?? 'SEM EMPRESA';
-      final regiao = c.region ?? 'SEM REGIÃO';
-      final valor  = c.initialValueContract ?? 0.0;
+      final regiao = _getRegionLabel(c);
+      final valor = c.initialValueContract ?? 0.0;
 
-      totaisStatusIniciais[status] = (totaisStatusIniciais[status] ?? 0.0) + valor;
-      totaisEmpresaIniciais[empresa] = (totaisEmpresaIniciais[empresa] ?? 0.0) + valor;
-      totaisRegiaoIniciais[regiao] = (totaisRegiaoIniciais[regiao] ?? 0.0) + valor;
+      totaisStatusIniciais[status] =
+          (totaisStatusIniciais[status] ?? 0.0) + valor;
+      totaisEmpresaIniciais[empresa] =
+          (totaisEmpresaIniciais[empresa] ?? 0.0) + valor;
+      totaisRegiaoIniciais[regiao] =
+          (totaisRegiaoIniciais[regiao] ?? 0.0) + valor;
     }
   }
 
   Future<void> _calcularTotaisAditivos() async {
     final contratosIds = <String>{
-      for (final c in filteredContracts) if (_idToString(c.id) != null) _idToString(c.id)!,
+      for (final c in filteredContracts)
+        if (_idToString(c.id) != null) _idToString(c.id)!,
     };
     final aditivos = await additivesStore.getForContractIds(contratosIds);
     if (_disposed) return;
@@ -323,7 +423,8 @@ class DemandsDashboardController extends ChangeNotifier {
     totaisRegiaoAditivos.clear();
 
     final byId = <String, ProcessData>{
-      for (final c in filteredContracts) if (_idToString(c.id) != null) _idToString(c.id)!: c,
+      for (final c in filteredContracts)
+        if (_idToString(c.id) != null) _idToString(c.id)!: c,
     };
 
     for (final ad in aditivos) {
@@ -331,20 +432,24 @@ class DemandsDashboardController extends ChangeNotifier {
       final c = adId == null ? null : byId[adId];
       if (c == null) continue;
 
-      final status = c.status ?? 'SEM STATUS';
+      final status = _getStatusLabel(c);           // <-- status DFD
       final empresa = c.companyLeader ?? 'SEM EMPRESA';
-      final regiao = c.region ?? 'SEM REGIÃO';
+      final regiao = _getRegionLabel(c);
       final valor = ad.additiveValue ?? 0.0;
 
-      totaisStatusAditivos[status] = (totaisStatusAditivos[status] ?? 0.0) + valor;
-      totaisEmpresaAditivos[empresa] = (totaisEmpresaAditivos[empresa] ?? 0.0) + valor;
-      totaisRegiaoAditivos[regiao] = (totaisRegiaoAditivos[regiao] ?? 0.0) + valor;
+      totaisStatusAditivos[status] =
+          (totaisStatusAditivos[status] ?? 0.0) + valor;
+      totaisEmpresaAditivos[empresa] =
+          (totaisEmpresaAditivos[empresa] ?? 0.0) + valor;
+      totaisRegiaoAditivos[regiao] =
+          (totaisRegiaoAditivos[regiao] ?? 0.0) + valor;
     }
   }
 
   Future<void> _calcularTotaisApostilas() async {
     final contratosIds = <String>{
-      for (final c in filteredContracts) if (_idToString(c.id) != null) _idToString(c.id)!,
+      for (final c in filteredContracts)
+        if (_idToString(c.id) != null) _idToString(c.id)!,
     };
     final aps = await apostillesStore.getForContractIds(contratosIds);
     if (_disposed) return;
@@ -354,7 +459,8 @@ class DemandsDashboardController extends ChangeNotifier {
     totaisRegiaoApostilas.clear();
 
     final byId = <String, ProcessData>{
-      for (final c in filteredContracts) if (_idToString(c.id) != null) _idToString(c.id)!: c,
+      for (final c in filteredContracts)
+        if (_idToString(c.id) != null) _idToString(c.id)!: c,
     };
 
     for (final ap in aps) {
@@ -362,20 +468,24 @@ class DemandsDashboardController extends ChangeNotifier {
       final c = apId == null ? null : byId[apId];
       if (c == null) continue;
 
-      final status = c.status ?? 'SEM STATUS';
+      final status = _getStatusLabel(c);           // <-- status DFD
       final empresa = c.companyLeader ?? 'SEM EMPRESA';
-      final regiao = c.region ?? 'SEM REGIÃO';
+      final regiao = _getRegionLabel(c);
       final valor = ap.apostilleValue ?? 0.0;
 
-      totaisStatusApostilas[status] = (totaisStatusApostilas[status] ?? 0.0) + valor;
-      totaisEmpresaApostilas[empresa] = (totaisEmpresaApostilas[empresa] ?? 0.0) + valor;
-      totaisRegiaoApostilas[regiao] = (totaisRegiaoApostilas[regiao] ?? 0.0) + valor;
+      totaisStatusApostilas[status] =
+          (totaisStatusApostilas[status] ?? 0.0) + valor;
+      totaisEmpresaApostilas[empresa] =
+          (totaisEmpresaApostilas[empresa] ?? 0.0) + valor;
+      totaisRegiaoApostilas[regiao] =
+          (totaisRegiaoApostilas[regiao] ?? 0.0) + valor;
     }
   }
 
   Future<void> _calcularTotaisMedicoes() async {
     final idsFiltro = <String>{
-      for (final c in filteredContracts) if (_idToString(c.id) != null) _idToString(c.id)!,
+      for (final c in filteredContracts)
+        if (_idToString(c.id) != null) _idToString(c.id)!,
     };
     allMeasurements = reportsMeasurementStore.all;
 
@@ -389,7 +499,8 @@ class DemandsDashboardController extends ChangeNotifier {
 
   Future<void> _calcularTotaisReajustes() async {
     final idsFiltro = <String>{
-      for (final c in filteredContracts) if (_idToString(c.id) != null) _idToString(c.id)!,
+      for (final c in filteredContracts)
+        if (_idToString(c.id) != null) _idToString(c.id)!,
     };
     final entries = adjustmentsStore.all.where((e) {
       final cid = _extractContractId(e);
@@ -400,7 +511,8 @@ class DemandsDashboardController extends ChangeNotifier {
 
   Future<void> _calcularTotaisRevisoes() async {
     final idsFiltro = <String>{
-      for (final c in filteredContracts) if (_idToString(c.id) != null) _idToString(c.id)!,
+      for (final c in filteredContracts)
+        if (_idToString(c.id) != null) _idToString(c.id)!,
     };
     final entries = revisionsStore.all.where((e) {
       final cid = _extractContractId(e);
@@ -417,12 +529,22 @@ class DemandsDashboardController extends ChangeNotifier {
 
     filterContracts();
 
-    await _calcularTotaisIniciais();   if (_disposed || runId != _applyRunId) return;
-    await _calcularTotaisAditivos();   if (_disposed || runId != _applyRunId) return;
-    await _calcularTotaisApostilas();  if (_disposed || runId != _applyRunId) return;
-    await _calcularTotaisMedicoes();   if (_disposed || runId != _applyRunId) return;
-    await _calcularTotaisReajustes();  if (_disposed || runId != _applyRunId) return;
-    await _calcularTotaisRevisoes();   if (_disposed || runId != _applyRunId) return;
+    // garante cache DFD para os contratos filtrados (inclui status)
+    await _preloadDfdLabels(filteredContracts);
+    if (_disposed || runId != _applyRunId) return;
+
+    await _calcularTotaisIniciais();
+    if (_disposed || runId != _applyRunId) return;
+    await _calcularTotaisAditivos();
+    if (_disposed || runId != _applyRunId) return;
+    await _calcularTotaisApostilas();
+    if (_disposed || runId != _applyRunId) return;
+    await _calcularTotaisMedicoes();
+    if (_disposed || runId != _applyRunId) return;
+    await _calcularTotaisReajustes();
+    if (_disposed || runId != _applyRunId) return;
+    await _calcularTotaisRevisoes();
+    if (_disposed || runId != _applyRunId) return;
 
     uniqueCompanies = _extractCompanies(allContracts);
     _safeNotify();
@@ -441,59 +563,76 @@ class DemandsDashboardController extends ChangeNotifier {
 
   Map<String, double> get totaisStatusAtuais {
     switch (tipoDeValorSelecionado) {
-      case 'Valor contratado':  return totaisStatusIniciais;
-      case 'Total em aditivos': return totaisStatusAditivos;
-      case 'Total em apostilas':return totaisStatusApostilas;
+      case 'Valor contratado':
+        return totaisStatusIniciais;
+      case 'Total em aditivos':
+        return totaisStatusAditivos;
+      case 'Total em apostilas':
+        return totaisStatusApostilas;
       case 'Somatório total':
       default:
-        return _somarMapas([totaisStatusIniciais, totaisStatusAditivos, totaisStatusApostilas]);
+        return _somarMapas(
+            [totaisStatusIniciais, totaisStatusAditivos, totaisStatusApostilas]);
     }
   }
 
   Map<String, double> get totaisRegiaoAtuais {
     switch (tipoDeValorSelecionado) {
-      case 'Valor contratado':  return totaisRegiaoIniciais;
-      case 'Total em aditivos': return totaisRegiaoAditivos;
-      case 'Total em apostilas':return totaisRegiaoApostilas;
+      case 'Valor contratado':
+        return totaisRegiaoIniciais;
+      case 'Total em aditivos':
+        return totaisRegiaoAditivos;
+      case 'Total em apostilas':
+        return totaisRegiaoApostilas;
       case 'Somatório total':
       default:
-        return _somarMapas([totaisRegiaoIniciais, totaisRegiaoAditivos, totaisRegiaoApostilas]);
-    }
-  }
-
-  Map<String, double> get totaisEmpresaAtuais {
-    switch (tipoDeValorSelecionado) {
-      case 'Valor contratado':  return totaisEmpresaIniciais;
-      case 'Total em aditivos': return totaisEmpresaAditivos;
-      case 'Total em apostilas':return totaisEmpresaApostilas;
-      case 'Somatório total':
-      default:
-        return _somarMapas([totaisEmpresaIniciais, totaisEmpresaAditivos, totaisEmpresaApostilas]);
+        return _somarMapas(
+            [totaisRegiaoIniciais, totaisRegiaoAditivos, totaisRegiaoApostilas]);
     }
   }
 
   List<String> get labelsStatusGeneralContracts {
-    final entries = totaisStatusAtuais.entries.where((e) => e.value > 0).toList()
+    final entries =
+    totaisStatusAtuais.entries.where((e) => e.value > 0).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     return entries.map((e) => e.key).toList();
   }
 
   List<double> get valuesStatusGeneralContracts {
-    final entries = totaisStatusAtuais.entries.where((e) => e.value > 0).toList()
+    final entries =
+    totaisStatusAtuais.entries.where((e) => e.value > 0).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     return entries.map((e) => e.value).toList();
   }
 
   List<String> get labelsRegionOfMap => DfdData.regions;
-  List<double?> get valuesRegionOfMap => DfdData.regions.map((r) => totaisRegiaoAtuais[r]).toList();
+  List<double?> get valuesRegionOfMap =>
+      DfdData.regions.map((r) => totaisRegiaoAtuais[r]).toList();
 
   List<Color> get barColorsRegion {
     return List.generate(DfdData.regions.length, (i) {
       final valor = valuesRegionOfMap[i] ?? 0.0;
       if (valor == 0.0) return Colors.grey.shade300;
-      if (selectedRegionIndex != null && selectedRegionIndex == i) return Colors.orangeAccent;
+      if (selectedRegionIndex != null && selectedRegionIndex == i) {
+        return Colors.orangeAccent;
+      }
       return Colors.blueAccent;
     });
+  }
+
+  Map<String, double> get totaisEmpresaAtuais {
+    switch (tipoDeValorSelecionado) {
+      case 'Valor contratado':
+        return totaisEmpresaIniciais;
+      case 'Total em aditivos':
+        return totaisEmpresaAditivos;
+      case 'Total em apostilas':
+        return totaisEmpresaApostilas;
+      case 'Somatório total':
+      default:
+        return _somarMapas(
+            [totaisEmpresaIniciais, totaisEmpresaAditivos, totaisEmpresaApostilas]);
+    }
   }
 
   List<String> get labelsCompany => uniqueCompanies;
@@ -504,7 +643,9 @@ class DemandsDashboardController extends ChangeNotifier {
     return List.generate(uniqueCompanies.length, (i) {
       final valor = valuesCompany[i];
       if (valor == 0.0) return Colors.grey.shade300;
-      if (selectedCompanyIndex != null && selectedCompanyIndex == i) return Colors.orangeAccent;
+      if (selectedCompanyIndex != null && selectedCompanyIndex == i) {
+        return Colors.orangeAccent;
+      }
       return Colors.blueAccent;
     });
   }
@@ -521,15 +662,20 @@ class DemandsDashboardController extends ChangeNotifier {
 
   double _valorRadarParaContrato(ProcessData c) {
     switch (tipoDeValorSelecionado) {
-      case 'Valor contratado':  return c.initialValueContract ?? 0.0;
-      case 'Total em aditivos': return 0.0;
-      case 'Total em apostilas':return 0.0;
+      case 'Valor contratado':
+        return c.initialValueContract ?? 0.0;
+      case 'Total em aditivos':
+        return 0.0;
+      case 'Total em apostilas':
+        return 0.0;
       case 'Somatório total':
-      default: return (c.initialValueContract ?? 0.0);
+      default:
+        return (c.initialValueContract ?? 0.0);
     }
   }
 
-  List<double> _sumRadarPorContractServices(List<ProcessData> base, List<String> labels) {
+  List<double> _sumRadarPorContractServices(
+      List<ProcessData> base, List<String> labels) {
     final mapa = {for (final t in labels) t: 0.0};
     for (final c in base) {
       final valor = _valorRadarParaContrato(c);
@@ -563,7 +709,7 @@ class DemandsDashboardController extends ChangeNotifier {
     final labels = radarServiceLabels;
     final alvo = (selectedRegion ?? selectedRegions.first).toUpperCase();
     final base = filteredContracts
-        .where((c) => (c.region ?? '').toUpperCase().contains(alvo))
+        .where((c) => _getRegionLabel(c).toUpperCase().contains(alvo))
         .toList();
     return _sumRadarPorContractServices(base, labels);
   }
@@ -576,50 +722,76 @@ class DemandsDashboardController extends ChangeNotifier {
     final labels = radarServiceLabels;
     if (labels.isEmpty) return const <RadarSeriesData>[];
 
-    final geral   = radarServiceValuesGeral();
+    final geral = radarServiceValuesGeral();
     final empresa = radarServiceValuesEmpresaSelecionada();
-    final regiao  = radarServiceValuesRegiaoSelecionada();
+    final regiao = radarServiceValuesRegiaoSelecionada();
 
     final raw = <RadarSeriesData>[
       RadarSeriesData(name: 'Geral', values: geral, color: primary),
       if (empresa.isNotEmpty)
-        RadarSeriesData(name: selectedCompany ?? 'Empresa', values: empresa, color: warning),
+        RadarSeriesData(
+            name: selectedCompany ?? 'Empresa',
+            values: empresa,
+            color: warning),
       if (regiao.isNotEmpty)
-        RadarSeriesData(name: selectedRegion ?? (selectedRegions.isNotEmpty ? selectedRegions.first : 'Região'),
-            values: regiao, color: success),
+        RadarSeriesData(
+          name:
+          selectedRegion ?? (selectedRegions.isNotEmpty ? selectedRegions.first : 'Região'),
+          values: regiao,
+          color: success,
+        ),
     ];
 
-    return raw.where((s) => s.values.length == labels.length && s.values.any((v) => v > 0))
+    return raw
+        .where((s) => s.values.length == labels.length && s.values.any((v) => v > 0))
         .toList(growable: false);
   }
 
   List<TreemapItem> get treemapRodovias {
     final mapa = <String, double>{};
     for (final c in filteredContracts) {
-      final rodovia = (c.mainHighway ?? 'SEM RODOVIA').trim();
-      if (rodovia.isEmpty) continue;
+      final rodovia = _getRoadLabel(c);
+      if (rodovia.isEmpty || rodovia == 'SEM RODOVIA') continue;
 
       double valor;
       switch (tipoDeValorSelecionado) {
-        case 'Valor contratado':  valor = c.initialValueContract ?? 0.0; break;
-        case 'Total em aditivos': valor = 0.0; break;
-        case 'Total em apostilas':valor = 0.0; break;
+        case 'Valor contratado':
+          valor = c.initialValueContract ?? 0.0;
+          break;
+        case 'Total em aditivos':
+          valor = 0.0;
+          break;
+        case 'Total em apostilas':
+          valor = 0.0;
+          break;
         case 'Somatório total':
-        default: valor = (c.initialValueContract ?? 0.0); break;
+        default:
+          valor = (c.initialValueContract ?? 0.0);
+          break;
       }
       if (valor == 0.0) continue;
       mapa[rodovia] = (mapa[rodovia] ?? 0.0) + valor;
     }
 
-    final ordenado = mapa.entries.toList()..sort((a,b)=>b.value.compareTo(a.value));
+    final ordenado = mapa.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final colors = <Color>[
-      Colors.blue, Colors.green, Colors.orange, Colors.purple,
-      Colors.red, Colors.teal, Colors.indigo, Colors.brown,
-      Colors.cyan, Colors.deepOrange, Colors.pink, Colors.lime,
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.red,
+      Colors.teal,
+      Colors.indigo,
+      Colors.brown,
+      Colors.cyan,
+      Colors.deepOrange,
+      Colors.pink,
+      Colors.lime,
     ];
     int i = 0;
     return ordenado.map((e) {
-      final color = colors[i % colors.length]; i++;
+      final color = colors[i % colors.length];
+      i++;
       return TreemapItem(label: e.key, value: e.value, color: color);
     }).toList(growable: false);
   }

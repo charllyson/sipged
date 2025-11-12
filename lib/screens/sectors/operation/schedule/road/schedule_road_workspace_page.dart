@@ -1,3 +1,5 @@
+// lib/screens/sectors/operation/schedule/road/schedule_road_workspace_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
@@ -25,6 +27,9 @@ import '../../../../../_widgets/schedule/linear/schedule_road_board.dart';
 // ✅ Layout unificado (lado a lado vs empilhado)
 import 'package:siged/_widgets/layout/responsive_split_view.dart';
 
+// <<< NOVO: ler extensão do DFD >>>
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+
 class ScheduleRoadWorkspacePage extends StatefulWidget {
   final ProcessData contractData;
   const ScheduleRoadWorkspacePage({super.key, required this.contractData});
@@ -43,6 +48,33 @@ class _ScheduleRoadWorkspacePageState
 
   // sincroniza o painel com o mapa (o mapa só lê este valor)
   final ValueNotifier<bool> _panelVN = ValueNotifier<bool>(false);
+
+  // <<< NOVO: cache local da extensão via DFD >>>
+  static final Map<String, Future<double>> _extKmCache = {};
+  late final Future<double> _futureExtKm;
+
+  @override
+  void initState() {
+    super.initState();
+    final id = widget.contractData.id ?? '';
+    _futureExtKm = _readExtentKmFromDfd(id);
+  }
+
+  Future<double> _readExtentKmFromDfd(String contractId) {
+    if (contractId.isEmpty) return Future.value(0.0);
+    if (_extKmCache.containsKey(contractId)) return _extKmCache[contractId]!;
+    final fut = () async {
+      try {
+        final repo = DfdRepository();
+        final res = await repo.readWorkTypeAndExtent(contractId);
+        return (res.extensaoKm ?? 0.0).toDouble();
+      } catch (_) {
+        return 0.0;
+      }
+    }();
+    _extKmCache[contractId] = fut;
+    return fut;
+  }
 
   void _toggleView() {
     setState(() {
@@ -80,9 +112,9 @@ class _ScheduleRoadWorkspacePageState
             const showHeaderSpinner = false;
 
             return UpBar(
-              leading: Padding(
-                padding: const EdgeInsets.only(left: 12.0),
-                child: const BackCircleButton(),
+              leading: const Padding(
+                padding: EdgeInsets.only(left: 12.0),
+                child: BackCircleButton(),
               ),
               actions: [
                 // Alternar Board <-> Mapa (sem push)
@@ -123,8 +155,64 @@ class _ScheduleRoadWorkspacePageState
               final left = IndexedStack(
                 index: isMap ? 1 : 0,
                 children: [
-                  // BOARD
-                  ScheduleRoadBoard(contractData: widget.contractData),
+                  // BOARD — agora recebe extensão via DFD (não usa mais contractData.ext)
+                  FutureBuilder<double>(
+                    future: _futureExtKm,
+                    builder: (context, snap) {
+                      final km = (snap.data ?? 0.0);
+                      return Stack(
+                        children: [
+                          ScheduleRoadBoard(
+                            contractData: widget.contractData,
+                            extensao: km, // <<< AQUI AJUSTADO
+                          ),
+                          if (!snap.hasData)
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                ignoring: true,
+                                child: Container(
+                                  color: Colors.transparent,
+                                  alignment: Alignment.center,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 14,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          blurRadius: 12,
+                                          color: Colors.black26,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 3,
+                                          ),
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Carregando extensão (DFD)...',
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+
                   // MAPA — mesmo BLoC; recebe o ValueNotifier para refletir o painel
                   ScheduleRoadMap(
                     contractData: widget.contractData,
@@ -171,8 +259,8 @@ class _ScheduleRoadWorkspacePageState
                         right: rightOffset,
                         bottom: 12, // fica acima da FootBar
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                              maxWidth: kCardMaxWidth),
+                          constraints:
+                          const BoxConstraints(maxWidth: kCardMaxWidth),
                           child: ScheduleMenuButtons(
                             options: state.services,
                             current: state.currentServiceKey,

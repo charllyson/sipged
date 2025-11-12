@@ -554,16 +554,8 @@ class ProcessController extends ChangeNotifier {
       id: src.id,
       summarySubject: src.summarySubject,
       contractNumber: src.contractNumber,
-      mainHighway: src.mainHighway,
       services: src.services,
-      ext: src.ext,
-      region: src.region,
       companyLeader: src.companyLeader,
-      numberProcess: src.numberProcess,
-      status: src.status,
-      workType: src.workType,
-      contractCompaniesInvolved: src.contractCompaniesInvolved,
-      urlContractPdf: src.urlContractPdf,
       initialValidityExecution: src.initialValidityExecution,
       initialValidityContract: src.initialValidityContract,
       publicationDate: src.publicationDate,
@@ -578,17 +570,10 @@ class ProcessController extends ChangeNotifier {
 
   void _fillControllersFromModel() {
     companyLeaderCtrl.text = (contractData.companyLeader ?? '');
-    companiesInvolvedCtrl.text = (contractData.contractCompaniesInvolved ?? '');
 
-    contractStatusCtrl.text = (contractData.status ?? '');
-    contractBiddingProcessNumberCtrl.text = (contractData.numberProcess ?? '');
     contractNumberCtrl.text = (contractData.contractNumber ?? '');
     initialValueOfContractCtrl.text = _formatCurrency(contractData.initialValueContract);
-    contractHighWayCtrl.text = (contractData.mainHighway ?? '');
     summarySubjectContractCtrl.text = (contractData.summarySubject ?? '');
-    contractRegionOfStateCtrl.text = (contractData.region ?? '');
-    contractTextKmCtrl.text = _formatNumber(contractData.ext, decimals: 3);
-    contractWorkTypeCtrl.text = (contractData.workType ?? '');
     contractServiceTypeCtrl.text = (contractData.services ?? '');
 
     datapublicacaodoeCtrl.text = contractData.publicationDate != null
@@ -604,27 +589,13 @@ class ProcessController extends ChangeNotifier {
 
   void _applyControllersToModel() {
     contractData.companyLeader = _nullIfEmpty(companyLeaderCtrl.text);
-    contractData.contractCompaniesInvolved = _nullIfEmpty(companiesInvolvedCtrl.text);
 
-    contractData.status =
-        _normalizeFromList(contractStatusCtrl.text, DfdData.statusTypes);
-    contractData.numberProcess = _nullIfEmpty(contractBiddingProcessNumberCtrl.text);
     contractData.contractNumber = _nullIfEmpty(contractNumberCtrl.text);
     contractData.initialValueContract = _parseCurrency(initialValueOfContractCtrl.text);
-    contractData.mainHighway = _nullIfEmpty(contractHighWayCtrl.text);
     contractData.summarySubject = _nullIfEmpty(summarySubjectContractCtrl.text);
-    contractData.region = _nullIfEmpty(contractRegionOfStateCtrl.text);
-    contractData.ext = _tryParseDouble(contractTextKmCtrl.text);
-    contractData.workType =
-        _normalizeFromList(contractWorkTypeCtrl.text, DfdData.workTypes);
     contractData.services = _nullIfEmpty(contractServiceTypeCtrl.text);
-
-    // publicationDateDoe é setado pelo CustomDateField via onChanged
-
-    contractData.initialValidityContract =
-        _tryParseInt(initialValidityContractDaysCtrl.text);
-    contractData.initialValidityExecution =
-        _tryParseInt(initialValidityExecutionDaysCtrl.text);
+    contractData.initialValidityContract = _tryParseInt(initialValidityContractDaysCtrl.text);
+    contractData.initialValidityExecution = _tryParseInt(initialValidityExecutionDaysCtrl.text);
 
   }
 

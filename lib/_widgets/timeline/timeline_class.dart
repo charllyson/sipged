@@ -1,3 +1,4 @@
+// lib/screens/commons/timeline/timeline_class.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_utils/formats/date_utils.dart';
 
@@ -27,11 +28,16 @@ class TimelineClass extends StatelessWidget {
   final Future<List<ProcessData>> futureContractList;
   final Future<List<AdditiveData>> futureAdditiveList;
 
+  /// 🆕 Status do DFD do contrato exibido (ex.: "EM ANDAMENTO", "A INICIAR", "CONCLUÍDO"...)
+  /// Se não informado, a timeline apenas não mostrará a contagem regressiva.
+  final String? dfdStatus;
+
   const TimelineClass({
     super.key,
     required this.futureValidity,
     required this.futureContractList,
     required this.futureAdditiveList,
+    this.dfdStatus,
   });
 
   @override
@@ -46,10 +52,10 @@ class TimelineClass extends StatelessWidget {
         if (!snapshot.hasData) return const SizedBox.shrink();
 
         final validities = snapshot.data![0] as List<ValidityData>;
-        final contracts = snapshot.data![1] as List<ProcessData>;
-        final additives = snapshot.data![2] as List<AdditiveData>;
+        final contracts  = snapshot.data![1] as List<ProcessData>;
+        final additives  = snapshot.data![2] as List<AdditiveData>;
 
-        final contract = contracts.firstOrNull;
+        final contract = contracts.isNotEmpty ? contracts.first : null;
         if (contract == null) return const SizedBox.shrink();
 
         final bloc = ValidityBloc();
@@ -74,7 +80,7 @@ class TimelineClass extends StatelessWidget {
               bloc: bloc,
             );
 
-            return _buildTimeline(items, contract);
+            return _buildTimeline(items, dfdStatus?.toUpperCase().trim());
           },
         );
       },
@@ -91,6 +97,7 @@ class TimelineClass extends StatelessWidget {
   }) {
     final List<TimelineItem> items = [];
 
+    // calcula internamente campos derivados (paralisações)
     bloc.calcularDiasParalisados(validities);
 
     for (int i = 0; i < validities.length; i++) {
@@ -125,7 +132,8 @@ class TimelineClass extends StatelessWidget {
 
     for (final a in additives) {
       if (a.additiveDate != null &&
-          ((a.additiveValidityContractDays ?? 0) > 0 || (a.additiveValidityExecutionDays ?? 0) > 0)) {
+          ((a.additiveValidityContractDays ?? 0) > 0 ||
+              (a.additiveValidityExecutionDays ?? 0) > 0)) {
         items.add(TimelineItem(
           title: 'ASSINATURA ADITIVO DE PRAZO',
           date: a.additiveDate,
@@ -156,8 +164,9 @@ class TimelineClass extends StatelessWidget {
       ..sort((a, b) => a.date!.compareTo(b.date!));
   }
 
-  Widget _buildTimeline(List<TimelineItem> items, ProcessData contract) {
-    final contractStatus = contract.status?.toUpperCase() ?? '';
+  Widget _buildTimeline(List<TimelineItem> items, String? dfdStatusUp) {
+    // usamos apenas o status vindo do DFD
+    final status = dfdStatusUp ?? '';
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -183,21 +192,37 @@ class TimelineClass extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(item.title, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
+                    Text(
+                      item.title,
+                      style: const TextStyle(fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 4),
-                    Text(dateStr, style: const TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center),
+                    Text(
+                      dateStr,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
                     if (item.source == 'prazo') ...[
-                      if (contractStatus == 'EM ANDAMENTO')
+                      if (status == 'EM ANDAMENTO')
                         item.date!.isAfter(DateTime.now())
-                            ? Text('Faltam: ${item.date!.difference(DateTime.now()).inDays} dias',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey), textAlign: TextAlign.center)
-                            : Text('Vencido: ${DateTime.now().difference(item.date!).inDays} dias',
-                            style: const TextStyle(fontSize: 11, color: Colors.redAccent), textAlign: TextAlign.center)
-                      else
-                        Text(contractStatus,
-                            style: const TextStyle(fontSize: 11, color: Colors.indigo), textAlign: TextAlign.center),
+                            ? Text(
+                          'Faltam: ${item.date!.difference(DateTime.now()).inDays} dias',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        )
+                            : Text(
+                          'Vencido: ${DateTime.now().difference(item.date!).inDays} dias',
+                          style: const TextStyle(fontSize: 11, color: Colors.redAccent),
+                          textAlign: TextAlign.center,
+                        )
+                      else if (status.isNotEmpty)
+                        Text(
+                          status,
+                          style: const TextStyle(fontSize: 11, color: Colors.indigo),
+                          textAlign: TextAlign.center,
+                        ),
                     ],
-                    // ... demais trechos
                   ],
                 ),
               ),
@@ -210,13 +235,12 @@ class TimelineClass extends StatelessWidget {
     );
   }
 
-
   (Color, IconData) _getIconAndColor(TimelineItem item) {
     switch (item.source) {
       case 'validity':
         final type = item.title.toUpperCase();
         if (type.contains('REINÍCIO')) return (Colors.blue, Icons.refresh);
-        if (type.contains('INÍCIO')) return (Colors.green, Icons.play_arrow);
+        if (type.contains('INÍCIO'))   return (Colors.green, Icons.play_arrow);
         if (type.contains('PARALISA')) return (Colors.orange, Icons.pause);
         if (type.contains('FINALIZA')) return (Colors.green, Icons.check_circle);
         return (Colors.grey, Icons.description);

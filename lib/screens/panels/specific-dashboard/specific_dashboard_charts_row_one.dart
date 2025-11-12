@@ -1,9 +1,12 @@
+// lib/screens/panels/specific-dashboard/specific_dashboard_charts_row_one.dart
+
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
+
 import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
 import 'package:siged/_widgets/charts/radar/radar_chart_changed_widget.dart';
@@ -17,6 +20,9 @@ import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/_process/process_controller.dart';
 
+// <<< NOVO: leitura de extensão via DFD >>>
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+
 class SpecificDashboardChartRowOne extends StatelessWidget {
   final DemandsDashboardController controller;
   final ProcessData contract;
@@ -27,7 +33,11 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
     required this.contract,
   });
 
+  // Cache dos dados de barras por contrato
   static final Map<String, Future<({List<String> labels, List<double> values, List<Color> colors})>> _barCache = {};
+
+  // Cache da extensão (km) vinda do DFD por contrato
+  static final Map<String, Future<double>> _extKmCache = {};
 
   String _canonStatus(String? raw) {
     String t = (raw ?? '')
@@ -53,6 +63,23 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
     return 'a_iniciar';
   }
 
+  // ===== Extensão via DFD =====
+  Future<double> _readExtentKmFromDfd(String contractId) {
+    if (_extKmCache.containsKey(contractId)) return _extKmCache[contractId]!;
+    final future = () async {
+      try {
+        final repo = DfdRepository();
+        final res = await repo.readWorkTypeAndExtent(contractId);
+        return (res.extensaoKm ?? 0.0).toDouble();
+      } catch (_) {
+        return 0.0;
+      }
+    }();
+    _extKmCache[contractId] = future;
+    return future;
+  }
+
+  // ===== Barras por serviço (% concluído) =====
   Future<({List<String> labels, List<double> values, List<Color> colors})>
   _loadServicePercents(BuildContext context) {
     final contractId = contract.id ?? '';
@@ -81,7 +108,8 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
 
     final lanes = await repo.loadFaixas(contractId);
 
-    final km = contract.ext ?? 0.0;
+    // <<< AJUSTE: usa extensão somente do DFD >>>
+    final km = await _readExtentKmFromDfd(contractId);
     final totalEstacas = max(0, ((km * 1000) / 20).ceil());
 
     final List<String> labels = <String>[];

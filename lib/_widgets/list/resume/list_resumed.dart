@@ -1,16 +1,36 @@
+// lib/screens/commons/listContracts/list_resumed.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
-import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/screens/process/hiring/tab_bar_hiring_page.dart';
 
 class ListResumed extends StatelessWidget {
   final List<ProcessData> contract;
 
-  const ListResumed({super.key, required this.contract});
+  /// 🆕 Status do DFD por contrato (contractId -> status)
+  /// Ex.: {'abc123': 'EM ANDAMENTO', 'def456': 'CONCLUÍDO'}
+  final Map<String, String>? dfdStatusByContractId;
+
+  const ListResumed({
+    super.key,
+    required this.contract,
+    this.dfdStatusByContractId,
+  });
+
+  String _statusFor(ProcessData c) {
+    final id = c.id ?? '';
+    if (id.isEmpty) return '';
+    final s = dfdStatusByContractId?[id];
+    return (s ?? '').trim();
+  }
+
+  Color _statusColor(String status) {
+    final key = status.toUpperCase();
+    return DemandsDashboardOverviewStyle.statusColors[key] ?? Colors.black;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,16 +38,15 @@ class ListResumed extends StatelessWidget {
 
     final contratosOrdenados = List<ProcessData>.from(contract)
       ..sort((a, b) {
-        final statusA = a.status?.toUpperCase() ?? '';
-        final statusB = b.status?.toUpperCase() ?? '';
-        final prioridadeA = DfdData.priorityStatus[statusA] ?? 99;
-        final prioridadeB = DfdData.priorityStatus[statusB] ?? 99;
+        final sa = _statusFor(a).toUpperCase();
+        final sb = _statusFor(b).toUpperCase();
+        final pa = DfdData.priorityStatus[sa] ?? 99;
+        final pb = DfdData.priorityStatus[sb] ?? 99;
 
-        if (prioridadeA != prioridadeB) {
-          return prioridadeA.compareTo(prioridadeB);
-        }
-
-        return (a.summarySubject ?? '').compareTo(b.summarySubject ?? '');
+        if (pa != pb) return pa.compareTo(pb);
+        final an = (a.summarySubject ?? '').toUpperCase();
+        final bn = (b.summarySubject ?? '').toUpperCase();
+        return an.compareTo(bn);
       });
 
     return Padding(
@@ -43,6 +62,9 @@ class ListResumed extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: contratosOrdenados.map((contrato) {
+              final statusDfd = _statusFor(contrato);
+              final statusColor = _statusColor(statusDfd);
+
               return InkWell(
                 onTap: () {
                   Navigator.push(
@@ -50,7 +72,7 @@ class ListResumed extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (context) => TabBarHiringPage(
                         contractData: contrato,
-                        initialTabIndex: 0, // Abre direto na aba de Medições
+                        initialTabIndex: 0,
                       ),
                     ),
                   );
@@ -66,24 +88,26 @@ class ListResumed extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            contrato.status ?? '',
-                            style: TextStyle(
-                              color: DemandsDashboardOverviewStyle.statusColors[contrato.status?.toUpperCase()] ?? Colors.black,
-                              fontWeight: FontWeight.bold,
+                      if (statusDfd.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            Text(
+                              statusDfd,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                      ],
                       Text(
-                        '${contrato.contractNumber} - ${contrato.summarySubject}',
+                        '${contrato.contractNumber ?? '—'} - ${contrato.summarySubject ?? '—'}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
-                      Text('Empresa: ${contrato.companyLeader ?? '---'}'),
+                      Text('Empresa: ${contrato.companyLeader ?? '—'}'),
                       const SizedBox(height: 4),
                       Text('Contratado: ${priceToString(contrato.initialValueContract)}'),
                     ],

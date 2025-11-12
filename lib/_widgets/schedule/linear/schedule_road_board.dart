@@ -31,7 +31,12 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadBoard extends StatefulWidget {
   final ProcessData? contractData;
-  const ScheduleRoadBoard({super.key, this.contractData});
+  final double extensao;
+  const ScheduleRoadBoard({
+    super.key,
+    this.contractData,
+    required this.extensao,
+  });
 
   @override
   State<ScheduleRoadBoard> createState() => _ScheduleRoadBoardState();
@@ -97,7 +102,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       );
     }
 
-    final km = widget.contractData?.ext ?? 0.0;
+    final km = widget.extensao;
     final totalEstacas = ((km * 1000) / 20).ceil();
     final contractId = widget.contractData?.id ?? '';
 
@@ -116,7 +121,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
     final oldId = oldWidget.contractData?.id ?? '';
     final newId = widget.contractData?.id ?? '';
     if (oldId != newId) {
-      final km = widget.contractData?.ext ?? 0.0;
+      final km = widget.extensao;
       final totalEstacas = ((km * 1000) / 20).ceil();
       final contractId = widget.contractData?.id ?? '';
       context.read<ScheduleRoadBloc>().add(

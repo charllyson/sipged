@@ -20,6 +20,7 @@ import 'package:siged/_blocs/process/adjustment/adjustment_measurement_store.dar
 import 'package:siged/_blocs/process/revision/revision_measurement_store.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 
+// Road schedule
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
@@ -63,6 +64,9 @@ import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_list.
 import 'package:siged/_widgets/timeline/timeline_class.dart';
 import 'package:siged/_utils/formats/date_utils.dart';
 
+// ===== DFD (leitura leve de tipo/ extensão) =====
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+
 class SpecificDashboardPage extends StatefulWidget {
   const SpecificDashboardPage({
     super.key,
@@ -91,6 +95,33 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
   late Future<List<AdditiveData>> _futureAdditiveList;
   bool _timelineInitialized = false;
 
+  // ===== DFD: extensão e tipo de obra (carregados do repo) =====
+  late final DfdRepository _dfdRepository;
+  double? _extKmDfd;
+  String? _tipoObraDfd;
+
+  @override
+  void initState() {
+    super.initState();
+    _dfdRepository = DfdRepository();
+    _loadExtentFromDfd();
+  }
+
+  Future<void> _loadExtentFromDfd() async {
+    final cid = widget.contractData.id ?? '';
+    if (cid.isEmpty) return;
+    try {
+      final res = await _dfdRepository.readWorkTypeAndExtent(cid);
+      if (!mounted) return;
+      setState(() {
+        _extKmDfd = res.extensaoKm;
+        _tipoObraDfd = res.tipoObra;
+      });
+    } catch (_) {
+      // mantém nulo se falhar
+    }
+  }
+
   String _norm(String? s) => (s ?? '').trim().toUpperCase();
 
   // ---------- Helpers: Totais contrato + AA ----------
@@ -109,41 +140,12 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     return contratado + aditivos + apostilas;
   }
 
-  Map<String, double>? _benchmarksDoServico(DemandsDashboardController controller, ProcessData c) {
-    final svcRaw = c.services ?? '';
-    final svc = _norm(svcRaw);
-    if (svc.isEmpty) return null;
-
-    final mesmaBase = controller.filteredContracts.where((k) {
-      final km = (k.ext ?? 0).toDouble();
-      final total = _totalContratadoMaisAA(controller, k);
-      return _norm(k.services) == svc && km > 0 && total > 0;
-    }).toList();
-
-    if (mesmaBase.isEmpty) return null;
-
-    double somaTotal = 0.0;
-    double somaKm = 0.0;
-    double maxPerKm = 0.0;
-
-    for (final k in mesmaBase) {
-      final total = _totalContratadoMaisAA(controller, k);
-      final km = (k.ext ?? 0).toDouble();
-      if (km <= 0) continue;
-
-      somaTotal += total;
-      somaKm += km;
-
-      final perKm = total / km;
-      if (perKm.isFinite && perKm > maxPerKm) maxPerKm = perKm;
-    }
-
-    if (somaKm <= 0) return null;
-
-    final media = somaTotal / somaKm;
-    if (!media.isFinite || !maxPerKm.isFinite) return null;
-
-    return {'Média': media, 'Teto': maxPerKm};
+  /// Benchmarks por serviço — por enquanto omitidos, pois a extensão (km) agora
+  /// vem apenas do DFD e exigiria leituras assíncronas por contrato.
+  /// Retorna null para não exibir média/teto.
+  Map<String, double>? _benchmarksDoServico(
+      DemandsDashboardController controller, ProcessData c) {
+    return null;
   }
 
   // ---------- Helpers de datas/labels ----------
@@ -253,7 +255,6 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     });
 
     final List<CurvaSPvSeries> pvMulti = [];
-    final baseLabels = pvDays.map((d) => '$d').toList();
 
     final services = scheduleState.services.where((s) => s.key != 'geral').toList();
     final List<PhysFinRow> rows = PhysicsFinanceController.buildRows(
@@ -263,7 +264,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
       periods: pvDays.length,
     );
 
-    List<double> _norm(List<double> raw, int nCols) {
+    List<double> _normList(List<double> raw, int nCols) {
       if (raw.length == nCols) return raw;
       if (raw.length > nCols) return raw.sublist(0, nCols);
       return [...raw, ...List<double>.filled(nCols - raw.length, 0.0)];
@@ -292,7 +293,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
         final key = s.key;
         final valorServico = (totals[key] ?? 0.0).toDouble();
         final raw = List<double>.from(gridBase[key] ?? const <double>[]);
-        final rowPerc = _norm(raw, nCols);
+        final rowPerc = _normList(raw, nCols);
         for (int j = 0; j < nCols; j++) {
           soma[j] += valorServico * (rowPerc[j] / 100.0);
         }
@@ -347,7 +348,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
           if (rawAny == null) continue;
 
           final raw = rawAny.map<double>((e) => (e as num).toDouble()).toList();
-          final perc = _norm(raw, nCols);
+          final perc = _normList(raw, nCols);
 
           for (int j = 0; j < nCols; j++) {
             termPV[j] += r.valor * (perc[j] / 100.0);
@@ -358,14 +359,9 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
         List<DateTime> termDates = const <DateTime>[];
         if (startDate != null) {
           final extra = a.additiveValidityExecutionDays ?? 0;
-          if (extra > 0) {
-            termDates = _datesFromAdditiveDays(
-              start: startDate,
-              additiveExecDays: extra,
-            );
-          } else {
-            termDates = baseDates;
-          }
+          termDates = (extra > 0)
+              ? _datesFromAdditiveDays(start: startDate, additiveExecDays: extra)
+              : baseDates;
         }
 
         pvMulti.add(
@@ -480,7 +476,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
       start: start,
       end: end,
       asOf: asOf,
-      physicalPercent: 0
+      physicalPercent: 0,
     );
 
     final pvCurve = EvmCalculator.plannedCumulative(
@@ -508,9 +504,10 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     final qualityScore = 100.0;
     final riskScore = 80.0;
 
-    final custoPorKmAtual = (widget.contractData.ext ?? 0) > 0
-        ? totalContratoAA / (widget.contractData.ext ?? 1)
-        : 0.0;
+    // >>>>>>>>>>>> NOVO: custo por km usando SOMENTE extensão do DFD
+    final double lengthKm = _extKmDfd ?? 0.0;
+    final double custoPorKmAtual = lengthKm > 0 ? (totalContratoAA / lengthKm) : 0.0;
+    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     final alerts = AlertRules.evaluate(
       cpi: evm.cpi,
@@ -576,9 +573,9 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                         const SizedBox(width: 12),
                         CostPerKmRuler(
                           totalValueBRL: totalContratoAA,
-                          lengthKm: widget.contractData.ext ?? 0,
+                          lengthKm: lengthKm, // <<< apenas DFD
                           title: 'Custo por km',
-                          serviceName: widget.contractData.services, // se o widget aceitar
+                          serviceName: widget.contractData.services,
                           benchmarks: bm,
                         ),
                         const SizedBox(width: 12),

@@ -266,7 +266,7 @@ pw.Widget _pdfHeader({
     return '$dd/$mm/$yy';
   }
 
-  final local = dash(contractData.region);
+  final local = dash(''/*contractData.region*/);
   final construtora = dash(contractData.companyLeader);
   final contratoNum = dash(contractData.contractNumber);
   final valorContrato = money(contractData.initialValueContract ?? 0);

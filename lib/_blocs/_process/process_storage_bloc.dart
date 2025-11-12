@@ -24,8 +24,7 @@ class ProcessStorageBloc extends BlocBase {
 
   String fileName(ProcessData c) {
     final n = _sanitize(c.contractNumber ?? 'contrato');
-    final p = _sanitize(c.numberProcess ?? 'processo');
-    return '$n-$p.pdf';
+    return '$n-.pdf';
   }
 
   /// Padrão único de pasta do PDF principal (nova convenção).

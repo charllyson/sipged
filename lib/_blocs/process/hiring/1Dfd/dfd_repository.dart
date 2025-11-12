@@ -1,4 +1,3 @@
-// lib/_blocs/process/hiring/1Dfd/dfd_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_sections.dart';
 import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
@@ -31,11 +30,10 @@ class DfdRepository {
           : q.docs.first.reference;
       sectionIds[sec] = ref.id;
     }
-
     return (dfdId: dfdRef.id, sectionIds: sectionIds);
   }
 
-  /// Salva uma seção específica
+  /// Salva UMA seção
   Future<void> saveSection({
     required String contractId,
     required String dfdId,
@@ -47,13 +45,13 @@ class DfdRepository {
         .doc(dfdId)
         .collection(sectionKey)
         .doc(sectionDocId)
-        .set({
-      ...data,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+        .set(
+      {...data, 'updatedAt': FieldValue.serverTimestamp()},
+      SetOptions(merge: true),
+    );
   }
 
-  /// Salva várias seções em batch
+  /// Salva VÁRIAS seções em batch
   Future<void> saveSectionsBatch({
     required String contractId,
     required String dfdId,
@@ -68,10 +66,7 @@ class DfdRepository {
       if (id == null) return;
       batch.set(
         dfdRef.collection(sectionKey).doc(id),
-        {
-          ...data,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
+        {...data, 'updatedAt': FieldValue.serverTimestamp()},
         SetOptions(merge: true),
       );
     });
@@ -88,15 +83,136 @@ class DfdRepository {
     final SectionsMap out = {};
     final dfdRef = _dfdCol(contractId).doc(dfdId);
 
-    // Varre pelas entries (garante alinhamento exato com IDs criados)
     for (final entry in sectionIds.entries) {
       final sec = entry.key;
-      final id  = entry.value;
+      final id = entry.value;
       final snap = await dfdRef.collection(sec).doc(id).get();
       final data = (snap.data() ?? <String, dynamic>{});
       data.remove('createdAt');
       out[sec] = data;
     }
     return out;
+  }
+
+  /// Leitura leve de rótulo da rodovia
+  Future<String?> readRoadLabel(String contractId) async {
+    final dfdQ = await _dfdCol(contractId).limit(1).get();
+    if (dfdQ.docs.isEmpty) return null;
+    final dfdRef = dfdQ.docs.first.reference;
+
+    // 1) localizacao
+    final locQ = await dfdRef.collection(DfdSections.localizacao).limit(1).get();
+    if (locQ.docs.isNotEmpty) {
+      final m = locQ.docs.first.data();
+      final v = (m['roadName'] ?? m['rodovia'])?.toString().trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+
+    // 2) identificacao (compat)
+    final idQ = await dfdRef.collection(DfdSections.identificacao).limit(1).get();
+    if (idQ.docs.isNotEmpty) {
+      final m = idQ.docs.first.data();
+      final v = (m['roadName'] ?? m['rodovia'])?.toString().trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  /// Leitura leve de Regional
+  Future<String?> readRegionalLabel(String contractId) async {
+    final dfdQ = await _dfdCol(contractId).limit(1).get();
+    if (dfdQ.docs.isEmpty) return null;
+    final dfdRef = dfdQ.docs.first.reference;
+
+    final locQ = await dfdRef.collection(DfdSections.localizacao).limit(1).get();
+    if (locQ.docs.isNotEmpty) {
+      final m = locQ.docs.first.data();
+      final v = m['regional']?.toString().trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+
+    final idQ = await dfdRef.collection(DfdSections.identificacao).limit(1).get();
+    if (idQ.docs.isNotEmpty) {
+      final m = idQ.docs.first.data();
+      final v = m['regional']?.toString().trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  /// Nº do processo (identificacao.numeroProcessoContratacao)
+  Future<String?> readProcessNumber(String contractId) async {
+    final dfdQ = await _dfdCol(contractId).limit(1).get();
+    if (dfdQ.docs.isEmpty) return null;
+    final dfdRef = dfdQ.docs.first.reference;
+
+    final idQ = await dfdRef.collection(DfdSections.identificacao).limit(1).get();
+    if (idQ.docs.isNotEmpty) {
+      final m = idQ.docs.first.data();
+      final v = m['numeroProcessoContratacao']?.toString().trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  /// 🔹 Leitura leve consolidada: status + tipoObra + extensaoKm
+  Future<({String? status, String? tipoObra, double? extensaoKm})> readLightFields(
+      String contractId,
+      ) async {
+    try {
+      final dfdQ = await _dfdCol(contractId).limit(1).get();
+      if (dfdQ.docs.isEmpty) {
+        return (status: null, tipoObra: null, extensaoKm: null);
+      }
+      final dfdRef = dfdQ.docs.first.reference;
+
+      String? status, tipoObra;
+      double? extensaoKm;
+
+      // identificacao.statusContrato
+      final idQ = await dfdRef.collection(DfdSections.identificacao).limit(1).get();
+      if (idQ.docs.isNotEmpty) {
+        final m = idQ.docs.first.data();
+        final v = (m['statusContrato'] ?? '').toString().trim();
+        if (v.isNotEmpty) status = v;
+      }
+
+      // objeto.tipoObra
+      final objQ = await dfdRef.collection(DfdSections.objeto).limit(1).get();
+      if (objQ.docs.isNotEmpty) {
+        final m = objQ.docs.first.data();
+        final v = (m['tipoObra'] ?? '').toString().trim();
+        if (v.isNotEmpty) tipoObra = v;
+      }
+
+      // localizacao.extensaoKm
+      final locQ = await dfdRef.collection(DfdSections.localizacao).limit(1).get();
+      if (locQ.docs.isNotEmpty) {
+        final m = locQ.docs.first.data();
+        extensaoKm = _parseToDouble(m['extensaoKm']);
+      }
+
+      return (status: status, tipoObra: tipoObra, extensaoKm: extensaoKm);
+    } catch (_) {
+      return (status: null, tipoObra: null, extensaoKm: null);
+    }
+  }
+
+  /// Retrocompat — mantido
+  Future<({String? tipoObra, double? extensaoKm})> readWorkTypeAndExtent(
+      String contractId,
+      ) async {
+    final r = await readLightFields(contractId);
+    return (tipoObra: r.tipoObra, extensaoKm: r.extensaoKm);
+  }
+
+  double? _parseToDouble(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is num) return raw.toDouble();
+    if (raw is String) {
+      final cleaned = raw.replaceAll('.', '').replaceAll(',', '.').trim();
+      return double.tryParse(cleaned);
+    }
+    return null;
   }
 }

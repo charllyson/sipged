@@ -1,4 +1,3 @@
-// lib/_blocs/process/hiring/1Dfd/dfd_state.dart
 part of 'dfd_bloc.dart';
 
 class DfdState {
@@ -8,8 +7,13 @@ class DfdState {
   final String? error;
 
   final String? dfdId;
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final SectionIds sectionIds; // Map<String, String>
+  final SectionsMap sectionsData; // Map<String, Map<String, dynamic>>
+
+  // Leves para UI
+  final String? workType;       // objeto.tipoObra
+  final double? extensaoKm;     // localizacao.extensaoKm
+  final String? contractStatus; // identificacao.statusContrato
 
   const DfdState({
     this.loading = false,
@@ -19,6 +23,9 @@ class DfdState {
     this.dfdId,
     this.sectionIds = const {},
     this.sectionsData = const {},
+    this.workType,
+    this.extensaoKm,
+    this.contractStatus,
   });
 
   factory DfdState.initial() => const DfdState();
@@ -33,6 +40,9 @@ class DfdState {
     String? dfdId,
     SectionIds? sectionIds,
     SectionsMap? sectionsData,
+    String? workType,
+    double? extensaoKm,
+    String? contractStatus,
   }) {
     return DfdState(
       loading: loading ?? this.loading,
@@ -42,9 +52,11 @@ class DfdState {
       dfdId: dfdId ?? this.dfdId,
       sectionIds: sectionIds ?? this.sectionIds,
       sectionsData: sectionsData ?? this.sectionsData,
+      workType: workType ?? this.workType,
+      extensaoKm: extensaoKm ?? this.extensaoKm,
+      contractStatus: contractStatus ?? this.contractStatus,
     );
   }
 
-  // atalho útil quando precisar de anexos da seção 'documentos'
   String? get currentDocsCheckId => sectionIds['documentos'];
 }

@@ -1,21 +1,31 @@
 // lib/screens/menus/menu_list_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 
+// ===== Process (core) =====
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/_process/process_storage_bloc.dart';
 import 'package:siged/_blocs/_process/process_controller.dart';
+import 'package:siged/_blocs/_process/process_store.dart';
+
+// ===== Dashboards / Stores auxiliares =====
 import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 import 'package:siged/_blocs/process/adjustment/adjustment_measurement_store.dart';
 import 'package:siged/_blocs/process/report/report_measurement_store.dart';
 import 'package:siged/_blocs/process/revision/revision_measurement_store.dart';
+import 'package:siged/_blocs/process/additives/additive_store.dart';
+import 'package:siged/_blocs/process/apostilles/apostilles_store.dart';
 
+// ===== Setores (Operação) =====
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 
+// ===== UI / Serviços =====
 import 'package:siged/_widgets/footBar/foot_bar.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
@@ -23,6 +33,7 @@ import 'package:siged/_services/dxf/map_overlay_cubit.dart';
 import 'package:siged/_widgets/list/demand/list_demand_page.dart';
 import 'package:siged/home_page.dart';
 
+// ===== Páginas =====
 import 'package:siged/screens/legal/crm/tab_bar_crm_precatory_page.dart';
 import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_page.dart';
 
@@ -43,8 +54,10 @@ import 'package:siged/screens/actives/airports/network/active_airports_network_p
 import 'package:siged/screens/actives/airports/records/active_airports_records_page.dart';
 import 'package:siged/screens/actives/railways/network/active_railways_network_page.dart';
 import 'package:siged/screens/actives/railways/records/active_railways_records_page.dart';
-import 'package:siged/_blocs/_process/process_store.dart';
 import 'package:siged/screens/actives/oaes/network/active_oaes_network_page.dart';
+import 'package:siged/screens/actives/oaes/records/active_oaes_records_page.dart';
+import 'package:siged/screens/actives/roads/network/active_roads_network_page.dart';
+import 'package:siged/screens/actives/roads/records/active_roads_records_page.dart';
 
 import 'package:siged/screens/sectors/financial/dashboard/dashboard_financial_page.dart';
 import 'package:siged/screens/sectors/financial/tab_bar_financial_page.dart';
@@ -52,8 +65,6 @@ import 'package:siged/screens/sectors/financial/tab_bar_financial_page.dart';
 import 'package:siged/screens/sectors/operation/schedule/road/schedule_road_workspace_page.dart';
 import 'package:siged/screens/sectors/planning/environment/planning_environment_dashboard.dart';
 import 'package:siged/screens/menus/menu_drawer.dart';
-import 'package:siged/screens/actives/oaes/records/active_oaes_records_page.dart';
-import 'package:siged/screens/actives/roads/records/active_roads_records_page.dart';
 
 import 'package:siged/_blocs/system/pages/pages_data.dart';
 import 'package:siged/_widgets/buttons/float_button_menu.dart';
@@ -65,18 +76,17 @@ import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_netw
 import 'package:siged/screens/sectors/traffic/infractions-dashboard/infractions_dashboard_page.dart';
 import 'package:siged/screens/sectors/traffic/infrations-records/infractions_records_page.dart';
 
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
-import 'package:siged/_blocs/process/additives/additive_store.dart';
-import 'package:siged/_blocs/process/apostilles/apostilles_store.dart';
-
-import 'package:siged/screens/actives/roads/network/active_roads_network_page.dart';
-
+// ===== Sistema / Usuários =====
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
+// ===== Planejamento =====
 import '../sectors/planning/sigmine/sigmine_network_page.dart';
+
+// ===== DFD (somente repository para leitura leve) =====
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
 
 class MenuListPage extends StatefulWidget {
   const MenuListPage({super.key});
@@ -90,6 +100,15 @@ class _MenuListPageState extends State<MenuListPage> {
   bool _didWarmupUserBloc = false;
   bool _didWarmupStores = false;
 
+  // Repositório do DFD para leitura leve (tipoObra/extensão)
+  late final DfdRepository _dfdRepository;
+
+  @override
+  void initState() {
+    super.initState();
+    _dfdRepository = DfdRepository();
+  }
+
   void _onSelectPage(MenuItem item) {
     setState(() => _selectedItem = item);
     Navigator.of(context).maybePop();
@@ -100,13 +119,38 @@ class _MenuListPageState extends State<MenuListPage> {
     Navigator.of(context).maybePop();
   }
 
-  void _navigateByWorkType(BuildContext context, ProcessData contract) {
-    final wt = (contract.workType ?? '').trim().toUpperCase();
-    final km = contract.ext ?? 0.0;
-    final totalEstacas = ((km * 1000) / 20).ceil();
+  Future<void> _navigateByWorkType(BuildContext context, ProcessData contract) async {
     final contractId = contract.id ?? '';
+    if (contractId.isEmpty) {
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Contrato sem ID'),
+          subtitle: const Text('Não foi possível abrir o cronograma.'),
+          type: AppNotificationType.error,
+        ),
+      );
+      return;
+    }
 
-    if (wt.contains('RODOV')) {
+    // Leitura leve via DFD Repository
+    final dfd = await _dfdRepository.readWorkTypeAndExtent(contractId);
+    final tipoObra = (dfd.tipoObra ?? '').trim().toUpperCase();
+
+    if (tipoObra.isEmpty) {
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Tipo de obra não definido no DFD'),
+          subtitle: Text('Cadastre o tipo no DFD para: ${contract.summarySubject ?? 'N/D'}'),
+          type: AppNotificationType.error,
+        ),
+      );
+      return;
+    }
+
+    final km = dfd.extensaoKm ?? 0.0;
+    final totalEstacas = ((km * 1000) / 20).ceil();
+
+    if (tipoObra.contains('RODOV')) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
@@ -129,7 +173,7 @@ class _MenuListPageState extends State<MenuListPage> {
       return;
     }
 
-    if (wt.contains('CONSTRU')) {
+    if (tipoObra.contains('CONSTRU')) {
       final scheduleCtrl = ScheduleCivilController();
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -154,7 +198,7 @@ class _MenuListPageState extends State<MenuListPage> {
       return;
     }
 
-    if (wt.contains('OAE') || wt.contains('ARTES ESPECIAIS')) {
+    if (tipoObra.contains('OAE') || tipoObra.contains('ARTES ESPECIAIS')) {
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Cronograma para OAEs ainda não disponível.'),
@@ -166,15 +210,17 @@ class _MenuListPageState extends State<MenuListPage> {
 
     NotificationCenter.instance.show(
       AppNotification(
-        title: const Text('Tipo de obra não definido'),
-        subtitle: Text('Cadastre o tipo para: ${contract.summarySubject ?? 'N/D'}'),
+        title: const Text('Tipo de obra não suportado'),
+        subtitle: Text('Tipo lido no DFD: $tipoObra'),
         type: AppNotificationType.error,
       ),
     );
   }
 
-  Widget _buildContractsListPage(DemandNavigationCallback onTap, {required String pageTitle}) {
-    // ✅ Sem ListContractsController — usamos ListDemandPage direto.
+  Widget _buildContractsListPage(
+      DemandNavigationCallback onTap, {
+        required String pageTitle,
+      }) {
     return ListDemandPage(
       pageTitle: pageTitle,
       onTapItem: onTap,
@@ -201,12 +247,15 @@ class _MenuListPageState extends State<MenuListPage> {
         );
 
       case MenuItem.specificDashboard:
-        return _buildContractsListPage((context, contract) {
+        return _buildContractsListPage((context, contract) async {
           context.read<ProcessStore>().select(contract);
-          final km = contract.ext ?? 0.0;
-          final totalEstacas = ((km * 1000) / 20).ceil();
-          final contractId = contract.id ?? '';
 
+          // totalEstacas agora usa SOMENTE o DFD Repository
+          final dfd = await _dfdRepository.readWorkTypeAndExtent(contract.id ?? '');
+          final km = dfd.extensaoKm ?? 0.0;
+          final totalEstacas = ((km * 1000) / 20).ceil();
+
+          final contractId = contract.id ?? '';
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
@@ -312,9 +361,9 @@ class _MenuListPageState extends State<MenuListPage> {
         }, pageTitle: 'Medições');
 
       case MenuItem.operationMonitoringWork:
-        return _buildContractsListPage((context, contract) {
+        return _buildContractsListPage((context, contract) async {
           context.read<ProcessStore>().select(contract);
-          _navigateByWorkType(context, contract);
+          await _navigateByWorkType(context, contract);
         }, pageTitle: 'Diário de Obra');
 
       case MenuItem.planningProjectRegistration:

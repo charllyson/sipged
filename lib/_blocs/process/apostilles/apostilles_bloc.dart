@@ -4,16 +4,64 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
 
+import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/registers/register_class.dart';
 
+// 🔹 NOVO: ler status (DFD.identificacao.statusContrato)
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+
 class ApostillesBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final DfdRepository _dfdRepo;
 
-  ApostillesBloc();
+  ApostillesBloc({DfdRepository? dfdRepository})
+      : _dfdRepo = dfdRepository ?? DfdRepository();
+
+  // ---------------------------------------------------------------------------
+  // Cache de STATUS do DFD por contrato
+  // ---------------------------------------------------------------------------
+  final Map<String, String> _statusByContract = {};
+
+  Future<void> _ensureStatusesForContracts(Iterable<ProcessData> contratos) async {
+    final futures = <Future<void>>[];
+    for (final c in contratos) {
+      final id = _idToString(c.id);
+      if (id == null || _statusByContract.containsKey(id)) continue;
+      futures.add(() async {
+        final leve = await _dfdRepo.readLightFields(id);
+        final s = (leve.status ?? '').trim();
+        if (s.isNotEmpty) _statusByContract[id] = s;
+      }());
+    }
+    if (futures.isNotEmpty) {
+      await Future.wait(futures);
+    }
+  }
+
+  String? _getDfdStatusForId(String? contractId) {
+    if (contractId == null) return null;
+    final v = _statusByContract[contractId];
+    return (v == null || v.trim().isEmpty) ? null : v.trim();
+  }
+
+  String? _idToString(Object? id) {
+    if (id == null) return null;
+    try {
+      final dyn = id as dynamic;
+      final hasIdProp = (() {
+        try {
+          return (dyn as dynamic).id is String;
+        } catch (_) {
+          return false;
+        }
+      })();
+      if (hasIdProp) return (dyn as dynamic).id as String;
+    } catch (_) {}
+    return id.toString();
+  }
 
   // ---------------------------------------------------------------------------
   // Listagem / consultas
@@ -24,6 +72,7 @@ class ApostillesBloc extends BlocBase {
     return query.docs.map((doc) => ApostillesData.fromMap(doc.data(), id: doc.id)).toList();
   }
 
+  // (nome mantido por compatibilidade)
   Future<List<ApostillesData>> getAdditivesByContractIds(Set<String> contractIds) async {
     final all = await getAllApostilles();
     return all.where((a) => contractIds.contains(a.contractId)).toList();
@@ -92,7 +141,7 @@ class ApostillesBloc extends BlocBase {
   }
 
   // -----------------------------
-  // 🆕 Anexos com rótulo (lista completa)
+  // Anexos com rótulo (lista completa)
   // -----------------------------
   Future<void> setAttachments({
     required String contractId,
@@ -182,24 +231,47 @@ class ApostillesBloc extends BlocBase {
   }
 
   // ---------------------------------------------------------------------------
-  // Agregações
+  // Agregações (usando STATUS do DFD)
   // ---------------------------------------------------------------------------
 
-  Future<double> getValorPorStatus(List<ProcessData> contratos, String statusDesejado) async {
-    final contratosFiltrados = contratos.where(
-          (c) => (c.status ?? '').toUpperCase() == statusDesejado.toUpperCase(),
-    ).toList();
+  Future<double> getValorPorStatus(
+      List<ProcessData> contratos,
+      String statusDesejado,
+      ) async {
+    if (contratos.isEmpty) return 0.0;
 
-    final futures = contratosFiltrados.map((contrato) async {
+    // carrega os statuses do DFD para os contratos
+    await _ensureStatusesForContracts(contratos);
+
+    final alvo = statusDesejado.trim().toUpperCase();
+
+    // filtra IDs cujo status (DFD) coincide
+    final idsFiltrados = <String>{
+      for (final c in contratos)
+        if (_idToString(c.id) != null)
+          if ((_getDfdStatusForId(_idToString(c.id)) ?? '').toUpperCase() == alvo)
+            _idToString(c.id)!,
+    };
+
+    if (idsFiltrados.isEmpty) return 0.0;
+
+    final futures = idsFiltrados.map((contractId) async {
       final snapshot = await _db
           .collection('contracts')
-          .doc(contrato.id)
+          .doc(contractId)
           .collection('apostilles')
           .get();
 
       return snapshot.docs.fold<double>(0.0, (sum, doc) {
-        final valor = doc.data()['apostillevalue'];
-        return sum + (valor is num ? valor.toDouble() : 0.0);
+        final data = doc.data();
+        final raw = data['apostilleValue'] ?? data['apostillevalue'];
+        num? n;
+        if (raw is num) {
+          n = raw;
+        } else if (raw is String) {
+          n = num.tryParse(raw);
+        }
+        return sum + (n?.toDouble() ?? 0.0);
       });
     });
 
@@ -211,18 +283,35 @@ class ApostillesBloc extends BlocBase {
     required List<ProcessData> contratos,
     required String status,
   }) async {
+    if (contratos.isEmpty) return 0.0;
+
+    // carrega os statuses do DFD para os contratos
+    await _ensureStatusesForContracts(contratos);
+
+    final alvo = status.trim().toUpperCase();
     double total = 0.0;
 
-    for (final contrato in contratos) {
-      if (contrato.status != status) continue;
+    final ids = <String>[
+      for (final c in contratos)
+        if (_idToString(c.id) != null)
+          if ((_getDfdStatusForId(_idToString(c.id)) ?? '').toUpperCase() == alvo)
+            _idToString(c.id)!,
+    ];
 
+    for (final contractId in ids) {
       final apostillesSnapshot =
-      await _db.collection('contracts').doc(contrato.id).collection('apostilles').get();
+      await _db.collection('contracts').doc(contractId).collection('apostilles').get();
 
       for (final doc in apostillesSnapshot.docs) {
         final data = doc.data();
-        final value = data['apostillevalue'] ?? 0.0;
-        total += (value is int) ? value.toDouble() : (value is double ? value : 0.0);
+        final raw = data['apostilleValue'] ?? data['apostillevalue'];
+        num? n;
+        if (raw is num) {
+          n = raw;
+        } else if (raw is String) {
+          n = num.tryParse(raw);
+        }
+        total += (n?.toDouble() ?? 0.0);
       }
     }
 

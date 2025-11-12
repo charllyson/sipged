@@ -19,6 +19,10 @@ class ListDemandStatus extends StatelessWidget {
     required this.onDelete,
     required this.onTapItem,
 
+    // mapas vindos da página (DFD)
+    required this.regionByContractId,
+    required this.processNumberByContractId,
+
     // controle de expansão
     this.initiallyExpanded = false,
     this.onExpansionChanged,
@@ -34,6 +38,10 @@ class ListDemandStatus extends StatelessWidget {
   final void Function(int, String Function(ProcessData)) onSort;
   final Future<void> Function(ProcessData) onDelete;
   final DemandNavigationCallback onTapItem;
+
+  // 🆕 mapas (obrigatórios) para repasse
+  final Map<String, String> regionByContractId;
+  final Map<String, String> processNumberByContractId;
 
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
@@ -82,6 +90,10 @@ class ListDemandStatus extends StatelessWidget {
             onSort: onSort,
             onDelete: onDelete,
             onTapItem: onTapItem,
+
+            // 🆕 repasse dos mapas
+            regionByContractId: regionByContractId,
+            processNumberByContractId: processNumberByContractId,
           ),
         ],
       ),
