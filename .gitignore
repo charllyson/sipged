@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+echo "assets/geojson/limits/limites_territoriais.geojson" >> .gitignore
 
 # Symbolication related
 app.*.symbols
