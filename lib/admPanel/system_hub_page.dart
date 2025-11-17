@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
+import 'package:siged/_widgets/cards/topic_card.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/cards/hub_card.dart';
 
 // Páginas por tópico
 import 'package:siged/admPanel/system/users/settings_topic_sistema_page.dart';
@@ -20,29 +22,29 @@ class SettingsSystemHubPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cards = <_HubCard>[
-      _HubCard(
+    final cards = <HubCard>[
+      HubCard(
         title: 'Firebase',
         subtitle: 'Firestore, Storage, manutenção',
         icon: Icons.cloud_outlined,
         color: Colors.blueGrey.shade700,
         builder: (_) => const SettingsTopicFirebasePage(),
       ),
-      _HubCard(
+      HubCard(
         title: 'Sistema',
         subtitle: 'Usuários & permissões',
         icon: Icons.manage_accounts_outlined,
         color: Colors.teal.shade700,
         builder: (_) => const SettingsTopicSistemaPage(),
       ),
-      _HubCard(
+      HubCard(
         title: 'Conversores',
         subtitle: 'Excel → JSON / Firebase',
         icon: Icons.table_chart_outlined,
         color: Colors.indigo.shade700,
         builder: (_) => const SettingsTopicConversoresPage(),
       ),
-      _HubCard(
+      HubCard(
         title: 'Migrações & Limpeza',
         subtitle: 'Migrar docs, apagar coleções & campos',
         icon: Icons.sync_alt_outlined,
@@ -88,7 +90,7 @@ class SettingsSystemHubPage extends StatelessWidget {
                   itemCount: cards.length,
                   itemBuilder: (context, i) {
                     final c = cards[i];
-                    return _TopicCard(
+                    return TopicCard(
                       title: c.title,
                       subtitle: c.subtitle,
                       icon: c.icon,
@@ -104,88 +106,6 @@ class SettingsSystemHubPage extends StatelessWidget {
             ),
 
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HubCard {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final WidgetBuilder builder;
-
-  _HubCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.builder,
-  });
-}
-
-class _TopicCard extends StatelessWidget {
-  const _TopicCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Ink(
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.25),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Stack(
-            children: [
-              Align(
-                alignment: Alignment.topRight,
-                child: Icon(icon, size: 42, color: Colors.white70),
-              ),
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
