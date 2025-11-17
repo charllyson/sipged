@@ -1,29 +1,41 @@
-// lib/screens/commons/listContracts/list_demand_table.dart
 import 'package:flutter/material.dart';
+
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 
 import '../../alerts/alert_validity.dart';
+
+// Somente os DATA (sem BLoCs aqui)
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
+import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 typedef ContractNavigationCallback = void Function(
     BuildContext context,
     ProcessData contract,
     );
 
-class ListDemandTable extends StatelessWidget {
+class ListDemandTable extends StatefulWidget {
   final List<ProcessData> listContractData;
   final BoxConstraints constraints;
-  final String statusLabel;   // apenas rótulo visual do grupo
-  final String statusFilter;  // chave do grupo (status do DFD já aplicado “a montante”)
+
+  /// Rótulo visual exibido no painel (ex.: “EM ANDAMENTO”)
+  final String statusLabel;
+
+  /// Chave de filtro (ex.: “EM ANDAMENTO”) — legado, já aplicado a montante
+  final String statusFilter;
+
   final int? sortColumnIndex;
   final bool isAscending;
+
   final void Function(int, String Function(ProcessData)) onSort;
-  final void Function(ProcessData) onDelete;
+  final Future<void> Function(ProcessData) onDelete;
   final ContractNavigationCallback onTapItem;
 
-  // Mapas opcionais (contractId -> valor vindo do DFD)
-  final Map<String, String>? regionByContractId;        // REGIÃO do DFD
-  final Map<String, String>? processNumberByContractId; // Nº PROCESSO do DFD
+  // 🔥 caches já carregados pela ListDemandPage
+  final Map<String, DfdData?> dfdByContractId;
+  final Map<String, EditalData?> editalByContractId;
+  final Map<String, PublicacaoExtratoData?> pubByContractId;
 
   const ListDemandTable({
     super.key,
@@ -36,35 +48,51 @@ class ListDemandTable extends StatelessWidget {
     required this.onSort,
     required this.onDelete,
     required this.onTapItem,
-    this.regionByContractId,
-    this.processNumberByContractId,
+    required this.dfdByContractId,
+    required this.editalByContractId,
+    required this.pubByContractId,
   });
 
-  String _regionalFor(ProcessData c) {
-    final id = c.id ?? '';
-    if (id.isEmpty) return '—';
-    final v = regionByContractId?[id];
-    if (v == null || v.trim().isEmpty) return '—';
-    return v.trim();
+  @override
+  State<ListDemandTable> createState() => _ListDemandTableState();
+}
+
+class _ListDemandTableState extends State<ListDemandTable> {
+  String _id(ProcessData c) => c.id ?? '';
+
+  DfdData? _dfd(ProcessData c) {
+    final id = c.id;
+    if (id == null) return null;
+    return widget.dfdByContractId[id];
   }
 
-  String _processNumberFor(ProcessData c) {
-    // 🔒 Somente DFD. Sem fallback para campos antigos do ProcessData.
-    final id = c.id ?? '';
-    if (id.isEmpty) return '—';
-    final v = processNumberByContractId?[id];
-    if (v == null || v.trim().isEmpty) return '—';
-    return v.trim();
+  EditalData? _edital(ProcessData c) {
+    final id = c.id;
+    if (id == null) return null;
+    return widget.editalByContractId[id];
+  }
+
+  PublicacaoExtratoData? _pub(ProcessData c) {
+    final id = c.id;
+    if (id == null) return null;
+    return widget.pubByContractId[id];
+  }
+
+  /// Normaliza texto: se vier nulo ou vazio -> "—"
+  String _txt(String? v) {
+    final s = (v ?? '').trim();
+    return s.isEmpty ? '—' : s;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Como os itens já chegam agrupados por status do DFD,
-    // não precisamos ordenar por status aqui. Mantemos um sort simples por OBRA.
-    final sortedContracts = List<ProcessData>.from(listContractData)
+    // 🔥 Nada de IO aqui. Tabela só lê caches prontos.
+
+    // Ordena por nome da obra (descricaoObjeto do DFD)
+    final sortedContracts = List<ProcessData>.from(widget.listContractData)
       ..sort((a, b) {
-        final an = (a.summarySubject ?? '').toUpperCase();
-        final bn = (b.summarySubject ?? '').toUpperCase();
+        final an = _txt(_dfd(a)?.descricaoObjeto).toUpperCase();
+        final bn = _txt(_dfd(b)?.descricaoObjeto).toUpperCase();
         return an.compareTo(bn);
       });
 
@@ -75,43 +103,60 @@ class ListDemandTable extends StatelessWidget {
           const SizedBox(width: 12),
           SimpleTableChanged<ProcessData>(
             listData: sortedContracts,
-            constraints: constraints,
-            sortColumnIndex: sortColumnIndex,
-            isAscending: isAscending,
-            // A coluna “CONTRATO” pode ser reordenada pelo cabeçalho via onSort
-            sortField: (d) => d.contractNumber ?? '',
-            onSort: onSort,
-            onTapItem: (contractData) => onTapItem(context, contractData),
-            onDelete: onDelete,
+            constraints: widget.constraints,
+            sortColumnIndex: widget.sortColumnIndex,
+            isAscending: widget.isAscending,
 
-            // ---- LEADING (coluna extra à esquerda)
+            // Ordenação base (pelo número do contrato mostrado)
+            sortField: (d) => _txt(_pub(d)?.numeroContrato),
+            onSort: widget.onSort,
+
+            onTapItem: (contractData) =>
+                widget.onTapItem(context, contractData),
+            onDelete: widget.onDelete,
+
+            // ========== COLUNA EXTRA (“ALERTAS”) ==========
             leadingCellTitle: 'ALERTAS',
             leadingCell: (data) => AlertValidity(contract: data),
 
-            // ---- COLUNAS DE DADOS
+            // ========== COLUNAS VISUAIS ==========
             columnTitles: const [
-              'CONTRATO', 'OBRA', 'REGIÃO', 'EMPRESA', 'Nº PROCESSO',
-            ],
-            columnGetters: [
-                  (d) => d.contractNumber ?? '',
-                  (d) => d.summarySubject ?? '',
-                  (d) => _regionalFor(d),      // vem do DFD (mapa)
-                  (d) => d.companyLeader ?? '',
-                  (d) => _processNumberFor(d), // vem do DFD (mapa) — sem fallback legado
+              'CONTRATO',
+              'OBRA',
+              'REGIÃO',
+              'EMPRESA (LÍDER)',
+              'Nº PROCESSO',
             ],
 
-            // ⚠️ 5 (dados) + 1 (leading) + 1 (delete) = 7 larguras
+            columnGetters: [
+              // CONTRATO -> PublicacaoExtratoData.numeroContrato
+                  (d) => _txt(_pub(d)?.numeroContrato),
+
+              // OBRA -> DfdData.descricaoObjeto
+                  (d) => _txt(_dfd(d)?.descricaoObjeto),
+
+              // REGIÃO -> DfdData.regional
+                  (d) => _txt(_dfd(d)?.regional),
+
+              // EMPRESA (LÍDER) -> EditalData.vencedor
+                  (d) => _txt(_edital(d)?.vencedor),
+
+              // Nº PROCESSO -> DfdData.processoAdministrativo
+                  (d) => _txt(_dfd(d)?.processoAdministrativo),
+            ],
+
+            // Larguras: 5 colunas + leading + delete
             columnWidths: const [
-              120, // leading: ALERTAS
+              120, // ALERTAS
               130, // CONTRATO
               260, // OBRA
-              100, // REGIÃO
-              200, // EMPRESA
-              190, // Nº PROCESSO
-              100, // delete (ícone)
+              110, // REGIÃO
+              200, // EMPRESA (vencedor)
+              170, // Nº PROCESSO
+              100, // delete
             ],
 
-            // ⚠️ Um alinhamento por título (apenas dados): 5 itens
+            // Alinhamento: somente para colunas de dados
             columnTextAligns: const [
               TextAlign.center, // CONTRATO
               TextAlign.left,   // OBRA
@@ -120,8 +165,14 @@ class ListDemandTable extends StatelessWidget {
               TextAlign.center, // Nº PROCESSO
             ],
 
+            // ========== AGRUPAMENTO ==========
             groupLabel: 'SERVIÇO',
-            groupBy: (d) => d.services ?? 'Sem serviço definido',
+            groupBy: (d) {
+              final n = _txt(_dfd(d)?.naturezaIntervencao);
+              return (n.isEmpty || n == '—')
+                  ? 'Sem natureza definida'
+                  : n;
+            },
           ),
         ],
       ),

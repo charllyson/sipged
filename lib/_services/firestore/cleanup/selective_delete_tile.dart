@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_widgets/tiles/tile_widget.dart';
 import 'selective_delete_util.dart';
 
 import 'package:siged/_widgets/notification/app_notification.dart';
@@ -9,206 +10,202 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black12,
-      child: ListTile(
-        leading: const Icon(Icons.delete_sweep),
-        tileColor: Colors.white10,
-        title: const Text('Apagar documentos (seletivo) de subcoleção'),
-        subtitle: const Text('Informe coleção principal, subcoleção e campo (quando por filtro)'),
-        trailing: const Icon(Icons.arrow_forward_ios),
-        onTap: () async {
-          final nav = Navigator.of(context, rootNavigator: true);
-          final mode = await _askMode(context);
-          if (mode == null) return;
+    return TileWidget(
+      leading: Icons.delete_sweep,
+      tileColor: Colors.white10,
+      title: 'Apagar documentos (seletivo) de subcoleção',
+      subtitle: 'Informe coleção principal, subcoleção e campo (quando por filtro)',
+      onTap: () async {
+        final nav = Navigator.of(context, rootNavigator: true);
+        final mode = await _askMode(context);
+        if (mode == null) return;
 
-          switch (mode) {
-            case _Mode.byIds: {
-              final p = await _askByIds(context);
-              if (p == null) return;
+        switch (mode) {
+          case _Mode.byIds: {
+            final p = await _askByIds(context);
+            if (p == null) return;
 
-              // DRY RUN
-              if (context.mounted) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => const Center(child: CircularProgressIndicator()),
-                );
-              }
-              int dry = 0;
-              try {
-                final deleter = SubcollectionSelectiveDeleter();
-                dry = await deleter.deleteIdsUnderEachParent(
-                  parentCollectionPath: p.parent,
-                  subcollection: p.sub,
-                  docIds: p.ids,
-                  dryRun: true,
-                );
-              } catch (e) {
-                if (nav.canPop()) nav.pop();
-                NotificationCenter.instance.show(
-                  AppNotification(
-                    title: const Text('Falha no dry-run'),
-                    subtitle: Text('$e'),
-                    type: AppNotificationType.error,
-                    leadingLabel: const Text('Limpeza'),
-                    duration: const Duration(seconds: 6),
-                  ),
-                );
-                return;
-              } finally {
-                if (nav.canPop()) nav.pop();
-              }
-
-              if (!context.mounted) return;
-              final proceed = await _confirm(context, 'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?');
-              if (!proceed) return;
-
-              // REAL RUN
-              if (context.mounted) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => const Center(child: CircularProgressIndicator()),
-                );
-              }
-              int real = 0;
-              try {
-                final deleter = SubcollectionSelectiveDeleter();
-                real = await deleter.deleteIdsUnderEachParent(
-                  parentCollectionPath: p.parent,
-                  subcollection: p.sub,
-                  docIds: p.ids,
-                  dryRun: false,
-                );
-              } catch (e) {
-                if (nav.canPop()) nav.pop();
-                NotificationCenter.instance.show(
-                  AppNotification(
-                    title: const Text('Erro ao apagar documentos'),
-                    subtitle: Text('$e'),
-                    type: AppNotificationType.error,
-                    leadingLabel: const Text('Limpeza'),
-                    duration: const Duration(seconds: 6),
-                  ),
-                );
-                return;
-              } finally {
-                if (nav.canPop()) nav.pop();
-              }
-
-              if (!context.mounted) return;
+            // DRY RUN
+            if (context.mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+            }
+            int dry = 0;
+            try {
+              final deleter = SubcollectionSelectiveDeleter();
+              dry = await deleter.deleteIdsUnderEachParent(
+                parentCollectionPath: p.parent,
+                subcollection: p.sub,
+                docIds: p.ids,
+                dryRun: true,
+              );
+            } catch (e) {
+              if (nav.canPop()) nav.pop();
               NotificationCenter.instance.show(
                 AppNotification(
-                  title: Text('Apagados: $real documento(s).'),
-                  type: AppNotificationType.success,
+                  title: const Text('Falha no dry-run'),
+                  subtitle: Text('$e'),
+                  type: AppNotificationType.error,
                   leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 4),
+                  duration: const Duration(seconds: 6),
                 ),
               );
-              break;
+              return;
+            } finally {
+              if (nav.canPop()) nav.pop();
             }
 
-            case _Mode.byFilter: {
-              final p = await _askByFilter(context);
-              if (p == null) return;
+            if (!context.mounted) return;
+            final proceed = await _confirm(context, 'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?');
+            if (!proceed) return;
 
-              // DRY RUN
-              if (context.mounted) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => const Center(child: CircularProgressIndicator()),
-                );
-              }
-              int dry = 0;
-              try {
-                final deleter = SubcollectionSelectiveDeleter();
-                dry = p.useParents
-                    ? await deleter.deleteWhereUnderEachParent(
-                  parentCollectionPath: p.parent,
-                  subcollection: p.sub,
-                  filters: p.filters,
-                  dryRun: true,
-                )
-                    : await deleter.deleteWhereInCollectionGroup(
-                  subcollection: p.sub,
-                  filters: p.filters,
-                  dryRun: true,
-                );
-              } catch (e) {
-                if (nav.canPop()) nav.pop();
-                NotificationCenter.instance.show(
-                  AppNotification(
-                    title: const Text('Falha no dry-run'),
-                    subtitle: Text('$e'),
-                    type: AppNotificationType.error,
-                    leadingLabel: const Text('Limpeza'),
-                    duration: const Duration(seconds: 6),
-                  ),
-                );
-                return;
-              } finally {
-                if (nav.canPop()) nav.pop();
-              }
-
-              if (!context.mounted) return;
-              final proceed = await _confirm(context, 'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?');
-              if (!proceed) return;
-
-              // REAL RUN
-              if (context.mounted) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => const Center(child: CircularProgressIndicator()),
-                );
-              }
-              int real = 0;
-              try {
-                final deleter = SubcollectionSelectiveDeleter();
-                real = p.useParents
-                    ? await deleter.deleteWhereUnderEachParent(
-                  parentCollectionPath: p.parent,
-                  subcollection: p.sub,
-                  filters: p.filters,
-                  dryRun: false,
-                )
-                    : await deleter.deleteWhereInCollectionGroup(
-                  subcollection: p.sub,
-                  filters: p.filters,
-                  dryRun: false,
-                );
-              } catch (e) {
-                if (nav.canPop()) nav.pop();
-                NotificationCenter.instance.show(
-                  AppNotification(
-                    title: const Text('Erro ao apagar documentos'),
-                    subtitle: Text('$e'),
-                    type: AppNotificationType.error,
-                    leadingLabel: const Text('Limpeza'),
-                    duration: const Duration(seconds: 6),
-                  ),
-                );
-                return;
-              } finally {
-                if (nav.canPop()) nav.pop();
-              }
-
-              if (!context.mounted) return;
+            // REAL RUN
+            if (context.mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+            }
+            int real = 0;
+            try {
+              final deleter = SubcollectionSelectiveDeleter();
+              real = await deleter.deleteIdsUnderEachParent(
+                parentCollectionPath: p.parent,
+                subcollection: p.sub,
+                docIds: p.ids,
+                dryRun: false,
+              );
+            } catch (e) {
+              if (nav.canPop()) nav.pop();
               NotificationCenter.instance.show(
                 AppNotification(
-                  title: Text('Apagados: $real documento(s).'),
-                  type: AppNotificationType.success,
+                  title: const Text('Erro ao apagar documentos'),
+                  subtitle: Text('$e'),
+                  type: AppNotificationType.error,
                   leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 4),
+                  duration: const Duration(seconds: 6),
                 ),
               );
-              break;
+              return;
+            } finally {
+              if (nav.canPop()) nav.pop();
             }
+
+            if (!context.mounted) return;
+            NotificationCenter.instance.show(
+              AppNotification(
+                title: Text('Apagados: $real documento(s).'),
+                type: AppNotificationType.success,
+                leadingLabel: const Text('Limpeza'),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+            break;
           }
-        },
-      ),
+
+          case _Mode.byFilter: {
+            final p = await _askByFilter(context);
+            if (p == null) return;
+
+            // DRY RUN
+            if (context.mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+            }
+            int dry = 0;
+            try {
+              final deleter = SubcollectionSelectiveDeleter();
+              dry = p.useParents
+                  ? await deleter.deleteWhereUnderEachParent(
+                parentCollectionPath: p.parent,
+                subcollection: p.sub,
+                filters: p.filters,
+                dryRun: true,
+              )
+                  : await deleter.deleteWhereInCollectionGroup(
+                subcollection: p.sub,
+                filters: p.filters,
+                dryRun: true,
+              );
+            } catch (e) {
+              if (nav.canPop()) nav.pop();
+              NotificationCenter.instance.show(
+                AppNotification(
+                  title: const Text('Falha no dry-run'),
+                  subtitle: Text('$e'),
+                  type: AppNotificationType.error,
+                  leadingLabel: const Text('Limpeza'),
+                  duration: const Duration(seconds: 6),
+                ),
+              );
+              return;
+            } finally {
+              if (nav.canPop()) nav.pop();
+            }
+
+            if (!context.mounted) return;
+            final proceed = await _confirm(context, 'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?');
+            if (!proceed) return;
+
+            // REAL RUN
+            if (context.mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+            }
+            int real = 0;
+            try {
+              final deleter = SubcollectionSelectiveDeleter();
+              real = p.useParents
+                  ? await deleter.deleteWhereUnderEachParent(
+                parentCollectionPath: p.parent,
+                subcollection: p.sub,
+                filters: p.filters,
+                dryRun: false,
+              )
+                  : await deleter.deleteWhereInCollectionGroup(
+                subcollection: p.sub,
+                filters: p.filters,
+                dryRun: false,
+              );
+            } catch (e) {
+              if (nav.canPop()) nav.pop();
+              NotificationCenter.instance.show(
+                AppNotification(
+                  title: const Text('Erro ao apagar documentos'),
+                  subtitle: Text('$e'),
+                  type: AppNotificationType.error,
+                  leadingLabel: const Text('Limpeza'),
+                  duration: const Duration(seconds: 6),
+                ),
+              );
+              return;
+            } finally {
+              if (nav.canPop()) nav.pop();
+            }
+
+            if (!context.mounted) return;
+            NotificationCenter.instance.show(
+              AppNotification(
+                title: Text('Apagados: $real documento(s).'),
+                type: AppNotificationType.success,
+                leadingLabel: const Text('Limpeza'),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+            break;
+          }
+        }
+      },
     );
   }
 

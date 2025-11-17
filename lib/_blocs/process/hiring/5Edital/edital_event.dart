@@ -1,3 +1,4 @@
+// lib/_blocs/process/hiring/5Edital/edital_event.dart
 part of 'edital_bloc.dart';
 
 abstract class EditalEvent {}
@@ -10,7 +11,10 @@ class EditalLoadRequested extends EditalEvent {
 class EditalSaveRequested extends EditalEvent {
   final String contractId;
   final SectionsMap sectionsData;
-  EditalSaveRequested({required this.contractId, required this.sectionsData});
+  EditalSaveRequested({
+    required this.contractId,
+    required this.sectionsData,
+  });
 }
 
 class EditalSaveOneSectionRequested extends EditalEvent {
@@ -24,5 +28,5 @@ class EditalSaveOneSectionRequested extends EditalEvent {
   });
 }
 
-/// Opcional: limpar o flag de sucesso (após Snackbar/Toast)
+/// limpar o flag de sucesso após mostrar Snackbar/toast
 class EditalClearSuccessRequested extends EditalEvent {}

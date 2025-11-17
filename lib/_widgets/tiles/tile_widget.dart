@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class TileWidget extends StatelessWidget {
   final String title;
   final String subtitle;
-  final IconData icon;
+  final IconData leading;
   final VoidCallback onTap;
   final Color? tileColor;
 
@@ -11,7 +11,7 @@ class TileWidget extends StatelessWidget {
     super.key,
     required this.title,
     required this.subtitle,
-    required this.icon,
+    required this.leading,
     required this.onTap,
     this.tileColor,
   });
@@ -26,7 +26,7 @@ class TileWidget extends StatelessWidget {
         tileColor: tileColor ?? Colors.grey[200],
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        leading: Icon(icon),
+        leading: Icon(leading),
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),

@@ -176,9 +176,9 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
 
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
-      final prevId = _currentUser?.id;
+      final prevId = _currentUser?.uid;
       _currentUser = st.current;
-      final nowId = _currentUser?.id;
+      final nowId = _currentUser?.uid;
 
       final newEditable = _canEditUser(_currentUser);
       if (newEditable != isEditable || prevId != nowId) {
@@ -457,7 +457,7 @@ class ReportMeasurementController extends ChangeNotifier with FormValidationMixi
         path: '',
         ext: '.pdf',
         createdAt: DateTime.now(),
-        createdBy: _currentUser?.id,
+        createdBy: _currentUser?.uid,
       );
       final list = <Attachment>[att];
 

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 /// Storage-only para arquivos de **Relatórios de Pagamento**.
 class PaymentsReportStorageBloc extends BlocBase {
@@ -18,10 +19,19 @@ class PaymentsReportStorageBloc extends BlocBase {
   String _sanitize(String s) =>
       s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ProcessData c, PaymentsReportData p, {String? originalName}) {
-    final contrato = _sanitize(c.contractNumber ?? 'contrato');
-    final ordem    = (p.orderPaymentReport ?? '0').toString();
-    final proc     = _sanitize(p.processPaymentReport ?? 'processo');
+  /// 🆕 Usa SOMENTE PublicacaoExtratoData.numeroContrato
+  String fileName(
+      ProcessData c,
+      PaymentsReportData p, {
+        String? originalName,
+        PublicacaoExtratoData? extrato,
+      }) {
+    final contrato = _sanitize(extrato?.numeroContrato?.trim().isNotEmpty == true
+        ? extrato!.numeroContrato!
+        : 'contrato');
+    final ordem = (p.orderPaymentReport ?? '0').toString();
+    final proc = _sanitize(p.processPaymentReport ?? 'processo');
+
     if (originalName != null && originalName.trim().isNotEmpty) {
       return '$contrato-$ordem-$proc-${_sanitize(originalName)}';
     }
@@ -31,7 +41,11 @@ class PaymentsReportStorageBloc extends BlocBase {
   String folderFor(ProcessData c, PaymentsReportData p) =>
       'contracts/${c.id}/payments/${p.idPaymentReport}';
 
-  String pathFor(ProcessData c, PaymentsReportData p, String file) =>
+  String pathFor(
+      ProcessData c,
+      PaymentsReportData p, {
+        required String file,
+      }) =>
       '${folderFor(c, p)}/$file';
 
   // ---------- Métodos utilitários usados pelo controller novo ----------
@@ -53,9 +67,11 @@ class PaymentsReportStorageBloc extends BlocBase {
     required Uint8List bytes,
     required String originalName,
     required String label,
+    PublicacaoExtratoData? extrato,
   }) async {
-    final name = fileName(contract, payment, originalName: originalName);
-    final ref = _storage.ref(pathFor(contract, payment, name));
+    final name =
+    fileName(contract, payment, originalName: originalName, extrato: extrato);
+    final ref = _storage.ref(pathFor(contract, payment, file: name));
 
     final task = ref.putData(
       bytes,
@@ -94,7 +110,6 @@ class PaymentsReportStorageBloc extends BlocBase {
       }
       return out;
     } catch (e) {
-      debugPrint('listarArquivosDoPagamento erro: $e');
       return const <_StorageFile>[];
     }
   }
@@ -103,28 +118,34 @@ class PaymentsReportStorageBloc extends BlocBase {
   Future<void> deleteStorageByPath(String fullPath) async {
     try {
       await _storage.ref(fullPath).delete();
-    } catch (e) {
-      debugPrint('deleteStorageByPath erro: $e');
-    }
+    } catch (e) {}
   }
 
   // ---------- Métodos antigos (compatibilidade) ----------
 
-  Future<bool> exists(ProcessData c, PaymentsReportData p) async {
+  Future<bool> exists(
+      ProcessData c,
+      PaymentsReportData p, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      // verifica apenas o primeiro arquivo padrão .pdf
-      await _storage.ref(pathFor(c, p, fileName(c, p))).getMetadata();
+      final name = fileName(c, p, extrato: extrato);
+      await _storage.ref(pathFor(c, p, file: name)).getMetadata();
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  Future<String?> getUrl(ProcessData c, PaymentsReportData p) async {
+  Future<String?> getUrl(
+      ProcessData c,
+      PaymentsReportData p, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      return await _storage.ref(pathFor(c, p, fileName(c, p))).getDownloadURL();
+      final name = fileName(c, p, extrato: extrato);
+      return await _storage.ref(pathFor(c, p, file: name)).getDownloadURL();
     } catch (e) {
-      debugPrint('PaymentsReportStorageBloc.getUrl erro: $e');
       return null;
     }
   }
@@ -133,9 +154,12 @@ class PaymentsReportStorageBloc extends BlocBase {
     required ProcessData contract,
     required PaymentsReportData payment,
     required void Function(double progress) onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom, allowedExtensions: ['pdf'], withData: true,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
     );
     if (result == null || result.files.single.bytes == null) {
       throw Exception('Nenhum arquivo PDF selecionado ou arquivo vazio.');
@@ -145,6 +169,7 @@ class PaymentsReportStorageBloc extends BlocBase {
       payment: payment,
       bytes: result.files.single.bytes!,
       onProgress: onProgress,
+      extrato: extrato,
     );
   }
 
@@ -153,8 +178,10 @@ class PaymentsReportStorageBloc extends BlocBase {
     required PaymentsReportData payment,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
-    final ref = _storage.ref(pathFor(contract, payment, fileName(contract, payment)));
+    final name = fileName(contract, payment, extrato: extrato);
+    final ref = _storage.ref(pathFor(contract, payment, file: name));
     final task = ref.putData(
       bytes,
       SettableMetadata(contentType: 'application/pdf'),
@@ -168,12 +195,16 @@ class PaymentsReportStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ProcessData c, PaymentsReportData p) async {
+  Future<bool> delete(
+      ProcessData c,
+      PaymentsReportData p, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      await _storage.ref(pathFor(c, p, fileName(c, p))).delete();
+      final name = fileName(c, p, extrato: extrato);
+      await _storage.ref(pathFor(c, p, file: name)).delete();
       return true;
     } catch (e) {
-      debugPrint('PaymentsReportStorageBloc.delete erro: $e');
       return false;
     }
   }
@@ -181,18 +212,23 @@ class PaymentsReportStorageBloc extends BlocBase {
   Future<bool> verificarSePdfDePaymentExiste({
     required ProcessData contract,
     required PaymentsReportData payment,
-  }) => exists(contract, payment);
+    PublicacaoExtratoData? extrato,
+  }) =>
+      exists(contract, payment, extrato: extrato);
 
   Future<String?> getPdfUrlDaPayment({
     required ProcessData contract,
     required PaymentsReportData payment,
-  }) => getUrl(contract, payment);
+    PublicacaoExtratoData? extrato,
+  }) =>
+      getUrl(contract, payment, extrato: extrato);
 
   Future<void> sendPdf({
     required ProcessData? contract,
     required PaymentsReportData? paymentReport,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded,
+    PublicacaoExtratoData? extrato,
   }) async {
     final c = contract;
     final p = paymentReport;
@@ -207,6 +243,7 @@ class PaymentsReportStorageBloc extends BlocBase {
       contract: c,
       payment: p,
       onProgress: onProgress,
+      extrato: extrato,
     );
     if (onUploaded != null) {
       await onUploaded(url);

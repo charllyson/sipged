@@ -4,9 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta/meta.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/hiring_stages.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 import 'pipeline_progress.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_repository.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
 
 @immutable
 class PipelineProgressState {
@@ -60,7 +60,6 @@ class PipelineProgressCubit extends Cubit<PipelineProgressState> {
     try {
       final all = await service.loadAll(contractId: contractId);
       emit(state.copyWith(loading: false, completed: all));
-      _log('PIPELINE REFRESH -> $all');
     } catch (e) {
       emit(state.copyWith(loading: false, error: e.toString()));
     }
@@ -134,7 +133,6 @@ class PipelineProgressCubit extends Cubit<PipelineProgressState> {
         updated[stageKey] = ok;
         emit(state.copyWith(completed: updated));
 
-        _log('WATCH $stageKey -> approved=$approved completed=$completed map=$updated');
       });
 
       _stageSubs[stageKey] = sub;

@@ -1,18 +1,11 @@
-// lib/screens/panels/specific-dashboard/specific_dashboard_page.dart
-
-import 'dart:math' as math;
-import 'dart:ui' as ui show TextDirection;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 // ===== SIGED: Models / Stores / Controllers =====
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/_process/process_controller.dart';
-import 'package:siged/_blocs/_process/process_storage_bloc.dart';
 import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 
 import 'package:siged/_blocs/process/additives/additive_data.dart';
@@ -23,7 +16,6 @@ import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 // Road schedule
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 
 // Store de cronograma físico-financeiro
 import 'package:siged/_blocs/process/phys_fin/physics_finance_controller.dart';
@@ -43,17 +35,15 @@ import 'package:siged/_widgets/footBar/foot_bar.dart';
 import 'package:siged/_widgets/upBar/up_bar.dart';
 import 'package:siged/_widgets/menu/tab/tab_banner.dart';
 
-// Kits (imports diretos, sem index)
+// Kits
 import 'package:siged/_widgets/kit/alert_rules/alert_rules.dart';
 import 'package:siged/_widgets/kit/curva_s_chart/curva_s_chart.dart';
 import 'package:siged/_widgets/kit/evm_calculator/evm_calculator.dart';
 import 'package:siged/_widgets/kit/evm_calculator/evm_summary_card.dart';
 import 'package:siged/_widgets/kit/health_score_card/health_score_card.dart';
 import 'package:siged/_widgets/kit/rule/cost_per_km_ruler.dart';
-import 'package:siged/_widgets/kit/rule/ruler_painter.dart';
-import 'package:siged/_widgets/kit/rule/text_painter_changed.dart';
 
-// Linha de charts (sem index)
+// Linha de charts
 import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_charts_row_one.dart';
 
 // Seções auxiliares
@@ -62,10 +52,10 @@ import 'package:siged/screens/panels/overview-dashboard/overview_dashboard_list.
 
 // Timeline
 import 'package:siged/_widgets/timeline/timeline_class.dart';
-import 'package:siged/_utils/formats/date_utils.dart';
 
-// ===== DFD (leitura leve de tipo/ extensão) =====
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+// ===== DFD via BLoC (tipo/extensão/descricaoObjeto) =====
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 
 class SpecificDashboardPage extends StatefulWidget {
   const SpecificDashboardPage({
@@ -87,7 +77,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
   // ===== estado da Curva S (PV múltiplo) =====
   bool _loadingPv = false;
   List<CurvaSPvSeries> _pvMulti = const <CurvaSPvSeries>[];
-  String _pvSignature = ''; // para evitar recomputar em loop
+  String _pvSignature = '';
 
   // ===== TIMELINE: futures memorizados =====
   late Future<List<ValidityData>> _futureValidity;
@@ -95,37 +85,36 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
   late Future<List<AdditiveData>> _futureAdditiveList;
   bool _timelineInitialized = false;
 
-  // ===== DFD: extensão e tipo de obra (carregados do repo) =====
-  late final DfdRepository _dfdRepository;
+  // ===== DFD: extensão e tipo de obra (carregados via BLoC) =====
   double? _extKmDfd;
   String? _tipoObraDfd;
+  bool _dfdLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _dfdRepository = DfdRepository();
-    _loadExtentFromDfd();
   }
 
-  Future<void> _loadExtentFromDfd() async {
+  Future<void> _loadExtentFromDfd(BuildContext context) async {
     final cid = widget.contractData.id ?? '';
     if (cid.isEmpty) return;
     try {
-      final res = await _dfdRepository.readWorkTypeAndExtent(cid);
+      final dfdBloc = context.read<DfdBloc>();
+      final DfdData? dfd = await dfdBloc.getDataForContract(cid);
       if (!mounted) return;
       setState(() {
-        _extKmDfd = res.extensaoKm;
-        _tipoObraDfd = res.tipoObra;
+        _extKmDfd = dfd?.extensaoKm;
+        _tipoObraDfd = dfd?.tipoObra;
       });
     } catch (_) {
       // mantém nulo se falhar
     }
   }
 
-  String _norm(String? s) => (s ?? '').trim().toUpperCase();
-
-  // ---------- Helpers: Totais contrato + AA ----------
-  double _totalContratadoMaisAA(DemandsDashboardController controller, ProcessData k) {
+  double _totalContratadoMaisAA(
+      DemandsDashboardController controller,
+      ProcessData k,
+      ) {
     final id = k.id ?? '';
     final contratado = (k.initialValueContract ?? 0).toDouble();
 
@@ -140,15 +129,14 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     return contratado + aditivos + apostilas;
   }
 
-  /// Benchmarks por serviço — por enquanto omitidos, pois a extensão (km) agora
-  /// vem apenas do DFD e exigiria leituras assíncronas por contrato.
-  /// Retorna null para não exibir média/teto.
   Map<String, double>? _benchmarksDoServico(
-      DemandsDashboardController controller, ProcessData c) {
+      DemandsDashboardController controller,
+      ProcessData c,
+      ) {
+    // Mantido nulo por enquanto; benchmarks dependem do tipo/serviço
     return null;
   }
 
-  // ---------- Helpers de datas/labels ----------
   DateTime? _getStartDate(String contractId) {
     try {
       final store = context.read<ValidityStore>();
@@ -156,10 +144,18 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
       final list = store.listFor(contractId);
       DateTime? start;
       for (final v in list) {
-        final t = (v.ordertype ?? '').toUpperCase()
-            .replaceAll('Í','I').replaceAll('Á','A').replaceAll('Ã','A')
-            .replaceAll('É','E').replaceAll('Ê','E').replaceAll('Ç','C');
-        if (t.contains('INICIO')) { start = v.orderdate; break; }
+        final t = (v.ordertype ?? '')
+            .toUpperCase()
+            .replaceAll('Í', 'I')
+            .replaceAll('Á', 'A')
+            .replaceAll('Ã', 'A')
+            .replaceAll('É', 'E')
+            .replaceAll('Ê', 'E')
+            .replaceAll('Ç', 'C');
+        if (t.contains('INICIO')) {
+          start = v.orderdate;
+          break;
+        }
       }
       return start;
     } catch (_) {
@@ -175,7 +171,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
       out.add(acc);
       acc += 30;
     }
-    if (out.isEmpty || out.last != total) out.add(total); // garante o teto
+    if (out.isEmpty || out.last != total) out.add(total);
     return out;
   }
 
@@ -183,46 +179,16 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     required DateTime start,
     required int additiveExecDays,
   }) {
-    final slices = _sliceDays(additiveExecDays); // [30,60,...,total]
+    final slices = _sliceDays(additiveExecDays);
     return [for (final d in slices) start.add(Duration(days: d))];
   }
 
   List<DateTime> _datesFromBasePvDays({
     required DateTime start,
     required List<int> pvDays,
-  }) => [for (final d in pvDays) start.add(Duration(days: d))];
+  }) =>
+      [for (final d in pvDays) start.add(Duration(days: d))];
 
-  List<double> _pvContratadoFromSchedule(ScheduleRoadState scheduleState) {
-    final List<int> pvDays = scheduleState.physfinPeriods.isNotEmpty
-        ? List<int>.from(scheduleState.physfinPeriods)
-        : const <int>[];
-    if (pvDays.isEmpty || scheduleState.services.isEmpty) return const <double>[];
-
-    final services = scheduleState.services.where((s) => s.key != 'geral').toList();
-    final totals = scheduleState.serviceTotals; // Map<String,double>
-    final grid = scheduleState.physfinGrid; // Map<String,List<double>>
-
-    final int nCols = pvDays.length;
-    final List<double> soma = List<double>.filled(nCols, 0.0);
-
-    for (final s in services) {
-      final key = s.key;
-      final valorServico = (totals[key] ?? 0.0).toDouble();
-      final raw = List<double>.from(grid[key] ?? const <double>[]);
-      final row = (raw.length == nCols)
-          ? raw
-          : (raw.length > nCols)
-          ? raw.sublist(0, nCols)
-          : [...raw, ...List<double>.filled(nCols - raw.length, 0.0)];
-
-      for (int j = 0; j < nCols; j++) {
-        soma[j] += valorServico * (row[j] / 100.0);
-      }
-    }
-    return soma;
-  }
-
-  // ---------- PV multi-séries ----------
   Future<void> _refreshPv({
     required DemandsDashboardController controller,
     required ScheduleRoadState scheduleState,
@@ -238,12 +204,14 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
 
     final pvDaysSig = pvDays.join(',');
     final gridSig = scheduleState.physfinGrid.entries
-        .map((e) => '${e.key}:${e.value.join("|")}').join(';');
+        .map((e) => '${e.key}:${e.value.join("|")}')
+        .join(';');
     final servicesSig = scheduleState.services.map((s) => s.key).join(',');
 
     final additives = controller.additivesStore.listFor(contract.id ?? '');
     final addsSig = additives
-        .map((a) => '${a.id}|${a.additiveOrder}|${a.typeOfAdditive}|${(a.additiveValue ?? 0)}|${a.additiveValidityExecutionDays ?? 0}')
+        .map((a) =>
+    '${a.id}|${a.additiveOrder}|${a.typeOfAdditive}|${(a.additiveValue ?? 0)}|${a.additiveValidityExecutionDays ?? 0}')
         .join(';');
 
     final signature = '$pvDaysSig#$gridSig#$servicesSig#$addsSig';
@@ -256,7 +224,8 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
 
     final List<CurvaSPvSeries> pvMulti = [];
 
-    final services = scheduleState.services.where((s) => s.key != 'geral').toList();
+    final services =
+    scheduleState.services.where((s) => s.key != 'geral').toList();
     final List<PhysFinRow> rows = PhysicsFinanceController.buildRows(
       services: services,
       serviceTotals: scheduleState.serviceTotals,
@@ -270,7 +239,6 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
       return [...raw, ...List<double>.filled(nCols - raw.length, 0.0)];
     }
 
-    // === Datas base a partir do início da obra
     final cid = contract.id ?? '';
     final startDate = (cid.isNotEmpty) ? _getStartDate(cid) : null;
     final List<DateTime> baseDates =
@@ -337,7 +305,8 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
         );
         if (sched == null) continue;
 
-        final int nCols = pvDays.isNotEmpty ? pvDays.length : sched.periods.length;
+        final int nCols =
+        pvDays.isNotEmpty ? pvDays.length : sched.periods.length;
         if (nCols <= 0) continue;
 
         final termPV = List<double>.filled(nCols, 0.0);
@@ -347,7 +316,8 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
           final rawAny = sched.grid[itemId];
           if (rawAny == null) continue;
 
-          final raw = rawAny.map<double>((e) => (e as num).toDouble()).toList();
+          final raw =
+          rawAny.map<double>((e) => (e as num).toDouble()).toList();
           final perc = _normList(raw, nCols);
 
           for (int j = 0; j < nCols; j++) {
@@ -355,19 +325,22 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
           }
         }
 
-        // === datas do termo a partir de additiveValidityExecutionDays
         List<DateTime> termDates = const <DateTime>[];
         if (startDate != null) {
           final extra = a.additiveValidityExecutionDays ?? 0;
           termDates = (extra > 0)
-              ? _datesFromAdditiveDays(start: startDate, additiveExecDays: extra)
+              ? _datesFromAdditiveDays(
+            start: startDate,
+            additiveExecDays: extra,
+          )
               : baseDates;
         }
 
         pvMulti.add(
           CurvaSPvSeries(
             id: 'PV_TERM_$ord',
-            name: '$ordº Termo aditivo${tipo.isNotEmpty ? ' ($tipo)' : ''}',
+            name: '$ordº Termo aditivo'
+                '${tipo.isNotEmpty ? ' ($tipo)' : ''}',
             values: termPV,
             dates: termDates,
             color: AdditiveData.colorForOrder(ord),
@@ -384,7 +357,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     });
   }
 
-  // ---------- TIMELINE: carregamento dos futures ----------
+  // ---------- TIMELINE ----------
   Future<List<ValidityData>> _loadValidities(String contractId) async {
     final store = context.read<ValidityStore>();
     await store.ensureFor(contractId);
@@ -405,7 +378,8 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
 
     _futureValidity = _loadValidities(cid);
     _futureAdditiveList = _loadAdditives(cid);
-    _futureContractList = Future<List<ProcessData>>.value([widget.contractData]);
+    _futureContractList =
+    Future<List<ProcessData>>.value([widget.contractData]);
 
     _timelineInitialized = true;
   }
@@ -413,8 +387,13 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Inicializa futures da Timeline
+
     _initTimelineFuturesIfNeeded();
+
+    if (!_dfdLoaded) {
+      _dfdLoaded = true;
+      _loadExtentFromDfd(context);
+    }
 
     final controller = context.read<DemandsDashboardController>();
     final scheduleState = context.read<ScheduleRoadBloc>().state;
@@ -444,15 +423,18 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     final List<ReportMeasurementData> contractMeasurements =
     (cid == null || cid.isEmpty)
         ? const <ReportMeasurementData>[]
-        : controller.allMeasurements.where((m) => m.contractId == cid).toList();
+        : controller.allMeasurements
+        .where((m) => m.contractId == cid)
+        .toList();
 
     final List<ReportMeasurementData> baseMed =
-    filteredMeasurements.isNotEmpty ? filteredMeasurements : contractMeasurements;
+    filteredMeasurements.isNotEmpty
+        ? filteredMeasurements
+        : contractMeasurements;
 
     final double totalMedicoesContrato =
     baseMed.fold<double>(0.0, (acc, m) => acc + (m.value ?? 0.0));
 
-    // ====== CORREÇÃO: somas corretas por store ======
     final double totalReajustesContrato = adjStore.all
         .where((e) => e.contractId == cid)
         .fold<double>(0.0, (acc, e) => acc + (e.value ?? 0.0));
@@ -460,11 +442,10 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     final double totalRevisoesContrato = revStore.all
         .where((e) => e.contractId == cid)
         .fold<double>(0.0, (acc, e) => acc + (e.value ?? 0.0));
-    // ===============================================
 
     final bm = _benchmarksDoServico(controller, widget.contractData);
-
-    final double totalContratoAA = _totalContratadoMaisAA(controller, widget.contractData);
+    final double totalContratoAA =
+    _totalContratadoMaisAA(controller, widget.contractData);
 
     final DateTime start = DateTime(DateTime.now().year - 1, 1, 1);
     final DateTime end = DateTime(DateTime.now().year, 12, 31);
@@ -485,18 +466,16 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
       end: end,
     );
 
-    final evCurve = <int, double>{
-      for (final k in pvCurve.keys)
-        k: (k <= (asOf.year * 100 + asOf.month)) ? evm.ev : evm.ev,
-    };
-
     final acCurve = <int, double>{};
     double accAC = 0.0;
     final ordered = [...contractMeasurements]
-      ..sort((a, b) => (a.date ?? DateTime(0)).compareTo(b.date ?? DateTime(0)));
+      ..sort((a, b) =>
+          (a.date ?? DateTime(0)).compareTo(b.date ?? DateTime(0)));
     for (final k in pvCurve.keys) {
       accAC += ordered
-          .where((m) => m.date != null && (m.date!.year * 100 + m.date!.month) == k)
+          .where((m) =>
+      m.date != null &&
+          (m.date!.year * 100 + m.date!.month) == k)
           .fold<double>(0.0, (a, m) => a + (m.value ?? 0.0));
       acCurve[k] = accAC;
     }
@@ -504,10 +483,9 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
     final qualityScore = 100.0;
     final riskScore = 80.0;
 
-    // >>>>>>>>>>>> NOVO: custo por km usando SOMENTE extensão do DFD
     final double lengthKm = _extKmDfd ?? 0.0;
-    final double custoPorKmAtual = lengthKm > 0 ? (totalContratoAA / lengthKm) : 0.0;
-    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    final double custoPorKmAtual =
+    lengthKm > 0 ? (totalContratoAA / lengthKm) : 0.0;
 
     final alerts = AlertRules.evaluate(
       cpi: evm.cpi,
@@ -535,9 +513,9 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                       child: BackCircleButton(),
                     ),
                   ),
-                  TabBanner(contract: widget.contractData),
+                  TabBanner(contract: widget.contractData,),
 
-                  // ======= LINHA DO TEMPO (TOPO) =======
+                  // TIMELINE
                   const SizedBox(height: 8),
                   const DividerText(title: 'Linha do tempo do contrato'),
                   const SizedBox(height: 8),
@@ -549,7 +527,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                     ),
                   ),
 
-                  // ===== Seção 1: Acompanhamento físico =====
+                  // Acompanhamento físico
                   const SizedBox(height: 12),
                   const DividerText(title: 'Acompanhamento físico'),
                   const SizedBox(height: 8),
@@ -558,12 +536,11 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                     contract: widget.contractData,
                   ),
 
-                  // ===== Métricas =====
+                  // Métricas
                   const SizedBox(height: 8),
                   const DividerText(title: 'Métricas'),
                   const SizedBox(height: 8),
 
-                  const SizedBox(height: 8),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     clipBehavior: Clip.none,
@@ -573,9 +550,9 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                         const SizedBox(width: 12),
                         CostPerKmRuler(
                           totalValueBRL: totalContratoAA,
-                          lengthKm: lengthKm, // <<< apenas DFD
+                          lengthKm: lengthKm,
                           title: 'Custo por km',
-                          serviceName: widget.contractData.services,
+                          serviceName: _tipoObraDfd,
                           benchmarks: bm,
                         ),
                         const SizedBox(width: 12),
@@ -595,52 +572,68 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                               color: Colors.white,
                               elevation: 3,
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               child: SizedBox(
                                 height: 165,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                     children: [
-                                      const Text('Alertas',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w700)),
-                                      const SizedBox(height: 8),
-                                      ...alerts.map((a) => Padding(
-                                        padding: const EdgeInsets.only(bottom: 6),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Icon(
-                                              a.severity == 'crit'
-                                                  ? Icons.error_rounded
-                                                  : a.severity == 'warn'
-                                                  ? Icons.warning_rounded
-                                                  : Icons.info_rounded,
-                                              size: 18,
-                                              color: a.severity == 'crit'
-                                                  ? Colors.red
-                                                  : a.severity == 'warn'
-                                                  ? Colors.orange
-                                                  : Colors.blueGrey,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(a.title),
-                                                  if (a.description.isNotEmpty)
-                                                    Text(a.description,
-                                                        style: const TextStyle(fontSize: 12)),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
+                                      const Text(
+                                        'Alertas',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
                                         ),
-                                      )),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ...alerts.map(
+                                            (a) => Padding(
+                                          padding: const EdgeInsets.only(
+                                              bottom: 6),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                            children: [
+                                              Icon(
+                                                a.severity == 'crit'
+                                                    ? Icons.error_rounded
+                                                    : a.severity == 'warn'
+                                                    ? Icons
+                                                    .warning_rounded
+                                                    : Icons.info_rounded,
+                                                size: 18,
+                                                color: a.severity == 'crit'
+                                                    ? Colors.red
+                                                    : a.severity == 'warn'
+                                                    ? Colors.orange
+                                                    : Colors.blueGrey,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(a.title),
+                                                    if (a.description
+                                                        .isNotEmpty)
+                                                      Text(
+                                                        a.description,
+                                                        style:
+                                                        const TextStyle(
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -651,7 +644,7 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                     ),
                   ),
 
-                  // ===== Seção 2: Previsto x Realizado =====
+                  // Previsto x Realizado
                   const SizedBox(height: 8),
                   const DividerText(title: 'Previsto x Realizado'),
                   const SizedBox(height: 8),
@@ -669,7 +662,11 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                             title: 'Totais em medições',
                             icon: Icons.bar_chart_rounded,
                             colorIcon: const Color(0xFF4C6BFF),
-                            subTitles: const ['Medição', 'Reajuste', 'Revisão'],
+                            subTitles: const [
+                              'Medição',
+                              'Reajuste',
+                              'Revisão',
+                            ],
                             valoresIndividuais: [
                               totalMedicoesContrato,
                               totalReajustesContrato,
@@ -697,10 +694,9 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 8),
 
-                  // ===== Curva S (PV contratado + PV termos + AC) =====
+                  // Curva S
                   Stack(
                     children: [
                       CurvaSChart(
@@ -712,13 +708,23 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                           final measurement = filteredMeasurements[index];
                           final contractId = measurement.contractId;
 
-                          String? resumo;
-                          if (contractId != null) {
-                            final contrato =
-                            await controller.store.getById(contractId);
-                            resumo = contrato?.summarySubject ??
+                          String resumo = 'Contrato não encontrado';
+
+                          if (contractId != null &&
+                              contractId.isNotEmpty) {
+                            // 🔹 Usa DFD para pegar descricaoObjeto como resumo
+                            final dfdBloc = context.read<DfdBloc>();
+                            final DfdData? dfd =
+                            await dfdBloc.getDataForContract(contractId);
+
+                            resumo = dfd?.descricaoObjeto ??
                                 'Contrato não encontrado';
-                            if (contrato != null) controller.store.select(contrato);
+
+                            // Seleciona o contrato no store para manter o fluxo
+                            final contrato = await controller.store.getById(contractId);
+                            if (contrato != null) {
+                              controller.store.select(contrato);
+                            }
                           }
 
                           if (!mounted) return;
@@ -736,7 +742,9 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                               child: SizedBox(
                                 width: 28,
                                 height: 28,
-                                child: CircularProgressIndicator(strokeWidth: 3),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                ),
                               ),
                             ),
                           ),
@@ -753,7 +761,6 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
                 ],
               ),
             ),
-
             SliverFillRemaining(
               hasScrollBody: false,
               child: const Column(

@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/revision/revision_measurement_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 /// Storage de PDFs/arquivos de **revisão** da medição.
 class RevisionMeasurementStorageBloc extends BlocBase {
@@ -18,10 +19,20 @@ class RevisionMeasurementStorageBloc extends BlocBase {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+  String _sanitize(String s) =>
+      s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ProcessData c, RevisionMeasurementData r) {
-    final contrato = _sanitize(c.contractNumber ?? 'contrato');
+  /// 🆕 Usa SOMENTE PublicacaoExtratoData.numeroContrato
+  String fileName(
+      ProcessData c,
+      RevisionMeasurementData r, {
+        PublicacaoExtratoData? extrato,
+      }) {
+    final contrato = _sanitize(
+      extrato?.numeroContrato?.trim().isNotEmpty == true
+          ? extrato!.numeroContrato!
+          : 'contrato',
+    );
     final ordem = (r.order ?? 0).toString();
     final proc = _sanitize(r.numberprocess ?? 'processo');
     return 'revision-$contrato-$ordem-$proc.pdf';
@@ -31,8 +42,9 @@ class RevisionMeasurementStorageBloc extends BlocBase {
     required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
+    PublicacaoExtratoData? extrato,
   }) =>
-      'contracts/${contract.id}/measurements/$measurementId/${fileName(contract, rev)}';
+      'contracts/${contract.id}/measurements/$measurementId/${fileName(contract, rev, extrato: extrato)}';
 
   // ======= Suporte a multi-anexos =======
   String attachmentsDir(ProcessData c, RevisionMeasurementData r) =>
@@ -86,8 +98,9 @@ class RevisionMeasurementStorageBloc extends BlocBase {
     final task = ref.putData(
       bytes,
       SettableMetadata(
-        contentType:
-        _extFromName(originalName) == '.pdf' ? 'application/pdf' : 'application/octet-stream',
+        contentType: _extFromName(originalName) == '.pdf'
+            ? 'application/pdf'
+            : 'application/octet-stream',
         customMetadata: {'originalName': originalName},
       ),
     );
@@ -125,10 +138,18 @@ class RevisionMeasurementStorageBloc extends BlocBase {
     required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
+    PublicacaoExtratoData? extrato,
   }) async {
     try {
       await _storage
-          .ref(pathFor(contract: contract, measurementId: measurementId, rev: rev))
+          .ref(
+        pathFor(
+          contract: contract,
+          measurementId: measurementId,
+          rev: rev,
+          extrato: extrato,
+        ),
+      )
           .getMetadata();
       return true;
     } catch (_) {
@@ -140,13 +161,20 @@ class RevisionMeasurementStorageBloc extends BlocBase {
     required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
+    PublicacaoExtratoData? extrato,
   }) async {
     try {
       return await _storage
-          .ref(pathFor(contract: contract, measurementId: measurementId, rev: rev))
+          .ref(
+        pathFor(
+          contract: contract,
+          measurementId: measurementId,
+          rev: rev,
+          extrato: extrato,
+        ),
+      )
           .getDownloadURL();
     } catch (e) {
-      debugPrint('RevisionMeasurementStorageBloc.getUrl erro: $e');
       return null;
     }
   }
@@ -156,6 +184,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
     required String measurementId,
     required RevisionMeasurementData rev,
     required void Function(double progress) onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -171,6 +200,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
       rev: rev,
       bytes: result.files.single.bytes!,
       onProgress: onProgress,
+      extrato: extrato,
     );
   }
 
@@ -180,9 +210,16 @@ class RevisionMeasurementStorageBloc extends BlocBase {
     required RevisionMeasurementData rev,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
-    final ref =
-    _storage.ref(pathFor(contract: contract, measurementId: measurementId, rev: rev));
+    final ref = _storage.ref(
+      pathFor(
+        contract: contract,
+        measurementId: measurementId,
+        rev: rev,
+        extrato: extrato,
+      ),
+    );
     final task =
     ref.putData(bytes, SettableMetadata(contentType: 'application/pdf'));
     if (onProgress != null) {
@@ -198,14 +235,21 @@ class RevisionMeasurementStorageBloc extends BlocBase {
     required ProcessData contract,
     required String measurementId,
     required RevisionMeasurementData rev,
+    PublicacaoExtratoData? extrato,
   }) async {
     try {
       await _storage
-          .ref(pathFor(contract: contract, measurementId: measurementId, rev: rev))
+          .ref(
+        pathFor(
+          contract: contract,
+          measurementId: measurementId,
+          rev: rev,
+          extrato: extrato,
+        ),
+      )
           .delete();
       return true;
     } catch (e) {
-      debugPrint('RevisionMeasurementStorageBloc.delete erro: $e');
       return false;
     }
   }
@@ -227,9 +271,7 @@ class RevisionMeasurementStorageBloc extends BlocBase {
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
-    } catch (e) {
-      debugPrint('Erro ao salvar URL do PDF (revision) no Firestore: $e');
-    }
+    } catch (e) {}
   }
 
   @override

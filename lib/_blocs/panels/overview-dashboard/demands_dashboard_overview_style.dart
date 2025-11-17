@@ -86,4 +86,18 @@ class DemandsDashboardOverviewStyle {
   static const Color kInfo    = Color(0xFF0288D1);  // ciano
   static const Color kNeutral = Color(0xFF757575);  // cinza
 
+  static List <Color> tradeMapColors = <Color>[
+    Colors.blue,
+    Colors.green,
+    Colors.orange,
+    Colors.purple,
+    Colors.red,
+    Colors.teal,
+    Colors.indigo,
+    Colors.brown,
+    Colors.cyan,
+    Colors.deepOrange,
+    Colors.pink,
+    Colors.lime,
+  ];
 }

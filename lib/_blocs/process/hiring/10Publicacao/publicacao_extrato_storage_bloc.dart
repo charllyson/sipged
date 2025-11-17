@@ -1,4 +1,5 @@
 // lib/_blocs/process/hiring/10Publicacao/publicacao_extrato_storage_bloc.dart
+
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -12,7 +13,8 @@ class PublicacaoExtratoStorageBloc {
     required String contractId,
     required String pubId,
     required String veiculoDocId,
-  }) => 'contracts/$contractId/publicacao/$pubId/veiculo/$veiculoDocId/files';
+  }) =>
+      'contracts/$contractId/publicacao/$pubId/veiculo/$veiculoDocId/files';
 
   Future<List<Attachment>> list({
     required String contractId,
@@ -20,7 +22,9 @@ class PublicacaoExtratoStorageBloc {
     required String veiculoDocId,
   }) async {
     final ref = storage.ref(_filesPath(
-      contractId: contractId, pubId: pubId, veiculoDocId: veiculoDocId,
+      contractId: contractId,
+      pubId: pubId,
+      veiculoDocId: veiculoDocId,
     ));
     final res = await ref.listAll();
     final out = <Attachment>[];
@@ -39,7 +43,8 @@ class PublicacaoExtratoStorageBloc {
     List<String> allowedExtensions = const ['pdf', 'png', 'jpg', 'jpeg'],
   }) async {
     final picked = await FilePicker.platform.pickFiles(
-      type: FileType.custom, allowedExtensions: allowedExtensions,
+      type: FileType.custom,
+      allowedExtensions: allowedExtensions,
     );
     if (picked == null || picked.files.isEmpty) {
       throw Exception('Nenhum arquivo selecionado');
@@ -48,9 +53,13 @@ class PublicacaoExtratoStorageBloc {
     if (path == null) throw Exception('Arquivo inválido');
 
     final name = picked.files.single.name;
-    final ref = storage.ref('${_filesPath(
-      contractId: contractId, pubId: pubId, veiculoDocId: veiculoDocId,
-    )}/$name');
+    final ref = storage.ref(
+      '${_filesPath(
+        contractId: contractId,
+        pubId: pubId,
+        veiculoDocId: veiculoDocId,
+      )}/$name',
+    );
 
     final task = ref.putFile(File(path));
     task.snapshotEvents.listen((e) {
@@ -70,9 +79,13 @@ class PublicacaoExtratoStorageBloc {
     required String fileName,
   }) async {
     try {
-      final ref = storage.ref('${_filesPath(
-        contractId: contractId, pubId: pubId, veiculoDocId: veiculoDocId,
-      )}/$fileName');
+      final ref = storage.ref(
+        '${_filesPath(
+          contractId: contractId,
+          pubId: pubId,
+          veiculoDocId: veiculoDocId,
+        )}/$fileName',
+      );
       await ref.delete();
       return true;
     } catch (_) {

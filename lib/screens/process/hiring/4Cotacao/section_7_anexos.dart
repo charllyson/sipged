@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_controller.dart';
 
 class SectionAnexos extends StatelessWidget {
@@ -10,17 +12,28 @@ class SectionAnexos extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = controller;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionTitle('6) Evidências/Anexos'),
-        CustomTextField(
-          controller: c.ctLinksAnexosCtrl,
-          labelText: 'Links (SEI, propostas, planilhas, prints do Painel etc.)',
-          maxLines: 2,
-          enabled: c.isEditable,
-        ),
-      ],
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w1 = inputW1(context, constraints);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionTitle('6) Evidências/Anexos'),
+            SizedBox(
+              width: w1,
+              child: CustomTextField(
+                controller: c.ctLinksAnexosCtrl,
+                labelText:
+                'Links (SEI, propostas, planilhas, prints do Painel etc.)',
+                maxLines: 2,
+                enabled: c.isEditable,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -103,7 +103,7 @@ class PhysicsFinanceController {
     for (int i = 0; i < services.length; i++) {
       final s = services[i];
       final String key = s.key as String;
-      final String labelRaw = (s.label as String?) ?? '';
+      final String labelRaw = (s.labelText as String?) ?? '';
       final String label = labelRaw.isNotEmpty ? labelRaw : key;
 
       final double valor = (serviceTotals[key] ?? 0.0).toDouble();

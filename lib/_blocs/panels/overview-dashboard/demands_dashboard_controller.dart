@@ -1,7 +1,10 @@
+// lib/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/_process/process_store.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_services/geoJson/geo_json_manager.dart';
 
@@ -18,8 +21,10 @@ import 'package:siged/_blocs/process/revision/revision_measurement_store.dart';
 import 'package:siged/_blocs/process/additives/additive_store.dart';
 import 'package:siged/_blocs/process/apostilles/apostilles_store.dart';
 
-// NOVO: para ler rodovia, regional e status do DFD
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+// ==== NOVOS imports: usamos os BLoCs tipados ====
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_bloc.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
 
 class DemandsDashboardController extends ChangeNotifier {
   DemandsDashboardController({
@@ -29,10 +34,10 @@ class DemandsDashboardController extends ChangeNotifier {
     required this.revisionsStore,
     required this.additivesStore,
     required this.apostillesStore,
-    DfdRepository? dfdRepository,
+    required this.dfdBloc,
+    required this.editalBloc,
     GeoJsonManager? geoManager,
-  })  : dfdRepository = dfdRepository ?? DfdRepository(),
-        geoManager = geoManager ?? GeoJsonManager();
+  }) : geoManager = geoManager ?? GeoJsonManager();
 
   // Injeções
   final ProcessStore store;
@@ -42,7 +47,10 @@ class DemandsDashboardController extends ChangeNotifier {
   final AdditivesStore additivesStore;
   final ApostillesStore apostillesStore;
   final GeoJsonManager geoManager;
-  final DfdRepository dfdRepository; // NOVO
+
+  // NOVOS: blocos tipados em vez de repositórios
+  final DfdBloc dfdBloc;
+  final EditalBloc editalBloc;
 
   bool initialized = false;
   bool _disposed = false;
@@ -94,39 +102,82 @@ class DemandsDashboardController extends ChangeNotifier {
   // ===== caches do DFD =====
   final Map<String, String> _roadNameByContract = {};
   final Map<String, String> _regionByContract = {};
-  final Map<String, String> _statusByContract = {}; // NOVO: status do DFD
+  final Map<String, String> _statusByContract = {};
+  final Map<String, String> _naturezaByContract = {}; // naturezaIntervencao
 
+  // ===== cache do EDITAL (vencedor) =====
+  final Map<String, String> _winnerByContract = {};
+
+  /// Pré-carrega rótulos do DFD + vencedor do edital usando os BLoCs tipados.
   Future<void> _preloadDfdLabels(Iterable<ProcessData> base) async {
     final futures = <Future<void>>[];
+
     for (final c in base) {
       final id = _idToString(c.id);
       if (id == null) continue;
 
-      // rodovia
-      if (!_roadNameByContract.containsKey(id)) {
-        futures.add(() async {
-          final v = await dfdRepository.readRoadLabel(id);
-          if (v != null && v.isNotEmpty) _roadNameByContract[id] = v;
-        }());
+      final precisaRodovia = !_roadNameByContract.containsKey(id);
+      final precisaRegiao = !_regionByContract.containsKey(id);
+      final precisaStatus = !_statusByContract.containsKey(id);
+      final precisaNatureza = !_naturezaByContract.containsKey(id);
+      final precisaVencedor = !_winnerByContract.containsKey(id);
+
+      // Se nada precisa, pula
+      if (!precisaRodovia &&
+          !precisaRegiao &&
+          !precisaStatus &&
+          !precisaNatureza &&
+          !precisaVencedor) {
+        continue;
       }
 
-      // regional
-      if (!_regionByContract.containsKey(id)) {
-        futures.add(() async {
-          final r = await dfdRepository.readRegionalLabel(id);
-          if (r != null && r.isNotEmpty) _regionByContract[id] = r;
-        }());
-      }
+      futures.add(() async {
+        // ------ DFD ------
+        if (precisaRodovia || precisaRegiao || precisaStatus || precisaNatureza) {
+          final DfdData? dfd = await dfdBloc.getDataForContract(id);
 
-      // NOVO: status (identificacao.statusContrato)
-      if (!_statusByContract.containsKey(id)) {
-        futures.add(() async {
-          final leve = await dfdRepository.readLightFields(id);
-          final s = (leve.status ?? '').trim();
-          if (s.isNotEmpty) _statusByContract[id] = s;
-        }());
-      }
+          if (dfd != null) {
+            if (precisaRodovia) {
+              final road = dfd.rodovia?.trim();
+              if (road != null && road.isNotEmpty) {
+                _roadNameByContract[id] = road;
+              }
+            }
+
+            if (precisaRegiao) {
+              final reg = dfd.regional?.trim();
+              if (reg != null && reg.isNotEmpty) {
+                _regionByContract[id] = reg;
+              }
+            }
+
+            if (precisaStatus) {
+              final s = dfd.statusDemanda?.trim();
+              if (s != null && s.isNotEmpty) {
+                _statusByContract[id] = s;
+              }
+            }
+
+            if (precisaNatureza) {
+              final nat = dfd.naturezaIntervencao?.trim();
+              if (nat != null && nat.isNotEmpty) {
+                _naturezaByContract[id] = nat;
+              }
+            }
+          }
+        }
+
+        // ------ EDITAL (vencedor) ------
+        if (precisaVencedor) {
+          final EditalData? edital = await editalBloc.getDataForContract(id);
+          final w = edital?.vencedor?.trim();
+          if (w != null && w.isNotEmpty) {
+            _winnerByContract[id] = w;
+          }
+        }
+      }());
     }
+
     if (futures.isNotEmpty) {
       await Future.wait(futures);
     }
@@ -135,14 +186,7 @@ class DemandsDashboardController extends ChangeNotifier {
   String _getRoadLabel(ProcessData c) {
     final id = _idToString(c.id);
     final cached = (id != null) ? _roadNameByContract[id] : null;
-    if (cached != null && cached.trim().isNotEmpty) return cached;
-
-    // Fallback legado
-    try {
-      final legacy = (c as dynamic).mainHighway as String?;
-      if (legacy != null && legacy.trim().isNotEmpty) return legacy.trim();
-    } catch (_) {}
-
+    if (cached != null && cached.trim().isNotEmpty) return cached.trim();
     return 'SEM RODOVIA';
   }
 
@@ -154,7 +198,6 @@ class DemandsDashboardController extends ChangeNotifier {
         : 'SEM REGIÃO';
   }
 
-  // NOVO: status vindo do DFD (com fallback “SEM STATUS”)
   String _getStatusLabel(ProcessData c) {
     final id = _idToString(c.id);
     final cached = (id != null) ? _statusByContract[id] : null;
@@ -163,6 +206,23 @@ class DemandsDashboardController extends ChangeNotifier {
     return 'SEM STATUS';
   }
 
+  /// Natureza da intervenção vinda do DFD (localizacao.naturezaIntervencao)
+  String _getNatureLabel(ProcessData c) {
+    final id = _idToString(c.id);
+    final cached = (id != null) ? _naturezaByContract[id] : null;
+    final v = (cached ?? '').trim();
+    if (v.isNotEmpty) return v;
+    return 'SEM NATUREZA';
+  }
+
+  /// Vencedor do edital
+  String _getWinnerLabel(ProcessData c) {
+    final id = _idToString(c.id);
+    final cached = (id != null) ? _winnerByContract[id] : null;
+    final v = (cached ?? '').trim();
+    if (v.isNotEmpty) return v;
+    return 'SEM VENCEDOR';
+  }
 
   // ===== Ciclo de vida / init =====
   @override
@@ -180,11 +240,10 @@ class DemandsDashboardController extends ChangeNotifier {
 
     allContracts = store.all;
     if (allContracts.isEmpty && !store.loading) {
-      if (_disposed) return;
       allContracts = store.all;
     }
 
-    // Pré-carrega rodovia, regional e status do DFD
+    // Pré-carrega rodovia, regional, status, natureza (DFD) e vencedor (edital)
     await _preloadDfdLabels(allContracts);
     if (_disposed) return;
 
@@ -217,7 +276,9 @@ class DemandsDashboardController extends ChangeNotifier {
   Future<void> onHotReload() => refreshAndRecalc();
 
   bool get houveInteracaoComFiltros =>
-      selectedStatus != null || selectedCompany != null || selectedRegions.isNotEmpty;
+      selectedStatus != null ||
+          selectedCompany != null ||
+          selectedRegions.isNotEmpty;
 
   // ===== Handlers de seleção =====
   Future<void> onStatusSelected(String? status) async {
@@ -236,7 +297,9 @@ class DemandsDashboardController extends ChangeNotifier {
 
       // regiões relacionadas aos contratos que possuem esse STATUS (via DFD)
       selectedRegions = store.all
-          .where((c) => _getStatusLabel(c).toUpperCase() == sel.toUpperCase())
+          .where(
+            (c) => _getStatusLabel(c).toUpperCase() == sel.toUpperCase(),
+      )
           .map((c) => _getRegionLabel(c).toUpperCase())
           .where((r) => r.isNotEmpty && r != 'SEM REGIÃO')
           .toSet()
@@ -258,7 +321,7 @@ class DemandsDashboardController extends ChangeNotifier {
           .indexWhere((e) => e.toUpperCase() == company.toUpperCase());
 
       final contratosEmpresa = store.all.where(
-            (c) => (c.companyLeader ?? '').toUpperCase() == company.toUpperCase(),
+            (c) => _getWinnerLabel(c).toUpperCase() == company.toUpperCase(),
       );
 
       selectedRegions = contratosEmpresa
@@ -271,7 +334,8 @@ class DemandsDashboardController extends ChangeNotifier {
   }
 
   Future<void> onRegionSelected(String? region) async {
-    final same = region != null && selectedRegions.contains(region.toUpperCase());
+    final same =
+        region != null && selectedRegions.contains(region.toUpperCase());
     if (region == null || same) {
       selectedRegion = null;
       selectedRegions = [];
@@ -279,8 +343,8 @@ class DemandsDashboardController extends ChangeNotifier {
     } else {
       selectedRegion = region;
       selectedRegions = [region.toUpperCase()];
-      selectedRegionIndex =
-          DfdData.regions.indexWhere((r) => r.toUpperCase() == region.toUpperCase());
+      selectedRegionIndex = HiringData.regions
+          .indexWhere((r) => r.toUpperCase() == region.toUpperCase());
     }
     await aplicarFiltrosERecalcular();
   }
@@ -311,15 +375,17 @@ class DemandsDashboardController extends ChangeNotifier {
 
     filteredContracts = base.where((c) {
       final region = _getRegionLabel(c).toUpperCase();
-      final company = (c.companyLeader ?? '').toUpperCase();
+      final company = _getWinnerLabel(c).toUpperCase();
       final statusDfd = _getStatusLabel(c).toUpperCase();
 
       final matchCompany =
-          selectedCompany == null || company == (selectedCompany!.toUpperCase());
-      final matchRegion =
-          selectedRegions.isEmpty || selectedRegions.any((r) => region.contains(r));
+          selectedCompany == null ||
+              company == (selectedCompany!.toUpperCase());
+      final matchRegion = selectedRegions.isEmpty ||
+          selectedRegions.any((r) => region.contains(r));
       final matchStatus =
-          selectedStatus == null || statusDfd == (selectedStatus!.toUpperCase());
+          selectedStatus == null ||
+              statusDfd == (selectedStatus!.toUpperCase());
 
       return matchCompany && matchRegion && matchStatus;
     }).toList();
@@ -327,7 +393,7 @@ class DemandsDashboardController extends ChangeNotifier {
 
   List<String> _extractCompanies(List<ProcessData> data) {
     final set = <String>{
-      for (final c in data) (c.companyLeader ?? 'NÃO INFORMADO').trim().toUpperCase()
+      for (final c in data) _getWinnerLabel(c).trim().toUpperCase(),
     };
     final list = set.toList()..sort();
     return list;
@@ -339,12 +405,12 @@ class DemandsDashboardController extends ChangeNotifier {
       final dynamic dyn = id;
       final hasId = (() {
         try {
-          return (dyn as dynamic).id is String;
+          return (dyn as dynamic).uid is String;
         } catch (_) {
           return false;
         }
       })();
-      if (hasId) return (dyn as dynamic).id as String;
+      if (hasId) return (dyn as dynamic).uid as String;
     } catch (_) {}
     return id.toString();
   }
@@ -359,7 +425,7 @@ class DemandsDashboardController extends ChangeNotifier {
     try {
       if (v == null) return null;
       if (v is String && v.trim().isNotEmpty) return v.trim();
-      final id = (v as dynamic).id;
+      final id = (v as dynamic).uid;
       if (id is String && id.trim().isNotEmpty) return id.trim();
     } catch (_) {}
     return null;
@@ -382,7 +448,7 @@ class DemandsDashboardController extends ChangeNotifier {
       final fromPath = _parseContractIdFromPath(path?.toString());
       if (fromPath != null) return fromPath;
 
-      final idMaybePath = (entry as dynamic).id?.toString();
+      final idMaybePath = (entry as dynamic).uid?.toString();
       final fromId = _parseContractIdFromPath(idMaybePath);
       if (fromId != null) return fromId;
     } catch (_) {}
@@ -396,8 +462,8 @@ class DemandsDashboardController extends ChangeNotifier {
     totaisRegiaoIniciais.clear();
 
     for (final c in filteredContracts) {
-      final status = _getStatusLabel(c);           // <-- status DFD
-      final empresa = c.companyLeader ?? 'SEM EMPRESA';
+      final status = _getStatusLabel(c);
+      final empresa = _getWinnerLabel(c);
       final regiao = _getRegionLabel(c);
       final valor = c.initialValueContract ?? 0.0;
 
@@ -432,8 +498,8 @@ class DemandsDashboardController extends ChangeNotifier {
       final c = adId == null ? null : byId[adId];
       if (c == null) continue;
 
-      final status = _getStatusLabel(c);           // <-- status DFD
-      final empresa = c.companyLeader ?? 'SEM EMPRESA';
+      final status = _getStatusLabel(c);
+      final empresa = _getWinnerLabel(c);
       final regiao = _getRegionLabel(c);
       final valor = ad.additiveValue ?? 0.0;
 
@@ -468,8 +534,8 @@ class DemandsDashboardController extends ChangeNotifier {
       final c = apId == null ? null : byId[apId];
       if (c == null) continue;
 
-      final status = _getStatusLabel(c);           // <-- status DFD
-      final empresa = c.companyLeader ?? 'SEM EMPRESA';
+      final status = _getStatusLabel(c);
+      final empresa = _getWinnerLabel(c);
       final regiao = _getRegionLabel(c);
       final valor = ap.apostilleValue ?? 0.0;
 
@@ -529,7 +595,7 @@ class DemandsDashboardController extends ChangeNotifier {
 
     filterContracts();
 
-    // garante cache DFD para os contratos filtrados (inclui status)
+    // garante cache DFD + vencedor para os contratos filtrados
     await _preloadDfdLabels(filteredContracts);
     if (_disposed || runId != _applyRunId) return;
 
@@ -572,7 +638,8 @@ class DemandsDashboardController extends ChangeNotifier {
       case 'Somatório total':
       default:
         return _somarMapas(
-            [totaisStatusIniciais, totaisStatusAditivos, totaisStatusApostilas]);
+          [totaisStatusIniciais, totaisStatusAditivos, totaisStatusApostilas],
+        );
     }
   }
 
@@ -587,30 +654,34 @@ class DemandsDashboardController extends ChangeNotifier {
       case 'Somatório total':
       default:
         return _somarMapas(
-            [totaisRegiaoIniciais, totaisRegiaoAditivos, totaisRegiaoApostilas]);
+          [totaisRegiaoIniciais, totaisRegiaoAditivos, totaisRegiaoApostilas],
+        );
     }
   }
 
   List<String> get labelsStatusGeneralContracts {
-    final entries =
-    totaisStatusAtuais.entries.where((e) => e.value > 0).toList()
+    final entries = totaisStatusAtuais.entries
+        .where((e) => e.value > 0)
+        .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     return entries.map((e) => e.key).toList();
   }
 
   List<double> get valuesStatusGeneralContracts {
-    final entries =
-    totaisStatusAtuais.entries.where((e) => e.value > 0).toList()
+    final entries = totaisStatusAtuais.entries
+        .where((e) => e.value > 0)
+        .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     return entries.map((e) => e.value).toList();
   }
 
-  List<String> get labelsRegionOfMap => DfdData.regions;
+  List<String> get labelsRegionOfMap => HiringData.regions;
+
   List<double?> get valuesRegionOfMap =>
-      DfdData.regions.map((r) => totaisRegiaoAtuais[r]).toList();
+      HiringData.regions.map((r) => totaisRegiaoAtuais[r]).toList();
 
   List<Color> get barColorsRegion {
-    return List.generate(DfdData.regions.length, (i) {
+    return List.generate(HiringData.regions.length, (i) {
       final valor = valuesRegionOfMap[i] ?? 0.0;
       if (valor == 0.0) return Colors.grey.shade300;
       if (selectedRegionIndex != null && selectedRegionIndex == i) {
@@ -631,11 +702,13 @@ class DemandsDashboardController extends ChangeNotifier {
       case 'Somatório total':
       default:
         return _somarMapas(
-            [totaisEmpresaIniciais, totaisEmpresaAditivos, totaisEmpresaApostilas]);
+          [totaisEmpresaIniciais, totaisEmpresaAditivos, totaisEmpresaApostilas],
+        );
     }
   }
 
   List<String> get labelsCompany => uniqueCompanies;
+
   List<double> get valuesCompany =>
       uniqueCompanies.map((e) => totaisEmpresaAtuais[e] ?? 0.0).toList();
 
@@ -650,11 +723,12 @@ class DemandsDashboardController extends ChangeNotifier {
     });
   }
 
+  // ===== Radar por "Natureza da intervenção" (DFD) =====
   List<String> get radarServiceLabels {
     final set = <String>{};
     for (final c in allContracts) {
-      final s = (c.services ?? '').trim();
-      if (s.isNotEmpty) set.add(s);
+      final s = _getNatureLabel(c);
+      if (s != 'SEM NATUREZA') set.add(s);
     }
     final ordered = set.toList()..sort();
     return ordered;
@@ -665,7 +739,7 @@ class DemandsDashboardController extends ChangeNotifier {
       case 'Valor contratado':
         return c.initialValueContract ?? 0.0;
       case 'Total em aditivos':
-        return 0.0;
+        return 0.0; // se quiser somar aditivos depois, dá pra integrar
       case 'Total em apostilas':
         return 0.0;
       case 'Somatório total':
@@ -674,16 +748,18 @@ class DemandsDashboardController extends ChangeNotifier {
     }
   }
 
-  List<double> _sumRadarPorContractServices(
-      List<ProcessData> base, List<String> labels) {
+  List<double> _sumRadarPorNatureza(
+      List<ProcessData> base,
+      List<String> labels,
+      ) {
     final mapa = {for (final t in labels) t: 0.0};
     for (final c in base) {
       final valor = _valorRadarParaContrato(c);
       if (valor == 0) continue;
-      final service = (c.services ?? '').trim();
-      if (service.isEmpty) continue;
-      if (mapa.containsKey(service)) {
-        mapa[service] = (mapa[service] ?? 0.0) + valor;
+      final natureza = _getNatureLabel(c);
+      if (natureza == 'SEM NATUREZA') continue;
+      if (mapa.containsKey(natureza)) {
+        mapa[natureza] = (mapa[natureza] ?? 0.0) + valor;
       }
     }
     return labels.map((t) => mapa[t] ?? 0.0).toList();
@@ -691,7 +767,7 @@ class DemandsDashboardController extends ChangeNotifier {
 
   List<double> radarServiceValuesGeral() {
     final labels = radarServiceLabels;
-    return _sumRadarPorContractServices(filteredContracts, labels);
+    return _sumRadarPorNatureza(filteredContracts, labels);
   }
 
   List<double> radarServiceValuesEmpresaSelecionada() {
@@ -699,9 +775,11 @@ class DemandsDashboardController extends ChangeNotifier {
     final labels = radarServiceLabels;
     final alvo = (selectedCompany ?? '').toUpperCase();
     final base = filteredContracts
-        .where((c) => (c.companyLeader ?? '').toUpperCase() == alvo)
+        .where(
+          (c) => _getWinnerLabel(c).toUpperCase() == alvo,
+    )
         .toList();
-    return _sumRadarPorContractServices(base, labels);
+    return _sumRadarPorNatureza(base, labels);
   }
 
   List<double> radarServiceValuesRegiaoSelecionada() {
@@ -711,7 +789,7 @@ class DemandsDashboardController extends ChangeNotifier {
     final base = filteredContracts
         .where((c) => _getRegionLabel(c).toUpperCase().contains(alvo))
         .toList();
-    return _sumRadarPorContractServices(base, labels);
+    return _sumRadarPorNatureza(base, labels);
   }
 
   List<RadarSeriesData> radarDatasetsServices({
@@ -730,23 +808,29 @@ class DemandsDashboardController extends ChangeNotifier {
       RadarSeriesData(name: 'Geral', values: geral, color: primary),
       if (empresa.isNotEmpty)
         RadarSeriesData(
-            name: selectedCompany ?? 'Empresa',
-            values: empresa,
-            color: warning),
+          name: selectedCompany ?? 'Empresa',
+          values: empresa,
+          color: warning,
+        ),
       if (regiao.isNotEmpty)
         RadarSeriesData(
-          name:
-          selectedRegion ?? (selectedRegions.isNotEmpty ? selectedRegions.first : 'Região'),
+          name: selectedRegion ??
+              (selectedRegions.isNotEmpty ? selectedRegions.first : 'Região'),
           values: regiao,
           color: success,
         ),
     ];
 
     return raw
-        .where((s) => s.values.length == labels.length && s.values.any((v) => v > 0))
+        .where(
+          (s) =>
+      s.values.length == labels.length &&
+          s.values.any((v) => v > 0),
+    )
         .toList(growable: false);
   }
 
+  // ===== Treemap de rodovias =====
   List<TreemapItem> get treemapRodovias {
     final mapa = <String, double>{};
     for (final c in filteredContracts) {
@@ -773,24 +857,13 @@ class DemandsDashboardController extends ChangeNotifier {
       mapa[rodovia] = (mapa[rodovia] ?? 0.0) + valor;
     }
 
-    final ordenado = mapa.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    final colors = <Color>[
-      Colors.blue,
-      Colors.green,
-      Colors.orange,
-      Colors.purple,
-      Colors.red,
-      Colors.teal,
-      Colors.indigo,
-      Colors.brown,
-      Colors.cyan,
-      Colors.deepOrange,
-      Colors.pink,
-      Colors.lime,
-    ];
+    final ordenado = mapa.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
     int i = 0;
     return ordenado.map((e) {
-      final color = colors[i % colors.length];
+      final color = DemandsDashboardOverviewStyle
+          .tradeMapColors[i % DemandsDashboardOverviewStyle.tradeMapColors.length];
       i++;
       return TreemapItem(label: e.key, value: e.value, color: color);
     }).toList(growable: false);

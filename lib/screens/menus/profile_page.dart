@@ -161,13 +161,13 @@ class _UserProfilePageState extends State<UserProfilePage> {
     setState(() => _saving = true);
 
     try {
-      final uid = current.id ?? FirebaseAuth.instance.currentUser?.uid ?? '';
+      final uid = current.uid ?? FirebaseAuth.instance.currentUser?.uid ?? '';
       if (uid.isEmpty) throw Exception('UID inválido');
 
       final photoUrl = await _uploadIfNeeded(uid);
 
       final updated = UserData(
-        id: uid,
+        uid: uid,
         name: _firstCtrl.text.trim(),
         surname: _lastCtrl.text.trim(),
         email: current.email,

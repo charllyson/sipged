@@ -1,6 +1,8 @@
-// lib/screens/process/hiring/6Habilitacao/sections/_certidao_card.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_style.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
@@ -27,9 +29,6 @@ class CertidaoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cardBg = Colors.grey.shade100;
-    final cardBorder = Colors.grey;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final w3 = inputWidth(
@@ -41,61 +40,75 @@ class CertidaoCard extends StatelessWidget {
           spacing: 12,
         );
 
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: cardBg,
-            border: Border.all(color: cardBorder),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                titulo,
+        return ValueListenableBuilder<TextEditingValue>(
+          valueListenable: statusCtrl,
+          builder: (context, value, _) {
+            final status = value.text;
+            final theme = Theme.of(context);
+            final colors =
+            HiringStyle.certidaoColorsForStatus(status, theme);
+
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.background,
+                border: Border.all(color: colors.border),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: w3,
-                    child: DropDownButtonChange(
-                      enabled: enabled,
-                      labelText: 'Status',
-                      controller: statusCtrl,
-                      items: itemsStatus,
-                      onChanged: (v) => statusCtrl.text = v ?? '',
+                  Text(
+                    titulo,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: colors.title,
                     ),
                   ),
-                  SizedBox(
-                    width: w3,
-                    child: CustomTextField(
-                      controller: validadeCtrl,
-                      labelText: 'Validade',
-                      hintText: 'dd/mm/aaaa',
-                      enabled: enabled,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(8),
-                        TextInputMask(mask: '99/99/9999'),
-                      ],
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  SizedBox(
-                    width: w3,
-                    child: CustomTextField(
-                      controller: linkCtrl,
-                      labelText: 'Link/Arquivo',
-                      enabled: enabled,
-                    ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: w3,
+                        child: DropDownButtonChange(
+                          enabled: enabled,
+                          labelText: 'Status',
+                          controller: statusCtrl,
+                          items: itemsStatus,
+                          onChanged: (v) => statusCtrl.text = v ?? '',
+                        ),
+                      ),
+                      SizedBox(
+                        width: w3,
+                        child: CustomTextField(
+                          controller: validadeCtrl,
+                          labelText: 'Validade',
+                          hintText: 'dd/mm/aaaa',
+                          enabled: enabled,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(8),
+                            TextInputMask(mask: '99/99/9999'),
+                          ],
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      SizedBox(
+                        width: w3,
+                        child: CustomTextField(
+                          controller: linkCtrl,
+                          labelText: 'Link/Arquivo',
+                          enabled: enabled,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

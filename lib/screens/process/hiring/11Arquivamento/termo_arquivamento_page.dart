@@ -11,18 +11,18 @@ import 'package:siged/_widgets/gates/stage_gate.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_event.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_repository.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_state.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/hiring_stages.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
 import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_bloc.dart';
 import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_controller.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress_cubit.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
 
 // Seções
 import 'package:siged/screens/process/hiring/11Arquivamento/section_1_metadados.dart';

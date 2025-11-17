@@ -186,9 +186,9 @@ class RevisionMeasurementController extends ChangeNotifier
 
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
-      final prevId = currentUser?.id;
+      final prevId = currentUser?.uid;
       currentUser = st.current;
-      final nowId = currentUser?.id;
+      final nowId = currentUser?.uid;
 
       final newEditable = _canEditUser(currentUser);
       if (newEditable != isEditable || prevId != nowId) {
@@ -475,7 +475,7 @@ class RevisionMeasurementController extends ChangeNotifier
         path: '',
         ext: '.pdf',
         createdAt: DateTime.now(),
-        createdBy: currentUser?.id,
+        createdBy: currentUser?.uid,
       );
       final list = <Attachment>[att];
 
@@ -632,7 +632,7 @@ class RevisionMeasurementController extends ChangeNotifier
         createdAt: att.createdAt,
         createdBy: att.createdBy,
         updatedAt: DateTime.now(),
-        updatedBy: currentUser?.id,
+        updatedBy: currentUser?.uid,
       );
 
       await _measurementBloc.setAttachments(

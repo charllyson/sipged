@@ -152,9 +152,9 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
 
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
-      final prevId = currentUser?.id;
+      final prevId = currentUser?.uid;
       currentUser = st.current;
-      final nowId = currentUser?.id;
+      final nowId = currentUser?.uid;
 
       final newEditable = _canEditUser(currentUser);
       if (newEditable != isEditable || prevId != nowId) {
@@ -450,7 +450,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
         path: '',
         ext: '.pdf',
         createdAt: DateTime.now(),
-        createdBy: currentUser?.id,
+        createdBy: currentUser?.uid,
       );
       await _paymentAdjustmentBloc.setAttachments(
         contractId: contract!.id!,
@@ -483,7 +483,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
               ?.group(0) ??
               '',
           createdAt: DateTime.now(),
-          createdBy: currentUser?.id,
+          createdBy: currentUser?.uid,
         ))
             .toList();
 
@@ -567,7 +567,7 @@ class PaymentsAdjustmentController extends ChangeNotifier with FormValidationMix
         createdAt: att.createdAt,
         createdBy: att.createdBy,
         updatedAt: DateTime.now(),
-        updatedBy: currentUser?.id,
+        updatedBy: currentUser?.uid,
       );
 
       await _paymentAdjustmentBloc.setAttachments(

@@ -29,9 +29,9 @@ class NotificationBloc {
     String id;
     try {
       // tenta alguns campos comuns que costumam ser id do objeto original
-      id = (registro.original as dynamic)?.id ??
-          (registro.original as dynamic)?.id ??
-          (registro.original as dynamic)?.id ??
+      id = (registro.original as dynamic)?.uid ??
+          (registro.original as dynamic)?.uid ??
+          (registro.original as dynamic)?.uid ??
           registro.id ??
           '';
     } catch (_) {

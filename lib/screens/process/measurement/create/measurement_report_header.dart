@@ -13,10 +13,22 @@ class MeasurementReportHeader extends StatelessWidget {
     super.key,
     required this.contract,
     this.measurement,
+
+    /// 🔹 Resumo da obra (DFD.descricaoObjeto)
+    this.descricaoObjeto,
+
+    /// 🔹 Número do contrato (PublicacaoExtratoData.numeroContrato)
+    this.numeroContrato,
   });
 
   final ProcessData contract;
   final ReportMeasurementData? measurement;
+
+  /// 🔹 Campo vindo de DfdData.descricaoObjeto
+  final String? descricaoObjeto;
+
+  /// 🔹 Campo vindo de PublicacaoExtratoData.numeroContrato
+  final String? numeroContrato;
 
   String _dashIfEmpty(String? s) {
     final v = (s ?? '').trim();
@@ -31,13 +43,17 @@ class MeasurementReportHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final isSmall = MediaQuery.of(context).size.width < 900;
 
-    // ==== Mapeamento para os campos que EXISTEM no seu ContractData ====
-    final obra = _dashIfEmpty(
-      contract.summarySubject ?? '',
-    );
-    final local = _dashIfEmpty(''/*contract.region*/);
-    final construtora = _dashIfEmpty(contract.companyLeader);
-    final contratoNum = _dashIfEmpty(contract.contractNumber);
+    // ==== Mapeamento para os campos ====
+    // 🔹 OBRA agora vem somente da descricaoObjeto (DFD)
+    final obra = _dashIfEmpty(descricaoObjeto);
+
+    // 🔹 LOCAL / CONSTRUTORA ficam em branco até termos fonte correta
+    final local = _dashIfEmpty('' /* ex.: region / município, quando existir */);
+    final construtora =
+    _dashIfEmpty('' /* ex.: companyLeader, quando existir no novo modelo */);
+
+    // 🔹 CONTRATO Nº vem da PublicacaoExtratoData.numeroContrato
+    final contratoNum = _dashIfEmpty(numeroContrato);
 
     final valorContrato = _money(contract.initialValueContract ?? 0);
 
@@ -45,15 +61,17 @@ class MeasurementReportHeader extends StatelessWidget {
         ? '–'
         : '${contract.initialValidityExecution}';
 
-    final assinatura = _date(contract.publicationDate); // data pública mais próxima que temos
-    final aditivosParalisacoesDias = '–'; // não há esse campo no modelo
-    final ordemServico = '–'; // não há esse campo no modelo
-    final conclusao = '–'; // não há esse campo no modelo
-    final saldoPrazo = '–'; // sem base no modelo
+    final assinatura = _date(
+      contract.publicationDate,
+    ); // data pública mais próxima que temos
+    final aditivosParalisacoesDias = '–';
+    final ordemServico = '–';
+    final conclusao = '–';
+    final saldoPrazo = '–';
 
     final medicaoNumero = measurement?.order?.toString() ?? '–';
     final dataBoletim = _date(measurement?.date);
-    final periodo = '–'; // se tiver período, preencha aqui
+    final periodo = '–';
     final numFolhas = '–';
 
     return Container(
@@ -95,31 +113,48 @@ class MeasurementReportHeader extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!isSmall) const SizedBox(width: 8) else const SizedBox(height: 8),
+              if (!isSmall)
+                const SizedBox(width: 8)
+              else
+                const SizedBox(height: 8),
               Expanded(
                 flex: isSmall ? 0 : 2,
                 child: InfoGrid(
                   rows: [
-                    _row('VALOR DO CONTRATO:', valorContrato, alignRight: true),
-                    _row('ASSINATURA DO CONTRATO:', assinatura, alignRight: true),
-                    _row('ORDEM DE SERVIÇO:', ordemServico, alignRight: true),
+                    _row('VALOR DO CONTRATO:', valorContrato,
+                        alignRight: true),
+                    _row('ASSINATURA DO CONTRATO:', assinatura,
+                        alignRight: true),
+                    _row('ORDEM DE SERVIÇO:', ordemServico,
+                        alignRight: true),
                     _row('', '', alignRight: true),
                   ],
                 ),
               ),
-              if (!isSmall) const SizedBox(width: 8) else const SizedBox(height: 8),
+              if (!isSmall)
+                const SizedBox(width: 8)
+              else
+                const SizedBox(height: 8),
               Expanded(
                 flex: isSmall ? 0 : 2,
                 child: InfoGrid(
                   rows: [
-                    _row('PRAZO DE EXECUÇÃO (dias):', prazoExecStr, alignRight: true),
-                    _row('ADITIVOS E PARALISAÇÕES (dias):', aditivosParalisacoesDias, alignRight: true),
-                    _row('DATA DE CONCLUSÃO:', conclusao, alignRight: true),
-                    _row('SALDO DE PRAZO:', saldoPrazo, alignRight: true),
+                    _row('PRAZO DE EXECUÇÃO (dias):', prazoExecStr,
+                        alignRight: true),
+                    _row('ADITIVOS E PARALISAÇÕES (dias):',
+                        aditivosParalisacoesDias,
+                        alignRight: true),
+                    _row('DATA DE CONCLUSÃO:', conclusao,
+                        alignRight: true),
+                    _row('SALDO DE PRAZO:', saldoPrazo,
+                        alignRight: true),
                   ],
                 ),
               ),
-              if (!isSmall) const SizedBox(width: 8) else const SizedBox(height: 8),
+              if (!isSmall)
+                const SizedBox(width: 8)
+              else
+                const SizedBox(height: 8),
               Expanded(
                 flex: isSmall ? 0 : 2,
                 child: InfoGrid(
@@ -127,7 +162,8 @@ class MeasurementReportHeader extends StatelessWidget {
                     _row('MEDIÇÃO Nº:', medicaoNumero),
                     _row('PERÍODO:', periodo),
                     _row('DATA DO BOLETIM:', dataBoletim),
-                    _row('Nº DE FOLHAS:', numFolhas, alignRight: true),
+                    _row('Nº DE FOLHAS:', numFolhas,
+                        alignRight: true),
                   ],
                 ),
               ),

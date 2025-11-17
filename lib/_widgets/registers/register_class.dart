@@ -60,10 +60,11 @@ class Registro {
     return tipo[0].toUpperCase() + tipo.substring(1);
   }
 
+  /// Subtítulo simples baseado apenas no ID do contrato.
+  /// O rótulo amigável (nº contrato + descrição) deve ser montado
+  /// externamente usando DfdData/PublicacaoExtratoData.
   String get subtitulo {
-    return contractData?.summarySubject ??
-        contractData?.contractNumber ??
-        '';
+    return contractId ?? '';
   }
 
   factory Registro.fromNotificationDocument(DocumentSnapshot doc) {
@@ -89,5 +90,4 @@ class Registro {
       'seen': seen,
     };
   }
-
 }

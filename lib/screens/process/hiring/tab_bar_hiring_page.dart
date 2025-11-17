@@ -1,34 +1,28 @@
 // lib/screens/process/hiring/tab_bar_hiring_page.dart
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
 import 'package:siged/_blocs/process/hiring/2Etp/etp_controller.dart';
 
 // === Pipeline (habilitação de etapas) ===
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress_cubit.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_repository.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
 
 // === Componentes ===
 import 'package:siged/_widgets/gates/stage_gate.dart';
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/schedule/physical_financial/schedule_physical_financial_widget.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/hiring_stages.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
 // === BLOCs e Controllers globais ===
-import 'package:siged/_blocs/_process/process_controller.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/_process/process_bloc.dart';
 
-// === Etapas ===
-import 'package:siged/screens/process/hiring/main_manager_section.dart';
-
 // DFD
 import 'package:siged/screens/process/hiring/1Dfd/dfd_page.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_controller.dart';
 
 // ETP
 import 'package:siged/screens/process/hiring/2Etp/etp_page.dart';
@@ -43,7 +37,6 @@ import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_controller.dart';
 
 // Edital
 import 'package:siged/screens/process/hiring/5Edital/edital_julgamento_page.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/edital_julgamento_controller.dart';
 
 // Habilitação
 import 'package:siged/screens/process/hiring/6Habilitacao/habilitacao_page.dart';
@@ -63,7 +56,6 @@ import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_controlle
 
 // Publicação
 import 'package:siged/screens/process/hiring/10Publicacao/publicacao_extrato_page.dart';
-import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_controller.dart';
 
 // Arquivamento
 import 'package:siged/screens/process/hiring/11Arquivamento/termo_arquivamento_page.dart';
@@ -88,10 +80,6 @@ class TabBarHiringPage extends StatefulWidget {
 class _TabBarHiringPageState extends State<TabBarHiringPage>
     with AutomaticKeepAliveClientMixin {
 
-  final Map<String, DfdController> _dfdControllers = {};
-  DfdController _getDfdController(String id) =>
-      _dfdControllers.putIfAbsent(id, () => DfdController());
-
   final Map<String, EtpController> _etpControllers = {};
   EtpController _getEtpController(String id) =>
       _etpControllers.putIfAbsent(id, () => EtpController());
@@ -105,11 +93,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
   final Map<String, CotacaoController> _cotacaoControllers = {};
   CotacaoController _getCotacaoController(String id) =>
       _cotacaoControllers.putIfAbsent(id, () => CotacaoController());
-
-// Edital (Julgamento)
-  final Map<String, EditalJulgamentoController> _editalControllers = {};
-  EditalJulgamentoController _getEditalController(String id) =>
-      _editalControllers.putIfAbsent(id, () => EditalJulgamentoController());
 
 // Habilitação
   final Map<String, HabilitacaoController> _habilitacaoControllers = {};
@@ -131,11 +114,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
   ParecerJuridicoController _getJuridicoController(String id) =>
       _juridicoControllers.putIfAbsent(id, () => ParecerJuridicoController());
 
-// Publicação do Extrato
-  final Map<String, PublicacaoExtratoController> _publicacaoControllers = {};
-  PublicacaoExtratoController _getPublicacaoController(String id) =>
-      _publicacaoControllers.putIfAbsent(id, () => PublicacaoExtratoController());
-
 // Arquivamento
   final Map<String, TermoArquivamentoController> _arquivamentoControllers = {};
   TermoArquivamentoController _getArquivamentoController(String id) =>
@@ -146,6 +124,9 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
 
   String get _contractId => widget.contractData?.id ?? '';
 
+  String? _dfdDescricaoObjeto;
+  bool _loadingDfd = false;
+
   @override
   void initState() {
     super.initState();
@@ -155,16 +136,13 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
       contractId: _contractId,
       progressRepo: _progressRepo,
     );
-
+    _loadDfdDescricao(); // 👈 carrega DFD assim que abrir as abas
     _pipelineCubit.refresh();
     _pipelineCubit.watchChain();
   }
 
   @override
   void dispose() {
-    for (final c in _dfdControllers.values) {
-      c.dispose();
-    }
     _pipelineCubit.close();
     super.dispose();
   }
@@ -193,6 +171,29 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
       default: return null; // 0 (Resumo) não tem stageKey
     }
   }
+
+  Future<void> _loadDfdDescricao() async {
+    final id = _contractId;
+    if (id.isEmpty) return;
+
+    setState(() => _loadingDfd = true);
+
+    try {
+      final repo = DfdRepository();
+      final dfd = await repo.readDataForContract(id);
+
+      if (!mounted) return;
+
+      setState(() {
+        _dfdDescricaoObjeto = dfd?.descricaoObjeto; // 👈 aqui!
+        _loadingDfd = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingDfd = false);
+    }
+  }
+
 
 
   @override
@@ -274,240 +275,213 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
             );
           }
 
-          return ScreenLock(
-            locked: pipeline.loading,
-            message: pipeline.loading ? 'Carregando as etapas...' : null,
-            details: pipeline.loading ? 'Sincronizando os dados' : null,
-            keepAppBarUndimmed: true,
-            child: TabChangedWidget(
-              contractData: widget.contractData,
-              contractsBloc: widget.contractsBloc,
-              initialTabIndex: widget.initialTabIndex,
+          return TabChangedWidget(
+            contractData: widget.contractData,
+            contractsBloc: widget.contractsBloc,
+            initialTabIndex: widget.initialTabIndex,
+            textBanner: _dfdDescricaoObjeto,
+            // <<< resolver do selo >>>
+            resolveStampForTab: ({
+              required int tabIndex,
+              required ProcessData contract,
+            }) {
+              final ok = isApprovedForTab(tabIndex);
+              return makeConfig(idx: tabIndex, approved: ok);
+            },
 
-              // <<< resolver do selo >>>
-              resolveStampForTab: ({
-                required int tabIndex,
-                required ProcessData contract,
-              }) {
-                final ok = isApprovedForTab(tabIndex);
-                return makeConfig(idx: tabIndex, approved: ok);
-              },
+            tabs: [
+              // === DFD ===
+              ContractTabDescriptor(
+                label: 'Demanda',
+                requireSavedContract: true,
+                builder: (_) {
+                  return DfdPage(
+                    key: PageStorageKey('dfd-page-$contractId'),
+                    contractId: contractId,
+                  );
+                },
+              ),
 
-              tabs: [
-                // === Resumo (sempre liberado) ===
-                /*ContractTabDescriptor(
-                  label: 'Resumo',
-                  builder: (_) => MainManagerSection(contractData: c),
-                ),*/
-
-                // === DFD ===
-                ContractTabDescriptor(
-                  label: 'Demanda',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final dfdCtrl = _getDfdController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: dfdCtrl,
-                      child: DfdPage(
-                        key: PageStorageKey('dfd-page-$contractId'),
-                        controller: dfdCtrl,
+              // === ETP ===
+              ContractTabDescriptor(
+                label: 'Estudo Preliminar',
+                requireSavedContract: true,
+                builder: (_) {
+                  final etpCtrl = _getEtpController(contractId);
+                  return ChangeNotifierProvider.value(
+                    value: etpCtrl,
+                    child: StageGate(
+                      stageKey: HiringStageKey.etp,
+                      child: EtpPage(
+                        key: PageStorageKey('etp-page-$contractId'),
+                        controller: etpCtrl,
                         contractId: contractId,
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
+              ),
+              // === TR ===
+              ContractTabDescriptor(
+                label: 'Termo de Referência',
+                requireSavedContract: true,
+                builder: (_) {
+                  final trCtrl = _getTrControllers(contractId);
+                  return ChangeNotifierProvider.value(
+                    value: trCtrl,
+                    child: StageGate(
+                      stageKey: HiringStageKey.tr,
+                      child: TermoReferenciaPage(
+                        key: PageStorageKey('tr-page-$contractId'),
+                        controller: trCtrl,
+                        contractId: contractId,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              // === Cotação ===
+              ContractTabDescriptor(
+                label: 'Cotação',
+                requireSavedContract: true,
+                builder: (_) {
+                  final cotCtrl = _getCotacaoController(contractId);
+                  return ChangeNotifierProvider.value(
+                    value: cotCtrl,
+                    child: StageGate(
+                      stageKey: HiringStageKey.cotacao,
+                      child: CotacaoPage(
+                        controller: cotCtrl,
+                        contractId: contractId,
+                      ),
+                    ),
+                  );
+                },
+              ),
 
-                // === ETP ===
-                ContractTabDescriptor(
-                  label: 'Estudo Preliminar',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final etpCtrl = _getEtpController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: etpCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.etp,
-                        child: EtpPage(
-                          key: PageStorageKey('etp-page-$contractId'),
-                          controller: etpCtrl,
-                          contractId: contractId,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                // === TR ===
-                ContractTabDescriptor(
-                  label: 'Termo de Referência',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final trCtrl = _getTrControllers(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: trCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.tr,
-                        child: TermoReferenciaPage(
-                          key: PageStorageKey('tr-page-$contractId'),
-                          controller: trCtrl,
-                          contractId: contractId,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                // === Cotação ===
-                ContractTabDescriptor(
-                  label: 'Cotação',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final cotCtrl = _getCotacaoController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: cotCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.cotacao,
-                        child: CotacaoPage(
-                          controller: cotCtrl,
-                          contractId: contractId,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              // === Edital ===
+              ContractTabDescriptor(
+                label: 'Edital',
+                requireSavedContract: true,
+                builder: (_) {
+                  return StageGate(
+                    stageKey: HiringStageKey.edital,
+                    child: EditalJulgamentoPage(
+                      contractId: contractId,
+                    ),
+                  );
+                },
+              ),
 
-                // === Edital ===
-                ContractTabDescriptor(
-                  label: 'Edital',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final edtCtrl = _getEditalController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: edtCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.edital,
-                        child: EditalJulgamentoPage(
-                          controller: edtCtrl,
-                          contractId: contractId,
-                        ),
+              // === Habilitação ===
+              ContractTabDescriptor(
+                label: 'Habilitação',
+                requireSavedContract: true,
+                builder: (_) {
+                  final regCtrl = _getHabilitacaoController(contractId);
+                  return ChangeNotifierProvider.value(
+                    value: regCtrl,
+                    child: StageGate(
+                      stageKey: HiringStageKey.habilitacao,
+                      child: HabilitacaoPage(
+                        controller: regCtrl,
+                        contractId: contractId,
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
+              ),
 
-                // === Habilitação ===
-                ContractTabDescriptor(
-                  label: 'Habilitação',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final regCtrl = _getHabilitacaoController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: regCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.habilitacao,
-                        child: HabilitacaoPage(
-                          controller: regCtrl,
-                          contractId: contractId,
-                        ),
+              // === Dotação ===
+              ContractTabDescriptor(
+                label: 'Dotação Orçamentária',
+                requireSavedContract: true,
+                builder: (_) {
+                  final dotCtrl = _getDotacaoController(contractId);
+                  return ChangeNotifierProvider.value(
+                    value: dotCtrl,
+                    child: StageGate(
+                      stageKey: HiringStageKey.dotacao,
+                      child: DotacaoPage(
+                        controller: dotCtrl,
+                        contractId: contractId,
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
+              ),
 
-                // === Dotação ===
-                ContractTabDescriptor(
-                  label: 'Dotação Orçamentária',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final dotCtrl = _getDotacaoController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: dotCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.dotacao,
-                        child: DotacaoPage(
-                          controller: dotCtrl,
-                          contractId: contractId,
-                        ),
+              // === Minuta ===
+              ContractTabDescriptor(
+                label: 'Minuta do Contrato',
+                requireSavedContract: true,
+                builder: (_) {
+                  final minCtrl = _getMinutaController(contractId);
+                  return ChangeNotifierProvider.value(
+                    value: minCtrl,
+                    child: StageGate(
+                      stageKey: HiringStageKey.minuta,
+                      child: MinutaContratoPage(
+                        controller: minCtrl,
+                        contractId: contractId,
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
+              ),
 
-                // === Minuta ===
-                ContractTabDescriptor(
-                  label: 'Minuta do Contrato',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final minCtrl = _getMinutaController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: minCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.minuta,
-                        child: MinutaContratoPage(
-                          controller: minCtrl,
-                          contractId: contractId,
-                        ),
+              // === Jurídico ===
+              ContractTabDescriptor(
+                label: 'Parecer Jurídico',
+                requireSavedContract: true,
+                builder: (_) {
+                  final jurCtrl = _getJuridicoController(contractId);
+                  return ChangeNotifierProvider.value(
+                    value: jurCtrl,
+                    child: StageGate(
+                      stageKey: HiringStageKey.parecer,
+                      child: ParecerJuridicoPage(
+                        controller: jurCtrl,
+                        contractId: contractId,
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
+              ),
 
-                // === Jurídico ===
-                ContractTabDescriptor(
-                  label: 'Parecer Jurídico',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final jurCtrl = _getJuridicoController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: jurCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.parecer,
-                        child: ParecerJuridicoPage(
-                          controller: jurCtrl,
-                          contractId: contractId,
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              // === Publicação ===
+              ContractTabDescriptor(
+                label: 'Publicação do Extrato',
+                requireSavedContract: true,
+                builder: (_) {
+                  return StageGate(
+                    stageKey: HiringStageKey.publicacao,
+                    child: PublicacaoExtratoPage(
+                      contractId: contractId,
+                    ),
+                  );
+                },
+              ),
 
-                // === Publicação ===
-                ContractTabDescriptor(
-                  label: 'Publicação do Extrato',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final pubCtrl = _getPublicacaoController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: pubCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.publicacao,
-                        child: PublicacaoExtratoPage(
-                          controller: pubCtrl,
-                          contractId: contractId,
-                        ),
+              // === Arquivamento ===
+              ContractTabDescriptor(
+                label: 'Arquivamento',
+                requireSavedContract: true,
+                builder: (_) {
+                  final arqCtrl = _getArquivamentoController(contractId);
+                  return ChangeNotifierProvider.value(
+                    value: arqCtrl,
+                    child: StageGate(
+                      stageKey: HiringStageKey.arquivamento,
+                      child: TermoArquivamentoPage(
+                        controller: arqCtrl,
+                        contractId: contractId,
                       ),
-                    );
-                  },
-                ),
-
-                // === Arquivamento ===
-                ContractTabDescriptor(
-                  label: 'Arquivamento',
-                  requireSavedContract: true,
-                  builder: (_) {
-                    final arqCtrl = _getArquivamentoController(contractId);
-                    return ChangeNotifierProvider.value(
-                      value: arqCtrl,
-                      child: StageGate(
-                        stageKey: HiringStageKey.arquivamento,
-                        child: TermoArquivamentoPage(
-                          controller: arqCtrl,
-                          contractId: contractId,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+                    ),
+                  );
+                },
+              ),
+            ],
           );
         },
       ),

@@ -120,9 +120,9 @@ class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget>
   UserData? _findById(String? id) {
     if (id == null || id.isEmpty) return null;
     try {
-      return widget.allUsers.firstWhere((u) => u.id == id);
+      return widget.allUsers.firstWhere((u) => u.uid == id);
     } catch (_) {
-      return UserData(id: id); // fallback
+      return UserData(uid: id); // fallback
     }
   }
 
@@ -132,7 +132,7 @@ class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget>
     if (hasName && hasEmail) return '${u.name} (${u.email})';
     if (hasName) return u.name!;
     if (hasEmail) return u.email!;
-    return u.id ?? 'Usuário';
+    return u.uid ?? 'Usuário';
   }
 
   // ---- add/remove ----
@@ -142,9 +142,9 @@ class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget>
 
     setState(() {
       if (widget.multiple) {
-        if (!_selectedIds.contains(user.id)) _selectedIds.add(user.id!);
+        if (!_selectedIds.contains(user.uid)) _selectedIds.add(user.uid!);
       } else {
-        _selectedIds = [user.id!];
+        _selectedIds = [user.uid!];
       }
       _showInlineSearch = widget.multiple;
     });
@@ -244,7 +244,7 @@ class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget>
                         final label = widget.labelFor!(uid);
                         final perms = widget.getPerms!(uid);
                         final role  = widget.getRole?.call(uid) ?? 'COLABORADOR';
-                        final u     = _findById(uid) ?? UserData(id: uid, name: label);
+                        final u     = _findById(uid) ?? UserData(uid: uid, name: label);
 
                         return ParticipantTile(
                           avatarUrl: u.urlPhoto,
@@ -262,7 +262,7 @@ class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget>
                       }
 
                       // --- MODO SIMPLES (sem perms/role) ---
-                      final u = _findById(uid) ?? UserData(id: uid);
+                      final u = _findById(uid) ?? UserData(uid: uid);
                       return Material(
                         color: Colors.transparent,
                         child: ListTile(

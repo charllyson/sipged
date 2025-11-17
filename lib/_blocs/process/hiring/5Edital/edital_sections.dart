@@ -1,3 +1,5 @@
+// lib/_blocs/process/hiring/5Edital/edital_sections.dart
+
 /// Chaves estáveis para as seções do Edital (subcoleções do doc raiz)
 class EditalSections {
   static const divulgacao   = 'divulgacao';   // publicação, PNCP, prazos

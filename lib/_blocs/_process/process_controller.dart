@@ -466,7 +466,6 @@ class ProcessController extends ChangeNotifier {
   /// Inicializa o formulário com um contrato (novo ou existente) e carrega anexos.
   Future<void> init(BuildContext context, {ProcessData? initial}) async {
     contractData = _clone(initial ?? ProcessData.empty());
-    _fillControllersFromModel();
     await refreshContractDocs();
     notifyListeners();
   }
@@ -474,77 +473,7 @@ class ProcessController extends ChangeNotifier {
   // =======================================================================
   // SALVAR / ATUALIZAR
   // =======================================================================
-  Future<void> saveInformation(
-      BuildContext context, {
-        void Function(ProcessData)? onSaved,
-      }) async {
-    showErrors = true;
-    notifyListeners();
-    if (!(formKey.currentState?.validate() ?? false)) return;
 
-    _applyControllersToModel();
-
-    isSaving = true;
-    notifyListeners();
-
-    try {
-      final saved = await store.saveOrUpdate(contractData);
-      contractData = _clone(saved);
-      onSaved?.call(contractData);
-
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Contrato salvo'),
-          type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
-      );
-    } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao salvar contrato: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
-      );
-    } finally {
-      isSaving = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> salvarUrlPdfDoContratoEAtualizarUI(
-      BuildContext context, {
-        required String contractId,
-        required String url,
-        void Function(ProcessData)? onSaved,
-      }) async {
-    try {
-      await store.salvarUrlPdfDoContrato(contractId, url);
-      final updated = await store.getById(contractId);
-      if (updated != null) {
-        contractData = _clone(updated);
-        onSaved?.call(contractData);
-        notifyListeners();
-
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('PDF do contrato atualizado'),
-            type: AppNotificationType.success,
-            details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-          ),
-        );
-      }
-    } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: Text('Erro ao atualizar PDF: $e'),
-          type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
-        ),
-      );
-    }
-  }
 
   // =======================================================================
   // HELPERS DE MODELO / CONTROLLERS
@@ -552,14 +481,6 @@ class ProcessController extends ChangeNotifier {
   ProcessData _clone(ProcessData src) {
     return ProcessData(
       id: src.id,
-      summarySubject: src.summarySubject,
-      contractNumber: src.contractNumber,
-      services: src.services,
-      companyLeader: src.companyLeader,
-      initialValidityExecution: src.initialValidityExecution,
-      initialValidityContract: src.initialValidityContract,
-      publicationDate: src.publicationDate,
-      initialValueContract: src.initialValueContract,
       permissionContractId: Map<String, Map<String, bool>>.fromEntries(
         src.permissionContractId.entries.map(
               (e) => MapEntry(e.key, Map<String, bool>.from(e.value)),
@@ -568,107 +489,6 @@ class ProcessController extends ChangeNotifier {
     );
   }
 
-  void _fillControllersFromModel() {
-    companyLeaderCtrl.text = (contractData.companyLeader ?? '');
-
-    contractNumberCtrl.text = (contractData.contractNumber ?? '');
-    initialValueOfContractCtrl.text = _formatCurrency(contractData.initialValueContract);
-    summarySubjectContractCtrl.text = (contractData.summarySubject ?? '');
-    contractServiceTypeCtrl.text = (contractData.services ?? '');
-
-    datapublicacaodoeCtrl.text = contractData.publicationDate != null
-        ? _dateToDDMMYYYY(contractData.publicationDate!)
-        : '';
-
-    initialValidityContractDaysCtrl.text =
-    (contractData.initialValidityContract?.toString() ?? '');
-    initialValidityExecutionDaysCtrl.text =
-    (contractData.initialValidityExecution?.toString() ?? '');
-
-  }
-
-  void _applyControllersToModel() {
-    contractData.companyLeader = _nullIfEmpty(companyLeaderCtrl.text);
-
-    contractData.contractNumber = _nullIfEmpty(contractNumberCtrl.text);
-    contractData.initialValueContract = _parseCurrency(initialValueOfContractCtrl.text);
-    contractData.summarySubject = _nullIfEmpty(summarySubjectContractCtrl.text);
-    contractData.services = _nullIfEmpty(contractServiceTypeCtrl.text);
-    contractData.initialValidityContract = _tryParseInt(initialValidityContractDaysCtrl.text);
-    contractData.initialValidityExecution = _tryParseInt(initialValidityExecutionDaysCtrl.text);
-
-  }
-
-  String _nullIfEmpty(String? v) {
-    final s = (v ?? '').trim();
-    return s.isEmpty ? '' : s;
-  }
-
-  String _formatCurrency(double? value) {
-    if (value == null) return '';
-    return 'R\$ ${_formatNumber(value, decimals: 2, decimalComma: true, thousandsDot: true)}';
-  }
-
-  String _formatNumber(num? value,
-      {int decimals = 0, bool decimalComma = false, bool thousandsDot = false}) {
-    if (value == null) return '';
-    String s = value.toStringAsFixed(decimals);
-    if (decimalComma) s = s.replaceAll('.', ',');
-    if (thousandsDot) {
-      final parts = s.split(decimalComma ? ',' : '.');
-      String intPart = parts[0];
-      String fracPart = parts.length > 1 ? parts[1] : '';
-      final buf = StringBuffer();
-      for (int i = 0; i < intPart.length; i++) {
-        final remain = intPart.length - i - 1;
-        buf.write(intPart[i]);
-        if (remain > 0 && (remain % 3 == 0)) buf.write('.');
-      }
-      s = buf.toString();
-      if (decimals > 0) {
-        s = '$s${decimalComma ? ',' : '.'}$fracPart';
-      }
-    }
-    return s;
-  }
-
-  String _dateToDDMMYYYY(DateTime d) {
-    final dd = d.day.toString().padLeft(2,'0');
-    final mm = d.month.toString().padLeft(2,'0');
-    final yyyy = d.year.toString();
-    return '$dd/$mm/$yyyy';
-  }
-
-  double? _parseCurrency(String? text) {
-    if (text == null) return null;
-    var s = text.trim();
-    if (s.isEmpty) return null;
-    s = s.replaceAll('R\$', '').replaceAll(' ', '').replaceAll('.', '').replaceAll(',', '.');
-    return double.tryParse(s);
-  }
-
-  double? _tryParseDouble(String? text) {
-    if (text == null) return null;
-    final s = text.trim().replaceAll(',', '.');
-    return double.tryParse(s);
-  }
-
-  int? _tryParseInt(String? text) {
-    if (text == null) return null;
-    final s = text.trim().replaceAll(RegExp(r'[^0-9-]'), '');
-    if (s.isEmpty) return null;
-    return int.tryParse(s);
-  }
-
-  String? _normalizeFromList(String? value, List<String> candidates) {
-    final v = (value ?? '').trim();
-    if (v.isEmpty) return null;
-    final upper = v.toUpperCase();
-    for (final c in candidates) {
-      if (c.toUpperCase() == upper) return c;
-    }
-    return v;
-  }
 
   // =======================================================================
   // ======= TOTAIS POR CONTRATO (opcional p/ cards individuais no form) ===
@@ -697,7 +517,7 @@ class ProcessController extends ChangeNotifier {
       if (fromPath != null) return fromPath;
 
       // 3) fallback: id que contenha o caminho
-      final idMaybePath = dyn.id?.toString();
+      final idMaybePath = dyn.uid?.toString();
       final fromId = _parseContractIdFromPath(idMaybePath);
       if (fromId != null) return fromId;
     } catch (_) {}

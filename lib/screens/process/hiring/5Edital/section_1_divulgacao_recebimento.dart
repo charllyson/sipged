@@ -1,143 +1,235 @@
+// lib/screens/process/hiring/5Edital/section_1_divulgacao_recebimento.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
+import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/input/drop_down_botton_change.dart' show DropDownButtonChange;
+import 'package:siged/_widgets/input/drop_down_botton_change.dart'
+    show DropDownButtonChange;
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/mask_class.dart';
 
-import 'package:siged/_blocs/process/hiring/5Edital/edital_julgamento_controller.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
 
-class SectionDivulgacaoRecebimento extends StatelessWidget with FormValidationMixin {
-  final EditalJulgamentoController controller;
-  SectionDivulgacaoRecebimento({super.key, required this.controller});
+class SectionDivulgacaoRecebimento extends StatefulWidget {
+  final bool isEditable;
+  final EditalData data;
+  final void Function(EditalData updated) onChanged;
 
-  double _w(BuildContext ctx, {int itemsPerLine = 4}) =>
-      responsiveInputWidth(context: ctx, itemsPerLine: itemsPerLine, spacing: 12, margin: 12, extraPadding: 24);
+  const SectionDivulgacaoRecebimento({
+    super.key,
+    required this.isEditable,
+    required this.data,
+    required this.onChanged,
+  });
+
+  @override
+  State<SectionDivulgacaoRecebimento> createState() =>
+      _SectionDivulgacaoRecebimentoState();
+}
+
+class _SectionDivulgacaoRecebimentoState
+    extends State<SectionDivulgacaoRecebimento>
+    with FormValidationMixin {
+  late final TextEditingController _numeroCtrl;
+  late final TextEditingController _modalidadeCtrl;
+  late final TextEditingController _criterioCtrl;
+  late final TextEditingController _dataPublicacaoCtrl;
+  late final TextEditingController _prazoImpugnacaoCtrl;
+  late final TextEditingController _idPncpCtrl;
+  late final TextEditingController _linkPncpCtrl;
+  late final TextEditingController _prazoPropostasCtrl;
+  late final TextEditingController _observacoesCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.data;
+    _numeroCtrl = TextEditingController(text: d.numero);
+    _modalidadeCtrl = TextEditingController(text: d.modalidade);
+    _criterioCtrl = TextEditingController(text: d.criterio);
+    _dataPublicacaoCtrl = TextEditingController(text: d.dataPublicacao);
+    _prazoImpugnacaoCtrl = TextEditingController(text: d.prazoImpugnacao);
+    _idPncpCtrl = TextEditingController(text: d.idPncp);
+    _linkPncpCtrl = TextEditingController(text: d.linkPncp);
+    _prazoPropostasCtrl = TextEditingController(text: d.prazoPropostas);
+    _observacoesCtrl = TextEditingController(text: d.observacoes);
+  }
+
+  @override
+  void didUpdateWidget(covariant SectionDivulgacaoRecebimento oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      final d = widget.data;
+      _numeroCtrl.text = d.numero;
+      _modalidadeCtrl.text = d.modalidade;
+      _criterioCtrl.text = d.criterio;
+      _dataPublicacaoCtrl.text = d.dataPublicacao;
+      _prazoImpugnacaoCtrl.text = d.prazoImpugnacao;
+      _idPncpCtrl.text = d.idPncp;
+      _linkPncpCtrl.text = d.linkPncp;
+      _prazoPropostasCtrl.text = d.prazoPropostas;
+      _observacoesCtrl.text = d.observacoes;
+    }
+  }
+
+  @override
+  void dispose() {
+    _numeroCtrl.dispose();
+    _modalidadeCtrl.dispose();
+    _criterioCtrl.dispose();
+    _dataPublicacaoCtrl.dispose();
+    _prazoImpugnacaoCtrl.dispose();
+    _idPncpCtrl.dispose();
+    _linkPncpCtrl.dispose();
+    _prazoPropostasCtrl.dispose();
+    _observacoesCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      numero: _numeroCtrl.text,
+      modalidade: _modalidadeCtrl.text,
+      criterio: _criterioCtrl.text,
+      dataPublicacao: _dataPublicacaoCtrl.text,
+      prazoImpugnacao: _prazoImpugnacaoCtrl.text,
+      idPncp: _idPncpCtrl.text,
+      linkPncp: _linkPncpCtrl.text,
+      prazoPropostas: _prazoPropostasCtrl.text,
+      observacoes: _observacoesCtrl.text,
+    );
+    widget.onChanged(updated);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final c = controller;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionTitle('1) Divulgação do Edital & Recebimento'),
-        Wrap(spacing: 12, runSpacing: 12, children: [
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.edNumeroCtrl,
-              labelText: 'Nº do edital/processo',
-              enabled: c.isEditable,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: DropDownButtonChange(
-              enabled: c.isEditable,
-              labelText: 'Modalidade',
-              controller: c.edModalidadeCtrl,
-              items: const ['Pregão','Concorrência','Dispensa','Inexigibilidade','RDC','Concurso'],
-              onChanged: (v) => c.edModalidadeCtrl.text = v ?? '',
-              validator: validateRequired,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: DropDownButtonChange(
-              enabled: c.isEditable,
-              labelText: 'Critério de julgamento',
-              controller: c.edCriterioCtrl,
-              items: const ['Menor preço','Técnica e preço','Maior desconto','Maior retorno econômico'],
-              onChanged: (v) => c.edCriterioCtrl.text = v ?? '',
-              validator: validateRequired,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.edIdPncpCtrl,
-              labelText: 'ID PNCP',
-              enabled: c.isEditable,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.edLinkPncpCtrl,
-              labelText: 'Link PNCP',
-              enabled: c.isEditable,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.edLinkSeiCtrl,
-              labelText: 'Link SEI (processo)',
-              enabled: c.isEditable,
-            ),
-          ),
-          SizedBox(
-            width: _w(context, itemsPerLine: 1),
-            child: CustomTextField(
-              controller: c.edLinksPublicacoesCtrl,
-              labelText: 'Outras publicações (links)',
-              enabled: c.isEditable,
-              maxLines: 2,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.edDataPublicacaoCtrl,
-              labelText: 'Data publicação',
-              hintText: 'dd/mm/aaaa',
-              enabled: c.isEditable,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(8),
-                TextInputMask(mask: '99/99/9999'),
+    final isEditable = widget.isEditable;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w4 = inputW4(context, constraints);
+        final w1 = inputW1(context, constraints);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionTitle('1) Divulgação do Edital & Recebimento'),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: w4,
+                  child: CustomTextField(
+                    controller: _numeroCtrl,
+                    labelText: 'Nº do edital/processo',
+                    enabled: isEditable,
+                    onChanged: (_) => _emitChange(),
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: DropDownButtonChange(
+                    enabled: isEditable,
+                    labelText: 'Modalidade',
+                    controller: _modalidadeCtrl,
+                    items: HiringData.modalidadeDeContratacao,
+                    onChanged: (v) {
+                      _modalidadeCtrl.text = v ?? '';
+                      _emitChange();
+                    },
+                    validator: validateRequired,
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: DropDownButtonChange(
+                    enabled: isEditable,
+                    labelText: 'Critério de julgamento',
+                    controller: _criterioCtrl,
+                    items: HiringData.criterioJulgamento,
+                    onChanged: (v) {
+                      _criterioCtrl.text = v ?? '';
+                      _emitChange();
+                    },
+                    validator: validateRequired,
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: CustomDateField(
+                    controller: _dataPublicacaoCtrl,
+                    labelText: 'Data publicação',
+                    enabled: isEditable,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(8),
+                      TextInputMask(mask: '99/99/9999'),
+                    ],
+                    onChanged: (_) => _emitChange(),
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: CustomDateField(
+                    controller: _prazoImpugnacaoCtrl,
+                    labelText: 'Prazo impugnação',
+                    enabled: isEditable,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(8),
+                      TextInputMask(mask: '99/99/9999'),
+                    ],
+                    onChanged: (_) => _emitChange(),
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: CustomTextField(
+                    controller: _idPncpCtrl,
+                    labelText: 'ID PNCP',
+                    enabled: isEditable,
+                    onChanged: (_) => _emitChange(),
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: CustomTextField(
+                    controller: _linkPncpCtrl,
+                    labelText: 'Link PNCP',
+                    enabled: isEditable,
+                    onChanged: (_) => _emitChange(),
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: CustomDateField(
+                    controller: _prazoPropostasCtrl,
+                    labelText: 'Limite para propostas dd/mm/aaaa hh:mm',
+                    enabled: isEditable,
+                    onChanged: (_) => _emitChange(),
+                  ),
+                ),
+                SizedBox(
+                  width: w1,
+                  child: CustomTextField(
+                    controller: _observacoesCtrl,
+                    labelText: 'Observações',
+                    enabled: isEditable,
+                    maxLines: 2,
+                    onChanged: (_) => _emitChange(),
+                  ),
+                ),
               ],
-              keyboardType: TextInputType.number,
             ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.edPrazoImpugnacaoCtrl,
-              labelText: 'Prazo impugnação',
-              hintText: 'dd/mm/aaaa',
-              enabled: c.isEditable,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(8),
-                TextInputMask(mask: '99/99/9999'),
-              ],
-              keyboardType: TextInputType.number,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.edPrazoPropostasCtrl,
-              labelText: 'Limite para propostas',
-              hintText: 'dd/mm/aaaa hh:mm',
-              enabled: c.isEditable,
-            ),
-          ),
-          SizedBox(
-            width: _w(context, itemsPerLine: 1),
-            child: CustomTextField(
-              controller: c.edObservacoesCtrl,
-              labelText: 'Observações',
-              enabled: c.isEditable,
-              maxLines: 3,
-            ),
-          ),
-        ]),
-        const SizedBox(height: 16),
-      ],
+            const SizedBox(height: 16),
+          ],
+        );
+      },
     );
   }
 }

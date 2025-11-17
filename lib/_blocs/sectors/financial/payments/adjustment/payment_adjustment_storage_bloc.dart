@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/adjustment/payments_adjustments_data.dart';
+import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 /// Storage-only para PDFs e anexos de Ajustes de Pagamento.
 class PaymentAdjustmentStorageBloc extends BlocBase {
@@ -17,16 +18,27 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
   // ---------- Utils ----------
   String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ProcessData c, PaymentsAdjustmentsData p) {
-    final contrato = _sanitize(c.contractNumber ?? 'contrato');
-    final ordem    = (p.orderPaymentAdjustment ?? '0').toString();
-    final proc     = _sanitize(p.processPaymentAdjustment ?? 'processo');
+  /// 🆕 Usa SOMENTE PublicacaoExtratoData.numeroContrato
+  String fileName(
+      ProcessData c,
+      PaymentsAdjustmentsData p, {
+        PublicacaoExtratoData? extrato,
+      }) {
+    final contrato = _sanitize(extrato?.numeroContrato?.trim().isNotEmpty == true
+        ? extrato!.numeroContrato!
+        : 'contrato');
+    final ordem = (p.orderPaymentAdjustment ?? '0').toString();
+    final proc = _sanitize(p.processPaymentAdjustment ?? 'processo');
     return '$contrato-$ordem-$proc.pdf';
   }
 
   // legacy helpers (mantidos)
-  String pathFor(ProcessData c, PaymentsAdjustmentsData p) =>
-      'process/${c.id}/adjustmentPayments/${p.idPaymentAdjustment}/${fileName(c, p)}';
+  String pathFor(
+      ProcessData c,
+      PaymentsAdjustmentsData p, {
+        PublicacaoExtratoData? extrato,
+      }) =>
+      'process/${c.id}/adjustmentPayments/${p.idPaymentAdjustment}/${fileName(c, p, extrato: extrato)}';
 
   // nova pasta padrão para anexos
   String folderFor(ProcessData c, PaymentsAdjustmentsData p) =>
@@ -36,20 +48,27 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
       '${folderFor(c, p)}/$file';
 
   // ---------- Operações principais ----------
-  Future<bool> exists(ProcessData c, PaymentsAdjustmentsData p) async {
+  Future<bool> exists(
+      ProcessData c,
+      PaymentsAdjustmentsData p, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      await _storage.ref(pathFor(c, p)).getMetadata();
+      await _storage.ref(pathFor(c, p, extrato: extrato)).getMetadata();
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  Future<String?> getUrl(ProcessData c, PaymentsAdjustmentsData p) async {
+  Future<String?> getUrl(
+      ProcessData c,
+      PaymentsAdjustmentsData p, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      return await _storage.ref(pathFor(c, p)).getDownloadURL();
+      return await _storage.ref(pathFor(c, p, extrato: extrato)).getDownloadURL();
     } catch (e) {
-      debugPrint('PaymentsAdjustmentStorageBloc.getUrl erro: $e');
       return null;
     }
   }
@@ -59,9 +78,12 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
     required ProcessData contract,
     required PaymentsAdjustmentsData payment,
     required void Function(double progress) onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom, allowedExtensions: ['pdf'], withData: true,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
     );
     if (result == null || result.files.single.bytes == null) {
       throw Exception('Nenhum arquivo PDF selecionado ou arquivo vazio.');
@@ -71,6 +93,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
       payment: payment,
       bytes: result.files.single.bytes!,
       onProgress: onProgress,
+      extrato: extrato,
     );
   }
 
@@ -80,8 +103,9 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
     required PaymentsAdjustmentsData payment,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
-    final ref = _storage.ref(pathFor(contract, payment));
+    final ref = _storage.ref(pathFor(contract, payment, extrato: extrato));
     final task = ref.putData(
       bytes,
       SettableMetadata(contentType: 'application/pdf'),
@@ -95,12 +119,15 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ProcessData c, PaymentsAdjustmentsData p) async {
+  Future<bool> delete(
+      ProcessData c,
+      PaymentsAdjustmentsData p, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      await _storage.ref(pathFor(c, p)).delete();
+      await _storage.ref(pathFor(c, p, extrato: extrato)).delete();
       return true;
     } catch (e) {
-      debugPrint('PaymentsAdjustmentStorageBloc.delete erro: $e');
       return false;
     }
   }
@@ -123,8 +150,11 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
     required Uint8List bytes,
     required String originalName,
     required String label,
+    PublicacaoExtratoData? extrato,
   }) async {
-    final safeName = _sanitize(originalName);
+    final safeName = fileName(contract, payment, extrato: extrato)
+        .replaceFirst('.pdf', '') +
+        '-${_sanitize(originalName)}';
     final ref = _storage.ref(fullPath(contract, payment, safeName));
     final task = ref.putData(
       bytes,
@@ -138,7 +168,10 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
       label: label,
       url: url,
       path: ref.fullPath,
-      ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(safeName)?.group(0) ?? '',
+      ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
+          .firstMatch(safeName)
+          ?.group(0) ??
+          '',
       createdAt: DateTime.now(),
     );
   }
@@ -158,7 +191,6 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
       }
       return out;
     } catch (e) {
-      debugPrint('listarArquivosDoPagamento erro: $e');
       return const <_StorageFile>[];
     }
   }
@@ -167,27 +199,30 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
   Future<void> deleteStorageByPath(String fullPath) async {
     try {
       await _storage.ref(fullPath).delete();
-    } catch (e) {
-      debugPrint('deleteStorageByPath erro: $e');
-    }
+    } catch (e) {}
   }
 
   // ---------- Compat (mantém API antiga da UI) ----------
   Future<bool> verificarSePdfDePaymentExiste({
     required ProcessData contract,
     required PaymentsAdjustmentsData paymentsAdjustmentsData,
-  }) => exists(contract, paymentsAdjustmentsData);
+    PublicacaoExtratoData? extrato,
+  }) =>
+      exists(contract, paymentsAdjustmentsData, extrato: extrato);
 
   Future<String?> getPdfUrlDaPayment({
     required ProcessData contract,
     required PaymentsAdjustmentsData paymentsAdjustmentsData,
-  }) => getUrl(contract, paymentsAdjustmentsData);
+    PublicacaoExtratoData? extrato,
+  }) =>
+      getUrl(contract, paymentsAdjustmentsData, extrato: extrato);
 
   Future<void> sendPdf({
     required ProcessData? contract,
     required PaymentsAdjustmentsData? paymentsAdjustment,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded, // opcional
+    PublicacaoExtratoData? extrato,
   }) async {
     final c = contract;
     final p = paymentsAdjustment;
@@ -202,6 +237,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
       contract: c,
       payment: p,
       onProgress: onProgress,
+      extrato: extrato,
     );
     if (onUploaded != null) {
       await onUploaded(url);

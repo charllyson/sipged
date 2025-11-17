@@ -11,47 +11,151 @@ double responsiveInputWidth({
   double reservedWidth = 0.0,
   double spaceBetweenReserved = 0.0,
 
-  // usado antes só p/ telas muito pequenas; mantém
   double? minWidthSmallScreen,
-
-  /// 🔹 Largura mínima desejada por item em QUALQUER tela
   double minItemWidth = 220.0,
-
-  /// Se true, mantém `itemsPerLine` mesmo <600px
   bool forceItemsPerLineOnSmall = false,
 }) {
   final width = containerWidth ?? MediaQuery.of(context).size.width;
 
-  // Quebra para 1 por linha em telas muito pequenas (a menos que seja forçado)
+  final effectiveMargin = containerWidth == null ? margin : 0.0;
+
   if (!forceItemsPerLineOnSmall && width < 600) {
-    final single = width - (margin * 2) - extraPadding; // em vez de "- 32"
+    final single = width - (effectiveMargin * 2) - extraPadding;
     if (minWidthSmallScreen != null) {
-      return single.clamp(minWidthSmallScreen, double.infinity);
+      return single.clamp(minWidthSmallScreen, double.infinity) as double;
     }
     return single;
   }
 
-  final totalMargins = margin * 2;
+  final totalMargins = effectiveMargin * 2;
   final availableBase = width
       - totalMargins
       - extraPadding
       - reservedWidth
       - spaceBetweenReserved;
 
-  // Começa com o desejado e vai reduzindo até caber a largura mínima
   int cols = itemsPerLine.clamp(1, 12);
   while (cols > 1) {
     final totalSpacing = spacing * (cols - 1);
     final available = availableBase - totalSpacing;
     final w = available / cols;
     if (w >= minItemWidth) {
-      return w; // atende a largura mínima => usa `cols` atual
+      return w;
     }
     cols--;
   }
 
-  // Se sobrou 1 coluna, calcule com ela
   final totalSpacing = spacing * (1 - 1); // 0
   final available = availableBase - totalSpacing;
-  return available; // 1 por linha
+  return available;
+}
+
+/// Helper centralizado para calcular largura dos inputs
+double inputWidth({
+  required BuildContext context,
+  required BoxConstraints inner,
+  required int perLine,
+  double minItemWidth = 220,
+
+  // 🔹 overrides opcionais (casos especiais)
+  double? spacing,
+  double? margin,
+  double? extraPadding,
+  double? reservedWidth,
+  double? spaceBetweenReserved,
+  double? minWidthSmallScreen,
+  bool? forceItemsPerLineOnSmall,
+}) {
+  return responsiveInputWidth(
+    context: context,
+    itemsPerLine: perLine,
+    containerWidth: inner.maxWidth,
+    spacing: spacing ?? 12,
+    margin: margin ?? 12,         // ignorado quando containerWidth != null
+    extraPadding: extraPadding ?? 0,
+    reservedWidth: reservedWidth ?? 0,
+    spaceBetweenReserved: spaceBetweenReserved ?? 0,
+    minItemWidth: minItemWidth,
+    minWidthSmallScreen: minWidthSmallScreen ?? 280,
+    forceItemsPerLineOnSmall: forceItemsPerLineOnSmall ?? true,
+  );
+}
+
+double inputWidthPerLine({
+  required BuildContext context,
+  required BoxConstraints inner,
+  required int perLine,
+  double minItemWidth = 260,
+}) {
+  return inputWidth(
+    context: context,
+    inner: inner,
+    perLine: perLine,
+    minItemWidth: minItemWidth,
+  );
+}
+
+// ===== atalhos padrão (sem override) =====
+
+double inputW1(BuildContext context, BoxConstraints inner) {
+  return inputWidth(
+    context: context,
+    inner: inner,
+    perLine: 1,
+    minItemWidth: 400,
+  );
+}
+
+double inputW2(BuildContext context, BoxConstraints inner) {
+  return inputWidth(
+    context: context,
+    inner: inner,
+    perLine: 2,
+    minItemWidth: 260,
+  );
+}
+
+double inputW3(BuildContext context, BoxConstraints inner) {
+  return inputWidth(
+    context: context,
+    inner: inner,
+    perLine: 3,
+    minItemWidth: 260,
+  );
+}
+
+double inputW4(BuildContext context, BoxConstraints inner) {
+  return inputWidth(
+    context: context,
+    inner: inner,
+    perLine: 4,
+    minItemWidth: 260,
+  );
+}
+
+double inputW5(BuildContext context, BoxConstraints inner) {
+  return inputWidth(
+    context: context,
+    inner: inner,
+    perLine: 5,
+    minItemWidth: 260,
+  );
+}
+
+double inputW6(BuildContext context, BoxConstraints inner) {
+  return inputWidth(
+    context: context,
+    inner: inner,
+    perLine: 6,
+    minItemWidth: 260,
+  );
+}
+
+double inputW7(BuildContext context, BoxConstraints inner) {
+  return inputWidth(
+    context: context,
+    inner: inner,
+    perLine: 7,
+    minItemWidth: 200,
+  );
 }

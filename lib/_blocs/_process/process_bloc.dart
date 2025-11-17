@@ -1,11 +1,15 @@
+// lib/_blocs/_process/process_bloc.dart
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
+
+// ✅ DFD agora via BLoC (DfdData)
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
@@ -16,12 +20,14 @@ import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
 
 class ProcessBloc extends BlocBase {
-  ProcessBloc();
+  ProcessBloc({
+    required DfdBloc dfdBloc,
+  }) : _dfdBloc = dfdBloc;
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // 🔹 DFD (status por contrato)
-  final DfdRepository _dfdRepo = DfdRepository();
+  // 🔹 DFD (status por contrato) agora via DfdBloc/DfdData
+  final DfdBloc _dfdBloc;
   final Map<String, String> _dfdStatusByContractId = {};
 
   // -------------------- Streams de estado --------------------
@@ -31,7 +37,8 @@ class ProcessBloc extends BlocBase {
   Stream<bool> get outLoading => _loadingController.stream;
   Stream<bool> get outCreated => _createdController.stream;
 
-  // Pesquisa em memória
+  // Pesquisa em memória (aqui hoje só usamos para id; busca "bonita"
+  // por número/objeto será feita no ProcessStore com DFD + Publicação).
   final BehaviorSubject<String> _searchSubject =
   BehaviorSubject<String>.seeded('');
   Stream<String> get searchStream => _searchSubject.stream;
@@ -54,13 +61,16 @@ class ProcessBloc extends BlocBase {
 
       futures.add(() async {
         try {
-          final light = await _dfdRepo.readLightFields(id);
-          final s = (light.status ?? '').trim();
+          // 🔹 Agora usamos o DfdBloc para obter o DfdData do contrato
+          final DfdData? dfd = await _dfdBloc.getDataForContract(id);
+          final s = (dfd?.statusDemanda ?? '').trim();
           if (s.isNotEmpty) {
             _dfdStatusByContractId[id] = s;
           }
         } catch (e) {
-          debugPrint('Erro ao ler status leve do DFD ($id): $e');
+          if (kDebugMode) {
+            debugPrint('Erro ao carregar status DFD para $id: $e');
+          }
         }
       }());
     }
@@ -105,9 +115,8 @@ class ProcessBloc extends BlocBase {
       final doc = await _db.collection('contracts').doc(id).get();
       if (!doc.exists) return null;
       final data = doc.data()!;
-      return ProcessData.fromJson(data)..id = doc.id;
+      return ProcessData.fromJson(data, id: doc.id);
     } catch (e) {
-      debugPrint('Erro ao buscar contrato por ID: $e');
       return null;
     }
   }
@@ -133,21 +142,29 @@ class ProcessBloc extends BlocBase {
     }
 
     final snapshot = await query.limit(500).get();
-    final contracts =
-    snapshot.docs.map((e) => ProcessData.fromDocument(snapshot: e)).toList();
+
+    final contracts = snapshot.docs
+        .map((e) => ProcessData.fromDocument(snapshot: e))
+        .toList();
+
     _cachedContracts = contracts;
 
     return _filterCached(contracts, statusFilter, searchQuery);
   }
 
-  Future<ProcessData?> getSpecificContract({required String uidContract}) async {
+  Future<ProcessData?> getSpecificContract({
+    required String uidContract,
+  }) async {
     final doc = await _db.collection('contracts').doc(uidContract).get();
     if (!doc.exists) return null;
     return ProcessData.fromDocument(snapshot: doc);
   }
 
-  /// Filtro em memória AGORA só por busca textual.
-  /// Qualquer filtro por status visual deve usar o status do DFD em outro ponto.
+  /// Filtro em memória AGORA só por busca textual em campos que ainda existem
+  /// em ProcessData. Não usamos mais `contractNumber` nem resumo legado.
+  ///
+  /// Busca "bonita" por número de contrato / objeto:
+  /// ➜ fica a cargo do ProcessStore usando caches de DfdData/PublicacaoExtratoData.
   List<ProcessData> _filterCached(
       List<ProcessData> src,
       String? statusFilter,
@@ -160,45 +177,52 @@ class ProcessBloc extends BlocBase {
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
       final q = normalize(searchQuery);
-      list = list
-          .where((c) =>
-      normalize(c.summarySubject ?? '').contains(q) ||
-          normalize(c.contractNumber ?? '').contains(q))
-          .toList();
+
+      list = list.where((c) {
+        // aqui usamos apenas id como apoio,
+        // para não depender de nenhum campo legado removido.
+        final id = normalize(c.id ?? '');
+        return id.contains(q);
+      }).toList();
     }
 
     return list;
   }
 
   /// Filtro por permissões do usuário (papel global + ACL por contrato).
+  ///
+  /// 🔥 Regras:
+  /// - ADMINISTRADOR e DESENVOLVEDOR veem **todos** os contratos.
+  /// - Demais papéis: usamos `userCanOnContract` (módulo 'contracts', ação 'read'),
+  ///   que já considera:
+  ///     • baseRole (ADMIN / GESTOR / FISCAL / ...)
+  ///     • overrides por módulo (moduleOverrides.contracts)
+  ///     • ACL por documento (permissionContractId)
   Future<List<ProcessData>> getFilteredContracts({
     required UserData currentUser,
     String? statusFilter,
     String? searchQuery,
   }) async {
-    final uid = currentUser.id ?? '';
     final all = await getAllContracts(
       statusFilter: statusFilter,
       searchQuery: searchQuery,
     );
 
-    // Admin global vê tudo
-    if (roles.roleForUser(currentUser) == roles.BaseRole.ADMINISTRADOR) {
+    final baseRole = roles.roleForUser(currentUser);
+
+    // 🔹 Admin & Dev: acesso total, independente da ACL do documento
+    if (baseRole == roles.BaseRole.ADMINISTRADOR ||
+        baseRole == roles.BaseRole.DESENVOLVEDOR) {
       return all;
     }
 
-    // Caso contrário, respeita a ACL do contrato (permissionContractId)
+    // 🔹 Demais perfis: aplica regra centralizada de permissão por documento
     final permitted = all.where((contract) {
-      final map = contract.permissionContractId;
-      final userPerms = map[uid];
-      if (userPerms == null) return false;
-
-      // leitura já dá visibilidade; demais também
-      return userPerms['read'] == true ||
-          userPerms['create'] == true ||
-          userPerms['edit'] == true ||
-          userPerms['delete'] == true ||
-          userPerms['approve'] == true;
+      return perms.userCanOnContract(
+        user: currentUser,
+        contract: contract,
+        action: 'read',
+      );
     }).toList();
 
     return permitted;
@@ -206,9 +230,6 @@ class ProcessBloc extends BlocBase {
 
   // -------------------- Permissões (ACL por documento) --------------------
 
-  /// Atualiza UMA chave (campo aninhado) sem perder as demais.
-  /// Observação: isto não garante as 5 chaves presentes no doc; use setParticipantPerms
-  /// para gravar o bloco normalizado.
   Future<void> updateContractPermissions({
     required String contractId,
     required String userId,
@@ -223,13 +244,11 @@ class ProcessBloc extends BlocBase {
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
     } catch (e) {
-      debugPrint('Erro ao atualizar permissões do usuário para contrato: $e');
     } finally {
       _loadingController.add(false);
     }
   }
 
-  /// Sobrescreve o bloco do usuário com as 5 chaves normalizadas.
   Future<void> setParticipantPerms({
     required String contractId,
     required String userId,
@@ -279,7 +298,6 @@ class ProcessBloc extends BlocBase {
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
     } catch (e) {
-      debugPrint('Erro ao salvar permissões: $e');
     } finally {
       _loadingController.add(false);
     }
@@ -294,7 +312,7 @@ class ProcessBloc extends BlocBase {
       ) async {
     // Mapa base com todos os status conhecidos do DFD
     final Map<String, double> totais = {
-      for (final tipo in DfdData.statusTypes) tipo.toUpperCase(): 0.0,
+      for (final tipo in HiringData.statusTypes) tipo.toUpperCase(): 0.0,
     };
 
     final ids = contratos.map((c) => c.id).whereType<String>().toSet();
@@ -347,7 +365,6 @@ class ProcessBloc extends BlocBase {
 
 /// Helpers relacionados a participantes do contrato
 extension ContractParticipants on ProcessBloc {
-  /// Adiciona participante com permissões iniciais normalizadas
   Future<void> addParticipant({
     required String contractId,
     required String userId,
@@ -357,7 +374,6 @@ extension ContractParticipants on ProcessBloc {
     try {
       _loadingController.add(true);
 
-      // usa o normalizador centralizado + perms iniciais
       final initPerms = _norm(permMap ?? perms.initialDocPerms());
 
       await _db.collection('contracts').doc(contractId).update({
@@ -405,7 +421,6 @@ extension ContractParticipants on ProcessBloc {
     }
   }
 
-  /// Versões "helper" opcionais, se quiser chamar via extensão
   Future<void> setParticipantPermsExt({
     required String contractId,
     required String userId,

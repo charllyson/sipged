@@ -116,7 +116,6 @@ class PaymentRevisionBloc extends BlocBase {
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
     } catch (e) {
-      debugPrint('Erro ao salvar URL do PDF da revisão: $e');
     }
   }
 
@@ -141,7 +140,6 @@ class PaymentRevisionBloc extends BlocBase {
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('Erro ao setar attachments de revisão: $e');
       rethrow;
     }
   }

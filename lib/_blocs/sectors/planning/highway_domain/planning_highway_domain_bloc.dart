@@ -34,7 +34,6 @@ class PlanningHighwayDomainBloc
         error: null,
       ));
     } catch (err, st) {
-      debugPrint('HighwayDomain refresh error: $err\n$st');
       emit(state.copyWith(loading: false, error: '$err'));
     }
   }
@@ -57,7 +56,6 @@ class PlanningHighwayDomainBloc
         error: null,
       ));
     } catch (err, st) {
-      debugPrint('HighwayDomain import error: $err\n$st');
       emit(state.copyWith(saving: false, error: '$err'));
     }
   }
@@ -69,7 +67,6 @@ class PlanningHighwayDomainBloc
       await _repo.deleteAll(contractId: e.contractId);
       emit(state.copyWith(saving: false, items: const []));
     } catch (err, st) {
-      debugPrint('HighwayDomain delete-all error: $err\n$st');
       emit(state.copyWith(saving: false, error: '$err'));
     }
   }

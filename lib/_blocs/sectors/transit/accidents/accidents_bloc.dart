@@ -126,7 +126,6 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
 
       emit(state.copyWith(initialized: true));
     } catch (err, st) {
-      debugPrint('Warmup error: $err\n$st');
       emit(state.copyWith(loading: false, error: '$err'));
     }
   }
@@ -162,7 +161,6 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
         city: nextCity,
       );
     } catch (err, st) {
-      debugPrint('Filter error: $err\n$st');
       emit(state.copyWith(loading: false, error: '$err'));
     }
   }
@@ -207,7 +205,6 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
         clearLocationSuggestion: true,
       ));
     } catch (err, st) {
-      debugPrint('Save error: $err\n$st');
       emit(state.copyWith(saving: false, error: '$err'));
     }
   }
@@ -249,7 +246,6 @@ class AccidentsBloc extends Bloc<AccidentsEvent, AccidentsState> {
         clearLocationSuggestion: true,
       ));
     } catch (err, st) {
-      debugPrint('Delete error: $err\n$st');
       emit(state.copyWith(saving: false, error: '$err'));
     }
   }

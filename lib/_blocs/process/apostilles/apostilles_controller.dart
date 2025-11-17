@@ -374,7 +374,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
         path: '',
         ext: '.pdf',
         createdAt: DateTime.now(),
-        createdBy: _currentUser?.id,
+        createdBy: _currentUser?.uid,
       );
       await store.bloc.setAttachments(
         contractId: contract.id!,
@@ -406,7 +406,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
               ?.group(0) ??
               '',
           createdAt: DateTime.now(),
-          createdBy: _currentUser?.id,
+          createdBy: _currentUser?.uid,
         ))
             .toList();
         await store.bloc.setAttachments(
@@ -536,7 +536,7 @@ class ApostillesController extends ChangeNotifier with FormValidationMixin {
         createdAt: att.createdAt,
         createdBy: att.createdBy,
         updatedAt: DateTime.now(),
-        updatedBy: _currentUser?.id,
+        updatedBy: _currentUser?.uid,
       );
 
       await store.bloc.setAttachments(

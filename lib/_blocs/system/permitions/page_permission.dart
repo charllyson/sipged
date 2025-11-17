@@ -108,7 +108,7 @@ Perms getOverrideForUserModule(UserData user, String module) {
 }
 
 Future<void> setOverrideForUserModule(UserData user, String module, Perms perms) async {
-  final uid = user.id;
+  final uid = user.uid;
   if (uid == null || uid.isEmpty) return;
   final ref = FirebaseFirestore.instance.collection('users').doc(uid);
   await ref.set({'moduleOverrides': {module: perms.toMap()}}, SetOptions(merge: true));
@@ -154,7 +154,7 @@ bool userCanOnContract({
     return false;
   }
 
-  final uid = user.id ?? '';
+  final uid = user.uid ?? '';
   final docPerms = contract.permissionContractId[uid];
 
   // Se não houver ACL específica no documento:

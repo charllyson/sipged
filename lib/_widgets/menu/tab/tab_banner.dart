@@ -24,7 +24,7 @@ class TabBanner extends StatefulWidget {
   const TabBanner({
     super.key,
     required this.contract,
-    this.titleBuilder,
+    this.titleText, // 🔹 agora opcional
     this.onTap,
     this.interactive = true,
     this.userData,
@@ -40,8 +40,13 @@ class TabBanner extends StatefulWidget {
     this.stampPendingColor,
   });
 
+  /// Contrato continua sendo o modelo principal
   final ProcessData contract;
-  final String Function(ProcessData c)? titleBuilder;
+
+  /// Texto pronto para exibir no banner (ex.: "123/2024 – Objeto X")
+  /// Se for null ou vazio, o banner não aparece.
+  final String? titleText;
+
   final VoidCallback? onTap;
   final bool interactive;
   final UserData? userData;
@@ -71,12 +76,24 @@ class _TabBannerState extends State<TabBanner> {
     _contractData = widget.contract;
   }
 
+  @override
+  void didUpdateWidget(covariant TabBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.contract.id != widget.contract.id) {
+      _contractData = widget.contract;
+    }
+  }
+
   bool _can(String action, {ProcessData? c}) {
     final userState = context.read<UserBloc>().state;
     final currentUser = widget.userData ?? userState.current;
     final contract = c ?? _contractData;
     if (currentUser == null || contract == null) return false;
-    return perms.userCanOnContract(user: currentUser, contract: contract, action: action);
+    return perms.userCanOnContract(
+      user: currentUser,
+      contract: contract,
+      action: action,
+    );
   }
 
   Future<void> _openParticipantsDialogFromBanner(
@@ -98,16 +115,20 @@ class _TabBannerState extends State<TabBanner> {
         return StatefulBuilder(
           builder: (ctx, setStateSB) {
             return AlertDialog(
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               contentPadding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
               clipBehavior: Clip.antiAlias,
               content: SizedBox(
                 width: dialogW,
                 child: SearchUserPermissionWidget(
                   title: 'Participantes do contrato',
                   allUsers: users,
-                  initialUserIds: contrato.permissionContractId.keys.toList(),
+                  initialUserIds:
+                  contrato.permissionContractId.keys.toList(),
                   enabled: canEditParticipants,
                   width: dialogW,
                   multiple: true,
@@ -131,8 +152,11 @@ class _TabBannerState extends State<TabBanner> {
                       ? (uids) async {
                     if (contrato.id == null) return;
                     final atuais =
-                    Map<String, Map<String, bool>>.from(contrato.permissionContractId);
+                    Map<String, Map<String, bool>>.from(
+                      contrato.permissionContractId,
+                    );
 
+                    // remove quem saiu
                     for (final uid in atuais.keys.toList()) {
                       if (!uids.contains(uid)) {
                         await contractBloc.removeParticipant(
@@ -142,6 +166,8 @@ class _TabBannerState extends State<TabBanner> {
                         contrato.removeParticipantLocal(uid);
                       }
                     }
+
+                    // adiciona quem entrou
                     for (final uid in uids) {
                       if (!atuais.containsKey(uid)) {
                         final initialPerms = perms.initialDocPerms();
@@ -160,6 +186,7 @@ class _TabBannerState extends State<TabBanner> {
                         );
                       }
                     }
+
                     await context.read<ProcessStore>().refresh();
                     await _refreshLocalContract(
                       contrato,
@@ -193,31 +220,37 @@ class _TabBannerState extends State<TabBanner> {
     final userState = context.read<UserBloc>().state;
     final contract = _contractData;
 
-    final titleText =
-        widget.titleBuilder?.call(contract) ?? (contract.summarySubject ?? '');
-    if (titleText.trim().isEmpty) return const SizedBox.shrink();
+    // usa o texto vindo de fora, se não tiver, não mostra banner
+    final titleText = widget.titleText?.trim() ?? '';
+    if (titleText.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     final ids = contract.permissionContractId.keys.toList();
-    final users = ids.map((id) => userState.byId[id] ?? UserData(id: id)).toList();
+    final users =
+    ids.map((id) => userState.byId[id] ?? UserData(uid: id)).toList();
 
-    final visible = users.where((u) =>
-    (u.name?.trim().isNotEmpty ?? false) || (u.email?.trim().isNotEmpty ?? false)
-    ).toList();
+    final visible = users
+        .where((u) =>
+    (u.name?.trim().isNotEmpty ?? false) ||
+        (u.email?.trim().isNotEmpty ?? false))
+        .toList();
 
     final primary = visible.isNotEmpty ? visible.first : null;
     final primaryName = primary?.name?.trim().isNotEmpty == true
         ? primary!.name!
-        : (primary?.email?.trim().isNotEmpty == true ? primary!.email! : (primary?.id ?? 'usuário'));
+        : (primary?.email?.trim().isNotEmpty == true
+        ? primary!.email!
+        : (primary?.uid ?? 'usuário'));
     final others = (users.length > 1) ? users.length - 1 : 0;
 
     final isMobile = MediaQuery.of(context).size.width < 720;
     final isNarrow = MediaQuery.of(context).size.width < 520;
 
-    // === Estilos "como antes" ===
     final titleStyle = const TextStyle(
       color: Colors.black87,
-      fontSize: 13.5,           // <- voltou
-      fontWeight: FontWeight.w500, // <- voltou
+      fontSize: 13.5,
+      fontWeight: FontWeight.w500,
     );
     final metaStyle = const TextStyle(
       color: Colors.black54,
@@ -243,8 +276,8 @@ class _TabBannerState extends State<TabBanner> {
     final stampWidget = widget.showStamp
         ? Stamp(
       approved: widget.stampApproved,
-      compact: isNarrow,                      // mobile: ícone-only
-      dense: true,                            // <- compacto p/ travar altura
+      compact: isNarrow,
+      dense: true,
       scaleFactor: widget.stampScaleFactor * (isNarrow ? 0.9 : 1.0),
       approvedLabel: widget.stampApprovedLabel,
       pendingLabel: widget.stampPendingLabel,
@@ -255,16 +288,19 @@ class _TabBannerState extends State<TabBanner> {
     )
         : null;
 
-    // === Banner ===
     return InkWell(
-      onTap: widget.onTap ?? () async {
-        if (widget.interactive) {
-          await _openParticipantsDialogFromBanner(context, _contractData);
-        }
-      },
+      onTap: widget.onTap ??
+              () async {
+            if (widget.interactive) {
+              await _openParticipantsDialogFromBanner(
+                context,
+                _contractData,
+              );
+            }
+          },
       borderRadius: BorderRadius.circular(4),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12), // <- menor, como antes
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: Colors.yellow.shade100,
           border: Border.all(color: Colors.grey.shade400),
@@ -275,18 +311,22 @@ class _TabBannerState extends State<TabBanner> {
             // Conteúdo principal
             Expanded(
               child: isMobile
-              // MOBILE: 2 linhas (título em cima, visibilidade embaixo)
+              // MOBILE: 2 linhas
                   ? Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(titleText, textAlign: TextAlign.center, style: titleStyle),
+                  Text(
+                    titleText,
+                    textAlign: TextAlign.center,
+                    style: titleStyle,
+                  ),
                   const SizedBox(height: 2),
                   participantsRow,
                 ],
               )
-              // DESKTOP: 1 linha, altura travada ~40px
+              // DESKTOP: 1 linha, altura fixa
                   : SizedBox(
-                height: 36, // <- trava a altura do miolo (como antes)
+                height: 36,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -309,7 +349,10 @@ class _TabBannerState extends State<TabBanner> {
 
             if (widget.showStamp) ...[
               const SizedBox(width: 12),
-              Align(alignment: Alignment.centerRight, child: stampWidget),
+              Align(
+                alignment: Alignment.centerRight,
+                child: stampWidget,
+              ),
             ],
           ],
         ),

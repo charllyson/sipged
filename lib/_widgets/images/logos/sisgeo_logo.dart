@@ -26,7 +26,7 @@ class SiGedLogo extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'SiGed',
+                'SipGed',
                 style: TextStyle(
                   fontFamily: 'Homework',
                   color: Colors.white,

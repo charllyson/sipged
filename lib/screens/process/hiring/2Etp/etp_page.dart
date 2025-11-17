@@ -11,18 +11,18 @@ import 'package:siged/_widgets/gates/stage_gate.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_event.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_repository.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_state.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/hiring_stages.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
 import 'package:siged/_blocs/process/hiring/2Etp/etp_bloc.dart';
 import 'package:siged/_blocs/process/hiring/2Etp/etp_controller.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress_cubit.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
 
 import 'package:siged/screens/process/hiring/2Etp/section_1_identificacao_etp.dart';
 import 'package:siged/screens/process/hiring/2Etp/section_2_motivacao_obj_requisitos.dart';
@@ -175,17 +175,24 @@ class _EtpPageState extends State<EtpPage>
                     children: [
                       const BackgroundClean(),
                       SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             SectionIdentificacaoEtp(controller: c),
+                            SizedBox(height: 12),
                             SectionMotivacaoObjRequisitos(controller: c),
+                            SizedBox(height: 12),
                             SectionAlternativasSolucao(controller: c),
+                            SizedBox(height: 12),
                             SectionMercadoEstimativa(controller: c),
+                            SizedBox(height: 12),
                             SectionCronogramaIndicadores(controller: c),
+                            SizedBox(height: 12),
                             SectionPremissasRestricoesLicenciamento(controller: c),
+                            SizedBox(height: 12),
                             SectionDocumentosEquipe(controller: c),
+                            SizedBox(height: 12),
                             SectionConclusao(controller: c),
                           ],
                         ),

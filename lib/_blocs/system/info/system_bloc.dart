@@ -46,7 +46,6 @@ class SystemBloc extends BlocBase {
             name: data['name'] ?? '',
           );
         } else {
-          debugPrint('Erro Nominatim: ${response.statusCode}');
         }
       } else {
         final placeMarks = await placemarkFromCoordinates(
@@ -56,7 +55,6 @@ class SystemBloc extends BlocBase {
         return placeMarks.isNotEmpty ? placeMarks.first : null;
       }
     } catch (e) {
-      debugPrint('Erro ao buscar placemark: $e');
     }
 
     return null;
@@ -85,7 +83,6 @@ class SystemBloc extends BlocBase {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        debugPrint('Serviço de localização desativado');
         return null;
       }
 
@@ -93,13 +90,11 @@ class SystemBloc extends BlocBase {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          debugPrint('Permissão negada');
           return null;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        debugPrint('Permissão permanentemente negada');
         return null;
       }
 
@@ -109,7 +104,6 @@ class SystemBloc extends BlocBase {
 
       return LatLng(position.latitude, position.longitude);
     } catch (e) {
-      debugPrint('Erro ao obter localização: $e');
       return null;
     }
   }

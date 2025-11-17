@@ -57,7 +57,7 @@ class UserState extends Equatable {
     final name = (u?.name ?? '').trim();
     final surname = (u?.surname ?? '').trim();
     final full = [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
-    return full.isEmpty ? (u?.id ?? fallback) : full;
+    return full.isEmpty ? (u?.uid ?? fallback) : full;
   }
 
   @override

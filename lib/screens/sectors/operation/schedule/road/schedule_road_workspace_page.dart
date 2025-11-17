@@ -27,8 +27,9 @@ import '../../../../../_widgets/schedule/linear/schedule_road_board.dart';
 // ✅ Layout unificado (lado a lado vs empilhado)
 import 'package:siged/_widgets/layout/responsive_split_view.dart';
 
-// <<< NOVO: ler extensão do DFD >>>
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+// <<< AJUSTE: ler extensão do DFD via BLoC, sem repository >>>
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 
 class ScheduleRoadWorkspacePage extends StatefulWidget {
   final ProcessData contractData;
@@ -49,29 +50,29 @@ class _ScheduleRoadWorkspacePageState
   // sincroniza o painel com o mapa (o mapa só lê este valor)
   final ValueNotifier<bool> _panelVN = ValueNotifier<bool>(false);
 
-  // <<< NOVO: cache local da extensão via DFD >>>
+  // cache local da extensão via DFD
   static final Map<String, Future<double>> _extKmCache = {};
-  late final Future<double> _futureExtKm;
 
   @override
   void initState() {
     super.initState();
-    final id = widget.contractData.id ?? '';
-    _futureExtKm = _readExtentKmFromDfd(id);
   }
 
-  Future<double> _readExtentKmFromDfd(String contractId) {
+  Future<double> _readExtentKmFromDfd(
+      BuildContext context, String contractId) {
     if (contractId.isEmpty) return Future.value(0.0);
     if (_extKmCache.containsKey(contractId)) return _extKmCache[contractId]!;
+
     final fut = () async {
       try {
-        final repo = DfdRepository();
-        final res = await repo.readWorkTypeAndExtent(contractId);
-        return (res.extensaoKm ?? 0.0).toDouble();
+        final dfdBloc = context.read<DfdBloc>();
+        final DfdData? dfd = await dfdBloc.getDataForContract(contractId);
+        return (dfd?.extensaoKm ?? 0.0).toDouble();
       } catch (_) {
         return 0.0;
       }
     }();
+
     _extKmCache[contractId] = fut;
     return fut;
   }
@@ -103,6 +104,8 @@ class _ScheduleRoadWorkspacePageState
 
     final isMap = _mode == _ViewMode.map;
 
+    final String contractId = widget.contractData.id ?? '';
+
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(74),
@@ -110,6 +113,7 @@ class _ScheduleRoadWorkspacePageState
           builder: (ctx, state) {
             // não mostramos spinner no header; overlay central cuida do loading
             const showHeaderSpinner = false;
+            (showHeaderSpinner); // evita warning de variável não usada
 
             return UpBar(
               leading: const Padding(
@@ -157,14 +161,14 @@ class _ScheduleRoadWorkspacePageState
                 children: [
                   // BOARD — agora recebe extensão via DFD (não usa mais contractData.ext)
                   FutureBuilder<double>(
-                    future: _futureExtKm,
+                    future: _readExtentKmFromDfd(context, contractId),
                     builder: (context, snap) {
                       final km = (snap.data ?? 0.0);
                       return Stack(
                         children: [
                           ScheduleRoadBoard(
                             contractData: widget.contractData,
-                            extensao: km, // <<< AQUI AJUSTADO
+                            extensao: km, // <<< AQUI AJUSTADO (apenas DFD)
                           ),
                           if (!snap.hasData)
                             Positioned.fill(
@@ -175,7 +179,8 @@ class _ScheduleRoadWorkspacePageState
                                   alignment: Alignment.center,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 14,
+                                      horizontal: 16,
+                                      vertical: 14,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,

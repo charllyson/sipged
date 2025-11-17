@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:siged/screens/process/hiring/6Habilitacao/certidao_card.dart';
 
 class HiringData {
   static const List<String> tiposDeContratacao = [
@@ -64,14 +62,14 @@ class HiringData {
     'Apresentados',
     'Parciais',
     'Não apresentados',
-    'Dispensados'
+    'Dispensados',
   ];
 
   static const List<String> situacaoHabilitacao = [
-      'Habilitada',
-      'Habilitada com ressalvas',
-      'Não habilitada',
-      'Aguardando complementos',
+    'Habilitada',
+    'Habilitada com ressalvas',
+    'Não habilitada',
+    'Aguardando complementos',
   ];
 
   static const List<String> tiposCertidoes = [
@@ -96,48 +94,121 @@ class HiringData {
     'Desfavorável',
   ];
 
-  /// Define as cores do card conforme o status da certidão
- static CertidaoColors colorsForStatus(String status, ThemeData theme) {
-    // fallback neutro
-    Color bg = Colors.grey.shade100;
-    Color border = Colors.grey.shade300;
-    Color title = theme.colorScheme.onSurface;
+  static const List<String> checklistProposta = [
+    'Conforme',
+    'Parcial',
+    'Não conforme',
+    'Não se aplica',
+  ];
 
+  static const List<String> tipoExtrato = [
+    'Extrato de Contrato',
+    'Extrato de ARP',
+    'Extrato de Aditivo/Apostilamento',
+  ];
+
+  static const List<String> veiculoDivulgacao = [
+    'DOE/Estadual',
+    'DOU',
+    'Diário Municipal',
+    'PNCP',
+    'Site Oficial',
+    'Outro',
+  ];
+
+  static const List<String> statusPublicacao = [
+    'Rascunho',
+    'Enviado',
+    'Publicado',
+    'Devolvido para ajustes',
+  ];
+
+  static const List<String> motivoArquivamento = [
+    'Concluído com êxito (objeto atendido)',
+    'Desistência/Perda de objeto',
+    'Fracasso/Deserto',
+    'Inviabilidade técnica/econômica',
+    'Determinação superior',
+    'Outros',
+  ];
+
+  static const List<String> abrangencia = [
+    'Total',
+    'Parcial (lotes/itens)'
+  ];
+
+  static const List<String> decisaoArquivamento = [
+    'Aprovo o arquivamento',
+    'Arquivar após saneamento',
+    'Não aprovo',
+  ];
+
+  static List<String> statusTypes = [
+    'EM ANDAMENTO',
+    'A INICIAR',
+    'CONCLUÍDO',
+    'PARALISADO',
+    'CANCELADO',
+    'EM PROJETO',
+  ];
+
+  static Map<String, int> priorityStatus = {
+    'EM ANDAMENTO': 0,
+    'A INICIAR': 1,
+    'EM PROJETO': 2,
+    'PARALISADO': 3,
+    'CONCLUÍDO': 4,
+    'CANCELADO': 5,
+  };
+
+  static List<String> typeOfService = [
+    'IMPLANTAÇÃO',
+    'PAVIMENTAÇÃO',
+    'IMPLANTAÇÃO E PAVIMENTAÇÃO',
+    'RESTAURAÇÃO',
+    'DUPLICAÇÃO',
+    'MANUTENÇÃO',
+    'OAE',
+    'SINALIZAÇÃO',
+    'CONSTRUÇÃO',
+    'REABILITAÇÃO',
+    'GERENCIAMENTO',
+    'FISCALIZAÇÃO',
+    'ELABORAÇÃO DE PROJETO',
+  ];
+
+  static const List<String> workTypes = [
+    'RODOVIÁRIA',
+    'CONSTRUÇÃO CIVIL',
+    'ARTES ESPECIAIS',
+  ];
+
+  static const List<String> regions = [
+    'AGRESTE',
+    'NORTE',
+    'METROPOLITANA',
+    'SERTÃO',
+    'SUL',
+    'VALE DO MUNDAÚ',
+    'VALE DO PARAÍBA'
+  ];
+
+  static String getTitleByStatus(String status) {
     switch (status) {
-      case 'Válida':
-        bg = Colors.green.shade50;
-        border = Colors.green.shade400;
-        title = Colors.green.shade800;
-        break;
-      case 'Vencida':
-        bg = Colors.red.shade50;
-        border = Colors.red.shade400;
-        title = Colors.red.shade800;
-        break;
-      case 'Em atualização':
-        bg = Colors.orange.shade50;
-        border = Colors.orange.shade400;
-        title = Colors.orange.shade800;
-        break;
-      case 'Dispensada':
-        bg = Colors.blueGrey.shade50;
-        border = Colors.blueGrey.shade300;
-        title = Colors.blueGrey.shade800;
-        break;
-      case 'Não se aplica':
-        bg = Colors.grey.shade100;
-        border = Colors.grey.shade400;
-        title = Colors.grey.shade800;
-        break;
+      case 'EM ANDAMENTO':
+        return 'Demandas em Andamento';
+      case 'A INICIAR':
+        return 'Demandas a Iniciar';
+      case 'CONCLUÍDO':
+        return 'Demandas Concluídas';
+      case 'EM PROJETO':
+        return 'Demandas em Projeto';
+      case 'PARALISADO':
+        return 'Demandas Paralisadas';
+      case 'CANCELADO':
+        return 'Demandas Canceladas';
       default:
-      // mantém o neutro
-        break;
+        return 'Outro';
     }
-
-    return CertidaoColors(
-      background: bg,
-      border: border,
-      title: title,
-    );
   }
 }

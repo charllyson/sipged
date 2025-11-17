@@ -1,3 +1,4 @@
+// lib/_blocs/process/hiring/5Edital/edital_state.dart
 part of 'edital_bloc.dart';
 
 class EditalState {
@@ -7,8 +8,8 @@ class EditalState {
   final String? error;
 
   final String? editalId;
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final SectionIds sectionIds;     // Map<String, String>
+  final SectionsMap sectionsData;  // Map<String, Map<String, dynamic>>
 
   const EditalState({
     this.loading = false,
@@ -46,5 +47,5 @@ class EditalState {
 
   // atalhos
   String? get currentEditalId => editalId;
-  String? get currentDocsId   => sectionIds[EditalSections.documentos];
+  String? get currentDocsId => sectionIds[EditalSections.documentos];
 }

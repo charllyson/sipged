@@ -37,10 +37,10 @@ import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ValidityController extends ChangeNotifier with FormValidationMixin {
-  // Blocs Firestore
-  final ProcessBloc _contractsBloc = ProcessBloc();
-  final AdditivesBloc _additivesBloc = AdditivesBloc();
-  final ValidityBloc _validityBloc = ValidityBloc();
+  // Blocs Firestore (AGORA injetados)
+  final ProcessBloc _contractsBloc;
+  final AdditivesBloc _additivesBloc;
+  final ValidityBloc _validityBloc;
 
   // Store + Storage
   final ValidityStorageBloc validityStorageBloc;
@@ -92,8 +92,14 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
 
   ValidityController({
     required this.contract,
+    required ProcessBloc contractsBloc,
+    required AdditivesBloc additivesBloc,
+    required ValidityBloc validityBloc,
     ValidityStorageBloc? storageBloc,
-  }) : validityStorageBloc = storageBloc ?? ValidityStorageBloc() {
+  })  : _contractsBloc = contractsBloc,
+        _additivesBloc = additivesBloc,
+        _validityBloc = validityBloc,
+        validityStorageBloc = storageBloc ?? ValidityStorageBloc() {
     _init();
   }
 
@@ -115,9 +121,9 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
 
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
-      final prevId = _currentUser?.id;
+      final prevId = _currentUser?.uid;
       _currentUser = st.current;
-      final nowId = _currentUser?.id;
+      final nowId = _currentUser?.uid;
 
       final newEditable = _canEditUser(_currentUser);
       if (newEditable != isEditable || prevId != nowId) {
@@ -131,17 +137,22 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     if (user == null) return false;
     if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) return true;
 
-    final canEdit = perms.userCanModule(user: user, module: 'validity', action: 'edit');
-    final canCreate = perms.userCanModule(user: user, module: 'validity', action: 'create');
+    final canEdit =
+    perms.userCanModule(user: user, module: 'validity', action: 'edit');
+    final canCreate =
+    perms.userCanModule(user: user, module: 'validity', action: 'create');
     return canEdit || canCreate;
   }
 
   // Loads
   Future<void> _loadInitialData(String contractId) async {
-    futureValidity = _validityBloc.getAllValidityOfContract(uidContract: contractId);
-    futureAdditives = _additivesBloc.getAllAdditivesOfContract(uidContract: contractId);
+    futureValidity =
+        _validityBloc.getAllValidityOfContract(uidContract: contractId);
+    futureAdditives =
+        _additivesBloc.getAllAdditivesOfContract(uidContract: contractId);
     futureContractList =
-        _contractsBloc.getSpecificContract(uidContract: contractId).then((c) => [c!]);
+        _contractsBloc.getSpecificContract(uidContract: contractId)
+            .then((c) => [c!]);
     notifyListeners();
   }
 
@@ -172,16 +183,19 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   // Regras de sequência das ordens (TIPO)
   List<String> getRulesOrders(List<ValidityData> validities) {
     final List<String> newOrders = [];
-    final String? lastOrder = validities.isEmpty ? null : validities.last.ordertype;
+    final String? lastOrder =
+    validities.isEmpty ? null : validities.last.ordertype;
 
     if (lastOrder == null) {
       newOrders.addAll(ValidityData.typeOfOrder);
     } else if (lastOrder == 'ORDEM DE INÍCIO') {
-      newOrders.addAll(['ORDEM DE PARALISAÇÃO', 'ORDEM DE FINALIZAÇÃO']);
+      newOrders
+          .addAll(['ORDEM DE PARALISAÇÃO', 'ORDEM DE FINALIZAÇÃO']);
     } else if (lastOrder == 'ORDEM DE PARALISAÇÃO') {
       newOrders.add('ORDEM DE REINÍCIO');
     } else if (lastOrder == 'ORDEM DE REINÍCIO') {
-      newOrders.addAll(['ORDEM DE PARALISAÇÃO', 'ORDEM DE FINALIZAÇÃO']);
+      newOrders
+          .addAll(['ORDEM DE PARALISAÇÃO', 'ORDEM DE FINALIZAÇÃO']);
     } else if (lastOrder != 'ORDEM DE FINALIZAÇÃO') {
       newOrders.addAll(ValidityData.typeOfOrder);
     }
@@ -205,12 +219,14 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   /// Opções para o dropdown numérico: 1..maxExistente+1
   List<String> get orderNumberOptions {
     final set = _existingOrders;
-    final maxPlusOne = set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    final maxPlusOne =
+    set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
   /// Itens ocupados (renderizados em cinza)
-  Set<String> get greyOrderItems => _existingOrders.map((e) => e.toString()).toSet();
+  Set<String> get greyOrderItems =>
+      _existingOrders.map((e) => e.toString()).toSet();
 
   /// Seleção do dropdown:
   /// - existente → seleciona a validade
@@ -219,7 +235,8 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     final picked = int.tryParse(v ?? '');
     if (picked == null || picked <= 0) return;
 
-    final idx = _lastSnapshot.indexWhere((x) => (x.orderNumber ?? -1) == picked);
+    final idx =
+    _lastSnapshot.indexWhere((x) => (x.orderNumber ?? -1) == picked);
     if (idx >= 0) {
       fillFields(_lastSnapshot[idx]);
       return;
@@ -233,7 +250,8 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
 
   // Form
   void _validateForm() {
-    final valid = areFieldsFilled([orderTypeCtrl, orderDateCtrl], minLength: 1);
+    final valid =
+    areFieldsFilled([orderTypeCtrl, orderDateCtrl], minLength: 1);
     if (formValidated != valid) {
       formValidated = valid;
       notifyListeners();
@@ -274,7 +292,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: const Text('Ordem salva'),
           type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     } catch (e) {
@@ -283,7 +304,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: Text('Erro ao salvar: $e'),
           type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     } finally {
@@ -292,7 +316,8 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     }
   }
 
-  Future<void> deleteValidity(BuildContext context, String validityId) async {
+  Future<void> deleteValidity(
+      BuildContext context, String validityId) async {
     if (contract.id == null) return;
 
     try {
@@ -304,7 +329,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: const Text('Ordem apagada'),
           type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     } catch (e) {
@@ -313,7 +341,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: Text('Erro ao apagar: $e'),
           type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     }
@@ -324,10 +355,13 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     currentValidityId = data.id;
 
     orderCtrl.text = data.orderNumber?.toString() ?? '';
-    orderDateCtrl.text = data.orderdate != null ? dateTimeToDDMMYYYY(data.orderdate!) : '';
+    orderDateCtrl.text = data.orderdate != null
+        ? dateTimeToDDMMYYYY(data.orderdate!)
+        : '';
     orderTypeCtrl.text = data.ordertype ?? '';
 
-    if (data.ordertype != null && !availableOrders.contains(data.ordertype)) {
+    if (data.ordertype != null &&
+        !availableOrders.contains(data.ordertype)) {
       availableOrders.add(data.ordertype!);
     }
 
@@ -362,12 +396,20 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
   // ===== SideListBox (multi-anexos com rótulo) =====
 
   String _suggestLabelFromName(String original) {
-    final base = original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
-    final ord = selectedValidityData?.orderNumber ?? int.tryParse(orderCtrl.text) ?? 0;
+    final base = original
+        .split('/')
+        .last
+        .replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+    final ord = selectedValidityData?.orderNumber ??
+        int.tryParse(orderCtrl.text) ??
+        0;
     return 'Ordem $ord - $base';
   }
 
-  Future<String?> _askLabel(BuildContext context, {required String suggestion}) async {
+  Future<String?> _askLabel(
+      BuildContext context, {
+        required String suggestion,
+      }) async {
     final ctrl = TextEditingController(text: suggestion);
     return showDialog<String>(
       context: context,
@@ -375,12 +417,20 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         title: const Text('Nome do arquivo'),
         content: TextField(
           controller: ctrl,
-          decoration: const InputDecoration(labelText: 'Rótulo do arquivo'),
+          decoration:
+          const InputDecoration(labelText: 'Rótulo do arquivo'),
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Salvar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.pop(context, ctrl.text.trim()),
+            child: const Text('Salvar'),
+          ),
         ],
       ),
     );
@@ -406,7 +456,9 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
     }
 
     // 2) migração do pdfUrl legado -> cria attachment único e salva
-    if ((v.pdfUrl ?? '').isNotEmpty && v.id != null && contract.id != null) {
+    if ((v.pdfUrl ?? '').isNotEmpty &&
+        v.id != null &&
+        contract.id != null) {
       final att = Attachment(
         id: 'legacy-pdf',
         label: 'Documento da validade',
@@ -414,14 +466,16 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         path: '',
         ext: '.pdf',
         createdAt: DateTime.now(),
-        createdBy: _currentUser?.id,
+        createdBy: _currentUser?.uid,
       );
       await _validityBloc.setAttachments(
         contractId: contract.id!,
         validityId: v.id!,
         attachments: [att],
       );
-      selectedValidityData = v..attachments = [att]..pdfUrl = null;
+      selectedValidityData = v
+        ..attachments = [att]
+        ..pdfUrl = null;
       sideItems = [att];
       selectedSideIndex = null;
       notifyListeners();
@@ -430,21 +484,30 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
 
     // 3) não há metadado -> materializa arquivos existentes na pasta no Storage
     if (contract.id != null && v.id != null) {
-      final files = await validityStorageBloc.listarArquivosDaValidade(
+      final files =
+      await validityStorageBloc.listarArquivosDaValidade(
         contractId: contract.id!,
         validityId: v.id!,
       );
       if (files.isNotEmpty) {
         final list = files
-            .map((f) => Attachment(
-          id: f.name,
-          label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
-          url: f.url,
-          path: 'contracts/${contract.id}/orders/${v.id}/${f.name}',
-          ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(f.name)?.group(0) ?? '',
-          createdAt: DateTime.now(),
-          createdBy: _currentUser?.id,
-        ))
+            .map(
+              (f) => Attachment(
+            id: f.name,
+            label: f.name.replaceAll(
+                RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+            url: f.url,
+            path:
+            'contracts/${contract.id}/orders/${v.id}/${f.name}',
+            ext: RegExp(r'\.([a-z0-9]+)$',
+                caseSensitive: false)
+                .firstMatch(f.name)
+                ?.group(0) ??
+                '',
+            createdAt: DateTime.now(),
+            createdBy: _currentUser?.uid,
+          ),
+        )
             .toList();
         await _validityBloc.setAttachments(
           contractId: contract.id!,
@@ -472,10 +535,12 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
       isSaving = true;
       notifyListeners();
 
-      final (Uint8List bytes, String originalName) = await validityStorageBloc.pickFileBytes();
+      final (Uint8List bytes, String originalName) =
+      await validityStorageBloc.pickFileBytes();
 
       final suggestion = _suggestLabelFromName(originalName);
-      final label = await _askLabel(context, suggestion: suggestion);
+      final label =
+      await _askLabel(context, suggestion: suggestion);
       if (label == null) {
         isSaving = false;
         notifyListeners();
@@ -490,7 +555,8 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         label: label.isEmpty ? suggestion : label,
       );
 
-      final current = List<Attachment>.from(v.attachments ?? const []);
+      final current =
+      List<Attachment>.from(v.attachments ?? const []);
       current.add(att);
 
       await _validityBloc.setAttachments(
@@ -507,7 +573,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: Text('Adicionado "${att.label}"'),
           type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     } catch (e) {
@@ -516,7 +585,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: Text('Falha ao adicionar arquivo: $e'),
           type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     } finally {
@@ -527,15 +599,21 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
 
   Future<void> editLabelFile(int index, BuildContext context) async {
     final v = selectedValidityData;
-    if (v == null || v.attachments == null || index < 0 || index >= v.attachments!.length) return;
+    if (v == null ||
+        v.attachments == null ||
+        index < 0 ||
+        index >= v.attachments!.length) return;
 
     try {
       isSaving = true;
       notifyListeners();
 
       final att = v.attachments![index];
-      final suggestion = att.label.isNotEmpty ? att.label : _suggestLabelFromName(att.id);
-      final newLabel = await _askLabel(context, suggestion: suggestion);
+      final suggestion = att.label.isNotEmpty
+          ? att.label
+          : _suggestLabelFromName(att.id);
+      final newLabel =
+      await _askLabel(context, suggestion: suggestion);
       if (newLabel == null) {
         isSaving = false;
         notifyListeners();
@@ -552,7 +630,7 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         createdAt: att.createdAt,
         createdBy: att.createdBy,
         updatedAt: DateTime.now(),
-        updatedBy: _currentUser?.id,
+        updatedBy: _currentUser?.uid,
       );
 
       await _validityBloc.setAttachments(
@@ -568,7 +646,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: const Text('Nome do anexo atualizado'),
           type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     } catch (e) {
@@ -577,7 +658,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: const Text('Erro ao renomear'),
           type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     } finally {
@@ -622,7 +706,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: const Text('Anexo removido'),
           type: AppNotificationType.success,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     } catch (e) {
@@ -631,7 +718,10 @@ class ValidityController extends ChangeNotifier with FormValidationMixin {
         AppNotification(
           title: const Text('Erro ao remover anexo'),
           type: AppNotificationType.error,
-          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
+          details: Text(
+            '${_userName()} • ${_stamp()}',
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       );
     } finally {

@@ -1,6 +1,6 @@
 // lib/screens/crm/precatorios/controllers/crm_step_controllers.dart
 import 'package:flutter/material.dart';
-import 'package:siged/screens/legal/crm/crm_step_page.dart';
+import 'package:siged/screens-legal/crm/crm_step_page.dart';
 
 /// ===== Helpers base =====
 abstract class _BaseCrmController extends CrmStepController {

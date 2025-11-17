@@ -8,6 +8,9 @@ import 'package:siged/_services/firestore/migrate/migration.dart';
 // Importando suas páginas/tiles já existentes
 import 'package:siged/_services/firestore/firebase_utils.dart';
 import 'package:siged/_services/excel/excel_import_controller.dart';
+import 'package:siged/_widgets/info/section_header.dart';
+import 'package:siged/_widgets/info/tip_box.dart';
+import 'package:siged/_widgets/tiles/tile_widget.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';
 import '../../_widgets/upBar/up_bar.dart';
@@ -54,12 +57,11 @@ class SettingsTopicFirebasePage extends StatelessWidget {
               child: ListView(
                 padding: EdgeInsets.fromLTRB(16, topPadding, 16, 24),
                 children: [
-                  const _SectionHeader('Exploração & Ferramentas'),
-                  _tile(
-                    context,
+                  const SectionHeader('Exploração & Ferramentas'),
+                  TileWidget(
                     title: 'Verificar coleções e documentos (Cloud Firestore)',
                     subtitle: 'Coleções e subcoleções',
-                    icon: Icons.storage_rounded,
+                    leading: Icons.storage_rounded,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const FirestoreExplorerPage()),
@@ -67,12 +69,11 @@ class SettingsTopicFirebasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  const _SectionHeader('Importação / Atualização em massa'),
-                  _tile(
-                    context,
+                  const SectionHeader('Importação / Atualização em massa'),
+                  TileWidget(
                     title: 'Excel → Firebase (coleção ou subcoleção)',
                     subtitle: 'Importar/atualizar registros via Excel',
-                    icon: Icons.upload_file_outlined,
+                    leading: Icons.upload_file_outlined,
                     onTap: () async {
                       final path = await _askPath(context,
                           hint: 'Ex: actives_oaes ou process/abc123/accidents');
@@ -115,12 +116,11 @@ class SettingsTopicFirebasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  const _SectionHeader('Migrações'),
-                  _tile(
-                    context,
+                  const SectionHeader('Migrações'),
+                  TileWidget(
                     title: 'Migrar documentos para subcoleção (custom)',
                     subtitle: 'Executa rotina migrarAcidentesPorAno()',
-                    icon: Icons.merge_type_outlined,
+                    leading: Icons.merge_type_outlined,
                     onTap: () async {
                       _showLoading(context);
                       try {
@@ -153,11 +153,10 @@ class SettingsTopicFirebasePage extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 6),
-                  _tile(
-                    context,
+                  TileWidget(
                     title: 'Migrar coleções (widget)',
                     subtitle: 'Ferramenta visual para migrações',
-                    icon: Icons.transfer_within_a_station_outlined,
+                    leading: Icons.transfer_within_a_station_outlined,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const MigrationCollections()),
@@ -165,12 +164,11 @@ class SettingsTopicFirebasePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  const _SectionHeader('Limpeza & Manutenção'),
-                  _tile(
-                    context,
+                  const SectionHeader('Limpeza & Manutenção'),
+                  TileWidget(
                     title: 'Apagar coleção inteira',
                     subtitle: 'Use com cuidado! Operação irreversível',
-                    icon: Icons.delete_forever_rounded,
+                    leading: Icons.delete_forever_rounded,
                     onTap: () async {
                       final path = await _askPath(context,
                           hint: 'Ex: actives_oaes ou process/abc123/accidents');
@@ -217,7 +215,7 @@ class SettingsTopicFirebasePage extends StatelessWidget {
                   SelectiveDeleteSubcollectionTile(),
                   const SizedBox(height: 24),
 
-                  const _TipBox(
+                  const TipBox(
                     text:
                     'Dica: para rotinas destrutivas, exiba confirmação dupla (ex.: digitar o nome da coleção) e considere habilitar “modo somente leitura” em produção.',
                   ),
@@ -232,41 +230,6 @@ class SettingsTopicFirebasePage extends StatelessWidget {
 }
 
 // ---------------- helpers UI ----------------
-
-Widget _tile(
-    BuildContext context, {
-      required String title,
-      required String subtitle,
-      required IconData icon,
-      required VoidCallback onTap,
-      Color? tileColor,
-    }) {
-  final bg = tileColor ?? Colors.white10;
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        hoverColor: Colors.white.withOpacity(0.04), // efeito hover (web/desktop)
-        splashColor: Colors.white.withOpacity(0.08),
-        child: Container(
-          color: Colors.black12,
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            leading: Icon(icon),
-            title: Text(title),
-            subtitle: Text(subtitle),
-            trailing: const Icon(Icons.arrow_forward_ios),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ),
-    ),
-  );
-}
 
 Future<String?> _askPath(BuildContext context, {String? hint}) async {
   final controller = TextEditingController();
@@ -306,41 +269,3 @@ void _showLoading(BuildContext context) {
   );
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 13, color: Colors.grey),
-      ),
-    );
-  }
-}
-
-class _TipBox extends StatelessWidget {
-  const _TipBox({required this.text});
-  final String text;
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.withOpacity(0.25)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.info_outline, size: 18, color: Colors.amber),
-          const SizedBox(width: 8),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
-        ],
-      ),
-    );
-  }
-}

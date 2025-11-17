@@ -1,7 +1,12 @@
+// lib/_blocs/process/hiring/1Dfd/dfd_bloc.dart
+
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
+
 import 'dfd_repository.dart';
+import 'dfd_sections.dart';
+import 'dfd_data.dart'; // 👈 import do modelo tipado
 
 part 'dfd_event.dart';
 part 'dfd_state.dart';
@@ -15,41 +20,78 @@ class DfdBloc extends Bloc<DfdEvent, DfdState> {
     on<DfdSaveOneSectionRequested>(_onSaveOne);
 
     on<DfdClearSuccessRequested>((e, emit) {
-      if (state.saveSuccess) emit(state.copyWith(saveSuccess: false));
+      if (state.saveSuccess) {
+        emit(state.copyWith(saveSuccess: false));
+      }
     });
-
-    on<DfdReadLightFieldsRequested>(_onReadLightFields);
-    on<DfdReadWorkTypeAndExtRequested>(_onReadWorkTypeAndExt); // retrocompat
   }
 
-  Future<void> _onLoad(DfdLoadRequested e, Emitter<DfdState> emit) async {
-    emit(state.copyWith(loading: true, error: null, saveSuccess: false));
+  // ===========================================================
+  // HELPER PÚBLICO: obter DfdData pelo contractId
+  // ===========================================================
+  ///
+  /// Uso típico:
+  ///   final dfd = await context.read<DfdBloc>().getDataForContract(contractId);
+  ///
+  Future<DfdData?> getDataForContract(String contractId) {
+    return repo.readDataForContract(contractId);
+  }
+
+  Future<void> _onLoad(
+      DfdLoadRequested e,
+      Emitter<DfdState> emit,
+      ) async {
+    emit(
+      state.copyWith(
+        loading: true,
+        error: null,
+        saveSuccess: false,
+      ),
+    );
+
     try {
-      final ids = await repo.ensureDfdStructure(e.contractId);
+      // Garante estrutura com doc raiz fixo (ex.: "main") + seções "main"
+      final ids = await repo.ensureStructure(e.contractId);
+
+      // Carrega todos os mapas por seção
       final data = await repo.loadAllSections(
         contractId: e.contractId,
         dfdId: ids.dfdId,
         sectionIds: ids.sectionIds,
       );
-      final leve = await repo.readLightFields(e.contractId);
 
-      emit(state.copyWith(
-        loading: false,
-        dfdId: ids.dfdId,
-        sectionIds: ids.sectionIds,
-        sectionsData: data,
-        workType: leve.tipoObra,
-        extensaoKm: leve.extensaoKm,
-        contractStatus: leve.status,
-      ));
+      emit(
+        state.copyWith(
+          loading: false,
+          dfdId: ids.dfdId,
+          sectionIds: ids.sectionIds,
+          sectionsData: data,
+        ),
+      );
     } catch (err) {
-      emit(state.copyWith(loading: false, error: err.toString()));
+      emit(
+        state.copyWith(
+          loading: false,
+          error: err.toString(),
+        ),
+      );
     }
   }
 
-  Future<void> _onSaveAll(DfdSaveRequested e, Emitter<DfdState> emit) async {
+  Future<void> _onSaveAll(
+      DfdSaveRequested e,
+      Emitter<DfdState> emit,
+      ) async {
     if (!state.hasValidPath) return;
-    emit(state.copyWith(saving: true, saveSuccess: false, error: null));
+
+    emit(
+      state.copyWith(
+        saving: true,
+        saveSuccess: false,
+        error: null,
+      ),
+    );
+
     try {
       await repo.saveSectionsBatch(
         contractId: e.contractId,
@@ -58,33 +100,30 @@ class DfdBloc extends Bloc<DfdEvent, DfdState> {
         sectionsData: e.sectionsData,
       );
 
+      // Faz merge no estado local
       final merged = {...state.sectionsData};
-      e.sectionsData.forEach((k, v) {
-        merged[k] = {...(merged[k] ?? const {}), ...v};
+      e.sectionsData.forEach((key, value) {
+        merged[key] = {
+          ...(merged[key] ?? const <String, dynamic>{}),
+          ...value,
+        };
       });
 
-      final novoWorkType = e.sectionsData['objeto']?['tipoObra'] as String?;
-      final novoExt = e.sectionsData['localizacao']?['extensaoKm'];
-      final novoStatus = e.sectionsData['identificacao']?['statusContrato'] as String?;
-
-      emit(state.copyWith(
-        saving: false,
-        saveSuccess: true,
-        sectionsData: merged,
-        workType: novoWorkType ?? state.workType,
-        extensaoKm: (novoExt is num)
-            ? novoExt.toDouble()
-            : (novoExt is String
-            ? double.tryParse(
-          novoExt.replaceAll('.', '').replaceAll(',', '.').trim(),
-        ) ?? state.extensaoKm
-            : state.extensaoKm),
-        contractStatus: (novoStatus != null && novoStatus.trim().isNotEmpty)
-            ? novoStatus.trim()
-            : state.contractStatus,
-      ));
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: true,
+          sectionsData: merged,
+        ),
+      );
     } catch (err) {
-      emit(state.copyWith(saving: false, saveSuccess: false, error: err.toString()));
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: false,
+          error: err.toString(),
+        ),
+      );
     }
   }
 
@@ -93,13 +132,21 @@ class DfdBloc extends Bloc<DfdEvent, DfdState> {
       Emitter<DfdState> emit,
       ) async {
     if (!state.hasValidPath) return;
+
     final sectionId = state.sectionIds[e.sectionKey];
     if (sectionId == null) {
       emit(state.copyWith(error: 'Seção inválida: ${e.sectionKey}'));
       return;
     }
 
-    emit(state.copyWith(saving: true, saveSuccess: false, error: null));
+    emit(
+      state.copyWith(
+        saving: true,
+        saveSuccess: false,
+        error: null,
+      ),
+    );
+
     try {
       await repo.saveSection(
         contractId: e.contractId,
@@ -110,67 +157,26 @@ class DfdBloc extends Bloc<DfdEvent, DfdState> {
       );
 
       final merged = {...state.sectionsData};
-      merged[e.sectionKey] = {...(merged[e.sectionKey] ?? const {}), ...e.data};
+      merged[e.sectionKey] = {
+        ...(merged[e.sectionKey] ?? const <String, dynamic>{}),
+        ...e.data,
+      };
 
-      String? workType = state.workType;
-      double? extKm = state.extensaoKm;
-      String? status = state.contractStatus;
-
-      if (e.sectionKey == 'objeto') {
-        final v = (e.data['tipoObra'] ?? '').toString().trim();
-        if (v.isNotEmpty) workType = v;
-      } else if (e.sectionKey == 'localizacao') {
-        final raw = e.data['extensaoKm'];
-        if (raw is num) {
-          extKm = raw.toDouble();
-        } else if (raw is String) {
-          final parsed = double.tryParse(raw.replaceAll('.', '').replaceAll(',', '.').trim());
-          if (parsed != null) extKm = parsed;
-        }
-      } else if (e.sectionKey == 'identificacao') {
-        final v = (e.data['statusContrato'] ?? '').toString().trim();
-        if (v.isNotEmpty) status = v;
-      }
-
-      emit(state.copyWith(
-        saving: false,
-        saveSuccess: true,
-        sectionsData: merged,
-        workType: workType,
-        extensaoKm: extKm,
-        contractStatus: status,
-      ));
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: true,
+          sectionsData: merged,
+        ),
+      );
     } catch (err) {
-      emit(state.copyWith(saving: false, saveSuccess: false, error: err.toString()));
-    }
-  }
-
-  Future<void> _onReadLightFields(
-      DfdReadLightFieldsRequested e,
-      Emitter<DfdState> emit,
-      ) async {
-    try {
-      final res = await repo.readLightFields(e.contractId);
-      emit(state.copyWith(
-        workType: res.tipoObra,
-        extensaoKm: res.extensaoKm,
-        contractStatus: res.status,
-      ));
-    } catch (err) {
-      emit(state.copyWith(error: err.toString()));
-    }
-  }
-
-  // Retrocompat
-  Future<void> _onReadWorkTypeAndExt(
-      DfdReadWorkTypeAndExtRequested e,
-      Emitter<DfdState> emit,
-      ) async {
-    try {
-      final res = await repo.readWorkTypeAndExtent(e.contractId);
-      emit(state.copyWith(workType: res.tipoObra, extensaoKm: res.extensaoKm));
-    } catch (err) {
-      emit(state.copyWith(error: err.toString()));
+      emit(
+        state.copyWith(
+          saving: false,
+          saveSuccess: false,
+          error: err.toString(),
+        ),
+      );
     }
   }
 }

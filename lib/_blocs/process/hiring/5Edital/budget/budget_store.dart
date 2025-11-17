@@ -26,16 +26,13 @@ class BudgetStore extends ChangeNotifier {
     if (cached != null) {
       if ((cached.entries.isEmpty || cached.schema.columns.isEmpty) &&
           _loading[contractId] != true) {
-        debugPrint('[BudgetStore] ensureFor($contractId): vazio → refresh...');
         await refreshFor(contractId);
       } else {
-        debugPrint('[BudgetStore] ensureFor($contractId): cache hit.');
       }
       return;
     }
 
     if (_loading[contractId] == true) {
-      debugPrint('[BudgetStore] ensureFor($contractId): já carregando.');
       return;
     }
 
@@ -48,9 +45,7 @@ class BudgetStore extends ChangeNotifier {
     try {
       final snap = await _bloc.load(contractId);
       _byContract[contractId] = snap;
-      debugPrint('[BudgetStore] ensureFor($contractId): ok. entries=${snap.entries.length}');
     } catch (e) {
-      debugPrint('[BudgetStore] ensureFor($contractId) ERRO: $e');
       rethrow;
     } finally {
       final elapsed = DateTime.now().difference(started).inMilliseconds;
@@ -74,9 +69,7 @@ class BudgetStore extends ChangeNotifier {
     try {
       final snap = await _bloc.load(contractId);
       _byContract[contractId] = snap;
-      debugPrint('[BudgetStore] refreshFor($contractId): ok. entries=${snap.entries.length}');
     } catch (e) {
-      debugPrint('[BudgetStore] refreshFor($contractId) ERRO: $e');
       rethrow;
     } finally {
       final elapsed = DateTime.now().difference(started).inMilliseconds;
@@ -99,9 +92,7 @@ class BudgetStore extends ChangeNotifier {
     required String contractId,
     required BudgetData data,
   }) async {
-    debugPrint('[BudgetStore] saveDomain($contractId): salvando...');
     await _bloc.save(contractId: contractId, data: data);
-    debugPrint('[BudgetStore] saveDomain($contractId): salvo, atualizando cache...');
     await refreshFor(contractId);
   }
 
@@ -114,7 +105,6 @@ class BudgetStore extends ChangeNotifier {
     required List<List<String>> rows,
     required bool rowsIncludesHeader,
   }) async {
-    debugPrint('[BudgetStore] saveBudget(LEGACY $contractId): salvando...');
     await _bloc.saveBudgetNested(
       contractId: contractId,
       headers: headers,
@@ -123,7 +113,6 @@ class BudgetStore extends ChangeNotifier {
       rows: rows,
       rowsIncludesHeader: rowsIncludesHeader,
     );
-    debugPrint('[BudgetStore] saveBudget(LEGACY $contractId): salvo, atualizando cache...');
     await refreshFor(contractId);
   }
 

@@ -67,7 +67,6 @@ class RevisionMeasurementBloc extends BlocBase {
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
     } catch (e) {
-      debugPrint('Erro ao salvar URL do PDF (revision): $e');
     }
   }
 

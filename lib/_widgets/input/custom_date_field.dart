@@ -12,7 +12,7 @@ class CustomDateField extends StatelessWidget {
     this.valueColor,
     this.prefix,
     this.suffix,
-    this.inputFormat,
+    this.inputFormatters,
     this.obscure = false,
     this.textInputType,
     this.onChanged,
@@ -37,7 +37,7 @@ class CustomDateField extends StatelessWidget {
   final Widget? suffix;
   final bool obscure;
   final TextInputType? textInputType;
-  final List<TextInputFormatter>? inputFormat;
+  final List<TextInputFormatter>? inputFormatters;
   final Function(DateTime?)? onChanged;
   final Function(DateTime?)? onSaved;
   final String? Function(DateTime?)? validator;
@@ -88,7 +88,7 @@ class CustomDateField extends StatelessWidget {
             controller: controller,
             obscureText: obscure,
             keyboardType: textInputType,
-            inputFormatters: inputFormat,
+            inputFormatters: inputFormatters,
             onChanged: onChanged,
             enabled: enabled ?? true,
             decoration: InputDecoration(

@@ -1,4 +1,3 @@
-// lib/_blocs/process/additives/additives_bloc.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,32 +7,67 @@ import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/registers/register_class.dart';
 
-// NOVO: status/labels vindos do DFD
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
-
 class AdditivesBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final DfdRepository _dfdRepo;
 
-  AdditivesBloc({DfdRepository? dfdRepository})
-      : _dfdRepo = dfdRepository ?? DfdRepository();
+  AdditivesBloc();
 
   // -----------------------------
-  // Cache de status do DFD por contrato
+  // Cache de status do DFD por contrato (statusContrato em DFD.identificacao)
   // -----------------------------
   final Map<String, String> _statusByContract = {};
 
-  Future<void> _ensureStatusesForContracts(Iterable<ProcessData> contratos) async {
+  String? _idToString(String? id) {
+    if (id == null || id.trim().isEmpty) return null;
+    return id;
+  }
+
+  /// Lê o `statusContrato` diretamente da árvore:
+  /// contracts/{id}/dfd/{dfdDoc}/identificacao/{identDoc}
+  Future<String?> _loadStatusContratoFromDfd(String contractId) async {
+    try {
+      final dfdSnap = await _db
+          .collection('contracts')
+          .doc(contractId)
+          .collection('dfd')
+          .limit(1)
+          .get();
+
+      if (dfdSnap.docs.isEmpty) return null;
+
+      final identSnap = await dfdSnap.docs.first.reference
+          .collection('identificacao')
+          .limit(1)
+          .get();
+
+      if (identSnap.docs.isEmpty) return null;
+
+      final data = identSnap.docs.first.data();
+      final raw = data['statusContrato'];
+      if (raw == null) return null;
+      final s = raw.toString().trim();
+      return s.isEmpty ? null : s;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _ensureStatusesForContracts(
+      Iterable<ProcessData> contratos) async {
     final futures = <Future<void>>[];
+
     for (final c in contratos) {
       final id = _idToString(c.id);
       if (id == null || _statusByContract.containsKey(id)) continue;
+
       futures.add(() async {
-        final leve = await _dfdRepo.readLightFields(id);
-        final s = (leve.status ?? '').trim();
-        if (s.isNotEmpty) _statusByContract[id] = s;
+        final s = await _loadStatusContratoFromDfd(id);
+        if (s != null && s.trim().isNotEmpty) {
+          _statusByContract[id] = s.trim();
+        }
       }());
     }
+
     if (futures.isNotEmpty) {
       await Future.wait(futures);
     }
@@ -45,27 +79,12 @@ class AdditivesBloc extends BlocBase {
     return (v == null || v.trim().isEmpty) ? null : v.trim();
   }
 
-  String? _idToString(Object? id) {
-    if (id == null) return null;
-    try {
-      // se for um objeto com .id
-      final dyn = id as dynamic;
-      final hasIdProp = (() {
-        try {
-          return (dyn as dynamic).id is String;
-        } catch (_) {
-          return false;
-        }
-      })();
-      if (hasIdProp) return (dyn as dynamic).id as String;
-    } catch (_) {}
-    return id.toString();
-  }
-
   // -----------------------------
   // Listagens / consultas
   // -----------------------------
-  Future<List<AdditiveData>> getAdditivesByContractIds(Set<String> contractIds) async {
+
+  Future<List<AdditiveData>> getAdditivesByContractIds(
+      Set<String> contractIds) async {
     final all = await getAllAdditives();
     return all.where((a) => contractIds.contains(a.contractId)).toList();
   }
@@ -106,14 +125,17 @@ class AdditivesBloc extends BlocBase {
               .get();
 
           if (originalSnap.exists) {
-            final original = AdditiveData.fromDocument(snapshot: originalSnap);
-            registros.add(Registro(
-              id: doc.id,
-              tipo: 'aditivo',
-              data: data['createdAt']?.toDate() ?? DateTime.now(),
-              original: original,
-              contractData: await buscarContrato(contractId),
-            ));
+            final original =
+            AdditiveData.fromDocument(snapshot: originalSnap);
+            registros.add(
+              Registro(
+                id: doc.id,
+                tipo: 'aditivo',
+                data: data['createdAt']?.toDate() ?? DateTime.now(),
+                original: original,
+                contractData: await buscarContrato(contractId),
+              ),
+            );
           }
         }
       }
@@ -122,59 +144,65 @@ class AdditivesBloc extends BlocBase {
   }
 
   Future<ProcessData?> buscarContrato(String contractId) async {
-    final snap = await _db.collection('contracts').doc(contractId).get();
+    final snap =
+    await _db.collection('contracts').doc(contractId).get();
     if (!snap.exists) return null;
     return ProcessData.fromDocument(snapshot: snap);
   }
 
   // -----------------------------
-  // Agregações (usando STATUS do DFD)
+  // Agregações (usando STATUS do DFD/statusContrato)
   // -----------------------------
+
   Future<double> getValorPorStatus(
       List<ProcessData> contratos,
       String statusDesejado,
       ) async {
     if (contratos.isEmpty) return 0.0;
 
-    // garante cache de status do DFD
+    // garante cache de statusContrato no DFD
     await _ensureStatusesForContracts(contratos);
 
     final alvo = statusDesejado.trim().toUpperCase();
 
-    // filtra pelos contratos cujo status (DFD) coincide
+    // filtra pelos contratos cujo status (DFD.statusContrato) coincide
     final idsFiltrados = <String>{
       for (final c in contratos)
         if (_idToString(c.id) != null)
-          if ((_getDfdStatusForId(_idToString(c.id)) ?? '').toUpperCase() == alvo)
+          if ((_getDfdStatusForId(_idToString(c.id)) ?? '')
+              .toUpperCase() ==
+              alvo)
             _idToString(c.id)!,
     };
 
     if (idsFiltrados.isEmpty) return 0.0;
 
     // soma valores dos aditivos dos contratos filtrados
-    final totais = await Future.wait(idsFiltrados.map((contractId) async {
-      try {
-        final snap = await _db
-            .collection('contracts')
-            .doc(contractId)
-            .collection('additives')
-            .get();
+    final totais = await Future.wait(
+      idsFiltrados.map((contractId) async {
+        try {
+          final snap = await _db
+              .collection('contracts')
+              .doc(contractId)
+              .collection('additives')
+              .get();
 
-        return snap.docs.fold<double>(0.0, (sum, doc) {
-          final data = doc.data();
-          final raw = data['additivevalue'] ?? data['additiveValue'];
-          num? n;
-          if (raw is num) {
-            n = raw;
-          } else if (raw is String) {
-            n = num.tryParse(raw);
-          }
-          return sum + (n?.toDouble() ?? 0.0);
-        });
-      } catch (_) {
-        return 0.0;
-      }
-    }));
+          return snap.docs.fold<double>(0.0, (sum, doc) {
+            final data = doc.data();
+            final raw = data['additivevalue'] ?? data['additiveValue'];
+            num? n;
+            if (raw is num) {
+              n = raw;
+            } else if (raw is String) {
+              n = num.tryParse(raw);
+            }
+            return sum + (n?.toDouble() ?? 0.0);
+          });
+        } catch (_) {
+          return 0.0;
+        }
+      }),
+    );
 
     return totais.fold<double>(0.0, (a, b) => a + b);
   }
@@ -185,17 +213,17 @@ class AdditivesBloc extends BlocBase {
   }) async {
     if (contratos.isEmpty) return 0.0;
 
-    // garante cache de status do DFD
     await _ensureStatusesForContracts(contratos);
 
     final alvo = status.trim().toUpperCase();
     double total = 0.0;
 
-    // filtra pelos contratos cujo status (DFD) coincide
     final ids = <String>[
       for (final c in contratos)
         if (_idToString(c.id) != null)
-          if ((_getDfdStatusForId(_idToString(c.id)) ?? '').toUpperCase() == alvo)
+          if ((_getDfdStatusForId(_idToString(c.id)) ?? '')
+              .toUpperCase() ==
+              alvo)
             _idToString(c.id)!,
     ];
 
@@ -214,23 +242,32 @@ class AdditivesBloc extends BlocBase {
     return total;
   }
 
-  Future<List<AdditiveData>> getAllAdditivesOfContract({required String uidContract}) async {
+  Future<List<AdditiveData>> getAllAdditivesOfContract({
+    required String uidContract,
+  }) async {
     final s = await _db
         .collection('contracts')
         .doc(uidContract)
         .collection('additives')
         .orderBy('additiveorder')
         .get();
-    return s.docs.map((d) => AdditiveData.fromDocument(snapshot: d)).toList();
+    return s.docs
+        .map((d) => AdditiveData.fromDocument(snapshot: d))
+        .toList();
   }
 
   // -----------------------------
   // CRUD aditivo
   // -----------------------------
-  Future<void> salvarOuAtualizarAditivo(AdditiveData data, String uidContract) async {
+
+  Future<void> salvarOuAtualizarAditivo(
+      AdditiveData data, String uidContract) async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
 
-    final ref = _db.collection('contracts').doc(uidContract).collection('additives');
+    final ref = _db
+        .collection('contracts')
+        .doc(uidContract)
+        .collection('additives');
     final docRef = data.id != null ? ref.doc(data.id) : ref.doc();
     data.id ??= docRef.id;
 
@@ -242,7 +279,8 @@ class AdditivesBloc extends BlocBase {
       });
 
     final snapshot = await docRef.get();
-    final hasCreatedAt = snapshot.exists && snapshot.data()?['createdAt'] != null;
+    final hasCreatedAt =
+        snapshot.exists && snapshot.data()?['createdAt'] != null;
     if (!hasCreatedAt) {
       json['createdAt'] = FieldValue.serverTimestamp();
       json['createdBy'] = firebaseUser?.uid ?? '';
@@ -252,12 +290,17 @@ class AdditivesBloc extends BlocBase {
     await _notificarUsuariosSobreAditivo(data, uidContract);
   }
 
-  Future<void> _notificarUsuariosSobreAditivo(AdditiveData aditivo, String contractId) async {
+  Future<void> _notificarUsuariosSobreAditivo(
+      AdditiveData aditivo, String contractId) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
     final batch = _db.batch();
-    final ref = _db.collection('users').doc(uid).collection('notifications').doc();
+    final ref = _db
+        .collection('users')
+        .doc(uid)
+        .collection('notifications')
+        .doc();
     batch.set(ref, {
       'tipo': 'aditivo',
       'titulo': 'Novo aditivo nº ${aditivo.additiveOrder}',
@@ -269,7 +312,8 @@ class AdditivesBloc extends BlocBase {
     await batch.commit();
   }
 
-  Future<void> deleteAdditive(String uidContract, String uidAditivo) async {
+  Future<void> deleteAdditive(
+      String uidContract, String uidAditivo) async {
     await _db
         .collection('contracts')
         .doc(uidContract)
@@ -281,6 +325,7 @@ class AdditivesBloc extends BlocBase {
   // -----------------------------
   // Attachments no doc do aditivo
   // -----------------------------
+
   Future<void> setAttachments({
     required String contractId,
     required String additiveId,
@@ -301,8 +346,13 @@ class AdditivesBloc extends BlocBase {
   // -----------------------------
   // Agregações (utilitários)
   // -----------------------------
+
   Future<double> getAllAdditivesValue(String contractId) async {
-    final s = await _db.collection('contracts').doc(contractId).collection('additives').get();
+    final s = await _db
+        .collection('contracts')
+        .doc(contractId)
+        .collection('additives')
+        .get();
     return s.docs.fold<double>(0.0, (sum, d) {
       final a = AdditiveData.fromDocument(snapshot: d);
       return sum + (a.additiveValue ?? 0.0);

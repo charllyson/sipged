@@ -297,9 +297,9 @@ class LoginBloc extends BlocBase with LoginValidators {
       );
 
       firebaseUser = cred.user;
-      userData.id = cred.user!.uid;
+      userData.uid = cred.user!.uid;
 
-      await _db.collection('users').doc(userData.id!).set(userData.toMap());
+      await _db.collection('users').doc(userData.uid!).set(userData.toMap());
 
       await _handleUserProfileState(cred.user!);
       return true;

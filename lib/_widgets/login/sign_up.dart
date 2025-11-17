@@ -125,7 +125,7 @@ class _SignUpState extends State<SignUp> with LoginValidators {
       // 4) Atualiza caches do UserBloc (opcional mas recomendado)
       final uid = _loginBloc.firebaseUser?.uid;
       if (uid != null) {
-        await repo.save(newUser..id = uid); // id garantido
+        await repo.save(newUser..uid = uid); // id garantido
         final bloc = context.read<UserBloc>();
         bloc
           ..add(UserFetchByIdRequested(uid))

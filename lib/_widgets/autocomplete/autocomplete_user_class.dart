@@ -73,7 +73,7 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
 
   UserData? _findUser(String id) {
     try {
-      return widget.allUsers.firstWhere((u) => u.id == id);
+      return widget.allUsers.firstWhere((u) => u.uid == id);
     } catch (_) {
       return null;
     }
@@ -87,10 +87,10 @@ class _AutocompleteUserClassState extends State<AutocompleteUserClass> {
   }
 
   void _selectUser(UserData user) {
-    _selectedUserId = user.id;
-    widget.controller.text = user.name ?? user.email ?? (user.id ?? '');
+    _selectedUserId = user.uid;
+    widget.controller.text = user.name ?? user.email ?? (user.uid ?? '');
     setState(() {});
-    widget.onChanged?.call(user.id ?? '');
+    widget.onChanged?.call(user.uid ?? '');
   }
 
   void _clearSelection() {

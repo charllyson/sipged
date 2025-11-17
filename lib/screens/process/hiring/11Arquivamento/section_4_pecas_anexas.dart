@@ -13,36 +13,47 @@ class SectionPecasAnexasTA extends StatefulWidget {
 }
 
 class _SectionPecasAnexasTAState extends State<SectionPecasAnexasTA> {
-  double _w(BuildContext ctx, {int itemsPerLine = 1}) => responsiveInputWidth(
-    context: ctx, itemsPerLine: itemsPerLine, spacing: 12, margin: 12, extraPadding: 24,
-  );
-
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionTitle('4) Peças Anexas'),
-      Wrap(spacing: 12, runSpacing: 12, children: [
-        SizedBox(
-          width: _w(context),
-          child: CustomTextField(
-            controller: c.taPecasAnexasCtrl,
-            labelText: 'Peças anexas (TR, ETP, pareceres, publicações etc.)',
-            maxLines: 2,
-            enabled: c.isEditable,
-          ),
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle('4) Peças Anexas'),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final w2 = inputW2(context, constraints);
+
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: w2,
+                  child: CustomTextField(
+                    controller: c.taPecasAnexasCtrl,
+                    labelText:
+                    'Peças anexas (TR, ETP, pareceres, publicações etc.)',
+                    maxLines: 1,
+                    enabled: c.isEditable,
+                  ),
+                ),
+                SizedBox(
+                  width: w2,
+                  child: CustomTextField(
+                    controller: c.taLinksCtrl,
+                    labelText: 'Links (SEI/Drive/PNCP)',
+                    maxLines: 1,
+                    enabled: c.isEditable,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-        SizedBox(
-          width: _w(context),
-          child: CustomTextField(
-            controller: c.taLinksCtrl,
-            labelText: 'Links (SEI/Drive/PNCP)',
-            maxLines: 2,
-            enabled: c.isEditable,
-          ),
-        ),
-      ]),
-      const SizedBox(height: 16),
-    ]);
+        const SizedBox(height: 16),
+      ],
+    );
   }
 }

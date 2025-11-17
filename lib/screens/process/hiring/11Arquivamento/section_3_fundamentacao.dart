@@ -15,37 +15,48 @@ class SectionFundamentacaoTA extends StatefulWidget {
 
 class _SectionFundamentacaoTAState extends State<SectionFundamentacaoTA>
     with FormValidationMixin {
-  double _w(BuildContext ctx, {int itemsPerLine = 1}) => responsiveInputWidth(
-    context: ctx, itemsPerLine: itemsPerLine, spacing: 12, margin: 12, extraPadding: 24,
-  );
-
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SectionTitle('3) Fundamentação'),
-      Wrap(spacing: 12, runSpacing: 12, children: [
-        SizedBox(
-          width: _w(context),
-          child: CustomTextField(
-            controller: c.taFundamentosLegaisCtrl,
-            labelText: 'Fundamentos legais (ex.: Lei 14.133/2021, art. ...)',
-            maxLines: 3,
-            enabled: c.isEditable,
-            validator: validateRequired,
-          ),
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle('3) Fundamentação'),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final w2 = inputW2(context, constraints);
+
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: w2,
+                  child: CustomTextField(
+                    controller: c.taFundamentosLegaisCtrl,
+                    labelText:
+                    'Fundamentos legais (ex.: Lei 14.133/2021, art. ...)',
+                    maxLines: 4,
+                    enabled: c.isEditable,
+                    validator: validateRequired,
+                  ),
+                ),
+                SizedBox(
+                  width: w2,
+                  child: CustomTextField(
+                    controller: c.taJustificativaCtrl,
+                    labelText: 'Justificativa (resumo técnico/jurídico)',
+                    maxLines: 4,
+                    enabled: c.isEditable,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-        SizedBox(
-          width: _w(context),
-          child: CustomTextField(
-            controller: c.taJustificativaCtrl,
-            labelText: 'Justificativa (resumo técnico/jurídico)',
-            maxLines: 3,
-            enabled: c.isEditable,
-          ),
-        ),
-      ]),
-      const SizedBox(height: 16),
-    ]);
+        const SizedBox(height: 16),
+      ],
+    );
   }
 }

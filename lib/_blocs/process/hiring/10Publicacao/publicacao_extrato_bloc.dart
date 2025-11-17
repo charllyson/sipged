@@ -1,28 +1,53 @@
+// lib/_blocs/process/hiring/10Publicacao/publicacao_extrato_bloc.dart
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
+
 import 'publicacao_extrato_repository.dart';
 import 'publicacao_extrato_sections.dart';
+import 'publicacao_extrato_data.dart'; // 👈 modelo tipado
 
 part 'publicacao_extrato_event.dart';
 part 'publicacao_extrato_state.dart';
 
-class PublicacaoExtratoBloc extends Bloc<PublicacaoExtratoEvent, PublicacaoExtratoState> {
+class PublicacaoExtratoBloc
+    extends Bloc<PublicacaoExtratoEvent, PublicacaoExtratoState> {
   final PublicacaoExtratoRepository repo;
 
-  PublicacaoExtratoBloc(this.repo) : super(PublicacaoExtratoState.initial()) {
+  PublicacaoExtratoBloc(this.repo)
+      : super(PublicacaoExtratoState.initial()) {
     on<PublicacaoExtratoLoadRequested>(_onLoad);
     on<PublicacaoExtratoSaveRequested>(_onSaveAll);
     on<PublicacaoExtratoSaveOneSectionRequested>(_onSaveOne);
     on<PublicacaoExtratoClearSuccessRequested>((e, emit) {
-      if (state.saveSuccess) emit(state.copyWith(saveSuccess: false));
+      if (state.saveSuccess) {
+        emit(state.copyWith(saveSuccess: false));
+      }
     });
+  }
+
+  // ===========================================================
+  // HELPER PÚBLICO: obter PublicacaoExtratoData pelo contractId
+  // ===========================================================
+  ///
+  /// Uso:
+  ///   final pub = await context.read<PublicacaoExtratoBloc>()
+  ///                            .getDataForContract(contractId);
+  ///
+  Future<PublicacaoExtratoData?> getDataForContract(String contractId) {
+    return repo.readDataForContract(contractId);
   }
 
   Future<void> _onLoad(
       PublicacaoExtratoLoadRequested e,
       Emitter<PublicacaoExtratoState> emit,
       ) async {
-    emit(state.copyWith(loading: true, error: null, saveSuccess: false));
+    emit(state.copyWith(
+      loading: true,
+      error: null,
+      saveSuccess: false,
+    ));
+
     try {
       final ids = await repo.ensureStructure(e.contractId);
       final data = await repo.loadAllSections(
@@ -37,7 +62,10 @@ class PublicacaoExtratoBloc extends Bloc<PublicacaoExtratoEvent, PublicacaoExtra
         sectionsData: data,
       ));
     } catch (err) {
-      emit(state.copyWith(loading: false, error: err.toString()));
+      emit(state.copyWith(
+        loading: false,
+        error: err.toString(),
+      ));
     }
   }
 
@@ -46,7 +74,13 @@ class PublicacaoExtratoBloc extends Bloc<PublicacaoExtratoEvent, PublicacaoExtra
       Emitter<PublicacaoExtratoState> emit,
       ) async {
     if (!state.hasValidPath) return;
-    emit(state.copyWith(saving: true, error: null, saveSuccess: false));
+
+    emit(state.copyWith(
+      saving: true,
+      error: null,
+      saveSuccess: false,
+    ));
+
     try {
       await repo.saveSectionsBatch(
         contractId: e.contractId,
@@ -60,9 +94,17 @@ class PublicacaoExtratoBloc extends Bloc<PublicacaoExtratoEvent, PublicacaoExtra
         merged[k] = {...(merged[k] ?? const {}), ...v};
       });
 
-      emit(state.copyWith(saving: false, saveSuccess: true, sectionsData: merged));
+      emit(state.copyWith(
+        saving: false,
+        saveSuccess: true,
+        sectionsData: merged,
+      ));
     } catch (err) {
-      emit(state.copyWith(saving: false, error: err.toString(), saveSuccess: false));
+      emit(state.copyWith(
+        saving: false,
+        error: err.toString(),
+        saveSuccess: false,
+      ));
     }
   }
 
@@ -78,7 +120,12 @@ class PublicacaoExtratoBloc extends Bloc<PublicacaoExtratoEvent, PublicacaoExtra
       return;
     }
 
-    emit(state.copyWith(saving: true, error: null, saveSuccess: false));
+    emit(state.copyWith(
+      saving: true,
+      error: null,
+      saveSuccess: false,
+    ));
+
     try {
       await repo.saveSection(
         contractId: e.contractId,
@@ -89,11 +136,22 @@ class PublicacaoExtratoBloc extends Bloc<PublicacaoExtratoEvent, PublicacaoExtra
       );
 
       final merged = {...state.sectionsData};
-      merged[e.sectionKey] = {...(merged[e.sectionKey] ?? const {}), ...e.data};
+      merged[e.sectionKey] = {
+        ...(merged[e.sectionKey] ?? const {}),
+        ...e.data,
+      };
 
-      emit(state.copyWith(saving: false, sectionsData: merged, saveSuccess: true));
+      emit(state.copyWith(
+        saving: false,
+        sectionsData: merged,
+        saveSuccess: true,
+      ));
     } catch (err) {
-      emit(state.copyWith(saving: false, error: err.toString(), saveSuccess: false));
+      emit(state.copyWith(
+        saving: false,
+        error: err.toString(),
+        saveSuccess: false,
+      ));
     }
   }
 }

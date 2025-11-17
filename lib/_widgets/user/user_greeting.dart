@@ -28,7 +28,7 @@ class _UserGreetingState extends State<UserGreeting> {
     // Se o usuário ainda não estiver no estado, dispara uma busca por id.
     final state = context.read<UserBloc>().state;
     final already =
-        (state.current?.id == fb.uid) || state.byId.containsKey(fb.uid);
+        (state.current?.uid == fb.uid) || state.byId.containsKey(fb.uid);
 
     if (!already) {
       context.read<UserBloc>().add(UserFetchByIdRequested(fb.uid));
@@ -46,7 +46,7 @@ class _UserGreetingState extends State<UserGreeting> {
     return BlocSelector<UserBloc, UserState, UserData?>(
       selector: (state) {
         // Prioriza o "current"; se não for o mesmo uid, tenta o cache byId.
-        if (state.current?.id == fb.uid) return state.current;
+        if (state.current?.uid == fb.uid) return state.current;
         return state.byId[fb.uid];
       },
       builder: (context, user) {

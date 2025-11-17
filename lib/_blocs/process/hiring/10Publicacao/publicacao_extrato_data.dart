@@ -1,4 +1,7 @@
+// lib/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
+import 'package:siged/_utils/formats/converters_utils.dart';
 
 class PublicacaoExtratoData extends Equatable {
   // 1) Metadados
@@ -10,15 +13,15 @@ class PublicacaoExtratoData extends Equatable {
   // 2) Partes / Valores / Vigência
   final String? contratadaRazao;
   final String? contratadaCnpj;
-  final String? valor;
-  final String? vigencia;
+  final double? valor;      // ex.: 12345.67
+  final int? vigencia;      // ex.: 12 (meses)
   final String? cnoRef;
 
   // 3) Veículo
   final String? veiculo;
   final String? edicaoNumero;
-  final String? dataEnvio;
-  final String? dataPublicacao;
+  final DateTime? dataEnvio;
+  final DateTime? dataPublicacao;
   final String? linkPublicacao;
 
   // 4) Status / Prazos
@@ -27,7 +30,6 @@ class PublicacaoExtratoData extends Equatable {
   final String? observacoes;
 
   // 5) Responsável
-  final String? responsavelNome;
   final String? responsavelUserId;
 
   const PublicacaoExtratoData({
@@ -48,9 +50,14 @@ class PublicacaoExtratoData extends Equatable {
     this.status,
     this.prazoLegal,
     this.observacoes,
-    this.responsavelNome,
     this.responsavelUserId,
   });
+
+
+  // ---------------------------------------------------------------------------
+  // Map simples (sem seções)
+  // -> Datetime como Timestamp, numéricos como number, strings como string
+  // ---------------------------------------------------------------------------
 
   Map<String, dynamic> toFlatMap() => {
     // metadados
@@ -58,51 +65,103 @@ class PublicacaoExtratoData extends Equatable {
     'numeroContrato': numeroContrato,
     'processo': processo,
     'objetoResumo': objetoResumo,
+
     // partes/valores
     'contratadaRazao': contratadaRazao,
     'contratadaCnpj': contratadaCnpj,
-    'valor': valor,
-    'vigencia': vigencia,
+    'valor': valor, // double -> number
+    'vigencia': vigencia, // int -> number
     'cnoRef': cnoRef,
+
     // veículo
     'veiculo': veiculo,
     'edicaoNumero': edicaoNumero,
-    'dataEnvio': dataEnvio,
-    'dataPublicacao': dataPublicacao,
+    'dataEnvio':
+    dataEnvio != null ? Timestamp.fromDate(dataEnvio!) : null,
+    'dataPublicacao':
+    dataPublicacao != null ? Timestamp.fromDate(dataPublicacao!) : null,
     'linkPublicacao': linkPublicacao,
+
     // status
     'status': status,
     'prazoLegal': prazoLegal,
     'observacoes': observacoes,
+
     // responsável
-    'responsavelNome': responsavelNome,
     'responsavelUserId': responsavelUserId,
   };
 
   factory PublicacaoExtratoData.fromFlatMap(Map<String, dynamic>? map) {
     if (map == null) return const PublicacaoExtratoData();
     return PublicacaoExtratoData(
-      tipoExtrato: map['tipoExtrato'],
-      numeroContrato: map['numeroContrato'],
-      processo: map['processo'],
-      objetoResumo: map['objetoResumo'],
-      contratadaRazao: map['contratadaRazao'],
-      contratadaCnpj: map['contratadaCnpj'],
-      valor: map['valor'],
-      vigencia: map['vigencia'],
-      cnoRef: map['cnoRef'],
-      veiculo: map['veiculo'],
-      edicaoNumero: map['edicaoNumero'],
-      dataEnvio: map['dataEnvio'],
-      dataPublicacao: map['dataPublicacao'],
-      linkPublicacao: map['linkPublicacao'],
-      status: map['status'],
-      prazoLegal: map['prazoLegal'],
-      observacoes: map['observacoes'],
-      responsavelNome: map['responsavelNome'],
-      responsavelUserId: map['responsavelUserId'],
+      tipoExtrato: map['tipoExtrato'] as String?,
+      numeroContrato: map['numeroContrato'] as String?,
+      processo: map['processo'] as String?,
+      objetoResumo: map['objetoResumo'] as String?,
+
+      contratadaRazao: map['contratadaRazao'] as String?,
+      contratadaCnpj: map['contratadaCnpj'] as String?,
+      valor: ConvertersUtils.converterToDouble(map['valor']),
+      vigencia: ConvertersUtils.converterToInt(map['vigencia']),
+      cnoRef: map['cnoRef'] as String?,
+
+      veiculo: map['veiculo'] as String?,
+      edicaoNumero: map['edicaoNumero'] as String?,
+      dataEnvio: ConvertersUtils.converterToDate(map['dataEnvio']),
+      dataPublicacao: ConvertersUtils.converterToDate(map['dataPublicacao']),
+      linkPublicacao: map['linkPublicacao'] as String?,
+
+      status: map['status'] as String?,
+      prazoLegal: map['prazoLegal'] as String?,
+      observacoes: map['observacoes'] as String?,
+
+      responsavelUserId: map['responsavelUserId'] as String?,
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Seções (metadados/partes/veiculo/status/responsavel)
+  // -> mesma lógica: DateTime como Timestamp; numéricos como number
+  // ---------------------------------------------------------------------------
+
+  factory PublicacaoExtratoData.fromSectionsMap(
+      Map<String, Map<String, dynamic>> sections,
+      ) {
+    final m = sections['metadados'] ?? const <String, dynamic>{};
+    final p = sections['partes'] ?? const <String, dynamic>{};
+    final v = sections['veiculo'] ?? const <String, dynamic>{};
+    final s = sections['status'] ?? const <String, dynamic>{};
+    final r = sections['responsavel'] ?? const <String, dynamic>{};
+
+    return PublicacaoExtratoData(
+      tipoExtrato: m['tipoExtrato'] as String?,
+      numeroContrato: m['numeroContrato'] as String?,
+      processo: m['processo'] as String?,
+      objetoResumo: m['objetoResumo'] as String?,
+
+      contratadaRazao: p['contratadaRazao'] as String?,
+      contratadaCnpj: p['contratadaCnpj'] as String?,
+      valor: ConvertersUtils.converterToDouble(p['valor']),
+      vigencia: ConvertersUtils.converterToInt(p['vigencia']),
+      cnoRef: p['cnoRef'] as String?,
+
+      veiculo: v['veiculo'] as String?,
+      edicaoNumero: v['edicaoNumero'] as String?,
+      dataEnvio: ConvertersUtils.converterToDate(v['dataEnvio']),
+      dataPublicacao: ConvertersUtils.converterToDate(v['dataPublicacao']),
+      linkPublicacao: v['linkPublicacao'] as String?,
+
+      status: s['status'] as String?,
+      prazoLegal: s['prazoLegal'] as String?,
+      observacoes: s['observacoes'] as String?,
+
+      responsavelUserId: r['responsavelUserId'] as String?,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // copyWith
+  // ---------------------------------------------------------------------------
 
   PublicacaoExtratoData copyWith({
     String? tipoExtrato,
@@ -111,18 +170,17 @@ class PublicacaoExtratoData extends Equatable {
     String? objetoResumo,
     String? contratadaRazao,
     String? contratadaCnpj,
-    String? valor,
-    String? vigencia,
+    double? valor,
+    int? vigencia,
     String? cnoRef,
     String? veiculo,
     String? edicaoNumero,
-    String? dataEnvio,
-    String? dataPublicacao,
+    DateTime? dataEnvio,
+    DateTime? dataPublicacao,
     String? linkPublicacao,
     String? status,
     String? prazoLegal,
     String? observacoes,
-    String? responsavelNome,
     String? responsavelUserId,
   }) {
     return PublicacaoExtratoData(
@@ -143,7 +201,6 @@ class PublicacaoExtratoData extends Equatable {
       status: status ?? this.status,
       prazoLegal: prazoLegal ?? this.prazoLegal,
       observacoes: observacoes ?? this.observacoes,
-      responsavelNome: responsavelNome ?? this.responsavelNome,
       responsavelUserId: responsavelUserId ?? this.responsavelUserId,
     );
   }
@@ -167,7 +224,46 @@ class PublicacaoExtratoData extends Equatable {
     status,
     prazoLegal,
     observacoes,
-    responsavelNome,
     responsavelUserId,
   ];
+}
+
+// -----------------------------------------------------------------------------
+// Mapeamento p/ estrutura em seções (mesma usada no Firestore)
+// -----------------------------------------------------------------------------
+extension PublicacaoExtratoDataSections on PublicacaoExtratoData {
+  Map<String, Map<String, dynamic>> toSectionsMap() {
+    return {
+      'metadados': {
+        'tipoExtrato': tipoExtrato,
+        'numeroContrato': numeroContrato,
+        'processo': processo,
+        'objetoResumo': objetoResumo,
+      },
+      'partes': {
+        'contratadaRazao': contratadaRazao,
+        'contratadaCnpj': contratadaCnpj,
+        'valor': valor,        // double -> number
+        'vigencia': vigencia,  // int -> number
+        'cnoRef': cnoRef,
+      },
+      'veiculo': {
+        'veiculo': veiculo,
+        'edicaoNumero': edicaoNumero,
+        'dataEnvio':
+        dataEnvio != null ? Timestamp.fromDate(dataEnvio!) : null,
+        'dataPublicacao':
+        dataPublicacao != null ? Timestamp.fromDate(dataPublicacao!) : null,
+        'linkPublicacao': linkPublicacao,
+      },
+      'status': {
+        'status': status,
+        'prazoLegal': prazoLegal,
+        'observacoes': observacoes,
+      },
+      'responsavel': {
+        'responsavelUserId': responsavelUserId,
+      },
+    };
+  }
 }

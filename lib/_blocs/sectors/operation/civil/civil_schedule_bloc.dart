@@ -35,7 +35,6 @@ class CivilScheduleBloc extends Bloc<CivilScheduleEvent, CivilScheduleState> {
         error: null,
       ));
     } catch (err, st) {
-      debugPrint('loadAll error: $err\n$st');
       emit(state.copyWith(loadingMeta: false, loadingPolygons: false, error: '$err'));
     }
   }

@@ -21,69 +21,79 @@ class SectionMetadados extends StatefulWidget {
   State<SectionMetadados> createState() => _SectionMetadadosState();
 }
 
-class _SectionMetadadosState extends State<SectionMetadados> with FormValidationMixin {
-  double _w(BuildContext ctx, {int itemsPerLine = 4}) => responsiveInputWidth(
-    context: ctx, itemsPerLine: itemsPerLine, spacing: 12, margin: 12, extraPadding: 24,
-  );
-
+class _SectionMetadadosState extends State<SectionMetadados>
+    with FormValidationMixin {
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserBloc, List<UserData>>(
+          (b) => b.state.all,
+    );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionTitle('1) Metadados'),
-        Wrap(spacing: 12, runSpacing: 12, children: [
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.dgNumeroDossieCtrl,
-              labelText: 'Nº do dossiê (interno/SEI)',
-              enabled: c.isEditable,
-              validator: validateRequired,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.dgDataMontagemCtrl,
-              labelText: 'Data de montagem',
-              hintText: 'dd/mm/aaaa',
-              enabled: c.isEditable,
-              validator: validateRequired,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(8),
-                TextInputMask(mask: '99/99/9999'),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w4 = inputW4(context, constraints);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SectionTitle('1) Metadados'),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: w4,
+                  child: CustomTextField(
+                    controller: c.dgNumeroDossieCtrl,
+                    labelText: 'Nº do dossiê (interno/SEI)',
+                    enabled: c.isEditable,
+                    validator: validateRequired,
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: CustomTextField(
+                    controller: c.dgDataMontagemCtrl,
+                    labelText: 'Data de montagem',
+                    hintText: 'dd/mm/aaaa',
+                    enabled: c.isEditable,
+                    validator: validateRequired,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(8),
+                      TextInputMask(mask: '99/99/9999'),
+                    ],
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: AutocompleteUserClass(
+                    label: 'Responsável pela checagem',
+                    controller: c.dgResponsavelCtrl,
+                    allUsers: users,
+                    enabled: c.isEditable,
+                    initialUserId: c.dgResponsavelUserId,
+                    validator: validateRequired,
+                    onChanged: (uid) => c.dgResponsavelUserId = uid,
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: CustomTextField(
+                    controller: c.dgLinksPastaCtrl,
+                    labelText:
+                    'Link da pasta (SEI/Drive/Storage/PNCP)',
+                    enabled: c.isEditable,
+                  ),
+                ),
               ],
-              keyboardType: TextInputType.number,
             ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: AutocompleteUserClass(
-              label: 'Responsável pela checagem',
-              controller: c.dgResponsavelCtrl,
-              allUsers: users,
-              enabled: c.isEditable,
-              initialUserId: c.dgResponsavelUserId,
-              validator: validateRequired,
-              onChanged: (uid) => c.dgResponsavelUserId = uid,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.dgLinksPastaCtrl,
-              labelText: 'Link da pasta (SEI/Drive/Storage/PNCP)',
-              enabled: c.isEditable,
-            ),
-          ),
-        ]),
-        const SizedBox(height: 16),
-      ],
+            const SizedBox(height: 16),
+          ],
+        );
+      },
     );
   }
 }

@@ -193,7 +193,6 @@ class StorageOnlyBloc extends BlocBase {
       await _storage.ref(storagePath).delete();
       return true;
     } catch (e) {
-      debugPrint('StorageOnlyBloc.deleteByPath erro: $e');
       return false;
     }
   }
@@ -202,7 +201,6 @@ class StorageOnlyBloc extends BlocBase {
     try {
       return await _storage.ref(storagePath).getDownloadURL();
     } catch (e) {
-      debugPrint('StorageOnlyBloc.getDownloadUrlByPath erro: $e');
       return null;
     }
   }

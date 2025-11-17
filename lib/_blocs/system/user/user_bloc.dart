@@ -47,7 +47,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       final users = await repo.getAll();
       final byId = {
         for (final u in users)
-          if ((u.id ?? '').isNotEmpty) u.id!: u,
+          if ((u.uid ?? '').isNotEmpty) u.uid!: u,
       };
 
       emit(state.copyWith(
@@ -67,7 +67,6 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         emit(state.copyWith(currentBindEnabled: true));
       }
     } catch (err, st) {
-      if (kDebugMode) debugPrint('UserWarmup error: $err\n$st');
       emit(state.copyWith(isLoadingUsers: false, loadUsersError: '$err'));
     }
   }
@@ -96,7 +95,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       final users = await repo.getAll();
       final byId = {
         for (final u in users)
-          if ((u.id ?? '').isNotEmpty) u.id!: u,
+          if ((u.uid ?? '').isNotEmpty) u.uid!: u,
       };
       emit(state.copyWith(
         initialized: true,
@@ -106,7 +105,6 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         loadUsersError: '',
       ));
     } catch (err, st) {
-      if (kDebugMode) debugPrint('UsersRefresh error: $err\n$st');
       emit(state.copyWith(isLoadingUsers: false, loadUsersError: '$err'));
     }
   }
@@ -151,7 +149,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       if (u == null) return;
 
       final all = [...state.all];
-      final idx = all.indexWhere((x) => x.id == u.id);
+      final idx = all.indexWhere((x) => x.uid == u.uid);
       if (idx == -1) {
         all.add(u);
       } else {
@@ -159,11 +157,10 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       }
 
       final byId = Map<String, UserData>.from(state.byId);
-      if ((u.id ?? '').isNotEmpty) byId[u.id!] = u;
+      if ((u.uid ?? '').isNotEmpty) byId[u.uid!] = u;
 
       emit(state.copyWith(all: all, byId: byId));
     } catch (err, st) {
-      if (kDebugMode) debugPrint('UserFetchById error: $err\n$st');
       // silencioso
     }
   }
@@ -177,9 +174,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
 
       // atualiza cache local
       final all = [...state.all];
-      final id = (e.user.id ?? '').trim();
+      final id = (e.user.uid ?? '').trim();
       if (id.isNotEmpty) {
-        final idx = all.indexWhere((x) => x.id == id);
+        final idx = all.indexWhere((x) => x.uid == id);
         if (idx == -1) {
           all.add(e.user);
         } else {
@@ -190,11 +187,10 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       final byId = Map<String, UserData>.from(state.byId);
       if (id.isNotEmpty) byId[id] = e.user;
 
-      final current = (state.current?.id == id) ? e.user : state.current;
+      final current = (state.current?.uid == id) ? e.user : state.current;
 
       emit(state.copyWith(all: all, byId: byId, current: current));
     } catch (err, st) {
-      if (kDebugMode) debugPrint('UserSave error: $err\n$st');
       // opção: expor um erro específico de save no estado
     }
   }
@@ -206,7 +202,6 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     try {
       await repo.markNotificationSeen(e.uid, e.notificationId);
     } catch (err, st) {
-      if (kDebugMode) debugPrint('MarkNotificationSeen error: $err\n$st');
     }
   }
 
@@ -218,7 +213,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       ) {
     final byId = {
       for (final u in e.list)
-        if ((u.id ?? '').isNotEmpty) u.id!: u,
+        if ((u.uid ?? '').isNotEmpty) u.uid!: u,
     };
     emit(state.copyWith(all: e.list, byId: byId, loadUsersError: ''));
   }

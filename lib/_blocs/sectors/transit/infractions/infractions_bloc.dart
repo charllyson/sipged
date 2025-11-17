@@ -193,14 +193,12 @@ class InfractionsBloc extends BlocBase {
 
   // INSIRA no InfractionsBloc
   Future<void> debugYearSources(int year, {int sample = 5}) async {
-    debugPrint('====== DEBUG trafficInfractions/$year ======');
     final containers = await _db
         .collection('trafficInfractions')
         .where('year', isEqualTo: year)
         .get();
 
     if (containers.docs.isEmpty) {
-      debugPrint('Nenhum container para o ano $year.');
       return;
     }
 

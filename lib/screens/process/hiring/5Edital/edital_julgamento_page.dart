@@ -1,9 +1,11 @@
 // lib/screens/process/hiring/5Edital/edital_julgamento_page.dart
 import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+// Overlays / UI
 import 'package:siged/_widgets/overlays/screen_lock.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/gates/stage_gate.dart';
@@ -11,18 +13,19 @@ import 'package:siged/_widgets/progress/stage_progress.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_event.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_repository.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_state.dart';
+// Progress (etapas)
+import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/hiring_stages.dart';
-
-import 'package:siged/_blocs/process/hiring/5Edital/edital_julgamento_controller.dart';
+// Edital
 import 'package:siged/_blocs/process/hiring/5Edital/edital_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress_cubit.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
 
-// Seções extraídas
+// Seções
 import 'package:siged/screens/process/hiring/5Edital/section_1_divulgacao_recebimento.dart';
 import 'package:siged/screens/process/hiring/5Edital/section_2_sessao_julgamento.dart';
 import 'package:siged/screens/process/hiring/5Edital/section_3_propostas.dart';
@@ -31,13 +34,11 @@ import 'package:siged/screens/process/hiring/5Edital/section_5_parecer_recursos.
 import 'package:siged/screens/process/hiring/5Edital/section_6_resultado.dart';
 
 class EditalJulgamentoPage extends StatefulWidget {
-  final EditalJulgamentoController controller;
   final String contractId;
   final bool readOnly;
 
   const EditalJulgamentoPage({
     super.key,
-    required this.controller,
     required this.contractId,
     this.readOnly = false,
   });
@@ -52,10 +53,11 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   bool get wantKeepAlive => true;
 
   late final ProgressBloc _progressBloc;
+
+  EditalData _formData = const EditalData.empty();
   bool _hydrated = false;
   String? _currentEditalId;
 
-  // Scroll + ancora do resultado
   final _scrollCtrl = ScrollController();
   final _resultadoKey = GlobalKey();
 
@@ -63,21 +65,30 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   void initState() {
     super.initState();
     _progressBloc = ProgressBloc(repo: ProgressRepository());
-    widget.controller.addListener(_onControllerChanged);
 
+    // Dispara o load inicial do Edital
     context.read<EditalBloc>().add(EditalLoadRequested(widget.contractId));
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onControllerChanged);
     _scrollCtrl.dispose();
     _progressBloc.close();
     super.dispose();
   }
 
-  void _onControllerChanged() {
-    if (mounted) setState(() {});
+  /// Validação rápida (igual quickValidate antigo do controller)
+  String? _quickValidate(EditalData d) {
+    if (d.numero.trim().isEmpty) {
+      return 'Informe o número do edital/processo.';
+    }
+    if (d.modalidade.trim().isEmpty) {
+      return 'Selecione a modalidade.';
+    }
+    if (d.criterio.trim().isEmpty) {
+      return 'Selecione o critério de julgamento.';
+    }
+    return null;
   }
 
   Future<void> _scrollToResultado() async {
@@ -93,14 +104,30 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   }
 
   void _definirVencedorEIr(int index) {
-    widget.controller.definirVencedorPorIndice(index);
+    final propostas = _formData.propostasItems;
+    if (index < 0 || index >= propostas.length) return;
+
+    final p = propostas[index];
+    final licitante = (p['licitante'] ?? '').toString();
+    final cnpj = (p['cnpj'] ?? '').toString();
+    final valor = (p['valor'] ?? '').toString();
+
+    setState(() {
+      _formData = _formData.copyWith(
+        vencedor: licitante,
+        vencedorCnpj: cnpj,
+        valorVencedor: valor,
+        highlightWinner: true,
+      );
+    });
+
     _scrollToResultado();
   }
 
   Future<void> _saveOnly() async {
     final bloc = context.read<EditalBloc>();
 
-    final quick = widget.controller.quickValidate();
+    final quick = _quickValidate(_formData);
     if (quick != null) {
       NotificationCenter.instance.show(
         AppNotification(
@@ -121,10 +148,12 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
       }
     });
 
-    bloc.add(EditalSaveRequested(
-      contractId: widget.contractId,
-      sectionsData: widget.controller.toSectionMaps(),
-    ));
+    bloc.add(
+      EditalSaveRequested(
+        contractId: widget.contractId,
+        sectionsData: _formData.toSectionsMap(),
+      ),
+    );
 
     await completer.future;
 
@@ -154,7 +183,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final c = widget.controller..isEditable = !widget.readOnly;
+    final isEditable = !widget.readOnly;
 
     return BlocProvider.value(
       value: _progressBloc,
@@ -168,16 +197,21 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
           final needsHydrate = !_hydrated || _currentEditalId != incomingId;
 
           if (needsHydrate) {
-            c.fromSectionMaps(state.sectionsData);
-            _hydrated = true;
-            _currentEditalId = incomingId;
+            final data = EditalData.fromSectionsMap(state.sectionsData);
+            setState(() {
+              _formData = data;
+              _hydrated = true;
+              _currentEditalId = incomingId;
+            });
 
             if (incomingId != null && incomingId.isNotEmpty) {
-              _progressBloc.add(ProgressBindRequested(
-                contractId: widget.contractId,
-                collectionName: 'edital',
-                stageId: incomingId,
-              ));
+              _progressBloc.add(
+                ProgressBindRequested(
+                  contractId: widget.contractId,
+                  collectionName: 'edital',
+                  stageId: incomingId,
+                ),
+              );
             }
           }
         },
@@ -207,20 +241,57 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                       const BackgroundClean(),
                       SingleChildScrollView(
                         controller: _scrollCtrl,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SectionDivulgacaoRecebimento(controller: c),
-                            SectionSessaoJulgamento(controller: c),
+                            SectionDivulgacaoRecebimento(
+                              isEditable: isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            SectionSessaoJulgamento(
+                              isEditable: isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
                             SectionPropostas(
-                              controller: c,
+                              isEditable: isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                               onDefinirVencedorEIr: _definirVencedorEIr,
                             ),
-                            SectionLances(controller: c),
-                            SectionParecerRecursos(controller: c),
+                            const SizedBox(height: 12),
+                            SectionLances(
+                              isEditable: isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            SectionParecerRecursos(
+                              isEditable: isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
                             SectionResultado(
-                              controller: c,
+                              isEditable: isEditable,
+                              data: _formData,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
                               keyResultado: _resultadoKey,
                             ),
                           ],
@@ -228,7 +299,6 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                       ),
                     ],
                   ),
-
                   bottomNavigationBar:
                   BlocBuilder<ProgressBloc, ProgressState>(
                     builder: (context, p) {
@@ -248,7 +318,8 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                               AppNotification(
                                 title: const Text('Edital'),
                                 subtitle: const Text(
-                                    'Documento não encontrado para aprovar.'),
+                                  'Documento não encontrado para aprovar.',
+                                ),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -278,11 +349,12 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                               completed: true,
                             );
 
-                            // 🔹 Liberação otimista: Habilitação
                             final pipeline =
                             context.read<PipelineProgressCubit>();
                             pipeline.setStageEnabled(
-                                HiringStageKey.habilitacao, true);
+                              HiringStageKey.habilitacao,
+                              true,
+                            );
                             unawaited(pipeline.refresh());
 
                             final controller =
@@ -295,8 +367,9 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Edital'),
-                                subtitle:
-                                const Text('Aprovado e etapa concluída.'),
+                                subtitle: const Text(
+                                  'Aprovado e etapa concluída.',
+                                ),
                                 type: AppNotificationType.success,
                               ),
                             );
@@ -304,8 +377,9 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Edital'),
-                                subtitle:
-                                const Text('Erro ao aprovar a etapa.'),
+                                subtitle: const Text(
+                                  'Erro ao aprovar a etapa.',
+                                ),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),

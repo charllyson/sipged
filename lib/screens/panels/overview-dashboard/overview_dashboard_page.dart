@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 import 'package:siged/_widgets/list/resume/list_resumed.dart';
 import 'package:siged/_widgets/summary/summary_expandable_card.dart';
@@ -10,15 +11,17 @@ import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/screens/panels/measurement/measurement_selector_dates_section.dart';
-
-import '../../../../_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/upBar/up_bar.dart';
 
 import 'overview_dashboard_type.dart';
 import 'overview_dashboard_charts_row_one.dart';
-import '../../../_blocs/_process/process_controller.dart';
 import 'overview_dashboard_list.dart';
 import 'overview_dashboard_map.dart';
 import 'overview_dashboard_summary.dart';
+
+// 🔹 DFD via BLoC para pegar descricaoObjeto
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 
 class OverviewDashboardPage extends StatefulWidget {
   const OverviewDashboardPage({super.key});
@@ -57,10 +60,15 @@ class _OverviewDashboardPageState extends State<OverviewDashboardPage> {
                   OverviewDashboardTypeFiltered(controller: controller),
                   const SizedBox(height: 12),
 
+                  /// Linha 1 – gráficos principais
                   OverviewDashboardChartRowOne(controller: controller),
                   const SizedBox(height: 8),
+
+                  /// Linha 2 – gráficos secundários
                   OverviewDashboardChartRowTwo(controller: controller),
                   const SizedBox(height: 8),
+
+                  /// Mapa de regionais
                   DividerText(title: 'Mapa das Regionais'),
                   const SizedBox(height: 8),
                   SizedBox(
@@ -76,15 +84,20 @@ class _OverviewDashboardPageState extends State<OverviewDashboardPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
+
+                  /// Lista resumida de contratos filtrados
                   if (controller.houveInteracaoComFiltros &&
                       controller.filteredContracts.isNotEmpty)
                     ListResumed(contract: controller.filteredContracts),
+
                   const SizedBox(height: 8),
                   DividerText(
                     title: 'Resumo das Medições',
                     subtitle: '2018 - ${DateTime.now().year}',
                   ),
                   const SizedBox(height: 8),
+
+                  /// Cards de totais + seletor de datas
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     clipBehavior: Clip.none,
@@ -97,7 +110,7 @@ class _OverviewDashboardPageState extends State<OverviewDashboardPage> {
                           curve: Curves.easeInOut,
                           child: SummaryExpandableCard(
                             title: 'Totais em medições',
-                            subTitles: ['Medição','Reajuste','Revisão'],
+                            subTitles: const ['Medição', 'Reajuste', 'Revisão'],
                             icon: Icons.bar_chart_rounded,
                             colorIcon: const Color(0xFF4C6BFF),
                             valoresIndividuais: [
@@ -110,7 +123,6 @@ class _OverviewDashboardPageState extends State<OverviewDashboardPage> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // Seletor de datas (sem Expanded/Flexible aqui!)
                         MeasurementSelectorDatesSection(
                           allMeasurements: controller.allMeasurements,
                           initialYear: controller.selectedYear,
@@ -118,44 +130,54 @@ class _OverviewDashboardPageState extends State<OverviewDashboardPage> {
                           onSelectionChanged: (result) {
                             if (!mounted) return;
                             setState(() {
-                              controller.selectedYear  = result.selectedYear;
+                              controller.selectedYear = result.selectedYear;
                               controller.selectedMonth = result.selectedMonth;
-                              filteredMeasurements     = result.filteredItems;
-                              selectedPointIndex       = null;
-                              selectedContractSummary  = null;
+                              filteredMeasurements = result.filteredItems;
+                              selectedPointIndex = null;
+                              selectedContractSummary = null;
                             });
                           },
                         ),
-
                         const SizedBox(width: 12),
                       ],
                     ),
                   ),
                   const SizedBox(height: 8),
 
-                  // ------- Gráfico e lista -------
+                  /// Gráfico + lista de medições
                   MeasurementContractSection(
                     filteredMeasurements: filteredMeasurements,
                     selectedIndex: selectedPointIndex,
                     onPointTap: (index) async {
                       final measurement = filteredMeasurements[index];
-                      final contractId  = measurement.contractId;
+                      final contractId = measurement.contractId;
 
-                      String? resumo;
-                      if (contractId != null) {
-                        final contrato = await controller.store.getById(contractId);
-                        resumo = contrato?.summarySubject ?? 'Contrato não encontrado';
-                        if (contrato != null) controller.store.select(contrato);
+                      String resumo = 'Contrato não encontrado';
+
+                      if (contractId != null && contractId.isNotEmpty) {
+                        // 🔹 Busca o DFD para usar descricaoObjeto como resumo
+                        final dfdBloc = context.read<DfdBloc>();
+                        final DfdData? dfd =
+                        await dfdBloc.getDataForContract(contractId);
+
+                        resumo = dfd?.descricaoObjeto ?? 'Contrato não encontrado';
+
+                        // Continua selecionando o contrato no store,
+                        // mas sem usar campos legados.
+                        final contrato =
+                        await controller.store.getById(contractId);
+                        if (contrato != null) {
+                          controller.store.select(contrato);
+                        }
                       }
 
                       if (!mounted) return;
                       setState(() {
-                        selectedPointIndex      = index;
+                        selectedPointIndex = index;
                         selectedContractSummary = resumo;
                       });
                     },
                   ),
-
                   const SizedBox(height: 8),
 
                   OverviewDashboardList(

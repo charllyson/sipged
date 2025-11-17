@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_utils/colors/colors_system_change.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress_cubit.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
 
 class StageGate extends StatelessWidget {
   final String stageKey;

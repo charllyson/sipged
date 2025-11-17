@@ -3,17 +3,26 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_controller.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_services/geoJson/geojson_locations_service.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
+
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_widgets/layout/responsive_utils.dart';
 
 class SectionLocalizacao extends StatefulWidget {
-  final DfdController controller;
-  const SectionLocalizacao({super.key, required this.controller});
+  final bool isEditable;
+  final DfdData data;
+  final void Function(DfdData updated) onChanged;
+
+  const SectionLocalizacao({
+    super.key,
+    required this.isEditable,
+    required this.data,
+    required this.onChanged,
+  });
 
   @override
   State<SectionLocalizacao> createState() => _SectionLocalizacaoState();
@@ -21,46 +30,98 @@ class SectionLocalizacao extends StatefulWidget {
 
 class _SectionLocalizacaoState extends State<SectionLocalizacao>
     with FormValidationMixin {
+  // controllers
+  late final TextEditingController _ufCtrl;
+  late final TextEditingController _municipioCtrl;
+  late final TextEditingController _regionalCtrl;
+  late final TextEditingController _kmInicialCtrl;
+  late final TextEditingController _kmFinalCtrl;
+
+  // estado de UF / municípios
   List<String> _ufs = const [];
   List<String> _munisDaUf = const [];
   String? _ufSelecionada;
 
-  String? get _companyId => widget.controller.companyId;
-
-  // Para detectar mudanças vindas do controller após carregar do Firestore
-  String _lastUfFromController = '';
+  // company/region auxiliares
+  String? _companyId;
+  String? _regionDocId;
 
   @override
   void initState() {
     super.initState();
-    _initGeojsonUfMunicipios();
+    final d = widget.data;
 
-    // Escuta o controller para perceber quando fromSectionMaps() preencher UF/Município
-    widget.controller.addListener(_onControllerChanged);
+    _ufCtrl        = TextEditingController(text: d.uf);
+    _municipioCtrl = TextEditingController(text: d.municipio);
+    _regionalCtrl  = TextEditingController(text: d.regional ?? '');
+    _kmInicialCtrl = TextEditingController(text: d.kmInicial);
+    _kmFinalCtrl   = TextEditingController(text: d.kmFinal);
+
+    _initGeojsonUfMunicipios();
+    _resolveCompanyIdFromData();
+  }
+
+  @override
+  void didUpdateWidget(covariant SectionLocalizacao oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      final d = widget.data;
+
+      _ufCtrl.text        = d.uf;
+      _municipioCtrl.text = d.municipio;
+      _regionalCtrl.text  = d.regional ?? '';
+      _kmInicialCtrl.text = d.kmInicial;
+      _kmFinalCtrl.text   = d.kmFinal;
+
+      // se mudou orgaoDemandante, tenta achar novo companyId
+      if (oldWidget.data.orgaoDemandante != widget.data.orgaoDemandante) {
+        _resolveCompanyIdFromData();
+      }
+
+      // se mudou UF, ajusta seleção
+      _updateUfSelectionFromController();
+    }
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onControllerChanged);
+    _ufCtrl.dispose();
+    _municipioCtrl.dispose();
+    _regionalCtrl.dispose();
+    _kmInicialCtrl.dispose();
+    _kmFinalCtrl.dispose();
     super.dispose();
   }
 
-  void _onControllerChanged() {
-    final ufNow = widget.controller.dfdUFCtrl.text.trim().toUpperCase();
-    if (ufNow != _lastUfFromController) {
-      _lastUfFromController = ufNow;
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      uf:        _ufCtrl.text,
+      municipio: _municipioCtrl.text,
+      regional:  _regionalCtrl.text.isEmpty ? null : _regionalCtrl.text,
+      kmInicial: _kmInicialCtrl.text,
+      kmFinal:   _kmFinalCtrl.text,
+    );
+    widget.onChanged(updated);
+  }
 
-      if (ufNow.isNotEmpty && _ufs.contains(ufNow)) {
+  Future<void> _resolveCompanyIdFromData() async {
+    final label = widget.data.orgaoDemandante.trim();
+    if (label.isEmpty) return;
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('companies')
+          .where('companyName', isEqualTo: label)
+          .limit(1)
+          .get();
+
+      if (!mounted) return;
+      if (snap.docs.isNotEmpty) {
         setState(() {
-          _ufSelecionada = ufNow;
-          _munisDaUf = GeoJsonLocationsService.I.getMunicipios(_ufSelecionada);
-          final curMun = widget.controller.dfdMunicipioCtrl.text.trim();
-          if (!_munisDaUf.contains(curMun)) {
-            widget.controller.dfdMunicipioCtrl.text = '';
-          }
+          _companyId = snap.docs.first.id;
         });
       }
-    }
+    } catch (_) {}
   }
 
   Future<void> _initGeojsonUfMunicipios() async {
@@ -76,8 +137,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
       final ufs = GeoJsonLocationsService.I.ufs;
 
-      // Tenta usar a UF que já possa ter vindo do Firestore
-      final currentUf = widget.controller.dfdUFCtrl.text.trim().toUpperCase();
+      final currentUf = widget.data.uf.trim().toUpperCase();
       final selectedUf =
       ufs.contains(currentUf) ? currentUf : (ufs.isNotEmpty ? ufs.first : null);
 
@@ -86,28 +146,38 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
           : const <String>[];
 
       if (!mounted) return;
+
       setState(() {
         _ufs = ufs;
         _ufSelecionada = selectedUf;
-        // Atualiza controller com a UF selecionada (mantém se já válida)
-        widget.controller.dfdUFCtrl.text = selectedUf ?? '';
-        _lastUfFromController =
-            widget.controller.dfdUFCtrl.text.trim().toUpperCase();
+        _ufCtrl.text = selectedUf ?? '';
         _munisDaUf = munis;
 
-        final curMun = widget.controller.dfdMunicipioCtrl.text.trim();
+        final curMun = widget.data.municipio.trim();
         if (!_munisDaUf.contains(curMun)) {
-          widget.controller.dfdMunicipioCtrl.text = '';
+          _municipioCtrl.text = '';
         }
       });
-    } catch (e) {
-      debugPrint('Falha ao carregar GeoJSON UF/Municípios: $e');
+    } catch (_) {}
+  }
+
+  void _updateUfSelectionFromController() {
+    final ufNow = _ufCtrl.text.trim().toUpperCase();
+    if (ufNow.isNotEmpty && _ufs.contains(ufNow)) {
+      setState(() {
+        _ufSelecionada = ufNow;
+        _munisDaUf = GeoJsonLocationsService.I.getMunicipios(_ufSelecionada);
+        final curMun = _municipioCtrl.text.trim();
+        if (!_munisDaUf.contains(curMun)) {
+          _municipioCtrl.text = '';
+        }
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = widget.controller;
+    final d = widget.data;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,261 +185,119 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
         const SectionTitle('3) Localização / Escopo rodoviário'),
         LayoutBuilder(
           builder: (context, inner) {
-            const double gap = 12;
-            const double minItem = 180;
-            const int maxCols = 6;
-
-            final isMobile = inner.maxWidth <= 600;
-
-            if (isMobile) {
-              final full = inner.maxWidth;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  // UF
-                  SizedBox(
-                    width: full,
-                    child: DropDownButtonChange(
-                      key: ValueKey('uf-${c.dfdUFCtrl.text}'), // força rebuild com valor salvo
-                      width: full,
-                      labelText: 'UF',
-                      controller: c.dfdUFCtrl,
-                      enabled: c.isEditable,
-                      validator: validateRequired,
-                      items: _ufs,
-                      enableInlineDelete: false,
-                      onChanged: (v) {
-                        final uf = (v ?? '').trim().toUpperCase();
-                        setState(() {
-                          _ufSelecionada = uf.isEmpty ? null : uf;
-                          _munisDaUf =
-                              GeoJsonLocationsService.I.getMunicipios(_ufSelecionada);
-                          final curMun = c.dfdMunicipioCtrl.text.trim();
-                          if (!_munisDaUf.contains(curMun)) {
-                            c.dfdMunicipioCtrl.text = '';
-                          }
-                        });
-                      },
-                    ),
-                  ),
-
-                  // Município
-                  SizedBox(
-                    width: full,
-                    child: DropDownButtonChange(
-                      key: ValueKey(
-                          'mun-${c.dfdMunicipioCtrl.text}-${_ufSelecionada ?? ""}'),
-                      width: full,
-                      labelText: 'Município (principal)',
-                      controller: c.dfdMunicipioCtrl,
-                      enabled: c.isEditable && (_ufSelecionada != null),
-                      validator: validateRequired,
-                      items: _munisDaUf,
-                      enableInlineDelete: false,
-                    ),
-                  ),
-
-                  // Rodovia
-                  SizedBox(
-                    width: full,
-                    child: DropDownButtonChange(
-                      key: ValueKey('roads-${c.companyNonce}-${_companyId ?? "none"}'),
-                      width: full,
-                      labelText: 'Rodovia',
-                      tooltipMessage: _companyId == null ? 'Selecione o contratante' : null,
-                      controller: c.dfdRodoviaCtrl,
-                      items: const [],
-                      enabled: c.isEditable && _companyId != null,
-                      validator: validateRequired,
-                      firestore: FirebaseFirestore.instance,
-                      collectionPath: _companyId == null ? null : 'companies/${_companyId}/roads',
-                      labelField: 'name',
-                      idField: 'id',
-                      autoLoadWhenEmpty: true,
-                      allowDuplicates: false,
-                      buildFirestoreDoc: (id, label) => {
-                        'id': id,
-                        'name': label,
-                        'createdAt': FieldValue.serverTimestamp(),
-                        'createdBy': FirebaseAuth.instance.currentUser?.uid,
-                      },
-                      specialItemLabel: 'Adicionar rodovia',
-                      showSpecialWhenEmpty: true,
-                      showSpecialAlways: true,
-
-                      // 🔁 AQUI TAMBÉM:
-                      selectedId: c.roadId,
-                      onChangedIdLabel: (id, label) => c.setRoad(id: id, label: label),
-                    ),
-                  ),
-                  // KM inicial
-                  SizedBox(
-                    width: full,
-                    child: CustomTextField(
-                      controller: c.dfdKmInicialCtrl,
-                      enabled: c.isEditable,
-                      labelText: 'KM inicial',
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-
-                  // KM final
-                  SizedBox(
-                    width: full,
-                    child: CustomTextField(
-                      controller: c.dfdKmFinalCtrl,
-                      enabled: c.isEditable,
-                      labelText: 'KM final',
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-
-                  // Natureza da intervenção
-                  SizedBox(
-                    width: full,
-                    child: DropDownButtonChange(
-                      key: ValueKey('natureza-${c.dfdNaturezaIntervencaoValue ?? ""}'),
-                      enabled: c.isEditable,
-                      labelText: 'Natureza da intervenção',
-                      controller: TextEditingController(
-                          text: c.dfdNaturezaIntervencaoValue ?? ''),
-                      items: DfdData.typeOfService,
-                      onChanged: (v) => c.dfdNaturezaIntervencaoValue = v ?? '',
-                      validator: validateRequired,
-                    ),
-                  ),
-                ],
-              );
-            }
-
-            // Desktop layout
-            int cols = ((inner.maxWidth + gap) / (minItem + gap)).floor();
-            cols = cols.clamp(1, maxCols);
-            final double colW = (inner.maxWidth - (cols - 1) * gap) / cols;
-            double wSpan(int span) => colW * span + gap * (span - 1);
-
-            final ufSpan = cols >= 2 ? 1 : 1;
-            final muniSpan = cols >= 3 ? 2 : 1;
+            final w6 = inputW6(context, inner);
 
             return Wrap(
-              spacing: gap,
-              runSpacing: gap,
+              spacing: 12,
+              runSpacing: 12,
               children: [
                 // UF
                 SizedBox(
-                  width: wSpan(ufSpan),
+                  width: w6,
                   child: DropDownButtonChange(
-                    key: ValueKey('uf-${c.dfdUFCtrl.text}'),
-                    width: wSpan(ufSpan),
+                    key: ValueKey('uf-${d.uf}'),
+                    width: w6,
                     labelText: 'UF',
-                    controller: c.dfdUFCtrl,
-                    enabled: c.isEditable,
+                    controller: _ufCtrl,
+                    enabled: widget.isEditable,
                     validator: validateRequired,
                     items: _ufs,
                     enableInlineDelete: false,
                     onChanged: (v) {
                       final uf = (v ?? '').trim().toUpperCase();
-                      setState(() {
-                        _ufSelecionada = uf.isEmpty ? null : uf;
-                        _munisDaUf =
-                            GeoJsonLocationsService.I.getMunicipios(_ufSelecionada);
-                        final curMun = c.dfdMunicipioCtrl.text.trim();
-                        if (!_munisDaUf.contains(curMun)) {
-                          c.dfdMunicipioCtrl.text = '';
-                        }
-                      });
+                      _ufCtrl.text = uf;
+                      _updateUfSelectionFromController();
+                      _emitChange();
                     },
                   ),
                 ),
 
-                // Município
+                // Município principal
                 SizedBox(
-                  width: wSpan(muniSpan),
+                  width: w6,
                   child: DropDownButtonChange(
                     key: ValueKey(
-                        'mun-${c.dfdMunicipioCtrl.text}-${_ufSelecionada ?? ""}'),
-                    width: wSpan(muniSpan),
+                      'mun-${d.municipio}-${_ufSelecionada ?? ""}',
+                    ),
+                    width: w6,
                     labelText: 'Município (principal)',
-                    controller: c.dfdMunicipioCtrl,
-                    enabled: c.isEditable && (_ufSelecionada != null),
+                    controller: _municipioCtrl,
+                    enabled: widget.isEditable && (_ufSelecionada != null),
                     validator: validateRequired,
                     items: _munisDaUf,
                     enableInlineDelete: false,
+                    onChanged: (v) {
+                      _municipioCtrl.text = v ?? '';
+                      _emitChange();
+                    },
                   ),
                 ),
 
-                // Rodovia
+                // Regional / Área
                 SizedBox(
-                  width: wSpan(1),
+                  width: w6,
                   child: DropDownButtonChange(
-                    key: ValueKey('roads-${c.companyNonce}-${_companyId ?? "none"}'),
-                    width: wSpan(1),
-                    labelText: 'Rodovia',
-                    tooltipMessage: _companyId == null ? 'Selecione o contratante' : null,
-                    controller: c.dfdRodoviaCtrl,
+                    key: ValueKey(
+                      'regions-${widget.data.orgaoDemandante}-${_companyId ?? "none"}',
+                    ),
+                    width: w6,
+                    labelText: 'Regional/Área',
+                    tooltipMessage: _companyId == null
+                        ? 'Selecione o contratante na identificação'
+                        : null,
+                    controller: _regionalCtrl,
                     items: const [],
-                    enabled: c.isEditable && _companyId != null,
+                    enabled: widget.isEditable && _companyId != null,
                     validator: validateRequired,
                     firestore: FirebaseFirestore.instance,
-                    collectionPath: _companyId == null ? null : 'companies/${_companyId}/roads',
-                    labelField: 'name',
-                    idField: 'id',
+                    collectionPath: _companyId == null
+                        ? null
+                        : 'companies/${_companyId}/regions',
+                    labelField: 'regionName',
+                    idField: 'regionId',
                     autoLoadWhenEmpty: true,
                     allowDuplicates: false,
                     buildFirestoreDoc: (id, label) => {
-                      'id': id,
-                      'name': label,
+                      'regionId': id,
+                      'regionName': label,
                       'createdAt': FieldValue.serverTimestamp(),
-                      'createdBy': FirebaseAuth.instance.currentUser?.uid,
+                      'createdBy':
+                      FirebaseAuth.instance.currentUser?.uid,
                     },
-                    specialItemLabel: 'Adicionar rodovia',
+                    specialItemLabel: 'Adicionar regional/área',
                     showSpecialWhenEmpty: true,
                     showSpecialAlways: true,
-
-                    // 🔁 AQUI É A TROCA:
-                    selectedId: c.roadId,                           // antes: c.dfdRodoviaId
-                    onChangedIdLabel: (id, label) => c.setRoad(     // antes: c.setRodovia(...)
-                      id: id,
-                      label: label,
-                    ),
+                    selectedId: _regionDocId,
+                    onChangedIdLabel: (id, label) {
+                      _regionDocId = id;
+                      _regionalCtrl.text = label;
+                      _emitChange();
+                      setState(() {});
+                    },
                   ),
                 ),
 
                 // KM inicial
                 SizedBox(
-                  width: wSpan(1),
+                  width: w6,
                   child: CustomTextField(
-                    controller: c.dfdKmInicialCtrl,
-                    enabled: c.isEditable,
+                    controller: _kmInicialCtrl,
+                    enabled: widget.isEditable,
                     labelText: 'KM inicial',
                     keyboardType: TextInputType.number,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
 
                 // KM final
                 SizedBox(
-                  width: wSpan(1),
+                  width: w6,
                   child: CustomTextField(
-                    controller: c.dfdKmFinalCtrl,
-                    enabled: c.isEditable,
+                    controller: _kmFinalCtrl,
+                    enabled: widget.isEditable,
                     labelText: 'KM final',
                     keyboardType: TextInputType.number,
-                  ),
-                ),
-
-                // Natureza da intervenção
-                SizedBox(
-                  width: wSpan(1),
-                  child: DropDownButtonChange(
-                    key: ValueKey('natureza-${c.dfdNaturezaIntervencaoValue ?? ""}'),
-                    enabled: c.isEditable,
-                    labelText: 'Natureza da intervenção',
-                    controller: TextEditingController(
-                        text: c.dfdNaturezaIntervencaoValue ?? ''),
-                    items: DfdData.typeOfService,
-                    onChanged: (v) => c.dfdNaturezaIntervencaoValue = v ?? '',
-                    validator: validateRequired,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
               ],

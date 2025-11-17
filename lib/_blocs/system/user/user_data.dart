@@ -13,7 +13,7 @@ import 'package:siged/screens/menus/menu_drawer.dart';
 /// - lib/_utils/page_permission.dart  (Perms, checagem módulo/doc)
 class UserData extends ChangeNotifier {
   // ===== Identificação e perfil =====
-  String? id;
+  String? uid;
   String? name;
   String? surname;
   String? cpf;
@@ -122,7 +122,7 @@ class UserData extends ChangeNotifier {
   }
 
   UserData({
-    this.id,
+    this.uid,
     this.name,
     this.surname,
     this.cpf,
@@ -157,7 +157,7 @@ class UserData extends ChangeNotifier {
     }
 
     return UserData(
-      id: snapshot.id,
+      uid: snapshot.id,
       name: data['name'] as String?,
       surname: data['surname'] as String?,
       cpf: data['cpf'] as String?,

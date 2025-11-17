@@ -4,6 +4,9 @@ import 'package:siged/_services/firestore/cleanup/selective_delete_tile.dart';
 import 'package:siged/_services/firestore/migrate/migrateDocForSubCollection.dart';
 import 'package:siged/_services/firestore/migrate/migration.dart';
 import 'package:siged/_services/firestore/firebase_utils.dart';
+import 'package:siged/_widgets/tiles/tile_widget.dart';
+import 'package:siged/admPanel/firebase/settings_topic_firebase_page.dart';
+import 'package:siged/admPanel/migrations/firebase_migration_toolkit_page.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';
 import '../../_widgets/upBar/up_bar.dart';
@@ -11,9 +14,16 @@ import '../../_widgets/upBar/up_bar.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-class SettingsTopicMigracoesPage extends StatelessWidget {
+import 'migrar_contractstatus_para_status_contrato.dart';
+
+class SettingsTopicMigracoesPage extends StatefulWidget {
   const SettingsTopicMigracoesPage({super.key});
 
+  @override
+  State<SettingsTopicMigracoesPage> createState() => _SettingsTopicMigracoesPageState();
+}
+
+class _SettingsTopicMigracoesPageState extends State<SettingsTopicMigracoesPage> {
   @override
   Widget build(BuildContext context) {
     final topSafe = MediaQuery.of(context).padding.top;
@@ -51,11 +61,10 @@ class SettingsTopicMigracoesPage extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(16, topPadding, 16, 24),
                 children: [
                   _section('Migrações'),
-                  _tile(
-                    context,
+                  TileWidget(
                     title: 'Migrar documentos para subcoleção (custom)',
                     subtitle: 'Executa rotina migrarAcidentesPorAno()',
-                    icon: Icons.merge_type_outlined,
+                    leading: Icons.merge_type_outlined,
                     onTap: () async {
                       _loading(context);
                       try {
@@ -87,11 +96,72 @@ class SettingsTopicMigracoesPage extends StatelessWidget {
                       }
                     },
                   ),
-                  _tile(
-                    context,
+
+                  TileWidget(
                     title: 'Migrar coleções (widget)',
                     subtitle: 'Ferramenta visual para migrações complexas',
-                    icon: Icons.transfer_within_a_station_outlined,
+                    leading: Icons.transfer_within_a_station_outlined,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MigrationCollections()),
+                    ),
+                  ),
+
+                  TileWidget(
+                    title: 'Painel de migrações Firebase',
+                    subtitle: 'Migrar documentos de uma coleção para outra',
+                    leading: Icons.auto_fix_high_outlined,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FirebaseMigrationToolkitPage(),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  _section('Limpeza'),
+                  const CleanUpSubcollectionsTile(),
+                  TileWidget(
+                    title: 'Migrar documentos para subcoleção (custom)',
+                    subtitle: 'Executa rotina migrarAcidentesPorAno()',
+                    leading: Icons.merge_type_outlined,
+                    onTap: () async {
+                      _loading(context);
+                      try {
+                        await migrarAcidentesPorAno();
+                        if (context.mounted) {
+                          NotificationCenter.instance.show(
+                            AppNotification(
+                              title: const Text('Migração concluída com sucesso!'),
+                              type: AppNotificationType.success,
+                              leadingLabel: const Text('Firebase'),
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          NotificationCenter.instance.show(
+                            AppNotification(
+                              title: const Text('Erro na migração'),
+                              subtitle: Text('$e'),
+                              type: AppNotificationType.error,
+                              leadingLabel: const Text('Firebase'),
+                              duration: const Duration(seconds: 6),
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (context.mounted) Navigator.pop(context);
+                      }
+                    },
+                  ),
+                  TileWidget(
+                    title: 'Migrar coleções (widget)',
+                    subtitle: 'Ferramenta visual para migrações complexas',
+                    leading: Icons.transfer_within_a_station_outlined,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const MigrationCollections()),
@@ -105,11 +175,10 @@ class SettingsTopicMigracoesPage extends StatelessWidget {
                   SelectiveDeleteSubcollectionTile(),
                   const SizedBox(height: 12),
 
-                  _tile(
-                    context,
+                  TileWidget(
                     title: 'Apagar coleção inteira',
                     subtitle: 'Operação irreversível — cuidado!',
-                    icon: Icons.delete_forever_rounded,
+                    leading: Icons.delete_forever_rounded,
                     onTap: () async {
                       final path = await _askPath(context);
                       if (!context.mounted || path == null || path.isEmpty) return;
@@ -167,41 +236,6 @@ Widget _section(String text) => Padding(
     style: const TextStyle(fontSize: 13, color: Colors.black54),
   ),
 );
-
-Widget _tile(
-    BuildContext context, {
-      required String title,
-      required String subtitle,
-      required IconData icon,
-      required VoidCallback onTap,
-      Color? tileColor,
-    }) {
-  final bg = tileColor ?? Colors.white10;
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        hoverColor: Colors.black.withOpacity(0.04),
-        splashColor: Colors.black.withOpacity(0.08),
-        child: Container(
-          color: Colors.black12,
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            leading: Icon(icon),
-            title: Text(title),
-            subtitle: Text(subtitle),
-            trailing: const Icon(Icons.arrow_forward_ios),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ),
-    ),
-  );
-}
 
 Future<String?> _askPath(BuildContext context) async {
   final controller = TextEditingController();

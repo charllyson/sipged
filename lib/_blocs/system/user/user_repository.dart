@@ -48,9 +48,8 @@ class UserRepository {
 
   /// Salva/atualiza o usuário (id obrigatório no UserData)
   Future<void> save(UserData user) async {
-    final id = (user.id ?? '').trim();
+    final id = (user.uid ?? '').trim();
     if (id.isEmpty) {
-      if (kDebugMode) debugPrint('[UserRepository] save ignorado: id vazio');
       return;
     }
     final map = _normalizeUserMap(user.toMap());
@@ -108,10 +107,8 @@ class UserRepository {
   Future<void> debugPrintUser(String uid) async {
     final doc = await _userDoc(uid).get();
     if (!doc.exists) {
-      debugPrint('[DEBUG USER] $uid não encontrado.');
       return;
     }
     final data = doc.data();
-    debugPrint('[DEBUG USER] $uid -> ${data?['name']} ${data?['surname']} (${data?['email']})');
   }
 }

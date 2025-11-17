@@ -3,6 +3,7 @@
 // ==============================
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/validity/validity_controller.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
@@ -11,6 +12,11 @@ import 'package:siged/_widgets/footBar/foot_bar.dart';
 import 'package:siged/_widgets/timeline/timeline_class.dart';
 import 'validity_form_section.dart';
 import 'validity_table_section.dart';
+
+// 🔁 blocs necessários para o controller
+import 'package:siged/_blocs/_process/process_bloc.dart';
+import 'package:siged/_blocs/process/additives/additives_bloc.dart';
+import 'package:siged/_blocs/process/validity/validity_bloc.dart';
 
 class ValidityPage extends StatelessWidget {
   const ValidityPage({super.key, required this.contractData});
@@ -21,22 +27,38 @@ class ValidityPage extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmação'),
-        content: const Text('Deseja realmente salvar ou atualizar esta ordem?'),
+        content: const Text(
+          'Deseja realmente salvar ou atualizar esta ordem?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
         ],
       ),
-    ) ?? false;
+    ) ??
+        false;
   }
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ValidityController(contract: contractData),
+      // ✅ Agora o controller recebe os blocs obrigatórios
+      create: (ctx) => ValidityController(
+        contract: contractData,
+        contractsBloc: ctx.read<ProcessBloc>(),
+        additivesBloc: ctx.read<AdditivesBloc>(),
+        validityBloc: ctx.read<ValidityBloc>(),
+      ),
       builder: (context, _) {
         final c = context.read<ValidityController>();
-        WidgetsBinding.instance.addPostFrameCallback((_) => c.postFrameInit(context));
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => c.postFrameInit(context));
 
         return Stack(
           children: [
@@ -56,7 +78,9 @@ class ValidityPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
 
-                            const DividerText(title: 'Cadastrar validades no sistema'),
+                            const DividerText(
+                              title: 'Cadastrar validades no sistema',
+                            ),
                             const SizedBox(height: 12),
 
                             // Form + SideListBox (multi-anexos com rótulo)
@@ -87,14 +111,21 @@ class ValidityPage extends StatelessWidget {
 
                               sideItems: ctrl.sideItems,
                               selectedSideIndex: ctrl.selectedSideIndex,
-                              onAddSideItem: ctrl.canAddFile ? () => ctrl.addFile(context) : null,
-                              onTapSideItem: (i) => ctrl.openFileAt(context, i),
-                              onDeleteSideItem: (i) => ctrl.deleteFileAt(i, context),
-                              onEditLabelSideItem: (i) => ctrl.editLabelFile(i, context),
+                              onAddSideItem: ctrl.canAddFile
+                                  ? () => ctrl.addFile(context)
+                                  : null,
+                              onTapSideItem: (i) =>
+                                  ctrl.openFileAt(context, i),
+                              onDeleteSideItem: (i) =>
+                                  ctrl.deleteFileAt(i, context),
+                              onEditLabelSideItem: (i) =>
+                                  ctrl.editLabelFile(i, context),
                             ),
 
                             const SizedBox(height: 12),
-                            const DividerText(title: 'Validades cadastradas no sistema'),
+                            const DividerText(
+                              title: 'Validades cadastradas no sistema',
+                            ),
                             const SizedBox(height: 12),
 
                             // Tabela (com destaque da linha selecionada)
@@ -103,7 +134,9 @@ class ValidityPage extends StatelessWidget {
                               onTapItem: ctrl.fillFields,
                               onDelete: (id) async {
                                 final ok = await _confirm(context);
-                                if (ok) await ctrl.deleteValidity(context, id);
+                                if (ok) {
+                                  await ctrl.deleteValidity(context, id);
+                                }
                               },
                               selectedItem: ctrl.selectedValidityData,
                             ),
@@ -116,6 +149,8 @@ class ValidityPage extends StatelessWidget {
                 const FootBar(),
               ],
             ),
+
+            // Overlay de carregamento global
             Consumer<ValidityController>(
               builder: (_, ctrl, __) => ctrl.isSaving
                   ? const Center(child: CircularProgressIndicator())

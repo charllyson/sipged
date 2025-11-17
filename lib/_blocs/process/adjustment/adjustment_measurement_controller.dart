@@ -105,9 +105,9 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
 
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
-      final prevId = _currentUser?.id;
+      final prevId = _currentUser?.uid;
       _currentUser = st.current;
-      final nowId = _currentUser?.id;
+      final nowId = _currentUser?.uid;
       final newEditable = _canEditUser(_currentUser);
       if (newEditable != isEditable || prevId != nowId) {
         isEditable = newEditable;
@@ -358,7 +358,7 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
         path: '',
         ext: '.pdf',
         createdAt: DateTime.now(),
-        createdBy: _currentUser?.id,
+        createdBy: _currentUser?.uid,
       );
       final list = <Attachment>[att];
       await _adjustmentBloc.setAttachments(
@@ -488,7 +488,7 @@ class AdjustmentMeasurementController extends ChangeNotifier with FormValidation
         createdAt: att.createdAt,
         createdBy: att.createdBy,
         updatedAt: DateTime.now(),
-        updatedBy: _currentUser?.id,
+        updatedBy: _currentUser?.uid,
       );
 
       await _adjustmentBloc.setAttachments(

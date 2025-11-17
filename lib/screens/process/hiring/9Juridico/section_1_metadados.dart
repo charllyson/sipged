@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:siged/_widgets/input/custom_date_field.dart';
+
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
@@ -12,11 +14,12 @@ import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_controlle
 class SectionMetadados extends StatelessWidget with FormValidationMixin {
   final ParecerJuridicoController controller;
   final List<UserData> users;
-  SectionMetadados({super.key, required this.controller, required this.users});
 
-  double _w(BuildContext ctx, {int itemsPerLine = 4}) => responsiveInputWidth(
-    context: ctx, itemsPerLine: itemsPerLine, spacing: 12, margin: 12, extraPadding: 24,
-  );
+  SectionMetadados({
+    super.key,
+    required this.controller,
+    required this.users,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,55 +28,62 @@ class SectionMetadados extends StatelessWidget with FormValidationMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionTitle('1) Metadados'),
-        Wrap(spacing: 12, runSpacing: 12, children: [
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.pjNumeroCtrl,
-              labelText: 'Nº do parecer',
-              enabled: c.isEditable,
-              validator: validateRequired,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.pjDataCtrl,
-              labelText: 'Data do parecer',
-              hintText: 'dd/mm/aaaa',
-              enabled: c.isEditable,
-              validator: validateRequired,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(8),
-                TextInputMask(mask: '99/99/9999'),
+        const SectionTitle('1) Metadados'),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final w4 = inputW4(context, constraints);
+
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                SizedBox(
+                  width: w4,
+                  child: CustomTextField(
+                    controller: c.pjNumeroCtrl,
+                    labelText: 'Nº do parecer',
+                    enabled: c.isEditable,
+                    validator: validateRequired,
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: CustomDateField(
+                    controller: c.pjDataCtrl,
+                    labelText: 'Data do parecer',
+                    enabled: c.isEditable,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(8),
+                      TextInputMask(mask: '99/99/9999'),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: CustomTextField(
+                    controller: c.pjOrgaoJuridicoCtrl,
+                    labelText: 'Órgão/Unidade jurídica',
+                    enabled: c.isEditable,
+                    validator: validateRequired,
+                  ),
+                ),
+                SizedBox(
+                  width: w4,
+                  child: AutocompleteUserClass(
+                    label: 'Parecerista',
+                    controller: c.pjPareceristaCtrl,
+                    allUsers: users,
+                    enabled: c.isEditable,
+                    initialUserId: c.pjPareceristaUserId,
+                    onChanged: (u) => c.pjPareceristaUserId = u,
+                    validator: validateRequired,
+                  ),
+                ),
               ],
-              keyboardType: TextInputType.number,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: CustomTextField(
-              controller: c.pjOrgaoJuridicoCtrl,
-              labelText: 'Órgão/Unidade jurídica',
-              enabled: c.isEditable,
-              validator: validateRequired,
-            ),
-          ),
-          SizedBox(
-            width: _w(context),
-            child: AutocompleteUserClass(
-              label: 'Parecerista',
-              controller: c.pjPareceristaCtrl,
-              allUsers: users,
-              enabled: c.isEditable,
-              initialUserId: c.pjPareceristaUserId,
-              onChanged: (u) => c.pjPareceristaUserId = u,
-              validator: validateRequired,
-            ),
-          ),
-        ]),
+            );
+          },
+        ),
         const SizedBox(height: 16),
       ],
     );

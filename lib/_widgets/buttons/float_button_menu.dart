@@ -79,7 +79,6 @@ class _Button extends StatelessWidget {
             if (scaffold != null) {
               scaffold.openDrawer();
             } else {
-              debugPrint('FloatButtonMenu: Nenhum Scaffold com drawer encontrado.');
             }
           },
           containedInkWell: true,

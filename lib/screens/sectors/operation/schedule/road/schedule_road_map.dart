@@ -229,7 +229,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     final out = <TappableChangedPolyline>[];
 
     for (int fi = 0; fi < lanes.length; fi++) {
-      final label = lanes[fi].label.toString().toUpperCase();
+      final label = lanes[fi].labelText.toString().toUpperCase();
 
       // ===== identifica lado (LE / LD / CE) =====
       String side;

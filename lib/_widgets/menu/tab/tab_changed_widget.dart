@@ -1,22 +1,12 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
-import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'package:siged/_blocs/_process/process_bloc.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/_process/process_store.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
 import 'package:siged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
-import 'package:siged/_widgets/list/search/search_user_permission_widget.dart';
-
-// permissões globais & por documento
-import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
-import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 
 import 'package:siged/_widgets/menu/tab/tab_blocked.dart';
 import 'package:siged/_widgets/menu/tab/tab_banner.dart';
@@ -29,9 +19,12 @@ class ContractTabDescriptor {
   /// Se true, a aba mostra um bloqueio quando o contrato não foi salvo (id == null)
   final bool requireSavedContract;
 
+  final String? textBanner;
+
   const ContractTabDescriptor({
     required this.label,
     required this.builder,
+    this.textBanner,
     this.requireSavedContract = false,
   });
 }
@@ -101,6 +94,8 @@ class TabChangedWidget extends StatefulWidget {
   // Resolver selo por aba
   final ResolveStampForTab? resolveStampForTab;
 
+  final String? textBanner;
+
   const TabChangedWidget({
     super.key,
     this.userData,
@@ -125,6 +120,7 @@ class TabChangedWidget extends StatefulWidget {
     this.tabAlignment = TabAlignment.start,
     this.trailing = const PopUpPhotoMenu(),
     this.resolveStampForTab,
+    this.textBanner,
   });
 
   @override
@@ -167,7 +163,7 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
                       builder: (context) {
                         final tabController = DefaultTabController.of(context);
                         return AnimatedBuilder(
-                          animation: tabController!,
+                          animation: tabController,
                           builder: (context, _) {
                             final idx = tabController.index;
                             final c = _contractData!;
@@ -179,8 +175,7 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
 
                             return TabBanner(
                               contract: c,
-                              titleBuilder: widget.bannerTitleBuilder,
-                              // Selo ao fim do banner (não altera o resto)
+                              titleText: widget.textBanner,
                               showStamp: cfg.show,
                               stampApproved: cfg.approved,
                               stampApprovedLabel:

@@ -1,14 +1,57 @@
 // lib/screens/process/hiring/1Dfd/dfd_sections/section_8_observacoes.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_controller.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/input/dropdown_yes_no.dart';
+import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 
-class SectionObservacoes extends StatelessWidget {
-  final DfdController controller;
-  const SectionObservacoes({super.key, required this.controller});
+class SectionObservacoes extends StatefulWidget {
+  final bool isEditable;
+  final DfdData data;
+  final void Function(DfdData updated) onChanged;
+
+  const SectionObservacoes({
+    super.key,
+    required this.isEditable,
+    required this.data,
+    required this.onChanged,
+  });
+
+  @override
+  State<SectionObservacoes> createState() => _SectionObservacoesState();
+}
+
+class _SectionObservacoesState extends State<SectionObservacoes> {
+  late final TextEditingController _observacoesCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _observacoesCtrl =
+        TextEditingController(text: widget.data.observacoes);
+  }
+
+  @override
+  void didUpdateWidget(covariant SectionObservacoes oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _observacoesCtrl.text = widget.data.observacoes;
+    }
+  }
+
+  @override
+  void dispose() {
+    _observacoesCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      observacoes: _observacoesCtrl.text,
+    );
+    widget.onChanged(updated);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,18 +59,21 @@ class SectionObservacoes extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionTitle('8) Observações'),
-        LayoutBuilder(builder: (context, inner) {
-          final w1 = inputWidth(context: context, inner: inner, perLine: 1, minItemWidth: 400);
-          return SizedBox(
-            width: w1,
-            child: CustomTextField(
-              controller: controller.dfdObservacoesCtrl,
-              enabled: controller.isEditable,
-              labelText: 'Observações complementares',
-              maxLines: 4,
-            ),
-          );
-        }),
+        LayoutBuilder(
+          builder: (context, inner) {
+            return SizedBox(
+              width: inputW1(context, inner),
+              child: CustomTextField(
+                controller: _observacoesCtrl,
+                enabled: widget.isEditable,
+                labelText: 'Observações complementares',
+                maxLines: 4,
+                onChanged: (_) => _emitChange(),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
       ],
     );
   }

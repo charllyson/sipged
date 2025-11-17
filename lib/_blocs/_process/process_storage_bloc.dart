@@ -23,7 +23,7 @@ class ProcessStorageBloc extends BlocBase {
       s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
   String fileName(ProcessData c) {
-    final n = _sanitize(c.contractNumber ?? 'contrato');
+    final n = _sanitize('contrato');
     return '$n-.pdf';
   }
 
@@ -168,7 +168,6 @@ class ProcessStorageBloc extends BlocBase {
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
     } catch (e) {
-      debugPrint('Erro ao salvar URL do PDF do contrato no Firestore: $e');
     }
   }
 
@@ -179,7 +178,6 @@ class ProcessStorageBloc extends BlocBase {
       });
       return true;
     } catch (e) {
-      debugPrint('Erro ao remover urlContractPdf: $e');
       return false;
     }
   }
@@ -342,7 +340,6 @@ class ProcessStorageBloc extends BlocBase {
       await ref.delete();
       return true;
     } catch (e) {
-      debugPrint('deleteByUrl erro: $e');
       return false;
     }
   }

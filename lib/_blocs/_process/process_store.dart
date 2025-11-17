@@ -1,402 +1,154 @@
-// lib/screens/commons/listContracts/contracts_store.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 
-import 'package:siged/_blocs/_process/process_bloc.dart';
-import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/_process/process_storage_bloc.dart';
+import 'process_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
-// 🔹 DFD: para status/região vindos das seções
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
-
-/// Store de processos com:
-/// - Warmup idempotente por usuário
-/// - Cache local por id
-/// - Upsert/refresh seguros (notify pós-frame)
-/// - Integração com Storage (PDF) + Firestore
-/// - Status/Região vindos **exclusivamente** do DFD (identificação/localização)
+/// Store central de contratos (ProcessData).
+/// Mantém um cache em memória e avisa listeners via ChangeNotifier.
 class ProcessStore extends ChangeNotifier {
-  // ===== Injeções =====
-  final ProcessBloc bloc;               // Firestore (CRUD, permissões, consultas)
-  final ProcessStorageBloc storageBloc; // Storage (upload/exists/url/delete)
-  final DfdRepository dfdRepo;          // Leitura leve do DFD
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  ProcessStore(
-      this.bloc,
-      this.storageBloc, {
-        DfdRepository? dfdRepository,
-      }) : dfdRepo = dfdRepository ?? DfdRepository();
+  bool loading = false;
+  bool initialized = false;
 
-  bool _loading = false;
-  bool get loading => _loading;
-
-  bool _initialized = false;
-  bool get initialized => _initialized;
-
-  List<ProcessData> _all = const [];
-  List<ProcessData> get all => _all;
-
+  final List<ProcessData> _all = [];
   ProcessData? _selected;
+
+  /// Lista imutável de contratos carregados
+  List<ProcessData> get all => List.unmodifiable(_all);
+
+  /// Contrato atualmente selecionado (quando aplicável)
   ProcessData? get selected => _selected;
 
-  final Map<String, ProcessData> _cache = {};
-  UserData? _currentUser;
-
-  /// Status/Região vindos do DFD
-  /// key = contractId/processId
-  final Map<String, String?> _dfdStatusById = {};
-  final Map<String, String?> _dfdRegionalById = {};
-
-  // --------- notifyListeners seguro (evita setState/markNeedsBuild durante build)
-  void _notifySafe() {
-    final phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.transientCallbacks ||
-        phase == SchedulerPhase.persistentCallbacks ||
-        phase == SchedulerPhase.postFrameCallbacks) {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (hasListeners) notifyListeners();
-      });
-    } else {
-      if (hasListeners) notifyListeners();
-    }
-  }
-
-  // ========= Carregamento / Warmup =========
-
-  /// Carrega 1x por usuário (idempotente) e cacheia todos.
-  /// Também pré-carrega status/região via DFD.
+  /// Warmup inicial, chamado uma única vez a partir do MenuListPage.
+  /// Usa o usuário atual para aplicar ACL básica (admin vê tudo).
   Future<void> warmup(UserData currentUser) async {
-    if (_initialized && _currentUser?.id == currentUser.id && _all.isNotEmpty) return;
-
-    _currentUser = currentUser;
-    _loading = true;
-    _notifySafe();
-
-    final lista = await bloc.getFilteredContracts(currentUser: currentUser);
-    _setAll(lista);
-
-    // 🔹 Pré-carrega status/região do DFD para os processos da lista
-    await _preloadDfdLightFields(lista);
-
-    _loading = false;
-    _initialized = true;
-    _notifySafe();
+    if (initialized) return;
+    await refresh(currentUser: currentUser);
+    initialized = true;
   }
 
-  /// Força recarga do Firestore (mantém item selecionado, se houver).
-  Future<void> refresh() async {
-    if (_currentUser == null) return;
-    _loading = true;
-    _notifySafe();
+  /// Recarrega a lista de contratos do Firestore.
+  /// Se `currentUser` for informado, aplica filtro de ACL.
+  Future<void> refresh({UserData? currentUser}) async {
+    if (loading) return;
 
-    final lista = await bloc.getFilteredContracts(currentUser: _currentUser!);
-    _setAll(lista);
+    loading = true;
+    notifyListeners();
 
-    // 🔹 Atualiza cache de status/região via DFD
-    await _preloadDfdLightFields(lista);
+    try {
+      final snapshot = await _db.collection('contracts').get();
 
-    if (_selected != null) {
-      final id = _selected!.id;
-      _selected = (id != null) ? _cache[id] : null;
-    }
+      final List<ProcessData> loaded = [];
 
-    _loading = false;
-    _notifySafe();
-  }
-
-  void _setAll(List<ProcessData> lista) {
-    _all = List.unmodifiable(lista);
-    _cache
-      ..clear()
-      ..addEntries(_all.where((c) => c.id != null).map((c) => MapEntry(c.id!, c)));
-  }
-
-  /// 🔹 Pré-carrega statusContrato / regional a partir do DFD
-  Future<void> _preloadDfdLightFields(List<ProcessData> lista) async {
-    _dfdStatusById.clear();
-    _dfdRegionalById.clear();
-
-    for (final c in lista) {
-      final id = c.id;
-      if (id == null || id.isEmpty) continue;
-
-      try {
-        // status + tipoObra + extensaoKm
-        final leve = await dfdRepo.readLightFields(id);
-        _dfdStatusById[id] = leve.status;
-
-        // regional
-        final reg = await dfdRepo.readRegionalLabel(id);
-        _dfdRegionalById[id] = reg;
-      } catch (_) {
-        // Falha em um item não deve quebrar o carregamento global
+      for (final doc in snapshot.docs) {
+        try {
+          loaded.add(ProcessData.fromDocument(snapshot: doc));
+        } catch (e, st) {
+          if (kDebugMode) {
+            // Se UM documento der erro, não derrubamos a lista inteira
+            print(
+              'ProcessStore.refresh: erro ao converter contrato ${doc.id}: $e\n$st',
+            );
+          }
+        }
       }
-    }
-  }
 
-  // ========= Seleção =========
+      final filtered = _applyAclFilter(loaded, currentUser);
 
-  /// Seleciona e garante presença na lista/cache.
-  /// Obs.: se `c` estiver sem id (temporário), ele entra na lista;
-  /// após salvar, o upsert removerá provisórios e manterá apenas o salvo.
-  void select(ProcessData c) {
-    if (c.id != null) _cache[c.id!] = c;
-
-    final idx = c.id == null ? -1 : _all.indexWhere((e) => e.id == c.id);
-    if (idx == -1) {
-      _all = List.unmodifiable([..._all, c]);
-    } else {
-      final tmp = [..._all];
-      tmp[idx] = c;
-      _all = List.unmodifiable(tmp);
-    }
-    _selected = c;
-    _notifySafe();
-  }
-
-  void clearSelection() {
-    _selected = null;
-    _notifySafe();
-  }
-
-  // ========= CRUD via Bloc (com cache local) =========
-
-  /// Salva/atualiza processo via Firestore e reflete no cache/local.
-  Future<ProcessData> saveOrUpdate(ProcessData c) async {
-    final saved = await bloc.salvarOuAtualizarContrato(c);
-    upsert(saved);
-
-    // 🔹 Atualiza status/região do DFD para este id especificamente
-    final id = saved.id;
-    if (id != null && id.isNotEmpty) {
-      try {
-        final leve = await dfdRepo.readLightFields(id);
-        _dfdStatusById[id] = leve.status;
-        final reg = await dfdRepo.readRegionalLabel(id);
-        _dfdRegionalById[id] = reg;
-      } catch (_) {
-        // ignore
+      _all
+        ..clear()
+        ..addAll(filtered);
+    } catch (e, st) {
+      if (kDebugMode) {
+        // Ajuda em debug caso algo dê MUITO errado na leitura
+        print('ProcessStore.refresh error: $e\n$st');
       }
-      _notifySafe();
-    }
-
-    return saved;
-  }
-
-  /// Atualiza a URL do PDF no Firestore e sincroniza o item no cache.
-  Future<void> salvarUrlPdfDoContrato(String contractId, String url) async {
-    await storageBloc.salvarUrlPdfDoContrato(contractId, url);
-    // Atualiza item do cache/lista
-    final atualizado = await bloc.getContractById(contractId);
-    if (atualizado != null) {
-      upsert(atualizado);
+    } finally {
+      loading = false;
+      notifyListeners();
     }
   }
 
-  /// Busca por id com cache (útil p/ deep-link).
+  /// Aplica regra simples de ACL:
+  /// - administrador vê tudo
+  /// - demais veem apenas contratos onde possuem permissionContractId[uid]['read'] == true
+  List<ProcessData> _applyAclFilter(
+      List<ProcessData> source,
+      UserData? user,
+      ) {
+    if (user == null) return source;
+
+    final baseProfile = (user.baseProfile ?? '').toLowerCase();
+    if (baseProfile == 'administrador' || baseProfile == 'admin') {
+      return source;
+    }
+
+    final uid = user.uid;
+    if (uid == null || uid.isEmpty) return source;
+
+    return source.where((p) {
+      final perms = p.permissionContractId[uid];
+      if (perms == null) return false;
+      final canRead = perms['read'] ?? false;
+      return canRead;
+    }).toList();
+  }
+
+  /// Seleciona um contrato para uso em outras telas
+  void select(ProcessData process) {
+    _selected = process;
+    notifyListeners();
+  }
+
+  /// Remove um contrato do Firestore e do cache local.
+  Future<void> delete(String id) async {
+    try {
+      await _db.collection('contracts').doc(id).delete();
+    } catch (e, st) {
+      if (kDebugMode) {
+        print('ProcessStore.delete Firestore error: $e\n$st');
+      }
+      // Mesmo que o delete remoto falhe, ainda removemos do cache
+    }
+
+    _all.removeWhere((p) => p.id == id);
+    if (_selected?.id == id) {
+      _selected = null;
+    }
+    notifyListeners();
+  }
+
+  ProcessData? _findInCache(String id) {
+    try {
+      return _all.firstWhere((p) => (p.id ?? '') == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Obtém contrato por ID usando primeiro o cache local.
+  /// Se não encontrar, tenta buscar 1x no Firestore, adiciona ao cache e devolve.
   Future<ProcessData?> getById(String id) async {
-    if (_cache.containsKey(id)) return _cache[id];
+    if (id.isEmpty) return null;
 
-    final c = await bloc.getContractById(id);
-    if (c != null) {
-      _cache[id] = c;
-      final idx = _all.indexWhere((e) => e.id == id);
-      if (idx == -1) {
-        _all = List.unmodifiable([..._all, c]);
-      } else {
-        final tmp = [..._all];
-        tmp[idx] = c;
-        _all = List.unmodifiable(tmp);
+    final cached = _findInCache(id);
+    if (cached != null) return cached;
+
+    try {
+      final doc = await _db.collection('contracts').doc(id).get();
+      if (!doc.exists) return null;
+
+      final process = ProcessData.fromDocument(snapshot: doc);
+      _all.add(process);
+      notifyListeners();
+      return process;
+    } catch (e, st) {
+      if (kDebugMode) {
+        print('ProcessStore.getById error: $e\n$st');
       }
-
-      // 🔹 Garante que status/região via DFD sejam carregados para esse id
-      try {
-        final leve = await dfdRepo.readLightFields(id);
-        _dfdStatusById[id] = leve.status;
-        final reg = await dfdRepo.readRegionalLabel(id);
-        _dfdRegionalById[id] = reg;
-      } catch (_) {
-        // ignore
-      }
-
-      _notifySafe();
+      return null;
     }
-    return c;
-  }
-
-  /// Upsert em memória (sem re-fetch).
-  /// Remove itens provisórios (sem id) para evitar duplicatas após salvar.
-  void upsert(ProcessData c) {
-    if (c.id != null) _cache[c.id!] = c;
-
-    // Remove provisórios (sem id) antes de inserir/atualizar
-    final tmp = [..._all]..removeWhere((e) => e.id == null);
-
-    final idx = c.id == null ? -1 : tmp.indexWhere((e) => e.id == c.id);
-    if (idx == -1) {
-      tmp.add(c);
-    } else {
-      tmp[idx] = c;
-    }
-    _all = List.unmodifiable(tmp);
-
-    if (_selected?.id == c.id) _selected = c;
-    _notifySafe();
-  }
-
-  /// Após deletar (somente em memória).
-  void removeById(String id) {
-    _cache.remove(id);
-    final tmp = [..._all]..removeWhere((e) => e.id == id);
-    _all = List.unmodifiable(tmp);
-    if (_selected?.id == id) _selected = null;
-
-    // Remove também do cache DFD
-    _dfdStatusById.remove(id);
-    _dfdRegionalById.remove(id);
-
-    _notifySafe();
-  }
-
-  // ========= DELETE (Firestore + opcional Storage) =========
-
-  /// Deleta o processo no Firestore e remove do store.
-  /// Se [deleteFiles] for `true`, tenta remover o PDF do Storage e limpar a URL.
-  Future<void> delete(String id, {bool deleteFiles = false}) async {
-    ProcessData? c = _cache[id] ?? await bloc.getContractById(id);
-
-    if (deleteFiles && c != null) {
-      try {
-        await deletePdfAndClearUrl(c);
-      } catch (_) {
-        // Falha ao deletar arquivos não deve impedir a exclusão do doc.
-      }
-    }
-
-    // Importante: primeiro exclui no Firestore…
-    await bloc.deleteContract(id);
-
-    // …depois remove do cache/lista
-    removeById(id);
-  }
-
-  /// Atalho para deletar passando o objeto.
-  Future<void> deleteBy(ProcessData c, {bool deleteFiles = false}) async {
-    final id = c.id;
-    if (id == null || id.isEmpty) return;
-    await delete(id, deleteFiles: deleteFiles);
-  }
-
-  /// Upload via seletor (Web) e já salva a URL no Firestore; atualiza cache.
-  Future<String?> uploadPdfAndSaveUrl({
-    required ProcessData c,
-    void Function(double progress)? onProgress,
-  }) async {
-    if (c.id == null) throw Exception('Contrato precisa estar salvo para anexar PDF.');
-    final url = await storageBloc.uploadWithPicker(
-      contract: c,
-      onProgress: onProgress ?? (_) {},
-    );
-    await salvarUrlPdfDoContrato(c.id!, url);
-    return url;
-  }
-
-  /// Deleta o PDF do Storage e limpa a URL no Firestore; atualiza cache.
-  Future<bool> deletePdfAndClearUrl(ProcessData c) async {
-    final okStorage = await storageBloc.delete(c);
-    if (okStorage && c.id != null) {
-      await storageBloc.removeUrlPdfDoContrato(c.id!);
-      final atualizado = await bloc.getContractById(c.id!);
-      if (atualizado != null) upsert(atualizado);
-    }
-    return okStorage;
-  }
-
-  // ========= Utils de comparação/normalização =========
-
-  bool _strEq(String? a, String? b) =>
-      (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
-
-  bool _listContainsIgnoreCase(Iterable<String>? list, String? value) {
-    if (list == null || value == null || value.isEmpty) return false;
-    final v = value.trim().toUpperCase();
-    for (final s in list) {
-      final t = (s).trim().toUpperCase();
-      if (t == v) return true;
-      if (t.contains(v)) return true; // fallback “contains”
-    }
-    return false;
-  }
-
-  Iterable<String> _normalizeRegions(dynamic regionOfState) sync* {
-    if (regionOfState == null) return;
-    if (regionOfState is String) {
-      final s = regionOfState.trim();
-      if (s.isNotEmpty) yield s;
-      return;
-    }
-    if (regionOfState is Iterable) {
-      for (final e in regionOfState) {
-        if (e == null) continue;
-        final s = e.toString().trim();
-        if (s.isNotEmpty) yield s;
-      }
-      return;
-    }
-    // Caso excepcional: converte qualquer outro tipo em string
-    final s = regionOfState.toString().trim();
-    if (s.isNotEmpty) yield s;
-  }
-
-  // ========= Filtros em memória =========
-
-  /// `status` e `regionContains` vêm **apenas** do DFD:
-  /// - statusContrato (identificacao.statusContrato)
-  /// - regional (identificacao/regional ou localização/regional)
-  List<ProcessData> filter({
-    String? status,
-    String? company,
-    String? regionContains,
-    String? searchText,
-  }) {
-    Iterable<ProcessData> r = _all;
-
-    if (status != null && status.isNotEmpty) {
-      r = r.where((c) {
-        final id = c.id;
-        if (id == null || id.isEmpty) return false;
-        final statusFromDfd = _dfdStatusById[id];
-        if (statusFromDfd == null || statusFromDfd.trim().isEmpty) return false;
-        return _strEq(statusFromDfd, status);
-      });
-    }
-
-    if (company != null && company.isNotEmpty) {
-      // company ainda vem do próprio ProcessData (raiz)
-      r = r.where((c) => _strEq(c.companyLeader, company));
-    }
-
-    if (regionContains != null && regionContains.isNotEmpty) {
-      r = r.where((c) {
-        final id = c.id;
-        if (id == null || id.isEmpty) return false;
-
-        final regionSource = _dfdRegionalById[id];
-        if (regionSource == null || regionSource.trim().isEmpty) return false;
-
-        final regions = _normalizeRegions(regionSource);
-        return _listContainsIgnoreCase(regions, regionContains);
-      });
-    }
-
-    if (searchText != null && searchText.isNotEmpty) {
-      final s = searchText.toUpperCase();
-      r = r.where((c) =>
-      (c.summarySubject ?? '').toUpperCase().contains(s) ||
-          (c.contractNumber ?? '').toUpperCase().contains(s) ||
-          (c.companyLeader ?? '').toUpperCase().contains(s));
-    }
-    return r.toList(growable: false);
   }
 }

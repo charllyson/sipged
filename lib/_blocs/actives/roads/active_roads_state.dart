@@ -11,10 +11,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
 import 'package:siged/_blocs/actives/roads/active_road_style.dart';
 import 'package:siged/_blocs/actives/roads/active_road_rules.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
 
 enum ActiveRoadsLoadStatus { idle, loading, success, failure }
 
@@ -196,13 +196,13 @@ class ActiveRoadsState extends Equatable {
     return map;
   }
 
-  List<({String code, String label, double value, Color color})> get _pieItems {
+  List<({String code, Color color, String labelText, double value})> get _pieItems {
     final sums = _sumExtBySurfaceInRegion;
     return _surfaceCodesOrder.map((code) {
       final km = (sums[code] ?? 0.0);
       return (
       code: code,
-      label: _labelForSurface(code),
+      labelText: _labelForSurface(code),
       value: km,
       color: ActiveRoadsStyle.colorForSurface(code)
       );
@@ -210,7 +210,7 @@ class ActiveRoadsState extends Equatable {
   }
 
   List<String> get pieLabelsForChart =>
-      _pieItems.map((e) => e.label).toList(growable: false);
+      _pieItems.map((e) => e.labelText).toList(growable: false);
   List<double> get pieValuesForChart =>
       _pieItems.map((e) => e.value).toList(growable: false);
   List<Color> get pieColorsForChart =>
@@ -266,7 +266,7 @@ class ActiveRoadsState extends Equatable {
   // ===========================================================================
   // REGIÕES — soma de extensão (km)
   // ===========================================================================
-  List<String> get regionLabels => DfdData.regions;
+  List<String> get regionLabels => HiringData.regions;
 
   List<double> get regionSumsKm {
     final values = <double>[];

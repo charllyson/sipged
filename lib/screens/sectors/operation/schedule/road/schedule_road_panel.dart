@@ -42,7 +42,10 @@ class ScheduleRoadPanel extends StatefulWidget {
 }
 
 class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
-  Future<void> _openEditLanes(BuildContext context, ScheduleRoadState st) async {
+  Future<void> _openEditLanes(
+      BuildContext context,
+      ScheduleRoadState st,
+      ) async {
     final rows = await showDialog<List<ScheduleLaneClass>>(
       context: context,
       barrierDismissible: false,
@@ -54,7 +57,9 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
     );
 
     if (rows != null && context.mounted) {
-      context.read<ScheduleRoadBloc>().add(ScheduleLanesSaveRequested(rows));
+      context.read<ScheduleRoadBloc>().add(
+        ScheduleLanesSaveRequested(rows),
+      );
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Faixas atualizadas'),
@@ -78,18 +83,21 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
             final canEdit = widget.enabled && !st.loadingLanes;
 
             // ------- Dados do Pie (garantindo valores válidos) -------
-            final double vConcluido  = (st.pctConcluido  ?? 0).isFinite ? (st.pctConcluido  ?? 0) : 0;
-            final double vAndamento  = (st.pctAndamento ?? 0).isFinite ? (st.pctAndamento ?? 0) : 0;
-            final double vAIniciar   = (st.pctAIniciar  ?? 0).isFinite ? (st.pctAIniciar  ?? 0) : 0;
+            final double vConcluido =
+            (st.pctConcluido ?? 0).isFinite ? (st.pctConcluido ?? 0) : 0;
+            final double vAndamento =
+            (st.pctAndamento ?? 0).isFinite ? (st.pctAndamento ?? 0) : 0;
+            final double vAIniciar =
+            (st.pctAIniciar ?? 0).isFinite ? (st.pctAIniciar ?? 0) : 0;
 
             final labels = const ['Concluído', 'Em andamento', 'A iniciar'];
             final values = <double>[vConcluido, vAndamento, vAIniciar];
 
             // Cores padrão (consistentes com status)
             final cores = <Color>[
-              Colors.green.shade600,   // Concluído
-              Colors.amber.shade700,   // Em andamento
-              Colors.blueGrey.shade400 // A iniciar
+              Colors.green.shade600, // Concluído
+              Colors.amber.shade700, // Em andamento
+              Colors.blueGrey.shade400, // A iniciar
             ];
 
             return Padding(
@@ -99,7 +107,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                   // ===================== Header / SubHeader =====================
                   ScheduleHeader(
                     title: st.titleForHeader.isEmpty
-                        ? (widget.contract.summarySubject ?? 'Cronograma')
+                        ? (st.summarySubjectContract ?? 'Cronograma')
                         : st.titleForHeader,
                     colorStripe: st.colorForHeader,
                     leftPadding: 0,
@@ -109,22 +117,20 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                   // ===================== Pie de Status =====================
                   PieChartChanged(
                     colorCard: Colors.white,
-                    valueFormatType: ValueFormatType.decimal, // valores são percentuais (somando ~100)
+                    valueFormatType: ValueFormatType.decimal,
                     labels: labels,
                     values: values,
                     coresPersonalizadas: cores,
-                    selectedIndex: null,          // você pode controlar seleção externa se quiser
-                    larguraGrafico: null,         // expande conforme o card
-                    alturaCard: null,             // altura dinâmica do card
-                    chartHeight: 220,             // altura do pie
-                    sliceRadius: 52,              // raio base
-                    sliceRadiusHighlighted: 60,   // raio destacado
-                    centerSpaceRadius: 42,        // donut center
-                    sectionsSpace: 2,             // espaço entre fatias
+                    selectedIndex: null,
+                    larguraGrafico: null,
+                    alturaCard: null,
+                    chartHeight: 220,
+                    sliceRadius: 52,
+                    sliceRadiusHighlighted: 60,
+                    centerSpaceRadius: 42,
+                    sectionsSpace: 2,
                     onTouch: (idx) {
                       // opcional: reagir à seleção da fatia
-                      // ex.: filtrar board/linhas pelo status tocado
-                      // idx == 0 -> Concluído; 1 -> Em andamento; 2 -> A iniciar
                     },
                   ),
 
@@ -136,14 +142,16 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                       OutlinedButton.icon(
                         icon: const Icon(Icons.edit_note),
                         label: const Text('Editar faixas'),
-                        onPressed: canEdit ? () => _openEditLanes(context, st) : null,
+                        onPressed:
+                        canEdit ? () => _openEditLanes(context, st) : null,
                       ),
                       const SizedBox(width: 12),
                       if (st.loadingLanes)
                         const Padding(
                           padding: EdgeInsets.only(left: 4),
                           child: SizedBox(
-                            width: 18, height: 18,
+                            width: 18,
+                            height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
                         ),
@@ -154,11 +162,17 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                   // ===================== Informações do contrato/serviço =====================
                   Text(
                     st.summarySubjectContract ?? 'Contrato',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _kv('ContractId', st.contractId ?? '-'),
-                  _kv('Serviço atual', st.titleForHeader.isEmpty ? 'GERAL' : st.titleForHeader),
+                  _kv(
+                    'Serviço atual',
+                    st.titleForHeader.isEmpty ? 'GERAL' : st.titleForHeader,
+                  ),
                   _kv('Qtd. faixas', '${st.lanes.length}'),
                   _kv('Estacas (20 m)', '${st.totalEstacas}'),
                 ],
@@ -178,7 +192,10 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
         children: [
           SizedBox(
             width: 140,
-            child: Text(k, style: const TextStyle(color: Colors.black54)),
+            child: Text(
+              k,
+              style: const TextStyle(color: Colors.black54),
+            ),
           ),
           Expanded(child: Text(v)),
         ],

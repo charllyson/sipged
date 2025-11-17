@@ -162,9 +162,9 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
 
     _userSub?.cancel();
     _userSub = userBloc.stream.listen((st) {
-      final prevId = currentUser?.id;
+      final prevId = currentUser?.uid;
       currentUser = st.current;
-      final nowId = currentUser?.id;
+      final nowId = currentUser?.uid;
 
       final newEditable = _canEditUser(currentUser);
       if (newEditable != isEditable || prevId != nowId) {
@@ -435,7 +435,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
         path: '',
         ext: '.pdf',
         createdAt: DateTime.now(),
-        createdBy: currentUser?.id,
+        createdBy: currentUser?.uid,
       );
       await _paymentReportBloc.setAttachments(
         contractId: contract!.id!,
@@ -467,7 +467,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
               ?.group(0) ??
               '',
           createdAt: DateTime.now(),
-          createdBy: currentUser?.id,
+          createdBy: currentUser?.uid,
         ))
             .toList();
         await _paymentReportBloc.setAttachments(
@@ -571,7 +571,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
         createdAt: att.createdAt,
         createdBy: att.createdBy,
         updatedAt: DateTime.now(),
-        updatedBy: currentUser?.id,
+        updatedBy: currentUser?.uid,
       );
 
       await _paymentReportBloc.setAttachments(

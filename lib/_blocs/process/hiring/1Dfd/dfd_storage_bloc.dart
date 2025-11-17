@@ -1,10 +1,18 @@
+// lib/_blocs/process/hiring/1Dfd/dfd_storage_bloc.dart
+
 import 'dart:io';
+
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
+
 import 'package:siged/_widgets/list/files/attachment.dart';
 
-/// Agora os anexos ficam em:
-/// contracts/{contractId}/dfd/{dfdId}/documentos/{documentosId}/files/{file}
+/// Anexos do DFD:
+///   contracts/{contractId}/dfd/{dfdId}/documentos/{documentosId}/files/{file}
+///
+/// Com a nova metodologia:
+///   dfdId        -> normalmente "main"
+///   documentosId -> normalmente "main"
 class DfdStorageBloc {
   final FirebaseStorage storage = FirebaseStorage.instance;
 
@@ -20,19 +28,23 @@ class DfdStorageBloc {
     required String dfdId,
     required String documentosId,
   }) async {
-    final ref = storage.ref(_filesPath(
-      contractId: contractId,
-      dfdId: dfdId,
-      documentosId: documentosId,
-    ));
+    final ref = storage.ref(
+      _filesPath(
+        contractId: contractId,
+        dfdId: dfdId,
+        documentosId: documentosId,
+      ),
+    );
+
     final result = await ref.listAll();
 
-    final List<Attachment> list = [];
-    for (final item in result.items) {
-      final url = await item.getDownloadURL(); // precisa de await
-      list.add(Attachment(label: item.name, url: url));
-    }
-    return list;
+    // Busca URLs em paralelo (melhor performance)
+    final futures = result.items.map((item) async {
+      final url = await item.getDownloadURL();
+      return Attachment(label: item.name, url: url);
+    }).toList();
+
+    return Future.wait(futures);
   }
 
   Future<Attachment> uploadFile({
@@ -46,19 +58,26 @@ class DfdStorageBloc {
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
     );
+
     if (picked == null || picked.files.isEmpty) {
       throw Exception('Nenhum arquivo selecionado');
     }
+
     final filePath = picked.files.single.path;
-    if (filePath == null) throw Exception('Arquivo inválido');
+    if (filePath == null) {
+      throw Exception('Arquivo inválido');
+    }
 
     final file = File(filePath);
     final name = picked.files.single.name;
-    final ref = storage.ref('${_filesPath(
-      contractId: contractId,
-      dfdId: dfdId,
-      documentosId: documentosId,
-    )}/$name');
+
+    final ref = storage.ref(
+      '${_filesPath(
+        contractId: contractId,
+        dfdId: dfdId,
+        documentosId: documentosId,
+      )}/$name',
+    );
 
     final upload = ref.putFile(file);
     upload.snapshotEvents.listen((e) {
@@ -80,11 +99,13 @@ class DfdStorageBloc {
     required String fileName,
   }) async {
     try {
-      final ref = storage.ref('${_filesPath(
-        contractId: contractId,
-        dfdId: dfdId,
-        documentosId: documentosId,
-      )}/$fileName');
+      final ref = storage.ref(
+        '${_filesPath(
+          contractId: contractId,
+          dfdId: dfdId,
+          documentosId: documentosId,
+        )}/$fileName',
+      );
       await ref.delete();
       return true;
     } catch (_) {

@@ -20,8 +20,9 @@ import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/_process/process_controller.dart';
 
-// <<< NOVO: leitura de extensão via DFD >>>
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+// <<< AJUSTE: ler extensão via DFD usando BLoC, sem repository >>>
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 
 class SpecificDashboardChartRowOne extends StatelessWidget {
   final DemandsDashboardController controller;
@@ -63,18 +64,20 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
     return 'a_iniciar';
   }
 
-  // ===== Extensão via DFD =====
-  Future<double> _readExtentKmFromDfd(String contractId) {
+  // ===== Extensão via DFD (BLoC) =====
+  Future<double> _readExtentKmFromDfd(BuildContext context, String contractId) {
     if (_extKmCache.containsKey(contractId)) return _extKmCache[contractId]!;
+
     final future = () async {
       try {
-        final repo = DfdRepository();
-        final res = await repo.readWorkTypeAndExtent(contractId);
-        return (res.extensaoKm ?? 0.0).toDouble();
+        final dfdBloc = context.read<DfdBloc>();
+        final DfdData? dfd = await dfdBloc.getDataForContract(contractId);
+        return (dfd?.extensaoKm ?? 0.0).toDouble();
       } catch (_) {
         return 0.0;
       }
     }();
+
     _extKmCache[contractId] = future;
     return future;
   }
@@ -84,7 +87,9 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
   _loadServicePercents(BuildContext context) {
     final contractId = contract.id ?? '';
     if (contractId.isEmpty) {
-      return Future.value((labels: <String>[], values: <double>[], colors: <Color>[]));
+      return Future.value(
+        (labels: <String>[], values: <double>[], colors: <Color>[]),
+      );
     }
     final cached = _barCache[contractId];
     if (cached != null) return cached;
@@ -108,8 +113,8 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
 
     final lanes = await repo.loadFaixas(contractId);
 
-    // <<< AJUSTE: usa extensão somente do DFD >>>
-    final km = await _readExtentKmFromDfd(contractId);
+    // Extensão vinda SOMENTE do DFD (via BLoC)
+    final km = await _readExtentKmFromDfd(context, contractId);
     final totalEstacas = max(0, ((km * 1000) / 20).ceil());
 
     final List<String> labels = <String>[];
@@ -118,7 +123,8 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
 
     for (final s in services) {
       final serviceKey = s.key.toLowerCase();
-      final enabledLaneCount = lanes.where((l) => l.isAllowed(serviceKey)).length;
+      final enabledLaneCount =
+          lanes.where((l) => l.isAllowed(serviceKey)).length;
       final totalEsperado = totalEstacas * enabledLaneCount;
 
       double pct = 0.0;
@@ -149,9 +155,11 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
 
       labels.add((s.label.isNotEmpty ? s.label : s.key).toUpperCase());
       values.add(pct);
-      colors.add(ScheduleRoadStyle.colorForService(
-        s.label.isNotEmpty ? s.label : s.key,
-      ));
+      colors.add(
+        ScheduleRoadStyle.colorForService(
+          s.label.isNotEmpty ? s.label : s.key,
+        ),
+      );
     }
 
     return (labels: labels, values: values, colors: colors);
@@ -181,8 +189,7 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
             kLeadingPadding + kPieWidth + kBetweenPieRadar + kRadarWidth + kBetweenRadarBar + kTrailingPadding + kAfterPadding;
 
         const double kBarMinWidth = 600;
-        final double barWidth =
-        (constraints.maxWidth > totalFixed)
+        final double barWidth = (constraints.maxWidth > totalFixed)
             ? (constraints.maxWidth - totalFixed)
             : kBarMinWidth;
 
@@ -197,7 +204,11 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
                 width: kPieWidth,
                 child: BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
                   builder: (context, state) {
-                    const pieLabels = <String>['Concluído', 'Em andamento', 'A iniciar'];
+                    const pieLabels = <String>[
+                      'Concluído',
+                      'Em andamento',
+                      'A iniciar'
+                    ];
                     final pieValues = <double>[
                       state.pctConcluido,
                       state.pctAndamento,
@@ -242,7 +253,8 @@ class SpecificDashboardChartRowOne extends StatelessWidget {
               // BARRAS por serviço (% concluído)
               SizedBox(
                 width: barWidth,
-                child: FutureBuilder<({List<String> labels, List<double> values, List<Color> colors})>(
+                child: FutureBuilder<
+                    ({List<String> labels, List<double> values, List<Color> colors})>(
                   future: _loadServicePercents(context),
                   builder: (context, snap) {
                     if (!snap.hasData) {

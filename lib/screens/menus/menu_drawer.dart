@@ -183,7 +183,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
       data: ThemeData.dark().copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         leading: Icon(icon, color: Colors.white),
-        title: Text(label, style: const TextStyle(color: Colors.white)),
+        title: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
         iconColor: Colors.white,
         collapsedIconColor: Colors.white,
         children: visible

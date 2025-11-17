@@ -2,8 +2,8 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_style.dart';
 
 // 👇 GeoJSON
@@ -158,18 +158,18 @@ class ActiveOaesState extends Equatable {
     return all.indexWhere((o) => (o.score ?? -1).toInt() == scoreInt);
   }
 
-  List<({int score, String label, double value, Color color})> get _pieItems {
+  List<({Color color, String labelText, int score, double value})> get _pieItems {
     final counts = _countByScore;
     return _pieScoresOrder.map((score) {
       final qtd = counts[score] ?? 0;
       final label = OaesDataStyle.getLabelByNota(score);
       final color = OaesDataStyle.getColorByNota(score.toDouble());
-      return (score: score, label: label, value: qtd.toDouble(), color: color);
+      return (score: score, labelText: label, value: qtd.toDouble(), color: color);
     }).toList(growable: false);
   }
 
   List<String> get pieLabelsForChart =>
-      _pieItems.map((e) => e.label).toList(growable: false);
+      _pieItems.map((e) => e.labelText).toList(growable: false);
 
   List<double> get pieValuesForChart =>
       _pieItems.map((e) => e.value).toList(growable: false);
@@ -216,7 +216,7 @@ class ActiveOaesState extends Equatable {
   // ===========================================================================
   // REGIÕES (Bar Chart)
   // ===========================================================================
-  List<String> get regionLabels => DfdData.regions;
+  List<String> get regionLabels => HiringData.regions;
 
   List<double> get regionCounts {
     final labels = regionLabels;

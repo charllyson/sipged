@@ -35,7 +35,7 @@ class InlineAutocomplete extends StatelessWidget {
               });
             },
             displayStringForOption: (u) =>
-            (u.name?.isNotEmpty ?? false) ? '${u.name} (${u.email ?? ''})' : (u.email ?? u.id ?? ''),
+            (u.name?.isNotEmpty ?? false) ? '${u.name} (${u.email ?? ''})' : (u.email ?? u.uid ?? ''),
             onSelected: onSelected,
             fieldViewBuilder: (context, textController, focusNode, _) {
               return CustomTextField(
@@ -70,7 +70,7 @@ class InlineAutocomplete extends StatelessWidget {
                                 ? const Icon(Icons.person, color: Colors.grey)
                                 : null,
                           ),
-                          title: Text(u.name ?? u.email ?? u.id ?? 'Usuário'),
+                          title: Text(u.name ?? u.email ?? u.uid ?? 'Usuário'),
                           subtitle: (u.email?.isNotEmpty ?? false) ? Text(u.email!) : null,
                         );
                       },

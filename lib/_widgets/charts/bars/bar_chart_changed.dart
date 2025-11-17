@@ -63,7 +63,8 @@ class _BarChartChangedState extends State<BarChartChanged> {
   @override
   Widget build(BuildContext context) {
     final hasLengthMismatch = widget.labels.length != widget.values.length;
-    final allNull = widget.values.isEmpty || widget.values.every((v) => v == null);
+    final allNull =
+        widget.values.isEmpty || widget.values.every((v) => v == null);
 
     if (hasLengthMismatch || allNull) {
       return _noData();
@@ -85,20 +86,31 @@ class _BarChartChangedState extends State<BarChartChanged> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             double chartWidth;
-            double? computedBarWidth = widget.widthBar;
+            final double baseBarWidth = widget.widthBar ?? 60;
+            double? computedBarWidth = baseBarWidth;
 
             if (widget.expandToMaxWidth) {
               chartWidth = constraints.maxWidth;
-              // espaço restante para as barras depois de descontar o espaçamento entre elas
-              final available = chartWidth - (spacingExtra * totalBars);
-              computedBarWidth = max(2.0, available / totalBars); // evita barras zeradas/negativas
+
+              // Espaço restante para as barras depois de descontar os gaps
+              final gaps = totalBars + 1;
+              final available = chartWidth - (spacingExtra * gaps);
+
+              // Largura sugerida com base na largura disponível
+              final autoWidth = available / totalBars;
+
+              // nunca maior que baseBarWidth e nunca menor que 4
+              computedBarWidth = autoWidth.clamp(4.0, baseBarWidth).toDouble();
             } else {
               chartWidth =
-                  totalBars * ((widget.widthBar ?? 60) + spacingExtra).toDouble();
+                  totalBars * (baseBarWidth + spacingExtra) + spacingExtra;
+              computedBarWidth = baseBarWidth;
             }
 
-            final String Function(double) fmt = widget.valueFormatter ?? priceToString;
-            final double maxCalculado = (nonNullValues.reduce(max) * 1.2).ceilToDouble();
+            final String Function(double) fmt =
+                widget.valueFormatter ?? priceToString;
+            final double maxCalculado =
+            (nonNullValues.reduce(max) * 1.2).ceilToDouble();
             final double maxY = max(maxCalculado, 10);
 
             return Column(
@@ -108,23 +120,26 @@ class _BarChartChangedState extends State<BarChartChanged> {
                   Center(
                     child: Text(
                       widget.chartTitle!,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
                 ],
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  // mesmo com expandToMaxWidth, manter o scroll aqui não atrapalha:
-                  // quando expand=true, chartWidth == maxWidth e não haverá rolagem;
-                  // quando expand=false, rola normalmente.
                   child: SizedBox(
                     height: widget.heightGraphic,
                     width: chartWidth,
                     child: BarChart(
                       BarChartData(
                         maxY: maxY,
-                        alignment: BarChartAlignment.spaceBetween,
+                        // 🔽 Distribui melhor as barras no espaço:
+                        alignment: totalBars == 1
+                            ? BarChartAlignment.center
+                            : BarChartAlignment.spaceAround,
                         gridData: FlGridData(
                           show: true,
                           drawVerticalLine: true,
@@ -141,7 +156,8 @@ class _BarChartChangedState extends State<BarChartChanged> {
                             tooltipMargin: 2,
                             fitInsideVertically: true,
                             fitInsideHorizontally: true,
-                            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            getTooltipItem:
+                                (group, groupIndex, rod, rodIndex) {
                               return BarTooltipItem(
                                 fmt(rod.toY),
                                 const TextStyle(
@@ -153,8 +169,10 @@ class _BarChartChangedState extends State<BarChartChanged> {
                             },
                           ),
                           touchCallback: (event, response) {
-                            if (event is FlTapUpEvent && response?.spot != null) {
-                              final index = response!.spot!.touchedBarGroupIndex;
+                            if (event is FlTapUpEvent &&
+                                response?.spot != null) {
+                              final index =
+                                  response!.spot!.touchedBarGroupIndex;
                               if (index >= 0 && index < widget.labels.length) {
                                 widget.onBarTap?.call(widget.labels[index]);
                               }
@@ -192,11 +210,13 @@ class _BarChartChangedState extends State<BarChartChanged> {
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
-                              reservedSize: 70, // largura pros números da escala
+                              reservedSize: 70,
                               getTitlesWidget: (value, meta) => Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: Text(
-                                  (widget.valueFormatter ?? formatToMillions)(value),
+                                  (widget.valueFormatter ?? formatToMillions)(
+                                    value,
+                                  ),
                                   style: const TextStyle(fontSize: 11),
                                 ),
                               ),
@@ -210,14 +230,15 @@ class _BarChartChangedState extends State<BarChartChanged> {
                           ),
                         ),
                         borderData: FlBorderData(show: false),
-                        barGroups: widget.values.asMap().entries.map((entry) {
+                        barGroups:
+                        widget.values.asMap().entries.map((entry) {
                           final index = entry.key;
                           final value = entry.value; // pode ser null
                           final isSelected = widget.selectedIndex == index;
                           final isHighlighted =
-                              widget.highlightedIndexes?.contains(index) ?? false;
+                              widget.highlightedIndexes?.contains(index) ??
+                                  false;
 
-                          // se for null, desenha 0, mas com cor "neutra"
                           final double toY = value ?? 0.0;
                           final Color baseColor =
                               widget.barColors?[index] ?? Colors.cyan;
@@ -237,7 +258,8 @@ class _BarChartChangedState extends State<BarChartChanged> {
                                 width: computedBarWidth,
                               ),
                             ],
-                            showingTooltipIndicators: isSelected ? [0] : [],
+                            showingTooltipIndicators:
+                            isSelected ? [0] : [],
                           );
                         }).toList(),
                       ),

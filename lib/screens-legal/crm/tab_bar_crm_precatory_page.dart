@@ -9,8 +9,8 @@ import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/_process/process_bloc.dart';
 
 // Página genérica + base/controller e helpers
-import 'package:siged/screens/legal/crm/crm_step_controllers.dart';
-import 'package:siged/screens/legal/crm/crm_step_page.dart';
+import 'package:siged/screens-legal/crm/crm_step_controllers.dart';
+import 'package:siged/screens-legal/crm/crm_step_page.dart';
 
 // 👇 bloc/user + palette
 import 'package:siged/_blocs/system/user/user_bloc.dart';

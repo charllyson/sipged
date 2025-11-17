@@ -6,53 +6,28 @@ import 'package:siged/_widgets/layout/responsive_utils.dart';
 
 
 class YesNoDrop extends StatelessWidget with FormValidationMixin {
-  final String label;
+  final String labelText;
   final String? value;
-  final ValueChanged<String?> onChanged;
-  final double width;
+  final ValueChanged<String?> controller;
   final bool enabled;
 
   YesNoDrop({
     super.key,
-    required this.label,
+    required this.labelText,
     required this.value,
-    required this.onChanged,
-    required this.width,
+    required this.controller,
     required this.enabled,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: DropDownButtonChange(
-        enabled: enabled,
-        labelText: label,
-        controller: TextEditingController(text: value),
-        items: const ['Sim', 'Não', 'N/A'],
-        onChanged: onChanged,
-        validator: validateRequired,
-      ),
+    return DropDownButtonChange(
+      enabled: enabled,
+      labelText: labelText,
+      controller: TextEditingController(text: value),
+      items: const ['Sim', 'Não', 'N/A'],
+      onChanged: controller,
+      validator: validateRequired,
     );
   }
-}
-
-/// Helper centralizado para calcular largura dos inputs
-double inputWidth({
-  required BuildContext context,
-  required BoxConstraints inner,
-  required int perLine,
-  double minItemWidth = 220,
-}) {
-  return responsiveInputWidth(
-    context: context,
-    itemsPerLine: perLine,
-    containerWidth: MediaQuery.of(context).size.width,
-    spacing: 12,
-    margin: 12,
-    extraPadding: 0,
-    minItemWidth: minItemWidth,
-    minWidthSmallScreen: 280,
-    forceItemsPerLineOnSmall: true,
-  );
 }

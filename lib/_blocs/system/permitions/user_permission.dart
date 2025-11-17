@@ -53,7 +53,7 @@ BaseRole roleForUser(UserData user) {
 
 /// Persiste o papel global no Firestore (users/{uid})
 Future<void> setUserRole(UserData user, BaseRole newRole) async {
-  final uid = user.id;
+  final uid = user.uid;
   if (uid == null || uid.isEmpty) return;
 
   final ref = FirebaseFirestore.instance.collection('users').doc(uid);

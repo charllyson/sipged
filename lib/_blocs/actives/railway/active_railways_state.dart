@@ -8,9 +8,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_rules.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_style.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
 
 import 'package:siged/screens/actives/railways/network/railway_ties.dart';
 import 'package:siged/_utils/map/multi_line_simplifier.dart';
@@ -86,7 +86,7 @@ class ActiveRailwaysState extends Equatable {
   // =========================
   // Regiões (reuso de ContractRules.regions)
   // =========================
-  List<String> get regionLabels => DfdData.regions;
+  List<String> get regionLabels => HiringData.regions;
 
   String _canonRegion(String? s) =>
       ActiveRailwaysRules.canonRegion(s, regionLabels);
@@ -120,13 +120,13 @@ class ActiveRailwaysState extends Equatable {
     return map;
   }
 
-  List<({String code, String label, double value, Color color})> get _pieItems {
+  List<({String code, Color color, String labelText, double value})> get _pieItems {
     final sums = _sumExtByStatus;
     return _statusOrder.map((code) {
       final km = (sums[code] ?? 0.0);
       return (
       code: code,
-      label: _labelForStatus(code),
+      labelText: _labelForStatus(code),
       value: km,
       color: ActiveRailwaysStyle.colorForStatus(code),
       );
@@ -134,7 +134,7 @@ class ActiveRailwaysState extends Equatable {
   }
 
   List<String> get pieLabelsForChart =>
-      _pieItems.map((e) => e.label).toList(growable: false);
+      _pieItems.map((e) => e.labelText).toList(growable: false);
   List<double> get pieValuesForChart =>
       _pieItems.map((e) => e.value).toList(growable: false);
   List<Color> get pieColorsForChart =>

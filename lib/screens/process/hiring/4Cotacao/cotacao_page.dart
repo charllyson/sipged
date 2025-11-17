@@ -15,14 +15,14 @@ import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
 // Progress
-import 'package:siged/_blocs/process/hiring/0Progress/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_event.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_repository.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_state.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress_cubit.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/hiring_stages.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
 // Cotação (Bloc/Controller)
 import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_bloc.dart';
@@ -211,8 +211,11 @@ class _CotacaoPageState extends State<CotacaoPage>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SectionMetadados(c: context.read<CotacaoController>()),
+                              SizedBox(height: 12),
                               SectionObjetoItens(controller: context.read<CotacaoController>()),
+                              SizedBox(height: 12),
                               SectionConviteDivulgacao(controller: context.read<CotacaoController>()),
+                              SizedBox(height: 12),
                               SectionRespostasFornecedores(
                                 controller: context.read<CotacaoController>(),
                                 fornCount: _fornCount,
@@ -223,11 +226,14 @@ class _CotacaoPageState extends State<CotacaoPage>
                                     ? null
                                     : _removeFornecedor,
                               ),
+                              SizedBox(height: 12),
                               SectionVencedora(
                                 controller: context.read<CotacaoController>(),
                                 contractsController: context.read<ProcessController>(),
                               ),
+                              SizedBox(height: 12),
                               SectionConsolidacaoResultado(controller: context.read<CotacaoController>()),
+                              SizedBox(height: 12),
                               SectionAnexos(controller: context.read<CotacaoController>()),
                             ],
                           ),

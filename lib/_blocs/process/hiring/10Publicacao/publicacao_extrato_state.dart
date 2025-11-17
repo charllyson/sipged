@@ -1,3 +1,5 @@
+// lib/_blocs/process/hiring/10Publicacao/publicacao_extrato_state.dart
+
 part of 'publicacao_extrato_bloc.dart';
 
 class PublicacaoExtratoState {
@@ -23,15 +25,16 @@ class PublicacaoExtratoState {
     required this.saveSuccess,
   });
 
-  factory PublicacaoExtratoState.initial() => const PublicacaoExtratoState(
-    loading: false,
-    saving: false,
-    error: null,
-    pubId: null,
-    sectionIds: {},
-    sectionsData: {},
-    saveSuccess: false,
-  );
+  factory PublicacaoExtratoState.initial() =>
+      const PublicacaoExtratoState(
+        loading: false,
+        saving: false,
+        error: null,
+        pubId: null,
+        sectionIds: {},
+        sectionsData: {},
+        saveSuccess: false,
+      );
 
   PublicacaoExtratoState copyWith({
     bool? loading,
@@ -45,6 +48,7 @@ class PublicacaoExtratoState {
     return PublicacaoExtratoState(
       loading: loading ?? this.loading,
       saving: saving ?? this.saving,
+      // passa error explicitamente (pode ser null para limpar)
       error: error,
       pubId: pubId ?? this.pubId,
       sectionIds: sectionIds ?? this.sectionIds,
@@ -53,6 +57,7 @@ class PublicacaoExtratoState {
     );
   }
 
-  // atalho para anexos na seção "veiculo"
-  String? get currentVeiculoDocId => sectionIds[PublicacaoExtratoSections.veiculo];
+  /// atalho para anexos na seção "veiculo"
+  String? get currentVeiculoDocId =>
+      sectionIds[PublicacaoExtratoSections.veiculo];
 }

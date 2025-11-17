@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/report/report_measurement_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 /// Storage de arquivos da **medição (report)**.
 class ReportMeasurementStorageBloc extends BlocBase {
@@ -21,26 +22,42 @@ class ReportMeasurementStorageBloc extends BlocBase {
   // ---------- Utils ----------
   String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  String fileName(ProcessData c, ReportMeasurementData m) {
-    final contrato = _sanitize(c.contractNumber ?? 'contrato');
-    final ordem    = (m.order ?? 0).toString();
-    final proc     = _sanitize(m.numberprocess ?? 'processo');
+  /// 🆕 Usa SOMENTE PublicacaoExtratoData.numeroContrato
+  String fileName(
+      ProcessData c,
+      ReportMeasurementData m, {
+        PublicacaoExtratoData? extrato,
+      }) {
+    final contrato = _sanitize(
+      extrato?.numeroContrato?.trim().isNotEmpty == true
+          ? extrato!.numeroContrato!
+          : 'contrato',
+    );
+    final ordem = (m.order ?? 0).toString();
+    final proc = _sanitize(m.numberprocess ?? 'processo');
     return 'report-$contrato-$ordem-$proc.pdf';
   }
 
-  String pathFor(ProcessData c, ReportMeasurementData m) =>
-      'contracts/${c.id}/measurements/${m.id}/${fileName(c, m)}';
+  String pathFor(
+      ProcessData c,
+      ReportMeasurementData m, {
+        PublicacaoExtratoData? extrato,
+      }) =>
+      'contracts/${c.id}/measurements/${m.id}/${fileName(c, m, extrato: extrato)}';
 
   // ======= helpers anexos múltiplos =======
   String _extFromName(String name) {
-    final m = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(name.trim());
+    final m =
+    RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(name.trim());
     return m == null ? '' : '.${m.group(1)!.toLowerCase()}';
   }
 
   String _baseName(String name) {
     var s = name.trim();
-    final q = s.indexOf('?'); if (q != -1) s = s.substring(0, q);
-    final h = s.indexOf('#'); if (h != -1) s = s.substring(0, h);
+    final q = s.indexOf('?');
+    if (q != -1) s = s.substring(0, q);
+    final h = s.indexOf('#');
+    if (h != -1) s = s.substring(0, h);
     s = s.split('/').last;
     return s.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
   }
@@ -50,27 +67,35 @@ class ReportMeasurementStorageBloc extends BlocBase {
 
   String storedFileName(String originalName) {
     final base = _sanitize(_baseName(originalName));
-    final rnd  = (DateTime.now().millisecondsSinceEpoch % 1000000)
-        .toString().padLeft(6, '0');
-    final ex   = _extFromName(originalName);
+    final rnd = (DateTime.now().millisecondsSinceEpoch % 1000000)
+        .toString()
+        .padLeft(6, '0');
+    final ex = _extFromName(originalName);
     return '$base-$rnd${ex.isEmpty ? ".bin" : ex}';
   }
 
   // ---------- API antiga (único PDF) ----------
-  Future<bool> exists(ProcessData c, ReportMeasurementData m) async {
+  Future<bool> exists(
+      ProcessData c,
+      ReportMeasurementData m, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      await _storage.ref(pathFor(c, m)).getMetadata();
+      await _storage.ref(pathFor(c, m, extrato: extrato)).getMetadata();
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  Future<String?> getUrl(ProcessData c, ReportMeasurementData m) async {
+  Future<String?> getUrl(
+      ProcessData c,
+      ReportMeasurementData m, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      return await _storage.ref(pathFor(c, m)).getDownloadURL();
+      return await _storage.ref(pathFor(c, m, extrato: extrato)).getDownloadURL();
     } catch (e) {
-      debugPrint('ReportMeasurementStorageBloc.getUrl erro: $e');
       return null;
     }
   }
@@ -79,9 +104,12 @@ class ReportMeasurementStorageBloc extends BlocBase {
     required ProcessData contract,
     required ReportMeasurementData reportMeasurement,
     required void Function(double progress) onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom, allowedExtensions: ['pdf'], withData: true,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
     );
     if (result == null || result.files.single.bytes == null) {
       throw Exception('Nenhum arquivo PDF selecionado ou arquivo vazio.');
@@ -91,6 +119,7 @@ class ReportMeasurementStorageBloc extends BlocBase {
       measurement: reportMeasurement,
       bytes: result.files.single.bytes!,
       onProgress: onProgress,
+      extrato: extrato,
     );
   }
 
@@ -99,9 +128,11 @@ class ReportMeasurementStorageBloc extends BlocBase {
     required ReportMeasurementData measurement,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
-    final ref = _storage.ref(pathFor(contract, measurement));
-    final task = ref.putData(bytes, SettableMetadata(contentType: 'application/pdf'));
+    final ref = _storage.ref(pathFor(contract, measurement, extrato: extrato));
+    final task =
+    ref.putData(bytes, SettableMetadata(contentType: 'application/pdf'));
     if (onProgress != null) {
       task.snapshotEvents.listen((e) {
         if (e.totalBytes > 0) onProgress(e.bytesTransferred / e.totalBytes);
@@ -111,12 +142,15 @@ class ReportMeasurementStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ProcessData c, ReportMeasurementData m) async {
+  Future<bool> delete(
+      ProcessData c,
+      ReportMeasurementData m, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      await _storage.ref(pathFor(c, m)).delete();
+      await _storage.ref(pathFor(c, m, extrato: extrato)).delete();
       return true;
     } catch (e) {
-      debugPrint('ReportMeasurementStorageBloc.delete erro: $e');
       return false;
     }
   }
@@ -125,30 +159,38 @@ class ReportMeasurementStorageBloc extends BlocBase {
   Future<bool> verificarSePdfDeMedicaoExiste({
     required ProcessData contract,
     required ReportMeasurementData measurement,
-  }) => exists(contract, measurement);
+    PublicacaoExtratoData? extrato,
+  }) =>
+      exists(contract, measurement, extrato: extrato);
 
   Future<String?> getPdfUrlDaMedicao({
     required ProcessData contract,
     required ReportMeasurementData measurement,
-  }) => getUrl(contract, measurement);
+    PublicacaoExtratoData? extrato,
+  }) =>
+      getUrl(contract, measurement, extrato: extrato);
 
   Future<void> sendPdf({
     required ProcessData? contract,
     required ReportMeasurementData? measurement,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded,
+    PublicacaoExtratoData? extrato,
   }) async {
     final c = contract;
     final m = measurement;
     if (c == null) throw Exception('Contrato nulo ao enviar PDF da medição.');
     if (m == null) throw Exception('Medição nula ao enviar PDF.');
     if (c.id == null) throw Exception('ContractData sem id.');
-    if (m.id == null) throw Exception('ReportMeasurementData sem idReportMeasurement.');
+    if (m.id == null) {
+      throw Exception('ReportMeasurementData sem idReportMeasurement.');
+    }
 
     final url = await uploadWithPicker(
       contract: c,
       reportMeasurement: m,
       onProgress: onProgress,
+      extrato: extrato,
     );
     if (onUploaded != null) await onUploaded(url);
   }
@@ -160,16 +202,16 @@ class ReportMeasurementStorageBloc extends BlocBase {
   }) async {
     try {
       await _db
-          .collection('contracts').doc(contractId)
-          .collection('measurements').doc(reportMeasurementId)
+          .collection('contracts')
+          .doc(contractId)
+          .collection('measurements')
+          .doc(reportMeasurementId)
           .update({
         'pdfUrl': url,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
-    } catch (e) {
-      debugPrint('Erro ao salvar URL do PDF da medição no Firestore: $e');
-    }
+    } catch (e) {}
   }
 
   // ======= NOVOS MÉTODOS: múltiplos anexos com rótulo =======
@@ -208,9 +250,9 @@ class ReportMeasurementStorageBloc extends BlocBase {
     required String label,
     void Function(double progress)? onProgress,
   }) async {
-    final dir  = attachmentsDir(contract, measurement);
+    final dir = attachmentsDir(contract, measurement);
     final name = storedFileName(originalName);
-    final ref  = _storage.ref('$dir/$name');
+    final ref = _storage.ref('$dir/$name');
 
     final task = ref.putData(
       bytes,
@@ -228,10 +270,9 @@ class ReportMeasurementStorageBloc extends BlocBase {
       });
     }
 
-    // ✅ FALTAVA ISTO:
     await task;
 
-    final url  = await ref.getDownloadURL();
+    final url = await ref.getDownloadURL();
     final meta = await ref.getMetadata();
 
     return Attachment(
@@ -247,9 +288,13 @@ class ReportMeasurementStorageBloc extends BlocBase {
   }
 
   Future<void> deleteStorageByPath(String storagePath) async {
-    try { await _storage.ref(storagePath).delete(); } catch (_) {}
+    try {
+      await _storage.ref(storagePath).delete();
+    } catch (_) {}
   }
 
   @override
-  void dispose() { super.dispose(); }
+  void dispose() {
+    super.dispose();
+  }
 }

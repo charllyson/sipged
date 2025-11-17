@@ -7,7 +7,7 @@ import 'package:siged/_blocs/system/login/login_bloc.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/images/photo_circle/photo_circle.dart';
-import 'package:siged/admPanel/settings_system_hub_page.dart';
+import 'package:siged/admPanel/system_hub_page.dart';
 
 // ✅ helper de papéis globais
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
@@ -50,7 +50,7 @@ class PopUpPhotoMenu extends StatelessWidget {
 
           case 'administrador':
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => SettingsSystemHubPage()),
+              MaterialPageRoute(builder: (_) => SystemHubPage()),
             );
             break;
 

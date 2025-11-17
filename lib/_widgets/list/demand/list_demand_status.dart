@@ -1,9 +1,16 @@
-// lib/screens/commons/listContracts/list_demand_status.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'list_demand_table.dart';
 
-typedef DemandNavigationCallback = void Function(BuildContext context, ProcessData contract);
+// DFD / Edital / Publicação (apenas os DATA)
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
+import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
+
+typedef DemandNavigationCallback = void Function(
+    BuildContext context,
+    ProcessData contract,
+    );
 
 class ListDemandStatus extends StatelessWidget {
   const ListDemandStatus({
@@ -19,13 +26,14 @@ class ListDemandStatus extends StatelessWidget {
     required this.onDelete,
     required this.onTapItem,
 
-    // mapas vindos da página (DFD)
-    required this.regionByContractId,
-    required this.processNumberByContractId,
-
     // controle de expansão
     this.initiallyExpanded = false,
     this.onExpansionChanged,
+
+    // caches já carregados
+    required this.dfdByContractId,
+    required this.editalByContractId,
+    required this.pubByContractId,
   });
 
   final String title;
@@ -39,12 +47,13 @@ class ListDemandStatus extends StatelessWidget {
   final Future<void> Function(ProcessData) onDelete;
   final DemandNavigationCallback onTapItem;
 
-  // 🆕 mapas (obrigatórios) para repasse
-  final Map<String, String> regionByContractId;
-  final Map<String, String> processNumberByContractId;
-
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
+
+  // 🔥 caches de metadados por contrato
+  final Map<String, DfdData?> dfdByContractId;
+  final Map<String, EditalData?> editalByContractId;
+  final Map<String, PublicacaoExtratoData?> pubByContractId;
 
   String _norm(String k) => k.trim().toUpperCase();
 
@@ -62,13 +71,16 @@ class ListDemandStatus extends StatelessWidget {
         onExpansionChanged: onExpansionChanged,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         childrenPadding: const EdgeInsets.only(bottom: 12),
-
         title: Row(
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 color: Colors.blue.withOpacity(0.10),
@@ -77,7 +89,6 @@ class ListDemandStatus extends StatelessWidget {
             ),
           ],
         ),
-
         children: [
           ListDemandTable(
             key: PageStorageKey<String>('table_scroll_$k'),
@@ -91,9 +102,10 @@ class ListDemandStatus extends StatelessWidget {
             onDelete: onDelete,
             onTapItem: onTapItem,
 
-            // 🆕 repasse dos mapas
-            regionByContractId: regionByContractId,
-            processNumberByContractId: processNumberByContractId,
+            // 🔥 passa os caches para a tabela
+            dfdByContractId: dfdByContractId,
+            editalByContractId: editalByContractId,
+            pubByContractId: pubByContractId,
           ),
         ],
       ),

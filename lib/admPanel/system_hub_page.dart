@@ -10,8 +10,8 @@ import 'firebase/settings_topic_firebase_page.dart';
 import 'converters/settings_topic_conversores_page.dart';
 import 'migrations/settings_topic_migracoes_page.dart';
 
-class SettingsSystemHubPage extends StatelessWidget {
-  const SettingsSystemHubPage({super.key});
+class SystemHubPage extends StatelessWidget {
+  const SystemHubPage({super.key});
 
   int _gridCountForWidth(double w) {
     if (w >= 1400) return 4;

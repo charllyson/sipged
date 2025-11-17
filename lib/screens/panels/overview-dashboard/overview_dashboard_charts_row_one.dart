@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
 import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/company_data.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
-import '../../../_blocs/_process/process_controller.dart';
 import '../../../../_widgets/charts/radar/radar_chart_changed_widget.dart';
 
 class OverviewDashboardChartRowOne extends StatelessWidget {
@@ -35,8 +33,7 @@ class OverviewDashboardChartRowOne extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final totalFixed =
-            kLeadingPadding + kPieWidth + kBetweenPieRadar + kRadarWidth + kBetweenRadarBar + kTrailingPadding + kAfterPadding;
+        final totalFixed = kLeadingPadding + kPieWidth + kBetweenPieRadar + kRadarWidth + kBetweenRadarBar + kTrailingPadding + kAfterPadding;
 
         // Mínimo de largura para o bar quando a tela é bem estreita
         const double kBarMinWidth = 600;
@@ -91,7 +88,7 @@ class OverviewDashboardChartRowOne extends StatelessWidget {
                 child: BarChartChanged(
                   expandToMaxWidth: true,     // <<--- faz o widget ocupar a largura disponível
                   heightGraphic: 260,
-                  labels: DfdData.regions,
+                  labels: HiringData.regions,
                   values: controller.valuesRegionOfMap,
                   selectedIndex: controller.selectedRegionIndex,
                   onBarTap: controller.onRegionSelected,

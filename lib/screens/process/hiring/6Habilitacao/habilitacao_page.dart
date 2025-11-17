@@ -11,19 +11,19 @@ import 'package:siged/_widgets/gates/stage_gate.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_event.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_repository.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/progress_state.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 
 // BLoC Habilitação
 import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_bloc.dart';
 import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_controller.dart';
-import 'package:siged/_blocs/process/hiring/0Progress/pipeline_progress_cubit.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
 
-import 'package:siged/_blocs/process/hiring/0Progress/hiring_stages.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
 // Sections (widgets)
 import 'package:siged/screens/process/hiring/6Habilitacao/section_1_metadados.dart';
@@ -166,7 +166,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                     children: [
                       const BackgroundClean(),
                       SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

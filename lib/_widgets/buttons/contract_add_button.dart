@@ -18,7 +18,7 @@ class ContractAddButton extends StatelessWidget {
       heroTag: 'add_contract',
       onPressed: onAdd,
       icon: Icon(Icons.add, color: Colors.white),
-      label: Text('Novo Contrato', style: TextStyle(color: Colors.white)),
+      label: Text('Nova demanda', style: TextStyle(color: Colors.white)),
     );
   }
 }

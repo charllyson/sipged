@@ -8,9 +8,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+
 import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 /// Storage (upload/list/getUrl/delete) de PDFs/arquivos de **apostilamentos**.
 /// Mantém métodos legados + novos para múltiplos anexos com rótulo.
@@ -22,31 +24,47 @@ class ApostillesStorageBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // ---------- Utils ----------
-  String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+  String _sanitize(String s) =>
+      s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
   String _extFromName(String name) {
-    final m = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(name.trim());
+    final m =
+    RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(name.trim());
     return m == null ? '' : '.${m.group(1)!.toLowerCase()}';
   }
 
   String _baseName(String name) {
     var s = name.trim();
-    final q = s.indexOf('?'); if (q != -1) s = s.substring(0, q);
-    final h = s.indexOf('#'); if (h != -1) s = s.substring(0, h);
+    final q = s.indexOf('?');
+    if (q != -1) s = s.substring(0, q);
+    final h = s.indexOf('#');
+    if (h != -1) s = s.substring(0, h);
     s = s.split('/').last;
     return s.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
   }
 
-  // legados (um arquivo “principal” por apostila)
-  String fileName(ProcessData c, ApostillesData a) {
-    final contrato = _sanitize(c.contractNumber ?? 'contrato');
-    final ordem    = ((a.apostilleOrder ?? 0)).toString().padLeft(3, '0');
-    final proc     = _sanitize(a.apostilleNumberProcess ?? 'processo');
+  /// Nome do arquivo legado usando APENAS PublicacaoExtratoData.numeroContrato
+  String fileName(
+      ProcessData c,
+      ApostillesData a, {
+        PublicacaoExtratoData? extrato,
+      }) {
+    final contrato = _sanitize(
+      extrato?.numeroContrato?.trim().isNotEmpty == true
+          ? extrato!.numeroContrato!
+          : 'contrato',
+    );
+    final ordem = ((a.apostilleOrder ?? 0)).toString().padLeft(3, '0');
+    final proc = _sanitize(a.apostilleNumberProcess ?? 'processo');
     return '$contrato-$ordem-$proc.pdf';
   }
 
-  String pathFor(ProcessData c, ApostillesData a) =>
-      'contracts/${c.id}/apostilles/${a.id}/${fileName(c, a)}';
+  String pathFor(
+      ProcessData c,
+      ApostillesData a, {
+        PublicacaoExtratoData? extrato,
+      }) =>
+      'contracts/${c.id}/apostilles/${a.id}/${fileName(c, a, extrato: extrato)}';
 
   // multi-arquivos
   String folderFor(ProcessData c, ApostillesData a) =>
@@ -54,26 +72,35 @@ class ApostillesStorageBloc extends BlocBase {
 
   String storedFileName(String original) {
     final base = _sanitize(_baseName(original));
-    final rnd  = (DateTime.now().millisecondsSinceEpoch % 1000000).toString().padLeft(6, '0');
-    final ext  = _extFromName(original);
+    final rnd = (DateTime.now().millisecondsSinceEpoch % 1000000)
+        .toString()
+        .padLeft(6, '0');
+    final ext = _extFromName(original);
     return '$base-$rnd${ext.isEmpty ? ".bin" : ext}';
   }
 
   // ---------- Métodos legados ----------
-  Future<bool> exists(ProcessData c, ApostillesData a) async {
+  Future<bool> exists(
+      ProcessData c,
+      ApostillesData a, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      await _storage.ref(pathFor(c, a)).getMetadata();
+      await _storage.ref(pathFor(c, a, extrato: extrato)).getMetadata();
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  Future<String?> getUrl(ProcessData c, ApostillesData a) async {
+  Future<String?> getUrl(
+      ProcessData c,
+      ApostillesData a, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      return await _storage.ref(pathFor(c, a)).getDownloadURL();
+      return await _storage.ref(pathFor(c, a, extrato: extrato)).getDownloadURL();
     } catch (e) {
-      debugPrint('ApostillesStorageBloc.getUrl erro: $e');
       return null;
     }
   }
@@ -82,9 +109,12 @@ class ApostillesStorageBloc extends BlocBase {
     required ProcessData contract,
     required ApostillesData apostille,
     required void Function(double progress) onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom, allowedExtensions: ['pdf'], withData: true,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
     );
     if (result == null || result.files.single.bytes == null) {
       throw Exception('Nenhum arquivo PDF selecionado ou arquivo vazio.');
@@ -94,6 +124,7 @@ class ApostillesStorageBloc extends BlocBase {
       apostille: apostille,
       bytes: result.files.single.bytes!,
       onProgress: onProgress,
+      extrato: extrato,
     );
   }
 
@@ -102,8 +133,9 @@ class ApostillesStorageBloc extends BlocBase {
     required ApostillesData apostille,
     required Uint8List bytes,
     void Function(double progress)? onProgress,
+    PublicacaoExtratoData? extrato,
   }) async {
-    final ref = _storage.ref(pathFor(contract, apostille));
+    final ref = _storage.ref(pathFor(contract, apostille, extrato: extrato));
     final task = ref.putData(
       bytes,
       SettableMetadata(contentType: 'application/pdf'),
@@ -117,12 +149,15 @@ class ApostillesStorageBloc extends BlocBase {
     return await ref.getDownloadURL();
   }
 
-  Future<bool> delete(ProcessData c, ApostillesData a) async {
+  Future<bool> delete(
+      ProcessData c,
+      ApostillesData a, {
+        PublicacaoExtratoData? extrato,
+      }) async {
     try {
-      await _storage.ref(pathFor(c, a)).delete();
+      await _storage.ref(pathFor(c, a, extrato: extrato)).delete();
       return true;
     } catch (e) {
-      debugPrint('ApostillesStorageBloc.delete erro: $e');
       return false;
     }
   }
@@ -131,18 +166,23 @@ class ApostillesStorageBloc extends BlocBase {
   Future<bool> verificarSePdfDeApostilaExiste({
     required ProcessData contract,
     required ApostillesData apostille,
-  }) => exists(contract, apostille);
+    PublicacaoExtratoData? extrato,
+  }) =>
+      exists(contract, apostille, extrato: extrato);
 
   Future<String?> getPdfUrlDaApostila({
     required ProcessData contract,
     required ApostillesData apostille,
-  }) => getUrl(contract, apostille);
+    PublicacaoExtratoData? extrato,
+  }) =>
+      getUrl(contract, apostille, extrato: extrato);
 
   Future<void> sendPdf({
     required ProcessData? contract,
     required ApostillesData? apostille,
     required void Function(double) onProgress,
     Future<void> Function(String url)? onUploaded,
+    PublicacaoExtratoData? extrato,
   }) async {
     final c = contract;
     final a = apostille;
@@ -155,6 +195,7 @@ class ApostillesStorageBloc extends BlocBase {
       contract: c,
       apostille: a,
       onProgress: onProgress,
+      extrato: extrato,
     );
     if (onUploaded != null) {
       await onUploaded(url);
@@ -178,12 +219,13 @@ class ApostillesStorageBloc extends BlocBase {
     required String label,
     void Function(double progress)? onProgress,
   }) async {
-    final dir  = folderFor(contract, apostille);
+    final dir = folderFor(contract, apostille);
     final name = storedFileName(originalName);
-    final ref  = _storage.ref('$dir/$name');
+    final ref = _storage.ref('$dir/$name');
 
-    final contentType =
-    (_extFromName(originalName) == '.pdf') ? 'application/pdf' : 'application/octet-stream';
+    final contentType = (_extFromName(originalName) == '.pdf')
+        ? 'application/pdf'
+        : 'application/octet-stream';
 
     final task = ref.putData(
       bytes,
@@ -200,7 +242,7 @@ class ApostillesStorageBloc extends BlocBase {
     }
 
     await task;
-    final url  = await ref.getDownloadURL();
+    final url = await ref.getDownloadURL();
     final meta = await ref.getMetadata();
 
     return Attachment(
@@ -215,12 +257,12 @@ class ApostillesStorageBloc extends BlocBase {
     );
   }
 
-  /// Lista todos os arquivos já enviados (multi) para a apostila.
   Future<List<({String name, String url})>> listarArquivosDaApostila({
     required String contractId,
     required String apostilleId,
   }) async {
-    final folderRef = _storage.ref('contracts/$contractId/apostilles/$apostilleId/');
+    final folderRef =
+    _storage.ref('contracts/$contractId/apostilles/$apostilleId/');
     final result = await folderRef.listAll();
 
     final out = <({String name, String url})>[];
@@ -243,7 +285,6 @@ class ApostillesStorageBloc extends BlocBase {
     try {
       await _storage.ref(storagePath).delete();
     } catch (e) {
-      debugPrint('Erro ao deletar "$storagePath": $e');
       rethrow;
     }
   }
@@ -265,9 +306,7 @@ class ApostillesStorageBloc extends BlocBase {
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
-    } catch (e) {
-      debugPrint('Erro ao salvar URL do PDF da apostila no Firestore: $e');
-    }
+    } catch (e) {}
   }
 
   @override
