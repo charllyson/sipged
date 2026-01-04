@@ -1,34 +1,103 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:siged/_widgets/input/custom_date_field.dart';
+import 'package:siged/_widgets/input/custom_auto_complete.dart';
 
+import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/mask_class.dart';
+
 import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_widgets/autocomplete/autocomplete_user_class.dart';
-import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_controller.dart';
+import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_data.dart';
 
-class SectionMetadados extends StatelessWidget with FormValidationMixin {
-  final ParecerJuridicoController controller;
+class SectionMetadados extends StatefulWidget {
+  final ParecerJuridicoData data;
+  final bool isEditable;
   final List<UserData> users;
+  final void Function(ParecerJuridicoData updated) onChanged;
 
-  SectionMetadados({
+  const SectionMetadados({
     super.key,
-    required this.controller,
+    required this.data,
+    required this.isEditable,
     required this.users,
+    required this.onChanged,
   });
 
   @override
+  State<SectionMetadados> createState() => _SectionMetadadosState();
+}
+
+class _SectionMetadadosState extends State<SectionMetadados>
+    with FormValidationMixin {
+  late final TextEditingController _numeroCtrl;
+  late final TextEditingController _dataCtrl;
+  late final TextEditingController _orgaoCtrl;
+  late final TextEditingController _pareceristaNomeCtrl;
+
+  String? _pareceristaUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.data;
+
+    _numeroCtrl = TextEditingController(text: d.numero ?? '');
+    _dataCtrl = TextEditingController(text: d.data ?? '');
+    _orgaoCtrl = TextEditingController(text: d.orgao ?? '');
+    _pareceristaNomeCtrl = TextEditingController(text: d.pareceristaNome ?? '');
+    _pareceristaUserId = d.pareceristaUserId;
+  }
+
+  @override
+  void didUpdateWidget(covariant SectionMetadados oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      final d = widget.data;
+
+      void sync(TextEditingController c, String? v) {
+        final text = v ?? '';
+        if (c.text != text) c.text = text;
+      }
+
+      sync(_numeroCtrl, d.numero);
+      sync(_dataCtrl, d.data);
+      sync(_orgaoCtrl, d.orgao);
+      sync(_pareceristaNomeCtrl, d.pareceristaNome);
+      _pareceristaUserId = d.pareceristaUserId;
+    }
+  }
+
+  @override
+  void dispose() {
+    _numeroCtrl.dispose();
+    _dataCtrl.dispose();
+    _orgaoCtrl.dispose();
+    _pareceristaNomeCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      numero: _numeroCtrl.text,
+      data: _dataCtrl.text,
+      orgao: _orgaoCtrl.text,
+      pareceristaNome: _pareceristaNomeCtrl.text,
+      pareceristaUserId: _pareceristaUserId,
+    );
+    widget.onChanged(updated);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = controller;
+    final users = widget.users;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('1) Metadados'),
+        const SectionTitle(text: '1) Metadados'),
         LayoutBuilder(
           builder: (context, constraints) {
             final w4 = inputW4(context, constraints);
@@ -40,44 +109,61 @@ class SectionMetadados extends StatelessWidget with FormValidationMixin {
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
-                    controller: c.pjNumeroCtrl,
+                    controller: _numeroCtrl,
                     labelText: 'Nº do parecer',
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     validator: validateRequired,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
                 SizedBox(
                   width: w4,
                   child: CustomDateField(
-                    controller: c.pjDataCtrl,
+                    controller: _dataCtrl,
                     labelText: 'Data do parecer',
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
                       TextInputMask(mask: '99/99/9999'),
                     ],
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
-                    controller: c.pjOrgaoJuridicoCtrl,
+                    controller: _orgaoCtrl,
                     labelText: 'Órgão/Unidade jurídica',
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     validator: validateRequired,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
+
+                // ✅ Parecerista (genérico)
                 SizedBox(
                   width: w4,
-                  child: AutocompleteUserClass(
+                  child: CustomAutoComplete<UserData>(
                     label: 'Parecerista',
-                    controller: c.pjPareceristaCtrl,
-                    allUsers: users,
-                    enabled: c.isEditable,
-                    initialUserId: c.pjPareceristaUserId,
-                    onChanged: (u) => c.pjPareceristaUserId = u,
-                    validator: validateRequired,
+                    controller: _pareceristaNomeCtrl,
+                    allList: users,
+                    enabled: widget.isEditable,
+                    initialId: _pareceristaUserId,
+                    idOf: (u) => u.uid,
+                    displayOf: (u) => u.name ?? u.email ?? '',
+                    subtitleOf: (u) => u.email ?? '',
+                    photoUrlOf: (u) => u.urlPhoto,
+                    validator: (v) {
+                      if (!widget.isEditable) return null;
+                      return (_pareceristaUserId ?? '').isNotEmpty
+                          ? null
+                          : 'Campo obrigatório';
+                    },
+                    onChanged: (id) {
+                      _pareceristaUserId = id.isEmpty ? null : id;
+                      _emitChange();
+                    },
                   ),
                 ),
               ],

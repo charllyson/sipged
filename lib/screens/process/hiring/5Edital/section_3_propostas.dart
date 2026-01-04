@@ -1,16 +1,19 @@
 // lib/screens/process/hiring/5Edital/section_3_propostas.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
+import 'package:siged/_blocs/system/setup/setup_data.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/input/drop_down_botton_change.dart'
-    show DropDownButtonChange;
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
 
 import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
+import 'package:siged/_blocs/system/setup/setup_cubit.dart';
+
+import '../../../../_widgets/windows/company_body_dialog.dart';
 
 class SectionPropostas extends StatefulWidget {
   final bool isEditable;
@@ -75,6 +78,26 @@ class _SectionPropostasState extends State<SectionPropostas> {
   void initState() {
     super.initState();
     _rebuildFromData(widget.data);
+
+    // Garante que as companies + companiesBodies foram carregadas
+    Future.microtask(() async {
+      final system = context.read<SetupCubit>();
+
+      // carrega lista de companies se ainda não tiver
+      if (system.state.companies.isEmpty) {
+        await system.loadCompanies();
+      }
+
+      final companies = system.state.companies;
+      if (companies.isNotEmpty) {
+        // usa a primeira company como "pai" padrão
+        final parentCompanyId =
+            companies.first.companyId ?? companies.first.id;
+
+        // carrega todo o setup (inclui companyBodies) para essa empresa
+        await system.ensureCompanySetupLoaded(parentCompanyId);
+      }
+    });
   }
 
   @override
@@ -126,13 +149,58 @@ class _SectionPropostasState extends State<SectionPropostas> {
     _emitChange();
   }
 
+  /// Limpa o vencedor (mantém as propostas, só tira o destaque/fields)
+  void _clearWinner() {
+    final updated = widget.data.copyWith(
+      vencedor: '',
+      vencedorCnpj: '',
+      valorVencedor: '',
+      highlightWinner: false,
+    );
+    widget.onChanged(updated);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cData = widget.data;
     final isEditable = widget.isEditable;
 
+    final hasWinner =
+        cData.vencedor.isNotEmpty && cData.highlightWinner == true;
+
     final winnerBg = Colors.green.shade50;
     final winnerBorder = Colors.green.shade600;
+
+    // Lista de companiesBodies do SetupCubit (já da empresa selecionada)
+    final systemState = context.watch<SetupCubit>().state;
+    final List<SetupData> bodies = systemState.companyBodies;
+
+    // Labels vindos do Cubit
+    final List<String> bodyLabels =
+    bodies.map((e) => e.label).toList(growable: false);
+
+    // Labels já usados nas propostas (garante compatibilidade com dados antigos)
+    final Iterable<String> labelsFromRows = _rows
+        .map((r) => r.licitanteCtrl.text.trim())
+        .where((t) => t.isNotEmpty);
+
+    // União: Cubit + o que já está nas linhas
+    final List<String> allLabels = {
+      ...bodyLabels,
+      ...labelsFromRows,
+    }.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    SetupData? _findBodyByLabel(String label) {
+      final lower = label.trim().toLowerCase();
+      try {
+        return bodies.firstWhere(
+              (c) => c.label.trim().toLowerCase() == lower,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -149,10 +217,11 @@ class _SectionPropostasState extends State<SectionPropostas> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Cabeçalho
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const SectionTitle('Propostas recebidas'),
+                const SectionTitle(text: 'Propostas recebidas'),
                 OutlinedButton.icon(
                   onPressed: isEditable ? _addProposta : null,
                   icon: const Icon(Icons.add),
@@ -161,6 +230,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
               ],
             ),
             const SizedBox(height: 8),
+
             if (_rows.isEmpty)
               Container(
                 width: double.infinity,
@@ -173,25 +243,29 @@ class _SectionPropostasState extends State<SectionPropostas> {
                   'Nenhuma proposta cadastrada. Clique em "Adicionar proposta" para começar.',
                 ),
               ),
+
+            // Cards de propostas
             ...List.generate(_rows.length, (i) {
               final p = _rows[i];
 
-              final isWinner = cData.vencedor.isNotEmpty &&
-                  cData.highlightWinner &&
-                  cData.vencedor == p.licitanteCtrl.text;
+              final isWinner =
+                  hasWinner && cData.vencedor == p.licitanteCtrl.text;
 
               final statusText = p.statusCtrl.text.trim();
               final isClassificada =
                   statusText.toLowerCase() == 'classificada';
 
-              final chipBg = isClassificada
-                  ? Colors.blue.shade50
-                  : Colors.red.shade50;
+              final chipBg =
+              isClassificada ? Colors.blue.shade50 : Colors.red.shade50;
               final chipFg =
               isClassificada ? Colors.blue.shade700 : Colors.red.shade700;
 
               final cardBg = isWinner ? winnerBg : Colors.grey.shade100;
               final cardBorder = isWinner ? winnerBorder : Colors.grey;
+
+              // Regra: não pode remover a ÚNICA proposta se ela for vencedora
+              final bool canRemoveCard =
+              !isEditable ? false : (_rows.length > 1 || !isWinner);
 
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
@@ -201,7 +275,10 @@ class _SectionPropostasState extends State<SectionPropostas> {
                 decoration: BoxDecoration(
                   color: cardBg,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: cardBorder, width: isWinner ? 2 : 1),
+                  border: Border.all(
+                    color: cardBorder,
+                    width: isWinner ? 2 : 1,
+                  ),
                   boxShadow: isWinner
                       ? [
                     BoxShadow(
@@ -215,12 +292,15 @@ class _SectionPropostasState extends State<SectionPropostas> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Linha de cabeçalho do card
                     Row(
                       children: [
                         Text(
                           'Proposta ${i + 1}',
-                          style:
-                          Theme.of(context).textTheme.titleSmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: Colors.grey,
                           ),
@@ -258,72 +338,118 @@ class _SectionPropostasState extends State<SectionPropostas> {
                               ],
                             ),
                           ),
+
+                        // 🏆 Vencedor
                         if (isWinner) ...[
                           const SizedBox(width: 8),
-                          Icon(
-                            Icons.emoji_events_outlined,
-                            size: 18,
-                            color: Colors.amber.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Vencedor',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.amber.shade600,
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                            ),
+                            onPressed: isEditable ? _clearWinner : null,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.emoji_events_outlined,
+                                  size: 18,
+                                  color: Colors.amber.shade600,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Vencedor',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.amber.shade700,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.remove_circle_outline,
+                                  size: 18,
+                                  color: Colors.red.shade600,
+                                ),
+                              ],
                             ),
                           ),
                         ],
+
                         const Spacer(),
+
                         if (isEditable) ...[
-                          TextButton.icon(
-                            onPressed: widget.onDefinirVencedorEIr == null
-                                ? null
-                                : () => widget.onDefinirVencedorEIr!(i),
-                            icon: const Icon(
-                              Icons.emoji_events_outlined,
-                              size: 18,
+                          if (!hasWinner)
+                            TextButton.icon(
+                              onPressed: widget.onDefinirVencedorEIr == null
+                                  ? null
+                                  : () => widget.onDefinirVencedorEIr!(i),
+                              icon: const Icon(
+                                Icons.emoji_events_outlined,
+                                size: 18,
+                              ),
+                              label: const Text('Definir vencedor'),
                             ),
-                            label: const Text('Definir vencedor'),
-                          ),
                           const SizedBox(width: 8),
                           IconButton(
-                            tooltip: 'Remover proposta',
-                            onPressed: () => _removeProposta(i),
+                            tooltip: canRemoveCard
+                                ? 'Remover proposta'
+                                : 'Não é possível remover a única proposta vencedora',
+                            onPressed: canRemoveCard
+                                ? () => _removeProposta(i)
+                                : null,
                             icon: const Icon(Icons.delete_outline),
                             color: Colors.red,
                           ),
                         ],
                       ],
                     ),
+
                     const SizedBox(height: 8),
+
+                    // Campos da proposta
                     Wrap(
                       spacing: 12,
                       runSpacing: 12,
                       children: [
+                        // LICITANTE como dropdown (companiesBodies)
                         SizedBox(
                           width: w4,
-                          child: CustomTextField(
+                          child: DropDownButtonChange(
                             controller: p.licitanteCtrl,
                             labelText: 'Licitante',
                             enabled: isEditable,
-                            onChanged: (_) => _emitChange(),
+                            items: allLabels,
+                            showSpecialAlways: true,
+                            specialItemLabel: 'Adicionar empresa',
+                            onChanged: (label) {
+                              final val = label ?? '';
+                              p.licitanteCtrl.text = val;
+
+                              final body = _findBodyByLabel(val);
+                              if (body?.cnpjCompanyContracted != null &&
+                                  body!.cnpjCompanyContracted!
+                                      .trim()
+                                      .isNotEmpty) {
+                                p.cnpjCtrl.text = body.cnpjCompanyContracted!;
+                              }
+
+                              _emitChange();
+                            },
+                            // fluxo completo de criação
+                            onAddNewItem: showCreateCompanyBodyDialog,
                           ),
                         ),
+
                         SizedBox(
                           width: w4,
                           child: CustomTextField(
                             controller: p.cnpjCtrl,
                             labelText: 'CNPJ',
-                            enabled: isEditable,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(14),
-                              TextInputMask(mask: '99.999.999/9999-99'),
-                            ],
-                            keyboardType: TextInputType.number,
-                            onChanged: (_) => _emitChange(),
+                            enabled: false, // travado para edição
+                            readOnly: true,
                           ),
                         ),
                         SizedBox(
@@ -333,9 +459,13 @@ class _SectionPropostasState extends State<SectionPropostas> {
                             labelText: 'Valor (R\$)',
                             enabled: isEditable,
                             keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             onChanged: (_) => _emitChange(),
                           ),
                         ),
+
                         SizedBox(
                           width: w4,
                           child: DropDownButtonChange(
@@ -349,6 +479,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
                             },
                           ),
                         ),
+
                         SizedBox(
                           width: w1,
                           child: CustomTextField(
@@ -356,6 +487,16 @@ class _SectionPropostasState extends State<SectionPropostas> {
                             labelText: 'Motivo da desclassificação',
                             enabled: isEditable,
                             maxLines: 2,
+                            onChanged: (_) => _emitChange(),
+                          ),
+                        ),
+
+                        SizedBox(
+                          width: w1,
+                          child: CustomTextField(
+                            controller: p.linkCtrl,
+                            labelText: 'Link da proposta',
+                            enabled: isEditable,
                             onChanged: (_) => _emitChange(),
                           ),
                         ),

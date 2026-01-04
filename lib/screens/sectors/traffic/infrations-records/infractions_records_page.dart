@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/toolBox/tool_widget.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 import '../../../../_blocs/sectors/transit/infractions/infractions_bloc.dart';
 import '../../../../_widgets/background/background_cleaner.dart';
@@ -15,7 +17,7 @@ import 'infractions_selector_dates_section.dart';
 import 'infractions_table_section.dart';
 
 // MAPA + OVERLAY (mesmo padrão usado em Acidentes)
-import 'package:siged/_widgets/map/map_interactive.dart';
+import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
 
 class InfractionsRecordsPage extends StatefulWidget {
   const InfractionsRecordsPage({super.key});
@@ -58,11 +60,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const UpBar(),
-                            const SizedBox(height: 12),
-                            DividerText(title: 'Cadastrar infrações de trânsito no sistema'),
-                            const SizedBox(height: 12),
-
-                            // ======= FORM + MAPA (responsivo) =======
+                            SectionTitle(text: 'Cadastrar infrações de trânsito no sistema'),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 9.0),
                               child: LayoutBuilder(
@@ -95,7 +93,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                           latitudeCtrl: ctrl.latitudeCtrl,
                                           longitudeCtrl: ctrl.longitudeCtrl,
                                           onSave: () async {
-                                            final ok = await ctrl.confirm(context, 'Deseja salvar esta infração?');
+                                            final ok = await confirmDialog(context, 'Deseja salvar esta infração?');
                                             if (ok) await ctrl.saveOrUpdate(context);
                                           },
                                           onClear: ctrl.createNew,
@@ -165,7 +163,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                               latitudeCtrl: ctrl.latitudeCtrl,
                                               longitudeCtrl: ctrl.longitudeCtrl,
                                               onSave: () async {
-                                                final ok = await ctrl.confirm(context, 'Deseja salvar esta infração?');
+                                                final ok = await confirmDialog(context, 'Deseja salvar esta infração?');
                                                 if (ok) await ctrl.saveOrUpdate(context);
                                               },
                                               onClear: ctrl.createNew,
@@ -197,11 +195,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                 },
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            DividerText(title: 'Filtrar por data infrações de trânsito'),
-                            const SizedBox(height: 12),
-
-                            // ======= SELETOR DE DATAS =======
+                            SectionTitle(text: 'Filtrar por data infrações de trânsito'),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12.0),
                               child: InfractionsSelectorDatesSection(
@@ -228,7 +222,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                 child: Text('Nenhuma infração encontrada'),
                               )
                             else ...[
-                              DividerText(title: 'Infrações cadastradas no sistema'),
+                              SectionTitle(text: 'Infrações cadastradas no sistema'),
                               InfractionsTableSection(
                                 listData: ctrl.pageItems,
                                 selectedItem: ctrl.selectedInfraction,
@@ -237,7 +231,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                   if (idx != -1) ctrl.selectFromTable(item, idx);
                                 },
                                 onDelete: (id) async {
-                                  final ok = await ctrl.confirm(context, 'Deseja apagar esta infração?');
+                                  final ok = await confirmDialog(context, 'Deseja apagar esta infração?');
                                   if (ok) await ctrl.deleteInfraction(context, id);
                                 },
                                 currentPage: ctrl.currentPage,

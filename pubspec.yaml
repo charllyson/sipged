@@ -45,6 +45,9 @@ dependencies:
   flutter_map: ^8.2.1
   flutter_map_marker_cluster_plus: ^1.4.2
   weather: ^3.2.1
+  webview_flutter: ^4.13.0
+  flutter_dotenv: ^5.1.0
+  pointer_interceptor: ^0.10.1+2
 
   # GRÁFICOS
   fl_chart: ^1.0.0
@@ -116,13 +119,12 @@ flutter:
 
   assets:
     - assets/geojson/limits/limites_regionais_der_al.geojson
-    - assets/geojson/limits/limites_cidades_al.geojson
-    - assets/geojson/limits/limites_territoriais.geojson
     - assets/logos/deral/logo-deral.png
     - assets/images/default_avatar.png
     - assets/logos/siged/siged.png
     - assets/icons/pdf-file-format.png
     - assets/icons/wait-to-up-file.png
+    - .env
 
 flutter_launcher_icons:
   android: true

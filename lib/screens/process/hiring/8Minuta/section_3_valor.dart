@@ -1,27 +1,69 @@
+// lib/screens/process/hiring/8Minuta/section_3_valor.dart
 import 'package:flutter/material.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 
-import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_controller.dart';
+import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_data.dart';
 
-class SectionValor extends StatelessWidget {
-  final MinutaContratoController controller;
+class SectionValor extends StatefulWidget {
+  final MinutaContratoData data;
+  final bool isEditable;
+  final void Function(MinutaContratoData updated) onChanged;
 
   const SectionValor({
     super.key,
-    required this.controller,
+    required this.data,
+    required this.isEditable,
+    required this.onChanged,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final c = controller;
+  State<SectionValor> createState() => _SectionValorState();
+}
 
+class _SectionValorState extends State<SectionValor> {
+  late final TextEditingController _valorGlobalCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.data;
+    _valorGlobalCtrl = TextEditingController(text: d.valorGlobal ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant SectionValor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      final d = widget.data;
+      final newValor = d.valorGlobal ?? '';
+      if (_valorGlobalCtrl.text != newValor) {
+        _valorGlobalCtrl.text = newValor;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _valorGlobalCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      valorGlobal: _valorGlobalCtrl.text,
+    );
+    widget.onChanged(updated);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('3) Valor Contratual'),
+        const SectionTitle(text: '3) Valor Contratual'),
         LayoutBuilder(
           builder: (context, constraints) {
             final w4 = inputW4(context, constraints);
@@ -33,10 +75,11 @@ class SectionValor extends StatelessWidget {
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
-                    controller: c.mcValorGlobalCtrl,
+                    controller: _valorGlobalCtrl,
                     labelText: 'Valor global (R\$)',
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     keyboardType: TextInputType.number,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
               ],

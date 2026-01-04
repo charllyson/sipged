@@ -1,14 +1,22 @@
 // lib/screens/process/hiring/5Edital/section_6_resultado.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:siged/_blocs/system/setup/setup_data.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_utils/formats/mask_class.dart';
 
 import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
+
+// System
+import 'package:siged/_blocs/system/setup/setup_cubit.dart';
+import 'package:siged/_widgets/windows/company_body_dialog.dart';
 
 class SectionResultado extends StatefulWidget {
   final bool isEditable;
@@ -50,6 +58,21 @@ class _SectionResultadoState extends State<SectionResultado> {
     _homologacaoDataCtrl = TextEditingController(text: d.homologacaoData);
     _adjudicacaoLinkCtrl = TextEditingController(text: d.adjudicacaoLink);
     _homologacaoLinkCtrl = TextEditingController(text: d.homologacaoLink);
+
+    // Garante ao menos a lista base de companies + companiesBodies carregada
+    Future.microtask(() async {
+      final system = context.read<SetupCubit>();
+
+      if (system.state.companies.isEmpty) {
+        await system.loadCompanies();
+      }
+      final companies = system.state.companies;
+      if (companies.isNotEmpty) {
+        final parentCompanyId =
+            companies.first.companyId ?? companies.first.id;
+        await system.ensureCompanySetupLoaded(parentCompanyId);
+      }
+    });
   }
 
   @override
@@ -117,6 +140,31 @@ class _SectionResultadoState extends State<SectionResultado> {
     final cardBg = hasWinner ? winnerBg : baseBg;
     final cardBorder = hasWinner ? winnerBorder : baseBorder;
 
+    // companiesBodies disponíveis (empresa selecionada)
+    final systemState = context.watch<SetupCubit>().state;
+    final List<SetupData> bodies = systemState.companyBodies;
+
+    final List<String> bodyLabels =
+    bodies.map((e) => e.label).toList(growable: false);
+
+    // União: labels do Cubit + o vencedor já salvo (se não estiver na lista)
+    final List<String> allLabels = {
+      ...bodyLabels,
+      if (_vencedorCtrl.text.trim().isNotEmpty) _vencedorCtrl.text.trim(),
+    }.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    SetupData? _findBodyByLabel(String label) {
+      final lower = label.trim().toLowerCase();
+      try {
+        return bodies.firstWhere(
+              (c) => c.label.trim().toLowerCase() == lower,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final w4 = inputWidth(
@@ -157,7 +205,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                 Row(
                   children: [
                     const SectionTitle(
-                      'Resultado / Adjudicação / Homologação',
+                      text: 'Resultado',
                     ),
                     const SizedBox(width: 8),
                     if (hasWinner)
@@ -179,19 +227,6 @@ class _SectionResultadoState extends State<SectionResultado> {
                           ),
                         ],
                       ),
-                    const Spacer(),
-                    if (isEditable)
-                      Row(
-                        children: [
-                          const Text('Destacar vencedor'),
-                          Switch(
-                            value: d.highlightWinner,
-                            onChanged: (v) => _emitChange(
-                              highlightWinner: v,
-                            ),
-                          ),
-                        ],
-                      ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -199,13 +234,33 @@ class _SectionResultadoState extends State<SectionResultado> {
                   spacing: 12,
                   runSpacing: 12,
                   children: [
+                    // VENCEDOR como DropDownButtonChange (companiesBodies)
                     SizedBox(
                       width: w4,
-                      child: CustomTextField(
+                      child: DropDownButtonChange(
                         controller: _vencedorCtrl,
                         labelText: 'Vencedor',
                         enabled: isEditable,
-                        onChanged: (_) => _emitChange(),
+                        items: allLabels,
+                        showSpecialAlways: true,
+                        specialItemLabel: 'Adicionar empresa',
+                        onChanged: (label) {
+                          final val = label ?? '';
+                          _vencedorCtrl.text = val;
+
+                          final body = _findBodyByLabel(val);
+                          if (body?.cnpjCompanyContracted != null &&
+                              body!.cnpjCompanyContracted!
+                                  .trim()
+                                  .isNotEmpty) {
+                            _vencedorCnpjCtrl.text =
+                            body.cnpjCompanyContracted!;
+                          }
+
+                          // ao escolher vencedor, marca highlightWinner se houver valor
+                          _emitChange(highlightWinner: val.isNotEmpty);
+                        },
+                        onAddNewItem: showCreateCompanyBodyDialog,
                       ),
                     ),
                     SizedBox(
@@ -213,8 +268,8 @@ class _SectionResultadoState extends State<SectionResultado> {
                       child: CustomTextField(
                         controller: _vencedorCnpjCtrl,
                         labelText: 'CNPJ do vencedor',
-                        enabled: isEditable,
-                        onChanged: (_) => _emitChange(),
+                        enabled: false, // travado
+                        readOnly: true,
                       ),
                     ),
                     SizedBox(
@@ -224,6 +279,9 @@ class _SectionResultadoState extends State<SectionResultado> {
                         labelText: 'Valor vencedor (R\$)',
                         enabled: isEditable,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         onChanged: (_) => _emitChange(),
                       ),
                     ),

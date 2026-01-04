@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class SimpleTableVirtualized<T> extends StatelessWidget {
   const SimpleTableVirtualized({
@@ -95,7 +96,9 @@ class SimpleTableVirtualized<T> extends StatelessWidget {
     final n = columnTitles.length;
     final a = columnTextAligns;
 
-    if (a == null) return List<TextAlign>.filled(n, TextAlign.left, growable: false);
+    if (a == null) {
+      return List<TextAlign>.filled(n, TextAlign.left, growable: false);
+    }
     if (a.length == n) return a;
     if (a.length > n) return a.sublist(0, n);
     final filler = a.isEmpty ? TextAlign.left : a.last;
@@ -146,20 +149,24 @@ class SimpleTableVirtualized<T> extends StatelessWidget {
               itemCount: flat.length,
               itemBuilder: (context, index) {
                 final item = flat[index];
-                final cells = List.generate(columnGetters.length, (i) {
-                  try {
-                    return columnGetters[i](item);
-                  } catch (_) {
-                    return '-';
-                  }
-                }, growable: false);
+                final cells = List.generate(
+                  columnGetters.length,
+                      (i) {
+                    try {
+                      return columnGetters[i](item);
+                    } catch (_) {
+                      return '-';
+                    }
+                  },
+                  growable: false,
+                );
 
                 final isSelected = selectedItem != null && item == selectedItem;
 
                 return InkWell(
                   onTap: () => onTapItem?.call(item),
                   child: Container(
-                    color: isSelected ? Colors.green.shade100 : Colors.white,
+                    color: isSelected ? const Color(0xFFE1F5FE) : Colors.white,
                     child: Row(
                       children: [
                         if (_leadingCols == 1)
@@ -217,17 +224,17 @@ class SimpleTableVirtualized<T> extends StatelessWidget {
       );
     }
 
-    // **AQUI** evitamos BoxConstraints inválidos e centralizamos.
+    // evita BoxConstraints inválidos e centraliza
     return SizedBox(
-      width: parentWidth, // bound do viewport
+      width: parentWidth,
       child: needsScroll
           ? SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Center( // mantém centralizado mesmo com rolagem
+        child: Center(
           child: SizedBox(width: totalWidth, child: content()),
         ),
       )
-          : Center( // sem rolagem: centralizado
+          : Center(
         child: SizedBox(width: totalWidth, child: content()),
       ),
     );
@@ -321,9 +328,11 @@ class SimpleTableVirtualized<T> extends StatelessWidget {
 
   Widget _sortIcon(int columnIndex) {
     if (sortColumnIndex == columnIndex) {
-      // você pode usar isAscending para mudar o ícone se quiser
-      return Icon(isAscending ? Icons.arrow_upward : Icons.arrow_downward,
-          size: 16, color: Colors.redAccent);
+      return Icon(
+        isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+        size: 16,
+        color: Colors.redAccent,
+      );
     }
     return const SizedBox.shrink();
   }
@@ -353,23 +362,49 @@ class SimpleTableVirtualized<T> extends StatelessWidget {
     }
   }
 
-  void _confirmarExclusao(BuildContext context, T item) {
-    showDialog(
+  Future<void> _confirmarExclusao(BuildContext context, T item) async {
+    final confirmed = await showWindowDialogMac<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmar exclusão'),
-        content: const Text('Deseja realmente excluir este item?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onDelete?.call(item);
-            },
-            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      title: 'Confirmar exclusão',
+      width: 420,
+      child: Builder(
+        builder: (dialogCtx) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Deseja realmente excluir este item?',
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(true),
+                      child: const Text(
+                        'Excluir',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
+
+    if (confirmed == true) {
+      onDelete?.call(item);
+    }
   }
 }

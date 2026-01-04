@@ -328,37 +328,4 @@ class ScheduleCivilController extends ChangeNotifier {
     return const JsonEncoder.withIndent('  ').convert(fc);
   }
 
-  /// --------- Helper: diálogo de nome (centralizado no controller) ----------
-  static Future<String?> askPolygonName(
-      BuildContext context,
-      String suggestion,
-      ) async {
-    final ctrl = TextEditingController(text: suggestion);
-    return showDialog<String?>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('Nome da área'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Digite um nome',
-            hintText: 'Ex.: Pátio A, Área 01, Talude…',
-          ),
-          onSubmitted: (_) => Navigator.pop(context, ctrl.text.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
 }

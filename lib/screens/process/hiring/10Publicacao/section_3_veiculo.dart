@@ -1,4 +1,3 @@
-// lib/screens/process/hiring/10Publicacao/section_3_veiculo.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -57,11 +56,29 @@ class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
   void didUpdateWidget(covariant SectionVeiculoPublicacao oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      _veiculoCtrl.text = widget.data.veiculo ?? '';
-      _edicaoNumeroCtrl.text = widget.data.edicaoNumero ?? '';
-      _dataEnvioCtrl.text = _formatDate(widget.data.dataEnvio);
-      _dataPublicacaoCtrl.text = _formatDate(widget.data.dataPublicacao);
-      _linkPublicacaoCtrl.text = widget.data.linkPublicacao ?? '';
+      final d = widget.data;
+
+      final veiculo = d.veiculo ?? '';
+      final edicao = d.edicaoNumero ?? '';
+      final dataEnvio = _formatDate(d.dataEnvio);
+      final dataPublicacao = _formatDate(d.dataPublicacao);
+      final link = d.linkPublicacao ?? '';
+
+      if (_veiculoCtrl.text != veiculo) {
+        _veiculoCtrl.text = veiculo;
+      }
+      if (_edicaoNumeroCtrl.text != edicao) {
+        _edicaoNumeroCtrl.text = edicao;
+      }
+      if (_dataEnvioCtrl.text != dataEnvio) {
+        _dataEnvioCtrl.text = dataEnvio;
+      }
+      if (_dataPublicacaoCtrl.text != dataPublicacao) {
+        _dataPublicacaoCtrl.text = dataPublicacao;
+      }
+      if (_linkPublicacaoCtrl.text != link) {
+        _linkPublicacaoCtrl.text = link;
+      }
     }
   }
 
@@ -111,10 +128,12 @@ class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
 
   @override
   Widget build(BuildContext context) {
+    final isEditable = widget.isEditable;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('3) Veículo de Publicação'),
+        const SectionTitle(text: '3) Veículo de Publicação'),
         LayoutBuilder(
           builder: (context, constraints) {
             final w5 = inputW5(context, constraints);
@@ -126,12 +145,15 @@ class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
                 SizedBox(
                   width: w5,
                   child: DropDownButtonChange(
-                    enabled: widget.isEditable,
+                    enabled: isEditable,
                     labelText: 'Veículo',
                     controller: _veiculoCtrl,
                     items: HiringData.veiculoDivulgacao,
                     onChanged: (v) {
-                      _veiculoCtrl.text = v ?? '';
+                      final text = v ?? '';
+                      if (_veiculoCtrl.text != text) {
+                        _veiculoCtrl.text = text;
+                      }
                       _emitChange();
                       setState(() {});
                     },
@@ -143,7 +165,7 @@ class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
                   child: CustomTextField(
                     controller: _edicaoNumeroCtrl,
                     labelText: 'Edição/Nº',
-                    enabled: widget.isEditable,
+                    enabled: isEditable,
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
@@ -152,7 +174,7 @@ class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
                   child: CustomDateField(
                     controller: _dataEnvioCtrl,
                     labelText: 'Data de envio',
-                    enabled: widget.isEditable,
+                    enabled: isEditable,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
@@ -166,7 +188,7 @@ class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
                   child: CustomDateField(
                     controller: _dataPublicacaoCtrl,
                     labelText: 'Data da publicação',
-                    enabled: widget.isEditable,
+                    enabled: isEditable,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
@@ -180,7 +202,7 @@ class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
                   child: CustomTextField(
                     controller: _linkPublicacaoCtrl,
                     labelText: 'Link da publicação (URL/PNCP/arquivo)',
-                    enabled: widget.isEditable,
+                    enabled: isEditable,
                     onChanged: (_) => _emitChange(),
                   ),
                 ),

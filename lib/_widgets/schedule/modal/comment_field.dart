@@ -1,22 +1,25 @@
 // lib/_widgets/modals/parts/comment_field.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_modal_controller.dart';
 
 class ScheduleCommentField extends StatelessWidget {
-  const ScheduleCommentField({super.key});
+  final TextEditingController controller;
+  final bool enabled;
+
+  const ScheduleCommentField({
+    super.key,
+    required this.controller,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<ScheduleModalController>();
-
     return Padding(
       padding: const EdgeInsets.only(left: 12, right: 12),
       child: CustomTextField(
-        controller: c.commentCtrl,
+        controller: controller,
         maxLines: 3,
-        enabled: !(c.picking || c.saving),
+        enabled: enabled,
         labelText: 'Comentário (opcional)',
       ),
     );

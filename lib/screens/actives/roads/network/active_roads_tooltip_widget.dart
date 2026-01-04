@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/actives/roads/active_road_rules.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
 
 class ActiveRoadsTooltipWidget {
@@ -10,7 +9,7 @@ class ActiveRoadsTooltipWidget {
     required Offset position,
     required ActiveRoadsData road,
     bool showCloseButton = true,
-    VoidCallback? onVerMais, // 👈 NOVO PARÂMETRO
+    VoidCallback? onVerMais,
   }) {
     hide();
 
@@ -30,6 +29,9 @@ class ActiveRoadsTooltipWidget {
         16.0,
         screenSize.width - tooltipWidth - 16.0,
       );
+
+      final pavLabel =
+      ActiveRoadsData.getStatusSurface(road.stateSurface ?? '');
 
       _currentOverlay = OverlayEntry(
         builder: (context) => Stack(
@@ -51,7 +53,9 @@ class ActiveRoadsTooltipWidget {
                   decoration: BoxDecoration(
                     color: Colors.black87,
                     borderRadius: BorderRadius.circular(8),
-                    boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 6)],
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black45, blurRadius: 6),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,10 +66,17 @@ class ActiveRoadsTooltipWidget {
                           children: [
                             Text(
                               'Rodovia: AL-${road.acronym ?? '--'}',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                               onPressed: hide,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
@@ -76,28 +87,40 @@ class ActiveRoadsTooltipWidget {
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Text(
                           'Código: ${road.roadCode}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Text(
                           'Sub-trecho: ${road.initialSegment} / ${road.finalSegment}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Text(
                           'Extensão: ${road.extension?.toStringAsFixed(2) ?? '--'} km',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Text(
-                          'Pavimento: ${ActiveRoadsRules.getStatusSurface(road.stateSurface!)}',
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                          'Pavimento: $pavLabel',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                       if (onVerMais != null)

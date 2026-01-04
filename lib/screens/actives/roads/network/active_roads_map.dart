@@ -1,23 +1,24 @@
+// lib/screens/actives/roads/network/active_roads_map.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
+import 'package:siged/_blocs/actives/roads/active_roads_cubit.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
-import 'package:siged/_widgets/map/map_interactive.dart';
-import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
-import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
-import 'package:siged/screens/actives/roads/network/active_roads_details.dart';
+
+import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:siged/_widgets/map/roads/road_label_circle.dart';
+import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:siged/_widgets/map/tooltip/map_tap_overlay.dart';
 
-// ▼ cluster layer
 import 'package:siged/_widgets/map/clusters/cluster_animated_marker_widget.dart';
 
+import 'package:siged/screens/actives/roads/network/active_roads_details.dart';
+
 class ActiveRoadsMap extends StatefulWidget {
-  const ActiveRoadsMap({super.key, required this.state});
-  final ActiveRoadsState state;
+  const ActiveRoadsMap({super.key});
 
   @override
   State<ActiveRoadsMap> createState() => _ActiveRoadsMapState();
@@ -25,7 +26,7 @@ class ActiveRoadsMap extends StatefulWidget {
 
 class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
   double _currentZoom = 12.0;
-  double _centerLat   = -9.65;
+  double _centerLat = -9.65;
 
   LatLng? _anchorLatLng;
   MapController? _lastMapController;
@@ -33,96 +34,89 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<ActiveRoadsCubit>().state;
+    final cubit = context.read<ActiveRoadsCubit>();
+
     final isInitialLoading =
-        widget.state.loadStatus == ActiveRoadsLoadStatus.loading && !widget.state.initialized;
+        state.loadStatus == ActiveRoadsLoadStatus.loading &&
+            !state.initialized;
 
     if (isInitialLoading) return const MapLoadingShimmer();
 
-    // --- rótulos como marcadores "livres" (não interceptam toque)
-    final labelMarkers = widget.state.buildRoadLabelMarkers(zoom: _currentZoom);
-    // --- rótulos como tagged markers (para cluster)
-    final labelTagged   = widget.state.buildRoadLabelTaggedMarkers(zoom: _currentZoom);
+    final labelMarkers = state.buildRoadLabelMarkers(zoom: _currentZoom);
+    final labelTagged = state.buildRoadLabelTaggedMarkers(zoom: _currentZoom);
 
-    // threshold para ligar cluster (ajuste à vontade)
-    const double kClusterUntilZoom = 12.0;
-    final bool useCluster = _currentZoom < kClusterUntilZoom;
+    final bool useCluster = cubit.shouldUseCluster(_currentZoom);
 
     return MapInteractivePage<ActiveRoadsData>(
       showSearch: true,
       searchTargetZoom: 16,
       showSearchMarker: true,
-
-      tappablePolylines: widget.state.buildStyledPolylines(
+      tappablePolylines: state.buildStyledPolylines(
         zoom: _currentZoom,
         centerLatitude: _centerLat,
       ),
-
-      // ▼ Quando zoom alto, use marcadores "livres" (atravessáveis).
       extraMarkers: useCluster ? const [] : labelMarkers,
-
-      // ▼ Quando zoom baixo, use CLUSTER.
       taggedMarkers: useCluster ? labelTagged : const [],
-
       clusterWidgetBuilder: useCluster
           ? (tagged, selectedMarkerPosition, onMarkerSelected) {
         return ClusterAnimatedMarkerLayer<ActiveRoadsData>(
           taggedMarkers: tagged,
           selectedMarkerPosition: selectedMarkerPosition,
           onMarkerSelected: onMarkerSelected,
-
-          // pin visual: o mesmo círculo de rótulo
           markerBuilder: (ctx, taggedMarker, isSelected) {
-            final lab = taggedMarker.properties['label']?.toString() ?? '';
-            final d   = (taggedMarker.properties['diameter'] as double?) ?? 24.0;
-            final f   = (taggedMarker.properties['font'] as double?) ?? 10.0;
+            final lab =
+                taggedMarker.properties['label']?.toString() ?? '';
+            final d =
+                (taggedMarker.properties['diameter'] as double?) ??
+                    24.0;
+            final f =
+                (taggedMarker.properties['font'] as double?) ?? 10.0;
             return IgnorePointer(
-              ignoring: true, // toque vai para o cluster
-              child: RoadLabelCircle(text: lab, diameter: d, fontSize: f),
+              ignoring: true,
+              child: RoadLabelCircle(
+                text: lab,
+                diameter: d,
+                fontSize: f,
+              ),
             );
           },
-
-          titleBuilder: (r) => 'AL-${r.acronym ?? ''} (${r.roadCode ?? ''})',
-          subTitleBuilder: (r) => '${r.initialSegment} / ${r.finalSegment}',
-
-          // como os rótulos são só visuais, não precisamos do tooltip inline
+          titleBuilder: (r) =>
+          '${r.acronym ?? ''} (${r.roadCode ?? ''})',
+          subTitleBuilder: (r) =>
+          '${r.initialSegment} / ${r.finalSegment}',
           inlineTooltip: false,
           inlineMaxWidth: 240,
           inlineEstimatedHeight: 120,
-
-          // opcional: esconder polígono do cluster
-
           markerAlignment: Alignment.center,
         );
       }
           : null,
-
       onCameraChanged: (double z, LatLng center) {
         setState(() {
           _currentZoom = z;
-          _centerLat   = center.latitude;
+          _centerLat = center.latitude;
         });
 
-        if (_anchorLatLng != null && _lastMapController != null && _toGlobal != null) {
-          final local = _lastMapController!.camera.latLngToScreenOffset(_anchorLatLng!);
+        if (_anchorLatLng != null &&
+            _lastMapController != null &&
+            _toGlobal != null) {
+          final local = _lastMapController!.camera
+              .latLngToScreenOffset(_anchorLatLng!);
           final global = _toGlobal!(local);
           MapTapOverlayTooltip.updatePosition(global);
         }
       },
-
       onClearPolylineSelection: () async {
-        context.read<ActiveRoadsBloc>().add(const ActiveRoadsSelectPolyline(null));
+        cubit.clearPolylineSelection();
         _anchorLatLng = null;
         _lastMapController = null;
         _toGlobal = null;
         MapTapOverlayTooltip.hide();
       },
-
       onSelectPolyline: (polyline) async {
-        context.read<ActiveRoadsBloc>().add(
-          ActiveRoadsSelectPolyline(polyline.tag?.toString()),
-        );
+        cubit.selectPolyline(polyline.tag?.toString());
       },
-
       onShowPolylineTooltip: ({
         required BuildContext context,
         required Offset position,
@@ -131,16 +125,8 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
         LatLng? tapLatLng,
         Offset Function(Offset p)? toGlobal,
       }) async {
-        final id = tag?.toString();
-        if (id == null) return;
-
-        final road = widget.state.filteredAll.firstWhere(
-              (r) => r.id == id,
-          orElse: () => widget.state.all.firstWhere(
-                (r) => r.id == id,
-            orElse: () => null as dynamic,
-          ),
-        );
+        final road = cubit.findByPolylineTag(tag);
+        if (road == null) return;
 
         _anchorLatLng = road.anchorForTap(tapLatLng) ?? tapLatLng;
         if (_anchorLatLng == null) return;
@@ -154,8 +140,8 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
         MapTapOverlayTooltip.show(
           overlayState: overlay,
           position: position,
-          title: 'Rodovia: AL-${road.acronym} (${road.roadCode})',
-          subtitle: 'Trecho: ${road.initialSegment} / ${road.finalSegment}, ${road.extension}km de extensão',
+          title: cubit.tooltipTitle(road),
+          subtitle: cubit.tooltipSubtitle(road),
           maxWidth: 320,
           forceDownArrow: true,
           onDetails: () async {

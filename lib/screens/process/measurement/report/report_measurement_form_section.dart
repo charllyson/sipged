@@ -1,21 +1,18 @@
-// lib/screens/process/measurement/report/report_measurement_form_section.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
-import 'package:siged/_blocs/process/report/report_measurement_controller.dart';
 
-import 'package:siged/_blocs/process/report/report_measurement_storage_bloc.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/report/report_measurement_data.dart';
-import 'package:siged/screens/process/measurement/create/create_detailed_reports_page.dart';
+import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
 
 // ✅ lista lateral de arquivos
-import '../../../../_widgets/list/files/side_list_box.dart';
+import 'package:siged/_widgets/list/files/side_list_box.dart';
+
+import '../../../../_utils/formats/input_formatters.dart';
 
 class ReportMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
@@ -25,8 +22,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
   final String? currentReportMeasurementId;
 
   final ProcessData contractData;
-  final ReportMeasurementStorageBloc reportMeasurementStorageBloc;
-  final ReportMeasurementController controller;
 
   final TextEditingController orderController;
   final TextEditingController processNumberController;
@@ -36,11 +31,11 @@ class ReportMeasurementFormSection extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onClear;
 
-  /// ▶️ Ações (opcionais).
-  final VoidCallback? onOpenMemoDeCalculo;     // manter nulo => desabilitado
-  final VoidCallback? onOpenBoletimDeMedicao;  // abre modal readonly
+  /// ▶️ Ações (opcionais)
+  final VoidCallback? onOpenMemoDeCalculo; // manter nulo => desabilitado
+  final VoidCallback? onOpenBoletimDeMedicao; // abre modal readonly
 
-  // ▶️ SideListBox props (compat: String | ReportMeasurementAttachment)
+  // ▶️ SideListBox props
   final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
@@ -55,8 +50,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
     required this.selectedReportMeasurement,
     required this.currentReportMeasurementId,
     required this.contractData,
-    required this.controller,
-    required this.reportMeasurementStorageBloc,
     required this.orderController,
     required this.processNumberController,
     required this.dateController,
@@ -90,8 +83,9 @@ class ReportMeasurementFormSection extends StatelessWidget {
       enabled: enabled && isEditable,
       labelText: label,
       controller: controller,
-      keyboardType:
-      money ? TextInputType.number : (date ? TextInputType.datetime : TextInputType.text),
+      keyboardType: money
+          ? TextInputType.number
+          : (date ? TextInputType.datetime : TextInputType.text),
       inputFormatters: [
         if (date) FilteringTextInputFormatter.digitsOnly,
         if (date) TextInputMask(mask: '99/99/9999'),
@@ -107,7 +101,10 @@ class ReportMeasurementFormSection extends StatelessWidget {
     );
 
     if (!tooltip) return field;
-    return Tooltip(message: 'Este campo é calculado automaticamente.', child: field);
+    return Tooltip(
+      message: 'Este campo é calculado automaticamente.',
+      child: field,
+    );
   }
 
   String _numeroBoletim() {
@@ -127,7 +124,8 @@ class ReportMeasurementFormSection extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isSmallScreen = constraints.maxWidth < 700;
-        final double sideWidth = isSmallScreen ? constraints.maxWidth : 300.0;
+        final double sideWidth =
+        isSmallScreen ? constraints.maxWidth : 300.0;
 
         final double inputsWidth = responsiveInputWidth(
           context: context,
@@ -144,10 +142,21 @@ class ReportMeasurementFormSection extends StatelessWidget {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(inputsWidth, orderController, 'Ordem da medição',
-                isEditable: isEditable, enabled: false, tooltip: true),
-            _input(inputsWidth, processNumberController, 'Nº processo da medição',
-                isEditable: isEditable, mask: processoMaskFormatter),
+            _input(
+              inputsWidth,
+              orderController,
+              'Ordem da medição',
+              isEditable: isEditable,
+              enabled: false,
+              tooltip: true,
+            ),
+            _input(
+              inputsWidth,
+              processNumberController,
+              'Nº processo da medição',
+              isEditable: isEditable,
+              mask: processoMaskFormatter,
+            ),
             CustomDateField(
               width: inputsWidth,
               enabled: isEditable,
@@ -160,13 +169,19 @@ class ReportMeasurementFormSection extends StatelessWidget {
                 }
               },
             ),
-            _input(inputsWidth, valueController, 'Valor da medição',
-                isEditable: isEditable, money: true),
+            _input(
+              inputsWidth,
+              valueController,
+              'Valor da medição',
+              isEditable: isEditable,
+              money: true,
+            ),
           ],
         );
 
         // -------- Botões do formulário (mesma largura dos inputs)
         final numero = _numeroBoletim();
+
         final botoesEsquerda = Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -176,8 +191,10 @@ class ReportMeasurementFormSection extends StatelessWidget {
               width: inputsWidth,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.description_outlined),
-                label: Text('Abrir memória de calculo do $numero° boletim de medição'),
-                onPressed: null,
+                label: Text(
+                  'Abrir memória de calculo do $numero° boletim de medição',
+                ),
+                onPressed: onOpenMemoDeCalculo, // hoje provavelmente null
               ),
             ),
             // ✅ Abre o modal (callback custom se fornecido)
@@ -186,13 +203,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.receipt_long_outlined),
                 label: Text('Abrir $numero° boletim de medição'),
-                onPressed: () {
-                  if (onOpenBoletimDeMedicao != null) {
-                    onOpenBoletimDeMedicao!();
-                  } else {
-                    controller.openBoletimModal(context);
-                  }
-                },
+                onPressed: onOpenBoletimDeMedicao,
               ),
             ),
           ],
@@ -204,8 +215,11 @@ class ReportMeasurementFormSection extends StatelessWidget {
           children: [
             TextButton.icon(
               icon: const Icon(Icons.save),
-              label: Text(currentReportMeasurementId != null ? 'Atualizar' : 'Salvar'),
-              onPressed: formValidated ? (isEditable ? onSave : null) : null,
+              label: Text(
+                currentReportMeasurementId != null ? 'Atualizar' : 'Salvar',
+              ),
+              onPressed:
+              formValidated ? (isEditable ? onSave : null) : null,
             ),
             const SizedBox(width: 12),
             if (currentReportMeasurementId != null)
@@ -226,13 +240,19 @@ class ReportMeasurementFormSection extends StatelessWidget {
             children: [
               botoesEsquerda,
               const SizedBox(height: 12),
-              Align(alignment: Alignment.centerRight, child: botoesDireita),
+              Align(
+                alignment: Alignment.centerRight,
+                child: botoesDireita,
+              ),
             ],
           )
               : Row(
             children: [
               Expanded(
-                child: Align(alignment: Alignment.centerLeft, child: botoesEsquerda),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: botoesEsquerda,
+                ),
               ),
               const SizedBox(width: 12),
               botoesDireita,
@@ -255,8 +275,9 @@ class ReportMeasurementFormSection extends StatelessWidget {
           title: 'Arquivos da Medição',
           items: sideItems,
           selectedIndex: selectedSideIndex,
-          onAddPressed:
-          (selectedReportMeasurement != null && isEditable) ? onAddSideItem : null,
+          onAddPressed: (selectedReportMeasurement != null && isEditable)
+              ? onAddSideItem
+              : null,
           onTap: onTapSideItem,
           onDelete: isEditable ? onDeleteSideItem : null,
           onEditLabel: isEditable ? onEditLabelSideItem : null,

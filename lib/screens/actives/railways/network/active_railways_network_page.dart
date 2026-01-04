@@ -1,26 +1,20 @@
-// lib/_pages/actives/railway/active_railways_network_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';
-import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
+import 'package:siged/_blocs/actives/railway/active_railways_cubit.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_state.dart';
 
-import 'package:siged/_widgets/upBar/up_bar.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
-import 'package:siged/_services/geoJson/send_firebase.dart';
-import 'package:siged/_services/geoJson/check_jumps_between_points.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
 
 // 🔀 Layout responsivo com divisor arrastável
-import 'package:siged/_widgets/layout/responsive_split_view.dart';
-
-import '../../../../_services/floating_buttons.dart';
-import 'active_railways_map.dart';
-import 'active_railways_panel.dart';
+import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
 
 // ✅ Notificações
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
+
+import 'active_railways_map.dart';
+import 'active_railways_panel.dart';
 
 class ActiveRailwaysNetworkPage extends StatefulWidget {
   const ActiveRailwaysNetworkPage({super.key});
@@ -31,24 +25,25 @@ class ActiveRailwaysNetworkPage extends StatefulWidget {
 }
 
 class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
-  late final ActiveRailwaysBloc _bloc;
-  bool _showRightPanel = false;
+  late final ActiveRailwaysCubit _cubit;
+  bool _showRightPanel = true;
 
   @override
   void initState() {
     super.initState();
-    _bloc = ActiveRailwaysBloc()..add(const ActiveRailwaysWarmupRequested());
+    _cubit = ActiveRailwaysCubit()..warmup();
   }
 
   @override
   void dispose() {
-    _bloc.close();
+    _cubit.close();
     super.dispose();
   }
 
   void _clearFilters() {
-    _bloc.add(const ActiveRailwaysRegionFilterChanged(null));
-    _bloc.add(const ActiveRailwaysStatusFilterChanged(null));
+    _cubit.setRegionFilter(null);
+    _cubit.setStatusFilter(null);
+    _cubit.setPieFilter(null);
   }
 
   void _toggleRightPanel() {
@@ -59,25 +54,29 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
   // Import / Delete helpers
   // =========================
 
-  void _onDeleteCollection() async {
-    final ids = _bloc.state.all.map((e) => e.id).whereType<String>().toList();
+  Future<void> _onDeleteCollection() async {
+    final ids = _cubit.state.all.map((e) => e.id).whereType<String>().toList();
     for (final id in ids) {
-      _bloc.add(ActiveRailwaysDeleteRequested(id));
+      await _cubit.deleteById(id);
     }
 
     NotificationCenter.instance.show(
       AppNotification(
-        title: const Text('Exclusão solicitada'),
-        subtitle: Text('${ids.length} ferrovia(s) marcada(s) para exclusão.'),
+        title: const Text('Exclusão concluída'),
+        subtitle: Text('${ids.length} ferrovia(s) excluída(s).'),
         type: AppNotificationType.warning,
       ),
     );
   }
 
+  // =========================
+  // BUILD
+  // =========================
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: _bloc,
+      value: _cubit,
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(74),
@@ -103,56 +102,22 @@ class _ActiveRailwaysNetworkPageState extends State<ActiveRailwaysNetworkPage> {
           ),
         ),
 
-        bottomNavigationBar: const FootBar(),
-
         body: Stack(
           children: [
-            BlocBuilder<ActiveRailwaysBloc, ActiveRailwaysState>(
+            BlocBuilder<ActiveRailwaysCubit, ActiveRailwaysState>(
               builder: (context, state) {
-                return ResponsiveSplitView(
-                  // conteúdo principal (mapa)
+                return SplitLayout(
                   left: ActiveRailwaysMap(state: state),
 
-                  // painel lateral/inferior
                   right: const ActiveRailwaysPanel(),
 
-                  // controle de exibição
                   showRightPanel: _showRightPanel,
 
-                  // tamanhos e comportamento padrão
+                  // 🔥 mesma proporção de todos os módulos padronizados
                   breakpoint: 980.0,
-                  rightPanelWidth: 600.0,
-                  bottomPanelHeight: 420.0,
+                  rightPanelWidth: 580.0,     // estava 600 → agora padrão OAEs/Roads
+                  bottomPanelHeight: 420.0,   // igual OAEs/Roads
                   showDividers: true,
-                );
-              },
-            ),
-
-            // ===== Botões de GeoJSON (flutuantes) =====
-            GeoJsonActionsButtons(
-              collectionPath: 'actives_railways',
-              initiallyExpanded: true,
-              position: const GeoJsonActionsPosition.bottomLeft(),
-              onImportGeoJson: (ctx) async {
-                await GeoJsonSendFirebase(ctx);
-              },
-              onDeleteCollection: _onDeleteCollection,
-              onCheckDistances: () async {
-                final ids = await checkJumpsBetweenPoints(
-                  collectionPath: 'actives_railways',
-                  distanciaMaxEmKm: 2.0,
-                );
-
-                NotificationCenter.instance.show(
-                  AppNotification(
-                    title: const Text('Verificação concluída'),
-                    subtitle: Text(
-                      '${ids.length} documento(s) com possíveis saltos > 2 km',
-                    ),
-                    type: ids.isEmpty
-                        ? AppNotificationType.success
-                        : AppNotificationType.warning,
-                  ),
                 );
               },
             ),

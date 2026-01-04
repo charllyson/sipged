@@ -4,10 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
 
-// BLoC do cronograma
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+// ✅ Cubit do cronograma (novo)
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
+
 import 'package:siged/_widgets/background/background_cleaner.dart';
 
 // Pie
@@ -57,9 +57,9 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
     );
 
     if (rows != null && context.mounted) {
-      context.read<ScheduleRoadBloc>().add(
-        ScheduleLanesSaveRequested(rows),
-      );
+      // ✅ Agora chamando o método do Cubit (sem eventos)
+      context.read<ScheduleRoadCubit>().saveLanes(rows);
+
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Faixas atualizadas'),
@@ -74,15 +74,14 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
   @override
   Widget build(BuildContext context) {
     const bool showHeaderSpinner = false;
+    (showHeaderSpinner); // só pra evitar warning de não uso caso queira ativar depois
 
     return Stack(
       children: [
         BackgroundClean(),
-        BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
+        BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
           builder: (ctx, st) {
             final canEdit = widget.enabled && !st.loadingLanes;
-
-            // ------- Dados do Pie (garantindo valores válidos) -------
             final double vConcluido =
             (st.pctConcluido ?? 0).isFinite ? (st.pctConcluido ?? 0) : 0;
             final double vAndamento =
@@ -104,7 +103,6 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
               padding: const EdgeInsets.all(12.0),
               child: ListView(
                 children: [
-                  // ===================== Header / SubHeader =====================
                   ScheduleHeader(
                     title: st.titleForHeader.isEmpty
                         ? (st.summarySubjectContract ?? 'Cronograma')
@@ -160,15 +158,6 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                   const SizedBox(height: 16),
 
                   // ===================== Informações do contrato/serviço =====================
-                  Text(
-                    st.summarySubjectContract ?? 'Contrato',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _kv('ContractId', st.contractId ?? '-'),
                   _kv(
                     'Serviço atual',
                     st.titleForHeader.isEmpty ? 'GERAL' : st.titleForHeader,

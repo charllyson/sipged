@@ -1,3 +1,4 @@
+// lib/_blocs/process/hiring/0Stages/progress_state.dart
 import 'package:meta/meta.dart';
 
 @immutable

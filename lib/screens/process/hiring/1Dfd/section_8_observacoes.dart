@@ -1,4 +1,3 @@
-// lib/screens/process/hiring/1Dfd/dfd_sections/section_8_observacoes.dart
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
@@ -29,14 +28,17 @@ class _SectionObservacoesState extends State<SectionObservacoes> {
   void initState() {
     super.initState();
     _observacoesCtrl =
-        TextEditingController(text: widget.data.observacoes);
+        TextEditingController(text: widget.data.observacoes ?? '');
   }
 
   @override
   void didUpdateWidget(covariant SectionObservacoes oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      _observacoesCtrl.text = widget.data.observacoes;
+      final obs = widget.data.observacoes ?? '';
+      if (_observacoesCtrl.text != obs) {
+        _observacoesCtrl.text = obs;
+      }
     }
   }
 
@@ -58,7 +60,7 @@ class _SectionObservacoesState extends State<SectionObservacoes> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('8) Observações'),
+        const SectionTitle(text: '8) Observações'),
         LayoutBuilder(
           builder: (context, inner) {
             return SizedBox(

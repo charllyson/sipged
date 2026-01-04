@@ -2,24 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/buttons/back_circle_button.dart';
+import 'package:siged/screens/actives/oaes/records/list_oaes_page.dart';
+import 'package:siged/screens/actives/oaes/records/tab_bar_oaes_page.dart';
 
 // BLoC de usuário
 import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
 
-// BLoC de OAEs (já injetado no main)
-import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
-import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
+// Cubit de OAEs
+import 'package:siged/_blocs/actives/oaes/active_oaes_cubit.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
 
-import 'active_oaes_form.dart';
-import 'active_oaes_records_table_section.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
 
-// ✅ notificações ricas
+// notificações
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
@@ -38,140 +36,129 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // garante warmup do UserBloc apenas uma vez
     if (!_firedUserWarmup) {
       _firedUserWarmup = true;
-      context.read<UserBloc>().add(const UserWarmupRequested(
-        listenRealtime: true,
-        bindCurrentUser: true,
-      ));
+      context.read<UserBloc>().add(
+        const UserWarmupRequested(
+          listenRealtime: true,
+          bindCurrentUser: true,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<UserBloc, UserState>(
-      buildWhen: (a, b) =>
-      a.current != b.current || a.isLoadingUsers != b.isLoadingUsers,
-      builder: (context, userState) {
-        final currentUser = userState.current;
-        if (currentUser == null) {
+    return BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
+      builder: (context, st) {
+        final cubit = context.read<ActiveOaesCubit>();
+
+        // warmup das rodovias (1x)
+        if (!_firedOaesWarmup && !st.initialized) {
+          _firedOaesWarmup = true;
+          cubit.warmup();
+        }
+
+        if (!st.initialized ||
+            st.loadStatus == ActiveOaesLoadStatus.loading) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(72),
+              child: UpBar(
+                leading: const Padding(
+                  padding: EdgeInsets.only(left: 12.0),
+                  child: BackCircleButton(),
+                ),
+                showPhotoMenu: true,
+              ),
+            ),
+            body: Stack(
+              children: [
+                BackgroundClean(),
+                Center(
+                    child: Text('Carregando OAE\'s...')),
+              ],
+            ),
+          );
+        }
+        final oaes = st.all;
+
+        void _onTapOae(ActiveOaesData item) {
+          final idx = st.all.indexWhere((e) => e.id == item.id);
+          if (idx != -1) {
+            cubit.selectByIndex(idx);
+          } else {
+            // fallback: joga o item direto para o form
+            cubit.patchForm(item);
+          }
+
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: cubit,
+                child: const TabBarOaesPage(),
+              ),
+            ),
           );
         }
 
-        // Consome o ActiveOaesBloc já injetado no main()
-        return BlocBuilder<ActiveOaesBloc, ActiveOaesState>(
-          builder: (context, st) {
-            final bloc = context.read<ActiveOaesBloc>();
+        void _onDeleteOae(String id) {
+          cubit.delete(id);
+          NotificationCenter.instance.show(
+            AppNotification(
+              title: const Text('Solicitando exclusão...'),
+              type: AppNotificationType.warning,
+              leadingLabel: const Text('OAEs'),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
 
-            // Se o main não disparou o warmup, garante aqui 1x
-            if (!_firedOaesWarmup && !st.initialized) {
-              _firedOaesWarmup = true;
-              bloc.add(const ActiveOaesWarmupRequested());
-            }
+        // 🔹 Novo: ação do botão flutuante "Adicionar OAE"
+        void _onAddOae() {
+          // limpa seleção e deixa o form em branco
+          cubit.clearSelection();
 
-            if (!st.initialized ||
-                st.loadStatus == ActiveOaesLoadStatus.loading) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-            if (st.loadStatus == ActiveOaesLoadStatus.failure) {
-              return Scaffold(
-                body: Center(child: Text('Erro: ${st.error ?? '-'}')),
-              );
-            }
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: cubit,
+                child: const TabBarOaesPage(),
+              ),
+            ),
+          );
+        }
 
-            final labelsRegion = st.regionLabels;
-
-            return Stack(
-              children: [
-                const BackgroundClean(),
-                Column(
-                  children: [
-                    const UpBar(),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 12),
-                            const DividerText(title: 'Cadastrar OAE no sistema'),
-                            const SizedBox(height: 12),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12.0),
-                              child: ActiveOaesForm(),
-                            ),
-                            const DividerText(
-                                title: 'OAEs cadastradas no sistema'),
-                            const SizedBox(height: 12),
-
-                            // ===================== TABELA =====================
-                            ActiveOaesRecordsTableSection(
-                              futureOaes: Future.value(st.all),
-                              onTapItem: (item) {
-                                // espelha seleção no BLoC
-                                final originalIndex = st.all
-                                    .indexWhere((e) => e.id == item.id);
-                                if (originalIndex != -1) {
-                                  context
-                                      .read<ActiveOaesBloc>()
-                                      .add(ActiveOaesSelectByIndex(
-                                      originalIndex));
-                                }
-
-                                // espelha no PIE: nota -> índice da fatia (0..5)
-                                ((item.score ?? -1).toInt()).clamp(0, 5);
-
-                                // espelha na barra de região
-                                final r = (item.region ?? '').toUpperCase();
-                                final idxRegion = labelsRegion.indexWhere(
-                                      (lab) => lab.toUpperCase() == r,
-                                );
-                                if (idxRegion != -1) {
-                                  // no-op aqui (mantido para futura integração visual)
-                                }
-                              },
-                              onDelete: (id) {
-                                context
-                                    .read<ActiveOaesBloc>()
-                                    .add(ActiveOaesDeleteRequested(id));
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    title:
-                                    const Text('Solicitando exclusão...'),
-                                    type: AppNotificationType.warning,
-                                    leadingLabel: const Text('OAEs'),
-                                    duration:
-                                    const Duration(seconds: 4),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const FootBar(),
-                  ],
+        return Scaffold(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(72),
+            child: UpBar(
+              leading: const Padding(
+                padding: EdgeInsets.only(left: 12.0),
+                child: BackCircleButton(),
+              ),
+            ),
+          ),
+          body: Stack(
+            children: [
+              const BackgroundClean(),
+              SingleChildScrollView(
+                child: ListOaesPage(
+                  oaes: oaes,
+                  onTapItem: _onTapOae,
+                  onDelete: _onDeleteOae,
                 ),
+              ),
+            ],
+          ),
 
-                // Overlay de salvamento
-                if (st.saving)
-                  Stack(
-                    children: [
-                      ModalBarrier(
-                        dismissible: false,
-                        color: Colors.black.withOpacity(0.4),
-                      ),
-                      const Center(child: CircularProgressIndicator()),
-                    ],
-                  ),
-              ],
-            );
-          },
+          // 🔹 Botão flutuante no canto inferior direito
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _onAddOae,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text('Adicionar OAE', style: TextStyle(color: Colors.white)),
+            backgroundColor: Colors.blue.shade800,
+          ),
         );
       },
     );

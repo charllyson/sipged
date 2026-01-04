@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/process/adjustment/adjustment_measurement_data.dart';
-import 'package:siged/_utils/formats/date_utils.dart';
+import 'package:siged/_blocs/process/measurement/adjustment/adjustment_measurement_data.dart';
+import 'package:siged/_utils/formats/converters_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_widgets/totalTableRows/footer_rows_generic.dart';
+import 'package:siged/_widgets/table/totalTableRows/footer_rows_generic.dart';
 
 class AdjustmentMeasurementTableSection extends StatelessWidget {
   final void Function(AdjustmentMeasurementData) onTapItem;
@@ -46,7 +46,7 @@ class AdjustmentMeasurementTableSection extends StatelessWidget {
                 child: SimpleTableChanged<AdjustmentMeasurementData>(
                   constraints: constraints,
                   listData: adjustmentMeasurementsData,
-                  columnTitles: [
+                  columnTitles: const [
                     'ORDEM',
                     'Nº PROCESSO',
                     'DATA DO REAJUSTE',
@@ -61,7 +61,10 @@ class AdjustmentMeasurementTableSection extends StatelessWidget {
                   ],
                   onTapItem: onTapItem,
                   onDelete: (item) => onDelete(item.id!),
-                  columnWidths: const [100, 200, 150, 200],
+
+                  // ✅ 4 colunas de dados + 1 coluna APAGAR
+                  columnWidths: const [100, 200, 150, 200, 56],
+
                   columnTextAligns: const [
                     TextAlign.center,
                     TextAlign.center,
@@ -97,7 +100,7 @@ class AdjustmentMeasurementTableSection extends StatelessWidget {
                     ],
                   ).rows,
 
-                ),
+              ),
 
               ),
             ],

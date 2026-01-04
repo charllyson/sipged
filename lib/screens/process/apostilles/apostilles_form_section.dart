@@ -1,22 +1,18 @@
-// ==============================
-// lib/screens/contracts/apostilles/apostilles_form_section.dart
-// ==============================
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
-import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
-import 'package:siged/_blocs/_process/process_data.dart';
 
+import 'package:siged/_widgets/cards/basic/basic_card.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_utils/formats/mask_class.dart';
 
-// ⬇️ dropdown com itens cinza
-import 'package:siged/_widgets/input/drop_down_botton_change.dart';
+import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
+import 'package:siged/_blocs/_process/process_data.dart';
 
-// ✅ SideListBox aceita String OU Attachment
 import '../../../../_widgets/list/files/side_list_box.dart';
 
 class ApostilleFormSection extends StatelessWidget {
@@ -27,7 +23,6 @@ class ApostilleFormSection extends StatelessWidget {
   final String? currentApostilleId;
   final ProcessData contractData;
 
-  // ⚠️ controllers
   final TextEditingController orderController;
   final TextEditingController processController;
   final TextEditingController dateController;
@@ -36,7 +31,6 @@ class ApostilleFormSection extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onClear;
 
-  // ▶️ SideListBox props (String ou Attachment)
   final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
@@ -44,7 +38,6 @@ class ApostilleFormSection extends StatelessWidget {
   final void Function(int index)? onDeleteSideItem;
   final void Function(int index)? onEditLabelSideItem;
 
-  // 🆕 Dropdown de ordem (inteligente)
   final List<String> orderNumberOptions;
   final Set<String> greyOrderItems;
   final void Function(String?) onChangedOrderNumber;
@@ -69,7 +62,6 @@ class ApostilleFormSection extends StatelessWidget {
     this.onTapSideItem,
     this.onDeleteSideItem,
     this.onEditLabelSideItem,
-    // novos:
     required this.orderNumberOptions,
     required this.greyOrderItems,
     required this.onChangedOrderNumber,
@@ -93,15 +85,14 @@ class ApostilleFormSection extends StatelessWidget {
         controller: ctrl,
         enabled: enabled && isEditable,
         labelText: label,
-        keyboardType: date
-            ? TextInputType.datetime
-            : (money ? TextInputType.number : null),
+        keyboardType:
+        date ? TextInputType.datetime : (money ? TextInputType.number : null),
         inputFormatters: [
           if (date) FilteringTextInputFormatter.digitsOnly,
           if (date) TextInputMask(mask: '99/99/9999'),
           if (money)
             CurrencyInputFormatter(
-              leadingSymbol: 'R\$ ',
+              leadingSymbol: r'R$ ',
               useSymbolPadding: true,
               thousandSeparator: ThousandSeparator.Period,
               mantissaLength: 2,
@@ -114,6 +105,9 @@ class ApostilleFormSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isSmallScreen = constraints.maxWidth < 700;
@@ -129,19 +123,20 @@ class ApostilleFormSection extends StatelessWidget {
           spaceBetweenReserved: 12.0,
         );
 
+        final double minCardHeight = isSmallScreen ? 260.0 : 170.0;
+
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            // 🔽 Ordem com dropdown inteligente
             DropDownButtonChange(
               width: inputsWidth,
               labelText: 'Ordem do apostilamento',
               items: orderNumberOptions,
               controller: orderController,
               enabled: isEditable,
-              greyItems: greyOrderItems,        // itens usados em cinza
-              onChanged: onChangedOrderNumber,  // carrega existente ou cria novo
+              greyItems: greyOrderItems,
+              onChanged: onChangedOrderNumber,
             ),
             _input(
               inputsWidth,
@@ -195,42 +190,40 @@ class ApostilleFormSection extends StatelessWidget {
           ],
         );
 
-        // ✅ SideListBox com rótulo/renomear
         final side = SideListBox(
           title: 'Arquivos do Apostilamento',
           items: sideItems,
           selectedIndex: selectedSideIndex,
-          onAddPressed:
-          (selectedApostille != null && isEditable) ? onAddSideItem : null,
+          onAddPressed: (selectedApostille != null && isEditable) ? onAddSideItem : null,
           onTap: onTapSideItem,
           onDelete: isEditable ? onDeleteSideItem : null,
           onEditLabel: isEditable ? onEditLabelSideItem : null,
           width: sideWidth,
         );
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8),
-          ),
+        return BasicCard(
+          isDark: isDark,
+          width: double.infinity,
           padding: const EdgeInsets.all(12),
-          child: isSmallScreen
-              ? Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              side,
-              const SizedBox(height: 12),
-              corpo,
-            ],
-          )
-              : Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              side,
-              const SizedBox(width: 12),
-              Expanded(child: corpo),
-            ],
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minCardHeight),
+            child: isSmallScreen
+                ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                side,
+                const SizedBox(height: 12),
+                corpo,
+              ],
+            )
+                : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                side,
+                const SizedBox(width: 12),
+                Expanded(child: corpo),
+              ],
+            ),
           ),
         );
       },

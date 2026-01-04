@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/search/SearchBox.dart';
-import '../suggestions/suggestion_models.dart';
+import '../map/suggestions/suggestion_models.dart';
 
 enum SearchExpandSide { left, right }
 

@@ -1,11 +1,13 @@
-// lib/_blocs/process/hiring/1Dfd/dfd_state.dart
-part of 'dfd_bloc.dart';
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
 
 class DfdState {
   final bool loading;
   final bool saving;
   final bool saveSuccess;
   final String? error;
+
+  /// id do contrato associado a este DFD
+  final String? contractId;
 
   final String? dfdId;
   final SectionIds sectionIds;     // Map<String, String>
@@ -16,6 +18,7 @@ class DfdState {
     this.saving = false,
     this.saveSuccess = false,
     this.error,
+    this.contractId,
     this.dfdId,
     this.sectionIds = const {},
     this.sectionsData = const {},
@@ -30,6 +33,7 @@ class DfdState {
     bool? saving,
     bool? saveSuccess,
     String? error,
+    String? contractId,
     String? dfdId,
     SectionIds? sectionIds,
     SectionsMap? sectionsData,
@@ -38,7 +42,10 @@ class DfdState {
       loading: loading ?? this.loading,
       saving: saving ?? this.saving,
       saveSuccess: saveSuccess ?? this.saveSuccess,
+      // sempre que copiar, se não passar error explicitamente, zera
+      // (fica como comportamento de "clear error" a cada nova ação)
       error: error,
+      contractId: contractId ?? this.contractId,
       dfdId: dfdId ?? this.dfdId,
       sectionIds: sectionIds ?? this.sectionIds,
       sectionsData: sectionsData ?? this.sectionsData,

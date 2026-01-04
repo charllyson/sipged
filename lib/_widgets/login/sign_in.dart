@@ -1,9 +1,9 @@
+// lib/screens/login/sign_in.dart (ou caminho equivalente)
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/system/login/login_bloc.dart';
-import 'package:siged/_blocs/system/pages/pages_data.dart';
-import 'package:siged/_widgets/background/background.dart';
+import 'package:siged/_blocs/system/setup/setup_data.dart';
 import 'package:siged/_widgets/images/logos/sisgeo_logo.dart';
 import 'package:siged/_widgets/login/sign_in_button.dart';
 import 'package:siged/_widgets/input/custom_icon_button.dart';
@@ -35,14 +35,22 @@ class _SignInState extends State<SignIn> {
   @override
   void initState() {
     super.initState();
+
     _emailController = TextEditingController();
     _passController = TextEditingController();
-    _companyController = TextEditingController(text: 'DER');
+
+    // 🔥 começa com o módulo padrão definido no SetupData
+    _companyController = TextEditingController(
+      text: SetupData.defaultModuleLabel,
+    );
+
     _emailFocus = FocusNode();
     _passFocus = FocusNode();
 
     _loginBloc = Provider.of<LoginBloc>(context, listen: false);
-    _bgGradient = PagesData.gradientForModule('DER');
+
+    // gradiente também baseado no módulo padrão
+    _bgGradient = SetupData.gradientForModule(SetupData.defaultModuleLabel);
 
     _emailController.addListener(() {
       setState(() => _hasEmail = _emailController.text.isNotEmpty);
@@ -51,8 +59,9 @@ class _SignInState extends State<SignIn> {
     // quando mudar o módulo, atualiza gradiente e informa ao bloc
     _companyController.addListener(() {
       final selected = _companyController.text.trim();
-      setState(() => _bgGradient = PagesData.gradientForModule(selected));
-      _loginBloc.changeSelectedArea('DER');
+      setState(() => _bgGradient = SetupData.gradientForModule(selected));
+      // ✅ agora envia o módulo realmente selecionado, e não "DER" fixo
+      _loginBloc.changeSelectedArea(selected);
     });
   }
 
@@ -83,11 +92,10 @@ class _SignInState extends State<SignIn> {
           return LayoutBuilder(
             builder: (context, constraints) {
               return Container(
-                // 🔥 o gradiente agora “abraça” TODO o conteúdo (inclusive o que passa da viewport)
+                // gradiente cobre toda a tela
                 decoration: BoxDecoration(gradient: _bgGradient),
                 child: Stack(
                   children: [
-                    // Conteúdo com altura mínima = viewport (sem faixa branca no fim)
                     SafeArea(
                       top: true,
                       bottom: false,
@@ -127,8 +135,13 @@ class _SignInState extends State<SignIn> {
                             children: [
                               LoadingProgress(),
                               SizedBox(height: 12),
-                              Text("Entrando...",
-                                  style: TextStyle(color: Colors.white, fontSize: 20)),
+                              Text(
+                                "Entrando...",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -144,7 +157,6 @@ class _SignInState extends State<SignIn> {
   }
 
   Widget _buildLoginCard(BuildContext context) {
-    // calcula largura máxima responsiva
     final screenW = MediaQuery.of(context).size.width;
     double maxWidth;
     if (screenW >= 1000) {
@@ -168,18 +180,19 @@ class _SignInState extends State<SignIn> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
+              // ===== Dropdown Módulo (atualmente só exibe o módulo em uso) =====
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28),
                 child: DropDownButtonChange(
                   width: maxWidth,
                   controller: _companyController,
                   labelText: 'Módulo',
-                  enabled: false,
-                  items: PagesData.moduleName,
+                  enabled: false, // 🔒 módulo travado por instalação
+                  items: SetupData.moduleName,
                 ),
               ),
 
-              // Indicador de acesso à área escolhida
+              // ===== Indicador de acesso à área escolhida =====
               Padding(
                 padding: const EdgeInsets.fromLTRB(28, 8, 28, 0),
                 child: StreamBuilder<AreaAccessStatus>(
@@ -234,6 +247,8 @@ class _SignInState extends State<SignIn> {
               ),
 
               const SizedBox(height: 6),
+
+              // ===== Campo E-mail =====
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28),
                 child: CustomTextField(
@@ -262,6 +277,8 @@ class _SignInState extends State<SignIn> {
               ),
 
               const SizedBox(height: 16),
+
+              // ===== Campo Senha =====
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28),
                 child: CustomTextField(
@@ -277,18 +294,24 @@ class _SignInState extends State<SignIn> {
                   onChanged: _loginBloc.changePassword,
                   enabled: true,
                   suffix: IconButton(
-                    icon: Icon(_inputObscure ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _inputObscure = !_inputObscure),
+                    icon: Icon(
+                      _inputObscure ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () =>
+                        setState(() => _inputObscure = !_inputObscure),
                   ),
                 ),
               ),
 
+              // ===== Recuperar senha =====
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
                     final email = _emailController.text.trim();
-                    if (email.isNotEmpty) _loginBloc.recoverPass(email);
+                    if (email.isNotEmpty) {
+                      _loginBloc.recoverPass(email);
+                    }
                   },
                   child: const Text(
                     'Esqueci a senha',
@@ -297,9 +320,10 @@ class _SignInState extends State<SignIn> {
                 ),
               ),
 
-              // Botão habilitado pelo bloc (email+senha válidos e acesso à área)
+              // ===== Botão de login (habilitado pelo bloc) =====
               SignInButton(loginBloc: _loginBloc),
 
+              // ===== Mensagem de erro =====
               StreamBuilder<LoginState>(
                 stream: _loginBloc.outState,
                 builder: (_, snap) {

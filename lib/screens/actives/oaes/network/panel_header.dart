@@ -1,12 +1,20 @@
+// lib/screens/actives/oaes/network/panel_header.dart
 import 'package:flutter/material.dart';
 
 class PanelHeader extends StatelessWidget {
-  const PanelHeader({super.key, this.title, this.onClose});
+  const PanelHeader({
+    super.key,
+    this.title,
+    this.onClose,
+  });
+
   final String? title;
   final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return SizedBox(
       height: 48,
       child: Row(
@@ -14,10 +22,11 @@ class PanelHeader extends StatelessWidget {
           Expanded(
             child: Text(
               title ?? 'Detalhes',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           IconButton(

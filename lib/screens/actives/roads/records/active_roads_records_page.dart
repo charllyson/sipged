@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
+
+// Import do Cubit genérico de importação
+import 'package:siged/_services/geoJson/vector_import_cubit.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/buttons/back_circle_button.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
 
+// User
 import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
 
+// Roads
 import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
-import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
+import 'package:siged/_blocs/actives/roads/active_roads_cubit.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
+import 'package:siged/screens/actives/roads/records/list_roads_page.dart';
+import 'package:siged/screens/actives/roads/records/roads_vector_import_dialog.dart';
 
-import 'active_roads_form.dart';
-import 'active_roads_records_table_section.dart';
+import 'tab_bar_roads_page.dart';
 
-// 🔔 Notificações
+// Notificações
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
@@ -26,135 +29,179 @@ class ActiveRoadsRecordsPage extends StatefulWidget {
   const ActiveRoadsRecordsPage({super.key});
 
   @override
-  State<ActiveRoadsRecordsPage> createState() => _ActiveRoadsRecordsPageState();
+  State<ActiveRoadsRecordsPage> createState() =>
+      _ActiveRoadsRecordsPageState();
 }
 
 class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
   bool _firedUserWarmup = false;
   bool _firedRoadsWarmup = false;
 
-  ActiveRoadsData? _editing; // registro atualmente em edição
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // garante warmup do UserBloc apenas uma vez
     if (!_firedUserWarmup) {
       _firedUserWarmup = true;
-      context.read<UserBloc>().add(const UserWarmupRequested(
-        listenRealtime: true,
-        bindCurrentUser: true,
-      ));
+      context.read<UserBloc>().add(
+        const UserWarmupRequested(
+          listenRealtime: true,
+          bindCurrentUser: true,
+        ),
+      );
     }
+  }
+
+  void _openTabBarForRoad(ActiveRoadsData? road) {
+    final cubit = context.read<ActiveRoadsCubit>();
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: cubit,
+          child: TabBarRoadsPage(editing: road),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<UserBloc, UserState>(
-      buildWhen: (a, b) => a.current != b.current || a.isLoadingUsers != b.isLoadingUsers,
-      builder: (context, userState) {
-        final currentUser = userState.current;
-        if (currentUser == null) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return BlocBuilder<ActiveRoadsCubit, ActiveRoadsState>(
+      builder: (context, st) {
+        final cubit = context.read<ActiveRoadsCubit>();
+
+        // warmup das rodovias (1x)
+        if (!_firedRoadsWarmup && !st.initialized) {
+          _firedRoadsWarmup = true;
+          cubit.warmup();
         }
 
-        return BlocBuilder<ActiveRoadsBloc, ActiveRoadsState>(
-          builder: (context, st) {
-            final bloc = context.read<ActiveRoadsBloc>();
-
-            // dispara warmup 1x se ainda não inicializado
-            if (!_firedRoadsWarmup && !st.initialized) {
-              _firedRoadsWarmup = true;
-              bloc.add(const ActiveRoadsWarmupRequested());
-            }
-
-            if (!st.initialized || st.loadStatus == ActiveRoadsLoadStatus.loading) {
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
-            }
-            if (st.loadStatus == ActiveRoadsLoadStatus.failure) {
-              // 🔔 Notificação de erro de carregamento
-              NotificationCenter.instance.show(
-                AppNotification(
-                  title: const Text('Falha ao carregar rodovias'),
-                  subtitle: Text(st.error ?? 'Erro desconhecido'),
-                  type: AppNotificationType.error,
+        // ================== ESTADO CARREGANDO ==================
+        if (!st.initialized ||
+            st.loadStatus == ActiveRoadsLoadStatus.loading) {
+          return const Scaffold(
+            appBar: PreferredSize(
+              preferredSize: Size.fromHeight(72),
+              child: UpBar(
+                leading: Padding(
+                  padding: EdgeInsets.only(left: 12.0),
+                  child: BackCircleButton(),
                 ),
-              );
-              return Scaffold(body: Center(child: Text('Erro: ${st.error ?? '-'}')));
-            }
-
-            return Stack(
+                showPhotoMenu: true,
+              ),
+            ),
+            body: Stack(
               children: [
-                const BackgroundClean(),
-                Column(
-                  children: [
-                    const UpBar(showPhotoMenu: true),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 12),
-                            const DividerText(title: 'Cadastrar / Atualizar Rodovia'),
-                            const SizedBox(height: 12),
-
-                            // ---------- FORM ----------
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                              child: ActiveRoadsForm(editing: _editing),
-                            ),
-
-                            const DividerText(title: 'Rodovias cadastradas no sistema'),
-                            const SizedBox(height: 12),
-
-                            // ---------- TABELA ----------
-                            ActiveRoadsRecordsTableSection(
-                              futureRoads: Future.value(st.all),
-                              onTapItem: (item) {
-                                setState(() => _editing = item); // carrega no form
-                                final rotulo = item.acronym ?? item.id ?? '';
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    title: const Text('Editando registro'),
-                                    subtitle: Text(rotulo),
-                                    type: AppNotificationType.info,
-                                    duration: const Duration(seconds: 3),
-                                  ),
-                                );
-                              },
-                              onDelete: (id) {
-                                bloc.add(ActiveRoadsDeleteRequested(id));
-                                if (_editing?.id == id) {
-                                  setState(() => _editing = null);
-                                }
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    title: Text('Solicitando exclusão...'),
-                                    type: AppNotificationType.warning,
-                                    duration: Duration(seconds: 3),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const FootBar(),
-                  ],
-                ),
-
-                if (st.savingOrImporting)
-                  Stack(
-                    children: [
-                      ModalBarrier(dismissible: false, color: Colors.black.withOpacity(0.35)),
-                      const Center(child: CircularProgressIndicator()),
-                    ],
-                  ),
+                BackgroundClean(),
+                Center(child: Text('Carregando rodovias...')),
               ],
+            ),
+          );
+        }
+
+        // ================== ESTADO ERRO ==================
+        if (st.loadStatus == ActiveRoadsLoadStatus.failure) {
+          if (st.error != null && st.error!.isNotEmpty) {
+            NotificationCenter.instance.show(
+              AppNotification(
+                title: const Text('Falha ao carregar rodovias'),
+                subtitle: Text(st.error ?? 'Erro desconhecido'),
+                type: AppNotificationType.error,
+              ),
             );
-          },
+          }
+          return Scaffold(
+            body: Center(child: Text('Erro: ${st.error ?? '-'}')),
+          );
+        }
+
+        // ================== ESTADO OK ==================
+        final roads = st.all;
+
+        void _onTapRoad(ActiveRoadsData item) {
+          _openTabBarForRoad(item);
+          final rotulo = item.acronym ?? item.id ?? '';
+          NotificationCenter.instance.show(
+            AppNotification(
+              title: const Text('Editando rodovia'),
+              subtitle: Text(rotulo),
+              type: AppNotificationType.info,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+
+        void _onDeleteRoad(String id) {
+          cubit.deleteById(id);
+          NotificationCenter.instance.show(
+            AppNotification(
+              title: const Text('Solicitando exclusão...'),
+              type: AppNotificationType.warning,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+
+        void _onAddRoad() {
+          _openTabBarForRoad(null);
+        }
+
+        return Scaffold(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(72),
+            child: UpBar(
+              leading: const Padding(
+                padding: EdgeInsets.only(left: 12.0),
+                child: BackCircleButton(),
+              ),
+              showPhotoMenu: true,
+              actions: [
+                IconButton(
+                  tooltip: 'Importar rodovias (GeoJSON/KML/KMZ)',
+                  icon: const Icon(Icons.upload_file, color: Colors.white),
+                  onPressed: () async {
+                    await showDialog<bool>(
+                      context: context,
+                      barrierDismissible: true,
+                      builder: (ctx) {
+                        return BlocProvider(
+                          create: (_) => VectorImportCubit(),
+                          child: const RoadsVectorImportDialog(),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          body: Stack(
+            children: [
+              const BackgroundClean(),
+              SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                  child: ListRoadsPage(
+                    roads: roads,
+                    onTapItem: _onTapRoad,
+                    onDelete: _onDeleteRoad,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Botão flutuante para adicionar rodovia
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _onAddRoad,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'Adicionar rodovia',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.blue.shade800,
+          ),
         );
       },
     );

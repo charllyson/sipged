@@ -1,5 +1,3 @@
-// COMPLETO — acrescido de physfinPeriods/physfinGrid
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -37,10 +35,7 @@ class ScheduleRoadState extends Equatable {
   final List<List<LatLng>>? multiLine;
   final List<LatLng>? points;
 
-  /// somatório do orçamento por serviço (key -> total em double)
   final Map<String, double> serviceTotals;
-
-  /// períodos físicos/financeiros (em dias) e grade de percentuais (serviço -> lista)
   final List<int> physfinPeriods;
   final Map<String, List<double>> physfinGrid;
 
@@ -67,6 +62,16 @@ class ScheduleRoadState extends Equatable {
   final String? selectedPolylineId;
   final double mapZoom;
 
+  /// ⚠️ Novo campo — controla quando mostrar o ScreenLock
+  /// Valores possíveis:
+  /// - 'warmup'
+  /// - 'refresh'
+  /// - 'import_geojson'
+  /// - 'upsert_geometry'
+  /// - 'delete_geometry'
+  /// null = desbloqueado
+  final String? busyReason;
+
   const ScheduleRoadState({
     this.initialized = false,
     this.contractId,
@@ -92,6 +97,7 @@ class ScheduleRoadState extends Equatable {
     this.physfinGrid = const {},
     this.selectedPolylineId,
     this.mapZoom = 12.0,
+    this.busyReason, // 👈 novo
   });
 
   ScheduleRoadState copyWith({
@@ -111,19 +117,23 @@ class ScheduleRoadState extends Equatable {
     bool? loadingExecucoes,
     bool? savingOrImporting,
     String? error,
-    String? geometryType,
-    List<List<LatLng>>? multiLine,
-    List<LatLng>? points,
+    Object? geometryType = const _Unset(),
+    Object? multiLine = const _Unset(),
+    Object? points = const _Unset(),
     Map<String, double>? serviceTotals,
     List<int>? physfinPeriods,
     Map<String, List<double>>? physfinGrid,
-    Object? selectedPolylineId,
+    Object? selectedPolylineId = const _Unset(),
     double? mapZoom,
+
+    /// 👇 novo
+    Object? busyReason = const _Unset(),
   }) {
     return ScheduleRoadState(
       initialized: initialized ?? this.initialized,
       contractId: contractId ?? this.contractId,
-      summarySubjectContract: summarySubjectContract ?? this.summarySubjectContract,
+      summarySubjectContract:
+      summarySubjectContract ?? this.summarySubjectContract,
       totalEstacas: totalEstacas ?? this.totalEstacas,
       currentServiceKey: currentServiceKey ?? this.currentServiceKey,
       services: services ?? this.services,
@@ -136,17 +146,26 @@ class ScheduleRoadState extends Equatable {
       loadingLanes: loadingLanes ?? this.loadingLanes,
       loadingExecucoes: loadingExecucoes ?? this.loadingExecucoes,
       savingOrImporting: savingOrImporting ?? this.savingOrImporting,
-      error: error,
-      geometryType: geometryType ?? this.geometryType,
-      multiLine: multiLine ?? this.multiLine,
-      points: points ?? this.points,
+      error: error ?? this.error,
+      geometryType: geometryType is _Unset
+          ? this.geometryType
+          : geometryType as String?,
+      multiLine: multiLine is _Unset
+          ? this.multiLine
+          : multiLine as List<List<LatLng>>?,
+      points:
+      points is _Unset ? this.points : points as List<LatLng>?,
       serviceTotals: serviceTotals ?? this.serviceTotals,
       physfinPeriods: physfinPeriods ?? this.physfinPeriods,
       physfinGrid: physfinGrid ?? this.physfinGrid,
       selectedPolylineId: selectedPolylineId is _Unset
           ? this.selectedPolylineId
-          : (selectedPolylineId as String?),
+          : selectedPolylineId as String?,
       mapZoom: mapZoom ?? this.mapZoom,
+
+      /// 👇 novo
+      busyReason:
+      busyReason is _Unset ? this.busyReason : busyReason as String?,
     );
   }
 
@@ -176,7 +195,28 @@ class ScheduleRoadState extends Equatable {
     physfinGrid,
     selectedPolylineId,
     mapZoom,
+    busyReason, // 👈 novo
   ];
+
+  // ======================================================
+  // HELPERS DE SERVIÇOS PARA A UI (DINÂMICOS)
+  // ======================================================
+
+  /// Quantidade total de serviços incluindo o GERAL.
+  ///
+  /// Obs.: `loadAvailableServicesFromBudget` sempre insere GERAL na frente,
+  /// então esta contagem é:
+  ///
+  ///   1 (GERAL) + N serviços de orçamento.
+  int get totalServicesIncludingGeral => services.length;
+
+  /// Quantidade de serviços "reais" (sem o GERAL).
+  int get totalServicesWithoutGeral =>
+      services.where((s) => s.key.toLowerCase() != 'geral').length;
+
+  // ======================================================
+  // LÓGICA DE CÉLULAS / PERCENTUAIS
+  // ======================================================
 
   bool get _isGeral => currentServiceKey.toLowerCase() == 'geral';
   bool _laneEnabled(ScheduleLaneClass l) =>
@@ -213,42 +253,81 @@ class ScheduleRoadState extends Equatable {
         .replaceAll(RegExp(r'[\-\_]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ');
     if (t.contains('conclu')) return 'concluido';
-    if (t.contains('andament') || t.contains('in progress')) return 'em_andamento';
+    if (t.contains('andament') || t.contains('in progress')) {
+      return 'em_andamento';
+    }
     if (t.contains('todo') || t.contains('a iniciar')) return 'a_iniciar';
     return 'a_iniciar';
   }
 
-  int get concluidos =>
-      execucoes.where((e) => _cellEnabled(e) && _canonStatus(e.status) == 'concluido').length;
-  int get andamento =>
-      execucoes.where((e) => _cellEnabled(e) && _canonStatus(e.status) == 'em_andamento').length;
-  int get iniciados => concluidos + andamento;
-  int get aIniciar => (totalEsperado - iniciados) < 0 ? 0 : (totalEsperado - iniciados);
+  int get concluidos => execucoes
+      .where(
+        (e) => _cellEnabled(e) && _canonStatus(e.status) == 'concluido',
+  )
+      .length;
 
-  double get pctConcluido => totalEsperado == 0 ? 0 : (concluidos / totalEsperado) * 100.0;
-  double get pctAndamento => totalEsperado == 0 ? 0 : (andamento / totalEsperado) * 100.0;
-  double get pctAIniciar => totalEsperado == 0 ? 0 : (aIniciar / totalEsperado) * 100.0;
+  int get andamento => execucoes
+      .where(
+        (e) => _cellEnabled(e) && _canonStatus(e.status) == 'em_andamento',
+  )
+      .length;
+
+  int get iniciados => concluidos + andamento;
+
+  int get aIniciarCount =>
+      (totalEsperado - iniciados) < 0 ? 0 : (totalEsperado - iniciados);
+
+  double get pctConcluido {
+    if (totalEsperado == 0) return 0;
+    final raw = (concluidos / totalEsperado) * 100.0;
+    if (raw > 0 && raw < 1) return 1.0;
+    return raw;
+  }
+
+  double get pctAndamento {
+    if (totalEsperado == 0) return 0;
+    final raw = (andamento / totalEsperado) * 100.0;
+    if (raw > 0 && raw < 1) return 1.0;
+    return raw;
+  }
+
+  double get pctAIniciar {
+    if (totalEsperado == 0) return 0;
+    final restante = 100.0 - pctConcluido - pctAndamento;
+    if (restante < 0) return 0;
+    return restante;
+  }
 
   ScheduleRoadData get currentServiceMeta {
     if (services.isEmpty) {
       return const ScheduleRoadData(
-        numero: 0, faixaIndex: 0, key: 'geral', label: 'GERAL',
-        icon: Icons.clear_all, color: Colors.grey,
+        numero: 0,
+        faixaIndex: 0,
+        key: 'geral',
+        label: 'GERAL',
+        icon: Icons.clear_all,
+        color: Colors.grey,
       );
     }
-    return services.firstWhere((o) => o.key == currentServiceKey,
-        orElse: () => services.first);
+    return services.firstWhere(
+          (o) => o.key == currentServiceKey,
+      orElse: () => services.first,
+    );
   }
 
   String get titleForHeader =>
-      (currentServiceMeta.label.isNotEmpty ? currentServiceMeta.label : currentServiceMeta.key)
+      (currentServiceMeta.label.isNotEmpty
+          ? currentServiceMeta.label
+          : currentServiceMeta.key)
           .toUpperCase();
+
   Color get colorForHeader => currentServiceMeta.color;
 
   bool get canEditSingleCell => currentServiceKey != 'geral';
   bool get canBulkApply => currentServiceKey != 'geral';
 
-  Set<String> selectionBetween(int estacaA, int faixaA, int estacaB, int faixaB) {
+  Set<String> selectionBetween(
+      int estacaA, int faixaA, int estacaB, int faixaB) {
     final e0 = estacaA <= estacaB ? estacaA : estacaB;
     final e1 = estacaA <= estacaB ? estacaB : estacaA;
     final f0 = faixaA <= faixaB ? faixaA : faixaB;
@@ -268,21 +347,33 @@ class ScheduleRoadState extends Equatable {
     final found = idxMap != null ? idxMap[faixa] : null;
     if (found != null) return List<String>.from(found.fotos);
 
-    final idx = execucoes.indexWhere((x) => x.numero == estaca && x.faixaIndex == faixa);
-    return idx == -1 ? const <String>[] : List<String>.from(execucoes[idx].fotos);
+    final idx = execucoes.indexWhere(
+            (x) => x.numero == estaca && x.faixaIndex == faixa);
+    return idx == -1
+        ? const <String>[]
+        : List<String>.from(execucoes[idx].fotos);
   }
 
   static const double _kMaxWhiteBlendOldest = 0.60;
 
   DateTime? _dateForShade(ScheduleRoadData e) {
     final dtTaken = e.takenAt ??
-        (e.takenAtMs != null ? DateTime.fromMillisecondsSinceEpoch(e.takenAtMs!) : null);
+        (e.takenAtMs != null
+            ? DateTime.fromMillisecondsSinceEpoch(e.takenAtMs!)
+            : null);
     return dtTaken ?? e.updatedAt ?? e.createdAt;
   }
 
   Color _blendWithWhite(Color base, double amount) {
-    amount = amount.clamp(0.0, 1.0);
-    int _mix(int c, int w, double a) => (c + ((w - c) * a)).round().clamp(0, 255);
+    if (amount < 0.0) {
+      amount = 0.0;
+    } else if (amount > 1.0) {
+      amount = 1.0;
+    }
+
+    int _mix(int c, int w, double a) =>
+        (c + ((w - c) * a)).round().clamp(0, 255);
+
     final r = _mix(base.red, 255, amount);
     final g = _mix(base.green, 255, amount);
     final b = _mix(base.blue, 255, amount);
@@ -293,11 +384,14 @@ class ScheduleRoadState extends Equatable {
     final minD = minDate, maxD = maxDate;
     if (dt == null || minD == null || maxD == null) return base;
 
-    final totalMs = maxD.millisecondsSinceEpoch - minD.millisecondsSinceEpoch;
+    final totalMs =
+        maxD.millisecondsSinceEpoch - minD.millisecondsSinceEpoch;
     if (totalMs <= 0) return base;
 
-    final posMs = dt.millisecondsSinceEpoch - minD.millisecondsSinceEpoch;
-    final t = (posMs / totalMs).clamp(0.0, 1.0);
+    final posMs =
+        dt.millisecondsSinceEpoch - minD.millisecondsSinceEpoch;
+    final double t =
+    (posMs / totalMs).clamp(0.0, 1.0) as double;
 
     final blend = _kMaxWhiteBlendOldest * (1.0 - t);
     return _blendWithWhite(base, blend);
@@ -340,6 +434,7 @@ class ScheduleRoadState extends Equatable {
   }
 }
 
+/// sentinela para diferenciar "não passado" de "passado como null"
 class _Unset {
   const _Unset();
 }

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
-import 'package:siged/_widgets/input/dropdown_yes_no.dart';
+import 'package:siged/_widgets/input/drop_down_yes_no.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart'
@@ -40,12 +40,16 @@ class _SectionParecerRecursosState extends State<SectionParecerRecursos> {
   void initState() {
     super.initState();
     final d = widget.data;
-    _criterioAplicadoCtrl = TextEditingController(text: d.criterioAplicado);
-    _linkAtaCtrl = TextEditingController(text: d.linkAta);
-    _recursosHouveCtrl = TextEditingController(text: d.recursosHouve);
-    _parecerCtrl = TextEditingController(text: d.parecer);
-    _decisaoRecursosCtrl = TextEditingController(text: d.decisaoRecursos);
-    _linksRecursosCtrl = TextEditingController(text: d.linksRecursos);
+    _criterioAplicadoCtrl =
+        TextEditingController(text: d.criterioAplicado ?? '');
+    _linkAtaCtrl = TextEditingController(text: d.linkAta ?? '');
+    _recursosHouveCtrl =
+        TextEditingController(text: d.recursosHouve ?? '');
+    _parecerCtrl = TextEditingController(text: d.parecer ?? '');
+    _decisaoRecursosCtrl =
+        TextEditingController(text: d.decisaoRecursos ?? '');
+    _linksRecursosCtrl =
+        TextEditingController(text: d.linksRecursos ?? '');
   }
 
   @override
@@ -53,12 +57,32 @@ class _SectionParecerRecursosState extends State<SectionParecerRecursos> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      _criterioAplicadoCtrl.text = d.criterioAplicado;
-      _linkAtaCtrl.text = d.linkAta;
-      _recursosHouveCtrl.text = d.recursosHouve;
-      _parecerCtrl.text = d.parecer;
-      _decisaoRecursosCtrl.text = d.decisaoRecursos;
-      _linksRecursosCtrl.text = d.linksRecursos;
+
+      final criterioAplicado = d.criterioAplicado ?? '';
+      final linkAta = d.linkAta ?? '';
+      final recursosHouve = d.recursosHouve ?? '';
+      final parecer = d.parecer ?? '';
+      final decisaoRecursos = d.decisaoRecursos ?? '';
+      final linksRecursos = d.linksRecursos ?? '';
+
+      if (_criterioAplicadoCtrl.text != criterioAplicado) {
+        _criterioAplicadoCtrl.text = criterioAplicado;
+      }
+      if (_linkAtaCtrl.text != linkAta) {
+        _linkAtaCtrl.text = linkAta;
+      }
+      if (_recursosHouveCtrl.text != recursosHouve) {
+        _recursosHouveCtrl.text = recursosHouve;
+      }
+      if (_parecerCtrl.text != parecer) {
+        _parecerCtrl.text = parecer;
+      }
+      if (_decisaoRecursosCtrl.text != decisaoRecursos) {
+        _decisaoRecursosCtrl.text = decisaoRecursos;
+      }
+      if (_linksRecursosCtrl.text != linksRecursos) {
+        _linksRecursosCtrl.text = linksRecursos;
+      }
     }
   }
 
@@ -97,7 +121,7 @@ class _SectionParecerRecursosState extends State<SectionParecerRecursos> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionTitle('Julgamento / Ata / Recursos'),
+            const SectionTitle(text: 'Julgamento / Ata / Recursos'),
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -116,7 +140,10 @@ class _SectionParecerRecursosState extends State<SectionParecerRecursos> {
                           controller: _criterioAplicadoCtrl,
                           items: HiringData.criterioJulgamento,
                           onChanged: (v) {
-                            _criterioAplicadoCtrl.text = v ?? '';
+                            final text = v ?? '';
+                            if (_criterioAplicadoCtrl.text != text) {
+                              _criterioAplicadoCtrl.text = text;
+                            }
                             _emitChange();
                           },
                         ),
@@ -139,7 +166,10 @@ class _SectionParecerRecursosState extends State<SectionParecerRecursos> {
                           labelText: 'Houve recursos?',
                           value: _recursosHouveCtrl.text,
                           controller: (v) {
-                            _recursosHouveCtrl.text = v ?? '';
+                            final text = v ?? '';
+                            if (_recursosHouveCtrl.text != text) {
+                              _recursosHouveCtrl.text = text;
+                            }
                             _emitChange();
                           },
                         ),

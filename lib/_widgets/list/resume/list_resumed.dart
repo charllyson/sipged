@@ -2,23 +2,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_overview_style.dart';
+import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_cubit.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/screens/process/hiring/tab_bar_hiring_page.dart';
 
 // DFD
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 
 // Edital
-import 'package:siged/_blocs/process/hiring/5Edital/edital_bloc.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_cubit.dart';
 import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
 
 // Publicação
-import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_bloc.dart';
+import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 class ListResumed extends StatefulWidget {
@@ -63,9 +63,9 @@ class _ListResumedState extends State<ListResumed> {
 
     setState(() => _loading = true);
 
-    final dfdBloc = context.read<DfdBloc>();
-    final editalBloc = context.read<EditalBloc>();
-    final pubBloc = context.read<PublicacaoExtratoBloc>();
+    final dfdBloc = context.read<DfdCubit>();
+    final editalBloc = context.read<EditalCubit>();
+    final pubBloc = context.read<PublicacaoExtratoCubit>();
 
     final Map<String, DfdData?> dfdTmp = {};
     final Map<String, EditalData?> editalTmp = {};
@@ -112,7 +112,7 @@ class _ListResumedState extends State<ListResumed> {
 
   Color _statusColor(String status) {
     final key = status.toUpperCase();
-    return DemandsDashboardOverviewStyle.statusColors[key] ?? Colors.black;
+    return GeneralDashboardStyle.statusColors[key] ?? Colors.black;
   }
 
   // --------- Helpers de leitura dos dados “fonte” ----------
@@ -163,6 +163,19 @@ class _ListResumedState extends State<ListResumed> {
     return '—';
   }
 
+  /// Valor da demanda vem EXCLUSIVAMENTE de DfdData.valorDemanda
+  /// Sem fallback para ProcessData.
+  String _valorDemandaLabelFor(ProcessData contrato) {
+    final id = contrato.id;
+    if (id == null) return '—';
+
+    final dfd = _dfdByContractId[id];
+    final v = dfd?.valorDemanda;
+
+    if (v == null) return '—';
+    return priceToString(v);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.contract.isEmpty) return const SizedBox();
@@ -205,6 +218,7 @@ class _ListResumedState extends State<ListResumed> {
               final vencedor = _winnerFor(contrato);
               final numeroContrato = _numeroContratoFor(contrato);
               final resumoObjeto = _summaryFor(contrato);
+              final valorDemandaLabel = _valorDemandaLabelFor(contrato);
 
               return InkWell(
                 onTap: () {
@@ -251,7 +265,7 @@ class _ListResumedState extends State<ListResumed> {
                       Text('Vencedor: $vencedor'),
                       const SizedBox(height: 4),
                       Text(
-                        'Contratado: ${priceToString(contrato.initialValueContract)}',
+                        'Valor da demanda: $valorDemandaLabel',
                       ),
                     ],
                   ),

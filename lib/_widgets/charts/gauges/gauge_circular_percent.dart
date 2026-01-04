@@ -1,13 +1,17 @@
+// lib/_widgets/charts/gauge/gauge_circular_percent.dart
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
+
 import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_widgets/cards/basic/basic_card.dart';
+import 'package:siged/_widgets/charts/gauges/gauge_circular_percent_shimmer.dart';
 
 enum GaugeTextMode { explicit, percent, number, money }
 
 class GaugeCircularPercent extends StatelessWidget {
-  final double? centerTitle;         // de 0 a 1
-  final String? headerTitle;           // usado quando headerMode == explicit
-  final String? footerTitle;        // usado quando footerMode == explicit
+  final double? centerTitle; // de 0 a 1
+  final String? headerTitle; // usado quando headerMode == explicit
+  final String? footerTitle; // usado quando footerMode == explicit
 
   final double? larguraGrafico;
   final Color? progressColor;
@@ -47,22 +51,44 @@ class GaugeCircularPercent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // regra simples de "sem dados" pra exibir shimmer:
+    final bool noData =
+        (centerTitle == null) && (values == null || values!.isEmpty);
+
+    if (noData) {
+      return BasicCard(
+        isDark: isDark,
+        width: larguraGrafico,
+        padding: const EdgeInsets.all(16.0),
+        child: const SizedBox(
+          height: 255,
+          child: GaugeCircularPercentShimmer(),
+        ),
+      );
+    }
+
     final clampedPercent = (centerTitle ?? 0).clamp(0.0, 1.0);
-    final double valuesSum = (values ?? const <double>[]).fold<double>(0.0, (a, b) => a + b);
+    final double valuesSum =
+    (values ?? const <double>[]).fold<double>(0.0, (a, b) => a + b);
 
     final GaugeTextMode headerM = headerMode ?? GaugeTextMode.explicit;
     final GaugeTextMode centerM = centerMode ?? GaugeTextMode.percent;
-    final GaugeTextMode footerM = (financial == true &&
-        (footerMode ?? GaugeTextMode.explicit) == GaugeTextMode.explicit &&
-        (this.footerTitle == null || this.footerTitle!.isEmpty))
+    final GaugeTextMode footerM =
+    (financial == true &&
+        (footerMode ?? GaugeTextMode.explicit) ==
+            GaugeTextMode.explicit &&
+        (footerTitle == null || footerTitle!.isEmpty))
         ? GaugeTextMode.money
         : (footerMode ?? GaugeTextMode.explicit);
 
-    final String headerTitle = _formatByMode(
+    final String headerText = _formatByMode(
       mode: headerM,
       percent: clampedPercent,
       sum: valuesSum,
-      explicit: this.headerTitle ?? '',
+      explicit: headerTitle ?? '',
     );
 
     final String centerText = _formatByMode(
@@ -72,63 +98,61 @@ class GaugeCircularPercent extends StatelessWidget {
       explicit: '${(clampedPercent * 100).toStringAsFixed(2)}%',
     );
 
-    final String footerTitle = _formatByMode(
+    final String footerText = _formatByMode(
       mode: footerM,
       percent: clampedPercent,
       sum: valuesSum,
-      explicit: this.footerTitle ?? '',
+      explicit: footerTitle ?? '',
     );
 
     final String tooltipText =
     (financial == true || footerM == GaugeTextMode.money)
-        ? '${priceToString(valuesSum)}'
+        ? priceToString(valuesSum)
         : '$valuesSum';
 
-    return Card(
-      color: Colors.white,
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: RepaintBoundary(
-          child: SizedBox(
-            height: 255,
-            width: larguraGrafico ?? double.infinity,
-            child: Tooltip(
-              message: tooltipText,
-              child: CircularPercentIndicator(
-                radius: radius ?? 60.0,
-                lineWidth: 20.0,
-                animation: true,
-                percent: clampedPercent,
-                center: Text(
-                  centerText,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: centerFontSize ?? 20.0,
-                  ),
+    return BasicCard(
+      isDark: isDark,
+      width: larguraGrafico,
+      padding: const EdgeInsets.all(16.0),
+      child: RepaintBoundary(
+        child: SizedBox(
+          height: 255,
+          child: Tooltip(
+            message: tooltipText,
+            child: CircularPercentIndicator(
+              radius: radius ?? 60.0,
+              lineWidth: 20.0,
+              animation: true,
+              percent: clampedPercent,
+              center: Text(
+                centerText,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: centerFontSize ?? 20.0,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              header: Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text(
+                  headerText,
+                  style: const TextStyle(fontSize: 12),
                   textAlign: TextAlign.center,
                 ),
-                header: Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Text(
-                    headerTitle,
-                    style: const TextStyle(fontSize: 12),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                footer: Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    footerTitle,
-                    style: TextStyle(fontSize: footerFontSize ?? 14.0),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                circularStrokeCap: CircularStrokeCap.round,
-                progressColor:
-                progressColor ?? _getProgressColor(clampedPercent),
-                backgroundColor: backgroundColor ?? Colors.grey.shade300,
               ),
+              footer: Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  footerText,
+                  style: TextStyle(fontSize: footerFontSize ?? 14.0),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              circularStrokeCap: CircularStrokeCap.round,
+              progressColor:
+              progressColor ?? _getProgressColor(clampedPercent),
+              backgroundColor:
+              backgroundColor ?? Colors.grey.shade300,
             ),
           ),
         ),

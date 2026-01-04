@@ -48,15 +48,20 @@ class _SectionDivulgacaoRecebimentoState
   void initState() {
     super.initState();
     final d = widget.data;
-    _numeroCtrl = TextEditingController(text: d.numero);
-    _modalidadeCtrl = TextEditingController(text: d.modalidade);
-    _criterioCtrl = TextEditingController(text: d.criterio);
-    _dataPublicacaoCtrl = TextEditingController(text: d.dataPublicacao);
-    _prazoImpugnacaoCtrl = TextEditingController(text: d.prazoImpugnacao);
-    _idPncpCtrl = TextEditingController(text: d.idPncp);
-    _linkPncpCtrl = TextEditingController(text: d.linkPncp);
-    _prazoPropostasCtrl = TextEditingController(text: d.prazoPropostas);
-    _observacoesCtrl = TextEditingController(text: d.observacoes);
+
+    _numeroCtrl = TextEditingController(text: d.numero ?? '');
+    _modalidadeCtrl = TextEditingController(text: d.modalidade ?? '');
+    _criterioCtrl = TextEditingController(text: d.criterio ?? '');
+    _dataPublicacaoCtrl =
+        TextEditingController(text: d.dataPublicacao ?? '');
+    _prazoImpugnacaoCtrl =
+        TextEditingController(text: d.prazoImpugnacao ?? '');
+    _idPncpCtrl = TextEditingController(text: d.idPncp ?? '');
+    _linkPncpCtrl = TextEditingController(text: d.linkPncp ?? '');
+    _prazoPropostasCtrl =
+        TextEditingController(text: d.prazoPropostas ?? '');
+    _observacoesCtrl =
+        TextEditingController(text: d.observacoes ?? '');
   }
 
   @override
@@ -64,15 +69,44 @@ class _SectionDivulgacaoRecebimentoState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      _numeroCtrl.text = d.numero;
-      _modalidadeCtrl.text = d.modalidade;
-      _criterioCtrl.text = d.criterio;
-      _dataPublicacaoCtrl.text = d.dataPublicacao;
-      _prazoImpugnacaoCtrl.text = d.prazoImpugnacao;
-      _idPncpCtrl.text = d.idPncp;
-      _linkPncpCtrl.text = d.linkPncp;
-      _prazoPropostasCtrl.text = d.prazoPropostas;
-      _observacoesCtrl.text = d.observacoes;
+
+      final numero = d.numero ?? '';
+      final modalidade = d.modalidade ?? '';
+      final criterio = d.criterio ?? '';
+      final dataPub = d.dataPublicacao ?? '';
+      final prazoImp = d.prazoImpugnacao ?? '';
+      final idPncp = d.idPncp ?? '';
+      final linkPncp = d.linkPncp ?? '';
+      final prazoProp = d.prazoPropostas ?? '';
+      final obs = d.observacoes ?? '';
+
+      if (_numeroCtrl.text != numero) {
+        _numeroCtrl.text = numero;
+      }
+      if (_modalidadeCtrl.text != modalidade) {
+        _modalidadeCtrl.text = modalidade;
+      }
+      if (_criterioCtrl.text != criterio) {
+        _criterioCtrl.text = criterio;
+      }
+      if (_dataPublicacaoCtrl.text != dataPub) {
+        _dataPublicacaoCtrl.text = dataPub;
+      }
+      if (_prazoImpugnacaoCtrl.text != prazoImp) {
+        _prazoImpugnacaoCtrl.text = prazoImp;
+      }
+      if (_idPncpCtrl.text != idPncp) {
+        _idPncpCtrl.text = idPncp;
+      }
+      if (_linkPncpCtrl.text != linkPncp) {
+        _linkPncpCtrl.text = linkPncp;
+      }
+      if (_prazoPropostasCtrl.text != prazoProp) {
+        _prazoPropostasCtrl.text = prazoProp;
+      }
+      if (_observacoesCtrl.text != obs) {
+        _observacoesCtrl.text = obs;
+      }
     }
   }
 
@@ -117,7 +151,9 @@ class _SectionDivulgacaoRecebimentoState
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionTitle('1) Divulgação do Edital & Recebimento'),
+            const SectionTitle(
+              text: '1) Divulgação do Edital & Recebimento',
+            ),
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -139,7 +175,10 @@ class _SectionDivulgacaoRecebimentoState
                     controller: _modalidadeCtrl,
                     items: HiringData.modalidadeDeContratacao,
                     onChanged: (v) {
-                      _modalidadeCtrl.text = v ?? '';
+                      final text = v ?? '';
+                      if (_modalidadeCtrl.text != text) {
+                        _modalidadeCtrl.text = text;
+                      }
                       _emitChange();
                     },
                     validator: validateRequired,
@@ -153,7 +192,10 @@ class _SectionDivulgacaoRecebimentoState
                     controller: _criterioCtrl,
                     items: HiringData.criterioJulgamento,
                     onChanged: (v) {
-                      _criterioCtrl.text = v ?? '';
+                      final text = v ?? '';
+                      if (_criterioCtrl.text != text) {
+                        _criterioCtrl.text = text;
+                      }
                       _emitChange();
                     },
                     validator: validateRequired,

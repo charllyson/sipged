@@ -1,4 +1,7 @@
-part of 'minuta_contrato_bloc.dart';
+// lib/_blocs/process/hiring/8Minuta/minuta_contrato_state.dart
+
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
+import 'minuta_contrato_sections.dart';
 
 class MinutaState {
   final bool loading;
@@ -44,6 +47,7 @@ class MinutaState {
     );
   }
 
-  /// Atalho para docId da seção que guarda anexos/links (gestão/refs)
+  // atalhos
+  String? get currentMinutaId => minutaId;
   String? get currentGestaoId => sectionIds[MinutaSections.gestaoRefs];
 }

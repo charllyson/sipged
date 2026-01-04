@@ -1,3 +1,4 @@
+// lib/screens/process/hiring/9Juridico/section_4_conclusao.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,24 +10,85 @@ import 'package:siged/_widgets/input/drop_down_botton_change.dart'
     show DropDownButtonChange;
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_controller.dart';
+import 'package:siged/_utils/validates/form_validation_mixin.dart';
 
-class SectionConclusao extends StatelessWidget {
-  final ParecerJuridicoController controller;
+import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_data.dart';
+
+class SectionConclusao extends StatefulWidget {
+  final ParecerJuridicoData data;
+  final bool isEditable;
+  final void Function(ParecerJuridicoData updated) onChanged;
 
   const SectionConclusao({
     super.key,
-    required this.controller,
+    required this.data,
+    required this.isEditable,
+    required this.onChanged,
   });
 
   @override
+  State<SectionConclusao> createState() => _SectionConclusaoState();
+}
+
+class _SectionConclusaoState extends State<SectionConclusao>
+    with FormValidationMixin {
+  late final TextEditingController _conclusaoCtrl;
+  late final TextEditingController _dataAssinaturaCtrl;
+  late final TextEditingController _recomendacoesCtrl;
+  late final TextEditingController _ajustesObrigatoriosCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _conclusaoCtrl =
+        TextEditingController(text: widget.data.conclusao ?? '');
+    _dataAssinaturaCtrl =
+        TextEditingController(text: widget.data.dataAssinatura ?? '');
+    _recomendacoesCtrl =
+        TextEditingController(text: widget.data.recomendacoes ?? '');
+    _ajustesObrigatoriosCtrl =
+        TextEditingController(text: widget.data.ajustesObrigatorios ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant SectionConclusao oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _conclusaoCtrl.text = widget.data.conclusao ?? '';
+      _dataAssinaturaCtrl.text = widget.data.dataAssinatura ?? '';
+      _recomendacoesCtrl.text = widget.data.recomendacoes ?? '';
+      _ajustesObrigatoriosCtrl.text =
+          widget.data.ajustesObrigatorios ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _conclusaoCtrl.dispose();
+    _dataAssinaturaCtrl.dispose();
+    _recomendacoesCtrl.dispose();
+    _ajustesObrigatoriosCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      conclusao: _conclusaoCtrl.text,
+      dataAssinatura: _dataAssinaturaCtrl.text,
+      recomendacoes: _recomendacoesCtrl.text,
+      ajustesObrigatorios: _ajustesObrigatoriosCtrl.text,
+    );
+    widget.onChanged(updated);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = controller;
+    final conclusoes = HiringData.parecerConclusao;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('4) Conclusão do Parecer'),
+        const SectionTitle(text: '4) Conclusão do Parecer'),
         LayoutBuilder(
           builder: (context, constraints) {
             final w4 = inputW4(context, constraints);
@@ -39,44 +101,50 @@ class SectionConclusao extends StatelessWidget {
                 SizedBox(
                   width: w4,
                   child: DropDownButtonChange(
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     labelText: 'Conclusão',
-                    controller: c.pjConclusaoCtrl,
-                    items: HiringData.parecerConclusao,
-                    onChanged: (v) => c.pjConclusaoCtrl.text = v ?? '',
+                    controller: _conclusaoCtrl,
+                    items: conclusoes,
+                    onChanged: (v) {
+                      _conclusaoCtrl.text = v ?? '';
+                      _emitChange();
+                    },
                   ),
                 ),
                 SizedBox(
                   width: w4,
                   child: CustomDateField(
-                    controller: c.pjDataAssinaturaCtrl,
+                    controller: _dataAssinaturaCtrl,
                     labelText: 'Data da assinatura do parecer',
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
                       TextInputMask(mask: '99/99/9999'),
                     ],
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
                 SizedBox(
                   width: w1,
                   child: CustomTextField(
-                    controller: c.pjRecomendacoesCtrl,
+                    controller: _recomendacoesCtrl,
                     labelText: 'Recomendações e/ou condicionantes',
                     maxLines: 3,
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     textAlignVertical: TextAlignVertical.top,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
                 SizedBox(
                   width: w1,
                   child: CustomTextField(
-                    controller: c.pjAjustesObrigatoriosCtrl,
+                    controller: _ajustesObrigatoriosCtrl,
                     labelText: 'Ajustes obrigatórios na minuta/edital',
                     maxLines: 3,
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     textAlignVertical: TextAlignVertical.top,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
               ],

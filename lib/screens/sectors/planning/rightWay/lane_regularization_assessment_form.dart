@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 
-import 'package:siged/_blocs/process/laneRegularization/lane_regularization_controller.dart';
+import 'package:siged/_blocs/sectors/planning/lane_regularization/lane_regularization_controller.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';

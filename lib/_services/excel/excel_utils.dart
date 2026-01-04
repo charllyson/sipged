@@ -112,16 +112,13 @@ dynamic converterValorPorTipo(dynamic valor, TipoDado tipo) {
           final segundo = int.tryParse(match.group(8) ?? '0') ?? 0;
 
           final parsed = DateTime(ano, mes, dia, hora, minuto, segundo);
-          debugPrint('✅ [DateTime CONVERTIDO] "$str" → $parsed');
           return parsed;
         } else {
-          debugPrint('❌ [DateTime FALHOU] "$str" não bateu com regex');
         }
 
         return null;
       }
   } catch (e) {
-    debugPrint('❌ [ERRO conversão $tipo] Valor: "$valor" → Erro: $e');
     return null;
   }
 }

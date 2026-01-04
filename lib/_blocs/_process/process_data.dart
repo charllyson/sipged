@@ -1,14 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-// usa o mesmo modelo já existente no projeto
-import 'package:siged/_widgets/list/files/attachment.dart';
-
 class ProcessData extends ChangeNotifier {
   /// Identificação e metadados
   String? id;
 
-  double? initialValueContract;
   DateTime? publicationDate;
   int? initialValidityExecution;
   int? initialValidityContract;
@@ -24,7 +20,6 @@ class ProcessData extends ChangeNotifier {
     this.initialValidityExecution,
     this.initialValidityContract,
     this.publicationDate,
-    this.initialValueContract,
     this.permissionContractId = const {},
     Map<String, Map<String, dynamic>>? participantsInfo,
   }) : participantsInfo = participantsInfo ?? {};
@@ -32,7 +27,6 @@ class ProcessData extends ChangeNotifier {
   factory ProcessData.empty() {
     return ProcessData(
       id: null,
-      initialValueContract: 0.0,
       publicationDate: DateTime(2000),
       initialValidityContract: 0,
       initialValidityExecution: 0,
@@ -82,8 +76,6 @@ class ProcessData extends ChangeNotifier {
     return ProcessData(
       id: snapshot.id,
       publicationDate: _readDate(data['datapublicacaodoe']),
-      initialValueContract:
-      (data['valorinicialdocontrato'] as num?)?.toDouble() ?? 0.0,
       initialValidityExecution:
       (data['initialvalidityexecutiondays'] as num?)?.toInt(),
       initialValidityContract:
@@ -108,8 +100,6 @@ class ProcessData extends ChangeNotifier {
   Map<String, dynamic> toMap() {
     return {
       if (id != null) 'id': id,
-      if (initialValueContract != null)
-        'valorinicialdocontrato': initialValueContract,
       if (publicationDate != null) 'datapublicacaodoe': publicationDate,
       if (initialValidityExecution != null)
         'initialvalidityexecutiondays': initialValidityExecution,
@@ -124,8 +114,6 @@ class ProcessData extends ChangeNotifier {
   factory ProcessData.fromJson(Map<String, dynamic> json, {String? id}) {
     return ProcessData(
       id: id,
-      initialValueContract:
-      (json['valorinicialdocontrato'] as num?)?.toDouble(),
       publicationDate: _readDate(json['datapublicacaodoe']),
       initialValidityExecution:
       (json['initialvalidityexecutiondays'] as num?)?.toInt(),

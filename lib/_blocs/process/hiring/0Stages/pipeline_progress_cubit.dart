@@ -1,8 +1,9 @@
+// lib/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart
+
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta/meta.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 import 'pipeline_progress.dart';
@@ -102,37 +103,32 @@ class PipelineProgressCubit extends Cubit<PipelineProgressState> {
     _log('FORCE $stageKey=$enabled');
   }
 
-  /// Assina TODAS as etapas na ordem. Ao mudar approved/completed em qualquer
-  /// etapa, o mapa `completed` é atualizado e os desbloqueios seguintes acontecem
-  /// automaticamente via `_isEnabledByOrder`.
+  /// Assina TODAS as etapas na ordem.
+  ///
+  /// 🔑 Agora escutamos a *coleção* da etapa:
+  /// - Quando o primeiro doc é criado (ex.: Dotação, Publicação),
+  ///   o listener já está ativo e passa a refletir approved/completed.
   Future<void> watchChain() async {
     await _cancelAllWatches();
     if (contractId.isEmpty) return;
 
     for (final stageKey in HiringStageKey.ordered) {
-      final stageId = await service.firstDocIdOfStage(
-        contractId: contractId,
-        stageKey: stageKey,
-      );
-      if (stageId == null) continue;
+      final collectionName = service.stageCollectionMap[stageKey];
+      if (collectionName == null) continue;
 
       final sub = progressRepo
-          .watchApprovalAndCompleted(
+          .watchStageAutoDoc(
         contractId: contractId,
-        collectionName: service.stageCollectionMap[stageKey]!,
-        stageId: stageId,
+        collectionName: collectionName,
       )
-          .listen((flags) async {
-        // flags => {approved, completed}
+          .listen((flags) {
         final approved  = flags['approved'] == true;
         final completed = flags['completed'] == true;
         final ok = approved || completed;
 
-        // Atualiza somente a chave alterada, sem spinner.
         final updated = Map<String, bool>.from(state.completed);
         updated[stageKey] = ok;
         emit(state.copyWith(completed: updated));
-
       });
 
       _stageSubs[stageKey] = sub;

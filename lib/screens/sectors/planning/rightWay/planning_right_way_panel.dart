@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 
-// util de import KML/KMZ/GeoJSON
-import 'package:siged/_services/geoJson/send_firebase.dart';
-
 // contrato
 import 'package:siged/_blocs/_process/process_data.dart';
 
@@ -70,59 +67,7 @@ class PlanningRightWayPropertyPanel extends StatelessWidget {
                       },
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
-                  // Importar traçado dentro do contrato
-                  Card(
-                    color: Colors.white,
-                    elevation: 0,
-                    margin: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Theme.of(context).dividerColor),
-                    ),
-                    child: ListTile(
-                      leading: const Icon(Icons.edit_road),
-                      title: const Text('Importar traçado (KML/KMZ/GeoJSON)'),
-                      subtitle: Text('Salvar em contracts/${contractData.id}/planning_highway_domain'),
-                      trailing: const Icon(Icons.check_circle, color: Colors.grey),
-                      onTap: () async {
-                        final bloc = context.read<PlanningHighwayDomainBloc>();
-                        try {
-                          await GeoJsonSendFirebase(
-                            context,
-                            fixedPath: 'contracts/${contractData.id}/planning_highway_domain',
-                          );
-                          bloc.add(PlanningHighwayDomainRefreshRequested(contractData.id!));
-
-                          // 🔔 sucesso
-                          NotificationCenter.instance.show(
-                            AppNotification(
-                              title: const Text('Traçado importado'),
-                              subtitle: const Text('Arquivo salvo e mapa atualizado'),
-                              type: AppNotificationType.success,
-                              leadingLabel: const Text('Geo'),
-                            ),
-                          );
-                        } catch (e) {
-                          // 🔔 erro
-                          NotificationCenter.instance.show(
-                            AppNotification(
-                              title: const Text('Falha ao importar traçado'),
-                              subtitle: Text('$e'),
-                              type: AppNotificationType.error,
-                              leadingLabel: const Text('Geo'),
-                              duration: const Duration(seconds: 6),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
                   Card(
                     color: Colors.white,
                     elevation: 0,

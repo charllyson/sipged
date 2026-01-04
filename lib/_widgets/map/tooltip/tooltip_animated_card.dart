@@ -22,8 +22,8 @@ class TooltipAnimatedCard extends StatefulWidget {
   State<TooltipAnimatedCard> createState() => _TooltipAnimatedCardState();
 }
 
-class _TooltipAnimatedCardState extends State<TooltipAnimatedCard> with SingleTickerProviderStateMixin {
-
+class _TooltipAnimatedCardState extends State<TooltipAnimatedCard>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ac = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 160),
@@ -38,7 +38,7 @@ class _TooltipAnimatedCardState extends State<TooltipAnimatedCard> with SingleTi
 
   @override
   Widget build(BuildContext context) {
-    const r = 12.0; // raio do card
+    const r = 12.0;
 
     return FadeTransition(
       opacity: CurvedAnimation(parent: _ac, curve: Curves.easeOut),
@@ -49,16 +49,16 @@ class _TooltipAnimatedCardState extends State<TooltipAnimatedCard> with SingleTi
           reverseCurve: Curves.easeIn,
         ),
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: 180, maxWidth: widget.maxWidth),
+          constraints:
+          BoxConstraints(minWidth: 180, maxWidth: widget.maxWidth),
           child: Material(
             color: Colors.black87,
             elevation: 10,
             shadowColor: Colors.black38,
             borderRadius: BorderRadius.circular(r),
-            clipBehavior: Clip.antiAlias, // garante clip do ripple no card
+            clipBehavior: Clip.antiAlias,
             child: Stack(
               children: [
-                // conteúdo
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
                   child: Column(
@@ -74,9 +74,9 @@ class _TooltipAnimatedCardState extends State<TooltipAnimatedCard> with SingleTi
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
                           height: 1.2,
-                          letterSpacing: .2,
                         ),
                       ),
+
                       if ((widget.subtitle ?? '').trim().isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
@@ -90,35 +90,42 @@ class _TooltipAnimatedCardState extends State<TooltipAnimatedCard> with SingleTi
                           ),
                         ),
                       ],
+
                       const SizedBox(height: 8),
 
-                      // Linha de ações (alinha botão à direita)
-                      Row(
-                        children: [
-                          const Spacer(),
-                          // ---- Botão "Detalhes" com hover/splash visíveis ----
-                          Material(
-                            type: MaterialType.transparency,
-                            child: InkWell(
-                              onTap: widget.onDetails,
-                              radius: 18,
-                              borderRadius: BorderRadius.circular(12),
-                              mouseCursor: SystemMouseCursors.click,
-                              splashColor: Colors.white.withOpacity(0.28),
-                              hoverColor: Colors.white.withOpacity(0.12),
-                              child: const Padding(
-                                padding: EdgeInsets.all(8),
-                                child: Text('Detalhes', style: TextStyle(color: Colors.white),),
+                      // ----------------------------------------------------
+                      // ✔ SOMENTE EXIBE "Detalhes" SE widget.onDetails != null
+                      // ----------------------------------------------------
+                      if (widget.onDetails != null)
+                        Row(
+                          children: [
+                            const Spacer(),
+                            Material(
+                              type: MaterialType.transparency,
+                              child: InkWell(
+                                onTap: widget.onDetails,
+                                radius: 18,
+                                borderRadius: BorderRadius.circular(12),
+                                mouseCursor: SystemMouseCursors.click,
+                                splashColor:
+                                Colors.white.withOpacity(0.28),
+                                hoverColor:
+                                Colors.white.withOpacity(0.12),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Text(
+                                    'Detalhes',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
 
-                // ---- Botão X com hover/splash circular ----
                 Positioned(
                   top: 2,
                   right: 2,
@@ -129,12 +136,12 @@ class _TooltipAnimatedCardState extends State<TooltipAnimatedCard> with SingleTi
                       radius: 18,
                       borderRadius: BorderRadius.circular(20),
                       mouseCursor: SystemMouseCursors.click,
-                      // estes dois funcionam bem no web
                       splashColor: Colors.white.withOpacity(0.28),
                       hoverColor: Colors.white.withOpacity(0.12),
                       child: const Padding(
                         padding: EdgeInsets.all(8),
-                        child: Icon(Icons.close, size: 18, color: Colors.white70),
+                        child: Icon(Icons.close,
+                            size: 18, color: Colors.white70),
                       ),
                     ),
                   ),

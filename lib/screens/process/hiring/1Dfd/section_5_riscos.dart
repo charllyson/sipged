@@ -1,4 +1,3 @@
-// lib/screens/process/hiring/1Dfd/dfd_sections/section_5_riscos.dart
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
@@ -41,14 +40,15 @@ class _SectionRiscosState extends State<SectionRiscos>
     super.initState();
     final d = widget.data;
 
-    _riscosCtrl          = TextEditingController(text: d.riscos);
-    _impactoCtrl         =
-        TextEditingController(text: d.impactoNaoContratar);
-    _dataLimiteCtrl      = TextEditingController(text: d.dataLimite);
-    _motivacaoLegalCtrl  =
-        TextEditingController(text: d.motivacaoLegal);
+    _riscosCtrl = TextEditingController(text: d.riscos ?? '');
+    _impactoCtrl =
+        TextEditingController(text: d.impactoNaoContratar ?? '');
+    _dataLimiteCtrl =
+        TextEditingController(text: _formatDate(d.dataLimite));
+    _motivacaoLegalCtrl =
+        TextEditingController(text: d.motivacaoLegal ?? '');
     _amparoNormativoCtrl =
-        TextEditingController(text: d.amparoNormativo);
+        TextEditingController(text: d.amparoNormativo ?? '');
 
     _prioridade = d.prioridade;
   }
@@ -58,12 +58,20 @@ class _SectionRiscosState extends State<SectionRiscos>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      _riscosCtrl.text          = d.riscos;
-      _impactoCtrl.text         = d.impactoNaoContratar;
-      _dataLimiteCtrl.text      = d.dataLimite;
-      _motivacaoLegalCtrl.text  = d.motivacaoLegal;
-      _amparoNormativoCtrl.text = d.amparoNormativo;
-      _prioridade               = d.prioridade;
+
+      final riscos = d.riscos ?? '';
+      final impacto = d.impactoNaoContratar ?? '';
+      final dataLim = _formatDate(d.dataLimite);
+      final mot = d.motivacaoLegal ?? '';
+      final amp = d.amparoNormativo ?? '';
+
+      if (_riscosCtrl.text != riscos) _riscosCtrl.text = riscos;
+      if (_impactoCtrl.text != impacto) _impactoCtrl.text = impacto;
+      if (_dataLimiteCtrl.text != dataLim) _dataLimiteCtrl.text = dataLim;
+      if (_motivacaoLegalCtrl.text != mot) _motivacaoLegalCtrl.text = mot;
+      if (_amparoNormativoCtrl.text != amp) _amparoNormativoCtrl.text = amp;
+
+      _prioridade = d.prioridade;
     }
   }
 
@@ -77,14 +85,39 @@ class _SectionRiscosState extends State<SectionRiscos>
     super.dispose();
   }
 
+  String _formatDate(DateTime? dt) {
+    if (dt == null) return '';
+    final d = dt.day.toString().padLeft(2, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final y = dt.year.toString().padLeft(4, '0');
+    return '$d/$m/$y';
+  }
+
+  DateTime? _parseBrDate(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return null;
+    try {
+      final parts = t.split('/');
+      if (parts.length == 3) {
+        final d = int.parse(parts[0]);
+        final m = int.parse(parts[1]);
+        final y = int.parse(parts[2]);
+        return DateTime(y, m, d);
+      }
+      return DateTime.parse(t);
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _emitChange() {
     final updated = widget.data.copyWith(
-      riscos:             _riscosCtrl.text,
+      riscos: _riscosCtrl.text,
       impactoNaoContratar: _impactoCtrl.text,
-      prioridade:         _prioridade ?? '',
-      dataLimite:         _dataLimiteCtrl.text,
-      motivacaoLegal:     _motivacaoLegalCtrl.text,
-      amparoNormativo:    _amparoNormativoCtrl.text,
+      prioridade: _prioridade ?? '',
+      dataLimite: _parseBrDate(_dataLimiteCtrl.text),
+      motivacaoLegal: _motivacaoLegalCtrl.text,
+      amparoNormativo: _amparoNormativoCtrl.text,
     );
     widget.onChanged(updated);
   }
@@ -94,7 +127,7 @@ class _SectionRiscosState extends State<SectionRiscos>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('5) Riscos e Impacto'),
+        const SectionTitle(text: '5) Riscos e Impacto'),
         LayoutBuilder(
           builder: (context, inner) {
             final w2 = inputW2(context, inner);
@@ -143,7 +176,7 @@ class _SectionRiscosState extends State<SectionRiscos>
                       _emitChange();
                       setState(() {});
                     },
-                    validator: validateRequired,
+                    validator: null,
                   ),
                 ),
 

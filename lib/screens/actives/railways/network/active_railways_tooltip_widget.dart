@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
-import 'package:siged/_blocs/actives/railway/active_railways_rules.dart';
 
 class ActiveRailwaysTooltipWidget {
   static OverlayEntry? _currentOverlay;
@@ -31,8 +30,8 @@ class ActiveRailwaysTooltipWidget {
         screenSize.width - tooltipWidth - 16.0,
       );
 
-      final statusCode = ActiveRailwaysRules.statusCodeOf(fer.status);
-      final statusLabel = ActiveRailwaysRules.labelForStatus(statusCode);
+      final statusCode = ActiveRailwayData.statusCodeOf(fer.status);
+      final statusLabel = ActiveRailwayData.labelForStatus(statusCode);
 
       _currentOverlay = OverlayEntry(
         builder: (context) => Stack(
@@ -54,32 +53,46 @@ class ActiveRailwaysTooltipWidget {
                   decoration: BoxDecoration(
                     color: Colors.black87,
                     borderRadius: BorderRadius.circular(8),
-                    boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 6)],
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black45, blurRadius: 6),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (showCloseButton)
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment:
+                          MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
                               child: Text(
                                 'Ferrovia: ${fer.nome ?? '--'}',
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                               onPressed: hide,
                               padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
+                              constraints:
+                              const BoxConstraints(),
                             ),
                           ],
                         ),
                       _line('Código', fer.codigo),
-                      _line('Município/UF', _fmtLoc(fer.municipio, fer.uf)),
+                      _line(
+                        'Município/UF',
+                        _fmtLoc(fer.municipio, fer.uf),
+                      ),
                       _line('Bitola', fer.bitola),
                       _line('Status', statusLabel),
                       _line('Extensão', _fmtKm(fer.extensao)),
@@ -96,12 +109,12 @@ class ActiveRailwaysTooltipWidget {
                               style: TextStyle(
                                 color: Colors.lightBlueAccent,
                                 fontSize: 12,
-                                decoration: TextDecoration.underline,
+                                decoration:
+                                TextDecoration.underline,
                               ),
                             ),
                           ),
                         ),
-
                     ],
                   ),
                 ),
@@ -114,8 +127,6 @@ class ActiveRailwaysTooltipWidget {
       overlayState.insert(_currentOverlay!);
     });
   }
-
-
 
   static Widget _line(String label, String? value) {
     return Padding(

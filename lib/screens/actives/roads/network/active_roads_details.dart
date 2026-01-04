@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
+
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
@@ -9,7 +10,11 @@ class ActiveRoadsDetails extends StatefulWidget {
   final ActiveRoadsData road;
   final bool enabled;
 
-  const ActiveRoadsDetails({super.key, required this.road, this.enabled = true });
+  const ActiveRoadsDetails({
+    super.key,
+    required this.road,
+    this.enabled = true,
+  });
 
   @override
   State<ActiveRoadsDetails> createState() => _ActiveRoadsDetailsState();
@@ -26,7 +31,13 @@ class _ActiveRoadsDetailsState extends State<ActiveRoadsDetails> {
 
   void _initControllers() {
     final road = widget.road;
-    void add(String key, dynamic value) => _controllers[key] = TextEditingController(text: value?.toString() ?? '');
+
+    void add(String key, dynamic value) {
+      _controllers[key] = TextEditingController(
+        text: value?.toString() ?? '',
+      );
+    }
+
     add('Tipo de Segmento', road.segmentType);
     add('Código da Rodovia', road.roadCode);
     add('Sigla da Rodovia', road.acronym);
@@ -55,10 +66,12 @@ class _ActiveRoadsDetailsState extends State<ActiveRoadsDetails> {
     add('Superfície', road.surface);
     add('Unidade Local', road.unitLocal);
     add('Coincidente', road.coincident);
+
     add('Latitude inicial do Segmento', road.initialLatSegment);
     add('Longitude inicial do Segmento', road.initialLongSegment);
     add('Latitude final do Segmento', road.finalLatSegment);
     add('Longitude final do Segmento', road.finalLongSegment);
+
     add('Número Anterior', road.previousNumber);
     add('Número de faixas', road.tracksNumber);
     add('Velocidade máxima', road.maximumSpeed);
@@ -90,7 +103,12 @@ class _ActiveRoadsDetailsState extends State<ActiveRoadsDetails> {
     );
   }
 
-  Widget _input(BuildContext context, String key, String label, {bool money = false}) {
+  Widget _input(
+      BuildContext context,
+      String key,
+      String label, {
+        bool money = false,
+      }) {
     return CustomTextField(
       labelText: label,
       enabled: widget.enabled,

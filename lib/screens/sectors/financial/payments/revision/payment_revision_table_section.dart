@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/date_utils.dart';
+import 'package:siged/_utils/formats/converters_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/revision/payments_revisions_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_widgets/totalTableRows/footer_rows_generic.dart';
+import 'package:siged/_widgets/table/totalTableRows/footer_rows_generic.dart';
 
 class PaymentRevisionTableSection extends StatelessWidget {
   final void Function(PaymentsRevisionsData) onTapItem;
@@ -61,12 +61,17 @@ class PaymentRevisionTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.orderPaymentRevision ?? '-'}',
                         (a) => a.processPaymentRevision ?? '-',
-                        (a) => dateTimeToDDMMYYYY(a.datePaymentRevision ?? DateTime.now()),
+                        (a) => dateTimeToDDMMYYYY(
+                      a.datePaymentRevision ?? DateTime.now(),
+                    ),
                         (a) => priceToString(a.valuePaymentRevision),
                   ],
                   onTapItem: onTapItem,
                   onDelete: (item) => onDelete(item.idRevisionPayment!),
-                  columnWidths: const [100, 200, 180, 220],
+
+                  // ✅ 5 larguras
+                  columnWidths: const [100, 200, 220, 220, 56],
+
                   columnTextAligns: const [
                     TextAlign.center,
                     TextAlign.center,
@@ -107,7 +112,7 @@ class PaymentRevisionTableSection extends StatelessWidget {
                       ),
                     ],
                   ).rows,
-                ),
+                )
               ),
             ],
           ),

@@ -52,7 +52,6 @@ class CustomDateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Pré-preenche o controller quando há initialValue e o campo está vazio
     if (controller != null &&
         initialValue != null &&
         controller!.text.isEmpty) {
@@ -71,15 +70,36 @@ class CustomDateField extends StatelessWidget {
           width: width ?? 100,
           child: DateTimeField(
             format: format,
-            initialValue: initialValue, // mantém o valor de hoje vindo de fora
+            initialValue: initialValue,
             onShowPicker: (context, currentValue) async {
               final DateTime base =
                   currentValue ?? initialValue ?? DateTime.now();
+
+              final theme = Theme.of(context);
+              final customTheme = theme.copyWith(
+                // cor de fundo do diálogo
+                dialogBackgroundColor: Colors.white,
+                colorScheme: theme.colorScheme.copyWith(
+                  surface: Colors.white,
+                  background: Colors.white,
+                  // cor principal (círculo do dia selecionado, botões OK/Cancelar)
+                  primary: Colors.deepPurple, // ou Colors.blue, etc.
+                  onPrimary: Colors.white,
+                  onSurface: Colors.black,
+                ),
+              );
+
               final DateTime? time = await showDatePicker(
                 context: context,
                 initialDate: base,
                 firstDate: firstDate ?? DateTime(DateTime.now().year - 100),
                 lastDate: lastDate ?? DateTime(DateTime.now().year + 100),
+                builder: (context, child) {
+                  return Theme(
+                    data: customTheme,
+                    child: child!,
+                  );
+                },
               );
               return time;
             },
@@ -126,3 +146,4 @@ class CustomDateField extends StatelessWidget {
     );
   }
 }
+

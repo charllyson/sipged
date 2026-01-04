@@ -2,10 +2,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'flavors.dart';
 
 class FirebaseOptionsFlavors {
-  /// Compatibilidade com build-time (FLAVOR), se você ainda usar.
+  /// Compatível com build-time (FLAVOR) ou SetupData.defaultModuleLabel
   static FirebaseOptions forWeb() => forWebByFlavor(Flavor.name);
 
-  /// Retorna as opções do Firebase para cada tenant/flavor.
   static FirebaseOptions forWebByFlavor(String flavor) {
     switch (flavor) {
       case 'dnitro':
@@ -13,7 +12,7 @@ class FirebaseOptionsFlavors {
           apiKey: "AIzaSyBkM3xNHyL3aglqqTvKp8oVCn2cpaMRN6Q",
           authDomain: "dnitro-10930.firebaseapp.com",
           projectId: "dnitro-10930",
-          storageBucket: "dnitro-10930.appspot.com", // ✅ CORRETO
+          storageBucket: "dnitro-10930.appspot.com",
           messagingSenderId: "1082794997619",
           appId: "1:1082794997619:web:0a5f4524ea1d02c7e3f706",
           measurementId: "G-GN7022MXZ2",
@@ -27,7 +26,7 @@ class FirebaseOptionsFlavors {
           storageBucket: "meloemonte.firebasestorage.app",
           messagingSenderId: "572384566535",
           appId: "1:572384566535:web:8543604bcbc69b905db9a2",
-          measurementId: "G-TKX4SV3BNH"
+          measurementId: "G-TKX4SV3BNH",
         );
 
       case 'der':

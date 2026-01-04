@@ -1,29 +1,31 @@
 // lib/screens/process/hiring/2Etp/etp_page.dart
 import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/overlays/screen_lock.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/progress/stage_progress.dart';
-import 'package:siged/_widgets/gates/stage_gate.dart';
+import 'package:siged/_widgets/menu/tab/stage_progress.dart';
+import 'package:siged/_widgets/menu/tab/stage_gate.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
 import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
 
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
-import 'package:siged/_blocs/process/hiring/2Etp/etp_bloc.dart';
-import 'package:siged/_blocs/process/hiring/2Etp/etp_controller.dart';
+import 'package:siged/_blocs/process/hiring/2Etp/etp_cubit.dart';
+import 'package:siged/_blocs/process/hiring/2Etp/etp_state.dart';
+import 'package:siged/_blocs/process/hiring/2Etp/etp_data.dart';
+
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
 
+// Seções (versões baseadas em EtpData, igual DFD)
 import 'package:siged/screens/process/hiring/2Etp/section_1_identificacao_etp.dart';
 import 'package:siged/screens/process/hiring/2Etp/section_2_motivacao_obj_requisitos.dart';
 import 'package:siged/screens/process/hiring/2Etp/section_3_alternativas_solucao.dart';
@@ -34,13 +36,13 @@ import 'package:siged/screens/process/hiring/2Etp/section_7_documentos_equipe.da
 import 'package:siged/screens/process/hiring/2Etp/section_8_conclusao.dart';
 
 class EtpPage extends StatefulWidget {
-  final EtpController controller;
   final String contractId;
+  final bool readOnly;
 
   const EtpPage({
     super.key,
-    required this.controller,
     required this.contractId,
+    this.readOnly = false,
   });
 
   @override
@@ -52,55 +54,52 @@ class _EtpPageState extends State<EtpPage>
   @override
   bool get wantKeepAlive => true;
 
-  late final ProgressBloc _progressBloc;
+  late final ProgressCubit _progressBloc;
+
+  // Estado local baseado em MODEL (igual DFD)
+  EtpData _formData = const EtpData.empty();
   bool _hydrated = false;
   String? _currentEtpId;
+
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _progressBloc = ProgressBloc(repo: ProgressRepository());
-    context.read<EtpBloc>().add(EtpLoadRequested(widget.contractId));
+    _progressBloc = ProgressCubit(repo: ProgressRepository());
+
+    // Carrega ETP via Cubit (sem controller)
+    context.read<EtpCubit>().load(widget.contractId);
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _progressBloc.close();
     super.dispose();
   }
 
   Future<void> _saveOnly() async {
-    final bloc = context.read<EtpBloc>();
-    final quick = widget.controller.quickValidate();
-    if (quick != null) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Validação do ETP'),
-          subtitle: Text(quick),
-          type: AppNotificationType.warning,
-        ),
-      );
-      return;
-    }
+    final cubit = context.read<EtpCubit>();
 
     final completer = Completer<void>();
     late final StreamSubscription sub;
-    sub = bloc.stream.listen((s) {
+    sub = cubit.stream.listen((s) {
       if (!s.saving) {
         if (!completer.isCompleted) completer.complete();
         sub.cancel();
       }
     });
 
-    bloc.add(EtpSaveRequested(
+    await cubit.saveAll(
       contractId: widget.contractId,
-      sectionsData: widget.controller.toSectionMaps(),
-    ));
+      sectionsData: _formData.toSectionsMap(),
+    );
 
     await completer.future;
 
-    if (!bloc.state.saveSuccess) {
-      final err = bloc.state.error ?? 'Falha ao salvar';
+    if (!cubit.state.saveSuccess) {
+      final err = cubit.state.error ?? 'Falha ao salvar';
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('ETP'),
@@ -124,11 +123,10 @@ class _EtpPageState extends State<EtpPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final c = widget.controller;
 
     return BlocProvider.value(
       value: _progressBloc,
-      child: BlocListener<EtpBloc, EtpState>(
+      child: BlocListener<EtpCubit, EtpState>(
         listenWhen: (prev, curr) =>
         (prev.loading && !curr.loading) || (prev.etpId != curr.etpId),
         listener: (context, state) {
@@ -136,23 +134,26 @@ class _EtpPageState extends State<EtpPage>
 
           final incomingId = state.etpId;
           final needsHydrate = !_hydrated || _currentEtpId != incomingId;
+
           if (needsHydrate) {
-            c.fromSectionMaps(state.sectionsData); // pode vir vazio -> limpa
+            // Monta o DATA a partir dos maps (igual DfdData.fromSectionsMap)
+            final data = EtpData.fromSectionsMap(state.sectionsData);
+            setState(() => _formData = data);
+
             _hydrated = true;
             _currentEtpId = incomingId;
 
             if (incomingId != null && incomingId.isNotEmpty) {
-              _progressBloc.add(ProgressBindRequested(
+              _progressBloc.bindToStage(
                 contractId: widget.contractId,
                 collectionName: 'etp',
-                stageId: incomingId,
-              ));
+              );
             }
           }
         },
-        child: BlocBuilder<EtpBloc, EtpState>(
+        child: BlocBuilder<EtpCubit, EtpState>(
           builder: (context, state) {
-            final pstate = context.watch<ProgressBloc>().state;
+            final pstate = context.watch<ProgressCubit>().state;
 
             final locked = state.loading || state.saving || pstate.loading;
             final msg = state.loading
@@ -168,39 +169,90 @@ class _EtpPageState extends State<EtpPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: StageGate( // opcional: controla edição conforme gate
+              child: StageGate(
                 stageKey: HiringStageKey.etp,
                 child: Scaffold(
                   body: Stack(
                     children: [
                       const BackgroundClean(),
                       SingleChildScrollView(
+                        key: const PageStorageKey('etp-scroll'),
+                        controller: _scrollController,
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SectionIdentificacaoEtp(controller: c),
-                            SizedBox(height: 12),
-                            SectionMotivacaoObjRequisitos(controller: c),
-                            SizedBox(height: 12),
-                            SectionAlternativasSolucao(controller: c),
-                            SizedBox(height: 12),
-                            SectionMercadoEstimativa(controller: c),
-                            SizedBox(height: 12),
-                            SectionCronogramaIndicadores(controller: c),
-                            SizedBox(height: 12),
-                            SectionPremissasRestricoesLicenciamento(controller: c),
-                            SizedBox(height: 12),
-                            SectionDocumentosEquipe(controller: c),
-                            SizedBox(height: 12),
-                            SectionConclusao(controller: c),
+                            SectionIdentificacaoEtp(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            SectionMotivacaoObjRequisitos(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            SectionAlternativasSolucao(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            SectionMercadoEstimativa(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            SectionCronogramaIndicadores(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            SectionPremissasRestricoesLicenciamento(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            SectionDocumentosEquipe(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            SectionConclusao(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 8),
                           ],
                         ),
                       ),
                     ],
                   ),
                   bottomNavigationBar:
-                  BlocBuilder<ProgressBloc, ProgressState>(
+                  BlocBuilder<ProgressCubit, ProgressState>(
                     builder: (context, pstate) {
                       return StageProgress(
                         title: 'Estudo Técnico Preliminar (ETP)',
@@ -211,13 +263,15 @@ class _EtpPageState extends State<EtpPage>
                         onSaveAndNext: () async {
                           await _saveOnly();
 
-                          final etpId = context.read<EtpBloc>().state.etpId;
+                          final etpId =
+                              context.read<EtpCubit>().state.etpId;
                           if (etpId == null || etpId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('ETP'),
                                 subtitle: const Text(
-                                    'Documento não encontrado para aprovar.'),
+                                  'Documento não encontrado para aprovar.',
+                                ),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -236,33 +290,35 @@ class _EtpPageState extends State<EtpPage>
                             await repo.approveStage(
                               contractId: widget.contractId,
                               collectionName: 'etp',
-                              stageId: etpId,
                               approverUid: uid,
                               approverName: nameOrEmail,
                             );
                             await repo.setCompleted(
                               contractId: widget.contractId,
                               collectionName: 'etp',
-                              stageId: etpId,
                               completed: true,
                             );
 
-                            // 🔹 Liberação otimista: TR
+                            // Libera TR
                             final pipeline =
                             context.read<PipelineProgressCubit>();
-                            pipeline.setStageEnabled(HiringStageKey.tr, true);
+                            pipeline.setStageEnabled(
+                              HiringStageKey.tr,
+                              true,
+                            );
                             unawaited(pipeline.refresh());
 
                             final tab = DefaultTabController.of(context);
-                            tab?.animateTo(
+                            tab.animateTo(
                               (tab.index + 1).clamp(0, tab.length - 1),
                             );
 
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('ETP'),
-                                subtitle:
-                                const Text('Aprovado e etapa concluída.'),
+                                subtitle: const Text(
+                                  'Aprovado e etapa concluída.',
+                                ),
                                 type: AppNotificationType.success,
                               ),
                             );
@@ -270,7 +326,8 @@ class _EtpPageState extends State<EtpPage>
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('ETP'),
-                                subtitle: const Text('Erro ao aprovar.'),
+                                subtitle:
+                                const Text('Erro ao aprovar.'),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),
@@ -281,13 +338,14 @@ class _EtpPageState extends State<EtpPage>
                           await _saveOnly();
 
                           final etpId =
-                              context.read<EtpBloc>().state.etpId;
+                              context.read<EtpCubit>().state.etpId;
                           if (etpId == null || etpId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('ETP'),
                                 subtitle: const Text(
-                                    'Documento não encontrado para atualizar.'),
+                                  'Documento não encontrado para atualizar.',
+                                ),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -306,15 +364,15 @@ class _EtpPageState extends State<EtpPage>
                             await repo.touchApproval(
                               contractId: widget.contractId,
                               collectionName: 'etp',
-                              stageId: etpId,
                               updatedByUid: uid,
                               updatedByName: nameOrEmail,
                             );
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('ETP'),
-                                subtitle:
-                                const Text('Aprovação atualizada.'),
+                                subtitle: const Text(
+                                  'Aprovação atualizada.',
+                                ),
                                 type: AppNotificationType.success,
                               ),
                             );
@@ -323,7 +381,8 @@ class _EtpPageState extends State<EtpPage>
                               AppNotification(
                                 title: const Text('ETP'),
                                 subtitle: const Text(
-                                    'Erro ao atualizar aprovação.'),
+                                  'Erro ao atualizar aprovação.',
+                                ),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),

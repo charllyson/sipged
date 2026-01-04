@@ -27,6 +27,7 @@ class InfractionsSelectorDatesSection extends StatelessWidget {
         List<InfractionsData>? filteredItems,
         int? selectedYear,
         int? selectedMonth,
+        int? selectedDay,
       }) {
         onSelectionChanged(
           InfractionsSelectorDatesResult(

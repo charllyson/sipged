@@ -13,7 +13,7 @@ import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 // SideListBox já entende String e Attachment
 import '../../../../_widgets/list/files/side_list_box.dart';
 
-import 'package:siged/_blocs/process/adjustment/adjustment_measurement_data.dart';
+import 'package:siged/_blocs/process/measurement/adjustment/adjustment_measurement_data.dart';
 
 class AdjustmentMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
@@ -110,7 +110,7 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       formatters = mask;
     }
 
-    final textField = CustomTextField(
+    final customTextField = CustomTextField(
       width: width,
       enabled: enabled,
       labelText: label,
@@ -124,10 +124,10 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
     if (tooltip) {
       return Tooltip(
         message: 'Este campo é calculado automaticamente.',
-        child: textField,
+        child: customTextField,
       );
     }
-    return textField;
+    return customTextField;
   }
 
   @override

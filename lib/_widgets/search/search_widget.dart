@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../suggestions/suggestion_models.dart';
+import '../map/suggestions/suggestion_models.dart';
 import 'search_overlay.dart';
 
 class SearchAction extends StatefulWidget {

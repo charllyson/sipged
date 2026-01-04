@@ -5,25 +5,25 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Overlays / UI
-import 'package:siged/_widgets/overlays/screen_lock.dart';
+// Layout / Overlays / Notificações
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/gates/stage_gate.dart';
-import 'package:siged/_widgets/progress/stage_progress.dart';
+import 'package:siged/_widgets/overlays/screen_lock.dart';
+import 'package:siged/_widgets/menu/tab/stage_progress.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:siged/_widgets/menu/tab/stage_gate.dart';
 
-// Progress (etapas)
+// Pipeline / Progress
 import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
-// Edital
-import 'package:siged/_blocs/process/hiring/5Edital/edital_bloc.dart';
+// Edital (Cubit + Data + State)
+import 'package:siged/_blocs/process/hiring/5Edital/edital_cubit.dart';
 import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_state.dart';
 
 // Seções
 import 'package:siged/screens/process/hiring/5Edital/section_1_divulgacao_recebimento.dart';
@@ -52,7 +52,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   @override
   bool get wantKeepAlive => true;
 
-  late final ProgressBloc _progressBloc;
+  late final ProgressCubit _progressCubit;
 
   EditalData _formData = const EditalData.empty();
   bool _hydrated = false;
@@ -61,19 +61,21 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   final _scrollCtrl = ScrollController();
   final _resultadoKey = GlobalKey();
 
+  bool get _isEditable => !widget.readOnly;
+
   @override
   void initState() {
     super.initState();
-    _progressBloc = ProgressBloc(repo: ProgressRepository());
+    _progressCubit = ProgressCubit(repo: ProgressRepository());
 
-    // Dispara o load inicial do Edital
-    context.read<EditalBloc>().add(EditalLoadRequested(widget.contractId));
+    // Dispara o load inicial via Cubit
+    context.read<EditalCubit>().load(widget.contractId);
   }
 
   @override
   void dispose() {
     _scrollCtrl.dispose();
-    _progressBloc.close();
+    _progressCubit.close();
     super.dispose();
   }
 
@@ -103,6 +105,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
     }
   }
 
+  /// Define vencedor a partir da proposta e rola até a seção Resultado
   void _definirVencedorEIr(int index) {
     final propostas = _formData.propostasItems;
     if (index < 0 || index >= propostas.length) return;
@@ -125,8 +128,9 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
   }
 
   Future<void> _saveOnly() async {
-    final bloc = context.read<EditalBloc>();
+    final cubit = context.read<EditalCubit>();
 
+    // Validação rápida
     final quick = _quickValidate(_formData);
     if (quick != null) {
       NotificationCenter.instance.show(
@@ -141,53 +145,54 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
 
     final completer = Completer<void>();
     late final StreamSubscription sub;
-    sub = bloc.stream.listen((s) {
+
+    sub = cubit.stream.listen((s) {
       if (!s.saving) {
         if (!completer.isCompleted) completer.complete();
         sub.cancel();
       }
     });
 
-    bloc.add(
-      EditalSaveRequested(
-        contractId: widget.contractId,
-        sectionsData: _formData.toSectionsMap(),
-      ),
+    await cubit.saveAll(
+      contractId: widget.contractId,
+      sectionsData: _formData.toSectionsMap(),
     );
 
     await completer.future;
 
-    if (!bloc.state.saveSuccess) {
-      final err = bloc.state.error ?? 'Falha ao salvar';
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Edital'),
-          subtitle: const Text('Erro ao salvar.'),
-          details: Text(err),
-          type: AppNotificationType.error,
-        ),
-      );
+    if (!cubit.state.saveSuccess) {
+      final err = cubit.state.error ?? 'Falha ao salvar';
+      if (mounted) {
+        NotificationCenter.instance.show(
+          AppNotification(
+            title: const Text('Edital'),
+            subtitle: const Text('Erro ao salvar.'),
+            details: Text(err),
+            type: AppNotificationType.error,
+          ),
+        );
+      }
       return;
     }
 
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('Edital'),
-        subtitle: const Text('Alterações salvas com sucesso.'),
-        type: AppNotificationType.success,
-      ),
-    );
+    if (mounted) {
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Edital'),
+          subtitle: const Text('Alterações salvas com sucesso.'),
+          type: AppNotificationType.success,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    final isEditable = !widget.readOnly;
-
     return BlocProvider.value(
-      value: _progressBloc,
-      child: BlocListener<EditalBloc, EditalState>(
+      value: _progressCubit,
+      child: BlocListener<EditalCubit, EditalState>(
         listenWhen: (prev, curr) =>
         (prev.loading && !curr.loading) || (prev.editalId != curr.editalId),
         listener: (context, state) {
@@ -198,6 +203,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
 
           if (needsHydrate) {
             final data = EditalData.fromSectionsMap(state.sectionsData);
+
             setState(() {
               _formData = data;
               _hydrated = true;
@@ -205,19 +211,16 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
             });
 
             if (incomingId != null && incomingId.isNotEmpty) {
-              _progressBloc.add(
-                ProgressBindRequested(
-                  contractId: widget.contractId,
-                  collectionName: 'edital',
-                  stageId: incomingId,
-                ),
+              _progressCubit.bindToStage(
+                contractId: widget.contractId,
+                collectionName: 'edital',
               );
             }
           }
         },
-        child: BlocBuilder<EditalBloc, EditalState>(
+        child: BlocBuilder<EditalCubit, EditalState>(
           builder: (context, state) {
-            final pstate = context.watch<ProgressBloc>().state;
+            final pstate = context.watch<ProgressCubit>().state;
 
             final locked = state.loading || state.saving || pstate.loading;
             final msg = state.loading
@@ -240,13 +243,15 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                     children: [
                       const BackgroundClean(),
                       SingleChildScrollView(
+                        key: const PageStorageKey('edital-scroll'),
                         controller: _scrollCtrl,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                        padding:
+                        const EdgeInsets.fromLTRB(12, 12, 12, 120), // margem p/ bottom bar
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             SectionDivulgacaoRecebimento(
-                              isEditable: isEditable,
+                              isEditable: _isEditable,
                               data: _formData,
                               onChanged: (updated) {
                                 setState(() => _formData = updated);
@@ -254,7 +259,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                             ),
                             const SizedBox(height: 12),
                             SectionSessaoJulgamento(
-                              isEditable: isEditable,
+                              isEditable: _isEditable,
                               data: _formData,
                               onChanged: (updated) {
                                 setState(() => _formData = updated);
@@ -262,7 +267,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                             ),
                             const SizedBox(height: 12),
                             SectionPropostas(
-                              isEditable: isEditable,
+                              isEditable: _isEditable,
                               data: _formData,
                               onChanged: (updated) {
                                 setState(() => _formData = updated);
@@ -271,7 +276,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                             ),
                             const SizedBox(height: 12),
                             SectionLances(
-                              isEditable: isEditable,
+                              isEditable: _isEditable,
                               data: _formData,
                               onChanged: (updated) {
                                 setState(() => _formData = updated);
@@ -279,7 +284,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                             ),
                             const SizedBox(height: 12),
                             SectionParecerRecursos(
-                              isEditable: isEditable,
+                              isEditable: _isEditable,
                               data: _formData,
                               onChanged: (updated) {
                                 setState(() => _formData = updated);
@@ -287,7 +292,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                             ),
                             const SizedBox(height: 12),
                             SectionResultado(
-                              isEditable: isEditable,
+                              isEditable: _isEditable,
                               data: _formData,
                               onChanged: (updated) {
                                 setState(() => _formData = updated);
@@ -300,7 +305,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                     ],
                   ),
                   bottomNavigationBar:
-                  BlocBuilder<ProgressBloc, ProgressState>(
+                  BlocBuilder<ProgressCubit, ProgressState>(
                     builder: (context, p) {
                       return StageProgress(
                         title: 'Edital – Julgamento',
@@ -312,7 +317,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                           await _saveOnly();
 
                           final editalId =
-                              context.read<EditalBloc>().state.editalId;
+                              context.read<EditalCubit>().state.editalId;
                           if (editalId == null || editalId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -333,19 +338,17 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
+                          final repo = _progressCubit.repo;
                           try {
                             await repo.approveStage(
                               contractId: widget.contractId,
                               collectionName: 'edital',
-                              stageId: editalId,
                               approverUid: uid,
                               approverName: nameOrEmail,
                             );
                             await repo.setCompleted(
                               contractId: widget.contractId,
                               collectionName: 'edital',
-                              stageId: editalId,
                               completed: true,
                             );
 

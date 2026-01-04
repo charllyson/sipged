@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
 import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
 
+import 'package:siged/_blocs/actives/roads/active_roads_cubit.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
-import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
 
 class ActiveRoadsPanel extends StatelessWidget {
   const ActiveRoadsPanel({super.key, this.onClose});
@@ -30,15 +29,13 @@ class ActiveRoadsPanel extends StatelessWidget {
         Column(
           children: [
             Expanded(
-              child: BlocBuilder<ActiveRoadsBloc, ActiveRoadsState>(
+              child: BlocBuilder<ActiveRoadsCubit, ActiveRoadsState>(
                 builder: (context, st) {
-                  final bloc = context.read<ActiveRoadsBloc>();
+                  final cubit = context.read<ActiveRoadsCubit>();
 
-                  // >>> Gauge agora considera REGIÃO + PIE
                   final gaugeVm = st.gaugeForCurrentFilters();
-
-                  // índice da região selecionada calculado no próprio state
-                  final selectedRegionIdx = st.indexOfRegionNormalized(st.selectedRegionFilter);
+                  final selectedRegionIdx =
+                  st.indexOfRegionNormalized(st.selectedRegionFilter);
 
                   return SingleChildScrollView(
                     child: Column(
@@ -55,19 +52,31 @@ class ActiveRoadsPanel extends StatelessWidget {
                                 child: LayoutBuilder(
                                   builder: (context, constraints) {
                                     final double side = constraints.maxWidth;
-                                    final double dynamicRadius = side * 0.35;
-                                    final double dynamicFontSize = dynamicRadius * 0.5;
+                                    final double dynamicRadius =
+                                        side * 0.35;
+                                    final double dynamicFontSize =
+                                        dynamicRadius * 0.5;
 
                                     return Padding(
-                                      padding: const EdgeInsets.only(top: 12.0, right: 12),
+                                      padding: const EdgeInsets.only(
+                                        top: 12.0,
+                                        right: 12,
+                                      ),
                                       child: GaugeCircularPercent(
-                                        centerTitle: gaugeVm.percent.clamp(0.0, 1.0),
+                                        centerTitle: gaugeVm.percent
+                                            .clamp(0.0, 1.0),
                                         footerTitle:
                                         '${gaugeVm.label} • ${_fmtKm(gaugeVm.count)}',
                                         headerMode: GaugeTextMode.number,
                                         centerMode: GaugeTextMode.number,
-                                        values: [double.parse(gaugeVm.count.toStringAsFixed(3))],
-                                        footerMode: GaugeTextMode.explicit,
+                                        values: [
+                                          double.parse(
+                                            gaugeVm.count
+                                                .toStringAsFixed(3),
+                                          ),
+                                        ],
+                                        footerMode:
+                                        GaugeTextMode.explicit,
                                         radius: dynamicRadius,
                                         larguraGrafico: side,
                                         centerFontSize: dynamicFontSize,
@@ -80,32 +89,41 @@ class ActiveRoadsPanel extends StatelessWidget {
                               const SizedBox(height: 12),
 
                               // ---- PIE (Superfície/Status) — valores em km
-                              // >>> AGORA os valores já respeitam a REGIÃO selecionada
                               SizedBox(
                                 width: kPieBoxWidth,
                                 child: LayoutBuilder(
                                   builder: (context, constraints) {
-                                    final double side = constraints.maxWidth;
+                                    final double side =
+                                        constraints.maxWidth;
                                     final double chartHeight =
-                                    (side * 0.85).clamp(160.0, 195.0);
-                                    final double maxOuter = (chartHeight / 2) - 12.0;
+                                    (side * 0.85)
+                                        .clamp(160.0, 195.0);
+                                    final double maxOuter =
+                                        (chartHeight / 2) - 12.0;
 
                                     final double baseSlice =
                                     (side * 0.2).clamp(34.0, maxOuter);
                                     final double hiSlice =
-                                    (baseSlice + 6.0).clamp(baseSlice, maxOuter);
+                                    (baseSlice + 6.0)
+                                        .clamp(baseSlice, maxOuter);
                                     final double centerHole =
-                                    (baseSlice * 0.58).clamp(18.0, baseSlice - 10.0);
+                                    (baseSlice * 0.58)
+                                        .clamp(18.0, baseSlice - 10.0);
 
                                     return Padding(
-                                      padding: const EdgeInsets.only(top: 12.0),
+                                      padding: const EdgeInsets.only(
+                                        top: 12.0,
+                                      ),
                                       child: PieChartChanged(
                                         colorCard: Colors.white,
-                                        valueFormatType: ValueFormatType.decimal,
+                                        valueFormatType:
+                                        ValueFormatType.decimal,
                                         labels: st.pieLabelsForChart,
                                         values: st.pieValuesForChart,
-                                        coresPersonalizadas: st.pieColorsForChart,
-                                        selectedIndex: st.selectedPieIndexFilter,
+                                        coresPersonalizadas:
+                                        st.pieColorsForChart,
+                                        selectedIndex:
+                                        st.selectedPieIndexFilter,
                                         larguraGrafico: side,
                                         alturaCard: 295,
                                         chartHeight: chartHeight,
@@ -114,7 +132,7 @@ class ActiveRoadsPanel extends StatelessWidget {
                                         centerSpaceRadius: centerHole,
                                         sectionsSpace: 2,
                                         onTouch: (idx) {
-                                          bloc.add(ActiveRoadsPieFilterChanged(idx));
+                                          cubit.setPieFilter(idx);
                                         },
                                       ),
                                     );
@@ -131,7 +149,8 @@ class ActiveRoadsPanel extends StatelessWidget {
                         // ===== Barras por região (respeita pie) — valores em km =====
                         LayoutBuilder(
                           builder: (context, constraints) {
-                            final double availableWidth = constraints.hasBoundedWidth
+                            final double availableWidth =
+                            constraints.hasBoundedWidth
                                 ? constraints.maxWidth
                                 : MediaQuery.of(context).size.width;
 
@@ -149,21 +168,24 @@ class ActiveRoadsPanel extends StatelessWidget {
                               child: SizedBox(
                                 width: contentWidth,
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                                  padding:
+                                  const EdgeInsets.symmetric(
+                                    horizontal: 12.0,
+                                  ),
                                   child: BarChartChanged(
                                     colorCard: Colors.white,
                                     valueFormatter: (v) => _fmtKm(v),
                                     heightGraphic: 260,
                                     widthBar: kBarWidth,
                                     labels: st.regionLabels,
-                                    values: st.regionCountsFilteredByPie(), // km (filtra pelo pie)
+                                    values: st.regionCountsFilteredByPie(),
                                     selectedIndex: selectedRegionIdx,
                                     onBarTap: (label) {
-                                      // toggle da região
-                                      final newRegion = label == st.selectedRegionFilter ? null : label;
-                                      bloc.add(ActiveRoadsRegionFilterChanged(newRegion));
-                                      // OBS: não limpamos o PIE; como o PIE já considera a região,
-                                      // ele será recalculado automaticamente. O Gauge também recalcula.
+                                      final newRegion =
+                                      label == st.selectedRegionFilter
+                                          ? null
+                                          : label;
+                                      cubit.setRegionFilter(newRegion);
                                     },
                                     expandToMaxWidth: true,
                                   ),

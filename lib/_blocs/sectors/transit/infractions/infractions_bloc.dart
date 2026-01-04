@@ -202,20 +202,13 @@ class InfractionsBloc extends BlocBase {
       return;
     }
 
-    debugPrint('Containers encontrados para $year: ${containers.docs.length}');
     for (final c in containers.docs) {
       final path = c.reference.path;
       final recSnap = await c.reference.collection('records').get();
-      debugPrint(' - $path => ${recSnap.docs.length} records');
 
       // amostra
       for (final d in recSnap.docs.take(sample)) {
         final m = d.data();
-        debugPrint('   • ${d.reference.path} | '
-            'order=${m['orderInfraction']} | '
-            'ait=${m['aitNumber']} | '
-            'data=${m['dateInfraction']} | '
-            'cod=${m['codeInfraction']}');
       }
     }
 
@@ -243,19 +236,12 @@ class InfractionsBloc extends BlocBase {
 
     final dups = dupKeyCount.entries.where((e) => e.value.length > 1).toList();
     if (dups.isEmpty) {
-      debugPrint('Nenhuma duplicata (por AIT+data) detectada.');
     } else {
-      debugPrint('DUPLICATAS DETECTADAS: ${dups.length}');
       for (final e in dups.take(20)) {
-        debugPrint(' - ${e.key} => ${e.value.length} docs');
         for (final p in e.value) {
-          debugPrint('     • $p');
         }
       }
-      if (dups.length > 20) debugPrint('... (${dups.length - 20} restantes)');
     }
-
-    debugPrint('====== FIM DEBUG ======');
   }
 
 }

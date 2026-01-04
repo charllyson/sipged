@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 
 // ✅ Split responsivo
-import 'package:siged/_widgets/layout/responsive_split_view.dart';
+import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_details.dart';
@@ -120,7 +120,7 @@ class _PlanningRightWayWorkspacePageState
           ),
         ),
         bottomNavigationBar: const FootBar(),
-        body: ResponsiveSplitView(
+        body: SplitLayout(
           // >= breakpoint: lado a lado (mapa à ESQUERDA); < breakpoint: empilhado (mapa EM CIMA)
           left: leftMap,
           right: rightPanel,

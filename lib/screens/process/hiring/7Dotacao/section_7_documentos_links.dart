@@ -3,30 +3,70 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 
-import 'package:siged/_blocs/process/hiring/7Dotacao/dotacao_controller.dart';
+import 'package:siged/_blocs/process/hiring/7Dotacao/dotacao_data.dart';
 
-class SectionDocumentosLinks extends StatelessWidget {
-  final DotacaoController controller;
+class SectionDocumentosLinks extends StatefulWidget {
+  final DotacaoData data;
+  final bool isEditable;
+  final void Function(DotacaoData updated) onChanged;
 
   const SectionDocumentosLinks({
     super.key,
-    required this.controller,
+    required this.data,
+    required this.isEditable,
+    required this.onChanged,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final c = controller;
+  State<SectionDocumentosLinks> createState() =>
+      _SectionDocumentosLinksState();
+}
 
+class _SectionDocumentosLinksState extends State<SectionDocumentosLinks> {
+  late final TextEditingController _linksCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _linksCtrl = TextEditingController(text: widget.data.links ?? '');
+  }
+
+  @override
+  void didUpdateWidget(
+      covariant SectionDocumentosLinks oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      final v = widget.data.links ?? '';
+      if (_linksCtrl.text != v) _linksCtrl.text = v;
+    }
+  }
+
+  @override
+  void dispose() {
+    _linksCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      links: _linksCtrl.text,
+    );
+    widget.onChanged(updated);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('7) Documentos / Links'),
+        const SectionTitle(text: '7) Documentos / Links'),
         CustomTextField(
-          controller: c.linksComprovacoesCtrl,
+          controller: _linksCtrl,
           labelText:
           'Links (NE, Reserva, prints do SIAF/SIGEF, planilhas)',
-          enabled: c.isEditable,
+          enabled: widget.isEditable,
           maxLines: 2,
+          onChanged: (_) => _emitChange(),
         ),
         const SizedBox(height: 24),
       ],

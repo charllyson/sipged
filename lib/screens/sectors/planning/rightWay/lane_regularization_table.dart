@@ -5,11 +5,12 @@ import 'package:siged/_widgets/overlays/loading_progress.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
 
-import 'package:siged/_utils/formats/date_utils.dart';
+import 'package:siged/_utils/formats/converters_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
-import 'package:siged/_blocs/process/laneRegularization/lane_regularization_controller.dart';
-import 'package:siged/_blocs/process/laneRegularization/lane_regularization_data.dart';
+import 'package:siged/_blocs/sectors/planning/lane_regularization/lane_regularization_controller.dart';
+import 'package:siged/_blocs/sectors/planning/lane_regularization/lane_regularization_data.dart';
+import 'package:siged/_widgets/texts/section_text_name.dart';
 
 class LaneRegularizationTable extends StatelessWidget {
   const LaneRegularizationTable({
@@ -29,9 +30,7 @@ class LaneRegularizationTable extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        DividerText(title: headerTitle),
-
-        // 🔧 Dá altura elástica para a área da tabela
+        SectionTitle(text: headerTitle),
         Expanded(
           child: Padding(
             padding: padding,

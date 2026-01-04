@@ -1,4 +1,3 @@
-// lib/screens/process/hiring/10Publicacao/section_1_metadados.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
@@ -52,10 +51,25 @@ class _SectionMetadadosExtratoState extends State<SectionMetadadosExtrato>
   void didUpdateWidget(covariant SectionMetadadosExtrato oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      _tipoExtratoCtrl.text = widget.data.tipoExtrato ?? '';
-      _numeroContratoCtrl.text = widget.data.numeroContrato ?? '';
-      _processoCtrl.text = widget.data.processo ?? '';
-      _objetoResumoCtrl.text = widget.data.objetoResumo ?? '';
+      final d = widget.data;
+
+      final tipo = d.tipoExtrato ?? '';
+      final numero = d.numeroContrato ?? '';
+      final processo = d.processo ?? '';
+      final objeto = d.objetoResumo ?? '';
+
+      if (_tipoExtratoCtrl.text != tipo) {
+        _tipoExtratoCtrl.text = tipo;
+      }
+      if (_numeroContratoCtrl.text != numero) {
+        _numeroContratoCtrl.text = numero;
+      }
+      if (_processoCtrl.text != processo) {
+        _processoCtrl.text = processo;
+      }
+      if (_objetoResumoCtrl.text != objeto) {
+        _objetoResumoCtrl.text = objeto;
+      }
     }
   }
 
@@ -83,7 +97,7 @@ class _SectionMetadadosExtratoState extends State<SectionMetadadosExtrato>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('1) Metadados do Extrato'),
+        const SectionTitle(text: '1) Metadados do Extrato'),
         LayoutBuilder(
           builder: (context, constraints) {
             final w2 = inputW2(context, constraints);
@@ -104,7 +118,10 @@ class _SectionMetadadosExtratoState extends State<SectionMetadadosExtrato>
                           controller: _tipoExtratoCtrl,
                           items: HiringData.tipoExtrato,
                           onChanged: (v) {
-                            _tipoExtratoCtrl.text = v ?? '';
+                            final text = v ?? '';
+                            if (_tipoExtratoCtrl.text != text) {
+                              _tipoExtratoCtrl.text = text;
+                            }
                             _emitChange();
                             setState(() {});
                           },

@@ -1,3 +1,4 @@
+// lib/screens/sectors/actives/oaes/active_oaes_form.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,23 +9,21 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/formats/mask_class.dart';
 
 import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
-
-import '../../../../_blocs/actives/oaes/active_oaes_bloc.dart';
-import '../../../../_blocs/actives/oaes/active_oaes_event.dart';
-import '../../../../_blocs/actives/oaes/active_oaes_state.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_cubit.dart';
+import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
 
 // 🔔 Notificações
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-class ActiveAirportsForm extends StatefulWidget {
-  const ActiveAirportsForm({super.key});
+class ActiveOaesForm extends StatefulWidget {
+  const ActiveOaesForm({super.key});
 
   @override
-  State<ActiveAirportsForm> createState() => _ActiveAirportsFormState();
+  State<ActiveOaesForm> createState() => _ActiveOaesFormState();
 }
 
-class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
+class _ActiveOaesFormState extends State<ActiveOaesForm> {
   // Controllers
   final _orderCtrl = TextEditingController();
   final _scoreCtrl = TextEditingController();
@@ -82,12 +81,15 @@ class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
     _setIfDiff(_extensionCtrl, (f.extension ?? '').toString());
     _setIfDiff(_widthCtrl, (f.width ?? '').toString());
     _setIfDiff(_areaCtrl, (f.area ?? '').toString());
-    _setIfDiff(_structureCtrl, f.structureType ?? '');
+    _setIfDiff(_structureCtrl, f.estructureType ?? '');
     _setIfDiff(_contractsCtrl, f.relatedContracts ?? '');
     _setIfDiff(_linearCostCtrl, _fmtMoneyBR(f.linearCostMedia));
     _setIfDiff(_estimateCtrl, _fmtMoneyBR(f.costEstimate));
     _setIfDiff(_companyCtrl, f.companyBuild ?? '');
-    _setIfDiff(_dateCtrl, f.lastDateIntervention != null ? _fmtDDMMYYYY(f.lastDateIntervention!) : '');
+    _setIfDiff(
+      _dateCtrl,
+      f.lastDateIntervention != null ? _fmtDDMMYYYY(f.lastDateIntervention!) : '',
+    );
     _setIfDiff(_altitudeCtrl, (f.altitude ?? '').toString());
   }
 
@@ -123,7 +125,9 @@ class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
 
   double? _parseNumberLoose(String s) {
     if (s.trim().isEmpty) return null;
-    final t = s.contains(',') && !s.contains('.') ? s.replaceAll('.', '').replaceAll(',', '.') : s;
+    final t = s.contains(',') && !s.contains('.')
+        ? s.replaceAll('.', '').replaceAll(',', '.')
+        : s;
     return double.tryParse(t);
   }
 
@@ -150,7 +154,6 @@ class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
       identificationName: _nameCtrl.text,
       latitude: _parseNumberLoose(_latitudeCtrl.text),
       longitude: _parseNumberLoose(_longitudeCtrl.text),
-
       score: _parseNumberLoose(_scoreCtrl.text),
       state: _stateCtrl.text,
       road: _roadCtrl.text,
@@ -178,74 +181,136 @@ class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ActiveOaesBloc, ActiveOaesState>(
+    return BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
       // rebuilda quando form/saving mudarem
-      buildWhen: (a, b) => a.form != b.form || a.saving != b.saving || a.selectedIndex != b.selectedIndex,
+      buildWhen: (a, b) =>
+      a.form != b.form || a.saving != b.saving || a.selectedIndex != b.selectedIndex,
       builder: (context, st) {
-        final bloc = context.read<ActiveOaesBloc>();
+        final cubit = context.read<ActiveOaesCubit>();
 
-        // refletir State -> UI
+        // refletir State -> UI (sem loop, pois _setIfDiff evita set redundante)
         WidgetsBinding.instance.addPostFrameCallback((_) => _fillUiFromForm(st.form));
+
+        void _onFieldChanged(String _) {
+          final patched = _patchFromUi(st.form);
+          cubit.patchForm(patched);
+        }
 
         final campos = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(_orderCtrl, 'ORDEM', enabled: false, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_nameCtrl, 'IDENTIFICAÇÃO', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_latitudeCtrl, 'LATITUDE', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_longitudeCtrl, 'LONGITUDE', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-
-            _input(_scoreCtrl, 'SCORE (0..5)', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_stateCtrl, 'STATUS/UF', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_roadCtrl, 'RODOVIA', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_regionCtrl, 'REGIÃO', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_extensionCtrl, 'EXTENSÃO', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_widthCtrl, 'LARGURA', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_areaCtrl, 'ÁREA', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_structureCtrl, 'TIPO DE ESTRUTURA', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_contractsCtrl, 'CONTRATOS RELACIONADOS', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_linearCostCtrl, 'CUSTO MÉDIO', tooltip: true, money: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_estimateCtrl, 'CUSTO ESTIMADO', tooltip: true, money: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_companyCtrl, 'EMPRESA QUE CONSTRUIU', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_dateCtrl, 'ÚLTIMA DATA DE INTERVENÇÃO', tooltip: true, date: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
-            _input(_altitudeCtrl, 'ALTITUDE', tooltip: true, onChanged: (_) {
-              bloc.add(ActiveOaesFormPatched(_patchFromUi(st.form)));
-            }),
+            _input(
+              _orderCtrl,
+              'ORDEM',
+              enabled: false,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _nameCtrl,
+              'IDENTIFICAÇÃO',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _latitudeCtrl,
+              'LATITUDE',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _longitudeCtrl,
+              'LONGITUDE',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _scoreCtrl,
+              'SCORE (0..5)',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _stateCtrl,
+              'STATUS/UF',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _roadCtrl,
+              'RODOVIA',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _regionCtrl,
+              'REGIÃO',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _extensionCtrl,
+              'EXTENSÃO',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _widthCtrl,
+              'LARGURA',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _areaCtrl,
+              'ÁREA',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _structureCtrl,
+              'TIPO DE ESTRUTURA',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _contractsCtrl,
+              'CONTRATOS RELACIONADOS',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _linearCostCtrl,
+              'CUSTO MÉDIO',
+              tooltip: true,
+              money: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _estimateCtrl,
+              'CUSTO ESTIMADO',
+              tooltip: true,
+              money: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _companyCtrl,
+              'EMPRESA QUE CONSTRUIU',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _dateCtrl,
+              'ÚLTIMA DATA DE INTERVENÇÃO',
+              tooltip: true,
+              date: true,
+              onChanged: _onFieldChanged,
+            ),
+            _input(
+              _altitudeCtrl,
+              'ALTITUDE',
+              tooltip: true,
+              onChanged: _onFieldChanged,
+            ),
           ],
         );
 
@@ -258,12 +323,15 @@ class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
               onPressed: canSave
                   ? () {
                 final patched = _patchFromUi(st.form);
-                context.read<ActiveOaesBloc>().add(ActiveOaesUpsertRequested(patched));
+                cubit.upsert(patched);
+
                 NotificationCenter.instance.show(
                   AppNotification(
                     title: const Text('Enviando...'),
                     subtitle: Text(
-                      (st.selectedIndex != null) ? 'Atualizando registro' : 'Criando registro',
+                      (st.selectedIndex != null)
+                          ? 'Atualizando registro'
+                          : 'Criando registro',
                     ),
                     type: AppNotificationType.info,
                     duration: const Duration(seconds: 2),
@@ -280,16 +348,7 @@ class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
                 icon: const Icon(Icons.cleaning_services_outlined),
                 label: const Text('Limpar'),
                 onPressed: () {
-                  context.read<ActiveOaesBloc>().add(const ActiveOaesClearSelection());
-
-                  // 🔔 Notificação de limpeza (opcional)
-                  NotificationCenter.instance.show(
-                    AppNotification(
-                      title: Text('Formulário limpo'),
-                      type: AppNotificationType.info,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
+                  cubit.clearSelection();
                 },
               ),
           ],
@@ -334,9 +393,8 @@ class _ActiveAirportsFormState extends State<ActiveAirportsForm> {
         enabled: enabled,
         labelText: label,
         onChanged: onChanged,
-        keyboardType: date
-            ? TextInputType.datetime
-            : (money ? TextInputType.number : null),
+        keyboardType:
+        date ? TextInputType.datetime : (money ? TextInputType.number : null),
         inputFormatters: [
           if (date) FilteringTextInputFormatter.digitsOnly,
           if (date) TextInputMask(mask: '99/99/9999'),

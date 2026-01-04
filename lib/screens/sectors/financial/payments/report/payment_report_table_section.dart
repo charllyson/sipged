@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_utils/formats/date_utils.dart';
+
+import 'package:siged/_utils/formats/converters_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_report_controller.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_widgets/totalTableRows/footer_rows_generic.dart';
+import 'package:siged/_widgets/table/totalTableRows/footer_rows_generic.dart';
 
 class PaymentReportTableSection extends StatelessWidget {
   const PaymentReportTableSection({
@@ -66,8 +67,10 @@ class PaymentReportTableSection extends StatelessWidget {
                   onDelete: (data) async {
                     final id = data.idPaymentReport;
                     if (id == null) return;
+                    await c.deleteById(id);
                   },
-                  columnWidths: const [100, 220, 220, 220],
+                  // larguras: 4 colunas + coluna de ações
+                  columnWidths: const [100, 220, 260, 260, 56],
                   columnTextAligns: const [
                     TextAlign.center,
                     TextAlign.center,

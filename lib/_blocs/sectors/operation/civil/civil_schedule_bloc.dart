@@ -63,7 +63,6 @@ class CivilScheduleBloc extends Bloc<CivilScheduleEvent, CivilScheduleState> {
       final polys = await repo.fetchPolygons(contractId: cid, page: e.page);
       emit(state.copyWith(polygons: polys, loadingPolygons: false));
     } catch (err, st) {
-      debugPrint('page select error: $err\n$st');
       emit(state.copyWith(loadingPolygons: false, error: '$err'));
     }
   }
@@ -82,7 +81,6 @@ class CivilScheduleBloc extends Bloc<CivilScheduleEvent, CivilScheduleState> {
       final assets = await repo.loadAssets(cid);
       emit(state.copyWith(assets: assets, uploadingAsset: false));
     } catch (err, st) {
-      debugPrint('asset upload error: $err\n$st');
       emit(state.copyWith(uploadingAsset: false, error: '$err'));
     }
   }
@@ -109,7 +107,6 @@ class CivilScheduleBloc extends Bloc<CivilScheduleEvent, CivilScheduleState> {
       final polys = await repo.fetchPolygons(contractId: cid, page: state.currentPage);
       emit(state.copyWith(polygons: polys, applyingPolygon: false));
     } catch (err, st) {
-      debugPrint('upsert polygon error: $err\n$st');
       emit(state.copyWith(applyingPolygon: false, error: '$err'));
     }
   }
@@ -134,7 +131,6 @@ class CivilScheduleBloc extends Bloc<CivilScheduleEvent, CivilScheduleState> {
       final polys = await repo.fetchPolygons(contractId: cid, page: state.currentPage);
       emit(state.copyWith(polygons: polys, applyingPolygon: false));
     } catch (err, st) {
-      debugPrint('apply polygon error: $err\n$st');
       emit(state.copyWith(applyingPolygon: false, error: '$err'));
     }
   }
@@ -148,7 +144,6 @@ class CivilScheduleBloc extends Bloc<CivilScheduleEvent, CivilScheduleState> {
       final polys = await repo.fetchPolygons(contractId: cid, page: state.currentPage);
       emit(state.copyWith(polygons: polys, applyingPolygon: false));
     } catch (err, st) {
-      debugPrint('delete polygon error: $err\n$st');
       emit(state.copyWith(applyingPolygon: false, error: '$err'));
     }
   }

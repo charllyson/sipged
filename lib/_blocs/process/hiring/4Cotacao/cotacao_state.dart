@@ -1,4 +1,5 @@
-part of 'cotacao_bloc.dart';
+// lib/_blocs/process/hiring/3Cotacao/cotacao_state.dart
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
 
 class CotacaoState {
   final bool loading;
@@ -7,8 +8,8 @@ class CotacaoState {
   final String? error;
 
   final String? cotacaoId;
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final SectionIds sectionIds;    // Map<String, String>
+  final SectionsMap sectionsData; // Map<String, Map<String, dynamic>>
 
   const CotacaoState({
     this.loading = false,

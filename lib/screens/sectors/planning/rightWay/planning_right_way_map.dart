@@ -12,7 +12,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:siged/_services/geometry/geometry_utils.dart';
 
 // === SIGED widgets ===
-import 'package:siged/_widgets/map/map_interactive.dart';
+import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'package:siged/_blocs/_process/process_data.dart';

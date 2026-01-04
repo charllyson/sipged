@@ -113,9 +113,7 @@ class SubcollectionCleaner {
           dryRun: dryRun,
         );
         overall[d.reference.path] = res;
-        debugPrint('Cleanup (${d.reference.path}): $res');
       } catch (e) {
-        debugPrint('Erro ao limpar ${d.reference.path}: $e');
       }
       await Future.delayed(const Duration(milliseconds: 20));
     }

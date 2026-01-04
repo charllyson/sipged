@@ -1,5 +1,8 @@
+// lib/screens/algum_lugar/selective_delete_subcollection_tile.dart
 import 'package:flutter/material.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/tiles/tile_widget.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 import 'selective_delete_util.dart';
 
 import 'package:siged/_widgets/notification/app_notification.dart';
@@ -14,432 +17,474 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
       leading: Icons.delete_sweep,
       tileColor: Colors.white10,
       title: 'Apagar documentos (seletivo) de subcoleção',
-      subtitle: 'Informe coleção principal, subcoleção e campo (quando por filtro)',
+      subtitle:
+      'Informe coleção principal, subcoleção e campo (quando por filtro)',
       onTap: () async {
         final nav = Navigator.of(context, rootNavigator: true);
         final mode = await _askMode(context);
         if (mode == null) return;
 
         switch (mode) {
-          case _Mode.byIds: {
-            final p = await _askByIds(context);
-            if (p == null) return;
+          case _Mode.byIds:
+            {
+              final p = await _askByIds(context);
+              if (p == null) return;
 
-            // DRY RUN
-            if (context.mounted) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(child: CircularProgressIndicator()),
+              // DRY RUN
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) =>
+                  const Center(child: CircularProgressIndicator()),
+                );
+              }
+              int dry = 0;
+              try {
+                final deleter = SubcollectionSelectiveDeleter();
+                dry = await deleter.deleteIdsUnderEachParent(
+                  parentCollectionPath: p.parent,
+                  subcollection: p.sub,
+                  docIds: p.ids,
+                  dryRun: true,
+                );
+              } catch (e) {
+                if (nav.canPop()) nav.pop();
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Falha no dry-run'),
+                    subtitle: Text('$e'),
+                    type: AppNotificationType.error,
+                    leadingLabel: const Text('Limpeza'),
+                    duration: const Duration(seconds: 6),
+                  ),
+                );
+                return;
+              } finally {
+                if (nav.canPop()) nav.pop();
+              }
+
+              if (!context.mounted) return;
+              final proceed = await confirmDialog(
+                context,
+                'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?',
               );
-            }
-            int dry = 0;
-            try {
-              final deleter = SubcollectionSelectiveDeleter();
-              dry = await deleter.deleteIdsUnderEachParent(
-                parentCollectionPath: p.parent,
-                subcollection: p.sub,
-                docIds: p.ids,
-                dryRun: true,
-              );
-            } catch (e) {
-              if (nav.canPop()) nav.pop();
+              if (!proceed) return;
+
+              // REAL RUN
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) =>
+                  const Center(child: CircularProgressIndicator()),
+                );
+              }
+              int real = 0;
+              try {
+                final deleter = SubcollectionSelectiveDeleter();
+                real = await deleter.deleteIdsUnderEachParent(
+                  parentCollectionPath: p.parent,
+                  subcollection: p.sub,
+                  docIds: p.ids,
+                  dryRun: false,
+                );
+              } catch (e) {
+                if (nav.canPop()) nav.pop();
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Erro ao apagar documentos'),
+                    subtitle: Text('$e'),
+                    type: AppNotificationType.error,
+                    leadingLabel: const Text('Limpeza'),
+                    duration: const Duration(seconds: 6),
+                  ),
+                );
+                return;
+              } finally {
+                if (nav.canPop()) nav.pop();
+              }
+
+              if (!context.mounted) return;
               NotificationCenter.instance.show(
                 AppNotification(
-                  title: const Text('Falha no dry-run'),
-                  subtitle: Text('$e'),
-                  type: AppNotificationType.error,
+                  title: Text('Apagados: $real documento(s).'),
+                  type: AppNotificationType.success,
                   leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 6),
+                  duration: const Duration(seconds: 4),
                 ),
               );
-              return;
-            } finally {
-              if (nav.canPop()) nav.pop();
+              break;
             }
 
-            if (!context.mounted) return;
-            final proceed = await _confirm(context, 'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?');
-            if (!proceed) return;
+          case _Mode.byFilter:
+            {
+              final p = await _askByFilter(context);
+              if (p == null) return;
 
-            // REAL RUN
-            if (context.mounted) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(child: CircularProgressIndicator()),
+              // DRY RUN
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) =>
+                  const Center(child: CircularProgressIndicator()),
+                );
+              }
+              int dry = 0;
+              try {
+                final deleter = SubcollectionSelectiveDeleter();
+                dry = p.useParents
+                    ? await deleter.deleteWhereUnderEachParent(
+                  parentCollectionPath: p.parent,
+                  subcollection: p.sub,
+                  filters: p.filters,
+                  dryRun: true,
+                )
+                    : await deleter.deleteWhereInCollectionGroup(
+                  subcollection: p.sub,
+                  filters: p.filters,
+                  dryRun: true,
+                );
+              } catch (e) {
+                if (nav.canPop()) nav.pop();
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Falha no dry-run'),
+                    subtitle: Text('$e'),
+                    type: AppNotificationType.error,
+                    leadingLabel: const Text('Limpeza'),
+                    duration: const Duration(seconds: 6),
+                  ),
+                );
+                return;
+              } finally {
+                if (nav.canPop()) nav.pop();
+              }
+
+              if (!context.mounted) return;
+              final proceed = await confirmDialog(
+                context,
+                'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?',
               );
-            }
-            int real = 0;
-            try {
-              final deleter = SubcollectionSelectiveDeleter();
-              real = await deleter.deleteIdsUnderEachParent(
-                parentCollectionPath: p.parent,
-                subcollection: p.sub,
-                docIds: p.ids,
-                dryRun: false,
-              );
-            } catch (e) {
-              if (nav.canPop()) nav.pop();
+              if (!proceed) return;
+
+              // REAL RUN
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) =>
+                  const Center(child: CircularProgressIndicator()),
+                );
+              }
+              int real = 0;
+              try {
+                final deleter = SubcollectionSelectiveDeleter();
+                real = p.useParents
+                    ? await deleter.deleteWhereUnderEachParent(
+                  parentCollectionPath: p.parent,
+                  subcollection: p.sub,
+                  filters: p.filters,
+                  dryRun: false,
+                )
+                    : await deleter.deleteWhereInCollectionGroup(
+                  subcollection: p.sub,
+                  filters: p.filters,
+                  dryRun: false,
+                );
+              } catch (e) {
+                if (nav.canPop()) nav.pop();
+                NotificationCenter.instance.show(
+                  AppNotification(
+                    title: const Text('Erro ao apagar documentos'),
+                    subtitle: Text('$e'),
+                    type: AppNotificationType.error,
+                    leadingLabel: const Text('Limpeza'),
+                    duration: const Duration(seconds: 6),
+                  ),
+                );
+                return;
+              } finally {
+                if (nav.canPop()) nav.pop();
+              }
+
+              if (!context.mounted) return;
               NotificationCenter.instance.show(
                 AppNotification(
-                  title: const Text('Erro ao apagar documentos'),
-                  subtitle: Text('$e'),
-                  type: AppNotificationType.error,
+                  title: Text('Apagados: $real documento(s).'),
+                  type: AppNotificationType.success,
                   leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 6),
+                  duration: const Duration(seconds: 4),
                 ),
               );
-              return;
-            } finally {
-              if (nav.canPop()) nav.pop();
+              break;
             }
-
-            if (!context.mounted) return;
-            NotificationCenter.instance.show(
-              AppNotification(
-                title: Text('Apagados: $real documento(s).'),
-                type: AppNotificationType.success,
-                leadingLabel: const Text('Limpeza'),
-                duration: const Duration(seconds: 4),
-              ),
-            );
-            break;
-          }
-
-          case _Mode.byFilter: {
-            final p = await _askByFilter(context);
-            if (p == null) return;
-
-            // DRY RUN
-            if (context.mounted) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(child: CircularProgressIndicator()),
-              );
-            }
-            int dry = 0;
-            try {
-              final deleter = SubcollectionSelectiveDeleter();
-              dry = p.useParents
-                  ? await deleter.deleteWhereUnderEachParent(
-                parentCollectionPath: p.parent,
-                subcollection: p.sub,
-                filters: p.filters,
-                dryRun: true,
-              )
-                  : await deleter.deleteWhereInCollectionGroup(
-                subcollection: p.sub,
-                filters: p.filters,
-                dryRun: true,
-              );
-            } catch (e) {
-              if (nav.canPop()) nav.pop();
-              NotificationCenter.instance.show(
-                AppNotification(
-                  title: const Text('Falha no dry-run'),
-                  subtitle: Text('$e'),
-                  type: AppNotificationType.error,
-                  leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 6),
-                ),
-              );
-              return;
-            } finally {
-              if (nav.canPop()) nav.pop();
-            }
-
-            if (!context.mounted) return;
-            final proceed = await _confirm(context, 'Prévia: $dry documento(s) encontrados.\nApagar mesmo assim?');
-            if (!proceed) return;
-
-            // REAL RUN
-            if (context.mounted) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(child: CircularProgressIndicator()),
-              );
-            }
-            int real = 0;
-            try {
-              final deleter = SubcollectionSelectiveDeleter();
-              real = p.useParents
-                  ? await deleter.deleteWhereUnderEachParent(
-                parentCollectionPath: p.parent,
-                subcollection: p.sub,
-                filters: p.filters,
-                dryRun: false,
-              )
-                  : await deleter.deleteWhereInCollectionGroup(
-                subcollection: p.sub,
-                filters: p.filters,
-                dryRun: false,
-              );
-            } catch (e) {
-              if (nav.canPop()) nav.pop();
-              NotificationCenter.instance.show(
-                AppNotification(
-                  title: const Text('Erro ao apagar documentos'),
-                  subtitle: Text('$e'),
-                  type: AppNotificationType.error,
-                  leadingLabel: const Text('Limpeza'),
-                  duration: const Duration(seconds: 6),
-                ),
-              );
-              return;
-            } finally {
-              if (nav.canPop()) nav.pop();
-            }
-
-            if (!context.mounted) return;
-            NotificationCenter.instance.show(
-              AppNotification(
-                title: Text('Apagados: $real documento(s).'),
-                type: AppNotificationType.success,
-                leadingLabel: const Text('Limpeza'),
-                duration: const Duration(seconds: 4),
-              ),
-            );
-            break;
-          }
         }
       },
     );
   }
 
-  Future<bool> _confirm(BuildContext context, String msg) async {
-    return await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirmar'),
-        content: Text(msg),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Apagar')),
-        ],
-      ),
-    ) ?? false;
-  }
-
   // ---------- Escolha do modo ----------
   Future<_Mode?> _askMode(BuildContext context) async {
-    return await showDialog<_Mode>(
+    return showWindowDialogMac<_Mode>(
       context: context,
-      builder: (ctx) => SimpleDialog(
-        title: const Text('Modo de deleção'),
-        children: const [
-          SimpleDialogOption(
-            child: Text('Por IDs (em cada pai)'),
-            // ignore: prefer_const_constructors
-            onPressed: null,
-          ),
-        ],
+      title: 'Modo de deleção',
+      width: 480,
+      child: Builder(
+        builder: (dialogCtx) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Selecione como deseja localizar os documentos que serão apagados:',
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Por IDs (em cada pai)'),
+                  subtitle: const Text(
+                    'Informe manualmente os IDs dos documentos em cada subcoleção.',
+                  ),
+                  onTap: () => Navigator.of(dialogCtx).pop(_Mode.byIds),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Por Filtro (coleção principal + subcoleção + campo)',
+                  ),
+                  subtitle: const Text(
+                    'Use um campo/valor para localizar automaticamente os documentos.',
+                  ),
+                  onTap: () => Navigator.of(dialogCtx).pop(_Mode.byFilter),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(dialogCtx).pop(null),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
-    ).then((_) async {
-      // UI simples: abre outro diálogo para escolher realmente
-      return await showDialog<_Mode>(
-        context: context,
-        builder: (ctx) => SimpleDialog(
-          title: const Text('Modo de deleção'),
-          children: [
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, _Mode.byIds),
-              child: const Text('Por IDs (em cada pai)'),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, _Mode.byFilter),
-              child: const Text('Por Filtro (coleção principal + subcoleção + campo)'),
-            ),
-          ],
-        ),
-      );
-    });
+    );
   }
 
   // ---------- Parâmetros – por IDs ----------
   Future<_ByIdsParams?> _askByIds(BuildContext context) async {
     final parentCtrl = TextEditingController(text: 'contracts');
-    final subCtrl = TextEditingController(text: 'reportsMeasurement'); // ajuste conforme necessário
+    final subCtrl = TextEditingController(text: 'reportsMeasurement');
     final idsCtrl = TextEditingController();
 
-    final ok = await showDialog<bool>(
+    return showWindowDialogMac<_ByIdsParams>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Apagar por IDs'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: parentCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Coleção principal (pai)',
-                hintText: 'Ex.: contracts',
-                border: OutlineInputBorder(),
-              ),
+      title: 'Apagar por IDs',
+      width: 520,
+      child: Builder(
+        builder: (dialogCtx) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomTextField(
+                  controller: parentCtrl,
+                  labelText: 'Coleção principal (pai)',
+                ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  controller: subCtrl,
+                  labelText: 'Subcoleção',
+                    ),
+                const SizedBox(height: 12),
+                CustomTextField(
+                  controller: idsCtrl,
+                  labelText: 'IDs (separados por vírgula ou quebra de linha)',
+                  ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(null),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () {
+                        if (parentCtrl.text.trim().isEmpty ||
+                            subCtrl.text.trim().isEmpty ||
+                            idsCtrl.text.trim().isEmpty) {
+                          return;
+                        }
+
+                        final ids = idsCtrl.text
+                            .split(RegExp(r'[,\n]'))
+                            .map((e) => e.trim())
+                            .where((e) => e.isNotEmpty)
+                            .toList();
+
+                        Navigator.of(dialogCtx).pop(
+                          _ByIdsParams(
+                            parentCtrl.text.trim(),
+                            subCtrl.text.trim(),
+                            ids,
+                          ),
+                        );
+                      },
+                      child: const Text('Continuar'),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: subCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Subcoleção',
-                hintText: 'Ex.: reportsMeasurement',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: idsCtrl,
-              decoration: const InputDecoration(
-                labelText: 'IDs (separados por vírgula ou quebra de linha)',
-                hintText: 'Ex.: 600txi8J..., abc123, def456',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 4,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              if (parentCtrl.text.trim().isEmpty ||
-                  subCtrl.text.trim().isEmpty ||
-                  idsCtrl.text.trim().isEmpty) return;
-              Navigator.pop(ctx, true);
-            },
-            child: const Text('Continuar'),
-          ),
-        ],
+          );
+        },
       ),
-    ) ?? false;
-
-    if (!ok) return null;
-
-    final ids = idsCtrl.text
-        .split(RegExp(r'[,\n]'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-
-    return _ByIdsParams(parentCtrl.text.trim(), subCtrl.text.trim(), ids);
+    );
   }
 
   // ---------- Parâmetros – por Filtro ----------
   Future<_ByFilterParams?> _askByFilter(BuildContext context) async {
-    final parentCtrl = TextEditingController(text: 'contracts'); // ← NOVO: coleção principal
+    final parentCtrl = TextEditingController(text: 'contracts');
     final subCtrl = TextEditingController(text: 'reportsMeasurement');
-    final fieldCtrl = TextEditingController(text: 'migratedFromMeasurements'); // nome do campo
+    final fieldCtrl =
+    TextEditingController(text: 'migratedFromMeasurements');
     final valueCtrl = TextEditingController(text: 'true');
     WhereOp op = WhereOp.eq;
-    bool useParents = true; // ← NOVO: aplicar em cada pai (recomendado)
+    bool useParents = true;
 
-    final ok = await showDialog<bool>(
+    return showWindowDialogMac<_ByFilterParams>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) {
-          return AlertDialog(
-            title: const Text('Apagar por Filtro'),
-            content: Column(
+      title: 'Apagar por Filtro',
+      width: 520,
+      child: StatefulBuilder(
+        builder: (dialogCtx, setState) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
+                CustomTextField(
                   controller: parentCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Coleção principal (pai)',
-                    hintText: 'Ex.: contracts',
-                    border: OutlineInputBorder(),
+                  labelText: 'Coleção principal (pai)',
                   ),
-                ),
                 const SizedBox(height: 12),
-                TextField(
+                CustomTextField(
                   controller: subCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Subcoleção',
-                    hintText: 'Ex.: reportsMeasurement',
-                    border: OutlineInputBorder(),
+                  labelText: 'Subcoleção',
                   ),
-                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
+                      child: CustomTextField(
                         controller: fieldCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Campo para filtrar',
-                          hintText: 'Ex.: migratedFromMeasurements',
-                          border: OutlineInputBorder(),
+                        labelText: 'Campo para filtrar',
                         ),
-                      ),
                     ),
                     const SizedBox(width: 8),
                     DropdownButton<WhereOp>(
                       value: op,
-                      onChanged: (v) => setState(() => op = v ?? WhereOp.eq),
+                      onChanged: (v) =>
+                          setState(() => op = v ?? WhereOp.eq),
                       items: const [
-                        DropdownMenuItem(value: WhereOp.eq, child: Text('==')),
-                        DropdownMenuItem(value: WhereOp.lt, child: Text('<')),
-                        DropdownMenuItem(value: WhereOp.lte, child: Text('≤')),
-                        DropdownMenuItem(value: WhereOp.gt, child: Text('>')),
-                        DropdownMenuItem(value: WhereOp.gte, child: Text('≥')),
-                        DropdownMenuItem(value: WhereOp.arrayContains, child: Text('array-contains')),
-                        DropdownMenuItem(value: WhereOp.whereIn, child: Text('in')),
+                        DropdownMenuItem(
+                            value: WhereOp.eq, child: Text('==')),
+                        DropdownMenuItem(
+                            value: WhereOp.lt, child: Text('<')),
+                        DropdownMenuItem(
+                            value: WhereOp.lte, child: Text('≤')),
+                        DropdownMenuItem(
+                            value: WhereOp.gt, child: Text('>')),
+                        DropdownMenuItem(
+                            value: WhereOp.gte, child: Text('≥')),
+                        DropdownMenuItem(
+                            value: WhereOp.arrayContains,
+                            child: Text('array-contains')),
+                        DropdownMenuItem(
+                            value: WhereOp.whereIn, child: Text('in')),
                       ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                TextField(
+                CustomTextField(
                   controller: valueCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Valor (para "in", use vírgulas)',
-                    hintText: 'Ex.: true  |  123  |  2024-01-01  |  a,b,c',
-                    border: OutlineInputBorder(),
-                  ),
+                  labelText: 'Valor (para "in", use vírgulas)',
                 ),
                 const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Aplicar em CADA pai (ao invés de collectionGroup)'),
-                  subtitle: const Text('Recomendado quando você quer restringir à coleção principal informada'),
+                  title: const Text(
+                      'Aplicar em CADA pai (ao invés de collectionGroup)'),
+                  subtitle: const Text(
+                      'Recomendado quando você quer restringir à coleção principal informada'),
                   value: useParents,
                   onChanged: (v) => setState(() => useParents = v),
                 ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.of(dialogCtx).pop(null),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () {
+                        if (subCtrl.text.trim().isEmpty ||
+                            fieldCtrl.text.trim().isEmpty ||
+                            valueCtrl.text.trim().isEmpty) {
+                          return;
+                        }
+                        if (useParents &&
+                            parentCtrl.text.trim().isEmpty) {
+                          return;
+                        }
+
+                        final dynamic parsed =
+                        (op == WhereOp.whereIn)
+                            ? FieldValueParser.parse(
+                          valueCtrl.text,
+                          tryList: true,
+                        )
+                            : FieldValueParser.parse(
+                          valueCtrl.text,
+                        );
+
+                        final filter = WhereFilter(
+                          fieldCtrl.text.trim(),
+                          op,
+                          parsed,
+                        );
+
+                        Navigator.of(dialogCtx).pop(
+                          _ByFilterParams(
+                            parent: parentCtrl.text.trim(),
+                            sub: subCtrl.text.trim(),
+                            filters: [filter],
+                            useParents: useParents,
+                          ),
+                        );
+                      },
+                      child: const Text('Continuar'),
+                    ),
+                  ],
+                ),
               ],
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-              ElevatedButton(
-                onPressed: () {
-                  if (subCtrl.text.trim().isEmpty ||
-                      fieldCtrl.text.trim().isEmpty ||
-                      valueCtrl.text.trim().isEmpty) return;
-                  // parent pode ser ignorado se useParents=false
-                  if (useParents && parentCtrl.text.trim().isEmpty) return;
-                  Navigator.pop(ctx, true);
-                },
-                child: const Text('Continuar'),
-              ),
-            ],
           );
         },
       ),
-    ) ?? false;
-
-    if (!ok) return null;
-
-    final dynamic parsed = (op == WhereOp.whereIn)
-        ? FieldValueParser.parse(valueCtrl.text, tryList: true)
-        : FieldValueParser.parse(valueCtrl.text);
-
-    final filter = WhereFilter(fieldCtrl.text.trim(), op, parsed);
-    return _ByFilterParams(
-      parent: parentCtrl.text.trim(),
-      sub: subCtrl.text.trim(),
-      filters: [filter],
-      useParents: useParents,
     );
   }
 }

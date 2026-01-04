@@ -1,15 +1,26 @@
+// lib/gate_page.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:siged/_widgets/notification/notification_center.dart';
 import 'package:siged/_widgets/login/sign_in.dart';
-
 import 'package:siged/screens/menus/menu_list_page.dart';
+import 'package:siged/screens/sectors/financial/tab_bar_financial_page.dart';
 
 import '_blocs/system/login/login_bloc.dart';
 import '_blocs/system/user/user_repository.dart';
 import '_blocs/system/user/user_data.dart';
+import '_blocs/system/setup/setup_cubit.dart';
+import '_blocs/system/setup/setup_state.dart';
+
+/// 🔧 FLAG TEMPORÁRIA
+/// enquanto estiver personalizando a InitialSetupPage, deixe como `true`.
+/// Depois, coloque `false` para que a tela só apareça quando não houver
+/// nenhuma empresa cadastrada.
+const bool kForceInitialSetupOverlay = false;
 
 class GatePage extends StatelessWidget {
   const GatePage({super.key});
@@ -53,7 +64,6 @@ class GatePage extends StatelessWidget {
             return const SignIn();
           }
 
-          // Usuário autenticado: carrega o perfil completo do banco
           return FutureBuilder<UserData?>(
             future: userRepo.getById(firebaseUser.uid),
             builder: (context, userSnapshot) {
@@ -69,24 +79,26 @@ class GatePage extends StatelessWidget {
                 return const SignIn();
               }
 
-              // >>> roteamento por perfil (aqui você personaliza a lógica)
-              switch (state) {
-                case LoginState.profileWork:
-                // Exemplo: abrir o MenuListPage com uma aba/painel padrão de Obras
-                  return const MenuListPage(); // ou WorksHomePage()
+              // 👉 Sistema + overlay de setup
+              return BlocBuilder<SetupCubit, SetupState>(
+                builder: (context, setupState) {
+                  final base = MenuListPage();
+                  final bool needsSetup = kForceInitialSetupOverlay ||
+                      setupState.companies.isEmpty;
 
-                case LoginState.profileLegal:
-                // Exemplo: abrir um menu com módulos jurídicos em destaque
-                  return const MenuListPage(); // ou LegalHomePage()
-
-                case LoginState.profileCommom:
-                // Fluxo padrão/limitado
-                  return const MenuListPage();
-
-                default:
-                // idle/loading/fail já tratados acima; fallback seguro
-                  return const SignIn();
-              }
+                  if (!needsSetup) {
+                    return base;
+                  }
+                  return Stack(
+                    children: [
+                      base,
+                      /*Positioned.fill(
+                        child: InitialSetupPage(user: userData),
+                      ),*/
+                    ],
+                  );
+                },
+              );
             },
           );
         },

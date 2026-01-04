@@ -11,8 +11,8 @@ import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_owne
 import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_payment_form.dart';
 import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_property_form.dart';
 
-import 'package:siged/_blocs/process/laneRegularization/lane_regularization_controller.dart';
-import 'package:siged/_blocs/process/laneRegularization/lane_regularization_store.dart';
+import 'package:siged/_blocs/sectors/planning/lane_regularization/lane_regularization_controller.dart';
+import 'package:siged/_blocs/sectors/planning/lane_regularization/lane_regularization_store.dart';
 import 'package:siged/screens/sectors/planning/rightWay/lane_regularization_table.dart';
 
 class TabLaneRegularizationPage extends StatefulWidget {

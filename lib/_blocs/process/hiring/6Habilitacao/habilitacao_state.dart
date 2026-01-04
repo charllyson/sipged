@@ -1,4 +1,7 @@
-part of 'habilitacao_bloc.dart';
+// lib/_blocs/process/hiring/6Habilitacao/habilitacao_state.dart
+
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
+import 'habilitacao_sections.dart';
 
 class HabilitacaoState {
   final bool loading;
@@ -7,8 +10,8 @@ class HabilitacaoState {
   final String? error;
 
   final String? habId;
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final SectionIds sectionIds;     // Map<String, String>
+  final SectionsMap sectionsData;  // Map<String, Map<String, dynamic>>
 
   const HabilitacaoState({
     this.loading = false,

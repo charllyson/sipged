@@ -1,12 +1,13 @@
 // lib/_blocs/actives/oaes/active_oaes_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/animation.dart';
+import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 
-class ActiveOaesData extends ChangeNotifier {
+class ActiveOaesData {
   String? id;
   int? order;
   double? score;
@@ -20,7 +21,7 @@ class ActiveOaesData extends ChangeNotifier {
   double? width;
   double? area;
 
-  String? structureType;
+  String? estructureType;
   String? relatedContracts;
   double? valueIntervention;
   double? linearCostMedia;
@@ -54,7 +55,7 @@ class ActiveOaesData extends ChangeNotifier {
     this.extension,
     this.width,
     this.area,
-    this.structureType,
+    this.estructureType,
     this.relatedContracts,
     this.valueIntervention,
     this.linearCostMedia,
@@ -86,7 +87,11 @@ class ActiveOaesData extends ChangeNotifier {
     if (v == null) return null;
     if (v is DateTime) return v;
     if (v is Timestamp) return v.toDate();
-    if (v is int) { try { return DateTime.fromMillisecondsSinceEpoch(v); } catch (_) {} }
+    if (v is int) {
+      try {
+        return DateTime.fromMillisecondsSinceEpoch(v);
+      } catch (_) {}
+    }
     if (v is String) return DateTime.tryParse(v);
     return null;
   }
@@ -130,7 +135,7 @@ class ActiveOaesData extends ChangeNotifier {
       extension: _toDouble(data['extension']),
       width: _toDouble(data['width']),
       area: _toDouble(data['area']),
-      structureType: data['structureType'] as String?,
+      estructureType: data['structureType'] as String?,
       relatedContracts: data['relatedContracts'] as String?,
       valueIntervention: _toDouble(data['valueIntervention']),
       linearCostMedia: _toDouble(data['linearCostMedia']),
@@ -162,7 +167,7 @@ class ActiveOaesData extends ChangeNotifier {
       extension: _toDouble(map['extension']),
       width: _toDouble(map['width']),
       area: _toDouble(map['area']),
-      structureType: map['structureType'] as String?,
+      estructureType: map['structureType'] as String?,
       relatedContracts: map['relatedContracts'] as String?,
       valueIntervention: _toDouble(map['valueIntervention']),
       linearCostMedia: _toDouble(map['linearCostMedia']),
@@ -194,7 +199,7 @@ class ActiveOaesData extends ChangeNotifier {
     extension = d.extension;
     width = d.width;
     area = d.area;
-    structureType = d.structureType;
+    estructureType = d.estructureType;
     relatedContracts = d.relatedContracts;
     valueIntervention = d.valueIntervention;
     linearCostMedia = d.linearCostMedia;
@@ -210,7 +215,8 @@ class ActiveOaesData extends ChangeNotifier {
     updatedBy = d.updatedBy;
     deletedAt = d.deletedAt;
     deletedBy = d.deletedBy;
-    attachments = d.attachments == null ? null : List<Attachment>.from(d.attachments!);
+    attachments =
+    d.attachments == null ? null : List<Attachment>.from(d.attachments!);
   }
 
   ActiveOaesData toData() => ActiveOaesData.fromData(this);
@@ -255,7 +261,7 @@ class ActiveOaesData extends ChangeNotifier {
       extension: extension ?? this.extension,
       width: width ?? this.width,
       area: area ?? this.area,
-      structureType: structureType ?? this.structureType,
+      estructureType: structureType ?? this.estructureType,
       relatedContracts: relatedContracts ?? this.relatedContracts,
       valueIntervention: valueIntervention ?? this.valueIntervention,
       linearCostMedia: linearCostMedia ?? this.linearCostMedia,
@@ -288,7 +294,7 @@ class ActiveOaesData extends ChangeNotifier {
       'extension': extension,
       'width': width,
       'area': area,
-      'structureType': structureType,
+      'structureType': estructureType,
       'relatedContracts': relatedContracts,
       'valueIntervention': valueIntervention,
       'linearCostMedia': linearCostMedia,
@@ -319,7 +325,7 @@ class ActiveOaesData extends ChangeNotifier {
       if (extension != null) 'extension': extension,
       if (width != null) 'width': width,
       if (area != null) 'area': area,
-      if (structureType != null) 'structureType': structureType,
+      if (estructureType != null) 'estructureType': estructureType,
       if (relatedContracts != null) 'relatedContracts': relatedContracts,
       if (valueIntervention != null) 'valueIntervention': valueIntervention,
       if (linearCostMedia != null) 'linearCostMedia': linearCostMedia,
@@ -330,10 +336,53 @@ class ActiveOaesData extends ChangeNotifier {
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
       if (altitude != null) 'altitude': altitude,
-      if (attachments != null) 'attachments': attachments!.map((a) => a.toMap()).toList(),
-      // created*/updated* normalmente via Repository com serverTimestamp
+      if (attachments != null)
+        'attachments': attachments!.map((a) => a.toMap()).toList(),
     };
   }
+  /// Mapa 0..5 -> cores
+  static Color getColorByNota(double nota) {
+    if (nota == 0) return Colors.green.shade700;  // Restaurada
+    if (nota == 1) return Colors.red.shade900;    // Crítica
+    if (nota == 2) return Colors.orange.shade900; // Problemática
+    if (nota == 3) return Colors.yellow.shade800; // Potencialmente problemática
+    if (nota == 4) return Colors.purple.shade400; // Sem problemas sérios
+    if (nota == 5) return Colors.blue.shade700;   // Sem problemas
+    return Colors.grey.shade400;                  // Sem nota
+  }
+
+  /// Label semântico por nota
+  static String getLabelByNota(int nota) {
+    switch (nota) {
+      case 0:
+        return 'Restaurada';
+      case 1:
+        return 'Crítica';
+      case 2:
+        return 'Problemática';
+      case 3:
+        return 'Potencialmente problemática';
+      case 4:
+        return 'Sem problemas sérios';
+      case 5:
+        return 'Sem problemas';
+      default:
+        return 'Sem nota';
+    }
+  }
+
+  /// Versão segura (aceita null, clamp 0..5)
+  static Color colorForScore(num? score) {
+    if (score == null) return Colors.grey.shade400;
+    final s = score.toDouble();
+    if (s.isNaN) return Colors.grey.shade400;
+    final c = s.clamp(0, 5).toDouble();
+    return getColorByNota(c);
+  }
+
+  /// Lista de cores paralela aos scores
+  static List<Color> colorsFromScores(List<num?> scores) =>
+      scores.map(colorForScore).toList(growable: false);
 }
 
 // helper para Marker

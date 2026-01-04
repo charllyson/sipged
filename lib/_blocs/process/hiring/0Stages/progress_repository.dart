@@ -1,3 +1,5 @@
+// lib/_blocs/process/hiring/0Stages/progress_repository.dart
+
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -6,21 +8,33 @@ class ProgressRepository {
   ProgressRepository({FirebaseFirestore? db})
       : db = db ?? FirebaseFirestore.instance;
 
-  /// Streama os flags de approved e completed do documento da etapa:
-  /// contracts/{contractId}/{collectionName}/{stageId}
-  Stream<Map<String, bool>> watchApprovalAndCompleted({
+  static const String kStageDocId = 'main';
+
+  /// Helper: retorna o doc fixo `contracts/{contractId}/{collectionName}/main`
+  DocumentReference<Map<String, dynamic>> _stageDoc({
     required String contractId,
     required String collectionName,
-    required String stageId,
   }) {
-    final ref = db
+    return db
         .collection('contracts')
         .doc(contractId)
         .collection(collectionName)
-        .doc(stageId);
+        .doc(kStageDocId);
+  }
+
+  /// Streama os flags de approved e completed do doc fixo:
+  ///   contracts/{contractId}/{collectionName}/main
+  Stream<Map<String, bool>> watchApprovalAndCompleted({
+    required String contractId,
+    required String collectionName,
+  }) {
+    final ref = _stageDoc(
+      contractId: contractId,
+      collectionName: collectionName,
+    );
 
     return ref.snapshots().map((snap) {
-      final data = snap.data() as Map<String, dynamic>?;
+      final data = snap.data();
 
       bool approved = false;
       bool completed = false;
@@ -40,23 +54,32 @@ class ProgressRepository {
     });
   }
 
-  /// Marca a etapa como aprovada inicialmente (grava approvedBy).
+  /// Versão "auto" agora só delega para o doc `main`
+  Stream<Map<String, bool>> watchStageAutoDoc({
+    required String contractId,
+    required String collectionName,
+  }) {
+    return watchApprovalAndCompleted(
+      contractId: contractId,
+      collectionName: collectionName,
+    );
+  }
+
+  /// Marca a etapa como aprovada inicialmente (grava approvedBy) em `main`.
   Future<void> approveStage({
     required String contractId,
     required String collectionName,
-    required String stageId,
     required String approverUid,
     required String approverName,
   }) async {
-    final ref = db
-        .collection('contracts')
-        .doc(contractId)
-        .collection(collectionName)
-        .doc(stageId);
+    final ref = _stageDoc(
+      contractId: contractId,
+      collectionName: collectionName,
+    );
 
     await db.runTransaction((tx) async {
       final snap = await tx.get(ref);
-      final data = snap.data() as Map<String, dynamic>?;
+      final data = snap.data();
 
       final hasCreatedAt =
           (data?['approval'] is Map<String, dynamic>) &&
@@ -76,19 +99,17 @@ class ProgressRepository {
     });
   }
 
-  /// Opcional: atualiza metadados após já aprovado.
+  /// Opcional: atualiza metadados após já aprovado (sempre em `main`).
   Future<void> touchApproval({
     required String contractId,
     required String collectionName,
-    required String stageId,
     required String updatedByUid,
     required String updatedByName,
   }) async {
-    final ref = db
-        .collection('contracts')
-        .doc(contractId)
-        .collection(collectionName)
-        .doc(stageId);
+    final ref = _stageDoc(
+      contractId: contractId,
+      collectionName: collectionName,
+    );
 
     await ref.set({
       'approval': {
@@ -100,22 +121,21 @@ class ProgressRepository {
     }, SetOptions(merge: true));
   }
 
-  /// Define conclusão (mantendo estrutura nested para responsável/aprovador).
+  /// Define conclusão (mantendo estrutura nested para responsável/aprovador)
+  /// sempre no doc `main`.
   Future<void> setCompleted({
     required String contractId,
     required String collectionName,
-    required String stageId,
     required bool completed,
     String? responsibleUserId,
     String? approverUserId,
     String? responsibleName,
     String? approverName,
   }) async {
-    final ref = db
-        .collection('contracts')
-        .doc(contractId)
-        .collection(collectionName)
-        .doc(stageId);
+    final ref = _stageDoc(
+      contractId: contractId,
+      collectionName: collectionName,
+    );
 
     await ref.set({
       'stage': {

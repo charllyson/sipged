@@ -36,7 +36,10 @@ class ActiveRoadsRepository {
 
     await docRef.set(base, SetOptions(merge: true));
     final after = await docRef.get();
-    return ActiveRoadsData.fromMap(after.data() as Map<String, dynamic>, id: after.id);
+    return ActiveRoadsData.fromMap(
+      after.data() as Map<String, dynamic>,
+      id: after.id,
+    );
   }
 
   Future<void> deleteById(String id) async => _ref.doc(id).delete();
@@ -62,7 +65,8 @@ class ActiveRoadsRepository {
         final sub = Map<String, dynamic>.from(subcolecoes[i]);
 
         // Se vier MultiLineString, achata para LineString
-        if (sub['geometryType'] == 'MultiLineString' && sub['points'] is List) {
+        if (sub['geometryType'] == 'MultiLineString' &&
+            sub['points'] is List) {
           final ml = (sub['points'] as List).cast<List>();
           final flattened = _flattenMultiLinePoints(ml);
           sub['points'] = flattened;
@@ -83,7 +87,10 @@ class ActiveRoadsRepository {
   }
 
   // -------- internals --------
-  Map<String, dynamic> _normalizeIfNeeded(Map<String, dynamic> data, DocumentReference ref) {
+  Map<String, dynamic> _normalizeIfNeeded(
+      Map<String, dynamic> data,
+      DocumentReference ref,
+      ) {
     try {
       final pts = data['points'];
       final gtype = (data['geometryType'] ?? '').toString();

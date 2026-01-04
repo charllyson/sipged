@@ -10,18 +10,15 @@ import 'package:siged/_widgets/input/in_line_text_box.dart';
 
 // Base/UI
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/schedule/modal/type.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
 
 // Modal unificado + tipos
-import 'package:siged/_widgets/schedule/modal/schedule_modal_square.dart';
+import 'package:siged/screens/sectors/operation/schedule/road/schedule_modal_square.dart';
 
 // Civil (render e UI)
 import 'package:siged/_services/dxf/dxf_empty_hint.dart';
-// RenderService (mantido para outros usos)
 import 'package:siged/_widgets/schedule/civil/schedule_civil_board.dart';
 import 'package:siged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
 import 'package:siged/_services/dxf/dxf_enums.dart';
@@ -36,11 +33,9 @@ import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 // BLoC/Auth
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_state.dart';
-import 'package:siged/_blocs/sectors/operation/civil/schedule_bloc_adapter_civil.dart';
 
 // Storage
 import 'package:firebase_storage/firebase_storage.dart';
@@ -309,7 +304,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
       await _renderDxf();
     } catch (e) {
-      debugPrint('Falha ao baixar/renderizar DXF: $e');
     } finally {
       _setBlocking(false);
     }
@@ -985,11 +979,11 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     }
 
     final civilBloc = context.read<CivilScheduleBloc>();
-    final ScheduleRoadBloc adapter = ScheduleBlocAdapterForCivil(
+   /* final ScheduleRoadBloc adapter = ScheduleBlocAdapterForCivil(
       civilBloc: civilBloc,
       polygonId: polygonId,
       currentUserId: _uid,
-    );
+    );*/
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1007,7 +1001,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
               physics: const ClampingScrollPhysics(),
               child: MultiBlocProvider(
                 providers: [
-                  BlocProvider<ScheduleRoadBloc>.value(value: adapter),
+                  //BlocProvider<ScheduleRoadBloc>.value(value: adapter),
                   BlocProvider<CivilScheduleBloc>.value(value: civilBloc),
                 ],
                 child: ScheduleModalSquare(
@@ -1049,7 +1043,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
         );
       },
     );
-    await adapter.close();
+    //await adapter.close();
 
     if (mounted) setState(() {});
   }

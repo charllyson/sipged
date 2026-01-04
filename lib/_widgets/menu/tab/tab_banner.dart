@@ -19,6 +19,10 @@ import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 
 // selo reutilizável
 import 'package:siged/_widgets/stamp/stamp.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
+
+// 🔹 janela estilo macOS
+import 'package:siged/_widgets/windows/window_dialog.dart';
 
 class TabBanner extends StatefulWidget {
   const TabBanner({
@@ -108,98 +112,80 @@ class _TabBannerState extends State<TabBanner> {
     final screenW = MediaQuery.of(context).size.width;
     final dialogW = math.min(screenW - 64, 760.0);
 
-    await showDialog<void>(
+    await showWindowDialogMac<void>(
       context: context,
-      barrierDismissible: true,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setStateSB) {
-            return AlertDialog(
-              insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              contentPadding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-              clipBehavior: Clip.antiAlias,
-              content: SizedBox(
-                width: dialogW,
-                child: SearchUserPermissionWidget(
-                  title: 'Participantes do contrato',
-                  allUsers: users,
-                  initialUserIds:
-                  contrato.permissionContractId.keys.toList(),
-                  enabled: canEditParticipants,
-                  width: dialogW,
-                  multiple: true,
-                  participantsMode: true,
-                  labelFor: (uid) => userState.labelFor(uid),
-                  getRole: (uid) {
-                    final st = context.read<UserBloc>().state;
-                    final u = st.byId[uid];
-                    final base = (u != null)
-                        ? roles.roleForUser(u)
-                        : roles.BaseRole.LEITOR;
-                    return roles.baseRoleLabel(base);
-                  },
-                  getPerms: (uid) {
-                    final raw = contrato.permissionContractId[uid];
-                    return perms.normalizePermMap(raw);
-                  },
-                  roleOptions: const [],
-                  onChangeRole: null,
-                  onChanged: canEditParticipants
-                      ? (uids) async {
-                    if (contrato.id == null) return;
-                    final atuais =
-                    Map<String, Map<String, bool>>.from(
-                      contrato.permissionContractId,
-                    );
+      title: 'Participantes do contrato',
+      width: dialogW,
+      child: SearchUserPermissionWidget(
+        title: 'Participantes do contrato',
+        allUsers: users,
+        initialUserIds: contrato.permissionContractId.keys.toList(),
+        enabled: canEditParticipants,
+        width: dialogW,
+        multiple: true,
+        participantsMode: true,
+        labelFor: (uid) => userState.labelFor(uid),
+        getRole: (uid) {
+          final st = context.read<UserBloc>().state;
+          final u = st.byId[uid];
+          final base = (u != null)
+              ? roles.roleForUser(u)
+              : roles.BaseRole.LEITOR;
+          return roles.baseRoleLabel(base);
+        },
+        getPerms: (uid) {
+          final raw = contrato.permissionContractId[uid];
+          return perms.normalizePermMap(raw);
+        },
+        roleOptions: const [],
+        onChangeRole: null,
+        onChanged: canEditParticipants
+            ? (uids) async {
+          if (contrato.id == null) return;
+          final atuais =
+          Map<String, Map<String, bool>>.from(
+            contrato.permissionContractId,
+          );
 
-                    // remove quem saiu
-                    for (final uid in atuais.keys.toList()) {
-                      if (!uids.contains(uid)) {
-                        await contractBloc.removeParticipant(
-                          contractId: contrato.id!,
-                          userId: uid,
-                        );
-                        contrato.removeParticipantLocal(uid);
-                      }
-                    }
+          // remove quem saiu
+          for (final uid in atuais.keys.toList()) {
+            if (!uids.contains(uid)) {
+              await contractBloc.removeParticipant(
+                contractId: contrato.id!,
+                userId: uid,
+              );
+              contrato.removeParticipantLocal(uid);
+            }
+          }
 
-                    // adiciona quem entrou
-                    for (final uid in uids) {
-                      if (!atuais.containsKey(uid)) {
-                        final initialPerms = perms.initialDocPerms();
-                        await contractBloc.addParticipant(
-                          contractId: contrato.id!,
-                          userId: uid,
-                          permMap: initialPerms,
-                          meta: const {},
-                        );
-                        contrato.upsertParticipantLocal(
-                          uid,
-                          read: initialPerms['read']!,
-                          edit: initialPerms['edit']!,
-                          delete: initialPerms['delete']!,
-                          meta: const {},
-                        );
-                      }
-                    }
+          // adiciona quem entrou
+          for (final uid in uids) {
+            if (!atuais.containsKey(uid)) {
+              final initialPerms = perms.initialDocPerms();
+              await contractBloc.addParticipant(
+                contractId: contrato.id!,
+                userId: uid,
+                permMap: initialPerms,
+                meta: const {},
+              );
+              contrato.upsertParticipantLocal(
+                uid,
+                read: initialPerms['read']!,
+                edit: initialPerms['edit']!,
+                delete: initialPerms['delete']!,
+                meta: const {},
+              );
+            }
+          }
 
-                    await context.read<ProcessStore>().refresh();
-                    await _refreshLocalContract(
-                      contrato,
-                      rebuildDialog: () => setStateSB(() {}),
-                    );
-                  }
-                      : null,
-                ),
-              ),
-            );
-          },
-        );
-      },
+          await context.read<ProcessStore>().refresh();
+          await _refreshLocalContract(
+            contrato,
+            rebuildDialog: () => setState(() {}),
+          );
+        }
+            : null,
+      ),
     );
   }
 
@@ -220,7 +206,6 @@ class _TabBannerState extends State<TabBanner> {
     final userState = context.read<UserBloc>().state;
     final contract = _contractData;
 
-    // usa o texto vindo de fora, se não tiver, não mostra banner
     final titleText = widget.titleText?.trim() ?? '';
     if (titleText.isEmpty) {
       return const SizedBox.shrink();

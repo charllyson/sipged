@@ -1,3 +1,4 @@
+// lib/screens/sectors/traffic/dashboard/accidents_charts_section.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
 import '../../../../_widgets/charts/bars/bar_chart_changed.dart';
@@ -37,11 +38,11 @@ class AccidentsChartsSection extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-
           GaugeCircularPercent(
             centerTitle: valorTotal == 0 ? 0 : totalAccidents / valorTotal,
             headerTitle: 'Total em sinistros ',
-            footerTitle: '${totalAccidents.toString()} de ${valorTotal.toString()}',
+            footerTitle:
+            '${totalAccidents.toString()} de ${valorTotal.toString()}',
             radius: 90,
             larguraGrafico: 255,
             values: totalAccidents.isNaN ? null : [totalAccidents],
@@ -53,13 +54,16 @@ class AccidentsChartsSection extends StatelessWidget {
             values: valuesType,
             selectedIndex: selectedIndexType,
             showPercentageOutside: false,
-            larguraGrafico: 360,
+            larguraCard: 300,
+            larguraGrafico: 240,
             onTapLabel: onTypeSelected,
-            valueFormatType: ValueFormatType.integer
+            valueFormatType: ValueFormatType.integer,
           ),
+
           const SizedBox(width: 12),
           BarChartChanged(
-            key: ValueKey('regiao_${labelsRegiao.join()}_${valuesRegiao.join()}'),
+            key: ValueKey(
+                'regiao_${labelsRegiao.join()}_${valuesRegiao.join()}'),
             widthTitleBar: 80,
             heightGraphic: 260,
             labels: labelsRegiao,
@@ -67,6 +71,7 @@ class AccidentsChartsSection extends StatelessWidget {
             selectedIndex: selectedIndexRegiao,
             onBarTap: onRegionTap ?? (_) {},
             valueFormatter: (v) => v.toInt().toString(),
+            sortType: BarChartSortType.descending,
           ),
           const SizedBox(width: 12),
         ],

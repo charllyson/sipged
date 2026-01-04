@@ -1,7 +1,7 @@
 // lib/screens/_pages/physical_financial/physfin_table.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:siged/_blocs/process/additives/additive_data.dart';
+import 'package:siged/_blocs/process/additives/additives_data.dart';
 import 'package:siged/_widgets/schedule/physical_financial/physfin_models.dart';
 
 import 'percent_bar.dart';
@@ -28,7 +28,7 @@ class PhysFinTable extends StatelessWidget {
   final Map<String, List<double>> localGrid;
 
   /// Lista real de aditivos — usada para colorir cabeçalho pelos dias aditivados.
-  final List<AdditiveData>? additives;
+  final List<AdditivesData>? additives;
 
   /// getPercentFor:
   ///   - termOrder == null  -> recebe **serviceKey** (contratado)
@@ -371,7 +371,7 @@ class PhysFinTable extends StatelessWidget {
   // ============================================================
   // 🎨 Cores do cabeçalho (por período), respeitando additiveValidityExecutionDays
   // ============================================================
-  Map<int, Color> _buildHeaderColorMap(List<int> days, List<AdditiveData>? adds) {
+  Map<int, Color> _buildHeaderColorMap(List<int> days, List<AdditivesData>? adds) {
     final Map<int, Color> map = {};
     // base neutra
     for (final d in days) {
@@ -379,7 +379,7 @@ class PhysFinTable extends StatelessWidget {
     }
     if (adds == null || adds.isEmpty) return map;
 
-    final orderedAdds = List<AdditiveData>.from(adds)
+    final orderedAdds = List<AdditivesData>.from(adds)
       ..sort((a, b) => (a.additiveOrder ?? 0).compareTo(b.additiveOrder ?? 0));
 
     // Considera que o contrato base foi planejado até o último 'day' da base
@@ -399,7 +399,7 @@ class PhysFinTable extends StatelessWidget {
       final extraDays = add.additiveValidityExecutionDays ?? 0;
       if (ord <= 0 || extraDays <= 0) continue;
 
-      final color = AdditiveData.colorForOrder(ord).withOpacity(0.25);
+      final color = AdditivesData.colorForOrder(ord).withOpacity(0.25);
 
       final start = paintedUntil + 1;
       final end = paintedUntil + extraDays;
@@ -768,9 +768,9 @@ class PhysFinTable extends StatelessWidget {
         final totalTermo =
         termoParciais.fold<double>(0.0, (a, b) => a + b);
 
-        final tone = AdditiveData.colorForOrder(ord);
-        final tinted = AdditiveData.tintForOrder(ord);
-        final tintedStrong = AdditiveData.strongTintForOrder(ord);
+        final tone = AdditivesData.colorForOrder(ord);
+        final tinted = AdditivesData.tintForOrder(ord);
+        final tintedStrong = AdditivesData.strongTintForOrder(ord);
 
         termFooters.addAll([
           _footerRow(

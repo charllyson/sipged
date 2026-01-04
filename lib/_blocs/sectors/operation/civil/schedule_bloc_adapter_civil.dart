@@ -1,3 +1,4 @@
+/*
 
 // CIVIL
 import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
@@ -39,3 +40,4 @@ class ScheduleBlocAdapterForCivil extends ScheduleRoadBloc {
     super.add(event);
   }
 }
+*/

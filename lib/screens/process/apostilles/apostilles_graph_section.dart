@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+
 import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:siged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class ApostilleGraphSection extends StatelessWidget {
   final List<String> labels;
@@ -19,42 +21,86 @@ class ApostilleGraphSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    math.max(MediaQuery.of(context).size.width - 300 - 52, 800);
+    final List<double?> valuesNullable = values.map<double?>((v) => v).toList();
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          const SizedBox(width: 12),
-          // Gráfico de Pizza
-          PieChartChanged(
-            labels: labels,
-            values: values,
-            selectedIndex: selectedIndex,
-            larguraGrafico: 300,
-            onTouch: (index) {
-              if (index != null && index >= 0 && index < values.length) {
-                onSelectIndex?.call(index);
-              }
-            },
-          ),
-          const SizedBox(width: 12),
-          // Gráfico de Barras
-          BarChartChanged(
-            heightGraphic: 260,
-            labels: labels,
-            values: values,
-            selectedIndex: selectedIndex,
-            onBarTap: (label) {
-              final index = labels.indexOf(label);
-              if (index != -1) {
-                onSelectIndex?.call(index);
-              }
-            },
-          ),
-        ],
-      ),
+    final bool hasSelection = selectedIndex != null &&
+        selectedIndex! >= 0 &&
+        selectedIndex! < values.length;
+
+    final List<double>? filteredPieValues = hasSelection
+        ? List<double>.generate(
+      values.length,
+          (i) => i == selectedIndex ? values[i] : 0.0,
+    )
+        : null;
+
+    final List<double?>? filteredBarValues = hasSelection
+        ? List<double?>.generate(
+      values.length,
+          (i) => i == selectedIndex ? valuesNullable[i] : 0.0,
+    )
+        : null;
+
+    Widget pieChart({required double cardWidth}) {
+      return PieChartChanged(
+        labels: labels,
+        values: values,
+        filteredValues: filteredPieValues,
+        selectedIndex: hasSelection ? selectedIndex : null,
+        larguraCard: cardWidth,
+        larguraGrafico: math.min(cardWidth * 0.6, 260),
+        onTouch: (index) {
+          if (onSelectIndex == null) return;
+          // convenção: null => limpar
+          onSelectIndex!.call(index ?? -1);
+        },
+      );
+    }
+
+    Widget barChart({required bool expand}) {
+      return BarChartChanged(
+        shimmerBarsCount: 4,
+        heightGraphic: 260,
+        labels: labels,
+        values: valuesNullable,
+        filteredValues: filteredBarValues,
+        selectedIndex: hasSelection ? selectedIndex : null,
+        expandToMaxWidth: expand,
+        onBarTap: (label) {
+          if (onSelectIndex == null) return;
+          final index = labels.indexOf(label);
+          onSelectIndex!.call(index >= 0 ? index : -1);
+        },
+      );
+    }
+
+    return ResponsiveSectionRow(
+      smallBreakpoint: 900,
+      sidePadding: 12,
+      gap: 12,
+      fixedWidths: const [340, null],
+
+      enableScrollOnSmall: true,
+      scrollNeededForIndex: (i) => i == 1 && labels.length > 6,
+      minScrollWidthForIndex: (i, availableWidth) =>
+      i == 1 ? math.max(labels.length * 80.0, availableWidth) : availableWidth,
+
+      children: [
+        // index 0: Pie
+            (context, m, i) {
+          final double cardW = m.isSmall ? m.availableWidth : (m.currentItemWidth ?? 340);
+          return pieChart(cardWidth: cardW);
+        },
+
+        // index 1: Bars
+            (context, m, i) {
+          if (m.isSmall) {
+            final bool needScroll = labels.length > 6;
+            return barChart(expand: !needScroll);
+          }
+          return barChart(expand: true);
+        },
+      ],
     );
   }
 }

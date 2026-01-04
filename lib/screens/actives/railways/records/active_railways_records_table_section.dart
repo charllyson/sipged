@@ -35,7 +35,8 @@ class ActiveRailwaysRecordsTableSection extends StatelessWidget {
                 ? constraints.maxWidth
                 : MediaQuery.of(context).size.width;
 
-            final safeConstraints = BoxConstraints.tightFor(width: availableWidth).normalize();
+            final safeConstraints =
+            BoxConstraints.tightFor(width: availableWidth).normalize();
 
             return SizedBox(
               width: availableWidth,
@@ -44,8 +45,17 @@ class ActiveRailwaysRecordsTableSection extends StatelessWidget {
                 listData: data,
 
                 columnTitles: const [
-                  'CÓDIGO','NOME','STATUS','BITOLA','UF','MUNICÍPIO',
-                  'EXTENSÃO (km)','EXT. E.','EXT. C.','SEGMENTOS','PONTOS',
+                  'CÓDIGO',
+                  'NOME',
+                  'STATUS',
+                  'BITOLA',
+                  'UF',
+                  'MUNICÍPIO',
+                  'EXTENSÃO (km)',
+                  'EXT. E.',
+                  'EXT. C.',
+                  'SEGMENTOS',
+                  'PONTOS',
                 ],
                 columnGetters: [
                       (r) => r.codigo ?? '-',
@@ -65,13 +75,32 @@ class ActiveRailwaysRecordsTableSection extends StatelessWidget {
                   final id = item.id;
                   if (id != null && id.isNotEmpty) onDelete(id);
                 },
+                // 11 larguras para 11 colunas
                 columnWidths: const [
-                  110, 220, 140, 110, 60, 160, 120, 100, 100, 110, 100, 100,
+                  110, // CÓDIGO
+                  220, // NOME
+                  140, // STATUS
+                  110, // BITOLA
+                  60,  // UF
+                  160, // MUNICÍPIO
+                  120, // EXTENSÃO (km)
+                  100, // EXT. E.
+                  100, // EXT. C.
+                  110, // SEGMENTOS
+                  100, // PONTOS
                 ],
                 columnTextAligns: const [
-                  TextAlign.center, TextAlign.left,  TextAlign.center, TextAlign.center,
-                  TextAlign.center, TextAlign.left,  TextAlign.center, TextAlign.center,
-                  TextAlign.center, TextAlign.center, TextAlign.center,
+                  TextAlign.center, // CÓDIGO
+                  TextAlign.left,   // NOME
+                  TextAlign.center, // STATUS
+                  TextAlign.center, // BITOLA
+                  TextAlign.center, // UF
+                  TextAlign.left,   // MUNICÍPIO
+                  TextAlign.center, // EXTENSÃO (km)
+                  TextAlign.center, // EXT. E.
+                  TextAlign.center, // EXT. C.
+                  TextAlign.center, // SEGMENTOS
+                  TextAlign.center, // PONTOS
                 ],
                 bodyHeight: 480,
               ),

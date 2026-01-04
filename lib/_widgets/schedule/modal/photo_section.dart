@@ -1,22 +1,60 @@
-// lib/_widgets/modals/parts/schedule_photo_section.dart
+// lib/_widgets/schedule/modal/photo_section.dart
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:siged/_widgets/images/carousel/photo_carousel.dart';
 import 'package:siged/_widgets/images/carousel/carousel_photo_theme.dart';
 import 'package:siged/_widgets/images/carousel/photo_picker_square.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_modal_controller.dart';
+import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:siged/_widgets/images/carousel/carousel_photo.dart';
 
 class SchedulePhotoSection extends StatelessWidget {
-  const SchedulePhotoSection({super.key});
+  final bool isMulti;
+  final bool picking;
+  final bool saving;
+
+  /// URLs já salvas
+  final List<String> existingUrls;
+
+  /// Metadados crus vindos do Firestore (Map<String, dynamic>)
+  final Map<String, Map<String, dynamic>> existingMetaByUrl;
+
+  /// Fotos novas em memória (bytes)
+  final List<Uint8List> newPhotos;
+
+  /// Metadados das fotos novas
+  final List<pm.CarouselMetadata> newMetas;
+
+  /// Callback para adicionar nova foto a partir de bytes
+  final Future<void> Function(Uint8List bytes, String suggestedName)?
+  onAddNewPhotoBytes;
+
+  /// Abre picker genérico (web / múltiplas imagens)
+  final Future<void> Function()? onPickPhotos;
+
+  final void Function(int index)? onRemoveNew;
+  final void Function(int index)? onRemoveExisting;
+
+  const SchedulePhotoSection({
+    super.key,
+    required this.isMulti,
+    required this.picking,
+    required this.saving,
+    required this.existingUrls,
+    required this.existingMetaByUrl,
+    required this.newPhotos,
+    required this.newMetas,
+    this.onAddNewPhotoBytes,
+    this.onPickPhotos,
+    this.onRemoveNew,
+    this.onRemoveExisting,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<ScheduleModalController>();
-
     // Seleção múltipla: não permite anexar/editar fotos
-    if (c.isMulti) {
+    if (isMulti) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Container(
@@ -35,22 +73,46 @@ class SchedulePhotoSection extends StatelessWidget {
       );
     }
 
-    // Unitário: mantém carrossel + picker
+    final disabled = picking || saving;
+
+    // ---------- CONVERSÕES PARA OS TIPOS DO CARROSSEL ----------
+
+    // 1) Metadados: Map<String, Map<String,dynamic>>
+    //    -> Map<String, CarouselMetadata>
+    final Map<String, pm.CarouselMetadata> typedMetaByUrl = {
+      for (final entry in existingMetaByUrl.entries)
+        entry.key: pm.CarouselMetadata.fromMap(entry.value),
+    };
+
+    // 2) Fotos novas: List<Uint8List> -> List<CarouselPhoto>
+    final List<CarouselPhoto> typedNewPhotos = [
+      for (int i = 0; i < newPhotos.length; i++)
+        CarouselPhoto(
+          name: 'nova_foto_$i', // aqui é "name", não "fileName"
+          bytes: newPhotos[i],
+          meta: i < newMetas.length
+              ? newMetas[i]
+              : const pm.CarouselMetadata(),
+        ),
+    ];
+
     return PhotoCarousel.fromSeparated(
       leading: PhotoPickerSquare(
-        enabled: !(c.picking || c.saving),
-        onPickFromCamera: (bytes) async =>
-            c.addNewPhotoBytes(bytes, suggestedName: 'camera.jpg'),
-        onPickFromGallery: (bytes) async =>
-            c.addNewPhotoBytes(bytes, suggestedName: 'gallery.jpg'),
-        onTap: kIsWeb ? c.pickPhotos : null,
+        enabled: !disabled,
+        onPickFromCamera: onAddNewPhotoBytes == null
+            ? null
+            : (bytes) => onAddNewPhotoBytes!(bytes, 'camera.jpg'),
+        onPickFromGallery: onAddNewPhotoBytes == null
+            ? null
+            : (bytes) => onAddNewPhotoBytes!(bytes, 'gallery.jpg'),
+        onTap: kIsWeb && onPickPhotos != null ? onPickPhotos : null,
       ),
-      existingUrls: c.existingUrls,
-      existingMetaByUrl: c.existingMetaByUrl,
-      newPhotos: c.newPhotos,
-      newMetas: c.newMetas,
-      onRemoveNew: (c.picking || c.saving) ? null : c.removeNewAt,
-      onRemoveExisting: (c.picking || c.saving) ? null : c.removeExistingAt,
+      existingUrls: existingUrls,
+      existingMetaByUrl: typedMetaByUrl,
+      newPhotos: typedNewPhotos,
+      newMetas: newMetas,
+      onRemoveNew: disabled ? null : onRemoveNew,
+      onRemoveExisting: disabled ? null : onRemoveExisting,
       theme: const CarouselPhotoTheme(itemSize: 96, spacing: 8),
     );
   }

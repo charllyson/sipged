@@ -1,4 +1,5 @@
-part of 'tr_bloc.dart';
+// lib/_blocs/process/hiring/2Tr/tr_state.dart
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
 
 class TrState {
   final bool loading;
@@ -7,8 +8,8 @@ class TrState {
   final String? error;
 
   final String? trId;
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final SectionIds sectionIds;    // Map<String, String>
+  final SectionsMap sectionsData; // Map<String, Map<String, dynamic>>
 
   const TrState({
     this.loading = false,
@@ -44,7 +45,6 @@ class TrState {
     );
   }
 
-  // atalhos úteis
-  String? get currentTrId => trId;
+  /// Atalho: id da seção de documentos / referências
   String? get currentDocsId => sectionIds['documentosReferencias'];
 }

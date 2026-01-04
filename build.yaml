@@ -1,0 +1,12 @@
+targets:
+  $default:
+    sources:
+      - "lib/**"
+      - "web/**"
+      - "web/wasm/**"
+    builders:
+      build_web_compilers|entrypoint:
+        options:
+          dart2js_args:
+            - --omit-implicit-checks
+            - --fast-startup

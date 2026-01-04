@@ -1,13 +1,32 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class ConvertersUtils{
 
   // ---------------------------------------------------------------------------
   // Helpers de conversão
   // ---------------------------------------------------------------------------
 
-  static double? converterToDouble(dynamic v) {
+  DateTime? convertDDMMYYYYToDateTime(String input) {
+    if (input.isEmpty) return null;
+    final parts = input.split('/');
+    if (parts.length != 3) return null;
+
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+
+    if (day == null || month == null || year == null) return null;
+    return DateTime(year, month, day);
+  }
+
+  String dateTimeToDDMMYYYY(DateTime? date) {
+    if (date == null) return '';
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
+  }
+
+  double? converterToDouble(dynamic v) {
     if (v == null) return null;
     if (v is num) return v.toDouble();
     if (v is String) {
@@ -18,7 +37,7 @@ class ConvertersUtils{
     return null;
   }
 
-  static int? converterToInt(dynamic v) {
+  int? converterToInt(dynamic v) {
     if (v == null) return null;
     if (v is int) return v;
     if (v is num) return v.toInt();
@@ -31,7 +50,7 @@ class ConvertersUtils{
     return null;
   }
 
-  static DateTime? converterToDate(dynamic v) {
+  DateTime? converterToDate(dynamic v) {
     if (v == null) return null;
     if (v is DateTime) return v;
     if (v is Timestamp) return v.toDate();
@@ -52,4 +71,11 @@ class ConvertersUtils{
     }
     return null;
   }
+
+String formatNumber(double v) {
+  final abs = v.abs();
+  if (abs >= 1e9) return '${(v / 1e9).toStringAsFixed(2)} bi';
+  if (abs >= 1e6) return '${(v / 1e6).toStringAsFixed(2)} mi';
+  if (abs >= 1e3) return '${(v / 1e3).toStringAsFixed(2)} mil';
+  return v.toStringAsFixed(2);
 }

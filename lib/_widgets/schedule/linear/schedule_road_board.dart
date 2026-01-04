@@ -1,10 +1,7 @@
+// lib/_widgets/schedule/linear/schedule_road_board.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-// UI base
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/schedule/modal/type.dart';
 
 // Domínio / dados
 import 'package:siged/_blocs/_process/process_data.dart';
@@ -13,13 +10,13 @@ import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 // Widgets do Schedule
 import 'package:siged/_widgets/schedule/linear/schedule_grid.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
+import 'package:siged/_widgets/schedule/modal/type.dart';
 
 // Modal unificado
-import 'package:siged/_widgets/schedule/modal/schedule_modal_square.dart';
+import 'package:siged/screens/sectors/operation/schedule/road/schedule_modal_square.dart';
 
-// BLoC
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+// Cubit (novo padrão)
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
 
 // Metadados por URL pro carrossel
@@ -31,7 +28,10 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadBoard extends StatefulWidget {
   final ProcessData? contractData;
+
+  /// Extensão em km (opcionalmente usada para exibição futura).
   final double extensao;
+
   const ScheduleRoadBoard({
     super.key,
     this.contractData,
@@ -42,7 +42,8 @@ class ScheduleRoadBoard extends StatefulWidget {
   State<ScheduleRoadBoard> createState() => _ScheduleRoadBoardState();
 }
 
-class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
+class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
+    with AutomaticKeepAliveClientMixin {
   static const double kLegendWidth = 100.0;
   static const double kEstacaWidth = 22.5;
   static const double kHeaderHeight = 40.0;
@@ -54,6 +55,9 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
   bool _modalOpen = false;
 
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  @override
+  bool get wantKeepAlive => true;
 
   // ===================== Helpers de formatação do nome =====================
   String _extractSide(String raw) {
@@ -68,7 +72,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
     if (up.contains('PISTA ATUAL')) return 'PISTA ATUAL';
     if (up.contains('CANTEIRO')) return 'CANTEIRO';
 
-    var cleaned = raw.replaceAll(RegExp(r'\b(LE|CE|LD)\b', caseSensitive: false), '');
+    var cleaned = raw.replaceAll(
+      RegExp(r'\b(LE|CE|LD)\b', caseSensitive: false),
+      '',
+    );
     cleaned = cleaned.replaceAll(RegExp(r'\s*-\s*'), ' ');
     cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
     return cleaned.toUpperCase();
@@ -95,87 +102,57 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
   void initState() {
     super.initState();
 
-    if (context.read<ScheduleRoadBloc?>() == null) {
+    // Garante que o Cubit existe no contexto com mensagem amigável
+    try {
+      context.read<ScheduleRoadCubit>();
+    } catch (_) {
       throw FlutterError(
-        'ScheduleBloc não encontrado no contexto. '
-            'Envolva ScheduleRoadPage com BlocProvider(create: (_) => ScheduleRoadBoardBloc()).',
-      );
-    }
-
-    final km = widget.extensao;
-    final totalEstacas = ((km * 1000) / 20).ceil();
-    final contractId = widget.contractData?.id ?? '';
-
-    context.read<ScheduleRoadBloc>().add(
-      ScheduleWarmupRequested(
-        contractId: contractId,
-        totalEstacas: totalEstacas,
-        initialServiceKey: 'geral',
-      ),
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant ScheduleRoadBoard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final oldId = oldWidget.contractData?.id ?? '';
-    final newId = widget.contractData?.id ?? '';
-    if (oldId != newId) {
-      final km = widget.extensao;
-      final totalEstacas = ((km * 1000) / 20).ceil();
-      final contractId = widget.contractData?.id ?? '';
-      context.read<ScheduleRoadBloc>().add(
-        ScheduleWarmupRequested(
-          contractId: contractId,
-          totalEstacas: totalEstacas,
-          initialServiceKey: 'geral',
-        ),
+        'ScheduleRoadCubit não encontrado no contexto. '
+            'Envolva ScheduleRoadBoard com BlocProvider(create: (_) => ScheduleRoadCubit()).',
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const BackgroundClean(),
-          BlocConsumer<ScheduleRoadBloc, ScheduleRoadState>(
-            listenWhen: (p, c) => p.error != c.error,
-            listener: (ctx, state) {
-              if (state.error != null) {
-                NotificationCenter.instance.show(
-                  AppNotification(
-                    type: AppNotificationType.error,
-                    title: Text('Erro: ${state.error}'),
-                    leadingIcon: const Icon(Icons.error_outline, color: Color(0xFFD32F2F)),
-                    leadingLabel: const Text('Cronograma'),
-                    duration: const Duration(seconds: 5),
-                  ),
-                );
-              }
-            },
-            builder: (context, state) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 12.0, right: 12.0),
-                      child: state.initialized
-                          ? Container(
-                        color: Colors.white,
-                        child: _gridOrPlaceholder(state),
-                      )
-                          : const SizedBox.expand(),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
+    super.build(context); // obrigatório com keepAlive
+
+    return BlocConsumer<ScheduleRoadCubit, ScheduleRoadState>(
+      listenWhen: (p, c) => p.error != c.error,
+      listener: (ctx, state) {
+        if (state.error != null) {
+          NotificationCenter.instance.show(
+            AppNotification(
+              type: AppNotificationType.error,
+              title: Text('Erro: ${state.error}'),
+              leadingIcon: const Icon(
+                Icons.error_outline,
+                color: Color(0xFFD32F2F),
+              ),
+              leadingLabel: const Text('Cronograma'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 12.0, right: 12.0),
+                child: state.initialized
+                    ? Container(
+                  color: Colors.white,
+                  child: _gridOrPlaceholder(state),
+                )
+                    : const SizedBox.expand(),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -220,16 +197,20 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
     );
   }
 
-
   // ===================== Interações (UI-only) =====================
-  Future<void> _onTapSquare(ScheduleRoadData e, ScheduleRoadState state) async {
+  Future<void> _onTapSquare(
+      ScheduleRoadData e,
+      ScheduleRoadState state,
+      ) async {
     if (_isDragging || _modalOpen) return;
     if (!state.canEditSingleCell) {
       _toast('Para editar, selecione um serviço específico.');
       return;
     }
     final cellKey = '${e.numero}_${e.faixaIndex}';
-    setState(() => _selectedKeys..clear()..add(cellKey));
+    setState(() => _selectedKeys
+      ..clear()
+      ..add(cellKey));
 
     try {
       _modalOpen = true;
@@ -240,9 +221,13 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
         metaByUrl[url] = pm.CarouselMetadata(
           name: m['name']?.toString(),
           takenAt: (m['takenAtMs'] is num)
-              ? DateTime.fromMillisecondsSinceEpoch((m['takenAtMs'] as num).toInt())
+              ? DateTime.fromMillisecondsSinceEpoch(
+            (m['takenAtMs'] as num).toInt(),
+          )
               : ((m['takenAt'] is num)
-              ? DateTime.fromMillisecondsSinceEpoch((m['takenAt'] as num).toInt())
+              ? DateTime.fromMillisecondsSinceEpoch(
+            (m['takenAt'] as num).toInt(),
+          )
               : null),
           lat: (m['lat'] as num?)?.toDouble(),
           lng: (m['lng'] as num?)?.toDouble(),
@@ -257,52 +242,54 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
 
       final initialStatus = _statusFromString(e.status);
       final laneLabel = state.lanes[e.faixaIndex].label;
-      final initialNameForRoad = _formatRoadName(laneLabel: laneLabel, estaca: e.numero);
+      final initialNameForRoad = _formatRoadName(
+        laneLabel: laneLabel,
+        estaca: e.numero,
+      );
 
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        useSafeArea: true,
+        backgroundColor: Colors.transparent,
         builder: (sheetCtx) {
           final bottomInset = MediaQuery.viewInsetsOf(sheetCtx).bottom;
-          return AnimatedPadding(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
+          return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: BlocProvider.value(
-                  value: context.read<ScheduleRoadBloc>(),
-                  child: ScheduleModalSquare(
-                    currentUserId: _uid,
-                    tipoLabel: state.titleForHeader,
-                    type: ScheduleType.rodoviario,
-                    initialName: initialNameForRoad,
-                    targets: [
-                      ScheduleApplyTarget(
-                        estaca: e.numero,
-                        faixaIndex: e.faixaIndex,
-                        existingUrls: e.fotos,
-                        existingMetaByUrl: metaByUrl,
-                      ),
-                    ],
-                    initialStatus: initialStatus,
-                    initialTakenAt: e.takenAt,
-                    initialComment: e.comentario,
+            child: BlocProvider.value(
+              value: context.read<ScheduleRoadCubit>(),
+              child: ScheduleModalSquare(
+                currentUserId: _uid,
+                tipoLabel: state.titleForHeader,
+                type: ScheduleType.rodoviario,
+                initialName: initialNameForRoad,
+                targets: [
+                  ScheduleApplyTarget(
+                    estaca: e.numero,
+                    faixaIndex: e.faixaIndex,
+                    existingUrls: e.fotos,
+                    existingMetaByUrl: metaByUrl,
                   ),
-                ),
+                ],
+                initialStatus: initialStatus,
+                initialTakenAt: e.takenAt,
+                initialComment: e.comentario,
               ),
             ),
           );
         },
       );
 
-      context.read<ScheduleRoadBloc>().add(const ScheduleExecucoesReloadRequested());
-      _toast('Célula atualizada com sucesso!', type: AppNotificationType.success);
+      // Com Cubit: recarrega execuções diretamente
+      await context.read<ScheduleRoadCubit>().reloadExecucoes();
+      _toast(
+        'Célula atualizada com sucesso!',
+        type: AppNotificationType.success,
+      );
     } catch (err) {
-      _toast('Falha ao salvar a célula: $err', type: AppNotificationType.error);
+      _toast(
+        'Falha ao salvar a célula: $err',
+        type: AppNotificationType.error,
+      );
     } finally {
       _modalOpen = false;
       if (mounted) setState(() => _selectedKeys.clear());
@@ -312,7 +299,9 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
   ScheduleStatus _statusFromString(String? s) {
     final t = (s ?? '').toLowerCase();
     if (t.contains('conclu')) return ScheduleStatus.concluido;
-    if (t.contains('andament') || t.contains('progress')) return ScheduleStatus.emAndamento;
+    if (t.contains('andament') || t.contains('progress')) {
+      return ScheduleStatus.emAndamento;
+    }
     return ScheduleStatus.aIniciar;
   }
 
@@ -324,13 +313,24 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       _anchorFaixa = faixa;
       _selectedKeys
         ..clear()
-        ..add('${estaca}_faixa:$faixa');
+        ..add('${estaca}_$faixa');
     });
   }
 
-  void _onDragUpdate(int estaca, int faixa, ScheduleRoadState state) {
-    if (!_isDragging || _anchorEstaca == null || _anchorFaixa == null) return;
-    final sel = state.selectionBetween(_anchorEstaca!, _anchorFaixa!, estaca, faixa);
+  void _onDragUpdate(
+      int estaca,
+      int faixa,
+      ScheduleRoadState state,
+      ) {
+    if (!_isDragging || _anchorEstaca == null || _anchorFaixa == null) {
+      return;
+    }
+    final sel = state.selectionBetween(
+      _anchorEstaca!,
+      _anchorFaixa!,
+      estaca,
+      faixa,
+    );
     setState(() {
       _selectedKeys
         ..clear()
@@ -349,7 +349,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
   }
 
   Future<void> _openBulkWithUnifiedModal() async {
-    final state = context.read<ScheduleRoadBloc>().state;
+    final state = context.read<ScheduleRoadCubit>().state;
     if (!state.canBulkApply) {
       _toast('Selecione um serviço específico para editar em lote.');
       return;
@@ -358,21 +358,29 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
 
     final List<ScheduleApplyTarget> targets = [];
     final estacasSelecionadas = <int>[];
+
     for (final key in _selectedKeys) {
       final parts = key.split('_');
       if (parts.length != 2) continue;
       final estaca = int.tryParse(parts[0]);
-      final faixa = int.tryParse(parts[1].replaceFirst('faixa:', ''));
+      final faixa = int.tryParse(parts[1]);
       if (estaca == null || faixa == null) continue;
 
       estacasSelecionadas.add(estaca);
       final fotosAtuais = state.fotosAtuaisFor(estaca, faixa);
-      targets.add(ScheduleApplyTarget(
-        estaca: estaca,
-        faixaIndex: faixa,
-        existingUrls: fotosAtuais,
-        existingMetaByUrl: const {},
-      ));
+      targets.add(
+        ScheduleApplyTarget(
+          estaca: estaca,
+          faixaIndex: faixa,
+          existingUrls: fotosAtuais,
+          existingMetaByUrl: const {},
+        ),
+      );
+    }
+
+    if (targets.isEmpty) {
+      setState(() => _selectedKeys.clear());
+      return;
     }
 
     final laneLabel = state.lanes[_anchorFaixa ?? 0].label;
@@ -386,35 +394,30 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        useSafeArea: true,
+        backgroundColor: Colors.transparent,
         builder: (sheetCtx) {
           final bottomInset = MediaQuery.viewInsetsOf(sheetCtx).bottom;
-          return AnimatedPadding(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
+          return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: BlocProvider.value(
-                  value: context.read<ScheduleRoadBloc>(),
-                  child: ScheduleModalSquare(
-                    currentUserId: _uid,
-                    tipoLabel: state.titleForHeader,
-                    type: ScheduleType.rodoviario,
-                    initialName: initialNameMany,
-                    targets: targets,
-                  ),
-                ),
+            child: BlocProvider.value(
+              value: context.read<ScheduleRoadCubit>(),
+              child: ScheduleModalSquare(
+                currentUserId: _uid,
+                tipoLabel: state.titleForHeader,
+                type: ScheduleType.rodoviario,
+                initialName: initialNameMany,
+                targets: targets,
               ),
             ),
           );
         },
       );
 
-      context.read<ScheduleRoadBloc>().add(const ScheduleExecucoesReloadRequested());
-      _toast('Aplicado em lote: ${targets.length} célula(s).', type: AppNotificationType.success);
+      await context.read<ScheduleRoadCubit>().reloadExecucoes();
+      _toast(
+        'Aplicado em lote: ${targets.length} célula(s).',
+        type: AppNotificationType.success,
+      );
     } catch (e) {
       _toast('Falha no lote: $e', type: AppNotificationType.error);
     } finally {
@@ -424,7 +427,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard> {
   }
 
   // ===================== Notificações centralizadas =====================
-  void _toast(String msg, {AppNotificationType type = AppNotificationType.info}) {
+  void _toast(
+      String msg, {
+        AppNotificationType type = AppNotificationType.info,
+      }) {
     NotificationCenter.instance.show(
       AppNotification(
         type: type,

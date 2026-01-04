@@ -1,7 +1,7 @@
+// lib/_widgets/charts/lines/shimmer_line_chart.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-
 
 class LineChartShimmerWidget extends StatelessWidget {
   final int pointsCount;
@@ -18,7 +18,6 @@ class LineChartShimmerWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gridColor = Colors.grey.shade200;
-    final bg = Colors.white;
     final base = Colors.grey.shade300;
     final highlight = Colors.grey.shade100;
 
@@ -32,28 +31,26 @@ class LineChartShimmerWidget extends StatelessWidget {
     final larguraMinima = MediaQuery.of(context).size.width;
     final larguraTotal = max(pointsCount * 50.0, larguraMinima);
 
-    return Card(
-      color: bg,
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (chartTitle != null) ...[
-              Center(
-                child: Container(
-                  height: 18,
-                  width: 160,
-                  decoration: BoxDecoration(
-                    color: base,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+    return SizedBox(
+      height: height,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (chartTitle != null) ...[
+            Center(
+              child: Container(
+                height: 18,
+                width: 160,
+                decoration: BoxDecoration(
+                  color: base,
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              const SizedBox(height: 12),
-            ],
-            SingleChildScrollView(
+            ),
+            const SizedBox(height: 12),
+          ],
+          Expanded(
+            child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(
                 height: height,
@@ -109,8 +106,8 @@ class LineChartShimmerWidget extends StatelessWidget {
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -146,7 +143,8 @@ class _LineSkeletonPainter extends CustomPainter {
     final pts = <Offset>[];
     for (var i = 0; i < fakeYs.length; i++) {
       final x = chart.left + i * stepX;
-      final y = chart.bottom - fakeYs[i].clamp(0.0, 1.0) * chart.height;
+      final y =
+          chart.bottom - fakeYs[i].clamp(0.0, 1.0) * chart.height;
       pts.add(Offset(x, y));
     }
 
@@ -188,7 +186,11 @@ class _LineSkeletonPainter extends CustomPainter {
     for (var i = 0; i < pts.length; i += step) {
       canvas.drawCircle(pts[i], 3.5, dotFill);
       canvas.drawCircle(pts[i], 3.5, dotStroke);
-      canvas.drawCircle(pts[i], 2.2, Paint()..color = baseColor);
+      canvas.drawCircle(
+        pts[i],
+        2.2,
+        Paint()..color = baseColor,
+      );
     }
   }
 

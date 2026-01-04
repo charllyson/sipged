@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/cards/topic_card.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
-import 'package:siged/_widgets/cards/hub_card.dart';
+import 'package:siged/_widgets/cards/top/topic_card.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:siged/_widgets/cards/hub/hub_card.dart';
 
 // Páginas por tópico
 import 'package:siged/admPanel/system/users/settings_topic_sistema_page.dart';

@@ -1,13 +1,14 @@
-// lib/screens/process/hiring/1Dfd/dfd_sections/section_2_objeto.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// lib/screens/process/hiring/1Dfd/section_2_objeto.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_blocs/system/setup/setup_cubit.dart';
+import 'package:siged/_blocs/system/setup/setup_data.dart';
 
+import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
@@ -29,71 +30,88 @@ class SectionObjeto extends StatefulWidget {
   State<SectionObjeto> createState() => _SectionObjetoState();
 }
 
-class _SectionObjetoState extends State<SectionObjeto>
-    with FormValidationMixin {
-  // controllers
+class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin {
+  late final TextEditingController _tipoContratacaoCtrl;
+  late final TextEditingController _tipoObraCtrl;
   late final TextEditingController _descricaoObjetoCtrl;
   late final TextEditingController _justificativaCtrl;
   late final TextEditingController _rodoviaCtrl;
   late final TextEditingController _extensaoKmCtrl;
-
-  /// 🆕 Valor da demanda
   late final TextEditingController _valorDemandaCtrl;
 
-  // estados auxiliares
-  String? _tipoContratacao;
-  String? _tipoObra;
-  String? _companyId; // obtido a partir de orgaoDemandante
+  String? _companyId;
+  int _roadsNonce = 0;
 
   @override
   void initState() {
     super.initState();
     final d = widget.data;
 
-    _descricaoObjetoCtrl = TextEditingController(text: d.descricaoObjeto);
-    _justificativaCtrl   = TextEditingController(text: d.justificativa);
-    _rodoviaCtrl         = TextEditingController(text: d.rodovia);
-    _extensaoKmCtrl      = TextEditingController(
+    _tipoContratacaoCtrl = TextEditingController(text: d.tipoContratacao ?? '');
+    _tipoObraCtrl = TextEditingController(text: d.tipoObra ?? '');
+    _descricaoObjetoCtrl = TextEditingController(text: d.descricaoObjeto ?? '');
+    _justificativaCtrl = TextEditingController(text: d.justificativa ?? '');
+    _rodoviaCtrl = TextEditingController(text: d.rodovia ?? '');
+
+    _extensaoKmCtrl = TextEditingController(
       text: d.extensaoKm != null ? _formatKm(d.extensaoKm!) : '',
     );
 
-    _valorDemandaCtrl    = TextEditingController(
+    _valorDemandaCtrl = TextEditingController(
       text: d.valorDemanda != null ? _formatMoney(d.valorDemanda!) : '',
     );
 
-    _tipoContratacao = d.tipoContratacao;
-    _tipoObra        = d.tipoObra;
+    _companyId = (d.companyId ?? '').trim().isEmpty ? null : d.companyId!.trim();
 
-    _resolveCompanyIdFromData();
+    // ✅ garante setup da empresa já no initState
+    if ((_companyId ?? '').isNotEmpty) {
+      context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
+    }
   }
 
   @override
   void didUpdateWidget(covariant SectionObjeto oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data != widget.data) {
-      final d = widget.data;
+    if (oldWidget.data == widget.data) return;
 
-      // Atualiza texto apenas quando o DfdData muda externamente
-      _descricaoObjetoCtrl.text = d.descricaoObjeto;
-      _justificativaCtrl.text   = d.justificativa;
-      _rodoviaCtrl.text         = d.rodovia;
-      _extensaoKmCtrl.text =
-      d.extensaoKm != null ? _formatKm(d.extensaoKm!) : '';
-      _valorDemandaCtrl.text =
-      d.valorDemanda != null ? _formatMoney(d.valorDemanda!) : '';
+    final d = widget.data;
 
-      _tipoContratacao = d.tipoContratacao;
-      _tipoObra        = d.tipoObra;
-
-      // se trocou contratante, tenta resolver novo companyId
-      if (oldWidget.data.orgaoDemandante != widget.data.orgaoDemandante) {
-        _resolveCompanyIdFromData();
-      }
+    void _sync(TextEditingController c, String? newText) {
+      final v = newText ?? '';
+      if (c.text != v) c.text = v;
     }
+
+    _sync(_tipoContratacaoCtrl, d.tipoContratacao);
+    _sync(_tipoObraCtrl, d.tipoObra);
+    _sync(_descricaoObjetoCtrl, d.descricaoObjeto);
+    _sync(_justificativaCtrl, d.justificativa);
+
+    // Rodovia é dependente de companyId; se trocou, limpa
+    final newCompanyId = (d.companyId ?? '').trim().isEmpty ? null : d.companyId!.trim();
+    if (_companyId != newCompanyId) {
+      setState(() {
+        _companyId = newCompanyId;
+        _roadsNonce++;
+        _rodoviaCtrl.clear();
+      });
+
+      if ((_companyId ?? '').isNotEmpty) {
+        context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
+      }
+      _emitChange(); // grava limpeza da rodovia
+    } else {
+      _sync(_rodoviaCtrl, d.rodovia);
+    }
+
+    // Numéricos: sincroniza sempre com o modelo (evita ficar “preso”)
+    _sync(_extensaoKmCtrl, d.extensaoKm != null ? _formatKm(d.extensaoKm!) : '');
+    _sync(_valorDemandaCtrl, d.valorDemanda != null ? _formatMoney(d.valorDemanda!) : '');
   }
 
   @override
   void dispose() {
+    _tipoContratacaoCtrl.dispose();
+    _tipoObraCtrl.dispose();
     _descricaoObjetoCtrl.dispose();
     _justificativaCtrl.dispose();
     _rodoviaCtrl.dispose();
@@ -102,32 +120,7 @@ class _SectionObjetoState extends State<SectionObjeto>
     super.dispose();
   }
 
-  Future<void> _resolveCompanyIdFromData() async {
-    final label = widget.data.orgaoDemandante.trim();
-    if (label.isEmpty) return;
-
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('companies')
-          .where('companyName', isEqualTo: label)
-          .limit(1)
-          .get();
-
-      if (!mounted) return;
-      if (snap.docs.isNotEmpty) {
-        setState(() {
-          _companyId = snap.docs.first.id;
-        });
-      }
-    } catch (_) {
-      // silencia erros de lookup
-    }
-  }
-
-  String _formatKm(double value) {
-    // simples: usa ponto, você pode depois adaptar para vírgula/localização
-    return value.toStringAsFixed(2);
-  }
+  String _formatKm(double value) => value.toStringAsFixed(2);
 
   double? _parseKm(String? v) {
     final s = (v ?? '').trim();
@@ -136,20 +129,7 @@ class _SectionObjetoState extends State<SectionObjeto>
     return double.tryParse(cleaned);
   }
 
-  String? _validateKm(String? v) {
-    final s = (v ?? '').trim();
-    if (s.isEmpty) return 'Obrigatório';
-    final cleaned = s.replaceAll('.', '').replaceAll(',', '.');
-    final d = double.tryParse(cleaned);
-    if (d == null) return 'Valor inválido';
-    if (d < 0) return 'Não pode ser negativo';
-    return null;
-  }
-
-  // ===== Helpers para valor da demanda =====
-
   String _formatMoney(double value) {
-    // formato simples: 1234.56 -> "1234,56"
     final s = value.toStringAsFixed(2);
     return s.replaceAll('.', ',');
   }
@@ -161,38 +141,33 @@ class _SectionObjetoState extends State<SectionObjeto>
     return double.tryParse(cleaned);
   }
 
-  String? _validateMoney(String? v) {
-    final s = (v ?? '').trim();
-    if (s.isEmpty) return 'Obrigatório';
-    final cleaned = s.replaceAll('.', '').replaceAll(',', '.');
-    final d = double.tryParse(cleaned);
-    if (d == null) return 'Valor inválido';
-    if (d < 0) return 'Não pode ser negativo';
-    return null;
-  }
-
   void _emitChange() {
     final updated = widget.data.copyWith(
-      tipoContratacao: widget.data.tipoContratacao != _tipoContratacao
-          ? _tipoContratacao ?? ''
-          : _tipoContratacao ?? widget.data.tipoContratacao,
-      tipoObra:        _tipoObra,
+      tipoContratacao: _tipoContratacaoCtrl.text.isEmpty ? null : _tipoContratacaoCtrl.text,
+      tipoObra: _tipoObraCtrl.text.isEmpty ? null : _tipoObraCtrl.text,
       descricaoObjeto: _descricaoObjetoCtrl.text,
-      justificativa:   _justificativaCtrl.text,
-      rodovia:         _rodoviaCtrl.text,
-      extensaoKm:      _parseKm(_extensaoKmCtrl.text),
-      // 🆕 valorDemanda
-      valorDemanda:    _parseMoney(_valorDemandaCtrl.text),
+      justificativa: _justificativaCtrl.text,
+      rodovia: _rodoviaCtrl.text,
+      extensaoKm: _parseKm(_extensaoKmCtrl.text),
+      valorDemanda: _parseMoney(_valorDemandaCtrl.text),
+
+      // ✅ mantém o companyId vindo da seção 1
+      companyId: _companyId,
     );
     widget.onChanged(updated);
   }
 
   @override
   Widget build(BuildContext context) {
+    final systemCubit = context.read<SetupCubit>();
+    context.watch<SetupCubit>();
+
+    final List<SetupData> roads = systemCubit.getRoadsForCompany(_companyId);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('2) Objeto / Escopo'),
+        const SectionTitle(text: '2) Objeto / Escopo'),
         LayoutBuilder(
           builder: (context, inner) {
             final w3 = inputW3(context, inner);
@@ -201,90 +176,109 @@ class _SectionObjetoState extends State<SectionObjeto>
               spacing: 12,
               runSpacing: 12,
               children: [
-                // Tipo de contratação
                 SizedBox(
                   width: w3,
                   child: DropDownButtonChange(
                     enabled: widget.isEditable,
                     labelText: 'Tipo de contratação',
-                    // aqui pode ser controller "descartável" porque não digitamos texto manualmente,
-                    // só escolhemos item da lista
-                    controller: TextEditingController(
-                      text: _tipoContratacao ?? '',
-                    ),
+                    controller: _tipoContratacaoCtrl,
                     items: HiringData.tiposDeContratacao,
                     onChanged: (v) {
-                      _tipoContratacao = v ?? '';
+                      _tipoContratacaoCtrl.text = v ?? '';
                       _emitChange();
                       setState(() {});
                     },
-                    validator: validateRequired,
+                    validator: null,
                   ),
                 ),
-
-                // Tipo de obra
                 SizedBox(
                   width: w3,
                   child: DropDownButtonChange(
                     enabled: widget.isEditable,
                     labelText: 'Tipo de obra',
-                    controller: TextEditingController(
-                      text: _tipoObra ?? '',
-                    ),
+                    controller: _tipoObraCtrl,
                     items: HiringData.workTypes,
                     onChanged: (v) {
-                      _tipoObra = v?.isEmpty == true ? null : v;
+                      _tipoObraCtrl.text = (v == null || v.isEmpty) ? '' : v;
                       _emitChange();
                       setState(() {});
                     },
-                    validator: validateRequired,
+                    validator: null,
                   ),
                 ),
 
-                // Rodovia (por contratante)
+                // ✅ Rodovia depende estritamente de companyId
                 SizedBox(
                   width: w3,
                   child: DropDownButtonChange(
-                    key: ValueKey(
-                      'roads-${widget.data.orgaoDemandante}-${_companyId ?? "none"}',
-                    ),
+                    key: ValueKey('roads-$_roadsNonce-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Rodovia',
-                    tooltipMessage: _companyId == null
-                        ? 'Selecione o contratante na identificação'
-                        : null,
+                    tooltipMessage: _companyId == null ? 'Selecione o contratante na identificação' : null,
                     controller: _rodoviaCtrl,
-                    items: const [],
+                    items: roads.map((e) => e.label).toList(),
                     enabled: widget.isEditable && _companyId != null,
-                    validator: validateRequired,
-                    firestore: FirebaseFirestore.instance,
-                    collectionPath: _companyId == null
-                        ? null
-                        : 'companies/${_companyId}/roads',
-                    labelField: 'name',
-                    idField: 'id',
-                    autoLoadWhenEmpty: true,
-                    allowDuplicates: false,
-                    buildFirestoreDoc: (id, label) => {
-                      'id': id,
-                      'name': label,
-                      'createdAt': FieldValue.serverTimestamp(),
-                      'createdBy':
-                      FirebaseAuth.instance.currentUser?.uid,
-                    },
+                    validator: null,
                     specialItemLabel: 'Adicionar rodovia',
                     showSpecialWhenEmpty: true,
                     showSpecialAlways: true,
-                    selectedId: null, // não persistimos ID no DfdData
-                    onChangedIdLabel: (id, label) {
-                      _rodoviaCtrl.text = label;
+                    onChanged: (value) {
+                      _rodoviaCtrl.text = value ?? '';
                       _emitChange();
                       setState(() {});
                     },
+                    onCreateNewItem: (!widget.isEditable || _companyId == null)
+                        ? null
+                        : (label) async {
+                      final created = await systemCubit.createRoad(_companyId!, label);
+                      if (created != null) {
+                        _rodoviaCtrl.text = created.label;
+                        _emitChange();
+                        setState(() {});
+                      }
+                    },
+                    onEditItem: (widget.isEditable && _companyId != null)
+                        ? (oldLabel, newLabel) async {
+                      final list = systemCubit.getRoadsForCompany(_companyId);
+                      if (list.isEmpty) return;
+
+                      final target = list.firstWhere(
+                            (r) => r.label == oldLabel,
+                        orElse: () => list.first,
+                      );
+
+                      if (target.id.isEmpty) return;
+
+                      final updated = await systemCubit.updateRoadName(_companyId!, target.id, newLabel);
+                      if (updated != null && _rodoviaCtrl.text == oldLabel) {
+                        setState(() => _rodoviaCtrl.text = updated.label);
+                        _emitChange();
+                      }
+                    }
+                        : null,
+                    onDeleteItem: (widget.isEditable && _companyId != null)
+                        ? (ctx, label) async {
+                      final list = systemCubit.getRoadsForCompany(_companyId);
+                      if (list.isEmpty) return;
+
+                      final target = list.firstWhere(
+                            (r) => r.label == label,
+                        orElse: () => list.first,
+                      );
+
+                      if (target.id.isEmpty) return;
+
+                      await systemCubit.deleteRoad(_companyId!, target.id);
+
+                      if (_rodoviaCtrl.text == label) {
+                        setState(() => _rodoviaCtrl.clear());
+                        _emitChange();
+                      }
+                    }
+                        : null,
                   ),
                 ),
 
-                // Extensão (km)
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
@@ -292,34 +286,24 @@ class _SectionObjetoState extends State<SectionObjeto>
                     enabled: widget.isEditable,
                     labelText: 'Extensão (km)',
                     hintText: 'Ex.: 12,34',
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'[0-9\.,]'),
-                      ),
-                    ],
-                    keyboardType:
-                    const TextInputType.numberWithOptions(
-                      decimal: true,
-                      signed: false,
-                    ),
-                    validator: _validateKm,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9\.,]'))],
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                    validator: null,
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
 
-                // Nome da demanda (usa descricaoObjeto)
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
                     controller: _descricaoObjetoCtrl,
                     enabled: widget.isEditable,
-                    validator: validateRequired,
+                    validator: null,
                     labelText: 'Nome da demanda',
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
 
-                // 🆕 Valor da demanda
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
@@ -327,34 +311,20 @@ class _SectionObjetoState extends State<SectionObjeto>
                     enabled: widget.isEditable,
                     labelText: 'Valor da demanda (R\$)',
                     hintText: 'Ex.: 1.234,56',
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'[0-9\.,]'),
-                      ),
-                    ],
-                    keyboardType:
-                    const TextInputType.numberWithOptions(
-                      decimal: true,
-                      signed: false,
-                    ),
-                    validator: _validateMoney,
-                    onChanged: (_) {
-                      // importante: NÃO fazer _valorDemandaCtrl.text = ...
-                      // aqui — só emite mudança para o DfdData
-                      _emitChange();
-                    },
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9\.,]'))],
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                    validator: null,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
 
-                // Justificativa
                 SizedBox(
                   width: inputW1(context, inner),
                   child: CustomTextField(
                     controller: _justificativaCtrl,
                     enabled: widget.isEditable,
-                    validator: validateRequired,
-                    labelText:
-                    'Justificativa da contratação (problema/objetivo)',
+                    validator: null,
+                    labelText: 'Justificativa da contratação (problema/objetivo)',
                     maxLines: 4,
                     onChanged: (_) => _emitChange(),
                   ),

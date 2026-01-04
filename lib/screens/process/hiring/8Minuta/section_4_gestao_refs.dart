@@ -1,36 +1,114 @@
+// lib/screens/process/hiring/8Minuta/section_4_gestao_refs.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ necessário para context.select
+import 'package:siged/_widgets/input/custom_auto_complete.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart'
     show DropDownButtonChange;
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/autocomplete/autocomplete_user_class.dart';
 
+import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_controller.dart';
+import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_data.dart';
 
-class SectionGestaoRefs extends StatelessWidget {
-  final MinutaContratoController controller;
-  final List<UserData> users;
+class SectionGestaoRefs extends StatefulWidget {
+  final MinutaContratoData data;
+  final bool isEditable;
+  final void Function(MinutaContratoData updated) onChanged;
 
   const SectionGestaoRefs({
     super.key,
-    required this.controller,
-    required this.users,
+    required this.data,
+    required this.isEditable,
+    required this.onChanged,
   });
 
   @override
+  State<SectionGestaoRefs> createState() => _SectionGestaoRefsState();
+}
+
+class _SectionGestaoRefsState extends State<SectionGestaoRefs> {
+  late final TextEditingController _gestorNomeCtrl;
+  late final TextEditingController _fiscalNomeCtrl;
+  late final TextEditingController _regimeExecCtrl;
+  late final TextEditingController _prazosRefCtrl;
+  late final TextEditingController _linksAnexosCtrl;
+
+  String? _gestorUserId;
+  String? _fiscalUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.data;
+
+    _gestorNomeCtrl = TextEditingController(text: d.gestorNome ?? '');
+    _fiscalNomeCtrl = TextEditingController(text: d.fiscalNome ?? '');
+    _regimeExecCtrl = TextEditingController(text: d.regimeExecucaoRef ?? '');
+    _prazosRefCtrl = TextEditingController(text: d.prazosRef ?? '');
+    _linksAnexosCtrl = TextEditingController(text: d.linksAnexos ?? '');
+
+    _gestorUserId = d.gestorUserId;
+    _fiscalUserId = d.fiscalUserId;
+  }
+
+  @override
+  void didUpdateWidget(covariant SectionGestaoRefs oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      final d = widget.data;
+
+      void _sync(TextEditingController c, String? v) {
+        final text = v ?? '';
+        if (c.text != text) c.text = text;
+      }
+
+      _sync(_gestorNomeCtrl, d.gestorNome);
+      _sync(_fiscalNomeCtrl, d.fiscalNome);
+      _sync(_regimeExecCtrl, d.regimeExecucaoRef);
+      _sync(_prazosRefCtrl, d.prazosRef);
+      _sync(_linksAnexosCtrl, d.linksAnexos);
+
+      _gestorUserId = d.gestorUserId;
+      _fiscalUserId = d.fiscalUserId;
+    }
+  }
+
+  @override
+  void dispose() {
+    _gestorNomeCtrl.dispose();
+    _fiscalNomeCtrl.dispose();
+    _regimeExecCtrl.dispose();
+    _prazosRefCtrl.dispose();
+    _linksAnexosCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      gestorUserId: _gestorUserId,
+      gestorNome: _gestorNomeCtrl.text,
+      fiscalUserId: _fiscalUserId,
+      fiscalNome: _fiscalNomeCtrl.text,
+      linksAnexos: _linksAnexosCtrl.text,
+      regimeExecucaoRef: _regimeExecCtrl.text,
+      prazosRef: _prazosRefCtrl.text,
+    );
+    widget.onChanged(updated);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = controller;
+    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('4) Gestão e Referências (do TR/Edital)'),
+        const SectionTitle(text: '4) Gestão e Referências (do TR/Edital)'),
         LayoutBuilder(
           builder: (context, constraints) {
-            final w2 = inputW2(context, constraints);
             final w4 = inputW4(context, constraints);
             final w1 = inputW1(context, constraints);
 
@@ -38,57 +116,76 @@ class SectionGestaoRefs extends StatelessWidget {
               spacing: 12,
               runSpacing: 12,
               children: [
+                // ✅ Gestor (genérico)
                 SizedBox(
                   width: w4,
-                  child: AutocompleteUserClass(
+                  child: CustomAutoComplete<UserData>(
                     label: 'Gestor do contrato (definido no processo)',
-                    controller: c.mcGestorCtrl,
-                    allUsers: users,
-                    enabled: c.isEditable,
-                    initialUserId: c.mcGestorUserId,
-                    onChanged: (u) => c.mcGestorUserId = u,
+                    controller: _gestorNomeCtrl,
+                    allList: users,
+                    enabled: widget.isEditable,
+                    initialId: _gestorUserId,
+                    idOf: (u) => u.uid,
+                    displayOf: (u) => u.name ?? u.email ?? '',
+                    subtitleOf: (u) => u.email ?? '',
+                    photoUrlOf: (u) => u.urlPhoto,
+                    onChanged: (id) {
+                      _gestorUserId = id.isEmpty ? null : id;
+                      _emitChange();
+                    },
                   ),
                 ),
+
+                // ✅ Fiscal (genérico)
                 SizedBox(
                   width: w4,
-                  child: AutocompleteUserClass(
+                  child: CustomAutoComplete<UserData>(
                     label: 'Fiscal do contrato (definido no processo)',
-                    controller: c.mcFiscalCtrl,
-                    allUsers: users,
-                    enabled: c.isEditable,
-                    initialUserId: c.mcFiscalUserId,
-                    onChanged: (u) => c.mcFiscalUserId = u,
+                    controller: _fiscalNomeCtrl,
+                    allList: users,
+                    enabled: widget.isEditable,
+                    initialId: _fiscalUserId,
+                    idOf: (u) => u.uid,
+                    displayOf: (u) => u.name ?? u.email ?? '',
+                    subtitleOf: (u) => u.email ?? '',
+                    photoUrlOf: (u) => u.urlPhoto,
+                    onChanged: (id) {
+                      _fiscalUserId = id.isEmpty ? null : id;
+                      _emitChange();
+                    },
                   ),
                 ),
+
                 SizedBox(
                   width: w4,
                   child: DropDownButtonChange(
                     labelText: 'Regime de execução (referência TR)',
-                    controller: TextEditingController(
-                      text: c.mcRegimeExecucaoRef ?? '',
-                    ),
-                    items: const [],
-                    onChanged: (_) {},
+                    enabled: widget.isEditable,
+                    controller: _regimeExecCtrl,
+                    items: const <String>[],
+                    onChanged: (v) {
+                      _regimeExecCtrl.text = v ?? '';
+                      _emitChange();
+                    },
                   ),
                 ),
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
-                    enabled: false, // referência – prazos do TR
-                    controller: TextEditingController(
-                      text: c.mcPrazosRef ?? '',
-                    ),
+                    enabled: false,
+                    controller: _prazosRefCtrl,
                     labelText: 'Prazos/Vigência (referência TR)',
                   ),
                 ),
                 SizedBox(
                   width: w1,
                   child: CustomTextField(
-                    controller: c.mcLinksAnexosCtrl,
+                    controller: _linksAnexosCtrl,
                     labelText:
                     'Links/Anexos (TR, ETP, ARP, proposta, documentos do gestor)',
                     maxLines: 2,
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
               ],

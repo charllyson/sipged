@@ -1,30 +1,26 @@
+// lib/screens/process/hiring/11Arquivamento/termo_arquivamento_page.dart
 import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/system/user/user_bloc.dart';
 
-import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/progress/stage_progress.dart';
-import 'package:siged/_widgets/gates/stage_gate.dart';
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
-
+// ===== Progress (etapas)
 import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
 
+// ===== Termo de Arquivamento
+import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
+import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_data.dart';
+import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_state.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
-import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_bloc.dart';
-import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_controller.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
+// ===== Widgets / UI
+import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_widgets/menu/tab/stage_progress.dart';
 
-// Seções
+// ===== Seções
 import 'package:siged/screens/process/hiring/11Arquivamento/section_1_metadados.dart';
 import 'package:siged/screens/process/hiring/11Arquivamento/section_2_motivo_abrangencia.dart';
 import 'package:siged/screens/process/hiring/11Arquivamento/section_3_fundamentacao.dart';
@@ -32,14 +28,30 @@ import 'package:siged/screens/process/hiring/11Arquivamento/section_4_pecas_anex
 import 'package:siged/screens/process/hiring/11Arquivamento/section_5_decisao_autoridade.dart';
 import 'package:siged/screens/process/hiring/11Arquivamento/section_6_reabertura.dart';
 
+// ===== Utils
+import 'package:siged/_utils/validates/form_validation_mixin.dart';
+
+// ===== Overlay leve
+import 'package:siged/_widgets/overlays/screen_lock.dart';
+
+// ===== Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
+// ===== Pipeline (habilitação dinâmica das abas)
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
+
+// ===== Stage Gate (habilitação por etapa)
+import 'package:siged/_widgets/menu/tab/stage_gate.dart';
+
 class TermoArquivamentoPage extends StatefulWidget {
-  final TermoArquivamentoController controller;
   final String contractId;
+  final bool readOnly;
 
   const TermoArquivamentoPage({
     super.key,
-    required this.controller,
     required this.contractId,
+    this.readOnly = false,
   });
 
   @override
@@ -51,100 +63,114 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
   @override
   bool get wantKeepAlive => true;
 
-  late final ProgressBloc _progressBloc;
+  late final ProgressCubit _progressBloc;
+
+  TermoArquivamentoData _formData = const TermoArquivamentoData.empty();
   bool _hydrated = false;
   String? _currentTaId;
+
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _progressBloc = ProgressBloc(repo: ProgressRepository());
-    context.read<TermoArquivamentoBloc>().add(TermoArquivamentoLoadRequested(widget.contractId));
+    _progressBloc = ProgressCubit(repo: ProgressRepository());
+
+    // Dispara o load inicial
+    context.read<TermoArquivamentoCubit>().load(widget.contractId);
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _progressBloc.close();
     super.dispose();
   }
 
   Future<void> _saveOnly() async {
-    final bloc = context.read<TermoArquivamentoBloc>();
-
-    // se tiver quickValidate no controller, pode habilitar:
-    // final quick = widget.controller.quickValidate();
-    // if (quick != null) { ... warning ...; return; }
+    final cubit = context.read<TermoArquivamentoCubit>();
 
     final completer = Completer<void>();
     late final StreamSubscription sub;
-    sub = bloc.stream.listen((s) {
+
+    sub = cubit.stream.listen((s) {
       if (!s.saving) {
         if (!completer.isCompleted) completer.complete();
         sub.cancel();
       }
     });
 
-    bloc.add(TermoArquivamentoSaveRequested(
+    await cubit.saveAll(
       contractId: widget.contractId,
-      sectionsData: widget.controller.toSectionMaps(),
-    ));
+      sectionsData: _formData.toSectionsMap(),
+    );
 
     await completer.future;
 
-    if (!bloc.state.saveSuccess) {
-      final err = bloc.state.error ?? 'Falha ao salvar';
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Termo de Arquivamento'),
-          subtitle: const Text('Erro ao salvar.'),
-          details: Text(err),
-          type: AppNotificationType.error,
-        ),
-      );
+    if (!cubit.state.saveSuccess) {
+      final err = cubit.state.error ?? 'Falha ao salvar';
+      if (mounted) {
+        NotificationCenter.instance.show(
+          AppNotification(
+            title: const Text('Termo de Arquivamento'),
+            subtitle: const Text('Erro ao salvar.'),
+            details: Text(err),
+            type: AppNotificationType.error,
+          ),
+        );
+      }
       return;
     }
 
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('Termo de Arquivamento'),
-        subtitle: const Text('Alterações salvas com sucesso.'),
-        type: AppNotificationType.success,
-      ),
-    );
+    if (mounted) {
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Termo de Arquivamento'),
+          subtitle: const Text('Alterações salvas com sucesso.'),
+          type: AppNotificationType.success,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final c = widget.controller;
 
     return BlocProvider.value(
       value: _progressBloc,
-      child: BlocListener<TermoArquivamentoBloc, TermoArquivamentoState>(
+      child: BlocListener<TermoArquivamentoCubit, TermoArquivamentoState>(
         listenWhen: (prev, curr) =>
         (prev.loading && !curr.loading) || (prev.taId != curr.taId),
         listener: (context, state) {
-          if (!mounted || state.loading || !state.hasValidPath) return;
+          if (!mounted) return;
+          if (state.loading || !state.hasValidPath) return;
 
           final incomingId = state.taId;
           final needsHydrate = !_hydrated || _currentTaId != incomingId;
+
           if (needsHydrate) {
-            c.fromSectionMaps(state.sectionsData);
+            final data =
+            TermoArquivamentoData.fromSectionsMap(state.sectionsData);
+
+            setState(() {
+              _formData = data;
+            });
+
             _hydrated = true;
             _currentTaId = incomingId;
 
             if (incomingId != null && incomingId.isNotEmpty) {
-              _progressBloc.add(ProgressBindRequested(
+              _progressBloc.bindToStage(
                 contractId: widget.contractId,
                 collectionName: 'arquivamento',
-                stageId: incomingId,
-              ));
+              );
             }
           }
         },
-        child: BlocBuilder<TermoArquivamentoBloc, TermoArquivamentoState>(
+        child: BlocBuilder<TermoArquivamentoCubit, TermoArquivamentoState>(
           builder: (context, state) {
-            final pstate = context.watch<ProgressBloc>().state;
+            final pstate = context.watch<ProgressCubit>().state;
 
             final locked = state.loading || state.saving || pstate.loading;
             final msg = state.loading
@@ -161,28 +187,84 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
               child: StageGate(
-                stageKey: HiringStageKey.arquivamento, // ajuste se seu enum usar outro nome
+                stageKey: HiringStageKey.arquivamento,
                 child: Scaffold(
                   body: Stack(
                     children: [
                       const BackgroundClean(),
                       SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                        key: const PageStorageKey('termo-arquivamento-scroll'),
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SectionMetadadosTA(controller: c, users: context.read<UserBloc>().state.all),
-                            SectionMotivoAbrangenciaTA(controller: c),
-                            SectionFundamentacaoTA(controller: c),
-                            SectionPecasAnexasTA(controller: c),
-                            SectionDecisaoAutoridadeTA(controller: c, users: context.read<UserBloc>().state.all),
-                            SectionReaberturaTA(controller: c),
+                            // 1) Metadados
+                            SectionMetadadosTA(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 2) Motivo e Abrangência
+                            SectionMotivoAbrangenciaTA(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 3) Fundamentação
+                            SectionFundamentacaoTA(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 4) Peças Anexas
+                            SectionPecasAnexasTA(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 5) Decisão da Autoridade
+                            SectionDecisaoAutoridadeTA(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 6) Reabertura
+                            SectionReaberturaTA(
+                              data: _formData,
+                              isEditable: !widget.readOnly,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 8),
                           ],
                         ),
                       ),
                     ],
                   ),
-                  bottomNavigationBar: BlocBuilder<ProgressBloc, ProgressState>(
+                  bottomNavigationBar:
+                  BlocBuilder<ProgressCubit, ProgressState>(
                     builder: (context, pstate) {
                       return StageProgress(
                         title: 'Termo de Arquivamento',
@@ -193,12 +275,15 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                         onSaveAndNext: () async {
                           await _saveOnly();
 
-                          final taId = context.read<TermoArquivamentoBloc>().state.taId;
+                          final taId =
+                              context.read<TermoArquivamentoCubit>().state.taId;
                           if (taId == null || taId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Termo de Arquivamento'),
-                                subtitle: const Text('Documento não encontrado para aprovar.'),
+                                subtitle: const Text(
+                                  'Documento não encontrado para aprovar.',
+                                ),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -213,33 +298,43 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               : (user?.email ?? uid);
 
                           final repo = _progressBloc.repo;
+
                           try {
                             await repo.approveStage(
                               contractId: widget.contractId,
                               collectionName: 'arquivamento',
-                              stageId: taId,
                               approverUid: uid,
                               approverName: nameOrEmail,
                             );
+
                             await repo.setCompleted(
                               contractId: widget.contractId,
                               collectionName: 'arquivamento',
-                              stageId: taId,
                               completed: true,
                             );
 
-                            // Última etapa (ajuste conforme seu pipeline)
-                            final pipeline = context.read<PipelineProgressCubit>();
-                            pipeline.setStageEnabled(HiringStageKey.arquivamento, true);
+                            // Última etapa (ajuste se quiser liberar algo depois)
+                            final pipeline =
+                            context.read<PipelineProgressCubit>();
+                            pipeline.setStageEnabled(
+                              HiringStageKey.arquivamento,
+                              true,
+                            );
                             unawaited(pipeline.refresh());
 
-                            final tab = DefaultTabController.of(context);
-                            tab?.animateTo((tab.index + 1).clamp(0, tab.length - 1));
+                            final controller =
+                            DefaultTabController.of(context);
+                            controller?.animateTo(
+                              (controller.index + 1)
+                                  .clamp(0, controller.length - 1),
+                            );
 
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Termo de Arquivamento'),
-                                subtitle: const Text('Aprovado e etapa concluída.'),
+                                subtitle: const Text(
+                                  'Aprovado e etapa concluída.',
+                                ),
                                 type: AppNotificationType.success,
                               ),
                             );
@@ -257,12 +352,15 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                         onUpdateApproved: () async {
                           await _saveOnly();
 
-                          final taId = context.read<TermoArquivamentoBloc>().state.taId;
+                          final taId =
+                              context.read<TermoArquivamentoCubit>().state.taId;
                           if (taId == null || taId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Termo de Arquivamento'),
-                                subtitle: const Text('Documento não encontrado para atualizar.'),
+                                subtitle: const Text(
+                                  'Documento não encontrado para atualizar.',
+                                ),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -277,18 +375,21 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               : (user?.email ?? uid);
 
                           final repo = _progressBloc.repo;
+
                           try {
                             await repo.touchApproval(
                               contractId: widget.contractId,
                               collectionName: 'arquivamento',
-                              stageId: taId,
                               updatedByUid: uid,
                               updatedByName: nameOrEmail,
                             );
+
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Termo de Arquivamento'),
-                                subtitle: const Text('Aprovação atualizada.'),
+                                subtitle: const Text(
+                                  'Aprovação atualizada.',
+                                ),
                                 type: AppNotificationType.success,
                               ),
                             );
@@ -296,7 +397,9 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Termo de Arquivamento'),
-                                subtitle: const Text('Erro ao atualizar aprovação.'),
+                                subtitle: const Text(
+                                  'Erro ao atualizar aprovação.',
+                                ),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),

@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+
 import 'package:siged/_widgets/charts/lines/line_chart_changed.dart';
 import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
-
 import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
 
 class PaymentsReportChartsSection extends StatelessWidget {
@@ -25,13 +25,19 @@ class PaymentsReportChartsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final larguraLinha = math.max(
+      MediaQuery.of(context).size.width - 300 - 52,
+      800,
+    );
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
           const SizedBox(width: 12),
           GaugeCircularPercent(
-            centerTitle: valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
+            centerTitle:
+            valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
             headerTitle: 'Execução das medições',
             radius: 70,
             larguraGrafico: 200,
@@ -44,7 +50,9 @@ class PaymentsReportChartsSection extends StatelessWidget {
             selectedIndex: selectedIndex,
             larguraGrafico: 300,
             onTouch: (index) {
-              if (index != null && index >= 0 && index < values.length) {
+              if (index != null &&
+                  index >= 0 &&
+                  index < values.length) {
                 onSelectIndex?.call(index);
               }
             },
@@ -54,7 +62,7 @@ class PaymentsReportChartsSection extends StatelessWidget {
             labels: labels,
             values: values,
             selectedIndex: selectedIndex,
-            larguraGrafico: math.max(MediaQuery.of(context).size.width - 300 - 52, 800),
+            larguraGrafico: larguraLinha.toDouble(),
             alturaGrafico: 260,
             onPointTap: (index) {
               if (index >= 0 && index < values.length) {

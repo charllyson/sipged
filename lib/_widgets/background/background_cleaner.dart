@@ -31,6 +31,7 @@ class BackgroundClean extends StatelessWidget {
     final palette = UserData.paletteForUser(user);
 
     return Container(
+
       decoration: BoxDecoration(
         gradient: palette.gradient,
         color: palette.color, // usado quando gradient == null

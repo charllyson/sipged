@@ -2,14 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
-import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
+import 'package:siged/_blocs/actives/roads/active_roads_cubit.dart';
 import 'package:siged/_blocs/actives/roads/active_roads_state.dart';
 
-import 'package:siged/_widgets/upBar/up_bar.dart';
-
-// 🔀 Layout responsivo com divisor arrastável (↔ / ↕)
-import 'package:siged/_widgets/layout/responsive_split_view.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
 
 import 'active_roads_map.dart';
 import 'active_roads_panel.dart';
@@ -18,38 +15,49 @@ class ActiveRoadsNetworkPage extends StatefulWidget {
   const ActiveRoadsNetworkPage({super.key});
 
   @override
-  State<ActiveRoadsNetworkPage> createState() => _ActiveRoadsNetworkPageState();
+  State<ActiveRoadsNetworkPage> createState() =>
+      _ActiveRoadsNetworkPageState();
 }
 
 class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
-  late final ActiveRoadsBloc _bloc;
+  late final ActiveRoadsCubit _cubit;
 
   bool _showPanel = true;
 
   @override
   void initState() {
     super.initState();
-    _bloc = ActiveRoadsBloc()..add(const ActiveRoadsWarmupRequested());
+    _cubit = ActiveRoadsCubit()..warmup();
   }
 
   @override
   void dispose() {
-    _bloc.close();
+    _cubit.close();
     super.dispose();
   }
 
+  // =========================
+  // Ações da UpBar
+  // =========================
+
   void _clearFilters() {
-    _bloc.add(const ActiveRoadsRegionFilterChanged(null));
-    _bloc.add(const ActiveRoadsSurfaceFilterChanged(null));
-    _bloc.add(const ActiveRoadsPieFilterChanged(null));
+    _cubit.setRegionFilter(null);
+    _cubit.setSurfaceFilter(null);
+    _cubit.setPieFilter(null);
   }
 
-  void _togglePanel() => setState(() => _showPanel = !_showPanel);
+  void _togglePanel() {
+    setState(() => _showPanel = !_showPanel);
+  }
+
+  // =========================
+  // BUILD
+  // =========================
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
-      value: _bloc,
+      value: _cubit,
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(74),
@@ -64,7 +72,9 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
               IconButton(
                 tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
                 icon: Icon(
-                  _showPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                  _showPanel
+                      ? Icons.view_sidebar
+                      : Icons.view_sidebar_outlined,
                   color: Colors.white,
                 ),
                 onPressed: _togglePanel,
@@ -73,17 +83,24 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
           ),
         ),
 
-        body: BlocBuilder<ActiveRoadsBloc, ActiveRoadsState>(
+        // =========================
+        // Layout principal com mapa + painel
+        // =========================
+        body: BlocBuilder<ActiveRoadsCubit, ActiveRoadsState>(
           builder: (context, state) {
-            return ResponsiveSplitView(
-              left: ActiveRoadsMap(state: state),
+            return SplitLayout(
+              left: const ActiveRoadsMap(),
+
+              // Painel lateral (igual OAE)
               right: const ActiveRoadsPanel(),
+
+              // Mostrar/Ocultar
               showRightPanel: _showPanel,
 
-              // comportamento padrão
+              // 🔥 Exatamente os mesmos valores do OAEs
               breakpoint: 980.0,
-              rightPanelWidth: 600.0,
-              bottomPanelHeight: 420.0,
+              rightPanelWidth: 580.0, // mesmo do OAE
+              bottomPanelHeight: 420.0, // mesmo do OAE
               showDividers: true,
             );
           },

@@ -8,8 +8,8 @@ import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 
-import 'package:siged/_blocs/process/laneRegularization/lane_regularization_controller.dart';
-import 'package:siged/_blocs/process/laneRegularization/lane_regularization_data.dart';
+import 'package:siged/_blocs/sectors/planning/lane_regularization/lane_regularization_controller.dart';
+import 'package:siged/_blocs/sectors/planning/lane_regularization/lane_regularization_data.dart';
 
 class LaneRegularizationPaymentForm extends StatefulWidget {
   const LaneRegularizationPaymentForm({super.key, required this.controller});

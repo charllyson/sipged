@@ -1,18 +1,82 @@
+// lib/screens/process/hiring/3Tr/section_4_medicao_aceite_indicadores.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_blocs/process/hiring/3Tr/tr_controller.dart';
+import 'package:siged/_blocs/process/hiring/3Tr/tr_data.dart';
 
-class SectionMedicaoAceiteIndicadores extends StatelessWidget {
-  const SectionMedicaoAceiteIndicadores({super.key});
+class SectionMedicaoAceiteIndicadores extends StatefulWidget {
+  final bool isEditable;
+  final TrData data;
+  final void Function(TrData updated) onChanged;
+
+  const SectionMedicaoAceiteIndicadores({
+    super.key,
+    required this.isEditable,
+    required this.data,
+    required this.onChanged,
+  });
+
+  @override
+  State<SectionMedicaoAceiteIndicadores> createState() =>
+      _SectionMedicaoAceiteIndicadoresState();
+}
+
+class _SectionMedicaoAceiteIndicadoresState
+    extends State<SectionMedicaoAceiteIndicadores> {
+  late final TextEditingController _criteriosMedicaoCtrl;
+  late final TextEditingController _criteriosAceiteCtrl;
+  late final TextEditingController _indicadoresCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.data;
+    _criteriosMedicaoCtrl =
+        TextEditingController(text: d.criteriosMedicao ?? '');
+    _criteriosAceiteCtrl =
+        TextEditingController(text: d.criteriosAceite ?? '');
+    _indicadoresCtrl =
+        TextEditingController(text: d.indicadoresDesempenho ?? '');
+  }
+
+  @override
+  void didUpdateWidget(
+      covariant SectionMedicaoAceiteIndicadores oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      final d = widget.data;
+      void _sync(TextEditingController c, String? v) {
+        final nv = v ?? '';
+        if (c.text != nv) c.text = nv;
+      }
+
+      _sync(_criteriosMedicaoCtrl, d.criteriosMedicao);
+      _sync(_criteriosAceiteCtrl, d.criteriosAceite);
+      _sync(_indicadoresCtrl, d.indicadoresDesempenho);
+    }
+  }
+
+  @override
+  void dispose() {
+    _criteriosMedicaoCtrl.dispose();
+    _criteriosAceiteCtrl.dispose();
+    _indicadoresCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      criteriosMedicao: _criteriosMedicaoCtrl.text,
+      criteriosAceite: _criteriosAceiteCtrl.text,
+      indicadoresDesempenho: _indicadoresCtrl.text,
+    );
+    widget.onChanged(updated);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<TrController>();
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final w3 = inputW3(context, constraints);
@@ -20,7 +84,7 @@ class SectionMedicaoAceiteIndicadores extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionTitle('4) Medição, Aceite e Indicadores'),
+            const SectionTitle(text: '4) Medição, Aceite e Indicadores'),
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -28,28 +92,31 @@ class SectionMedicaoAceiteIndicadores extends StatelessWidget {
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
-                    controller: c.trCriteriosMedicaoCtrl,
+                    controller: _criteriosMedicaoCtrl,
                     labelText: 'Critérios de medição',
                     maxLines: 3,
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
-                    controller: c.trCriteriosAceiteCtrl,
+                    controller: _criteriosAceiteCtrl,
                     labelText: 'Critérios de aceite',
                     maxLines: 3,
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
-                    controller: c.trIndicadoresDesempenhoCtrl,
+                    controller: _indicadoresCtrl,
                     labelText: 'Indicadores de desempenho (SLA/KPI)',
                     maxLines: 3,
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
               ],

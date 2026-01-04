@@ -1,10 +1,13 @@
+// lib/screens/process/hiring/4Cotacao/fornecedor_card.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'package:siged/_utils/formats/mask_class.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
 class FornecedorCard extends StatelessWidget {
   final String title;
@@ -15,6 +18,11 @@ class FornecedorCard extends StatelessWidget {
   final TextEditingController linkCtrl;
   final bool enabled;
 
+  // 🔽 NOVOS PARÂMETROS para o dropdown
+  final List<String> fornecedoresLabels;
+  final Future<String?> Function(BuildContext context)? onAddNewEmpresa;
+  final void Function(String? label)? onChangedFornecedor;
+
   const FornecedorCard({
     super.key,
     required this.title,
@@ -24,6 +32,9 @@ class FornecedorCard extends StatelessWidget {
     required this.dataCtrl,
     required this.linkCtrl,
     required this.enabled,
+    this.fornecedoresLabels = const <String>[],
+    this.onAddNewEmpresa,
+    this.onChangedFornecedor,
   });
 
   @override
@@ -52,18 +63,30 @@ class FornecedorCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SectionTitle(title),
+              SectionTitle(text: title),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: [
+                  // 🔽 RAZÃO/NOME AGORA COMO DROPDOWN DE COMPANIESBODIES
                   SizedBox(
                     width: w5,
-                    child: CustomTextField(
+                    child: DropDownButtonChange(
                       controller: nomeCtrl,
                       labelText: 'Razão/Nome',
                       enabled: enabled,
+                      items: fornecedoresLabels,
+                      showSpecialAlways: true,
+                      specialItemLabel: 'Adicionar empresa',
+                      onChanged: (label) {
+                        if (onChangedFornecedor != null) {
+                          onChangedFornecedor!(label);
+                        } else {
+                          nomeCtrl.text = label ?? '';
+                        }
+                      },
+                      onAddNewItem: onAddNewEmpresa,
                     ),
                   ),
                   SizedBox(
@@ -71,7 +94,7 @@ class FornecedorCard extends StatelessWidget {
                     child: CustomTextField(
                       controller: cnpjCtrl,
                       labelText: 'CNPJ',
-                      enabled: enabled,
+                      enabled: false,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(14),

@@ -102,8 +102,6 @@ class UserRepository {
     return (list, last);
   }
 
-  // ---------------- Debug helper (opcional) ----------------
-
   Future<void> debugPrintUser(String uid) async {
     final doc = await _userDoc(uid).get();
     if (!doc.exists) {

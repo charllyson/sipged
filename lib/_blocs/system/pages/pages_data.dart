@@ -1,7 +1,7 @@
 // lib/_blocs/system/pages/pages_data.dart
 import 'package:flutter/material.dart';
-import '../../../_widgets/drawer/menu_drawer_item.dart';
-import '../../../_widgets/drawer/menu_drawer_sub_item.dart';
+import '../../../_widgets/menu/drawer/menu_drawer_item.dart';
+import '../../../_widgets/menu/drawer/menu_drawer_sub_item.dart';
 
 enum MenuItem {
   overviewDashboard,
@@ -98,74 +98,6 @@ class PagesData {
 
     'crm-legal',
   ];
-
-  static List<String> moduleName = [
-    'DER',
-    'DNIT-RO',
-    'AM PRECATÓRIOS',
-  ];
-
-  /// Qual flag de perfil do usuário habilita cada área do dropdown?
-  static String? profileKeyForArea(String areaLabel) {
-    switch (areaLabel.trim().toUpperCase()) {
-      case 'DNIT-RO':
-        return 'profileWork';
-      case 'AM PRECATÓRIOS':
-        return 'profileLegal';
-      case 'DER':
-      default:
-        return 'profileWork';
-    }
-  }
-
-  /// Helper opcional (se precisar fora do TenantFirebase)
-  static String flavorForArea(String areaLabel) {
-    switch (areaLabel.trim().toUpperCase()) {
-      case 'DNIT-RO':
-        return 'dnitro';
-      case 'AM PRECATÓRIOS':
-        return 'amprecatorios';
-      case 'DER':
-      default:
-        return 'der';
-    }
-  }
-
-  /// mapeia o moduleName -> gradient (JURÍDICO com Bordô/Burgundy/Marsala)
-  static Gradient gradientForModule(String name) {
-    switch (name.toUpperCase()) {
-      case 'DNIT-RO':
-        return const LinearGradient(
-          colors: [
-            Color.fromARGB(255, 27, 32, 51),
-            Color.fromARGB(255, 144, 202, 249),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      case 'AM PRECATÓRIOS':
-        return const LinearGradient(
-          colors: [
-            Color(0xFF4B0016), // Bordô
-            Color(0xFF800020), // Burgundy
-            Color(0xFF955251), // Marsala
-          ],
-          stops: [0.0, 0.58, 1.0],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      case 'DER':
-      default:
-        return const LinearGradient(
-          colors: [
-            Color.fromARGB(255, 27, 32, 51),
-            Color.fromARGB(255, 144, 202, 249),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-    }
-  }
 
   /// =========== PAINÉIS =============
   static List<MenuDrawerItemModel> panelDashboard = [
@@ -319,19 +251,19 @@ class PagesData {
           homeIcon: Icons.stacked_line_chart,
         ),
         MenuDrawerSubItem(
-          label: 'PAGAMENTOS',
+          label: 'ORÇAMENTO',
           menuItem: MenuItem.financialPaymentsRecords,
           permissionModule: 'financial-payments-records',
           homeIcon: Icons.payments,
         ),
         MenuDrawerSubItem(
-          label: 'PAINEL',
+          label: 'EMPENHOS',
           menuItem: MenuItem.financialCommitmentDashboard,
           permissionModule: 'financial-commitment-overview-dashboard',
           homeIcon: Icons.auto_graph,
         ),
         MenuDrawerSubItem(
-          label: 'EMPENHOS',
+          label: 'PAGAMENTOS',
           menuItem: MenuItem.financialCommitmentRecords,
           permissionModule: 'financial-commitment-records',
           homeIcon: Icons.receipt_long_outlined,

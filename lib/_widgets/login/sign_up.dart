@@ -1,15 +1,14 @@
-// lib/screens/menus/sign_up.dart (ajuste o path conforme o seu projeto)
+// lib/screens/menus/sign_up.dart
 import 'package:brasil_fields/brasil_fields.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/validates/login_validators.dart';
 
 import 'package:siged/_blocs/system/login/login_bloc.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
@@ -19,6 +18,9 @@ import 'package:siged/_blocs/system/user/user_repository.dart';
 // 🔔 Notificações centralizadas
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
+
+// 🪟 WindowDialog
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key, required this.userData});
@@ -30,7 +32,7 @@ class SignUp extends StatefulWidget {
 
 final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-class _SignUpState extends State<SignUp> with LoginValidators {
+class _SignUpState extends State<SignUp> with FormValidationMixin {
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
   final _surnameController = TextEditingController();
@@ -45,8 +47,6 @@ class _SignUpState extends State<SignUp> with LoginValidators {
     super.initState();
     // ✅ NÃO instancie LoginBloc(); pegue do contexto (já com tenant)
     _loginBloc = context.read<LoginBloc>();
-    // opcional: escutar estado se quiser
-    // _loginBloc.outState.listen((_) {});
   }
 
   @override
@@ -70,7 +70,9 @@ class _SignUpState extends State<SignUp> with LoginValidators {
       AppNotification(
         type: type,
         title: Text(title),
-        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        subtitle: (subtitle != null && subtitle.isNotEmpty)
+            ? Text(subtitle)
+            : null,
       ),
     );
   }
@@ -82,11 +84,38 @@ class _SignUpState extends State<SignUp> with LoginValidators {
       _repeatPassController.clear();
       if (!mounted) return;
 
-      showDialog(
+      // 🪟 Erro de senha com WindowDialog
+      await showWindowDialogMac<void>(
         context: context,
-        builder: (context) => const CupertinoAlertDialog(
-          title: Text('Erro na senha'),
-          content: Text('As senhas digitadas não coincidem'),
+        title: 'Erro na senha',
+        width: 420,
+        child: Builder(
+          builder: (dialogCtx) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'As senhas digitadas não coincidem. '
+                        'Por favor, digite novamente.',
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      FilledButton(
+                        onPressed: () =>
+                            Navigator.of(dialogCtx).pop(), // fecha a janela
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       );
       return;
@@ -133,7 +162,10 @@ class _SignUpState extends State<SignUp> with LoginValidators {
       }
 
       if (!mounted) return;
-      _notify('Cadastro realizado com sucesso!', type: AppNotificationType.success);
+      _notify(
+        'Cadastro realizado com sucesso!',
+        type: AppNotificationType.success,
+      );
       Navigator.of(context).pop(); // fecha a tela de cadastro
     } catch (e) {
       if (!mounted) return;
@@ -198,17 +230,23 @@ class _SignUpState extends State<SignUp> with LoginValidators {
                                 validator: validateEmailLogin,
                               ),
                               CustomTextField(
-                                initialValue: addFormatCpf(widget.userData.cpf ?? ''),
+                                initialValue: addFormatCpf(
+                                  widget.userData.cpf ?? '',
+                                ),
                                 labelText: 'CPF',
                                 enabled: false,
                                 prefix: const Icon(Icons.account_box),
-                                suffix: const Icon(Icons.check_circle, color: Colors.green),
+                                suffix: const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                ),
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [CpfInputFormatter()],
                               ),
                               CustomDateField(
                                 validator: validateDateToBirthday,
-                                onSaved: (v) => widget.userData.dateToBirthday = v,
+                                onSaved: (v) =>
+                                widget.userData.dateToBirthday = v,
                                 labelText: 'Data de nascimento',
                                 prefix: const Icon(Icons.cake),
                               ),
@@ -234,7 +272,8 @@ class _SignUpState extends State<SignUp> with LoginValidators {
                                     style: TextButton.styleFrom(
                                       backgroundColor: Colors.blue,
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(32),
+                                        borderRadius:
+                                        BorderRadius.circular(32),
                                       ),
                                     ),
                                     onPressed: loading ? null : _submit,
@@ -249,7 +288,8 @@ class _SignUpState extends State<SignUp> with LoginValidators {
                                     )
                                         : const Text(
                                       'Cadastrar',
-                                      style: TextStyle(color: Colors.white),
+                                      style:
+                                      TextStyle(color: Colors.white),
                                     ),
                                   );
                                 },
@@ -288,12 +328,16 @@ class _BlockingOverlay extends StatelessWidget {
     return Stack(
       children: [
         const Positioned.fill(
-          child: ModalBarrier(dismissible: false, color: Color(0x66000000)),
+          child: ModalBarrier(
+            dismissible: false,
+            color: Color(0x66000000),
+          ),
         ),
         Positioned.fill(
           child: Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(10),
@@ -310,7 +354,10 @@ class _BlockingOverlay extends StatelessWidget {
                   SizedBox(width: 12),
                   Text(
                     'Criando conta…',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),

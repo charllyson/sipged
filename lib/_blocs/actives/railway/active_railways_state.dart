@@ -6,12 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
-import 'package:siged/_blocs/actives/railway/active_railways_rules.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_style.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-
 import 'package:siged/screens/actives/railways/network/railway_ties.dart';
 import 'package:siged/_utils/map/multi_line_simplifier.dart';
 
@@ -33,8 +29,12 @@ class ActiveRailwaysState extends Equatable {
 
   final bool savingOrImporting;
 
-  /// 🔹 zoom atual do mapa (dirigido pelo BLoC)
+  /// 🔹 zoom atual do mapa (dirigido pelo Cubit)
   final double mapZoom;
+
+  /// 🔹 Labels de região vindos do Setup (company/órgão atual).
+  /// Preenchidos via `ActiveRailwaysCubit.syncRegionsFromSetup`.
+  final List<String> regionLabels;
 
   const ActiveRailwaysState({
     this.initialized = false,
@@ -47,6 +47,7 @@ class ActiveRailwaysState extends Equatable {
     this.selectedStatusFilter,
     this.savingOrImporting = false,
     this.mapZoom = 12.0,
+    this.regionLabels = const [],
   });
 
   ActiveRailwaysState copyWith({
@@ -60,6 +61,7 @@ class ActiveRailwaysState extends Equatable {
     Object? selectedStatusFilter = _unset,
     bool? savingOrImporting,
     double? mapZoom,
+    List<String>? regionLabels,
   }) {
     return ActiveRailwaysState(
       initialized: initialized ?? this.initialized,
@@ -80,16 +82,16 @@ class ActiveRailwaysState extends Equatable {
           : selectedStatusFilter as String?,
       savingOrImporting: savingOrImporting ?? this.savingOrImporting,
       mapZoom: mapZoom ?? this.mapZoom,
+      regionLabels: regionLabels ?? this.regionLabels,
     );
   }
 
   // =========================
-  // Regiões (reuso de ContractRules.regions)
+  // Regiões (vindas do Setup)
   // =========================
-  List<String> get regionLabels => HiringData.regions;
 
   String _canonRegion(String? s) =>
-      ActiveRailwaysRules.canonRegion(s, regionLabels);
+      ActiveRailwayData.canonRegion(s, regionLabels);
 
   int? indexOfRegionNormalized(String? label) {
     if (label == null) return null;
@@ -101,14 +103,14 @@ class ActiveRailwaysState extends Equatable {
   // Status -> códigos canônicos
   // =========================
   String _statusCodeOf(ActiveRailwayData r) =>
-      ActiveRailwaysRules.statusCodeOf(r.status);
+      ActiveRailwayData.statusCodeOf(r.status);
 
   // =========================
   // PIE: soma extensão (km) por status
   // =========================
-  List<String> get _statusOrder => ActiveRailwaysRules.statusOrder;
+  List<String> get _statusOrder => ActiveRailwayData.statusOrder;
   String _labelForStatus(String code) =>
-      ActiveRailwaysRules.labelForStatus(code);
+      ActiveRailwayData.labelForStatus(code);
 
   Map<String, double> get _sumExtByStatus {
     final map = <String, double>{for (final s in _statusOrder) s: 0.0};
@@ -120,7 +122,8 @@ class ActiveRailwaysState extends Equatable {
     return map;
   }
 
-  List<({String code, Color color, String labelText, double value})> get _pieItems {
+  List<({String code, Color color, String labelText, double value})>
+  get _pieItems {
     final sums = _sumExtByStatus;
     return _statusOrder.map((code) {
       final km = (sums[code] ?? 0.0);
@@ -188,8 +191,9 @@ class ActiveRailwaysState extends Equatable {
           : statusCodeFromPieChartIndex(selectedPieIndexFilter!);
 
   List<ActiveRailwayData> get filteredAll {
-    final regionFilterC =
-    selectedRegionFilter == null ? null : _canonRegion(selectedRegionFilter);
+    final regionFilterC = selectedRegionFilter == null
+        ? null
+        : _canonRegion(selectedRegionFilter);
     final statusCode = _statusFilterFromPieOrNull ?? selectedStatusFilter;
 
     return all.where((f) {
@@ -222,9 +226,9 @@ class ActiveRailwaysState extends Equatable {
       return MultiLineSimplifier.simplifyAdaptive(
         seg,
         zoom: z,
-        tolerancePxFar: 5.5,   // z < 9
-        tolerancePxMid: 3.5,   // 9 <= z < 12
-        minAngleDeg: 18,       // preserva curvas acentuadas
+        tolerancePxFar: 5.5, // z < 9
+        tolerancePxMid: 3.5, // 9 <= z < 12
+        minAngleDeg: 18, // preserva curvas acentuadas
         maxSegmentMeters: 120, // anti-“quadrado”
       );
     }
@@ -233,9 +237,10 @@ class ActiveRailwaysState extends Equatable {
       if (fer.id == null) continue;
 
       final tagId = fer.id!;
-      final statusCode = ActiveRailwaysRules.statusCodeOf(fer.status);
+      final statusCode = ActiveRailwayData.statusCodeOf(fer.status);
       final estiloCamadas = ActiveRailwaysStyle.styleLane(statusCode, z);
-      final isSelected = (selectedPolylineId != null && selectedPolylineId == tagId);
+      final isSelected =
+      (selectedPolylineId != null && selectedPolylineId == tagId);
 
       for (final rawSeg in fer.getSegments()) {
         if (rawSeg.length < 2) continue;
@@ -247,7 +252,7 @@ class ActiveRailwaysState extends Equatable {
           final idx = entry.key;
           final camada = entry.value;
 
-          final ptsMain = ActiveRailwaysRules.deslocarPontos(
+          final ptsMain = ActiveRailwayData.deslocarPontos(
             seg,
             deslocamentoOrtogonal: idx * 0.00003,
           );
@@ -260,8 +265,8 @@ class ActiveRailwaysState extends Equatable {
                 points: ptsMain,
                 color: Colors.white.withOpacity(0.95),
                 defaultColor: Colors.white,
-                strokeWidth:
-                (isSelected ? camada.width + 2 : camada.width) + m.outlinePx * 2,
+                strokeWidth: (isSelected ? camada.width + 2 : camada.width) +
+                    m.outlinePx * 2,
                 tag: '${tagId}_halo_$idx',
                 hitTestable: false, // halo não intercepta clique
               ),
@@ -277,7 +282,7 @@ class ActiveRailwaysState extends Equatable {
               defaultColor: camada.cor,
               strokeWidth:
               isSelected ? camada.width + 2 : math.max(camada.width, m.railStrokePx),
-              tag: tagId,       // ✅ mantém id puro
+              tag: tagId, // ✅ mantém id puro
               hitTestable: true,
             ),
           );
@@ -352,5 +357,6 @@ class ActiveRailwaysState extends Equatable {
     selectedStatusFilter,
     savingOrImporting,
     mapZoom,
+    regionLabels,
   ];
 }

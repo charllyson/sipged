@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/formats/date_utils.dart';
+import 'package:siged/_utils/formats/converters_utils.dart';
 
-import 'package:siged/_blocs/process/laneRegularization/lane_regularization_data.dart';
-import 'package:siged/_blocs/process/laneRegularization/lane_regularization_storage_bloc.dart';
+import 'package:siged/_blocs/sectors/planning/lane_regularization/lane_regularization_data.dart';
+import 'package:siged/_blocs/sectors/planning/lane_regularization/lane_regularization_storage_bloc.dart';
 
 // Attachment igual ao usado nas Medições/SideListBox
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -58,26 +59,6 @@ class _LaneRegularizationDetailsPanelState
     final h = s.indexOf('#'); if (h != -1) s = s.substring(0, h);
     s = s.split('/').last;
     return s.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
-  }
-
-  Future<String?> _askLabelDialog(String suggestion) async {
-    final ctrl = TextEditingController(text: suggestion);
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Nome do arquivo (rótulo)'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(hintText: 'Ex.: Geo - KM 12+500'),
-          autofocus: true,
-          onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(null), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.of(context).pop(ctrl.text.trim()), child: const Text('Salvar')),
-        ],
-      ),
-    );
   }
 
   DocumentReference<Map<String, dynamic>> get _propRef => _db
@@ -186,7 +167,7 @@ class _LaneRegularizationDetailsPanelState
         },
       );
       final suggestion = _baseName(uploaded.name);
-      final label = (await _askLabelDialog(suggestion))?.trim();
+      final label = (await askLabelDialog(context, suggestion))?.trim();
       final att = Attachment(
         id: uploaded.name,
         label: (label == null || label.isEmpty) ? suggestion : label,
@@ -243,7 +224,7 @@ class _LaneRegularizationDetailsPanelState
         },
       );
       final suggestion = _baseName(uploaded.name);
-      final label = (await _askLabelDialog(suggestion))?.trim();
+      final label = (await askLabelDialog(context, suggestion))?.trim();
       final att = Attachment(
         id: uploaded.name,
         label: (label == null || label.isEmpty) ? suggestion : label,
@@ -327,7 +308,7 @@ class _LaneRegularizationDetailsPanelState
     final list = isGeo ? _geos : _docs;
     if (index < 0 || index >= list.length) return;
     final current = list[index];
-    final newLabel = await _askLabelDialog(current.label);
+    final newLabel = await askLabelDialog(context, current.label);
     if (newLabel == null || newLabel.isEmpty || newLabel == current.label) return;
 
     setState(() {

@@ -1,61 +1,47 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../../_widgets/map/active_road_class.dart';
+import '../../../_widgets/map/polylines/active_road_class.dart';
 
+/// ---------------------------------------------------------------------------
+/// ESTILOS DAS RODOVIAS (PERFORMANCE OTIMIZADA)
+/// ---------------------------------------------------------------------------
 class ActiveRoadsStyle extends ChangeNotifier {
-  static List<ActiveRoadClass> styleLane(String? status, double zoom) {
+  /// calcula largura com cache simples (evita recalcular pow muitas vezes)
+  static double _lane(double zoom, double base, double min, double max) {
+    final v = (base * math.pow(2, (13 - zoom))).toDouble();
+    if (v < min) return min;
+    if (v > max) return max;
+    return v;
+  }
+
+  static List<PolylineClass> styleLane(String? status, double zoom) {
+    final w1 = _lane(zoom, 3.0, 2.5, 8.0);
+    final w2 = _lane(zoom, 2.0, 1.5, 4.0);
+
+    Color surfColor = colorForSurface(status?.toUpperCase() ?? '');
+
     switch (status?.toUpperCase()) {
-      case 'DUP': // DUPLICADA
-        return
-          [
-            ActiveRoadClass(cor: Colors.white, width: (3.0 * math.pow(2, 13 - zoom)).clamp(2.5, 8.0).toDouble()),
-            ActiveRoadClass(cor: colorForSurface('DUP'), width:  (2.0 * math.pow(2, 13 - zoom)).clamp(1.5, 4.0).toDouble()),
-          ];
-      case 'EOD': // EM OBRA DE DUPLICAÇÃO
-        return
-          [
-            ActiveRoadClass(cor: Colors.white, width: (3.0 * math.pow(2, 13 - zoom)).clamp(2.5, 8.0).toDouble()),
-            ActiveRoadClass(cor: colorForSurface('EOD'), width:  (2.0 * math.pow(2, 13 - zoom)).clamp(1.5, 4.0).toDouble()),
-          ];
-      case 'PAV': // PAVIMENTADA
-        return
-          [
-            ActiveRoadClass(cor: Colors.white, width: (3.0 * math.pow(2, 13 - zoom)).clamp(2.5, 8.0).toDouble()),
-            ActiveRoadClass(cor: colorForSurface('PAV'), width:  (2.0 * math.pow(2, 13 - zoom)).clamp(1.5, 4.0).toDouble()),
-          ];
-      case 'EOP': // EM OBRAS DE PAVIMENTAÇÃO
-        return
-          [
-            ActiveRoadClass(cor: Colors.white, width: (3.0 * math.pow(2, 13 - zoom)).clamp(2.5, 8.0).toDouble()),
-            ActiveRoadClass(cor: colorForSurface('EOP'), width:  (2.0 * math.pow(2, 13 - zoom)).clamp(1.5, 4.0).toDouble()),
-          ];
-      case 'IMP': //IMPLANTADA
-        return
-          [
-            ActiveRoadClass(cor: Colors.white, width: (3.0 * math.pow(2, 13 - zoom)).clamp(2.5, 8.0).toDouble()),
-            ActiveRoadClass(cor: colorForSurface('IMP'), width:  (2.0 * math.pow(2, 13 - zoom)).clamp(1.5, 4.0).toDouble()),
-          ];
-      case 'EOI': // EM OBRAS DE IMPLANTAÇÃO
-        return
-          [
-            ActiveRoadClass(cor: Colors.white, width: (3.0 * math.pow(2, 13 - zoom)).clamp(2.5, 8.0).toDouble()),
-            ActiveRoadClass(cor: colorForSurface('EOI'), width:  (2.0 * math.pow(2, 13 - zoom)).clamp(1.5, 4.0).toDouble()),
-          ];
-      case 'PLA': // PLANEJADA
-        return
-          [
-            ActiveRoadClass(cor: Colors.white, width: (3.0 * math.pow(2, 13 - zoom)).clamp(2.5, 8.0).toDouble()),
-            ActiveRoadClass(cor: colorForSurface('PLA'), width:  (2.0 * math.pow(2, 13 - zoom)).clamp(1.5, 4.0).toDouble()),
-          ];
-      case 'LEN': // LEITO NATURAL
-        return
-          [
-            ActiveRoadClass(cor: Colors.white, width: (3.0 * math.pow(2, 13 - zoom)).clamp(2.5, 8.0).toDouble()),
-            ActiveRoadClass(cor: colorForSurface('LEN'), width:  (2.0 * math.pow(2, 13 - zoom)).clamp(1.5, 4.0).toDouble()),
-          ];
-      default:
+      case 'DUP':
+      case 'EOD':
+      case 'PAV':
+      case 'EOP':
+      case 'IMP':
+      case 'EOI':
+      case 'PLA':
+      case 'LEN':
         return [
-          ActiveRoadClass(cor: colorForSurface(''), width: (5.0 * math.pow(2, 1 - zoom)).clamp(1, 10.0).toDouble()),
+          PolylineClass(cor: Colors.white, width: w1),
+          PolylineClass(cor: surfColor, width: w2),
+        ];
+      default:
+        final d = (5.0 * math.pow(2, 1 - zoom))
+            .clamp(1.0, 10.0)
+            .toDouble();
+        return [
+          PolylineClass(
+            cor: colorForSurface(''),
+            width: d,
+          ),
         ];
     }
   }
@@ -71,7 +57,7 @@ class ActiveRoadsStyle extends ChangeNotifier {
       case 'EOI': return Colors.brown.shade300;
       case 'PLA': return Colors.orange.shade300;
       case 'LEN': return Colors.red.shade300;
-      default:    return Colors.grey.shade600;
+      default: return Colors.grey.shade600;
     }
   }
 }

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/tiles/tile_widget.dart';
 import 'package:siged/admPanel/firebase/settings_topic_firebase_page.dart';
 import 'package:siged/admPanel/system/users/manager_permissions_users_page.dart';
-import 'package:siged/info/info_widget.dart';
+import 'package:siged/_widgets/info/info_widget.dart';
 
 import '../../../_widgets/buttons/back_circle_button.dart';
-import '../../../_widgets/upBar/up_bar.dart';
+import '../../../_widgets/menu/upBar/up_bar.dart';
 
 class SettingsTopicSistemaPage extends StatelessWidget {
   const SettingsTopicSistemaPage({super.key});

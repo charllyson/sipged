@@ -1,14 +1,17 @@
-// lib/screens/commons/alerts/alert_validity.dart (ajustado)
+// ==============================
+// lib/screens/commons/alerts/alert_validity.dart
+// ==============================
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/additives/additive_store.dart';
-import 'package:siged/_blocs/process/validity/validity_store.dart';
 
 // NOVO: ler DfdData completo
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+
+// Aditivos via Repository (novo padrão)
+import 'package:siged/_blocs/process/additives/additives_repository.dart';
+import 'package:siged/_blocs/process/additives/additives_data.dart';
 
 class AlertValidity extends StatelessWidget {
   final ProcessData contract;
@@ -24,17 +27,38 @@ class AlertValidity extends StatelessWidget {
     return dfdData;
   }
 
+  /// Calcula a data final do contrato (vigência) com base:
+  /// - publicationDate do contrato
+  /// - initialValidityContract
+  /// - soma de additiveValidityContractDays dos aditivos
+  Future<DateTime?> _loadDataFinalContrato(ProcessData contract) async {
+    final contractId = contract.id;
+    if (contractId == null || contractId.isEmpty) return null;
+    if (contract.publicationDate == null) return null;
+
+    // 🔁 Novo padrão: usar AdditivesRepository, não mais AdditivesBloc
+    final additivesRepo = AdditivesRepository();
+    final List<AdditivesData> aditivos =
+    await additivesRepo.ensureForContract(contractId);
+
+    final int diasValidadeInicial = contract.initialValidityContract ?? 0;
+    final int diasAditivos = aditivos.fold<int>(
+      0,
+          (soma, a) => soma + (a.additiveValidityContractDays ?? 0),
+    );
+
+    final int totalDias = diasValidadeInicial + diasAditivos;
+    return contract.publicationDate!.add(Duration(days: totalDias));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final validityStore = context.read<ValidityStore>();
-    final additivesStore = context.read<AdditivesStore>();
-
     final contractId = contract.id;
     if (contractId == null || contractId.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    // 1) Primeiro buscamos o STATUS do DFD (identificacao.statusContrato)
+    // 1) Primeiro buscamos o STATUS do DFD (ex.: EM ANDAMENTO / A INICIAR / CONCLUÍDO)
     return FutureBuilder<DfdData?>(
       future: _loadDfdStatus(contractId),
       builder: (context, snapStatus) {
@@ -43,35 +67,44 @@ class AlertValidity extends StatelessWidget {
         final status = snapStatus.data?.statusDemanda;
 
         // Mostra ícone só para contratos em andamento ou a iniciar (status do DFD)
-        final elegivel = status == 'EM ANDAMENTO' || status == 'A INICIAR';
+        final elegivel =
+            status == 'EM ANDAMENTO' || status == 'A INICIAR';
         if (!elegivel) return const SizedBox.shrink();
 
-        // 2) Se elegível, calcula a data final do contrato normalmente
+        // 2) Se elegível, calcula a data final do contrato
         return FutureBuilder<DateTime?>(
-          future: validityStore.calcularDataFinalContrato(
-            contract: contract,
-            additivesStore: additivesStore,
-          ),
+          future: _loadDataFinalContrato(contract),
           builder: (context, snapshot) {
             if (!snapshot.hasData) return const SizedBox.shrink();
 
-            final dataFinal = snapshot.data!;
+            final dataFinal = snapshot.data;
+            if (dataFinal == null) return const SizedBox.shrink();
+
             final dias = dataFinal.difference(DateTime.now()).inDays;
 
             if (dias < 0) {
               return Tooltip(
                 message: 'Contrato vencido há ${-dias} dias',
-                child: const Icon(Icons.access_alarm, color: Colors.redAccent),
+                child: const Icon(
+                  Icons.access_alarm,
+                  color: Colors.redAccent,
+                ),
               );
             } else if (dias <= 60) {
               return Tooltip(
                 message: 'Faltam $dias dias',
-                child: const Icon(Icons.access_alarm, color: Colors.orange),
+                child: const Icon(
+                  Icons.access_alarm,
+                  color: Colors.orange,
+                ),
               );
             } else {
               return Tooltip(
                 message: '$dias dias para o vencimento',
-                child: const Icon(Icons.access_alarm, color: Colors.grey),
+                child: const Icon(
+                  Icons.access_alarm,
+                  color: Colors.grey,
+                ),
               );
             }
           },

@@ -1,15 +1,31 @@
+// lib/_widgets/modals/parts/status_row.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_modal_controller.dart';
+
 import 'package:siged/_widgets/schedule/modal/status_chip.dart';
+import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
 
 class ScheduleStatusRow extends StatelessWidget {
-  final bool showSlider; // NOVO (retrocompat: default true)
-  const ScheduleStatusRow({super.key, this.showSlider = true});
+  final bool showSlider; // default true
+  final ScheduleStatus status;
+  final double progress; // 0–100
+  final bool enabled;
+
+  final ValueChanged<ScheduleStatus>? onStatusChanged;
+  final ValueChanged<double>? onProgressChanged;
+
+  const ScheduleStatusRow({
+    super.key,
+    this.showSlider = true,
+    required this.status,
+    required this.progress,
+    this.enabled = true,
+    this.onStatusChanged,
+    this.onProgressChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<ScheduleModalController>();
+    final sliderEnabled = enabled && onProgressChanged != null;
 
     return Column(
       children: [
@@ -20,32 +36,36 @@ class ScheduleStatusRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               StatusChip(
-                selected: c.status,
-                onSelect: (c.picking || c.saving) ? null : c.setStatus,
+                selected: status,
+                onSelect: enabled && onStatusChanged != null
+                    ? onStatusChanged
+                    : null,
               ),
             ],
           ),
         ),
-        if (showSlider) // << só mostra se quiser
+        if (showSlider)
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
             child: Row(
               children: [
                 Expanded(
                   child: Slider(
-                    value: c.progress,
+                    value: progress,
                     min: 0,
                     max: 100,
                     divisions: 100,
-                    label: '${c.progress.round()}%',
-                    onChanged: (c.picking || c.saving) ? null : c.onSliderChanged,
+                    label: '${progress.round()}%',
+                    onChanged: sliderEnabled
+                        ? (v) => onProgressChanged!(v)
+                        : null,
                   ),
                 ),
                 const SizedBox(width: 8),
                 SizedBox(
                   width: 54,
                   child: Text(
-                    '${c.progress.round()}%',
+                    '${progress.round()}%',
                     textAlign: TextAlign.right,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),

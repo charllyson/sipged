@@ -7,7 +7,7 @@ import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/images/photo_circle/photo_circle.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
 
 // Bloc de usuário
 import 'package:siged/_blocs/system/user/user_bloc.dart';

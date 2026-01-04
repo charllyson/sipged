@@ -1,0 +1,16 @@
+{
+  "name": "siged-ifc-bundle",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npx rollup -c rollup.config.mjs"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "web-ifc-viewer": "1.0.217"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "rollup": "^4.24.0"
+  }
+}

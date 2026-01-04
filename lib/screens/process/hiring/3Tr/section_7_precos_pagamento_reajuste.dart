@@ -1,19 +1,88 @@
+// lib/screens/process/hiring/3Tr/section_7_precos_pagamento_reajuste.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_blocs/process/hiring/3Tr/tr_controller.dart';
+import 'package:siged/_blocs/process/hiring/3Tr/tr_data.dart';
 
-class SectionPrecosPagamentoReajuste extends StatelessWidget {
-  const SectionPrecosPagamentoReajuste({super.key});
+class SectionPrecosPagamentoReajuste extends StatefulWidget {
+  final bool isEditable;
+  final TrData data;
+  final void Function(TrData updated) onChanged;
+
+  const SectionPrecosPagamentoReajuste({
+    super.key,
+    required this.isEditable,
+    required this.data,
+    required this.onChanged,
+  });
+
+  @override
+  State<SectionPrecosPagamentoReajuste> createState() =>
+      _SectionPrecosPagamentoReajusteState();
+}
+
+class _SectionPrecosPagamentoReajusteState
+    extends State<SectionPrecosPagamentoReajuste> {
+  late final TextEditingController _estimativaValorCtrl;
+  late final TextEditingController _reajusteIndiceCtrl;
+  late final TextEditingController _condicoesPagamentoCtrl;
+  late final TextEditingController _garantiaCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.data;
+    _estimativaValorCtrl =
+        TextEditingController(text: d.estimativaValor ?? '');
+    _reajusteIndiceCtrl =
+        TextEditingController(text: d.reajusteIndice ?? '');
+    _condicoesPagamentoCtrl =
+        TextEditingController(text: d.condicoesPagamento ?? '');
+    _garantiaCtrl = TextEditingController(text: d.garantia ?? '');
+  }
+
+  @override
+  void didUpdateWidget(
+      covariant SectionPrecosPagamentoReajuste oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      final d = widget.data;
+      void _sync(TextEditingController c, String? v) {
+        final nv = v ?? '';
+        if (c.text != nv) c.text = nv;
+      }
+
+      _sync(_estimativaValorCtrl, d.estimativaValor);
+      _sync(_reajusteIndiceCtrl, d.reajusteIndice);
+      _sync(_condicoesPagamentoCtrl, d.condicoesPagamento);
+      _sync(_garantiaCtrl, d.garantia);
+    }
+  }
+
+  @override
+  void dispose() {
+    _estimativaValorCtrl.dispose();
+    _reajusteIndiceCtrl.dispose();
+    _condicoesPagamentoCtrl.dispose();
+    _garantiaCtrl.dispose();
+    super.dispose();
+  }
+
+  void _emitChange() {
+    final updated = widget.data.copyWith(
+      estimativaValor: _estimativaValorCtrl.text,
+      reajusteIndice: _reajusteIndiceCtrl.text,
+      condicoesPagamento: _condicoesPagamentoCtrl.text,
+      garantia: _garantiaCtrl.text,
+    );
+    widget.onChanged(updated);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<TrController>();
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final w4 = inputW4(context, constraints);
@@ -21,7 +90,7 @@ class SectionPrecosPagamentoReajuste extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionTitle('7) Preços, Pagamento, Reajuste e Garantia'),
+            const SectionTitle(text: '7) Preços, Pagamento, Reajuste e Garantia'),
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -29,43 +98,58 @@ class SectionPrecosPagamentoReajuste extends StatelessWidget {
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
-                    controller: c.trEstimativaValorCtrl,
+                    controller: _estimativaValorCtrl,
                     labelText: 'Estimativa de valor (R\$)',
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     keyboardType: TextInputType.number,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
                 SizedBox(
                   width: w4,
                   child: DropDownButtonChange(
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     labelText: 'Critério de reajuste',
-                    controller: c.trReajusteIndiceCtrl,
-                    items: const ['IPCA', 'INCC', 'IGP-M', 'Sem reajuste'],
-                    onChanged: (v) => c.trReajusteIndiceCtrl.text = v ?? '',
+                    controller: _reajusteIndiceCtrl,
+                    items: const [
+                      'IPCA',
+                      'INCC',
+                      'IGP-M',
+                      'Sem reajuste',
+                    ],
+                    onChanged: (v) {
+                      _reajusteIndiceCtrl.text = v ?? '';
+                      _emitChange();
+                      setState(() {});
+                    },
                   ),
                 ),
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
-                    controller: c.trCondicoesPagamentoCtrl,
+                    controller: _condicoesPagamentoCtrl,
                     labelText: 'Condições de pagamento',
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
+                    onChanged: (_) => _emitChange(),
                   ),
                 ),
                 SizedBox(
                   width: w4,
                   child: DropDownButtonChange(
-                    enabled: c.isEditable,
+                    enabled: widget.isEditable,
                     labelText: 'Garantia contratual',
-                    controller: c.trGarantiaCtrl,
+                    controller: _garantiaCtrl,
                     items: const [
                       'Não exigida',
                       'Caução em dinheiro',
                       'Seguro-garantia',
                       'Fiança bancária',
                     ],
-                    onChanged: (v) => c.trGarantiaCtrl.text = v ?? '',
+                    onChanged: (v) {
+                      _garantiaCtrl.text = v ?? '';
+                      _emitChange();
+                      setState(() {});
+                    },
                   ),
                 ),
               ],

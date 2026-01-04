@@ -7,6 +7,7 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 // ✅ notificações ricas
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class FieldMapping {
   final TextEditingController oldFieldCtrl;
@@ -118,7 +119,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                             children: [
                               ElevatedButton.icon(
                                 onPressed: () async {
-                                  final confirmar = await _confirmarAcao(
+                                  final confirmar = await confirmDialog(context,
                                     'Deseja realmente renomear esta coleção? Essa ação não pode ser desfeita.',
                                   );
                                   if (confirmar) _copiarColecao();
@@ -130,7 +131,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                               const SizedBox(height: 12),
                               ElevatedButton.icon(
                                 onPressed: () async {
-                                  final confirmar = await _confirmarAcao(
+                                  final confirmar = await confirmDialog(context,
                                     'Deseja realmente transformar os arrays em subcoleções e remover os arrays originais?',
                                   );
                                   if (confirmar) await _replicarECriarColecoesDeArrays();
@@ -196,7 +197,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
                                 children: [
                                   ElevatedButton.icon(
                                     onPressed: () async {
-                                      final confirmar = await _confirmarAcao(
+                                      final confirmar = await confirmDialog(context,
                                         'Deseja realmente renomear esta subcoleção? A subcoleção original será apagada.',
                                       );
                                       if (confirmar) _replicarSubcolecao(pair['old']!.text.trim(), pair['new']!.text.trim());
@@ -727,7 +728,7 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
           onPressed: () async {
-            final confirmar = await _confirmarAcao(
+            final confirmar = await confirmDialog(context,
               _ultimaSubcolecaoBuscada != null
                   ? 'Deseja renomear os campos da subcoleção "${_ultimaSubcolecaoBuscada!}"?'
                   : 'Tem certeza que deseja renomear os campos da coleção principal?',
@@ -818,19 +819,5 @@ class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
       str = str.replaceAll(com[i], sem[i]);
     }
     return str;
-  }
-
-  Future<bool> _confirmarAcao(String mensagem) async {
-    return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar ação'),
-        content: Text(mensagem),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Confirmar')),
-        ],
-      ),
-    ) ?? false;
   }
 }

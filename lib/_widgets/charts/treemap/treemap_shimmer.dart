@@ -1,3 +1,4 @@
+// lib/_widgets/charts/treemap/treemap_shimmer.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -6,7 +7,7 @@ enum TreemapShimDirection { vertical, horizontal }
 class TreemapShimmer extends StatelessWidget {
   const TreemapShimmer({
     super.key,
-    this.altura = 220,
+    this.altura = 300,
     this.cardWidth,
     this.legendItems = 8,
     this.borderRadius = 14,
@@ -17,10 +18,10 @@ class TreemapShimmer extends StatelessWidget {
     this.extraWidthFactor = 2.2, // quão mais largo que a tela
   });
 
-  /// Altura do grid (o card inteiro terá ~altura + padding)
+  /// Altura do grid (a área interna do shimmer)
   final double altura;
 
-  /// Largura fixa do card (se null, usa toda largura do pai)
+  /// Largura “alvo” do conteúdo (pode vir do LayoutBuilder)
   final double? cardWidth;
 
   /// Quantos itens “falsos” na legenda
@@ -43,23 +44,17 @@ class TreemapShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final card = Card(
-      color: Colors.white,
-      clipBehavior: Clip.antiAlias,
-      elevation: 4,
-      child: Padding(
-        padding: padding,
-        child: direction == TreemapShimDirection.horizontal
-            ? _buildHorizontal(context)
-            : _buildVertical(context),
-      ),
+    // Nada de Card aqui – só o conteúdo; o BasicCard é o wrapper.
+    final content = Padding(
+      padding: padding,
+      child: direction == TreemapShimDirection.horizontal
+          ? _buildHorizontal(context)
+          : _buildVertical(context),
     );
 
     return SizedBox(
-      width: cardWidth,
-      child: cardWidth == null
-          ? card
-          : Align(alignment: Alignment.topLeft, child: card),
+      width: cardWidth ?? double.infinity,
+      child: content,
     );
   }
 
@@ -94,7 +89,7 @@ class TreemapShimmer extends StatelessWidget {
                     painter: _BlocksPainter(
                       base: Colors.grey.shade300,
                       borderRadius: 8,
-                      values: [40, 25, 15, 10, 5, 5], // simulação dos pesos
+                      values: const [40, 25, 15, 10, 5, 5], // pesos fake
                     ),
                     size: Size(double.infinity, altura),
                   ),
@@ -102,7 +97,11 @@ class TreemapShimmer extends StatelessWidget {
 
                 return SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: SizedBox(width: baseWidth, height: altura, child: grid),
+                  child: SizedBox(
+                    width: baseWidth,
+                    height: altura,
+                    child: grid,
+                  ),
                 );
               },
             ),
@@ -159,7 +158,8 @@ class _FakeTreemapGrid extends StatelessWidget {
       return CustomPaint(
         painter: _BlocksPainter(
           base: _base(context),
-          borderRadius: borderRadius, values: List.generate(cuts, (_) => 100),
+          borderRadius: borderRadius,
+          values: List.generate(cuts, (_) => 100),
         ),
         child: SizedBox(height: height, width: w),
       );
@@ -170,7 +170,6 @@ class _FakeTreemapGrid extends StatelessWidget {
       Theme.of(context).brightness == Brightness.dark
           ? Colors.white.withOpacity(.10)
           : Colors.grey.shade300;
-
 }
 
 class _BlocksPainter extends CustomPainter {
@@ -234,7 +233,6 @@ List<Rect> _squarify(List<double> values, Rect bounds) {
   return rects;
 }
 
-
 // -------------------- SHIMMER --------------------
 
 class _Shimmer extends StatefulWidget {
@@ -246,7 +244,8 @@ class _Shimmer extends StatefulWidget {
   State<_Shimmer> createState() => _ShimmerState();
 }
 
-class _ShimmerState extends State<_Shimmer> with SingleTickerProviderStateMixin {
+class _ShimmerState extends State<_Shimmer>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
@@ -272,8 +271,16 @@ class _ShimmerState extends State<_Shimmer> with SingleTickerProviderStateMixin 
           begin: Alignment(-1 + 2 * _ctrl.value, 0),
           end: Alignment(1 + 2 * _ctrl.value, 0),
           colors: isDark
-              ? [Colors.white.withOpacity(.10), Colors.white.withOpacity(.24), Colors.white.withOpacity(.10)]
-              : [Colors.grey.shade300, Colors.grey.shade100, Colors.grey.shade300],
+              ? [
+            Colors.white.withOpacity(.10),
+            Colors.white.withOpacity(.24),
+            Colors.white.withOpacity(.10),
+          ]
+              : [
+            Colors.grey.shade300,
+            Colors.grey.shade100,
+            Colors.grey.shade300,
+          ],
           stops: const [0.25, 0.5, 0.75],
         );
         return ShaderMask(
@@ -306,12 +313,22 @@ class _LegendWrap extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 12, height: 12, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: base,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
             const SizedBox(width: 8),
             Container(
               width: 58 + (i % 3) * 18,
               height: 12,
-              decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4)),
+              decoration: BoxDecoration(
+                color: base,
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ],
         );
@@ -338,12 +355,22 @@ class _LegendColumn extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 12, height: 12, decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4))),
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: base,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
               const SizedBox(width: 8),
               Container(
                 width: 90 + (i % 4) * 22,
                 height: 12,
-                decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(
+                  color: base,
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ],
           ),

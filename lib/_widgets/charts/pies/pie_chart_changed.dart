@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+
 import 'pie_chart_shimmer_widget.dart';
 import 'pie_chart_legend.dart';
+
+import 'package:siged/_widgets/cards/basic/basic_card.dart';
 
 enum ValueFormatType { monetary, decimal, integer }
 
@@ -18,8 +21,16 @@ class PieChartChanged extends StatefulWidget {
   final List<Color>? coresPersonalizadas;
   final void Function(String? label)? onTapLabel;
   final String? selectedLabel;
+
+  /// Labels das fatias
   final List<String> labels;
+
+  /// Valores TOTAIS de cada fatia (usados para o desenho/percentual)
   final List<double> values;
+
+  /// Valores FILTRADOS de cada fatia (para opacidade)
+  final List<double>? filteredValues;
+
   final ValueFormatType valueFormatType;
   final Color? colorCard;
 
@@ -57,6 +68,7 @@ class PieChartChanged extends StatefulWidget {
     this.valueFormatType = ValueFormatType.monetary,
     required this.labels,
     required this.values,
+    this.filteredValues,
     this.colorCard = Colors.white,
     this.chartHeight,
     this.sliceRadius,
@@ -127,11 +139,92 @@ class _PieChartChangedState extends State<PieChartChanged> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.labels.isEmpty ||
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Gradiente padrão igual aos outros cards
+    final Gradient gradient = isDark
+        ? const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color(0xFF101018),
+        Color(0xFF171924),
+      ],
+    )
+        : const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Colors.white,
+        Color(0xFFF5F7FB),
+      ],
+    );
+
+    final bool hasBasicsInvalid = widget.labels.isEmpty ||
         widget.values.isEmpty ||
-        widget.labels.length != widget.values.length) {
-      return const PieChartShimmerWidget();
+        widget.labels.length != widget.values.length;
+
+    final total = widget.values.fold<double>(0, (sum, e) => sum + e);
+    final bool totalZero = total == 0;
+
+    final bool showShimmer = hasBasicsInvalid || totalZero;
+
+    // ==========
+    // SHIMMER
+    // ==========
+    if (showShimmer) {
+      final chartWidth = widget.larguraGrafico ?? 260;
+
+      final Widget legendShimmer = widget.useExternalLegend
+          ? SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            const SizedBox(width: 8),
+            PieChartLegendShimmerWidget(
+              isDark: isDark,
+              itemCount: 5,
+              height: 44,
+              // largura aproximada dos “chips” da legenda
+              itemMinWidth: 130,
+              spacing: 10,
+            ),
+          ],
+        ),
+      )
+          : const SizedBox.shrink();
+
+      return SizedBox(
+        width: widget.larguraCard,
+        height: widget.alturaCard,
+        child: BasicCard(
+          isDark: isDark,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          gradient: gradient,
+          enableShadow: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: PieChartShimmerWidget(
+                  isDark: isDark,
+                  largura: chartWidth,
+                  altura: _chartHeight, // IMPORTANT: igual ao chart real
+                ),
+              ),
+              const SizedBox(height: 12), // IMPORTANT: igual ao layout real
+              if (widget.useExternalLegend) legendShimmer,
+            ],
+          ),
+        ),
+      );
     }
+
+    // ======================
+    // GRÁFICO COM DADOS
+    // ======================
     if (cores.length != widget.values.length) {
       _ensureColors(widget.values.length);
     }
@@ -142,26 +235,27 @@ class _PieChartChangedState extends State<PieChartChanged> {
         ? widget.selectedIndex
         : null;
 
-    final total = widget.values.fold<double>(0, (sum, e) => sum + e);
-    if (total == 0) return const PieChartShimmerWidget();
+    // Flags para série filtrada
+    final bool hasFilteredSeries =
+        widget.filteredValues != null && widget.filteredValues!.isNotEmpty;
+    final bool hasAnyFilteredValue =
+        hasFilteredSeries && widget.filteredValues!.any((v) => v > 0);
 
     // ----- Segurança contra overflow: ajuste de raios por altura disponível -----
-    // raio máximo possível dentro da altura do chart
     final double maxOuter = (_chartHeight / 2) - 12.0; // 12px de folga
 
-    // aplica clamps
     double baseSlice = _sliceRadiusBaseRaw.clamp(0.0, maxOuter);
     double hiSlice = _sliceRadiusHiRaw.clamp(baseSlice, maxOuter);
 
-    // se for desenhar labels fora, reduza levemente os raios para evitar clipping
     if (widget.showPercentageOutside) {
       baseSlice = (baseSlice * 0.92).clamp(0.0, maxOuter);
       hiSlice = (hiSlice * 0.92).clamp(baseSlice, maxOuter);
     }
 
-    // furo central também limitado por baseSlice
-    final double centerSpaceRadius =
-    _centerSpaceRadiusRaw.clamp(0.0, (baseSlice - 10.0).clamp(0.0, baseSlice));
+    final double centerSpaceRadius = _centerSpaceRadiusRaw.clamp(
+      0.0,
+      (baseSlice - 10.0).clamp(0.0, baseSlice),
+    );
 
     final chart = SizedBox(
       height: _chartHeight,
@@ -204,10 +298,22 @@ class _PieChartChangedState extends State<PieChartChanged> {
             final isSelectedProp =
                 (safeSelectedIndex != null && i == safeSelectedIndex) ||
                     (widget.selectedLabel != null &&
-                        label.toUpperCase() == widget.selectedLabel!.toUpperCase());
+                        label.toUpperCase() ==
+                            widget.selectedLabel!.toUpperCase());
 
             final isTouchedLocal = (touchedIndex == i);
             final isHighlighted = isSelectedProp || isTouchedLocal;
+
+            double filteredValue;
+            if (widget.filteredValues != null &&
+                i < widget.filteredValues!.length) {
+              filteredValue = widget.filteredValues![i];
+            } else {
+              filteredValue = value;
+            }
+
+            final bool hasSomeFilter = hasFilteredSeries && hasAnyFilteredValue;
+            final bool isInFilter = filteredValue > 0.0;
 
             final percentual = (value / total) * 100;
             final showInside = percentual >= widget.minPercentForLabel;
@@ -218,8 +324,23 @@ class _PieChartChangedState extends State<PieChartChanged> {
                 : '${percentual.toStringAsFixed(0)}%')
                 : '';
 
+            final Color baseColor = cores[i];
+
+            Color color;
+            if (value == 0) {
+              color = baseColor.withOpacity(0.15);
+            } else if (isHighlighted) {
+              color = baseColor;
+            } else if (hasSomeFilter && !isInFilter) {
+              color = baseColor.withOpacity(0.30);
+            } else if (hasSomeFilter && isInFilter) {
+              color = baseColor.withOpacity(0.85);
+            } else {
+              color = baseColor;
+            }
+
             return PieChartSectionData(
-              color: cores[i],
+              color: color,
               value: value,
               title: titleText,
               radius: isHighlighted ? hiSlice : baseSlice,
@@ -237,37 +358,31 @@ class _PieChartChangedState extends State<PieChartChanged> {
       ),
     );
 
-    final double legendWidthTarget =
-        widget.larguraGrafico ?? widget.larguraCard ?? double.infinity;
-
     final Widget legendWidget = widget.useExternalLegend
-        ? SizedBox(
-      width: legendWidthTarget,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            const SizedBox(width: 8),
-            PieChartLegend(
-              labels: widget.labels,
-              values: widget.values,
-              total: total,
-              cores: cores,
-              touchedIndex: touchedIndex,
-              valueFormatType: widget.valueFormatType,
-              onLegendTap: (index) {
-                setState(() => touchedIndex = index);
-                if (index == null) {
-                  widget.onTouch?.call(null);
-                  widget.onTapLabel?.call(null);
-                } else {
-                  widget.onTouch?.call(index);
-                  widget.onTapLabel?.call(widget.labels[index]);
-                }
-              },
-            ),
-          ],
-        ),
+        ? SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          const SizedBox(width: 8),
+          PieChartLegend(
+            labels: widget.labels,
+            values: widget.values,
+            total: total,
+            cores: cores,
+            touchedIndex: touchedIndex,
+            valueFormatType: widget.valueFormatType,
+            onLegendTap: (index) {
+              setState(() => touchedIndex = index);
+              if (index == null) {
+                widget.onTouch?.call(null);
+                widget.onTapLabel?.call(null);
+              } else {
+                widget.onTouch?.call(index);
+                widget.onTapLabel?.call(widget.labels[index]);
+              }
+            },
+          ),
+        ],
       ),
     )
         : const SizedBox.shrink();
@@ -275,21 +390,19 @@ class _PieChartChangedState extends State<PieChartChanged> {
     return SizedBox(
       width: widget.larguraCard,
       height: widget.alturaCard,
-      child: Card(
-        color: widget.colorCard,
-        elevation: 4,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              chart,
-              const SizedBox(height: 12),
-              if (widget.useExternalLegend) ...[
-                legendWidget,
-              ],
-            ],
-          ),
+      child: BasicCard(
+        isDark: isDark,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
+        gradient: gradient,
+        enableShadow: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            chart,
+            const SizedBox(height: 12),
+            if (widget.useExternalLegend) legendWidget,
+          ],
         ),
       ),
     );

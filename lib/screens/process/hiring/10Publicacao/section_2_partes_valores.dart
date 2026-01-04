@@ -54,11 +54,29 @@ class _SectionPartesValoresVigenciaState
   void didUpdateWidget(covariant SectionPartesValoresVigencia oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      _contratadaRazaoCtrl.text = widget.data.contratadaRazao ?? '';
-      _contratadaCnpjCtrl.text = widget.data.contratadaCnpj ?? '';
-      _cnoCtrl.text = widget.data.cnoRef ?? '';
-      _valorCtrl.text = widget.data.valor?.toString() ?? '';
-      _vigenciaCtrl.text = widget.data.vigencia?.toString() ?? '';
+      final d = widget.data;
+
+      final contratadaRazao = d.contratadaRazao ?? '';
+      final contratadaCnpj = d.contratadaCnpj ?? '';
+      final cnoRef = d.cnoRef ?? '';
+      final valorStr = d.valor?.toString() ?? '';
+      final vigenciaStr = d.vigencia?.toString() ?? '';
+
+      if (_contratadaRazaoCtrl.text != contratadaRazao) {
+        _contratadaRazaoCtrl.text = contratadaRazao;
+      }
+      if (_contratadaCnpjCtrl.text != contratadaCnpj) {
+        _contratadaCnpjCtrl.text = contratadaCnpj;
+      }
+      if (_cnoCtrl.text != cnoRef) {
+        _cnoCtrl.text = cnoRef;
+      }
+      if (_valorCtrl.text != valorStr) {
+        _valorCtrl.text = valorStr;
+      }
+      if (_vigenciaCtrl.text != vigenciaStr) {
+        _vigenciaCtrl.text = vigenciaStr;
+      }
     }
   }
 
@@ -109,7 +127,7 @@ class _SectionPartesValoresVigenciaState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('2) Partes, Valores e Vigência'),
+        const SectionTitle(text: '2) Partes, Valores e Vigência'),
         LayoutBuilder(
           builder: (context, constraints) {
             final w5 = inputW5(context, constraints);

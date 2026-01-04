@@ -1,63 +1,53 @@
 // lib/_blocs/process/hiring/10Publicacao/publicacao_extrato_state.dart
-
-part of 'publicacao_extrato_bloc.dart';
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
+import 'publicacao_extrato_sections.dart';
 
 class PublicacaoExtratoState {
   final bool loading;
   final bool saving;
+  final bool saveSuccess;
   final String? error;
 
   final String? pubId;
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
-
-  final bool saveSuccess;
-
-  bool get hasValidPath => pubId != null && sectionIds.isNotEmpty;
+  final SectionIds sectionIds;     // Map<String, String>
+  final SectionsMap sectionsData;  // Map<String, Map<String, dynamic>>
 
   const PublicacaoExtratoState({
-    required this.loading,
-    required this.saving,
-    required this.error,
-    required this.pubId,
-    required this.sectionIds,
-    required this.sectionsData,
-    required this.saveSuccess,
+    this.loading = false,
+    this.saving = false,
+    this.saveSuccess = false,
+    this.error,
+    this.pubId,
+    this.sectionIds = const {},
+    this.sectionsData = const {},
   });
 
-  factory PublicacaoExtratoState.initial() =>
-      const PublicacaoExtratoState(
-        loading: false,
-        saving: false,
-        error: null,
-        pubId: null,
-        sectionIds: {},
-        sectionsData: {},
-        saveSuccess: false,
-      );
+  factory PublicacaoExtratoState.initial() => const PublicacaoExtratoState();
+
+  bool get hasValidPath => pubId != null && sectionIds.isNotEmpty;
 
   PublicacaoExtratoState copyWith({
     bool? loading,
     bool? saving,
+    bool? saveSuccess,
     String? error,
     String? pubId,
     SectionIds? sectionIds,
     SectionsMap? sectionsData,
-    bool? saveSuccess,
   }) {
     return PublicacaoExtratoState(
       loading: loading ?? this.loading,
       saving: saving ?? this.saving,
-      // passa error explicitamente (pode ser null para limpar)
+      saveSuccess: saveSuccess ?? this.saveSuccess,
+      // error sempre passado explicitamente (pode ser null para limpar)
       error: error,
       pubId: pubId ?? this.pubId,
       sectionIds: sectionIds ?? this.sectionIds,
       sectionsData: sectionsData ?? this.sectionsData,
-      saveSuccess: saveSuccess ?? this.saveSuccess,
     );
   }
 
-  /// atalho para anexos na seção "veiculo"
+  /// Atalho para anexos na seção "veiculo"
   String? get currentVeiculoDocId =>
       sectionIds[PublicacaoExtratoSections.veiculo];
 }

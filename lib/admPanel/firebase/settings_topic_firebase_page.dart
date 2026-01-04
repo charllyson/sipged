@@ -10,10 +10,11 @@ import 'package:siged/_services/firestore/firebase_utils.dart';
 import 'package:siged/_services/excel/excel_import_controller.dart';
 import 'package:siged/_widgets/info/section_header.dart';
 import 'package:siged/_widgets/info/tip_box.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/tiles/tile_widget.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';
-import '../../_widgets/upBar/up_bar.dart';
+import '../../_widgets/menu/upBar/up_bar.dart';
 
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
@@ -237,12 +238,9 @@ Future<String?> _askPath(BuildContext context, {String? hint}) async {
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('Informe o caminho da coleção'),
-      content: TextField(
+      content: CustomTextField(
         controller: controller,
-        decoration: InputDecoration(
-          labelText: hint ?? 'Ex: actives_oaes ou process/abc123/accidents',
-          border: const OutlineInputBorder(),
-        ),
+        labelText: hint ?? 'Ex: actives_oaes ou process/abc123/accidents',
       ),
       actions: [
         TextButton(

@@ -2,13 +2,6 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_blocs/actives/oaes/active_oaes_style.dart';
-
-// 👇 GeoJSON
-import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
-import 'package:siged/_services/geoJson/geo_json_manager.dart';
 
 enum ActiveOaesLoadStatus { idle, loading, success, failure }
 
@@ -31,16 +24,15 @@ class ActiveOaesState extends Equatable {
   /// >>> FILTROS <<<
   /// Índice da fatia no pie (0..5) – ou null (sem filtro)
   final int? selectedPieIndexFilter;
+
   /// Rótulo da região (ex.: "SERTÃO") – ou null (sem filtro)
   final String? selectedRegionFilter;
 
-  // ========= GeoJSON no State =========
-  /// Polígonos regionais carregados (para o mapa).
-  final List<PolygonChanged> regionalPolygons;
-  /// Cores por região (chave deve casar com o nome do GeoJSON).
-  final Map<String, Color> regionColors;
-  /// Flag de carregamento do GeoJSON.
-  final bool geoLoaded;
+  /// >>> REGIÕES (Setup) <<<
+  /// Labels das regiões vindas do Setup (company/órgão atual).
+  ///
+  /// Essa lista passa a ser a FONTE ÚNICA de rótulos de região (não mais HiringData.regions).
+  final List<String> regionLabels;
 
   ActiveOaesState({
     this.initialized = false,
@@ -53,11 +45,7 @@ class ActiveOaesState extends Equatable {
     this.selectedIndex,
     this.selectedPieIndexFilter,
     this.selectedRegionFilter,
-
-    // Geo
-    this.regionalPolygons = const <PolygonChanged>[],
-    this.regionColors = const <String, Color>{},
-    this.geoLoaded = false,
+    this.regionLabels = const [],
   }) : form = form ?? ActiveOaesData();
 
   ActiveOaesState copyWith({
@@ -74,10 +62,8 @@ class ActiveOaesState extends Equatable {
     Object? selectedPieIndexFilter = _unset,
     Object? selectedRegionFilter = _unset,
 
-    // Geo
-    List<PolygonChanged>? regionalPolygons,
-    Map<String, Color>? regionColors,
-    bool? geoLoaded,
+    /// Regiões vindas do Setup
+    List<String>? regionLabels,
   }) {
     return ActiveOaesState(
       initialized: initialized ?? this.initialized,
@@ -94,31 +80,8 @@ class ActiveOaesState extends Equatable {
       selectedRegionFilter: identical(selectedRegionFilter, _unset)
           ? this.selectedRegionFilter
           : selectedRegionFilter as String?,
-
-      // Geo
-      regionalPolygons: regionalPolygons ?? this.regionalPolygons,
-      regionColors: regionColors ?? this.regionColors,
-      geoLoaded: geoLoaded ?? this.geoLoaded,
+      regionLabels: regionLabels ?? this.regionLabels,
     );
-  }
-
-  /// Helper para aplicar o GeoJsonManager no state (sincrônico).
-  ActiveOaesState withGeoManager(GeoJsonManager gm) {
-    return copyWith(
-      regionalPolygons: gm.regionalPolygons,
-      regionColors: gm.regionColors,
-      geoLoaded: true,
-    );
-  }
-
-  /// Helper assíncrono para carregar e aplicar os dados regionais.
-  static Future<ActiveOaesState> loadGeoRegionals(
-      ActiveOaesState state,
-      GeoJsonManager gm,
-      ) async {
-    // mesmo método que você usa no DashboardController
-    await gm.loadLimitsRegionalsPolygonDERAL();
-    return state.withGeoManager(gm);
   }
 
   @override
@@ -133,10 +96,7 @@ class ActiveOaesState extends Equatable {
     selectedIndex,
     selectedPieIndexFilter,
     selectedRegionFilter,
-    // Geo
-    regionalPolygons,
-    regionColors,
-    geoLoaded,
+    regionLabels,
   ];
 
   // ===========================================================================
@@ -158,13 +118,19 @@ class ActiveOaesState extends Equatable {
     return all.indexWhere((o) => (o.score ?? -1).toInt() == scoreInt);
   }
 
-  List<({Color color, String labelText, int score, double value})> get _pieItems {
+  List<({Color color, String labelText, int score, double value})>
+  get _pieItems {
     final counts = _countByScore;
     return _pieScoresOrder.map((score) {
       final qtd = counts[score] ?? 0;
-      final label = OaesDataStyle.getLabelByNota(score);
-      final color = OaesDataStyle.getColorByNota(score.toDouble());
-      return (score: score, labelText: label, value: qtd.toDouble(), color: color);
+      final label = ActiveOaesData.getLabelByNota(score);
+      final color = ActiveOaesData.getColorByNota(score.toDouble());
+      return (
+      score: score,
+      labelText: label,
+      value: qtd.toDouble(),
+      color: color,
+      );
     }).toList(growable: false);
   }
 
@@ -214,12 +180,14 @@ class ActiveOaesState extends Equatable {
   }
 
   // ===========================================================================
-  // REGIÕES (Bar Chart)
+  // REGIÕES (Bar Chart) - AGORA VINDO DO SETUPDATA
   // ===========================================================================
-  List<String> get regionLabels => HiringData.regions;
+  /// Labels de região usados pelos gráficos/barras.
+  /// Preenchidos via `ActiveOaesCubit.syncRegionsFromSetup`.
+  List<String> get regionLabelsForCharts => regionLabels;
 
   List<double> get regionCounts {
-    final labels = regionLabels;
+    final labels = regionLabelsForCharts;
     final values = <double>[];
     for (final label in labels) {
       final rUp = label.toUpperCase();
@@ -232,7 +200,7 @@ class ActiveOaesState extends Equatable {
 
   /// Contagens por região filtradas por uma nota (score) específica.
   List<double> regionCountsFiltered({int? score}) {
-    final labels = regionLabels;
+    final labels = regionLabelsForCharts;
     final values = <double>[];
     for (final label in labels) {
       final rUp = label.toUpperCase();
@@ -249,7 +217,7 @@ class ActiveOaesState extends Equatable {
   }
 
   List<double> get regionTotalsByValue {
-    final labels = regionLabels;
+    final labels = regionLabelsForCharts;
     final values = <double>[];
     for (final label in labels) {
       final rUp = label.toUpperCase();
@@ -302,7 +270,7 @@ class ActiveOaesState extends Equatable {
 
   /// Totais por região levando em conta o score selecionado no pie (se houver)
   List<double> regionCountsFilteredByPie() {
-    final labels = regionLabels;
+    final labels = regionLabelsForCharts;
     final scoreFilter = _scoreFilterOrNull;
     final values = <double>[];
 
@@ -320,7 +288,7 @@ class ActiveOaesState extends Equatable {
     return values;
   }
 
-  /// Conveniência para o MapInteractivePage (seleção a espelhar no mapa)
+  /// Conveniência para o MapInteractivePage (se ainda quiser espelhar região selecionada)
   List<String>? get selectedRegionNamesForMap =>
       selectedRegionFilter == null ? null : [selectedRegionFilter!];
 
@@ -355,9 +323,9 @@ class ActiveOaesState extends Equatable {
     final values = <double>[];
     final colors = <Color>[];
     for (final score in order) {
-      labels.add(OaesDataStyle.getLabelByNota(score));
+      labels.add(ActiveOaesData.getLabelByNota(score));
       values.add((counts[score] ?? 0).toDouble());
-      colors.add(OaesDataStyle.getColorByNota(score.toDouble()));
+      colors.add(ActiveOaesData.getColorByNota(score.toDouble()));
     }
     final total = values.fold<double>(0.0, (acc, v) => acc + v);
     return PieVM(labels: labels, values: values, colors: colors, total: total);
@@ -415,7 +383,7 @@ class ActiveOaesState extends Equatable {
         extensionStr: _fmtNum(a.extension),
         widthStr: _fmtNum(a.width),
         areaStr: _fmtNum(a.area),
-        structureType: a.structureType ?? '-',
+        structureType: a.estructureType ?? '-',
         relatedContracts: a.relatedContracts ?? '-',
         valueInterventionStr: _fmtMoneyBR(a.valueIntervention),
         linearCostMediaStr: _fmtMoneyBR(a.linearCostMedia),

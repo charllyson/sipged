@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'process_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
+// 🔹 Regras de permissão centralizadas
+import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+
 /// Store central de contratos (ProcessData).
 /// Mantém um cache em memória e avisa listeners via ChangeNotifier.
 class ProcessStore extends ChangeNotifier {
@@ -18,11 +22,7 @@ class ProcessStore extends ChangeNotifier {
   /// Lista imutável de contratos carregados
   List<ProcessData> get all => List.unmodifiable(_all);
 
-  /// Contrato atualmente selecionado (quando aplicável)
-  ProcessData? get selected => _selected;
-
-  /// Warmup inicial, chamado uma única vez a partir do MenuListPage.
-  /// Usa o usuário atual para aplicar ACL básica (admin vê tudo).
+  /// Usa o usuário atual para aplicar ACL básica (via regras centralizadas).
   Future<void> warmup(UserData currentUser) async {
     if (initialized) return;
     await refresh(currentUser: currentUser);
@@ -30,7 +30,6 @@ class ProcessStore extends ChangeNotifier {
   }
 
   /// Recarrega a lista de contratos do Firestore.
-  /// Se `currentUser` for informado, aplica filtro de ACL.
   Future<void> refresh({UserData? currentUser}) async {
     if (loading) return;
 
@@ -46,53 +45,46 @@ class ProcessStore extends ChangeNotifier {
         try {
           loaded.add(ProcessData.fromDocument(snapshot: doc));
         } catch (e, st) {
-          if (kDebugMode) {
-            // Se UM documento der erro, não derrubamos a lista inteira
-            print(
-              'ProcessStore.refresh: erro ao converter contrato ${doc.id}: $e\n$st',
-            );
-          }
         }
       }
 
+      // 🔹 Aplica ACL usando a MESMA regra do sistema (userCanOnContract)
       final filtered = _applyAclFilter(loaded, currentUser);
 
       _all
         ..clear()
         ..addAll(filtered);
     } catch (e, st) {
-      if (kDebugMode) {
-        // Ajuda em debug caso algo dê MUITO errado na leitura
-        print('ProcessStore.refresh error: $e\n$st');
-      }
     } finally {
       loading = false;
       notifyListeners();
     }
   }
 
-  /// Aplica regra simples de ACL:
-  /// - administrador vê tudo
-  /// - demais veem apenas contratos onde possuem permissionContractId[uid]['read'] == true
+  /// Aplica regra de ACL unificada:
+  /// - ADMINISTRADOR / DESENVOLVEDOR veem tudo
+  /// - Demais perfis usam perms.userCanOnContract (módulo "contracts", ação "read")
   List<ProcessData> _applyAclFilter(
       List<ProcessData> source,
       UserData? user,
       ) {
     if (user == null) return source;
 
-    final baseProfile = (user.baseProfile ?? '').toLowerCase();
-    if (baseProfile == 'administrador' || baseProfile == 'admin') {
+    final baseRole = roles.roleForUser(user);
+
+    // 🔹 Admin & Dev: acesso total, independente da ACL do documento
+    if (baseRole == roles.BaseRole.ADMINISTRADOR ||
+        baseRole == roles.BaseRole.DESENVOLVEDOR) {
       return source;
     }
 
-    final uid = user.uid;
-    if (uid == null || uid.isEmpty) return source;
-
-    return source.where((p) {
-      final perms = p.permissionContractId[uid];
-      if (perms == null) return false;
-      final canRead = perms['read'] ?? false;
-      return canRead;
+    // 🔹 Demais perfis: delega para regra centralizada de permissão por documento
+    return source.where((contract) {
+      return perms.userCanOnContract(
+        user: user,
+        contract: contract,
+        action: 'read',
+      );
     }).toList();
   }
 
@@ -107,10 +99,6 @@ class ProcessStore extends ChangeNotifier {
     try {
       await _db.collection('contracts').doc(id).delete();
     } catch (e, st) {
-      if (kDebugMode) {
-        print('ProcessStore.delete Firestore error: $e\n$st');
-      }
-      // Mesmo que o delete remoto falhe, ainda removemos do cache
     }
 
     _all.removeWhere((p) => p.id == id);
@@ -145,9 +133,6 @@ class ProcessStore extends ChangeNotifier {
       notifyListeners();
       return process;
     } catch (e, st) {
-      if (kDebugMode) {
-        print('ProcessStore.getById error: $e\n$st');
-      }
       return null;
     }
   }

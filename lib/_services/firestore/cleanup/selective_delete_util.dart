@@ -119,8 +119,6 @@ class SubcollectionSelectiveDeleter {
 
       await Future.delayed(const Duration(milliseconds: 20));
     }
-
-    debugPrint('deleteWhereInCollectionGroup($subcollection): $deleted');
     return deleted;
   }
 
@@ -162,8 +160,6 @@ class SubcollectionSelectiveDeleter {
         await Future.delayed(const Duration(milliseconds: 15));
       }
     }
-
-    debugPrint('deleteWhereUnderEachParent($parentCollectionPath/$subcollection): $total');
     return total;
   }
 }

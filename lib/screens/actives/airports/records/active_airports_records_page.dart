@@ -1,36 +1,37 @@
+// lib/screens/sectors/actives/oaes/active_oaes_records_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 
-// BLoC de usuário
+// BLoC de usuário (mantido como está por enquanto)
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
 
-// BLoC de OAEs (já injetado no main)
-import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
-import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
+// Cubit de OAEs (já injetado no main)
+import 'package:siged/_blocs/actives/oaes/active_oaes_cubit.dart';
 import 'package:siged/_blocs/actives/oaes/active_oaes_state.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
 
-import 'active_airports_form.dart';
-import 'active_airports_records_table_section.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:siged/screens/actives/airports/records/active_airports_form.dart';
+import 'package:siged/screens/actives/airports/records/active_airports_records_table_section.dart';
 
 // ✅ notificações ricas
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-class ActiveAirportsRecordsPage extends StatefulWidget {
-  const ActiveAirportsRecordsPage({super.key});
+class ActiveAirportRecordsPage extends StatefulWidget {
+  const ActiveAirportRecordsPage({super.key});
 
   @override
-  State<ActiveAirportsRecordsPage> createState() => _ActiveAirportsRecordsPageState();
+  State<ActiveAirportRecordsPage> createState() => _ActiveAirportRecordsPageState();
 }
 
-class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
+class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
   bool _firedUserWarmup = false;
   bool _firedOaesWarmup = false;
 
@@ -41,10 +42,12 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
     // garante warmup do UserBloc apenas uma vez
     if (!_firedUserWarmup) {
       _firedUserWarmup = true;
-      context.read<UserBloc>().add(const UserWarmupRequested(
-        listenRealtime: true,
-        bindCurrentUser: true,
-      ));
+      context.read<UserBloc>().add(
+        const UserWarmupRequested(
+          listenRealtime: true,
+          bindCurrentUser: true,
+        ),
+      );
     }
   }
 
@@ -61,15 +64,15 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
           );
         }
 
-        // Consome o ActiveOaesBloc já injetado no main()
-        return BlocBuilder<ActiveOaesBloc, ActiveOaesState>(
+        // Consome o ActiveOaesCubit já injetado no main()
+        return BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
           builder: (context, st) {
-            final bloc = context.read<ActiveOaesBloc>();
+            final cubit = context.read<ActiveOaesCubit>();
 
             // Se o main não disparou o warmup, garante aqui 1x
             if (!_firedOaesWarmup && !st.initialized) {
               _firedOaesWarmup = true;
-              bloc.add(const ActiveOaesWarmupRequested());
+              cubit.warmup();
             }
 
             if (!st.initialized || st.loadStatus == ActiveOaesLoadStatus.loading) {
@@ -96,26 +99,21 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
                       child: SingleChildScrollView(
                         child: Column(
                           children: [
-                            const SizedBox(height: 12),
-                            const DividerText(title: 'Cadastrar OAE no sistema'),
-                            const SizedBox(height: 12),
+                            const SectionTitle(text: 'Cadastrar OAE no sistema'),
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 12.0),
-                              child: ActiveAirportsForm(),
+                              child: ActiveOaesForm(),
                             ),
-                            const DividerText(title: 'OAEs cadastradas no sistema'),
-                            const SizedBox(height: 12),
-
-                            // ===================== TABELA =====================
-                            ActiveAirportsRecordsTableSection(
-                              futureOaes: Future.value(st.all),
+                            const SectionTitle(
+                              text: 'OAEs cadastradas no sistema',
+                            ),
+                            ActiveOaesRecordsTableSection(
+                              oaes: st.all,
                               onTapItem: (item) {
-                                // espelha seleção no BLoC
-                                final originalIndex = st.all.indexWhere((e) => e.id == item.id);
+                                final originalIndex =
+                                st.all.indexWhere((e) => e.id == item.id);
                                 if (originalIndex != -1) {
-                                  context
-                                      .read<ActiveOaesBloc>()
-                                      .add(ActiveOaesSelectByIndex(originalIndex));
+                                  cubit.selectByIndex(originalIndex);
                                 }
 
                                 // espelha no PIE: nota -> índice da fatia (0..5)
@@ -127,16 +125,16 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
                                       (lab) => lab.toUpperCase() == r,
                                 );
                                 if (idxRegion != -1) {
-                                  // (reservado para integração futura)
+                                  // reservado caso queira reagir à região no futuro
                                 }
                               },
                               onDelete: (id) {
-                                context.read<ActiveOaesBloc>().add(ActiveOaesDeleteRequested(id));
+                                cubit.delete(id);
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     title: const Text('Solicitando exclusão...'),
                                     type: AppNotificationType.warning,
-                                    leadingLabel: const Text('Aeroportos'),
+                                    leadingLabel: const Text('OAEs'),
                                     duration: const Duration(seconds: 4),
                                   ),
                                 );
@@ -150,6 +148,7 @@ class _ActiveAirportsRecordsPageState extends State<ActiveAirportsRecordsPage> {
                   ],
                 ),
 
+                // Overlay de salvamento
                 if (st.saving)
                   Stack(
                     children: [

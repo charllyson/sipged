@@ -1,4 +1,7 @@
-part of 'parecer_juridico_bloc.dart';
+// lib/_blocs/process/hiring/9Juridico/parecer_juridico_state.dart
+
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
+import 'parecer_juridico_sections.dart';
 
 class ParecerState {
   final bool loading;

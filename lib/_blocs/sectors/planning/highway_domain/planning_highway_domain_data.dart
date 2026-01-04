@@ -6,7 +6,6 @@ import 'package:latlong2/latlong.dart';
 class PlanningHighwayDomainData extends Equatable {
   final String id;
 
-  /// Metadados (vindos de KML/KMZ/GeoJSON properties)
   final Map<String, dynamic> properties;
 
   /// Ex.: "LineString" ou "Polygon" (você pode padronizar no import)

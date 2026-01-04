@@ -1,4 +1,5 @@
-part of 'etp_bloc.dart';
+// lib/_blocs/process/hiring/2Etp/etp_state.dart
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
 
 class EtpState {
   final bool loading;
@@ -7,8 +8,8 @@ class EtpState {
   final String? error;
 
   final String? etpId;
-  final SectionIds sectionIds;
-  final SectionsMap sectionsData;
+  final SectionIds sectionIds;     // Map<String, String>
+  final SectionsMap sectionsData;  // Map<String, Map<String, dynamic>>
 
   const EtpState({
     this.loading = false,
@@ -44,7 +45,7 @@ class EtpState {
     );
   }
 
-  // atalhos
+  // atalhos (se quiser manter)
   String? get currentEtpId => etpId;
   String? get currentDocsId => sectionIds['documentos'];
 }

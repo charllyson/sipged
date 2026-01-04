@@ -1,39 +1,44 @@
 // lib/screens/sectors/operation/schedule/road/schedule_road_workspace_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_cubit.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
-
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_header.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_sub_header.dart';
+
 import 'package:siged/_widgets/schedule/linear/schedule_menu_buttons.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
 
-// BLoC do cronograma rodoviário
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+// ✅ Cubit do cronograma rodoviário
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
+
 import 'package:siged/screens/sectors/operation/schedule/road/schedule_road_map.dart';
 import 'package:siged/screens/sectors/operation/schedule/road/schedule_road_panel.dart';
 
 // Board
-import '../../../../../_widgets/schedule/linear/schedule_road_board.dart';
+import 'package:siged/_widgets/schedule/linear/schedule_road_board.dart';
 
-// ✅ Layout unificado (lado a lado vs empilhado)
-import 'package:siged/_widgets/layout/responsive_split_view.dart';
+// Layout unificado (lado a lado vs empilhado)
+import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
 
-// <<< AJUSTE: ler extensão do DFD via BLoC, sem repository >>>
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+// 🔒 Overlay de bloqueio de tela
+import 'package:siged/_widgets/overlays/screen_lock.dart';
+import 'package:siged/screens/sectors/operation/schedule/road/schedule_status_legend_item.dart';
 
 class ScheduleRoadWorkspacePage extends StatefulWidget {
   final ProcessData contractData;
-  const ScheduleRoadWorkspacePage({super.key, required this.contractData});
+
+  const ScheduleRoadWorkspacePage({
+    super.key,
+    required this.contractData,
+  });
 
   @override
   State<ScheduleRoadWorkspacePage> createState() =>
@@ -50,23 +55,110 @@ class _ScheduleRoadWorkspacePageState
   // sincroniza o painel com o mapa (o mapa só lê este valor)
   final ValueNotifier<bool> _panelVN = ValueNotifier<bool>(false);
 
-  // cache local da extensão via DFD
+  // cache local da extensão via DFD (por contrato)
   static final Map<String, Future<double>> _extKmCache = {};
+
+  // 🔥 widgets criados uma única vez
+  late final Widget _map;
+  Widget? _board;
+
+  // extensão em km
+  double? _extensaoKm;
+
+  // controle de warmup (pra não reinicializar ao abrir painel)
+  bool _warmupRequested = false;
 
   @override
   void initState() {
     super.initState();
+
+    final String contractId = widget.contractData.id ?? '';
+
+    // Mapa criado apenas uma vez
+    _map = ScheduleRoadMap(
+      contractData: widget.contractData,
+      externalPanelController: _panelVN,
+    );
+
+    // carrega extensão do DFD e depois monta board + warmup
+    _loadExtentAndInit(contractId);
+  }
+
+  @override
+  void didUpdateWidget(covariant ScheduleRoadWorkspacePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final oldId = oldWidget.contractData.id ?? '';
+    final newId = widget.contractData.id ?? '';
+
+    if (oldId != newId) {
+      // novo contrato: reseta estado local e recarrega extensão + warmup
+      _warmupRequested = false;
+      _extensaoKm = null;
+      _board = null;
+      _loadExtentAndInit(newId);
+    }
+  }
+
+  Future<void> _loadExtentAndInit(String contractId) async {
+    if (contractId.isEmpty) return;
+
+    final km = await _readExtentKmFromDfd(context, contractId);
+    if (!mounted) return;
+
+    _extensaoKm = km;
+
+    // dispara warmup UMA vez
+    _ensureWarmupOnce(km);
+
+    setState(() {
+      _board = ScheduleRoadBoard(
+        contractData: widget.contractData,
+        extensao: km,
+      );
+    });
+  }
+
+  /// Dispara o warmup do ScheduleRoadCubit apenas uma vez,
+  /// mesmo que o layout/painel cause rebuilds.
+  void _ensureWarmupOnce(double extensaoKm) {
+    if (_warmupRequested) return;
+
+    final contract = widget.contractData;
+    final contractId = contract.id ?? '';
+    if (contractId.isEmpty) return;
+
+    _warmupRequested = true;
+
+    final km = extensaoKm > 0 ? extensaoKm : 0.0;
+    final totalEstacas = ((km * 1000) / 20).ceil();
+
+    final int safeTotalEstacas = totalEstacas > 0 ? totalEstacas : 200;
+
+    final summary = contract.id;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<ScheduleRoadCubit>().warmup(
+        contractId: contractId,
+        totalEstacas: safeTotalEstacas,
+        initialServiceKey: 'geral',
+        summarySubjectContract: summary,
+      );
+    });
   }
 
   Future<double> _readExtentKmFromDfd(
-      BuildContext context, String contractId) {
+      BuildContext context,
+      String contractId,
+      ) {
     if (contractId.isEmpty) return Future.value(0.0);
     if (_extKmCache.containsKey(contractId)) return _extKmCache[contractId]!;
 
     final fut = () async {
       try {
-        final dfdBloc = context.read<DfdBloc>();
-        final DfdData? dfd = await dfdBloc.getDataForContract(contractId);
+        final dfdCubit = context.read<DfdCubit>();
+        final DfdData? dfd = await dfdCubit.getDataForContract(contractId);
         return (dfd?.extensaoKm ?? 0.0).toDouble();
       } catch (_) {
         return 0.0;
@@ -96,30 +188,81 @@ class _ScheduleRoadWorkspacePageState
 
   @override
   Widget build(BuildContext context) {
-    // Constantes visuais do container responsivo
-    const double kRightPanelWidth = 600.0;
+    // Constantes de layout
     const double kBottomPanelHeight = 420.0;
     const double kBreakpoint = 980.0;
     const double kCardMaxWidth = 520.0;
 
     final isMap = _mode == _ViewMode.map;
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
-    final String contractId = widget.contractData.id ?? '';
+    // Painel inicia com 25% da largura da tela (SplitLayout continua genérico)
+    final double initialRightPanelWidth = screenWidth * 0.25;
 
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(74),
-        child: BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
+        preferredSize: const Size.fromHeight(80),
+        child: BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
           builder: (ctx, state) {
-            // não mostramos spinner no header; overlay central cuida do loading
-            const showHeaderSpinner = false;
-            (showHeaderSpinner); // evita warning de variável não usada
+            final double vConcluido =
+            (state.pctConcluido ?? 0).isFinite ? (state.pctConcluido ?? 0) : 0;
+            final double vAndamento =
+            (state.pctAndamento ?? 0).isFinite ? (state.pctAndamento ?? 0) : 0;
+            final double vAIniciar =
+            (state.pctAIniciar ?? 0).isFinite ? (state.pctAIniciar ?? 0) : 0;
+
+            final labels = const ['Concluído', 'Em andamento', 'A iniciar'];//
+            final values = <double>[vConcluido, vAndamento, vAIniciar];
 
             return UpBar(
               leading: const Padding(
                 padding: EdgeInsets.only(left: 12.0),
                 child: BackCircleButton(),
               ),
+              titleWidgets: [
+                ScheduleHeader(
+                  title: state.titleForHeader.isEmpty
+                      ? (state.summarySubjectContract ?? 'Cronograma')
+                      : state.titleForHeader,
+                  titleStyle: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  colorStripe: state.colorForHeader,
+                  leftPadding: 0,
+                ),
+              ],
+              subtitleWidgets: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ScheduleStatusLegendItem(
+                        color: Colors.green.shade800,
+                        label: labels[0],
+                        value: values[0],
+                        percent: vConcluido,
+                      ),
+                      const SizedBox(width: 4),
+                      ScheduleStatusLegendItem(
+                        color: Colors.yellow.shade800,
+                        label: labels[1],
+                        value: values[1],
+                        percent: vAndamento,
+                      ),
+                      const SizedBox(width: 4),
+                      ScheduleStatusLegendItem(
+                        color: Colors.grey.shade500,
+                        label: labels[2],
+                        value: values[2],
+                        percent: vAIniciar,
+                      ),
+                    ],
+                  ),
+                )
+              ],
+              subtitleHeight: 20,
               actions: [
                 // Alternar Board <-> Mapa (sem push)
                 IconButton(
@@ -130,8 +273,6 @@ class _ScheduleRoadWorkspacePageState
                   ),
                   onPressed: _toggleView,
                 ),
-
-                // Botão do painel: SEMPRE visível (para board e mapa)
                 IconButton(
                   tooltip: _panelOpen ? 'Ocultar painel' : 'Mostrar painel',
                   icon: Icon(
@@ -148,198 +289,94 @@ class _ScheduleRoadWorkspacePageState
         ),
       ),
 
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const BackgroundClean(),
+      // ======================= BODY COM SCREENLOCK =======================
+      body: BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
+        buildWhen: (prev, curr) =>
+        prev.initialized != curr.initialized ||
+            prev.savingOrImporting != curr.savingOrImporting,
+        builder: (context, state) {
+          final bool locked = !state.initialized || state.savingOrImporting;
 
-          // === conteúdo central (Board/Mapa + Painel responsivo unificado) ===
-          Builder(
-            builder: (context) {
-              final left = IndexedStack(
-                index: isMap ? 1 : 0,
-                children: [
-                  // BOARD — agora recebe extensão via DFD (não usa mais contractData.ext)
-                  FutureBuilder<double>(
-                    future: _readExtentKmFromDfd(context, contractId),
-                    builder: (context, snap) {
-                      final km = (snap.data ?? 0.0);
-                      return Stack(
-                        children: [
-                          ScheduleRoadBoard(
-                            contractData: widget.contractData,
-                            extensao: km, // <<< AQUI AJUSTADO (apenas DFD)
-                          ),
-                          if (!snap.hasData)
-                            Positioned.fill(
-                              child: IgnorePointer(
-                                ignoring: true,
-                                child: Container(
-                                  color: Colors.transparent,
-                                  alignment: Alignment.center,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 14,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          blurRadius: 12,
-                                          color: Colors.black26,
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SizedBox(
-                                          width: 22,
-                                          height: 22,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 3,
-                                          ),
-                                        ),
-                                        SizedBox(width: 10),
-                                        Text(
-                                          'Carregando extensão (DFD)...',
-                                          style: TextStyle(fontSize: 14),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+          final String message = !state.initialized
+              ? 'Preparando dados...'
+              : 'Aplicando alterações...';
+
+          final String details = !state.initialized
+              ? 'Carregando cronograma e geometria da obra.'
+              : 'Aguarde enquanto o cronograma é atualizado.';
+
+          return ScreenLock(
+            locked: locked,
+            message: message,
+            details: details,
+            icon: Icons.alt_route,
+            keepAppBarUndimmed: true,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const BackgroundClean(),
+                Builder(
+                  builder: (context) {
+                    // LEFT: Stack com Board/Mapa + botões fixos ao canto direito
+                    final left = Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        IndexedStack(
+                          index: isMap ? 1 : 0,
+                          children: [
+                            _board ?? const SizedBox.shrink(),
+                            _map,
+                          ],
+                        ),
+                        // ✅ Botões SEMPRE dentro do lado esquerdo,
+                        // acompanhando o drag do SplitLayout.
+                        Positioned(
+                          right: 16,
+                          bottom: 12,
+                          child:
+                          BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
+                            builder: (context, st) {
+                              if (st.services.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+                              return ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: kCardMaxWidth,
                                 ),
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-
-                  // MAPA — mesmo BLoC; recebe o ValueNotifier para refletir o painel
-                  ScheduleRoadMap(
-                    contractData: widget.contractData,
-                    externalPanelController: _panelVN,
-                  ),
-                ],
-              );
-
-              // único painel à direita (INFO)
-              final rightPanel =
-              ScheduleRoadPanel(contract: widget.contractData);
-
-              // Usa o layout padrão responsivo
-              final content = ResponsiveSplitView(
-                left: left,
-                right: rightPanel,
-                showRightPanel: _panelOpen,
-                breakpoint: kBreakpoint,
-                rightPanelWidth: kRightPanelWidth,
-                bottomPanelHeight: kBottomPanelHeight,
-                showDividers: true,
-              );
-
-              // desloca o seletor quando o painel direito estiver aberto (evitar overlap)
-              final isWide =
-                  MediaQuery.sizeOf(context).width >= kBreakpoint;
-              final double rightOffset =
-              isWide && _panelOpen ? (kRightPanelWidth + 16) : 16;
-
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  // base
-                  Positioned.fill(child: content),
-
-                  // === seletor de serviços flutuante (inferior-direito) ===
-                  BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
-                    builder: (context, state) {
-                      if (state.services.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
-
-                      return Positioned(
-                        right: rightOffset,
-                        bottom: 12, // fica acima da FootBar
-                        child: ConstrainedBox(
-                          constraints:
-                          const BoxConstraints(maxWidth: kCardMaxWidth),
-                          child: ScheduleMenuButtons(
-                            options: state.services,
-                            current: state.currentServiceKey,
-                            onSelect: (key) => context
-                                .read<ScheduleRoadBloc>()
-                                .add(ScheduleServiceSelected(key)),
+                                child: ScheduleMenuButtons(
+                                  options: st.services,
+                                  current: st.currentServiceKey,
+                                  onSelect: (key) => context
+                                      .read<ScheduleRoadCubit>()
+                                      .selectService(key),
+                                ),
+                              );
+                            },
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ],
+                    );
 
-                  // === ÚNICO OVERLAY: "Preparando dados..." (apenas enquanto !initialized) ===
-                  BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
-                    buildWhen: (p, c) => p.initialized != c.initialized,
-                    builder: (context, state) {
-                      if (state.initialized) return const SizedBox.shrink();
+                    final rightPanel =
+                    ScheduleRoadPanel(contract: widget.contractData);
 
-                      return Positioned.fill(
-                        child: IgnorePointer(
-                          ignoring: false, // bloqueia cliques enquanto carrega
-                          child: Material(
-                            type: MaterialType.transparency,
-                            child: Container(
-                              // Transparência para deixar o BackgroundClean "vazar"
-                              color: Colors.black.withOpacity(0.18),
-                              alignment: Alignment.center,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      blurRadius: 14,
-                                      color: Colors.black26,
-                                    ),
-                                  ],
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                      ),
-                                    ),
-                                    SizedBox(width: 12),
-                                    Text(
-                                      'Preparando dados...',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
+                    final content = SplitLayout(
+                      left: left,
+                      right: rightPanel,
+                      showRightPanel: _panelOpen,
+                      breakpoint: kBreakpoint,
+                      rightPanelWidth: initialRightPanelWidth,
+                      bottomPanelHeight: kBottomPanelHeight,
+                      showDividers: true,
+                    );
+
+                    return Positioned.fill(child: content);
+                  },
+                ),
+              ],
+            ),
+          );
+        },
       ),
 
       bottomNavigationBar: const FootBar(),

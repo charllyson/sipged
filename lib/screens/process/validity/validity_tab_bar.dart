@@ -1,4 +1,8 @@
+// ==============================
+// lib/screens/contracts/validity/validity_tab_bar_page.dart
+// ==============================
 import 'package:flutter/material.dart';
+
 import 'package:siged/_blocs/_process/process_bloc.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
@@ -23,7 +27,6 @@ class ValidityTabBarPage extends StatelessWidget {
       contractsBloc: contractsBloc,
       initialTabIndex: initialTabIndex,
       tabs: [
-        // As demais exigem ID salvo
         ContractTabDescriptor(
           label: 'Vigências',
           requireSavedContract: true,

@@ -6,6 +6,10 @@ import 'package:flutter/material.dart';
 // 🔔 Notificações
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
+
+// 🪟 Janela macOS-like
+import 'package:siged/_widgets/windows/window_dialog.dart'; // onde está o showWindowDialogMac
 
 class ImportExcelPage extends StatefulWidget {
   final String firstCollection;
@@ -29,8 +33,11 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
   final Map<String, String> _tiposPorCampo = {};
 
   // 🔔 helper
-  void _notify(String title,
-      {AppNotificationType type = AppNotificationType.info, String? subtitle}) {
+  void _notify(
+      String title, {
+        AppNotificationType type = AppNotificationType.info,
+        String? subtitle,
+      }) {
     NotificationCenter.instance.show(
       AppNotification(
         title: Text(title),
@@ -85,7 +92,6 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
 
       _mostrarPreviewComSelecao();
     } catch (e) {
-      debugPrint('Erro ao importar Excel: $e');
       _notify('Erro ao importar', type: AppNotificationType.error, subtitle: '$e');
     } finally {
       if (mounted) setState(() => _importando = false);
@@ -130,120 +136,164 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
 
   void _mostrarPreviewComSelecao() {
     final colunas = _jsonData.isNotEmpty ? _jsonData.first.keys.toList() : [];
+
     final Map<int, bool> linhasSelecionadas = {
-      for (int i = 0; i < _jsonData.length; i++) i: true
+      for (int i = 0; i < _jsonData.length; i++) i: true,
     };
+
     final Map<String, bool> colunasSelecionadas = {
-      for (var col in colunas) col: true
+      for (var col in colunas) col: true,
     };
+
     for (var col in colunas) {
       _tiposPorCampo[col] = _detectarTipo(_jsonData, col);
     }
 
-    showDialog(
+    showWindowDialogMac<void>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: Text('Pré-visualização (${_jsonData.length} registros)'),
-              content: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columns: colunas.map((coluna) {
-                    return DataColumn(
-                      label: SizedBox(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+      title: 'Pré-visualização (${_jsonData.length} registros)',
+      width: 960,
+      barrierDismissible: true,
+      child: StatefulBuilder(
+        builder: (dialogContext, setStateDialog) {
+          return ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: 600,
+              maxWidth: 1100,
+              maxHeight: 640,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Conteúdo principal (tabela)
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columns: colunas.map((coluna) {
+                        return DataColumn(
+                          label: SizedBox(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Checkbox(
-                                  value: colunasSelecionadas[coluna],
-                                  onChanged: (val) {
-                                    setStateDialog(() {
-                                      colunasSelecionadas[coluna] = val ?? false;
-                                    });
-                                  },
-                                ),
-                                const SizedBox(width: 4),
-                                SizedBox(
-                                  width: 80,
-                                  child: DropdownButton<String>(
-                                    isExpanded: true,
-                                    value: _tiposPorCampo[coluna] ?? 'String',
-                                    underline: const SizedBox(),
-                                    items: ['String', 'int', 'double', 'bool', 'DateTime']
-                                        .map((tipo) => DropdownMenuItem(
-                                      value: tipo,
-                                      child: Text(tipo, style: const TextStyle(fontSize: 12)),
-                                    ))
-                                        .toList(),
-                                    onChanged: (val) {
-                                      setStateDialog(() {
-                                        if (val != null) _tiposPorCampo[coluna] = val;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  coluna,
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Checkbox(
+                                      value: colunasSelecionadas[coluna],
+                                      onChanged: (val) {
+                                        setStateDialog(() {
+                                          colunasSelecionadas[coluna] = val ?? false;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(width: 4),
+                                    SizedBox(
+                                      width: 90,
+                                      child: DropdownButton<String>(
+                                        isExpanded: true,
+                                        value: _tiposPorCampo[coluna] ?? 'String',
+                                        underline: const SizedBox(),
+                                        items: const [
+                                          'String',
+                                          'int',
+                                          'double',
+                                          'bool',
+                                          'DateTime',
+                                        ].map((tipo) {
+                                          return DropdownMenuItem(
+                                            value: tipo,
+                                            child: Text(
+                                              tipo,
+                                              style: const TextStyle(fontSize: 12),
+                                            ),
+                                          );
+                                        }).toList(),
+                                        onChanged: (val) {
+                                          setStateDialog(() {
+                                            if (val != null) {
+                                              _tiposPorCampo[coluna] = val;
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        coluna,
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 2,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  rows: List.generate(_jsonData.length, (index) {
-                    final linha = _jsonData[index];
-                    return DataRow(
-                      selected: linhasSelecionadas[index] ?? false,
-                      onSelectChanged: (val) {
-                        setStateDialog(() {
-                          linhasSelecionadas[index] = val ?? false;
-                        });
-                      },
-                      cells: colunas.map((coluna) {
-                        final valor = linha[coluna];
-                        return DataCell(
-                          colunasSelecionadas[coluna] == true
-                              ? Text(valor?.toString() ?? '')
-                              : const Text('-', style: TextStyle(color: Colors.grey)),
+                          ),
                         );
                       }).toList(),
-                    );
-                  }),
+                      rows: List.generate(_jsonData.length, (index) {
+                        final linha = _jsonData[index];
+                        return DataRow(
+                          selected: linhasSelecionadas[index] ?? false,
+                          onSelectChanged: (val) {
+                            setStateDialog(() {
+                              linhasSelecionadas[index] = val ?? false;
+                            });
+                          },
+                          cells: colunas.map((coluna) {
+                            final valor = linha[coluna];
+                            final isSelectedCol = colunasSelecionadas[coluna] == true;
+                            return DataCell(
+                              isSelectedCol
+                                  ? Text(
+                                valor?.toString() ?? '',
+                                overflow: TextOverflow.ellipsis,
+                              )
+                                  : const Text(
+                                '-',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      }),
+                    ),
+                  ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _salvarLinhasSelecionadas(
-                      linhasSelecionadas,
-                      colunasSelecionadas,
-                      _tiposPorCampo,
-                    );
-                  },
-                  child: const Text('Confirmar e Importar'),
+
+                const SizedBox(height: 12),
+
+                // Barra de ações
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        _salvarLinhasSelecionadas(
+                          linhasSelecionadas,
+                          colunasSelecionadas,
+                          _tiposPorCampo,
+                        );
+                      },
+                      child: const Text('Confirmar e Importar'),
+                    ),
+                  ],
                 ),
               ],
-            );
-          },
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -276,7 +326,8 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
               if (valor is num) {
                 valorConvertido = valor.toDouble();
               } else {
-                final texto = valor.toString().replaceAll('.', '').replaceAll(',', '.');
+                final texto =
+                valor.toString().replaceAll('.', '').replaceAll(',', '.');
                 valorConvertido = double.tryParse(texto);
               }
               break;
@@ -308,12 +359,13 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
       count++;
     }
 
-    _notify('Importação concluída', type: AppNotificationType.success,
-        subtitle: '$count registros importados.');
+    _notify(
+      'Importação concluída',
+      type: AppNotificationType.success,
+      subtitle: '$count registros importados.',
+    );
 
-    if (widget.onFinished != null) {
-      widget.onFinished!(); // notifica a tela principal
-    }
+    widget.onFinished?.call();
   }
 
   String _detectarTipo(List<Map<String, dynamic>> dados, String campo) {
@@ -351,7 +403,7 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
           return null;
         }
       }
-      return DateTime.tryParse(str); // tenta padrão ISO
+      return DateTime.tryParse(str);
     }
     return null;
   }
@@ -371,7 +423,8 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
           children: [
             CircleAvatar(
               radius: 20,
-              backgroundColor: isDark ? Colors.grey.shade900 : Colors.white,
+              backgroundColor:
+              isDark ? Colors.grey.shade900 : Colors.white,
               child: IconButton(
                 icon: const Icon(Icons.file_upload, size: 20),
                 color: isDark ? Colors.white : Colors.black87,

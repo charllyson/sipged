@@ -34,7 +34,7 @@ class PaymentReportFormSection extends StatelessWidget {
   final VoidCallback onClear;
   final ProcessData? contractData;
 
-  // 🆕 SideListBox (agora suporta anexos com rótulo)
+  // 🆕 SideListBox (anexos com rótulo)
   final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
@@ -73,7 +73,6 @@ class PaymentReportFormSection extends StatelessWidget {
     this.onTapSideItem,
     this.onDeleteSideItem,
     this.onEditLabelSideItem,
-    // dropdown
     required this.orderNumberOptions,
     required this.greyOrderItems,
     this.onChangedOrderNumber,
@@ -120,7 +119,7 @@ class PaymentReportFormSection extends StatelessWidget {
       formatters = mask;
     }
 
-    final textField = CustomTextField(
+    final customTextField = CustomTextField(
       width: width,
       enabled: enabled,
       labelText: label,
@@ -132,9 +131,12 @@ class PaymentReportFormSection extends StatelessWidget {
     );
 
     if (tooltip) {
-      return Tooltip(message: 'Este campo é calculado automaticamente.', child: textField);
+      return Tooltip(
+        message: 'Este campo é calculado automaticamente.',
+        child: customTextField,
+      );
     }
-    return textField;
+    return customTextField;
   }
 
   @override
@@ -156,25 +158,61 @@ class PaymentReportFormSection extends StatelessWidget {
             items: orderNumberOptions,
             controller: orderPaymentReportController,
             enabled: isEditable,
-            greyItems: greyOrderItems,           // itens existentes em cinza
-            onChanged: onChangedOrderNumber,     // carrega existente ou cria novo
+            greyItems: greyOrderItems,
+            onChanged: onChangedOrderNumber,
           ),
-          _input(w, processNumberPaymentReportController, 'Nº processo do pagamento da medição', mask: [processoMaskFormatter]),
-          _input(w, valuePaymentReportController, 'Valor do pagamento da medição', money: true),
-          _input(w, statePaymentReportController, 'Estado do pagamento da medição'),
-          _input(w, observationPaymentReportController, 'Observação do pagamento da medição'),
-          _input(w, bankPaymentReportController, 'Nº do banco do pagamento da medição'),
-          _input(w, electronicTicketPaymentReportController, 'Nº do boleto eletrônico do pagamento da medição'),
-          _input(w, fontPaymentReportController, 'Fonte do pagamento da medição'),
+          _input(
+            w,
+            processNumberPaymentReportController,
+            'Nº processo do pagamento da medição',
+            mask: [processoMaskFormatter],
+          ),
+          _input(
+            w,
+            valuePaymentReportController,
+            'Valor do pagamento da medição',
+            money: true,
+          ),
+          _input(
+            w,
+            statePaymentReportController,
+            'Estado do pagamento da medição',
+          ),
+          _input(
+            w,
+            observationPaymentReportController,
+            'Observação do pagamento da medição',
+          ),
+          _input(
+            w,
+            bankPaymentReportController,
+            'Nº do banco do pagamento da medição',
+          ),
+          _input(
+            w,
+            electronicTicketPaymentReportController,
+            'Nº do boleto eletrônico do pagamento da medição',
+          ),
+          _input(
+            w,
+            fontPaymentReportController,
+            'Fonte do pagamento da medição',
+          ),
           CustomDateField(
             width: w,
             enabled: isEditable,
             controller: datePaymentReportController,
             initialValue: selectedPaymentReportData?.datePaymentReport,
             labelText: 'Data do pagamento da Medição',
-            onChanged: (date) => selectedPaymentReportData?.datePaymentReport = date,
+            onChanged: (date) =>
+            selectedPaymentReportData?.datePaymentReport = date,
           ),
-          _input(w, taxPaymentReportController, 'Imposto do pagamento da medição', money: true),
+          _input(
+            w,
+            taxPaymentReportController,
+            'Imposto do pagamento da medição',
+            money: true,
+          ),
         ],
       );
 
@@ -183,8 +221,11 @@ class PaymentReportFormSection extends StatelessWidget {
         children: [
           TextButton.icon(
             icon: const Icon(Icons.save),
-            label: Text(currentPaymentReportId != null ? 'Atualizar' : 'Salvar'),
-            onPressed: formValidated && isEditable && !isSaving ? onSaveOrUpdate : null,
+            label: Text(
+              currentPaymentReportId != null ? 'Atualizar' : 'Salvar',
+            ),
+            onPressed:
+            formValidated && isEditable && !isSaving ? onSaveOrUpdate : null,
           ),
           const SizedBox(width: 12),
           if (currentPaymentReportId != null)
@@ -205,12 +246,12 @@ class PaymentReportFormSection extends StatelessWidget {
         ],
       );
 
-      // ✅ SideListBox — multi-anexos com rótulo/renomear
       final side = SideListBox(
         title: 'Arquivos do Pagamento',
         items: sideItems,
         selectedIndex: selectedSideIndex,
-        onAddPressed: (selectedPaymentReportData != null && isEditable) ? onAddSideItem : null,
+        onAddPressed:
+        (selectedPaymentReportData != null && isEditable) ? onAddSideItem : null,
         onTap: onTapSideItem,
         onDelete: isEditable ? onDeleteSideItem : null,
         onEditLabel: isEditable ? onEditLabelSideItem : null,

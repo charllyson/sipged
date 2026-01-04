@@ -1,15 +1,20 @@
+// lib/screens/actives/oaes/network/details_panel_body.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 
-/// ============================== SUBWIDGETS ==============================
+/// Painel de detalhes com campos somente leitura.
 class DetailsPanelBody extends StatelessWidget {
-  const DetailsPanelBody({super.key, required this.entries});
+  const DetailsPanelBody({
+    super.key,
+    required this.entries,
+  });
 
+  /// Lista de pares (rótulo, valor) exibidos no painel.
   final List<MapEntry<String, String>> entries;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(8),
       child: Column(
         children: [

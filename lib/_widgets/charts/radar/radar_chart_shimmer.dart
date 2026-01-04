@@ -2,7 +2,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// Shimmer genérico (sem dependências) usando ShaderMask.
+/// Shimmer genérico (sem dependências externas) usando ShaderMask.
 class _Shimmer extends StatefulWidget {
   const _Shimmer({required this.child, this.speed = 1200});
   final Widget child;
@@ -12,14 +12,19 @@ class _Shimmer extends StatefulWidget {
   State<_Shimmer> createState() => _ShimmerState();
 }
 
-class _ShimmerState extends State<_Shimmer> with SingleTickerProviderStateMixin {
+class _ShimmerState extends State<_Shimmer>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController.unbounded(vsync: this)
-      ..repeat(min: 0, max: 1, period: Duration(milliseconds: widget.speed));
+      ..repeat(
+        min: 0,
+        max: 1,
+        period: Duration(milliseconds: widget.speed),
+      );
   }
 
   @override
@@ -58,7 +63,6 @@ class _ShimmerState extends State<_Shimmer> with SingleTickerProviderStateMixin 
 }
 
 /// Desenha a “teia” de radar (anéis + eixos) e a MOLDURA externa.
-/// --- no painter: parâmetros de estilo ---
 class _RadarSkeletonPainter extends CustomPainter {
   _RadarSkeletonPainter({
     required this.rings,
@@ -66,10 +70,10 @@ class _RadarSkeletonPainter extends CustomPainter {
     required this.color,
     this.frameColor,
     this.frameStroke = 2.0,
-    this.radiusFactor = 0.85,     // < novo: encurta o raio
-    this.gridStroke = 1.0,        // < novo: traço da grade
-    this.ringOpacity = 0.35,      // < novo: opacidade dos anéis
-    this.axisOpacity = 0.55,      // < novo: opacidade dos eixos
+    this.radiusFactor = 0.85, // encurta o raio
+    this.gridStroke = 1.0, // traço da grade
+    this.ringOpacity = 0.35, // opacidade dos anéis
+    this.axisOpacity = 0.55, // opacidade dos eixos
   });
 
   final int rings;
@@ -101,10 +105,17 @@ class _RadarSkeletonPainter extends CustomPainter {
         final ang = -math.pi / 2 + (2 * math.pi * i / axes);
         final px = center.dx + radius * t * math.cos(ang);
         final py = center.dy + radius * t * math.sin(ang);
-        if (i == 0) path.moveTo(px, py); else path.lineTo(px, py);
+        if (i == 0) {
+          path.moveTo(px, py);
+        } else {
+          path.lineTo(px, py);
+        }
       }
       path.close();
-      canvas.drawPath(path, gridPaint..color = color.withOpacity(ringOpacity));
+      canvas.drawPath(
+        path,
+        gridPaint..color = color.withOpacity(ringOpacity),
+      );
     }
 
     // eixos
@@ -112,8 +123,11 @@ class _RadarSkeletonPainter extends CustomPainter {
       final ang = -math.pi / 2 + (2 * math.pi * i / axes);
       final px = center.dx + radius * math.cos(ang);
       final py = center.dy + radius * math.sin(ang);
-      canvas.drawLine(center, Offset(px, py),
-          gridPaint..color = color.withOpacity(axisOpacity));
+      canvas.drawLine(
+        center,
+        Offset(px, py),
+        gridPaint..color = color.withOpacity(axisOpacity),
+      );
     }
 
     // moldura
@@ -127,7 +141,11 @@ class _RadarSkeletonPainter extends CustomPainter {
       final ang = -math.pi / 2 + (2 * math.pi * i / axes);
       final px = center.dx + radius * math.cos(ang);
       final py = center.dy + radius * math.sin(ang);
-      if (i == 0) framePath.moveTo(px, py); else framePath.lineTo(px, py);
+      if (i == 0) {
+        framePath.moveTo(px, py);
+      } else {
+        framePath.lineTo(px, py);
+      }
     }
     framePath.close();
     canvas.drawPath(framePath, framePaint);
@@ -137,62 +155,50 @@ class _RadarSkeletonPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-
-/// Card com shimmer no estilo do RadarChartChanged
+/// Shimmer do radar (apenas o conteúdo, sem Card).
 class RadarChartShimmer extends StatelessWidget {
   const RadarChartShimmer({
     super.key,
+    required this.isDark,
     this.altura = 270,
     this.largura,
-    this.cardWidth,
-    this.legendItems = 0,   // sem legenda no esqueleto do print
-    this.axes = 6,          // hexágono como no print
+    this.legendItems = 0,
+    this.axes = 6,
     this.rings = 6,
   });
 
+  final bool isDark;
   final double altura;
   final double? largura;
-  final double? cardWidth;
   final int legendItems;
   final int axes;
   final int rings;
 
   @override
   Widget build(BuildContext context) {
-    final gridColor = Colors.grey.shade500;
+    final gridColor = isDark ? Colors.white30 : Colors.grey.shade500;
 
     final chartSkeleton = CustomPaint(
       painter: _RadarSkeletonPainter(
         rings: rings,
         axes: axes,
         color: gridColor,
-        frameColor: Colors.grey.shade500,
+        frameColor: isDark ? Colors.white60 : Colors.grey.shade500,
         radiusFactor: 0.86,
         gridStroke: 1.0,
         ringOpacity: 0.35,
         axisOpacity: 0.55,
       ),
-      child: SizedBox(height: altura, width: largura ?? altura),
+      child: SizedBox(
+        height: altura,
+        width: largura ?? altura,
+      ),
     );
 
-    return SizedBox(
-      width: cardWidth,
-      child: Card(
-        color: Colors.white,
-        elevation: 4,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: _Shimmer(
-            child: SizedBox(
-              height: altura,
-              width: largura ?? altura,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: chartSkeleton,
-              ),
-            ),
-          ),
-        ),
+    return _Shimmer(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: chartSkeleton,
       ),
     );
   }

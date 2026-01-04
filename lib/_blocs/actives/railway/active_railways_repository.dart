@@ -1,49 +1,73 @@
+// lib/_blocs/actives/railway/active_railways_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
+
+import 'active_railway_data.dart';
 
 class ActiveRailwaysRepository {
-  final _ref = FirebaseFirestore.instance.collection('actives_railways');
+  final FirebaseFirestore _firestore;
 
+  ActiveRailwaysRepository({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  CollectionReference<Map<String, dynamic>> get _ref =>
+      _firestore.collection('actives_railways');
+
+  // ---------------------------------------------------------------------------
+  // FETCH ALL
+  // ---------------------------------------------------------------------------
   Future<List<ActiveRailwayData>> fetchAll() async {
-    final qs = await _ref.get();
-    final out = <ActiveRailwayData>[];
-    for (final doc in qs.docs) {
-      final data = doc.data();
+    final snap = await _ref.get();
+    final result = <ActiveRailwayData>[];
 
-      // Aceita dois formatos:
-      // a) Campo 'multiLine' (list<list<[lon,lat]>> ou list<list<Map>>)
-      // b) Campo 'geometry' GeoJSON (type + coordinates)
-      // Se vier como 'points' de LineString (herdado de roads), também converte.
+    for (final doc in snap.docs) {
+      final data = Map<String, dynamic>.from(doc.data());
 
-      final fixed = Map<String, dynamic>.from(data);
+      // Caso legado: geometryType == MultiLineString + points em formato multi-line aninhado
+      final needsFix = data['geometryType'] == 'MultiLineString' ||
+          (data['points'] is List &&
+              (data['points'] as List).isNotEmpty &&
+              (data['points'] as List).first is List);
 
-      // Normaliza 'points' (LineString) -> multiLine com 1 segmento (se existir)
-      if (fixed['points'] is List && fixed['multiLine'] == null && fixed['geometry'] == null) {
-        final pts = (fixed['points'] as List)
-            .where((e) => e != null)
-            .map((e) {
-          if (e is GeoPoint) return [e.longitude, e.latitude];
-          if (e is Map) return [ (e['longitude'] as num).toDouble(), (e['latitude'] as num).toDouble() ];
-          if (e is List && e.length >= 2) return [ (e[0] as num).toDouble(), (e[1] as num).toDouble() ];
-          return null;
-        })
-            .whereType<List<double>>()
-            .toList();
-        fixed['multiLine'] = [pts];
+      if (needsFix && data['points'] is List) {
+        final multiPoints =
+        List<List<dynamic>>.from(data['points'] as List<dynamic>);
+        final flattened = _normalizeMultiLineToGeoPoints(multiPoints);
+
+        data['points'] = flattened;
+        data['geometryType'] = 'LineString';
+
+        // atualiza documento (migração silenciosa)
+        await doc.reference.update({
+          'points': flattened,
+          'geometryType': 'LineString',
+        });
       }
 
-      out.add(ActiveRailwayData.fromMap(fixed)..id = doc.id);
+      final rd = ActiveRailwayData.fromMap(data)..id = doc.id;
+      if (rd.id != null && rd.points != null && rd.points!.isNotEmpty) {
+        result.add(rd);
+      }
     }
-    return out;
+
+    result.sort((a, b) {
+      final aKey = '${a.codigo ?? ''}_${a.id ?? ''}';
+      final bKey = '${b.codigo ?? ''}_${b.id ?? ''}';
+      return aKey.compareTo(bKey);
+    });
+
+    return List.unmodifiable(result);
   }
 
+  // ---------------------------------------------------------------------------
+  // UPSERT / DELETE
+  // ---------------------------------------------------------------------------
   Future<ActiveRailwayData> upsert(ActiveRailwayData data) async {
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final docRef = data.id != null ? _ref.doc(data.id) : _ref.doc();
     data.id ??= docRef.id;
 
-    final base = data.toMap()
+    final base = data.toFirestore()
       ..['id'] = data.id
       ..['updatedAt'] = FieldValue.serverTimestamp()
       ..['updatedBy'] = uid;
@@ -56,6 +80,7 @@ class ActiveRailwaysRepository {
     }
 
     await docRef.set(base, SetOptions(merge: true));
+
     final after = await docRef.get();
     final map = after.data() as Map<String, dynamic>;
     return ActiveRailwayData.fromMap(map)..id = after.id;
@@ -63,14 +88,9 @@ class ActiveRailwaysRepository {
 
   Future<void> deleteById(String id) async => _ref.doc(id).delete();
 
-  /// Importa várias ferrovias recebendo os dados “linha” + geometrias.
-  /// Espera cada geometria no formato:
-  /// { "geometryType": "MultiLineString"|"LineString",
-  ///   "points": [
-  ///     // MultiLine: [ [ {longitude, latitude}, ... ], [ ... ] ]
-  ///     // LineString: [ {longitude, latitude}, ... ]
-  ///   ]
-  /// }
+  // ---------------------------------------------------------------------------
+  // IMPORT BATCH (mesma lógica do antigo BLoC, agora central no repo)
+  // ---------------------------------------------------------------------------
   Future<void> importBatch({
     required List<Map<String, dynamic>> linhasPrincipais,
     required List<Map<String, dynamic>> geometrias,
@@ -87,34 +107,87 @@ class ActiveRailwaysRepository {
       linha['updatedAt'] = FieldValue.serverTimestamp();
       linha['updatedBy'] = uid;
 
-      // Normaliza geometria para armazenar como multiLine (preferência para ferrovias)
       if (i < geometrias.length) {
-        final g = Map<String, dynamic>.from(geometrias[i]);
-        final type = (g['geometryType'] ?? 'MultiLineString').toString();
-        final points = g['points'] as List? ?? const [];
+        final sub = Map<String, dynamic>.from(geometrias[i]);
 
-        if (type == 'LineString') {
-          // vira multiLine com 1 segmento
-          final line = points.map((p) {
-            final lat = (p['latitude'] as num).toDouble();
-            final lng = (p['longitude'] as num).toDouble();
-            return [lng, lat];
+        if (sub['geometryType'] == 'MultiLineString' &&
+            sub['points'] is List) {
+          final multi = List<List<dynamic>>.from(sub['points']);
+          final flattened = _normalizeMultiLineToGeoPoints(multi);
+          sub['points'] = flattened;
+          sub['geometryType'] = 'LineString';
+        }
+
+        final pontos = sub['points'] as List<dynamic>?;
+        final tipo = sub['geometryType'] ?? 'LineString';
+        linha['geometryType'] = tipo;
+
+        if (pontos != null) {
+          linha['points'] = pontos.map((p) {
+            if (p is GeoPoint) return p;
+            if (p is List && p.length >= 2) {
+              final lat = (p[1] as num).toDouble(); // [lon, lat]
+              final lng = (p[0] as num).toDouble();
+              return GeoPoint(lat, lng);
+            }
+            return GeoPoint(
+              (p['latitude'] as num).toDouble(),
+              (p['longitude'] as num).toDouble(),
+            );
           }).toList();
-          linha['multiLine'] = [line];
-        } else {
-          // MultiLineString esperado: lista de listas
-          final multi = points.map<List>((segmento) {
-            return (segmento as List).map((p) {
-              final lat = (p['latitude'] as num).toDouble();
-              final lng = (p['longitude'] as num).toDouble();
-              return [lng, lat];
-            }).toList();
-          }).toList();
-          linha['multiLine'] = multi;
         }
       }
 
       await docRef.set(linha, SetOptions(merge: true));
     }
+  }
+
+  /// Achata uma MultiLineString em uma única `List<GeoPoint>`, ordenando por continuidade.
+  List<GeoPoint> _normalizeMultiLineToGeoPoints(
+      List<List<dynamic>> segmentos) {
+    final caminhoFinal = <Map<String, double>>[];
+
+    double _dist(Map<String, double> p1, Map<String, double> p2) {
+      final dx = p1['longitude']! - p2['longitude']!;
+      final dy = p1['latitude']! - p2['latitude']!;
+      return dx * dx + dy * dy;
+    }
+
+    for (var trecho in segmentos) {
+      final pontos = trecho.map<Map<String, double>>((p) {
+        if (p is GeoPoint) {
+          return {'latitude': p.latitude, 'longitude': p.longitude};
+        }
+        if (p is List && p.length >= 2) {
+          return {
+            'latitude': (p[1] as num).toDouble(),
+            'longitude': (p[0] as num).toDouble(),
+          };
+        }
+        return {
+          'latitude': (p['latitude'] as num).toDouble(),
+          'longitude': (p['longitude'] as num).toDouble(),
+        };
+      }).toList();
+
+      if (caminhoFinal.isEmpty) {
+        caminhoFinal.addAll(pontos);
+      } else {
+        final ultimo = caminhoFinal.last;
+        final primeiro = pontos.first;
+        final fim = pontos.last;
+
+        final distFirst = _dist(ultimo, primeiro);
+        final distLast = _dist(ultimo, fim);
+
+        final pontosOrdenados =
+        distLast < distFirst ? pontos.reversed.toList() : pontos;
+        caminhoFinal.addAll(pontosOrdenados);
+      }
+    }
+
+    return caminhoFinal
+        .map((p) => GeoPoint(p['latitude']!, p['longitude']!))
+        .toList();
   }
 }

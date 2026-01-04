@@ -90,9 +90,7 @@ class CleanupOldMeasurementSubcollections {
       try {
         final res = await deleteForContract(cid, dryRun: dryRun);
         overall[cid] = res;
-        debugPrint('Cleanup ($cid): $res');
       } catch (e) {
-        debugPrint('Erro ao limpar $cid: $e');
       }
       // pequeno intervalo entre contratos
       await Future.delayed(const Duration(milliseconds: 20));

@@ -1,3 +1,4 @@
+// lib/_blocs/process/hiring/7Dotacao/dotacao_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
 import 'dotacao_sections.dart';
@@ -10,24 +11,22 @@ class DotacaoRepository {
   CollectionReference<Map<String, dynamic>> _col(String contractId) =>
       _db.collection('contracts').doc(contractId).collection('dotacao');
 
+  /// ===========================================================================
+  /// ESTRUTURA FIXA OTIMIZADA (mesmo padrão do DFD)
+  ///
+  /// Agora assumimos que:
+  ///   - o doc raiz SEMPRE é "main"
+  ///   - cada seção tem SEMPRE um doc "main" na subcoleção
+  ///
+  /// Nenhuma leitura prévia; só monta em memória.
+  /// ===========================================================================
   Future<({String dotacaoId, SectionIds sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final q = await _col(contractId).limit(1).get();
-    final ref = q.docs.isEmpty
-        ? await _col(contractId).add({'createdAt': FieldValue.serverTimestamp()})
-        : q.docs.first.reference;
-
-    final SectionIds sectionIds = {};
-    for (final sec in DotacaoSections.all) {
-      final col = ref.collection(sec);
-      final qq = await col.limit(1).get();
-      final docRef = qq.docs.isEmpty
-          ? await col.add({'createdAt': FieldValue.serverTimestamp()})
-          : qq.docs.first.reference;
-      sectionIds[sec] = docRef.id;
-    }
-    return (dotacaoId: ref.id, sectionIds: sectionIds);
+    final SectionIds sectionIds = {
+      for (final sec in DotacaoSections.all) sec: 'main',
+    };
+    return (dotacaoId: 'main', sectionIds: sectionIds);
   }
 
   Future<void> saveSection({
@@ -41,7 +40,13 @@ class DotacaoRepository {
         .doc(dotacaoId)
         .collection(sectionKey)
         .doc(sectionDocId)
-        .set(data, SetOptions(merge: true));
+        .set(
+      {
+        ...data,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   Future<void> saveSectionsBatch({
@@ -56,7 +61,14 @@ class DotacaoRepository {
     sectionsData.forEach((key, data) {
       final id = sectionIds[key];
       if (id == null) return;
-      batch.set(ref.collection(key).doc(id), data, SetOptions(merge: true));
+      batch.set(
+        ref.collection(key).doc(id),
+        {
+          ...data,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     });
 
     await batch.commit();
@@ -67,18 +79,24 @@ class DotacaoRepository {
     required String dotacaoId,
     required SectionIds sectionIds,
   }) async {
-    final out = <String, Map<String, dynamic>>{};
+    final SectionsMap out = {};
     final ref = _col(contractId).doc(dotacaoId);
 
-    for (final sec in DotacaoSections.all) {
-      final id = sectionIds[sec];
-      if (id == null) {
-        out[sec] = const {};
-        continue;
-      }
-      final snap = await ref.collection(sec).doc(id).get();
-      out[sec] = (snap.data() ?? const <String, dynamic>{});
-    }
+    final futures = sectionIds.entries.map((entry) async {
+      final secName = entry.key;
+      final secId = entry.value;
+
+      final snap = await ref.collection(secName).doc(secId).get();
+      final data =
+      Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+
+      data.remove('createdAt');
+      data.remove('updatedAt');
+
+      out[secName] = data;
+    }).toList();
+
+    await Future.wait(futures);
     return out;
   }
 }

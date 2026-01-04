@@ -38,10 +38,11 @@ class _SectionSessaoJulgamentoState extends State<SectionSessaoJulgamento> {
   void initState() {
     super.initState();
     final d = widget.data;
-    _dataSessaoCtrl = TextEditingController(text: d.dataSessao);
-    _horaSessaoCtrl = TextEditingController(text: d.horaSessao);
-    _responsavelCtrl = TextEditingController(text: d.responsavel);
-    _localPlataformaCtrl = TextEditingController(text: d.localPlataforma);
+    _dataSessaoCtrl = TextEditingController(text: d.dataSessao ?? '');
+    _horaSessaoCtrl = TextEditingController(text: d.horaSessao ?? '');
+    _responsavelCtrl = TextEditingController(text: d.responsavel ?? '');
+    _localPlataformaCtrl =
+        TextEditingController(text: d.localPlataforma ?? '');
   }
 
   @override
@@ -49,10 +50,24 @@ class _SectionSessaoJulgamentoState extends State<SectionSessaoJulgamento> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      _dataSessaoCtrl.text = d.dataSessao;
-      _horaSessaoCtrl.text = d.horaSessao;
-      _responsavelCtrl.text = d.responsavel;
-      _localPlataformaCtrl.text = d.localPlataforma;
+
+      final dataSessao = d.dataSessao ?? '';
+      final horaSessao = d.horaSessao ?? '';
+      final responsavel = d.responsavel ?? '';
+      final localPlataforma = d.localPlataforma ?? '';
+
+      if (_dataSessaoCtrl.text != dataSessao) {
+        _dataSessaoCtrl.text = dataSessao;
+      }
+      if (_horaSessaoCtrl.text != horaSessao) {
+        _horaSessaoCtrl.text = horaSessao;
+      }
+      if (_responsavelCtrl.text != responsavel) {
+        _responsavelCtrl.text = responsavel;
+      }
+      if (_localPlataformaCtrl.text != localPlataforma) {
+        _localPlataformaCtrl.text = localPlataforma;
+      }
     }
   }
 
@@ -86,7 +101,7 @@ class _SectionSessaoJulgamentoState extends State<SectionSessaoJulgamento> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SectionTitle('2) Sessão / Abertura & Julgamento'),
+            const SectionTitle(text: '2) Sessão / Abertura & Julgamento'),
             Wrap(
               spacing: 12,
               runSpacing: 12,

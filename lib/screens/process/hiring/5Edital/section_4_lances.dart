@@ -1,12 +1,22 @@
 // lib/screens/process/hiring/5Edital/section_4_lances.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
+import 'package:siged/_widgets/input/drop_down_botton_change.dart';
+
+import 'package:siged/_utils/formats/mask_class.dart';
 
 import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
+
+// System
+import 'package:siged/_blocs/system/setup/setup_cubit.dart';
+import 'package:siged/_blocs/system/setup/setup_data.dart';
+import 'package:siged/_widgets/windows/company_body_dialog.dart';
 
 class SectionLances extends StatefulWidget {
   final bool isEditable;
@@ -57,6 +67,22 @@ class _SectionLancesState extends State<SectionLances> {
   void initState() {
     super.initState();
     _rebuildFromData(widget.data);
+
+    // Garante a carga de companies + companiesBodies
+    Future.microtask(() async {
+      final system = context.read<SetupCubit>();
+
+      if (system.state.companies.isEmpty) {
+        await system.loadCompanies();
+      }
+
+      final companies = system.state.companies;
+      if (companies.isNotEmpty) {
+        final parentCompanyId =
+            companies.first.companyId ?? companies.first.id;
+        await system.ensureCompanySetupLoaded(parentCompanyId);
+      }
+    });
   }
 
   @override
@@ -110,6 +136,36 @@ class _SectionLancesState extends State<SectionLances> {
   Widget build(BuildContext context) {
     final isEditable = widget.isEditable;
 
+    // companiesBodies disponíveis (empresa selecionada)
+    final systemState = context.watch<SetupCubit>().state;
+    final List<SetupData> bodies = systemState.companyBodies;
+
+    final List<String> bodyLabels =
+    bodies.map((e) => e.label).toList(growable: false);
+
+    // Labels já usados nos lances (p/ manter compatibilidade com dados antigos)
+    final Iterable<String> labelsFromRows = _rows
+        .map((r) => r.licitanteCtrl.text.trim())
+        .where((t) => t.isNotEmpty);
+
+    // União: Cubit + o que já está nas linhas
+    final List<String> allLabels = {
+      ...bodyLabels,
+      ...labelsFromRows,
+    }.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    SetupData? _findBodyByLabel(String label) {
+      final lower = label.trim().toLowerCase();
+      try {
+        return bodies.firstWhere(
+              (c) => c.label.trim().toLowerCase() == lower,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final w3 = inputWidth(
@@ -128,7 +184,7 @@ class _SectionLancesState extends State<SectionLances> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const SectionTitle('Lances / Negociação (se aplicável)'),
+                const SectionTitle(text: 'Lances'),
                 OutlinedButton.icon(
                   onPressed: isEditable ? _addLance : null,
                   icon: const Icon(Icons.add),
@@ -153,19 +209,32 @@ class _SectionLancesState extends State<SectionLances> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SectionTitle('Lance ${i + 1}'),
+                    SectionTitle(text: 'Lance ${i + 1}'),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 12,
                       runSpacing: 12,
                       children: [
+                        // LICITANTE usando DropDownButtonChange com companiesBodies
                         SizedBox(
                           width: w3,
-                          child: CustomTextField(
+                          child: DropDownButtonChange(
                             controller: l.licitanteCtrl,
                             labelText: 'Licitante',
                             enabled: isEditable,
-                            onChanged: (_) => _emitChange(),
+                            items: allLabels,
+                            showSpecialAlways: true,
+                            specialItemLabel: 'Adicionar empresa',
+                            onChanged: (label) {
+                              final val = label ?? '';
+                              l.licitanteCtrl.text = val;
+
+                              // Aqui não temos CNPJ no lance,
+                              // então só propagamos o nome e emitimos mudança
+                              final _ = _findBodyByLabel(val);
+                              _emitChange();
+                            },
+                            onAddNewItem: showCreateCompanyBodyDialog,
                           ),
                         ),
                         SizedBox(
@@ -175,6 +244,9 @@ class _SectionLancesState extends State<SectionLances> {
                             labelText: 'Valor do lance (R\$)',
                             enabled: isEditable,
                             keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             onChanged: (_) => _emitChange(),
                           ),
                         ),
@@ -184,6 +256,11 @@ class _SectionLancesState extends State<SectionLances> {
                             controller: l.dataHoraCtrl,
                             labelText: 'Data/Hora',
                             enabled: isEditable,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(14),
+                              TextInputMask(mask: '99/99/9999 99:99'),
+                            ],
                             onChanged: (_) => _emitChange(),
                           ),
                         ),

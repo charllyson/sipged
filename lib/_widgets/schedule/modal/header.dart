@@ -1,44 +1,39 @@
 // lib/_widgets/modals/header.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_modal_controller.dart';
 import 'package:siged/_widgets/schedule/modal/type.dart';
+// ScheduleApplyTarget normalmente vem do mesmo arquivo de tipos
+// (ajuste o import se estiver em outro lugar)
 
 class ScheduleHeaderEditable extends StatelessWidget {
   final ScheduleType type;
-  const ScheduleHeaderEditable({super.key, required this.type});
+  final String name;
+  final List<ScheduleApplyTarget> targets;
+
+  const ScheduleHeaderEditable({
+    super.key,
+    required this.type,
+    required this.name,
+    required this.targets,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<ScheduleModalController>();
-
     // Título: pedido especial p/ rodoviário
     final titleText = (type == ScheduleType.rodoviario)
         ? 'Registrar ocorrência nas estacas:'
         : type.titlePrefix;
 
-    // Se quiser um hint automático quando não vier nome:
-    String? hint;
-    if (c.nameCtrl.text.trim().isEmpty) {
-      if (type == ScheduleType.rodoviario) {
-        // Tenta montar um hint a partir do primeiro alvo
-        if (c.targets.isNotEmpty) {
-          final t = c.targets.first;
-          hint = 'E: ${t.estaca}';
-        } else {
-          hint = 'E: —';
-        }
+    // Subtítulo / “nome” exibido
+    String subtitle = name.trim();
+    if (subtitle.isEmpty) {
+      if (type == ScheduleType.rodoviario && targets.isNotEmpty) {
+        final t = targets.first;
+        subtitle = 'E: ${t.estaca}';
       } else {
-        hint = 'Digite o nome…';
+        subtitle = '—';
       }
     }
-
-    // Bloqueia edição para rodoviário (readOnly) — civil continua editável
-    final readOnly = (type == ScheduleType.rodoviario);
-    // Mantém enable/disable por estados de picking/saving
-    final enabled = !(c.picking || c.saving || readOnly);
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -48,7 +43,7 @@ class ScheduleHeaderEditable extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Linha do título + botão fechar
+                // Linha do título
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -60,16 +55,16 @@ class ScheduleHeaderEditable extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    IconButton(
-                      onPressed: (c.picking || c.saving) ? null : () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                      tooltip: 'Fechar',
-                    ),
                   ],
                 ),
                 const SizedBox(height: 2),
-                // Campo de nome (bloqueado no rodoviário)
-                Text(c.nameCtrl.text, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
               ],
             ),
           ),

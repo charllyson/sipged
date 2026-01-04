@@ -21,13 +21,18 @@ class AccidentsSelectorDatesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return SelectorDates<AccidentsData>(
       items: allAccidents,
-      getDate: (item) => item.date, // DateTime? em AccidentsData
+      getDate: (item) => item.date,
       initialYear: initialYear,
       initialMonth: initialMonth,
+
+      // NÃO deixa o selector aplicar filtro sozinho no init.
+      autoSelectInitial: false,
+
       onSelectionChanged: ({
         List<AccidentsData>? filteredItems,
         int? selectedYear,
         int? selectedMonth,
+        int? selectedDay,
       }) {
         onSelectionChanged(
           AccidentsSelectorDatesResult(

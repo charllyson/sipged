@@ -15,6 +15,7 @@ final highwayMaskFormatter = MaskTextInputFormatter(
   mask: 'AL-###',
   filter: {"#": RegExp(r'[0-9]')},
 );
+
 class ThreeDecimalTextInputFormatter extends TextInputFormatter {
   final int decimalDigits;
 

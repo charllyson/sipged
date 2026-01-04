@@ -5,18 +5,21 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart' show PdfGoogleFonts;
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/report/report_measurement_data.dart';
+import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
 
 Future<Uint8List> buildPdfBytes({
   required MagicTableController ctrl,
   required ProcessData contractData,
   required ReportMeasurementData? measurement,
 
-  /// 🔹 Novo: resumo da obra (DFD.descricaoObjeto)
+  /// 🔹 Resumo da obra (DFD.descricaoObjeto)
   String? descricaoObjeto,
 
-  /// 🔹 Novo: número do contrato (PublicacaoExtratoData.numeroContrato)
+  /// 🔹 Número do contrato (PublicacaoExtratoData.numeroContrato)
   String? numeroContrato,
+
+  /// 🔹 Valor do contrato (DFD.valorDemanda)
+  num? valorDemandaContrato,
 }) async {
   // === Fontes (Unicode) ===
   final fontRegular = await PdfGoogleFonts.notoSansRegular();
@@ -124,9 +127,10 @@ Future<Uint8List> buildPdfBytes({
         measurement: measurement,
         emittedAt: DateTime.now(),
 
-        /// 🔹 Passa campos novos pro cabeçalho
+        /// 🔹 Campos novos pro cabeçalho
         descricaoObjeto: descricaoObjeto,
         numeroContrato: numeroContrato,
+        valorDemandaContrato: valorDemandaContrato,
       ),
       footer: (ctx) => pw.Align(
         alignment: pw.Alignment.centerRight,
@@ -208,8 +212,8 @@ Future<Uint8List> buildPdfBytes({
                   color: PdfColors.white,
                   fontSize: kHeaderFontSize,
                 ),
-                cellStyle: const pw.TextStyle()
-                    .copyWith(fontSize: kCellFontSize),
+                cellStyle:
+                const pw.TextStyle().copyWith(fontSize: kCellFontSize),
                 headerDecoration:
                 const pw.BoxDecoration(color: PdfColors.blue800),
                 cellPadding: const pw.EdgeInsets.symmetric(
@@ -244,6 +248,9 @@ pw.Widget _pdfHeader({
 
   /// 🔹 Número do contrato (PublicacaoExtratoData.numeroContrato)
   String? numeroContrato,
+
+  /// 🔹 Valor do contrato (DFD.valorDemanda)
+  num? valorDemandaContrato,
 }) {
   String dash(String? s) =>
       (s == null || s.trim().isEmpty) ? '–' : s.trim();
@@ -275,7 +282,9 @@ pw.Widget _pdfHeader({
   final contratoNum = dash(numeroContrato);
   final obra = dash(descricaoObjeto);
 
-  final valorContrato = money(contractData.initialValueContract ?? 0);
+  // 🔹 Valor do contrato vem SOMENTE da demanda (DFD.valorDemanda)
+  final valorContrato = money(valorDemandaContrato);
+
   final prazoExec =
       contractData.initialValidityExecution?.toString() ?? '–';
   final assinatura = dateStr(contractData.publicationDate);

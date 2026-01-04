@@ -5,7 +5,7 @@ import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart'
     show DropDownButtonChange;
-import 'package:siged/_widgets/input/dropdown_yes_no.dart';
+import 'package:siged/_widgets/input/drop_down_yes_no.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 
@@ -74,7 +74,7 @@ class _SectionStatusPrazosState extends State<SectionStatusPrazos> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('4) Status e Controle de Prazos'),
+        const SectionTitle(text: '4) Status e Controle de Prazos'),
         LayoutBuilder(
           builder: (context, constraints) {
             final w2 = inputW2(context, constraints);

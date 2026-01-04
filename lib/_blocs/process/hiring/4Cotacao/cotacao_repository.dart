@@ -1,6 +1,8 @@
+// lib/_blocs/process/hiring/3Cotacao/cotacao_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_data.dart';
+import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_sections.dart';
 import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
-import 'cotacao_sections.dart';
 
 class CotacaoRepository {
   final FirebaseFirestore _db;
@@ -10,25 +12,22 @@ class CotacaoRepository {
   CollectionReference<Map<String, dynamic>> _col(String contractId) =>
       _db.collection('contracts').doc(contractId).collection('cotacao');
 
-  /// Garante 1 doc de cotação + 1 doc em cada subcoleção (seção)
+  /// ===========================================================================
+  /// ESTRUTURA FIXA OTIMIZADA (mesmo padrão do DFD/TR)
+  ///
+  /// Agora assumimos que:
+  ///   - o doc raiz SEMPRE é "main"
+  ///   - cada seção tem SEMPRE um doc "main" na subcoleção
+  ///
+  /// Não faz leitura nem criação prévia no Firestore, apenas monta em memória.
+  /// ===========================================================================
   Future<({String cotacaoId, SectionIds sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final q = await _col(contractId).limit(1).get();
-    final cotRef = q.docs.isEmpty
-        ? await _col(contractId).add({'createdAt': FieldValue.serverTimestamp()})
-        : q.docs.first.reference;
-
-    final SectionIds sectionIds = {};
-    for (final sec in CotacaoSections.all) {
-      final col = cotRef.collection(sec);
-      final qq = await col.limit(1).get();
-      final ref = qq.docs.isEmpty
-          ? await col.add({'createdAt': FieldValue.serverTimestamp()})
-          : qq.docs.first.reference;
-      sectionIds[sec] = ref.id;
-    }
-    return (cotacaoId: cotRef.id, sectionIds: sectionIds);
+    final SectionIds sectionIds = {
+      for (final sec in CotacaoSections.all) sec: 'main',
+    };
+    return (cotacaoId: 'main', sectionIds: sectionIds);
   }
 
   /// Salva uma seção específica
@@ -43,7 +42,13 @@ class CotacaoRepository {
         .doc(cotacaoId)
         .collection(sectionKey)
         .doc(sectionDocId)
-        .set(data, SetOptions(merge: true));
+        .set(
+      {
+        ...data,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
   }
 
   /// Salva várias seções de uma vez (batch)
@@ -59,30 +64,64 @@ class CotacaoRepository {
     sectionsData.forEach((key, data) {
       final id = sectionIds[key];
       if (id == null) return;
-      batch.set(ref.collection(key).doc(id), data, SetOptions(merge: true));
+      batch.set(
+        ref.collection(key).doc(id),
+        {
+          ...data,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     });
 
     await batch.commit();
   }
 
-  /// Carrega todas as seções
+  /// Carrega todas as seções (padrão DFD/TR: Future.wait + limpa campos técnicos)
   Future<SectionsMap> loadAllSections({
     required String contractId,
     required String cotacaoId,
     required SectionIds sectionIds,
   }) async {
-    final out = <String, Map<String, dynamic>>{};
+    final SectionsMap out = {};
     final ref = _col(contractId).doc(cotacaoId);
 
-    for (final sec in CotacaoSections.all) {
-      final id = sectionIds[sec];
-      if (id == null) {
-        out[sec] = const {};
-        continue;
-      }
-      final snap = await ref.collection(sec).doc(id).get();
-      out[sec] = (snap.data() ?? const <String, dynamic>{});
-    }
+    final futures = sectionIds.entries.map((entry) async {
+      final secName = entry.key;
+      final secId = entry.value;
+
+      final snap = await ref.collection(secName).doc(secId).get();
+      final data =
+      Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+
+      data.remove('createdAt');
+      data.remove('updatedAt');
+
+      out[secName] = data;
+    }).toList();
+
+    await Future.wait(futures);
     return out;
+  }
+
+  /// Leitura direta de uma CotacaoData completa para o contrato
+  ///
+  /// - chama ensureStructure (cotacaoId = "main" e sectionIds = {sec: "main"})
+  /// - lê todas as seções
+  /// - se tudo estiver vazio, retorna null
+  /// - monta CotacaoData.fromSectionsMap(sections)
+  Future<CotacaoData?> readDataForContract(String contractId) async {
+    final ids = await ensureStructure(contractId);
+
+    final sections = await loadAllSections(
+      contractId: contractId,
+      cotacaoId: ids.cotacaoId,
+      sectionIds: ids.sectionIds,
+    );
+
+    final hasAnyData = sections.values.any((m) => m.isNotEmpty);
+    if (!hasAnyData) return null;
+
+    return CotacaoData.fromSectionsMap(sections);
   }
 }

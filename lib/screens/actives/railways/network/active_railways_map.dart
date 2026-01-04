@@ -1,22 +1,21 @@
-// lib/screens/actives/railway/active_railways_map.dart
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
 
-import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';
-import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
+import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
+import 'package:siged/_blocs/actives/railway/active_railways_cubit.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_state.dart';
 
-import 'package:siged/_widgets/map/map_interactive.dart';
+import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
 import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
-
-import 'active_railways_details.dart';
 
 // NOVO helper de overlay ancorado
 import 'package:siged/_widgets/map/tooltip/map_tap_overlay.dart';
+
+import 'active_railways_details.dart';
 
 class ActiveRailwaysMap extends StatefulWidget {
   const ActiveRailwaysMap({super.key, required this.state});
@@ -36,7 +35,8 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
   @override
   Widget build(BuildContext context) {
     final isInitialLoading =
-        widget.state.loadStatus == ActiveRailwaysLoadStatus.loading && !widget.state.initialized;
+        widget.state.loadStatus == ActiveRailwaysLoadStatus.loading &&
+            !widget.state.initialized;
 
     if (isInitialLoading) {
       return const MapLoadingShimmer();
@@ -44,22 +44,28 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
 
     return MapInteractivePage(
       // polylines responsivas
-      tappablePolylines: widget.state.buildStyledPolylines(zoom: widget.state.mapZoom),
+      tappablePolylines:
+      widget.state.buildStyledPolylines(zoom: widget.state.mapZoom),
 
-      // overlay invisível que já alimenta o zoom pro BLoC (mantido)
-      overlayBuilder: (MapController mc, GlobalKey _) => _ZoomListenerOverlay(mapController: mc),
+      // overlay invisível que já alimenta o zoom pro Cubit
+      overlayBuilder: (MapController mc, GlobalKey _) =>
+          _ZoomListenerOverlay(mapController: mc),
 
       // 👉 atualiza o tooltip ancorado conforme pan/zoom
       onCameraChanged: (double _, LatLng __) {
-        if (_anchorLatLng != null && _lastMapController != null && _toGlobal != null) {
-          final local = _lastMapController!.camera.latLngToScreenOffset(_anchorLatLng!);
+        if (_anchorLatLng != null &&
+            _lastMapController != null &&
+            _toGlobal != null) {
+          final local = _lastMapController!.camera.latLngToScreenOffset(
+            _anchorLatLng!,
+          );
           final global = _toGlobal!(local);
           MapTapOverlayTooltip.updatePosition(global);
         }
       },
 
       onClearPolylineSelection: () async {
-        context.read<ActiveRailwaysBloc>().add(const ActiveRailwaysSelectPolyline(null));
+        context.read<ActiveRailwaysCubit>().selectPolyline(null);
         _anchorLatLng = null;
         _lastMapController = null;
         _toGlobal = null;
@@ -67,29 +73,41 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
       },
 
       onSelectPolyline: (polyline) async {
-        context.read<ActiveRailwaysBloc>().add(
-          ActiveRailwaysSelectPolyline(polyline.tag?.toString()),
-        );
+        context
+            .read<ActiveRailwaysCubit>()
+            .selectPolyline(polyline.tag?.toString());
       },
 
       onShowPolylineTooltip: ({
         required BuildContext context,
         required Offset position,
         required Object? tag,
-        required MapController mapController,   // 👈 vem do MapInteractivePage atualizado
-        LatLng? tapLatLng,                      // 👈 idem
-        Offset Function(Offset p)? toGlobal,    // 👈 idem
+        required MapController mapController,
+        LatLng? tapLatLng,
+        Offset Function(Offset p)? toGlobal,
       }) async {
         final id = tag?.toString();
         if (id == null) return;
 
-        final fer = widget.state.filteredAll.firstWhere(
-              (f) => f.id == id,
-          orElse: () => widget.state.all.firstWhere(
-                (f) => f.id == id,
-            orElse: () => null as dynamic,
-          ),
+        final st = widget.state;
+
+        ActiveRailwayData? fer = st.filteredAll
+            .where((f) => f.id == id)
+            .cast<ActiveRailwayData?>()
+            .firstWhere(
+              (f) => f != null,
+          orElse: () => null,
         );
+
+        fer ??= st.all
+            .where((f) => f.id == id)
+            .cast<ActiveRailwayData?>()
+            .firstWhere(
+              (f) => f != null,
+          orElse: () => null,
+        );
+
+        if (fer == null) return;
 
         // âncora ideal: projeção do toque na linha; fallback: centro/início/fim
         _anchorLatLng = fer.anchorForTap(tapLatLng);
@@ -126,7 +144,10 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
                   ),
                   height: MediaQuery.of(context).size.height * 0.7,
                   width: MediaQuery.of(context).size.width * 0.8,
-                  child: ActiveRailwaysDetails(fer: fer),
+                  child: ActiveRailwaysDetails(
+                    fer: fer!,
+                    enabled: false,
+                  ),
                 ),
               ),
             );
@@ -159,7 +180,7 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
   }
 }
 
-/// Widget invisível que assina o mapEventStream e envia o zoom ao BLoC.
+/// Widget invisível que assina o mapEventStream e envia o zoom ao Cubit.
 class _ZoomListenerOverlay extends StatefulWidget {
   const _ZoomListenerOverlay({required this.mapController});
   final MapController mapController;
@@ -179,14 +200,14 @@ class _ZoomListenerOverlayState extends State<_ZoomListenerOverlay> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final z = widget.mapController.camera.zoom;
       _last = z;
-      context.read<ActiveRailwaysBloc>().add(ActiveRailwaysMapZoomChanged(z));
+      context.read<ActiveRailwaysCubit>().setMapZoom(z);
     });
 
     _sub = widget.mapController.mapEventStream.listen((_) {
       final z = widget.mapController.camera.zoom;
       if ((z - _last).abs() >= 0.05) {
         _last = z;
-        context.read<ActiveRailwaysBloc>().add(ActiveRailwaysMapZoomChanged(z));
+        context.read<ActiveRailwaysCubit>().setMapZoom(z);
       }
     });
   }

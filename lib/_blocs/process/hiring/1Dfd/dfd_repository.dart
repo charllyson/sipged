@@ -1,4 +1,3 @@
-// lib/_blocs/process/hiring/1Dfd/dfd_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
 
@@ -13,125 +12,16 @@ class DfdRepository {
   CollectionReference<Map<String, dynamic>> _col(String contractId) =>
       _db.collection('contracts').doc(contractId).collection('dfd');
 
-  /// Doc principal do DFD: contracts/{contractId}/dfd/main
-  DocumentReference<Map<String, dynamic>> _dfdDoc(String contractId) =>
-      _col(contractId).doc('main');
-
-  bool _isSectionDataEmpty(Map<String, dynamic>? data) {
-    if (data == null || data.isEmpty) return true;
-    // se só tiver campos técnicos, considero "vazio"
-    final keys = data.keys.toSet();
-    keys.remove('createdAt');
-    keys.remove('updatedAt');
-    return keys.isEmpty;
-  }
-
-  /// ===========================================================================
-  /// Garante a estrutura usando IDs fixos "main" E faz migração lazy dos dados antigos:
-  ///
-  /// - Se não existir `dfd/main`, copia os dados do 1º DFD antigo.
-  /// - Para cada seção, se `main` estiver vazia, copia a 1ª seção antiga.
-  ///
-  /// NÃO APAGA NADA ANTIGO.
-  /// ===========================================================================
+  /// Estrutura fixa:
+  ///   - doc DFD sempre "main"
+  ///   - cada seção sempre doc "main"
   Future<({String dfdId, SectionIds sectionIds})> ensureStructure(
       String contractId,
       ) async {
-    final mainRef = _dfdDoc(contractId);
-    var mainSnap = await mainRef.get();
-
-    DocumentReference<Map<String, dynamic>>? legacyDfdRef;
-
-    // 1) Se não existe "main", tenta achar um DFD antigo para migrar
-    if (!mainSnap.exists) {
-      final legacyQ = await _col(contractId).limit(1).get();
-
-      if (legacyQ.docs.isNotEmpty) {
-        final legacyDoc = legacyQ.docs.first;
-        legacyDfdRef = legacyDoc.reference;
-
-        final legacyData =
-        Map<String, dynamic>.from(legacyDoc.data() ?? <String, dynamic>{});
-
-        await mainRef.set(
-          {
-            ...legacyData,
-            'migratedFrom': legacyDoc.id,
-            'migratedAt': FieldValue.serverTimestamp(),
-            'createdAt':
-            legacyData['createdAt'] ?? FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-      } else {
-        // nenhum doc de dfd existia -> cria um main limpo
-        await mainRef.set(
-          {
-            'createdAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-      }
-
-      mainSnap = await mainRef.get();
-    } else {
-      // main já existe -> ainda podemos usar um DFD antigo como fonte para seções
-      final legacyQ = await _col(contractId).limit(1).get();
-      if (legacyQ.docs.isNotEmpty) {
-        final legacyDoc = legacyQ.docs.first;
-        if (legacyDoc.id != 'main') {
-          legacyDfdRef = legacyDoc.reference;
-        }
-      }
-    }
-
-    // 2) Garante um doc "main" em cada subcoleção de seção,
-    //    migrando dados das seções antigas se existirem
-    final SectionIds sectionIds = {};
-    for (final sec in DfdSections.all) {
-      final mainSecRef = mainRef.collection(sec).doc('main');
-      var mainSecSnap = await mainSecRef.get();
-
-      Map<String, dynamic>? mainData =
-      mainSecSnap.exists ? mainSecSnap.data() : null;
-
-      if (!mainSecSnap.exists || _isSectionDataEmpty(mainData)) {
-        Map<String, dynamic>? sourceData;
-
-        // tenta achar seção em DFD legado, se existir
-        if (legacyDfdRef != null) {
-          final legacySecQ =
-          await legacyDfdRef.collection(sec).limit(1).get();
-          if (legacySecQ.docs.isNotEmpty) {
-            sourceData = Map<String, dynamic>.from(
-              legacySecQ.docs.first.data() ?? <String, dynamic>{},
-            );
-          }
-        }
-
-        if (sourceData != null && !_isSectionDataEmpty(sourceData)) {
-          // Migra dados da seção antiga para main
-          await mainSecRef.set(
-            sourceData,
-            SetOptions(merge: false), // sobrescreve completamente a seção main
-          );
-        } else {
-          // não havia seção antiga -> apenas garante o doc main vazio com createdAt
-          await mainSecRef.set(
-            {
-              'createdAt': FieldValue.serverTimestamp(),
-            },
-            SetOptions(merge: true),
-          );
-        }
-
-        mainSecSnap = await mainSecRef.get();
-      }
-
-      sectionIds[sec] = mainSecRef.id; // sempre "main"
-    }
-
-    return (dfdId: mainRef.id, sectionIds: sectionIds);
+    final SectionIds sectionIds = {
+      for (final sec in DfdSections.all) sec: 'main',
+    };
+    return (dfdId: 'main', sectionIds: sectionIds);
   }
 
   /// Carrega todas as seções em um mapa {secao: Map}
@@ -143,18 +33,20 @@ class DfdRepository {
     final SectionsMap out = {};
     final dfdRef = _col(contractId).doc(dfdId);
 
-    for (final entry in sectionIds.entries) {
+    final futures = sectionIds.entries.map((entry) async {
       final secName = entry.key;
       final secId = entry.value;
-      final snap = await dfdRef.collection(secName).doc(secId).get();
 
-      final data =
-      Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
+      final snap = await dfdRef.collection(secName).doc(secId).get();
+      final data = Map<String, dynamic>.from(snap.data() ?? <String, dynamic>{});
 
       data.remove('createdAt');
       data.remove('updatedAt');
+
       out[secName] = data;
-    }
+    }).toList();
+
+    await Future.wait(futures);
     return out;
   }
 
@@ -191,8 +83,7 @@ class DfdRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    final ref =
-    _col(contractId).doc(dfdId).collection(sectionKey).doc(sectionDocId);
+    final ref = _col(contractId).doc(dfdId).collection(sectionKey).doc(sectionDocId);
     await ref.set(
       {
         ...data,
@@ -202,41 +93,49 @@ class DfdRepository {
     );
   }
 
-  /// Leitura direta de um DfdData completo para o contrato (útil pra dashboards, etc.)
+  /// Leitura direta de um DfdData completo para o contrato
   Future<DfdData?> readDataForContract(String contractId) async {
-    final mainRef = _dfdDoc(contractId);
-    var dfdSnap = await mainRef.get();
+    final ids = await ensureStructure(contractId);
 
-    // Se não existir main, procura um DFD legado qualquer
-    if (!dfdSnap.exists) {
-      final legacyQ = await _col(contractId).limit(1).get();
-      if (legacyQ.docs.isEmpty) return null;
-      dfdSnap = legacyQ.docs.first;
+    final sections = await loadAllSections(
+      contractId: contractId,
+      dfdId: ids.dfdId,
+      sectionIds: ids.sectionIds,
+    );
+
+    final hasAnyData = sections.values.any((m) => m.isNotEmpty);
+    if (!hasAnyData) return null;
+
+    return DfdData.fromSectionsMap(
+      sections,
+      contractId: contractId, // <- runtime only
+    );
+  }
+
+  /// Cria (se necessário) o contrato e salva o DFD completo.
+  Future<String> ensureContractAndSaveDfd({
+    String? contractId,
+    required DfdData data,
+  }) async {
+    String effectiveId = (contractId ?? '').trim();
+
+    if (effectiveId.isEmpty) {
+      final contractsRef = _db.collection('contracts');
+      final docRef = await contractsRef.add({
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      effectiveId = docRef.id;
     }
 
-    final dfdRef = dfdSnap.reference;
-    final Map<String, Map<String, dynamic>> sections = {};
+    final ids = await ensureStructure(effectiveId);
 
-    for (final sec in DfdSections.all) {
-      final mainSecRef = dfdRef.collection(sec).doc('main');
-      var secSnap = await mainSecRef.get();
+    await saveSectionsBatch(
+      contractId: effectiveId,
+      dfdId: ids.dfdId,
+      sectionIds: ids.sectionIds,
+      sectionsData: data.toSectionsMap(), // contractId não é persistido
+    );
 
-      if (!secSnap.exists) {
-        final legacySecQ = await dfdRef.collection(sec).limit(1).get();
-        if (legacySecQ.docs.isEmpty) continue;
-        secSnap = legacySecQ.docs.first;
-      }
-
-      final data =
-      Map<String, dynamic>.from(secSnap.data() ?? <String, dynamic>{});
-
-      data.remove('createdAt');
-      data.remove('updatedAt');
-      sections[sec] = data;
-    }
-
-    if (sections.isEmpty) return null;
-
-    return DfdData.fromSectionsMap(sections);
+    return effectiveId;
   }
 }

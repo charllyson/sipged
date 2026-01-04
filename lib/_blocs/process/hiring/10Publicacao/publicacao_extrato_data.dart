@@ -1,7 +1,9 @@
 // lib/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
+
 import 'package:siged/_utils/formats/converters_utils.dart';
+import 'publicacao_extrato_sections.dart';
 
 class PublicacaoExtratoData extends Equatable {
   // 1) Metadados
@@ -14,7 +16,7 @@ class PublicacaoExtratoData extends Equatable {
   final String? contratadaRazao;
   final String? contratadaCnpj;
   final double? valor;      // ex.: 12345.67
-  final int? vigencia;      // ex.: 12 (meses)
+  final int? vigencia;      // ex.: 12 (meses ou dias, conforme uso)
   final String? cnoRef;
 
   // 3) Veículo
@@ -53,10 +55,29 @@ class PublicacaoExtratoData extends Equatable {
     this.responsavelUserId,
   });
 
+  /// Construtor "vazio" para formulários
+  const PublicacaoExtratoData.empty()
+      : tipoExtrato = null,
+        numeroContrato = null,
+        processo = null,
+        objetoResumo = null,
+        contratadaRazao = null,
+        contratadaCnpj = null,
+        valor = null,
+        vigencia = null,
+        cnoRef = null,
+        veiculo = null,
+        edicaoNumero = null,
+        dataEnvio = null,
+        dataPublicacao = null,
+        linkPublicacao = null,
+        status = null,
+        prazoLegal = null,
+        observacoes = null,
+        responsavelUserId = null;
 
   // ---------------------------------------------------------------------------
   // Map simples (sem seções)
-  // -> Datetime como Timestamp, numéricos como number, strings como string
   // ---------------------------------------------------------------------------
 
   Map<String, dynamic> toFlatMap() => {
@@ -92,46 +113,46 @@ class PublicacaoExtratoData extends Equatable {
   };
 
   factory PublicacaoExtratoData.fromFlatMap(Map<String, dynamic>? map) {
-    if (map == null) return const PublicacaoExtratoData();
+    if (map == null) return const PublicacaoExtratoData.empty();
     return PublicacaoExtratoData(
       tipoExtrato: map['tipoExtrato'] as String?,
       numeroContrato: map['numeroContrato'] as String?,
       processo: map['processo'] as String?,
       objetoResumo: map['objetoResumo'] as String?,
-
       contratadaRazao: map['contratadaRazao'] as String?,
       contratadaCnpj: map['contratadaCnpj'] as String?,
-      valor: ConvertersUtils.converterToDouble(map['valor']),
-      vigencia: ConvertersUtils.converterToInt(map['vigencia']),
+      valor: converterToDouble(map['valor']),
+      vigencia: converterToInt(map['vigencia']),
       cnoRef: map['cnoRef'] as String?,
-
       veiculo: map['veiculo'] as String?,
       edicaoNumero: map['edicaoNumero'] as String?,
-      dataEnvio: ConvertersUtils.converterToDate(map['dataEnvio']),
-      dataPublicacao: ConvertersUtils.converterToDate(map['dataPublicacao']),
+      dataEnvio: converterToDate(map['dataEnvio']),
+      dataPublicacao: converterToDate(map['dataPublicacao']),
       linkPublicacao: map['linkPublicacao'] as String?,
-
       status: map['status'] as String?,
       prazoLegal: map['prazoLegal'] as String?,
       observacoes: map['observacoes'] as String?,
-
       responsavelUserId: map['responsavelUserId'] as String?,
     );
   }
 
   // ---------------------------------------------------------------------------
   // Seções (metadados/partes/veiculo/status/responsavel)
-  // -> mesma lógica: DateTime como Timestamp; numéricos como number
   // ---------------------------------------------------------------------------
 
   factory PublicacaoExtratoData.fromSectionsMap(
       Map<String, Map<String, dynamic>> sections,
       ) {
-    final m = sections['metadados'] ?? const <String, dynamic>{};
-    final p = sections['partes'] ?? const <String, dynamic>{};
-    final v = sections['veiculo'] ?? const <String, dynamic>{};
-    final s = sections['status'] ?? const <String, dynamic>{};
-    final r = sections['responsavel'] ?? const <String, dynamic>{};
+    final m =
+        sections[PublicacaoExtratoSections.metadados] ?? const <String, dynamic>{};
+    final p =
+        sections[PublicacaoExtratoSections.partes] ?? const <String, dynamic>{};
+    final v =
+        sections[PublicacaoExtratoSections.veiculo] ?? const <String, dynamic>{};
+    final s =
+        sections[PublicacaoExtratoSections.status] ?? const <String, dynamic>{};
+    final r = sections[PublicacaoExtratoSections.responsavel] ??
+        const <String, dynamic>{};
 
     return PublicacaoExtratoData(
       tipoExtrato: m['tipoExtrato'] as String?,
@@ -141,14 +162,14 @@ class PublicacaoExtratoData extends Equatable {
 
       contratadaRazao: p['contratadaRazao'] as String?,
       contratadaCnpj: p['contratadaCnpj'] as String?,
-      valor: ConvertersUtils.converterToDouble(p['valor']),
-      vigencia: ConvertersUtils.converterToInt(p['vigencia']),
+      valor: converterToDouble(p['valor']),
+      vigencia: converterToInt(p['vigencia']),
       cnoRef: p['cnoRef'] as String?,
 
       veiculo: v['veiculo'] as String?,
       edicaoNumero: v['edicaoNumero'] as String?,
-      dataEnvio: ConvertersUtils.converterToDate(v['dataEnvio']),
-      dataPublicacao: ConvertersUtils.converterToDate(v['dataPublicacao']),
+      dataEnvio: converterToDate(v['dataEnvio']),
+      dataPublicacao: converterToDate(v['dataPublicacao']),
       linkPublicacao: v['linkPublicacao'] as String?,
 
       status: s['status'] as String?,
@@ -234,20 +255,20 @@ class PublicacaoExtratoData extends Equatable {
 extension PublicacaoExtratoDataSections on PublicacaoExtratoData {
   Map<String, Map<String, dynamic>> toSectionsMap() {
     return {
-      'metadados': {
+      PublicacaoExtratoSections.metadados: {
         'tipoExtrato': tipoExtrato,
         'numeroContrato': numeroContrato,
         'processo': processo,
         'objetoResumo': objetoResumo,
       },
-      'partes': {
+      PublicacaoExtratoSections.partes: {
         'contratadaRazao': contratadaRazao,
         'contratadaCnpj': contratadaCnpj,
-        'valor': valor,        // double -> number
-        'vigencia': vigencia,  // int -> number
+        'valor': valor,
+        'vigencia': vigencia,
         'cnoRef': cnoRef,
       },
-      'veiculo': {
+      PublicacaoExtratoSections.veiculo: {
         'veiculo': veiculo,
         'edicaoNumero': edicaoNumero,
         'dataEnvio':
@@ -256,12 +277,12 @@ extension PublicacaoExtratoDataSections on PublicacaoExtratoData {
         dataPublicacao != null ? Timestamp.fromDate(dataPublicacao!) : null,
         'linkPublicacao': linkPublicacao,
       },
-      'status': {
+      PublicacaoExtratoSections.status: {
         'status': status,
         'prazoLegal': prazoLegal,
         'observacoes': observacoes,
       },
-      'responsavel': {
+      PublicacaoExtratoSections.responsavel: {
         'responsavelUserId': responsavelUserId,
       },
     };

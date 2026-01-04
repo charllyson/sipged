@@ -22,7 +22,7 @@ double responsiveInputWidth({
   if (!forceItemsPerLineOnSmall && width < 600) {
     final single = width - (effectiveMargin * 2) - extraPadding;
     if (minWidthSmallScreen != null) {
-      return single.clamp(minWidthSmallScreen, double.infinity) as double;
+      return single.clamp(minWidthSmallScreen, double.infinity);
     }
     return single;
   }

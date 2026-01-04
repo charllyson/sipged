@@ -39,7 +39,6 @@ class UserData extends ChangeNotifier {
   bool? themeDark;
   GeoPoint? geoPoint;
 
-  // ===== Snapshot bruto (opcional p/ debug) =====
   DocumentSnapshot<Map<String, dynamic>>? userSnap;
 
   bool? profileWork;
@@ -229,5 +228,29 @@ class UserData extends ChangeNotifier {
     this.geoPoint = geoPoint ?? this.geoPoint;
     this.dateToBirthday = dateToBirthday ?? this.dateToBirthday;
     notifyListeners();
+  }
+  /// Instância "vazia" de usuário, útil como placeholder / default.
+  static UserData empty() {
+    return UserData(
+      uid: null,
+      name: '',
+      surname: '',
+      cpf: '',
+      email: '',
+      password: null,
+      gender: null,
+      urlPhoto: null,
+      filePhoto: null,
+      cellPhone: '',
+      createUser: null,
+      dateToBirthday: null,
+      themeDark: false,
+      geoPoint: null,
+      userSnap: null,
+      baseRole: null,
+      baseProfile: null,
+      profileWork: false,
+      profileLegal: false,
+    );
   }
 }

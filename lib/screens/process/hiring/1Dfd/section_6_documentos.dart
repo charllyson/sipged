@@ -3,15 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_cubit.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_state.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_storage_bloc.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/input/dropdown_yes_no.dart';
+import 'package:siged/_widgets/input/drop_down_yes_no.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class SectionDocumentos extends StatefulWidget {
   final bool isEditable;
@@ -45,7 +48,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     super.initState();
     _storage = DfdStorageBloc();
 
-    _sub = context.read<DfdBloc>().stream.listen((state) async {
+    _sub = context.read<DfdCubit>().stream.listen((state) async {
       final docsId = state.sectionIds['documentos'];
       if (!state.loading && state.dfdId != null && docsId != null) {
         await _refreshDocs(state.dfdId!, docsId);
@@ -80,7 +83,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
   }
 
   Future<void> _addDoc() async {
-    final state = context.read<DfdBloc>().state;
+    final state = context.read<DfdCubit>().state;
     final dfdId = state.dfdId;
     final documentosId = state.sectionIds['documentos'];
     if (dfdId == null || documentosId == null) {
@@ -116,7 +119,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
   Future<void> _deleteAt(int i) async {
     if (i < 0 || i >= _items.length) return;
 
-    final state = context.read<DfdBloc>().state;
+    final state = context.read<DfdCubit>().state;
     final dfdId = state.dfdId;
     final documentosId = state.sectionIds['documentos'];
     if (dfdId == null || documentosId == null) return;
@@ -170,7 +173,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('6) Documentos / Checklists'),
+        const SectionTitle(text: '6) Documentos / Checklists'),
         LayoutBuilder(
           builder: (context, inner) {
             final isNarrow = inner.maxWidth < 820;
@@ -239,46 +242,52 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
                     width: panelWidth,
                     selectedIndex: _selectedIndex,
                     onTap: (i) => setState(() => _selectedIndex = i),
-                    onAddPressed:
-                    widget.isEditable ? _addDoc : null,
-                    onDelete:
-                    widget.isEditable ? _deleteAt : null,
+                    onAddPressed: widget.isEditable ? _addDoc : null,
+                    onDelete: widget.isEditable ? _deleteAt : null,
                     onEditLabel: widget.isEditable
                         ? (i) async {
                       final current = _items[i].label;
-                      final ctrl =
-                      TextEditingController(text: current);
-                      final newLabel =
-                      await showDialog<String>(
+                      final ctrl = TextEditingController(text: current);
+
+                      final newLabel = await showWindowDialogMac<String>(
                         context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('Renomear anexo'),
-                          content: TextField(
-                            controller: ctrl,
-                            decoration:
-                            const InputDecoration(
-                              labelText: 'Novo rótulo',
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.pop(context),
-                              child: const Text('Cancelar'),
-                            ),
-                            FilledButton(
-                              onPressed: () =>
-                                  Navigator.pop(
-                                    context,
-                                    ctrl.text.trim(),
+                        title: 'Renomear anexo',
+                        width: 420,
+                        child: Builder(
+                          builder: (dialogCtx) {
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  CustomTextField(
+                                    controller: ctrl,
+                                    labelText: 'Novo rótulo',
+                                    onSubmitted: (_) {
+                                      Navigator.of(dialogCtx).pop(ctrl.text.trim());
+                                    },
                                   ),
-                              child: const Text('Salvar'),
-                            ),
-                          ],
+                                  const SizedBox(height: 18),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      FilledButton(
+                                        onPressed: () => Navigator.of(dialogCtx).pop(
+                                          ctrl.text.trim(),
+                                        ),
+                                        child: const Text('Salvar'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       );
-                      if (newLabel != null &&
-                          newLabel.isNotEmpty) {
+
+                      if (newLabel != null && newLabel.isNotEmpty) {
                         setState(() {
                           final cur = _items[i];
                           _items = [

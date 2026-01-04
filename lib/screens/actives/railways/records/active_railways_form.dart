@@ -6,8 +6,7 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_utils/formats/mask_class.dart';
 
 import 'package:siged/_blocs/actives/railway/active_railway_data.dart';
-import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';
-import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
+import 'package:siged/_blocs/actives/railway/active_railways_cubit.dart';
 import 'package:siged/_blocs/actives/railway/active_railways_state.dart';
 
 // 🔔 Notificações
@@ -26,18 +25,18 @@ class ActiveRailwaysForm extends StatefulWidget {
 
 class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
   // Campos de domínio mais comuns na sua ActiveRailwayData
-  final _codigoCtrl       = TextEditingController();   // Código
-  final _nomeCtrl         = TextEditingController();   // Nome
-  final _statusCtrl       = TextEditingController();   // Status (texto livre)
-  final _bitolaCtrl       = TextEditingController();   // Bitola
-  final _ufCtrl           = TextEditingController();   // UF
-  final _municipioCtrl    = TextEditingController();   // Município
-  final _extensaoCtrl     = TextEditingController();   // Extensão (km)
-  final _extensaoECtrl    = TextEditingController();   // Extensão E. (opcional)
-  final _extensaoCCtrl    = TextEditingController();   // Extensão C. (opcional)
-  final _codigoCoincCtrl  = TextEditingController();   // Código Coincidente (opcional)
-  final _fidCtrl          = TextEditingController();   // fid (opcional)
-  final _nativeIdCtrl     = TextEditingController();   // id nativo (opcional)
+  final _codigoCtrl      = TextEditingController();   // Código
+  final _nomeCtrl        = TextEditingController();   // Nome
+  final _statusCtrl      = TextEditingController();   // Status (texto livre)
+  final _bitolaCtrl      = TextEditingController();   // Bitola
+  final _ufCtrl          = TextEditingController();   // UF
+  final _municipioCtrl   = TextEditingController();   // Município
+  final _extensaoCtrl    = TextEditingController();   // Extensão (km)
+  final _extensaoECtrl   = TextEditingController();   // Extensão E. (opcional)
+  final _extensaoCCtrl   = TextEditingController();   // Extensão C. (opcional)
+  final _codigoCoincCtrl = TextEditingController();   // Código Coincidente (opcional)
+  final _fidCtrl         = TextEditingController();   // fid (opcional)
+  final _nativeIdCtrl    = TextEditingController();   // id nativo (opcional)
 
   @override
   void dispose() {
@@ -82,7 +81,9 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
 
   double? _parseNumberLoose(String s) {
     if (s.trim().isEmpty) return null;
-    final t = s.contains(',') && !s.contains('.') ? s.replaceAll('.', '').replaceAll(',', '.') : s;
+    final t = s.contains(',') && !s.contains('.')
+        ? s.replaceAll('.', '').replaceAll(',', '.')
+        : s;
     return double.tryParse(t);
   }
 
@@ -135,18 +136,18 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
   }
 
   bool _requiredValid(ActiveRailwayData d) {
-    final hasName  = (d.nome?.trim().isNotEmpty ?? false);
-    final hasUF    = (d.uf?.trim().isNotEmpty ?? false);
-    final hasExt   = (d.extensao ?? 0) > 0;
+    final hasName = (d.nome?.trim().isNotEmpty ?? false);
+    final hasUF   = (d.uf?.trim().isNotEmpty ?? false);
+    final hasExt  = (d.extensao ?? 0) > 0;
     return hasName && hasUF && hasExt;
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ActiveRailwaysBloc, ActiveRailwaysState>(
+    return BlocBuilder<ActiveRailwaysCubit, ActiveRailwaysState>(
       buildWhen: (a, b) => a.savingOrImporting != b.savingOrImporting,
       builder: (context, st) {
-        final bloc = context.read<ActiveRailwaysBloc>();
+        final cubit = context.read<ActiveRailwaysCubit>();
 
         final fields = Wrap(
           spacing: 12,
@@ -187,9 +188,10 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
                 children: [
                   TextButton.icon(
                     onPressed: canSave
-                        ? () {
+                        ? () async {
                       final data = _buildData(widget.editing);
-                      bloc.add(ActiveRailwaysUpsertRequested(data));
+                      // chama direto o Cubit
+                      await cubit.upsert(data);
                       NotificationCenter.instance.show(
                         AppNotification(
                           title: const Text('Salvando ferrovia...'),

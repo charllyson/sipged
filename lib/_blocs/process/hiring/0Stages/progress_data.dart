@@ -1,3 +1,5 @@
+// lib/_blocs/process/hiring/0Stages/progress_data.dart
+
 import 'package:meta/meta.dart';
 
 @immutable
@@ -48,7 +50,7 @@ class ProgressData {
     final byA = _map(a['approvedBy']);
     final s = _map(m?['stage']);
 
-    // <<< AJUSTE: leitura nested >>>
+    // leitura nested
     final resp = _map(s['responsible']);
     final appr = _map(s['approver']);
 

@@ -9,7 +9,12 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 class ActiveRailwaysDetails extends StatefulWidget {
   final ActiveRailwayData fer;
   final bool enabled;
-  const ActiveRailwaysDetails({super.key, required this.fer, this.enabled = true});
+
+  const ActiveRailwaysDetails({
+    super.key,
+    required this.fer,
+    this.enabled = true,
+  });
 
   @override
   State<ActiveRailwaysDetails> createState() => _ActiveRailwaysDetailsState();
@@ -26,8 +31,12 @@ class _ActiveRailwaysDetailsState extends State<ActiveRailwaysDetails> {
 
   void _initControllers() {
     final f = widget.fer;
-    void add(String key, dynamic value) =>
-        _controllers[key] = TextEditingController(text: value?.toString() ?? '');
+
+    void add(String key, dynamic value) {
+      _controllers[key] = TextEditingController(
+        text: value?.toString() ?? '',
+      );
+    }
 
     // Identificação
     add('FID', f.fid);

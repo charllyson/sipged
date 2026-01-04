@@ -13,55 +13,43 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:siged/_blocs/actives/oacs/active_oacs_cubit.dart';
 
+import '_blocs/process/measurement/adjustment/adjustments_measurement_cubit.dart';
 import 'firebase_options_flavors.dart';
 
 // ===== Cubits / BLoCs de mapa / ativos =====
 import 'package:siged/_services/dxf/map_overlay_cubit.dart';
 
-import 'package:siged/_blocs/actives/roads/active_road_bloc.dart';
-import 'package:siged/_blocs/actives/roads/active_roads_event.dart';
-import 'package:siged/_blocs/actives/railway/active_railways_bloc.dart';
-import 'package:siged/_blocs/actives/railway/active_railways_event.dart';
-import 'package:siged/_blocs/actives/oaes/active_oaes_bloc.dart';
-import 'package:siged/_blocs/actives/oaes/active_oaes_event.dart';
+import 'package:siged/_blocs/actives/roads/active_roads_cubit.dart';
+import 'package:siged/_blocs/actives/railway/active_railways_cubit.dart';
+
+// ✅ OAEs em Cubit
+import 'package:siged/_blocs/actives/oaes/active_oaes_cubit.dart';
 
 // ===== Painéis / Dashboards =====
-import 'package:siged/_blocs/panels/overview-dashboard/demands_dashboard_controller.dart';
+import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 
-// ===== Processos: ajustes, revisões, relatórios =====
-import 'package:siged/_blocs/process/adjustment/adjustment_measurement_bloc.dart';
-import 'package:siged/_blocs/process/adjustment/adjustment_measurement_store.dart';
-
-import 'package:siged/_blocs/process/revision/revision_measurement_bloc.dart';
-import 'package:siged/_blocs/process/revision/revision_measurement_store.dart';
-
-import 'package:siged/_blocs/process/report/report_measurement_bloc.dart';
-import 'package:siged/_blocs/process/report/report_measurement_storage_bloc.dart';
-import 'package:siged/_blocs/process/report/report_measurement_store.dart';
+// ===== Processos: ajustes, revisões, relatórios (NOVOS CUBITS) =====
+import 'package:siged/_blocs/process/measurement/revision/revision_measurement_cubit.dart';
+import 'package:siged/_blocs/process/measurement/report/report_measurement_cubit.dart';
 
 // ===== Processos: validades =====
-import 'package:siged/_blocs/process/validity/validity_bloc.dart';
-import 'package:siged/_blocs/process/validity/validity_storage_bloc.dart';
-import 'package:siged/_blocs/process/validity/validity_store.dart';
+import 'package:siged/_blocs/process/validity/validity_cubit.dart';
+import 'package:siged/_blocs/process/validity/validity_repository.dart';
 
-// ===== Processos: aditivos / apostilas =====
-import 'package:siged/_blocs/process/additives/additives_bloc.dart';
-import 'package:siged/_blocs/process/additives/additives_storage_bloc.dart';
-import 'package:siged/_blocs/process/additives/additive_store.dart';
+// ===== Processos: aditivos =====
+import 'package:siged/_blocs/process/additives/additives_repository.dart';
 
-import 'package:siged/_blocs/process/apostilles/apostilles_bloc.dart';
-import 'package:siged/_blocs/process/apostilles/apostilles_storage_bloc.dart';
-import 'package:siged/_blocs/process/apostilles/apostilles_store.dart';
+// ✅ Apostilamentos (NOVO PADRÃO: Repository; Cubit é criado na página)
+import 'package:siged/_blocs/process/apostilles/apostilles_repository.dart';
 
 // ===== Processos: base de contratos =====
 import 'package:siged/_blocs/_process/process_bloc.dart';
-import 'package:siged/_blocs/_process/process_storage_bloc.dart';
 import 'package:siged/_blocs/_process/process_store.dart';
-import 'package:siged/_blocs/_process/process_controller.dart';
 
 // ===== Processos: cronograma =====
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
 
 // ===== Processos: física / financeira =====
@@ -74,13 +62,13 @@ import 'package:siged/_blocs/sectors/financial/payments/report/payments_report_s
 import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
 
 // ===== Setor trânsito: acidentes / infrações =====
-import 'package:siged/_blocs/sectors/transit/accidents/accidents_bloc.dart';
+import 'package:siged/_blocs/sectors/transit/accidents/accidents_cubit.dart';
 import 'package:siged/_blocs/sectors/transit/infractions/infractions_bloc.dart';
 import 'package:siged/_blocs/sectors/transit/infractions/infractions_controller.dart';
 
 // ===== Sistema / Usuário / Login =====
 import 'package:siged/_blocs/system/login/login_bloc.dart';
-import 'package:siged/_blocs/system/info/system_bloc.dart';
+import 'package:siged/_services/nominatim/nominatim_bloc.dart';
 import 'package:siged/_blocs/system/user/user_repository.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
@@ -91,48 +79,49 @@ import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_bloc.dart';
 import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_store.dart';
 
 // ===== Módulos de contratação (DFD, ETP, TR, etc.) =====
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_bloc.dart';
+import 'package:siged/_blocs/process/hiring/1Dfd/dfd_cubit.dart';
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/2Etp/etp_bloc.dart';
+import 'package:siged/_blocs/process/hiring/2Etp/etp_cubit.dart';
 import 'package:siged/_blocs/process/hiring/2Etp/etp_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/3Tr/tr_bloc.dart';
+import 'package:siged/_blocs/process/hiring/3Tr/tr_cubit.dart';
 import 'package:siged/_blocs/process/hiring/3Tr/tr_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_bloc.dart';
+import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_cubit.dart';
 import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/5Edital/edital_bloc.dart';
+import 'package:siged/_blocs/process/hiring/5Edital/edital_cubit.dart';
 import 'package:siged/_blocs/process/hiring/5Edital/edital_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_bloc.dart';
+import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_cubit.dart';
 import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/7Dotacao/dotacao_bloc.dart';
+import 'package:siged/_blocs/process/hiring/7Dotacao/dotacao_cubit.dart';
 import 'package:siged/_blocs/process/hiring/7Dotacao/dotacao_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_bloc.dart';
+import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_cubit.dart';
 import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_bloc.dart';
+import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_cubit.dart';
 import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_bloc.dart';
+import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_bloc.dart';
+import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
 import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_repository.dart';
+
+// ===== Setup =====
+import 'package:siged/_blocs/system/setup/setup_cubit.dart';
 
 // ===== GatePage / raiz da aplicação =====
 import 'package:siged/gate_page.dart';
 
 Future<void> _initFirebase() async {
   if (kIsWeb) {
-    // Web precisa de options explícitas -> seleciona pelo flavor
     await Firebase.initializeApp(options: FirebaseOptionsFlavors.forWeb());
   } else {
-    // Mobile/Desktop: usa configs nativas (google-services / GoogleService-Info)
     await Firebase.initializeApp();
   }
 }
@@ -142,7 +131,6 @@ Future<void> _connectToEmulatorsIfNeeded() async {
   const useEmu = bool.fromEnvironment('USE_EMULATOR', defaultValue: false);
   if (!useEmu) return;
 
-  // Observação: use '10.0.2.2' se rodar no Android Emulator.
   const host = 'localhost';
   FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
   await FirebaseAuth.instance.useAuthEmulator(host, 9099);
@@ -155,15 +143,15 @@ Future<void> bootstrapAndRunApp() async {
 
     FlutterError.onError = (details) {
       if (kIsWeb) {
+        // ignore: unused_local_variable
         final s = details.stack;
-        if (s is StackTrace) debugPrint(s.toString());
         return;
       }
       FlutterError.presentError(details);
     };
 
     PlatformDispatcher.instance.onError = (error, stack) {
-      // Poderia logar aqui
+      // Log global opcional
       return true;
     };
 
@@ -179,37 +167,48 @@ Future<void> bootstrapAndRunApp() async {
           // ========= Cubits/BLoCs auxiliares =========
           BlocProvider<MapOverlayCubit>(create: (_) => MapOverlayCubit()),
 
+          BlocProvider<SetupCubit>(
+            create: (_) => SetupCubit()..loadCompanies(),
+          ),
+
           // --------- BLoCs / services básicos ---------
-          Provider<LoginBloc>(create: (_) => LoginBloc(), dispose: (_, b) => b.dispose()),
-          Provider<SystemBloc>(create: (_) => SystemBloc(), dispose: (_, b) => b.dispose()),
+          Provider<LoginBloc>(
+            create: (_) => LoginBloc(),
+            dispose: (_, b) => b.dispose(),
+          ),
+          Provider<NominatimBloc>(
+            create: (_) => NominatimBloc(),
+            dispose: (_, b) => b.dispose(),
+          ),
 
           /// ======= User =======
           Provider<UserRepository>(create: (_) => UserRepository()),
-          Provider<UserBloc>(
+          BlocProvider<UserBloc>(
             create: (ctx) => UserBloc(ctx.read<UserRepository>())
               ..add(const UserWarmupRequested(
                 listenRealtime: true,
                 bindCurrentUser: true,
               )),
-            dispose: (_, b) => b.close(),
           ),
 
           /// ======= OAEs / Rodovias / Ferrovias =======
-          BlocProvider<ActiveOaesBloc>(
-            create: (_) => ActiveOaesBloc()
-              ..add(const ActiveOaesWarmupRequested()),
+          BlocProvider<ActiveOaesCubit>(
+            create: (_) => ActiveOaesCubit()..warmup(),
           ),
-          BlocProvider<ActiveRoadsBloc>(
-            create: (_) => ActiveRoadsBloc()
-              ..add(const ActiveRoadsWarmupRequested()),
+          BlocProvider<ActiveOacsCubit>(
+            create: (_) => ActiveOacsCubit()..warmup(),
           ),
-          BlocProvider<ActiveRailwaysBloc>(
-            create: (_) => ActiveRailwaysBloc()
-              ..add(const ActiveRailwaysWarmupRequested()),
+          BlocProvider<ActiveRoadsCubit>(
+            create: (_) => ActiveRoadsCubit()..warmup(),
+          ),
+          BlocProvider<ActiveRailwaysCubit>(
+            create: (_) => ActiveRailwaysCubit()..warmup(),
           ),
 
           // ======= Acidentes / Infrações =======
-          BlocProvider<AccidentsBloc>(create: (_) => AccidentsBloc()),
+          BlocProvider<AccidentsCubit>(
+            create: (_) => AccidentsCubit(),
+          ),
           Provider<InfractionsBloc>(
             create: (_) => InfractionsBloc(),
             dispose: (_, b) => b.dispose(),
@@ -221,30 +220,15 @@ Future<void> bootstrapAndRunApp() async {
             update: (_, iBloc, ctrl) => ctrl!..updateDeps(iBloc),
           ),
 
-          /// ======= REPORT MEASUREMENT =======
-          Provider<ReportMeasurementStorageBloc>(
-            create: (_) => ReportMeasurementStorageBloc(),
-          ),
-          Provider<ReportMeasurementBloc>(
-            create: (_) => ReportMeasurementBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-          ChangeNotifierProvider<ReportsMeasurementStore>(
-            create: (ctx) => ReportsMeasurementStore(
-              ctx.read<ReportMeasurementBloc>(),
-            ),
+          /// ======= REPORT MEASUREMENT (CUBIT) =======
+          BlocProvider<ReportMeasurementCubit>(
+            create: (_) => ReportMeasurementCubit(),
           ),
 
           /// ======= VALIDITY =======
-          Provider<ValidityStorageBloc>(create: (_) => ValidityStorageBloc()),
-          Provider<ValidityBloc>(
-            create: (_) => ValidityBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-          ChangeNotifierProvider<ValidityStore>(
-            create: (ctx) => ValidityStore(
-              bloc: ctx.read<ValidityBloc>(),
-              storage: ctx.read<ValidityStorageBloc>(),
+          BlocProvider<ValidityCubit>(
+            create: (_) => ValidityCubit(
+              repository: ValidityRepository(),
             ),
           ),
 
@@ -256,120 +240,76 @@ Future<void> bootstrapAndRunApp() async {
             ),
           ),
 
-          /// ======= ADJUSTMENT MEASUREMENT =======
-          Provider<AdjustmentMeasurementBloc>(
-            create: (_) => AdjustmentMeasurementBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-          ChangeNotifierProvider<AdjustmentsMeasurementStore>(
-            create: (ctx) => AdjustmentsMeasurementStore(
-              ctx.read<AdjustmentMeasurementBloc>(),
-            ),
+          /// ======= ADJUSTMENT MEASUREMENT (CUBIT) =======
+          BlocProvider<AdjustmentMeasurementCubit>(
+            create: (_) => AdjustmentMeasurementCubit(),
           ),
 
-          /// ======= REVISION MEASUREMENT =======
-          Provider<RevisionMeasurementBloc>(
-            create: (_) => RevisionMeasurementBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-          ChangeNotifierProvider<RevisionsMeasurementStore>(
-            create: (ctx) => RevisionsMeasurementStore(
-              ctx.read<RevisionMeasurementBloc>(),
-            ),
+          /// ======= REVISION MEASUREMENT (CUBIT) =======
+          BlocProvider<RevisionMeasurementCubit>(
+            create: (_) => RevisionMeasurementCubit(),
           ),
 
-          /// ======= ADDITIVES =======
-          Provider<AdditivesBloc>(
-            create: (_) => AdditivesBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-          Provider<AdditivesStorageBloc>(
-            create: (_) => AdditivesStorageBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-          ChangeNotifierProvider<AdditivesStore>(
-            create: (ctx) => AdditivesStore(
-              bloc: ctx.read<AdditivesBloc>(),
-              storage: ctx.read<AdditivesStorageBloc>(),
-            ),
+          /// ======= ADDITIVES (Repository global) =======
+          RepositoryProvider<AdditivesRepository>(
+            create: (_) => AdditivesRepository(),
           ),
 
-          /// ======= APOSTILLES =======
-          Provider<ApostillesBloc>(
-            create: (_) => ApostillesBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-          Provider<ApostillesStorageBloc>(
-            create: (_) => ApostillesStorageBloc(),
-            dispose: (_, b) => b.dispose(),
-          ),
-          ChangeNotifierProvider<ApostillesStore>(
-            create: (ctx) => ApostillesStore(
-              bloc: ctx.read<ApostillesBloc>(),
-              storage: ctx.read<ApostillesStorageBloc>(),
-            ),
+          /// ======= APOSTILLES (NOVO: Repository global; Cubit é local na página) =======
+          RepositoryProvider<ApostillesRepository>(
+            create: (_) => ApostillesRepository(),
           ),
 
-          // ======= DFD (repositório + bloc) – ANTES de ProcessBloc/ProcessStore =======
+          // ======= DFD (repositório + cubit) – antes do Dashboard =======
           RepositoryProvider<DfdRepository>(create: (_) => DfdRepository()),
-          BlocProvider<DfdBloc>(
-            create: (ctx) => DfdBloc(ctx.read<DfdRepository>()),
+          BlocProvider<DfdCubit>(
+            create: (ctx) => DfdCubit(
+              repository: ctx.read<DfdRepository>(),
+            ),
           ),
 
-          // ======= Publicação (repositório + bloc) – também ANTES de ProcessStore =======
+          // ======= Publicação (repositório + cubit) =======
           RepositoryProvider<PublicacaoExtratoRepository>(
             create: (_) => PublicacaoExtratoRepository(),
           ),
-          BlocProvider<PublicacaoExtratoBloc>(
-            create: (ctx) =>
-                PublicacaoExtratoBloc(ctx.read<PublicacaoExtratoRepository>()),
+          BlocProvider<PublicacaoExtratoCubit>(
+            create: (ctx) => PublicacaoExtratoCubit(
+              ctx.read<PublicacaoExtratoRepository>(),
+            ),
           ),
 
-          // ======= Edital (repositório + bloc) – antes de DemandsDashboardController =======
+          // ======= Edital (repositório + cubit) =======
           RepositoryProvider<EditalRepository>(
             create: (_) => EditalRepository(),
           ),
-          BlocProvider<EditalBloc>(
-            create: (ctx) => EditalBloc(ctx.read<EditalRepository>()),
+          BlocProvider<EditalCubit>(
+            create: (ctx) => EditalCubit(ctx.read<EditalRepository>()),
           ),
 
-          /// ======= CONTRACT base (Store/Storage/Bloc) =======
+          /// ======= CONTRACT base (Store/Bloc) =======
           Provider<ProcessBloc>(
-            create: (ctx) => ProcessBloc(
-              dfdBloc: ctx.read<DfdBloc>(),
-            ),
+            create: (_) => ProcessBloc(),
             dispose: (_, b) => b.dispose(),
           ),
-          Provider<ProcessStorageBloc>(
-            create: (_) => ProcessStorageBloc(),
-          ),
           ChangeNotifierProvider<ProcessStore>(
-            create: (ctx) => ProcessStore(),
+            create: (_) => ProcessStore(),
           ),
 
-          /// ======= ContractsController (depois de TODOS os stores acima) =======
-          ChangeNotifierProvider<ProcessController>(
-            create: (ctx) => ProcessController(
+          /// ======= DemandsDashboard (Cubit, global) =======
+          BlocProvider<GeneralDashboardCubit>(
+            create: (ctx) => GeneralDashboardCubit(
               store: ctx.read<ProcessStore>(),
-              additivesStore: ctx.read<AdditivesStore>(),
-              apostillesStore: ctx.read<ApostillesStore>(),
-              reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
-              adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),
-              revisionsStore: ctx.read<RevisionsMeasurementStore>(),
-              processStorageBloc: ctx.read<ProcessStorageBloc>(),
-            )..initialize(),
-          ),
+              additivesRepository: ctx.read<AdditivesRepository>(),
 
-          ChangeNotifierProvider<DemandsDashboardController>(
-            create: (ctx) => DemandsDashboardController(
-              store: ctx.read<ProcessStore>(),
-              additivesStore: ctx.read<AdditivesStore>(),
-              apostillesStore: ctx.read<ApostillesStore>(),
-              reportsMeasurementStore: ctx.read<ReportsMeasurementStore>(),
-              adjustmentsStore: ctx.read<AdjustmentsMeasurementStore>(),
-              revisionsStore: ctx.read<RevisionsMeasurementStore>(),
-              dfdBloc: ctx.read<DfdBloc>(),
-              editalBloc: ctx.read<EditalBloc>(),
+              // ✅ Ajuste: antes era ctx.read<ApostillesStore>()
+              // Agora é repository (novo padrão)
+              apostillesRepository: ctx.read<ApostillesRepository>(),
+
+              reportMeasurementCubit: ctx.read<ReportMeasurementCubit>(),
+              adjustmentMeasurementCubit: ctx.read<AdjustmentMeasurementCubit>(),
+              revisionMeasurementCubit: ctx.read<RevisionMeasurementCubit>(),
+              dfdCubit: ctx.read<DfdCubit>(),
+              editalCubit: ctx.read<EditalCubit>(),
             )..initialize(),
           ),
 
@@ -377,8 +317,11 @@ Future<void> bootstrapAndRunApp() async {
           RepositoryProvider<ScheduleRoadRepository>(
             create: (_) => ScheduleRoadRepository(),
           ),
-          BlocProvider<ScheduleRoadBloc>(
-            create: (ctx) => ScheduleRoadBloc(),
+          BlocProvider<ScheduleRoadCubit>(
+            // ✅ corrige criação sem repository
+            create: (ctx) => ScheduleRoadCubit(
+              repository: ctx.read<ScheduleRoadRepository>(),
+            ),
           ),
 
           /// ======= Payments =======
@@ -389,67 +332,70 @@ Future<void> bootstrapAndRunApp() async {
           Provider<PaymentRevisionBloc>(create: (_) => PaymentRevisionBloc()),
           Provider<PaymentAdjustmentBloc>(create: (_) => PaymentAdjustmentBloc()),
 
-          // ======= ETP (repositório + bloc) =======
+          // ======= ETP (repositório + cubit) =======
           RepositoryProvider<EtpRepository>(create: (_) => EtpRepository()),
-          BlocProvider<EtpBloc>(
-            create: (ctx) => EtpBloc(ctx.read<EtpRepository>()),
+          BlocProvider<EtpCubit>(
+            create: (ctx) => EtpCubit(ctx.read<EtpRepository>()),
           ),
 
-          // ======= TR (repositório + bloc) =======
+          // ======= TR (repositório + cubit) =======
           RepositoryProvider<TrRepository>(create: (_) => TrRepository()),
-          BlocProvider<TrBloc>(
-            create: (ctx) => TrBloc(ctx.read<TrRepository>()),
+          BlocProvider<TrCubit>(
+            create: (ctx) => TrCubit(ctx.read<TrRepository>()),
           ),
 
-          // ======= Cotação (repositório + bloc) =======
+          // ======= Cotação (repositório + cubit) =======
           RepositoryProvider<CotacaoRepository>(
             create: (_) => CotacaoRepository(),
           ),
-          BlocProvider<CotacaoBloc>(
-            create: (ctx) => CotacaoBloc(ctx.read<CotacaoRepository>()),
+          BlocProvider<CotacaoCubit>(
+            create: (ctx) => CotacaoCubit(ctx.read<CotacaoRepository>()),
           ),
 
-          // ======= Habilitacao (repositório + bloc) =======
+          // ======= Habilitação (repositório + cubit) =======
           RepositoryProvider<HabilitacaoRepository>(
             create: (_) => HabilitacaoRepository(),
           ),
-          BlocProvider<HabilitacaoBloc>(
-            create: (ctx) =>
-                HabilitacaoBloc(ctx.read<HabilitacaoRepository>()),
+          BlocProvider<HabilitacaoCubit>(
+            create: (ctx) => HabilitacaoCubit(
+              ctx.read<HabilitacaoRepository>(),
+            ),
           ),
 
-          // ======= Dotação (repositório + bloc) =======
+          // ======= Dotação (repositório + cubit) =======
           RepositoryProvider<DotacaoRepository>(
             create: (_) => DotacaoRepository(),
           ),
-          BlocProvider<DotacaoBloc>(
-            create: (ctx) => DotacaoBloc(ctx.read<DotacaoRepository>()),
+          BlocProvider<DotacaoCubit>(
+            create: (ctx) => DotacaoCubit(ctx.read<DotacaoRepository>()),
           ),
 
-          // ======= Minuta (repositório + bloc) =======
+          // ======= Minuta (repositório + cubit) =======
           RepositoryProvider<MinutaContratoRepository>(
             create: (_) => MinutaContratoRepository(),
           ),
-          BlocProvider<MinutaContratoBloc>(
-            create: (ctx) =>
-                MinutaContratoBloc(ctx.read<MinutaContratoRepository>()),
+          BlocProvider<MinutaContratoCubit>(
+            create: (ctx) => MinutaContratoCubit(
+              ctx.read<MinutaContratoRepository>(),
+            ),
           ),
 
-          // ======= Parecer (repositório + bloc) =======
+          // ======= Parecer (repositório + cubit) =======
           RepositoryProvider<ParecerJuridicoRepository>(
             create: (_) => ParecerJuridicoRepository(),
           ),
-          BlocProvider<ParecerJuridicoBloc>(
-            create: (ctx) =>
-                ParecerJuridicoBloc(ctx.read<ParecerJuridicoRepository>()),
+          BlocProvider<ParecerJuridicoCubit>(
+            create: (ctx) => ParecerJuridicoCubit(
+              ctx.read<ParecerJuridicoRepository>(),
+            ),
           ),
 
-          // ======= Arquivamento (repositório + bloc) =======
+          // ======= Arquivamento (repositório + cubit) =======
           RepositoryProvider<TermoArquivamentoRepository>(
             create: (_) => TermoArquivamentoRepository(),
           ),
-          BlocProvider<TermoArquivamentoBloc>(
-            create: (ctx) => TermoArquivamentoBloc(
+          BlocProvider<TermoArquivamentoCubit>(
+            create: (ctx) => TermoArquivamentoCubit(
               ctx.read<TermoArquivamentoRepository>(),
             ),
           ),
@@ -463,25 +409,13 @@ Future<void> bootstrapAndRunApp() async {
           return BlocBuilder<UserBloc, UserState>(
             buildWhen: (a, b) => a.current != b.current,
             builder: (context, userState) {
-              final app = const GatePage();
-
-              if (userState.current == null) {
-                // sem user: não injeta OAEs extras
-                return app;
-              }
-
-              // Se quiser manter o wrapper extra de OAEs aqui, beleza.
-              return BlocProvider<ActiveOaesBloc>(
-                create: (_) =>
-                ActiveOaesBloc()..add(const ActiveOaesWarmupRequested()),
-                child: app,
-              );
+              return const GatePage();
             },
           );
         },
       ),
     );
   }, (error, stack) {
-    // Aqui você pode logar erros globais (Sentry, Crashlytics, etc.)
+    // Log global opcional (Sentry/Crashlytics)
   });
 }

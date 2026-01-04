@@ -4,7 +4,7 @@ import 'package:siged/_widgets/buttons/back_circle_button.dart';
 import 'package:siged/_widgets/table/magic/magic_adapter.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_store.dart';
@@ -16,7 +16,7 @@ import 'package:siged/_widgets/table/magic/magic_table_changed.dart';
 // 🔔 Notificações
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
 
 class HiringBudgetPage extends StatefulWidget {
   const HiringBudgetPage({super.key, required this.contractData});

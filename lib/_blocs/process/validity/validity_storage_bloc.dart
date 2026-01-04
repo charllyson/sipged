@@ -24,12 +24,10 @@ class ValidityStorageBloc extends BlocBase {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // ---------- Utils ----------
-  String _sanitize(String s) =>
-      s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
+  String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
   String _extFromName(String name) {
-    final m =
-    RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(name.trim());
+    final m = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(name.trim());
     return m == null ? '' : '.${m.group(1)!.toLowerCase()}';
   }
 
@@ -52,12 +50,8 @@ class ValidityStorageBloc extends BlocBase {
     return '$base-$rnd${ext.isEmpty ? ".bin" : ext}';
   }
 
-  // pastas
-  String folderFor(ProcessData c, ValidityData v) =>
-      'contracts/${c.id}/orders/${v.id}/';
+  String folderFor(ProcessData c, ValidityData v) => 'contracts/${c.id}/orders/${v.id}/';
 
-  // caminho legado (um único pdf “padrão”)
-  /// 🆕 Usa SOMENTE PublicacaoExtratoData.numeroContrato
   String legacyFileName(
       ProcessData c,
       ValidityData v, {
@@ -77,11 +71,9 @@ class ValidityStorageBloc extends BlocBase {
       ProcessData c,
       ValidityData v, {
         PublicacaoExtratoData? extrato,
-      }) =>
-      '${folderFor(c, v)}${legacyFileName(c, v, extrato: extrato)}';
+      }) => '${folderFor(c, v)}${legacyFileName(c, v, extrato: extrato)}';
 
   // ---------- Operações principais (multi + legado) ----------
-
   Future<bool> exists(
       ProcessData c,
       ValidityData v, {

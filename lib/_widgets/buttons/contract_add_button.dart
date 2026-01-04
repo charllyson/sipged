@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-class ContractAddButton extends StatelessWidget {
+class DemandAddButton extends StatelessWidget {
   final bool isEditable;
   final VoidCallback onAdd;
 
-  const ContractAddButton({
+  const DemandAddButton({
     super.key,
     required this.isEditable,
     required this.onAdd,

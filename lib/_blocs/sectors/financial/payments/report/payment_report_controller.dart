@@ -3,9 +3,10 @@
 // ==============================
 import 'dart:async';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_blocs/process/additives/additives_repository.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
@@ -15,37 +16,35 @@ import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
-import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/formats/date_utils.dart'
-    show dateTimeToDDMMYYYY, convertDDMMYYYYToDateTime;
+import 'package:siged/_utils/formats/converters_utils.dart';
 
-// ✅ permissões
+// permissões
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
 
-// ✅ anexos + preview
+// anexos + preview
 import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_services/pdf/pdf_preview.dart';
+import 'package:siged/_widgets/pdf/pdf_preview.dart';
 
-// ✅ selo de notificação (opcional para sua UI)
-import 'package:intl/intl.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
-class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
+class PaymentsReportController extends ChangeNotifier
+    with FormValidationMixin {
   PaymentsReportController({
     required PaymentReportBloc paymentReportBloc,
-    required AdditivesBloc additivesBloc,
+    required AdditivesRepository additivesRepository,
     PaymentsReportStorageBloc? storageBloc,
   })  : _paymentReportBloc = paymentReportBloc,
-        _additivesBloc = additivesBloc,
+        _additivesRepository = additivesRepository,
         _storageBloc = storageBloc ?? PaymentsReportStorageBloc();
 
   // --- Dependências
   final PaymentReportBloc _paymentReportBloc;
-  final AdditivesBloc _additivesBloc;
+  final AdditivesRepository _additivesRepository;
   final PaymentsReportStorageBloc _storageBloc;
 
   // --- User stream
@@ -54,6 +53,9 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   // --- Contexto
   UserData? currentUser;
   ProcessData? contract;
+
+  // valor da demanda (DFD)
+  double _valorDemanda = 0.0;
 
   // --- Dados
   List<PaymentsReportData> _reports = <PaymentsReportData>[];
@@ -104,7 +106,7 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   double get valorTotal => _valorInicial + _valorAditivos;
   double get saldo => valorTotal - totalMedicoes;
 
-  // ✅ admin via papel global
+  // admin via papel global
   bool get isAdmin {
     final u = currentUser;
     if (u == null) return false;
@@ -112,8 +114,10 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   }
 
   // ======= ORDENS: dropdown inteligente =======
-  Set<int> get _existingOrders =>
-      _lastSnapshot.map((v) => v.orderPaymentReport ?? 0).where((n) => n > 0).toSet();
+  Set<int> get _existingOrders => _lastSnapshot
+      .map((v) => v.orderPaymentReport ?? 0)
+      .where((n) => n > 0)
+      .toSet();
 
   int _nextAvailableOrder(Set<int> set) {
     if (set.isEmpty) return 1;
@@ -127,19 +131,22 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   /// Opções mostradas no dropdown (1 .. maxExistente+1)
   List<String> get orderNumberOptions {
     final set = _existingOrders;
-    final maxPlusOne = set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    final maxPlusOne =
+    set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
   /// Itens em cinza (já usados)
-  Set<String> get greyOrderItems => _existingOrders.map((e) => e.toString()).toSet();
+  Set<String> get greyOrderItems =>
+      _existingOrders.map((e) => e.toString()).toSet();
 
   /// Clique num item do dropdown
   void onChangeOrderNumber(String? v) {
     final picked = int.tryParse(v ?? '');
     if (picked == null || picked <= 0) return;
 
-    final idx = _lastSnapshot.indexWhere((x) => (x.orderPaymentReport ?? -1) == picked);
+    final idx = _lastSnapshot
+        .indexWhere((x) => (x.orderPaymentReport ?? -1) == picked);
     if (idx >= 0) {
       // já existe -> carrega registro
       selectRow(_lastSnapshot[idx]);
@@ -152,7 +159,10 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   }
 
   // --- Init/Dispose
-  Future<void> init(BuildContext context, {required ProcessData? contractData}) async {
+  Future<void> init(
+      BuildContext context, {
+        required ProcessData? contractData,
+      }) async {
     contract = contractData;
     if (contract?.id == null) return;
 
@@ -173,7 +183,10 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
       }
     });
 
-    setupValidation([orderCtrl, processCtrl, valueCtrl, dateCtrl], _validateFormInternal);
+    setupValidation(
+      [orderCtrl, processCtrl, valueCtrl, dateCtrl],
+      _validateFormInternal,
+    );
     await _loadInitial();
   }
 
@@ -182,8 +195,18 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     _userSub?.cancel();
 
     removeValidation(
-      [orderCtrl, processCtrl, valueCtrl, dateCtrl, stateCtrl, observationCtrl,
-        bankCtrl, electronicTicketCtrl, fontCtrl, taxCtrl],
+      [
+        orderCtrl,
+        processCtrl,
+        valueCtrl,
+        dateCtrl,
+        stateCtrl,
+        observationCtrl,
+        bankCtrl,
+        electronicTicketCtrl,
+        fontCtrl,
+        taxCtrl,
+      ],
       _validateFormInternal,
     );
 
@@ -223,8 +246,12 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   Future<void> _loadInitial() async {
     if (contract?.id == null) return;
 
-    _valorInicial = contract?.initialValueContract ?? 0.0;
-    _valorAditivos = await _additivesBloc.getAllAdditivesValue(contract!.id!);
+    // ✅ usa valor da demanda vindo do DfdData
+    _valorInicial = _valorDemanda;
+
+    // ✅ usa repositório de aditivos no padrão novo
+    _valorAditivos =
+    await _additivesRepository.getAllAdditivesValue(contract!.id!);
 
     _reports = await _paymentReportBloc
         .getAllReportPaymentsOfContract(contractId: contract!.id!);
@@ -240,7 +267,10 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   }
 
   void _validateFormInternal() {
-    final valid = areFieldsFilled([orderCtrl, processCtrl, valueCtrl, dateCtrl], minLength: 1);
+    final valid = areFieldsFilled(
+      [orderCtrl, processCtrl, valueCtrl, dateCtrl],
+      minLength: 1,
+    );
     if (formValidated != valid) {
       formValidated = valid;
       notifyListeners();
@@ -325,8 +355,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
         electronicTicketPaymentReport: electronicTicketCtrl.text,
         fontPaymentReport: fontCtrl.text,
         taxPaymentReport: parseCurrencyToDouble(taxCtrl.text),
-        pdfUrl: _selected?.pdfUrl,                  // legado preservado
-        attachments: _selected?.attachments,        // mantém anexos numa edição
+        pdfUrl: _selected?.pdfUrl, // legado preservado
+        attachments: _selected?.attachments, // mantém anexos numa edição
       );
 
       await _paymentReportBloc.saveOrUpdatePayment(data);
@@ -354,7 +384,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
       }) async {
     if (contract?.id == null) return;
     try {
-      isSaving = true; notifyListeners();
+      isSaving = true;
+      notifyListeners();
 
       final toSave = PaymentsReportData(
         idPaymentReport: data.idPaymentReport,
@@ -384,7 +415,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     } catch (_) {
       onError?.call();
     } finally {
-      isSaving = false; notifyListeners();
+      isSaving = false;
+      notifyListeners();
     }
   }
 
@@ -395,7 +427,10 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
       }) async {
     if (contract?.id == null) return;
     try {
-      await _paymentReportBloc.deletarPayment(contract!.id!, idPaymentReport);
+      await _paymentReportBloc.deletarPayment(
+        contract!.id!,
+        idPaymentReport,
+      );
       _reports = await _paymentReportBloc
           .getAllReportPaymentsOfContract(contractId: contract!.id!);
       _lastSnapshot = List<PaymentsReportData>.from(_reports);
@@ -427,7 +462,9 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     }
 
     // 2) se houver pdfUrl legado, cria um attachment único e salva
-    if ((p.pdfUrl ?? '').isNotEmpty && p.idPaymentReport != null && contract?.id != null) {
+    if ((p.pdfUrl ?? '').isNotEmpty &&
+        p.idPaymentReport != null &&
+        contract?.id != null) {
       final att = Attachment(
         id: 'legacy-pdf',
         label: 'Documento do pagamento',
@@ -442,7 +479,9 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
         paymentId: p.idPaymentReport!,
         attachments: [att],
       );
-      _selected = p..attachments = [att]..pdfUrl = null;
+      _selected = p
+        ..attachments = [att]
+        ..pdfUrl = null;
       sideItems = [att];
       selectedSideIndex = null;
       if (hasListeners) notifyListeners();
@@ -457,18 +496,22 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
       );
       if (files.isNotEmpty) {
         final list = files
-            .map((f) => Attachment(
-          id: f.name,
-          label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
-          url: f.url,
-          path: 'contracts/${contract!.id}/payments/${p.idPaymentReport}/${f.name}',
-          ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
-              .firstMatch(f.name)
-              ?.group(0) ??
-              '',
-          createdAt: DateTime.now(),
-          createdBy: currentUser?.uid,
-        ))
+            .map(
+              (f) => Attachment(
+            id: f.name,
+            label:
+            f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+            url: f.url,
+            path:
+            'contracts/${contract!.id}/payments/${p.idPaymentReport}/${f.name}',
+            ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
+                .firstMatch(f.name)
+                ?.group(0) ??
+                '',
+            createdAt: DateTime.now(),
+            createdBy: currentUser?.uid,
+          ),
+        )
             .toList();
         await _paymentReportBloc.setAttachments(
           contractId: contract!.id!,
@@ -489,41 +532,31 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
   }
 
   String _suggestLabelFromName(String original) {
-    final base = original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+    final base =
+    original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
     final ord = _selected?.orderPaymentReport ?? 0;
     return 'Pagamento $ord - $base';
   }
 
-  Future<String?> _askLabel(BuildContext context, {required String suggestion}) async {
-    final ctrl = TextEditingController(text: suggestion);
-    return showDialog<String>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Nome do arquivo'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(labelText: 'Rótulo do arquivo'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Salvar')),
-        ],
-      ),
-    );
-  }
-
   Future<void> handleAddFile(BuildContext context) async {
-    if (!canAddFile || contract?.id == null || _selected?.idPaymentReport == null) return;
+    if (!canAddFile ||
+        contract?.id == null ||
+        _selected?.idPaymentReport == null) return;
 
     try {
-      isSaving = true; notifyListeners();
+      isSaving = true;
+      notifyListeners();
 
-      final (Uint8List bytes, String originalName) = await _storageBloc.pickFileBytes();
+      final (Uint8List bytes, String originalName) =
+      await _storageBloc.pickFileBytes();
 
       final suggestion = _suggestLabelFromName(originalName);
-      final label = await _askLabel(context, suggestion: suggestion);
-      if (label == null) { isSaving = false; notifyListeners(); return; }
+      final label = await askLabelDialog(context, suggestion);
+      if (label == null) {
+        isSaving = false;
+        notifyListeners();
+        return;
+      }
 
       final att = await _storageBloc.uploadAttachmentBytes(
         contract: contract!,
@@ -533,7 +566,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
         label: label.isEmpty ? suggestion : label,
       );
 
-      final current = List<Attachment>.from(_selected?.attachments ?? const []);
+      final current =
+      List<Attachment>.from(_selected?.attachments ?? const []);
       current.add(att);
 
       await _paymentReportBloc.setAttachments(
@@ -545,21 +579,34 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
       _selected = _selected!..attachments = current;
       await _refreshSideList();
     } finally {
-      isSaving = false; notifyListeners();
+      isSaving = false;
+      notifyListeners();
     }
   }
 
-  Future<void> handleEditLabelFile(int index, BuildContext context) async {
+  Future<void> handleEditLabelFile(
+      int index,
+      BuildContext context,
+      ) async {
     final p = _selected;
-    if (p == null || p.attachments == null || index < 0 || index >= p.attachments!.length) return;
+    if (p == null ||
+        p.attachments == null ||
+        index < 0 ||
+        index >= p.attachments!.length) return;
 
     try {
-      isSaving = true; notifyListeners();
+      isSaving = true;
+      notifyListeners();
 
       final att = p.attachments![index];
-      final suggestion = att.label.isNotEmpty ? att.label : _suggestLabelFromName(att.id);
-      final newLabel = await _askLabel(context, suggestion: suggestion);
-      if (newLabel == null) { isSaving = false; notifyListeners(); return; }
+      final suggestion =
+      att.label.isNotEmpty ? att.label : _suggestLabelFromName(att.id);
+      final newLabel = await askLabelDialog(context, suggestion);
+      if (newLabel == null) {
+        isSaving = false;
+        notifyListeners();
+        return;
+      }
 
       p.attachments![index] = Attachment(
         id: att.id,
@@ -582,16 +629,23 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
 
       await _refreshSideList();
     } finally {
-      isSaving = false; notifyListeners();
+      isSaving = false;
+      notifyListeners();
     }
   }
 
-  Future<void> handleDeleteFile(int index, BuildContext context) async {
+  Future<void> handleDeleteFile(
+      int index,
+      BuildContext context,
+      ) async {
     final p = _selected;
-    if (p == null || p.idPaymentReport == null || contract?.id == null) return;
+    if (p == null ||
+        p.idPaymentReport == null ||
+        contract?.id == null) return;
 
     try {
-      isSaving = true; notifyListeners();
+      isSaving = true;
+      notifyListeners();
 
       final atts = p.attachments ?? [];
       if (index >= 0 && index < atts.length) {
@@ -616,7 +670,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
 
       await _refreshSideList();
     } finally {
-      isSaving = false; notifyListeners();
+      isSaving = false;
+      notifyListeners();
     }
   }
 
@@ -628,7 +683,8 @@ class PaymentsReportController extends ChangeNotifier with FormValidationMixin {
     if ((p.attachments ?? []).isNotEmpty) {
       final att = p.attachments![index];
       url = att.url;
-      selectedSideIndex = index; notifyListeners();
+      selectedSideIndex = index;
+      notifyListeners();
     } else {
       url = p.pdfUrl;
     }

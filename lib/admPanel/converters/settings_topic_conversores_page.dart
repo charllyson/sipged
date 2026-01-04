@@ -5,7 +5,7 @@ import 'package:siged/_widgets/tiles/tile_widget.dart';
 import 'package:siged/admPanel/firebase/settings_topic_firebase_page.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';
-import '../../_widgets/upBar/up_bar.dart';
+import '../../_widgets/menu/upBar/up_bar.dart';
 
 class SettingsTopicConversoresPage extends StatelessWidget {
   const SettingsTopicConversoresPage({super.key});

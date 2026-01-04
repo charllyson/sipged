@@ -1,16 +1,19 @@
-// lib/screens/process/hiring/1Dfd/dfd_sections/section_3_localizacao.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_services/geoJson/geojson_locations_service.dart';
+import 'package:siged/_blocs/system/setup/setup_region_map.dart';
+import 'package:siged/_blocs/system/setup/setup_cubit.dart';
+import 'package:siged/_blocs/system/setup/setup_data.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
+
+// Service novo de localidades IBGE
+import 'package:siged/_services/geography/ibge_location/ibge_location_service.dart';
 
 class SectionLocalizacao extends StatefulWidget {
   final bool isEditable;
@@ -46,19 +49,32 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
   String? _companyId;
   String? _regionDocId;
 
+  // Service IBGE (novo)
+  late final IBGELocationService _ibgeService;
+
   @override
   void initState() {
     super.initState();
+    _ibgeService = IBGELocationService();
+
     final d = widget.data;
 
-    _ufCtrl        = TextEditingController(text: d.uf);
-    _municipioCtrl = TextEditingController(text: d.municipio);
-    _regionalCtrl  = TextEditingController(text: d.regional ?? '');
-    _kmInicialCtrl = TextEditingController(text: d.kmInicial);
-    _kmFinalCtrl   = TextEditingController(text: d.kmFinal);
+    _ufCtrl = TextEditingController(text: d.uf ?? '');
+    _municipioCtrl = TextEditingController(text: d.municipio ?? '');
+    _regionalCtrl = TextEditingController(text: d.regional ?? '');
+    _kmInicialCtrl = TextEditingController(text: d.kmInicial ?? '');
+    _kmFinalCtrl = TextEditingController(text: d.kmFinal ?? '');
 
-    _initGeojsonUfMunicipios();
-    _resolveCompanyIdFromData();
+    _companyId = d.companyId;
+    _regionDocId = d.regionId;
+
+    _initIbgeUfMunicipios();
+
+    if (_companyId == null || _companyId!.isEmpty) {
+      _resolveCompanyIdFromData();
+    } else {
+      context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
+    }
   }
 
   @override
@@ -67,18 +83,35 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      _ufCtrl.text        = d.uf;
-      _municipioCtrl.text = d.municipio;
-      _regionalCtrl.text  = d.regional ?? '';
-      _kmInicialCtrl.text = d.kmInicial;
-      _kmFinalCtrl.text   = d.kmFinal;
+      final uf = d.uf ?? '';
+      final mun = d.municipio ?? '';
+      final reg = d.regional ?? '';
+      final kmIni = d.kmInicial ?? '';
+      final kmFim = d.kmFinal ?? '';
 
-      // se mudou orgaoDemandante, tenta achar novo companyId
-      if (oldWidget.data.orgaoDemandante != widget.data.orgaoDemandante) {
-        _resolveCompanyIdFromData();
+      if (_ufCtrl.text != uf) _ufCtrl.text = uf;
+      if (_municipioCtrl.text != mun) _municipioCtrl.text = mun;
+      if (_regionalCtrl.text != reg) _regionalCtrl.text = reg;
+      if (_kmInicialCtrl.text != kmIni) _kmInicialCtrl.text = kmIni;
+      if (_kmFinalCtrl.text != kmFim) _kmFinalCtrl.text = kmFim;
+
+      if (oldWidget.data.companyId != widget.data.companyId) {
+        _companyId = widget.data.companyId;
+        if (_companyId != null && _companyId!.isNotEmpty) {
+          context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
+        }
       }
 
-      // se mudou UF, ajusta seleção
+      if (oldWidget.data.regionId != widget.data.regionId) {
+        _regionDocId = widget.data.regionId;
+      }
+
+      if (oldWidget.data.orgaoDemandante != widget.data.orgaoDemandante) {
+        if (_companyId == null || _companyId!.isEmpty) {
+          _resolveCompanyIdFromData();
+        }
+      }
+
       _updateUfSelectionFromController();
     }
   }
@@ -95,54 +128,49 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
   void _emitChange() {
     final updated = widget.data.copyWith(
-      uf:        _ufCtrl.text,
+      uf: _ufCtrl.text,
       municipio: _municipioCtrl.text,
-      regional:  _regionalCtrl.text.isEmpty ? null : _regionalCtrl.text,
+      regional: _regionalCtrl.text.isEmpty ? null : _regionalCtrl.text,
       kmInicial: _kmInicialCtrl.text,
-      kmFinal:   _kmFinalCtrl.text,
+      kmFinal: _kmFinalCtrl.text,
+      regionId: _regionDocId ?? widget.data.regionId,
+      companyId: _companyId ?? widget.data.companyId,
     );
     widget.onChanged(updated);
   }
 
   Future<void> _resolveCompanyIdFromData() async {
-    final label = widget.data.orgaoDemandante.trim();
+    if (!mounted) return;
+    final label = (widget.data.orgaoDemandante ?? '').trim();
     if (label.isEmpty) return;
 
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('companies')
-          .where('companyName', isEqualTo: label)
-          .limit(1)
-          .get();
+    final systemCubit = context.read<SetupCubit>();
+    if (systemCubit.state.companies.isEmpty) {
+      await systemCubit.loadCompanies();
+    }
 
-      if (!mounted) return;
-      if (snap.docs.isNotEmpty) {
-        setState(() {
-          _companyId = snap.docs.first.id;
-        });
-      }
-    } catch (_) {}
+    final id = systemCubit.findCompanyIdByLabel(label);
+    if (!mounted || id == null) return;
+
+    setState(() {
+      _companyId = id;
+    });
+
+    systemCubit.ensureCompanySetupLoaded(id);
   }
 
-  Future<void> _initGeojsonUfMunicipios() async {
+  Future<void> _initIbgeUfMunicipios() async {
     try {
-      await GeoJsonLocationsService.I.loadFromAsset(
-        path: 'assets/geojson/limits/limites_territoriais.geojson',
-        ufKeys: const ['SIGLA_UF'],
-        munKeys: const ['NM_MUN'],
-        upperMun: false,
-        stripDiacriticsMun: false,
-        force: true,
-      );
+      await _ibgeService.ensureStatesLoaded();
 
-      final ufs = GeoJsonLocationsService.I.ufs;
+      final ufs = _ibgeService.ufsSigla;
 
-      final currentUf = widget.data.uf.trim().toUpperCase();
+      final currentUf = (widget.data.uf ?? '').trim().toUpperCase();
       final selectedUf =
       ufs.contains(currentUf) ? currentUf : (ufs.isNotEmpty ? ufs.first : null);
 
       final munis = selectedUf != null
-          ? GeoJsonLocationsService.I.getMunicipios(selectedUf)
+          ? await _ibgeService.getMunicipiosByUfSigla(selectedUf)
           : const <String>[];
 
       if (!mounted) return;
@@ -153,39 +181,55 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
         _ufCtrl.text = selectedUf ?? '';
         _munisDaUf = munis;
 
-        final curMun = widget.data.municipio.trim();
+        final curMun = (widget.data.municipio ?? '').trim();
         if (!_munisDaUf.contains(curMun)) {
           _municipioCtrl.text = '';
         }
       });
-    } catch (_) {}
+    } catch (_) {
+      // log se quiser
+    }
   }
 
-  void _updateUfSelectionFromController() {
+  void _updateUfSelectionFromController() async {
     final ufNow = _ufCtrl.text.trim().toUpperCase();
-    if (ufNow.isNotEmpty && _ufs.contains(ufNow)) {
-      setState(() {
-        _ufSelecionada = ufNow;
-        _munisDaUf = GeoJsonLocationsService.I.getMunicipios(_ufSelecionada);
-        final curMun = _municipioCtrl.text.trim();
-        if (!_munisDaUf.contains(curMun)) {
-          _municipioCtrl.text = '';
-        }
-      });
-    }
+    if (ufNow.isEmpty || !_ufs.contains(ufNow)) return;
+
+    final munis = await _ibgeService.getMunicipiosByUfSigla(ufNow);
+
+    if (!mounted) return;
+
+    setState(() {
+      _ufSelecionada = ufNow;
+      _munisDaUf = munis;
+      final curMun = _municipioCtrl.text.trim();
+      if (!_munisDaUf.contains(curMun)) {
+        _municipioCtrl.text = '';
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final systemCubit = context.read<SetupCubit>();
+    context.watch<SetupCubit>(); // para rebuildar
+
+    if (_companyId != null && _companyId!.isNotEmpty) {
+      systemCubit.ensureCompanySetupLoaded(_companyId!);
+    }
+
+    final List<SetupData> regions =
+    systemCubit.getRegionsForCompany(_companyId);
+
     final d = widget.data;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('3) Localização / Escopo rodoviário'),
+        const SectionTitle(text: '3) Localização / Escopo rodoviário'),
         LayoutBuilder(
           builder: (context, inner) {
-            final w6 = inputW6(context, inner);
+            final w5 = inputW5(context, inner);
 
             return Wrap(
               spacing: 12,
@@ -193,19 +237,20 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
               children: [
                 // UF
                 SizedBox(
-                  width: w6,
+                  width: w5,
                   child: DropDownButtonChange(
                     key: ValueKey('uf-${d.uf}'),
-                    width: w6,
+                    width: w5,
                     labelText: 'UF',
                     controller: _ufCtrl,
                     enabled: widget.isEditable,
-                    validator: validateRequired,
+                    validator: null,
                     items: _ufs,
-                    enableInlineDelete: false,
                     onChanged: (v) {
                       final uf = (v ?? '').trim().toUpperCase();
-                      _ufCtrl.text = uf;
+                      if (_ufCtrl.text != uf) {
+                        _ufCtrl.text = uf;
+                      }
                       _updateUfSelectionFromController();
                       _emitChange();
                     },
@@ -214,20 +259,22 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
                 // Município principal
                 SizedBox(
-                  width: w6,
+                  width: w5,
                   child: DropDownButtonChange(
                     key: ValueKey(
                       'mun-${d.municipio}-${_ufSelecionada ?? ""}',
                     ),
-                    width: w6,
+                    width: w5,
                     labelText: 'Município (principal)',
                     controller: _municipioCtrl,
                     enabled: widget.isEditable && (_ufSelecionada != null),
-                    validator: validateRequired,
+                    validator: null,
                     items: _munisDaUf,
-                    enableInlineDelete: false,
                     onChanged: (v) {
-                      _municipioCtrl.text = v ?? '';
+                      final text = v ?? '';
+                      if (_municipioCtrl.text != text) {
+                        _municipioCtrl.text = text;
+                      }
                       _emitChange();
                     },
                   ),
@@ -235,51 +282,184 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
                 // Regional / Área
                 SizedBox(
-                  width: w6,
+                  width: w5,
                   child: DropDownButtonChange(
                     key: ValueKey(
                       'regions-${widget.data.orgaoDemandante}-${_companyId ?? "none"}',
                     ),
-                    width: w6,
-                    labelText: 'Regional/Área',
+                    width: w5,
+                    labelText: 'Região/Área',
                     tooltipMessage: _companyId == null
                         ? 'Selecione o contratante na identificação'
-                        : null,
+                        : 'Clique no ícone de info para gerenciar municípios da região',
                     controller: _regionalCtrl,
-                    items: const [],
+                    items: regions.map((e) => e.label).toList(),
                     enabled: widget.isEditable && _companyId != null,
-                    validator: validateRequired,
-                    firestore: FirebaseFirestore.instance,
-                    collectionPath: _companyId == null
-                        ? null
-                        : 'companies/${_companyId}/regions',
-                    labelField: 'regionName',
-                    idField: 'regionId',
-                    autoLoadWhenEmpty: true,
-                    allowDuplicates: false,
-                    buildFirestoreDoc: (id, label) => {
-                      'regionId': id,
-                      'regionName': label,
-                      'createdAt': FieldValue.serverTimestamp(),
-                      'createdBy':
-                      FirebaseAuth.instance.currentUser?.uid,
-                    },
-                    specialItemLabel: 'Adicionar regional/área',
+                    validator: null,
+                    specialItemLabel: 'Adicionar região/área',
                     showSpecialWhenEmpty: true,
                     showSpecialAlways: true,
-                    selectedId: _regionDocId,
-                    onChangedIdLabel: (id, label) {
-                      _regionDocId = id;
-                      _regionalCtrl.text = label;
+                    onChanged: (value) {
+                      final label = value ?? '';
+                      if (_regionalCtrl.text != label) {
+                        _regionalCtrl.text = label;
+                      }
+
+                      final selected = regions.firstWhere(
+                            (e) => e.label == label,
+                        orElse: () => const SetupData(
+                          id: '',
+                          label: '',
+                        ),
+                      );
+
+                      _regionDocId = selected.id.isEmpty ? null : selected.id;
+
                       _emitChange();
                       setState(() {});
                     },
+
+                    // Detalhes
+                    onDetailsTap: (_ctx, label) async {
+                      if (_companyId == null) return;
+
+                      final systemCubit = context.read<SetupCubit>();
+                      final regionsList =
+                      systemCubit.getRegionsForCompany(_companyId);
+
+                      final region = regionsList.firstWhere(
+                            (r) => r.label == label,
+                        orElse: () => const SetupData(
+                          id: '',
+                          label: '',
+                        ),
+                      );
+                      if (region.id.isEmpty) return;
+
+                      final initialSelected =
+                          region.municipios ?? const <String>[];
+
+                      final lockedMunicipios = regionsList
+                          .where((r) => r.id != region.id)
+                          .expand((r) => r.municipios ?? const <String>[])
+                          .toSet()
+                          .toList();
+
+                      int initialUfCode = 27; // fallback AL
+                      final ufSigla = _ufCtrl.text.trim().toUpperCase();
+                      if (ufSigla.isNotEmpty) {
+                        final maybeId = _ibgeService.getUfIdBySigla(ufSigla);
+                        if (maybeId != null) {
+                          initialUfCode = maybeId;
+                        }
+                      }
+
+                      final selectedMunicipios = await setupRegionMap(
+                        context,
+                        title: 'Municípios da região "$label"',
+                        initialSelected: initialSelected,
+                        lockedMunicipios: lockedMunicipios,
+                        initialUfCode: initialUfCode,
+                      );
+
+                      if (selectedMunicipios == null) return;
+
+                      await systemCubit.updateRegionMunicipios(
+                        _companyId!,
+                        region.id,
+                        selectedMunicipios,
+                      );
+
+                      if (_regionalCtrl.text == region.label) {
+                        _emitChange();
+                      }
+                    },
+
+                    onCreateNewItem:
+                    (!widget.isEditable || _companyId == null)
+                        ? null
+                        : (label) async {
+                      final created =
+                      await systemCubit.createRegion(
+                        _companyId!,
+                        label,
+                      );
+                      if (created != null) {
+                        _regionDocId = created.id;
+                        _regionalCtrl.text = created.label;
+                        _emitChange();
+                        setState(() {});
+                      }
+                    },
+
+                    // editar região
+                    onEditItem:
+                    (widget.isEditable && _companyId != null)
+                        ? (oldLabel, newLabel) async {
+                      final list = systemCubit.getRegionsForCompany(
+                          _companyId);
+                      if (list.isEmpty) return;
+
+                      final target = list.firstWhere(
+                            (r) => r.label == oldLabel,
+                        orElse: () => list.first,
+                      );
+
+                      if (target.id.isEmpty) return;
+
+                      final updated =
+                      await systemCubit.updateRegionName(
+                        _companyId!,
+                        target.id,
+                        newLabel,
+                      );
+
+                      if (updated != null &&
+                          _regionDocId == target.id) {
+                        setState(() {
+                          _regionalCtrl.text = updated.label;
+                        });
+                        _emitChange();
+                      }
+                    }
+                        : null,
+
+                    // deletar região
+                    onDeleteItem:
+                    (widget.isEditable && _companyId != null)
+                        ? (ctx, label) async {
+                      final list = systemCubit.getRegionsForCompany(
+                          _companyId);
+                      if (list.isEmpty) return;
+
+                      final target = list.firstWhere(
+                            (r) => r.label == label,
+                        orElse: () => list.first,
+                      );
+
+                      if (target.id.isEmpty) return;
+
+                      await systemCubit.deleteRegion(
+                        _companyId!,
+                        target.id,
+                      );
+
+                      if (_regionDocId == target.id ||
+                          _regionalCtrl.text == label) {
+                        setState(() {
+                          _regionDocId = null;
+                          _regionalCtrl.clear();
+                        });
+                        _emitChange();
+                      }
+                    }
+                        : null,
                   ),
                 ),
 
                 // KM inicial
                 SizedBox(
-                  width: w6,
+                  width: w5,
                   child: CustomTextField(
                     controller: _kmInicialCtrl,
                     enabled: widget.isEditable,
@@ -291,7 +471,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
                 // KM final
                 SizedBox(
-                  width: w6,
+                  width: w5,
                   child: CustomTextField(
                     controller: _kmFinalCtrl,
                     enabled: widget.isEditable,

@@ -21,6 +21,7 @@ import 'menuLock/menu_lock.dart';
 import 'package:siged/_widgets/toolBox/tool_dock.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 import 'package:siged/_widgets/toolBox/tool_slot.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart'; // ✅ usando WindowDialog
 
 typedef ValueSetterInt = void Function(int delta);
 
@@ -160,7 +161,11 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
 
   MapCamera? get _safeCamera {
     if (!_hasMap) return null;
-    try { return widget.mapController!.camera; } catch (_) { return null; }
+    try {
+      return widget.mapController!.camera;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -207,6 +212,7 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
     const eps = 1e-10;
     return (a.latitude - b.latitude).abs() < eps && (a.longitude - b.longitude).abs() < eps;
   }
+
   static bool _sameOffset(Offset a, Offset b) {
     const eps = 0.1;
     return (a.dx - b.dx).abs() < eps && (a.dy - b.dy).abs() < eps;
@@ -216,7 +222,8 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
 
   Future<void> _exportPng() async {
     try {
-      final boundary = _repaintBoundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+      _repaintBoundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) return;
       final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -228,38 +235,53 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
   LatLng? _toLatLng(Offset localPos) {
     final cam = _safeCamera;
     if (cam == null) return null;
-    try { return widget.mapController!.camera.screenOffsetToLatLng(localPos); } catch (_) { return null; }
+    try {
+      return widget.mapController!.camera.screenOffsetToLatLng(localPos);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _startStroke(Offset localPos) {
     if (!_brushDrawMode) return;
     final latLng = _toLatLng(localPos);
     if (latLng != null) {
-      _currentStroke = Stroke(color: _brushColor, width: _brushWidth, screenSpace: false)
-        ..geoPoints.add(latLng);
+      _currentStroke = Stroke(
+        color: _brushColor,
+        width: _brushWidth,
+        screenSpace: false,
+      )..geoPoints.add(latLng);
     } else {
-      _currentStroke = Stroke(color: _brushColor, width: _brushWidth, screenSpace: true)
-        ..screenPoints.add(localPos);
+      _currentStroke = Stroke(
+        color: _brushColor,
+        width: _brushWidth,
+        screenSpace: true,
+      )..screenPoints.add(localPos);
     }
     setState(() => _strokes.add(_currentStroke!));
-    _drawRepaint.value++; _notifyChanged();
+    _drawRepaint.value++;
+    _notifyChanged();
   }
 
   void _appendPoint(Offset localPos) {
     if (!_brushDrawMode || _currentStroke == null) return;
+
     if (_currentStroke!.screenSpace) {
       final pts = _currentStroke!.screenPoints;
       if (pts.isNotEmpty && _sameOffset(pts.last, localPos)) return;
       setState(() => pts.add(localPos));
-      _drawRepaint.value++; _notifyChanged();
+      _drawRepaint.value++;
+      _notifyChanged();
       return;
     }
+
     final latLng = _toLatLng(localPos);
     if (latLng == null) return;
     final pts = _currentStroke!.geoPoints;
     if (pts.isNotEmpty && _sameLatLng(pts.last, latLng)) return;
     setState(() => pts.add(latLng));
-    _drawRepaint.value++; _notifyChanged();
+    _drawRepaint.value++;
+    _notifyChanged();
   }
 
   void _undoStroke() {
@@ -284,26 +306,41 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
     if (cam == null) return;
     final delta = (dy < 0) ? 0.25 : -0.25;
     final nextZoom = (cam.zoom + delta).clamp(3.0, 22.0);
-    if (nextZoom != cam.zoom) widget.mapController!.move(cam.center, nextZoom.toDouble(), id: 'wheel');
+    if (nextZoom != cam.zoom) {
+      widget.mapController!.move(cam.center, nextZoom.toDouble(), id: 'wheel');
+    }
   }
 
   Widget _buildColorMenu(VoidCallback close) {
     final colors = <Color>[
-      Colors.redAccent, Colors.orangeAccent, Colors.amber, Colors.green,
-      Colors.cyan, Colors.blueAccent, Colors.purpleAccent, Colors.white, Colors.black,
+      Colors.redAccent,
+      Colors.orangeAccent,
+      Colors.amber,
+      Colors.green,
+      Colors.cyan,
+      Colors.blueAccent,
+      Colors.purpleAccent,
+      Colors.white,
+      Colors.black,
     ];
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Wrap(
-        spacing: 8, runSpacing: 8,
+        spacing: 8,
+        runSpacing: 8,
         children: [
           for (final c in colors)
             GestureDetector(
-              onTap: () { setState(() => _brushColor = c); close(); },
+              onTap: () {
+                setState(() => _brushColor = c);
+                close();
+              },
               child: Container(
-                width: 24, height: 24,
+                width: 24,
+                height: 24,
                 decoration: BoxDecoration(
-                  color: c, shape: BoxShape.circle,
+                  color: c,
+                  shape: BoxShape.circle,
                   border: Border.all(
                     color: c.computeLuminance() < 0.5 ? Colors.white70 : Colors.black26,
                     width: _brushColor == c ? 2.2 : 1,
@@ -317,195 +354,350 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
   }
 
   Widget _buildWidthMenu(VoidCallback close) {
-    const double kMin = 1, kMax = 20; const int kDiv = 19;
-    return StatefulBuilder(builder: (context, setLocal) {
-      return Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('${_brushWidth.clamp(kMin, kMax).toStringAsFixed(0)} px',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 180, width: 48,
-              child: RotatedBox(
-                quarterTurns: 3,
-                child: Slider(
-                  value: _brushWidth.clamp(kMin, kMax),
-                  min: kMin, max: kMax, divisions: kDiv,
-                  onChanged: (v) { setState(() => _brushWidth = v); setLocal(() {}); },
+    const double kMin = 1, kMax = 20;
+    const int kDiv = 19;
+
+    return StatefulBuilder(
+      builder: (context, setLocal) {
+        return Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${_brushWidth.clamp(kMin, kMax).toStringAsFixed(0)} px',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              width: 40, height: (_brushWidth).clamp(kMin, kMax),
-              decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(3),
-                border: Border.all(color: const Color(0xFF6E6E6E)),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 180,
+                width: 48,
+                child: RotatedBox(
+                  quarterTurns: 3,
+                  child: Slider(
+                    value: _brushWidth.clamp(kMin, kMax),
+                    min: kMin,
+                    max: kMax,
+                    divisions: kDiv,
+                    onChanged: (v) {
+                      setState(() => _brushWidth = v);
+                      setLocal(() {});
+                    },
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
-      );
-    });
+              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: (_brushWidth).clamp(kMin, kMax),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: const Color(0xFF6E6E6E)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildSnapRadiusMenu(VoidCallback close) {
     const int minR = 1, maxR = 64;
-    return StatefulBuilder(builder: (context, setLocal) {
-      return Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('$_snapRadiusUi px',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 180, width: 48,
-              child: RotatedBox(
-                quarterTurns: 3,
-                child: Slider(
-                  value: _snapRadiusUi.toDouble().clamp(minR.toDouble(), maxR.toDouble()),
-                  min: minR.toDouble(), max: maxR.toDouble(),
-                  divisions: maxR - minR,
-                  onChanged: (v) {
-                    final next = v.round();
-                    final delta = next - _snapRadiusUi;
-                    _snapRadiusUi = next; setLocal(() {});
-                    widget.onChangeSnapRadius?.call(delta);
-                  },
+    return StatefulBuilder(
+      builder: (context, setLocal) {
+        return Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$_snapRadiusUi px',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-    });
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 180,
+                width: 48,
+                child: RotatedBox(
+                  quarterTurns: 3,
+                  child: Slider(
+                    value: _snapRadiusUi.toDouble().clamp(
+                      minR.toDouble(),
+                      maxR.toDouble(),
+                    ),
+                    min: minR.toDouble(),
+                    max: maxR.toDouble(),
+                    divisions: maxR - minR,
+                    onChanged: (v) {
+                      final next = v.round();
+                      final delta = next - _snapRadiusUi;
+                      _snapRadiusUi = next;
+                      setLocal(() {});
+                      widget.onChangeSnapRadius?.call(delta);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildSnapThresholdMenu(VoidCallback close) {
     const int minT = 1, maxT = 64;
-    return StatefulBuilder(builder: (context, setLocal) {
-      return Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('$_snapMinGradUi',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 180, width: 48,
-              child: RotatedBox(
-                quarterTurns: 3,
-                child: Slider(
-                  value: _snapMinGradUi.toDouble().clamp(minT.toDouble(), maxT.toDouble()),
-                  min: minT.toDouble(), max: maxT.toDouble(),
-                  divisions: maxT - minT,
-                  onChanged: (v) {
-                    final next = v.round();
-                    final delta = next - _snapMinGradUi;
-                    _snapMinGradUi = next; setLocal(() {});
-                    widget.onChangeSnapThreshold?.call(delta);
-                  },
+    return StatefulBuilder(
+      builder: (context, setLocal) {
+        return Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$_snapMinGradUi',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-    });
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 180,
+                width: 48,
+                child: RotatedBox(
+                  quarterTurns: 3,
+                  child: Slider(
+                    value: _snapMinGradUi.toDouble().clamp(
+                      minT.toDouble(),
+                      maxT.toDouble(),
+                    ),
+                    min: minT.toDouble(),
+                    max: maxT.toDouble(),
+                    divisions: maxT - minT,
+                    onChanged: (v) {
+                      final next = v.round();
+                      final delta = next - _snapMinGradUi;
+                      _snapMinGradUi = next;
+                      setLocal(() {});
+                      widget.onChangeSnapThreshold?.call(delta);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showExportDialog({required bool normalized}) {
     final builder = widget.buildGeoJSON;
     if (builder == null) return;
     final json = builder(normalized);
-    showDialog(
+
+    showWindowDialogMac<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text('GeoJSON (${normalized ? "normalizado" : "px absolutos"})'),
-        content: SingleChildScrollView(child: SelectableText(json)),
-        actions: [
-          TextButton(onPressed: () async => await widget.copyToClipboard?.call(json), child: const Text('Copiar')),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
-        ],
+      title: 'GeoJSON (${normalized ? "normalizado" : "px absolutos"})',
+      width: 720,
+      barrierDismissible: true,
+      child: Builder(
+        builder: (dialogCtx) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Conteúdo gerado:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 260,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E1E),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.black.withOpacity(0.35),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          json,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11.5,
+                            color: Color(0xFFE8E8E8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () async {
+                        await widget.copyToClipboard?.call(json);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('GeoJSON copiado para a área de transferência.'),
+                          ),
+                        );
+                      },
+                      child: const Text('Copiar'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      child: const Text('Fechar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final shouldIgnoreOverlay = !_brushDrawMode || _passThrough || _mapInteractionsEnabled || _panMode;
+    final shouldIgnoreOverlay =
+        !_brushDrawMode || _passThrough || _mapInteractionsEnabled || _panMode;
     final cam = _safeCamera;
 
     final slots = <ToolSlot>[
       buildSelectMenu(
         MenuSelect(
           current: _selectionMode,
-          setMode: (m) => setState(() { _selectionMode = m; _panMode = false; }),
+          setMode: (m) => setState(() {
+            _selectionMode = m;
+            _panMode = false;
+          }),
           deactivateDraw: () => setState(() => _brushDrawMode = false),
           activateSelectionMode: () {
             setState(() => _panMode = false);
             widget.onActivateSelectionMode?.call();
           },
           activatePanMode: () {
-            setState(() { _brushDrawMode = false; _panMode = true; });
+            setState(() {
+              _brushDrawMode = false;
+              _panMode = true;
+            });
             widget.onActivatePanMode?.call();
           },
         ),
       ),
       buildBrushMenu(
         MenuBrush(
-          activateBrushDraw: () => setState(() { _panMode = false; _brushDrawMode = true; }),
+          activateBrushDraw: () =>
+              setState(() {
+                _panMode = false;
+                _brushDrawMode = true;
+              }),
           colorBuilder: _buildColorMenu,
           widthBuilder: _buildWidthMenu,
         ),
       ),
       buildTextMenu(
         MenuText(
-          deactivateBrushDraw: () => setState(() { _brushDrawMode = false; _panMode = false; }),
-          activateTextMode: (tool) { setState(() => _panMode = false); widget.onActivateTextMode?.call(tool); },
+          deactivateBrushDraw: () =>
+              setState(() {
+                _brushDrawMode = false;
+                _panMode = false;
+              }),
+          activateTextMode: (tool) {
+            setState(() => _panMode = false);
+            widget.onActivateTextMode?.call(tool);
+          },
         ),
       ),
       buildAreaMenu(
         MenuDrawerPolygon(
-          activatePolygonMode: () { setState(() => _panMode = false); widget.onActivatePolygonMode?.call(); },
+          activatePolygonMode: () {
+            setState(() => _panMode = false);
+            widget.onActivatePolygonMode?.call();
+          },
           snapEnabled: widget.snapEnabled,
           toggleSnap: () => widget.onToggleSnap?.call(),
           snapRadiusBuilder: _buildSnapRadiusMenu,
           snapThresholdBuilder: _buildSnapThresholdMenu,
           finishPolygon: () async => await widget.onFinishPolygon?.call(),
-          deactivateBrushDraw: () => setState(() { _brushDrawMode = false; _panMode = false; }),
+          deactivateBrushDraw: () =>
+              setState(() {
+                _brushDrawMode = false;
+                _panMode = false;
+              }),
         ),
       ),
       buildActionsMenu(
         MenuActions(
           undoUnified: () {
-            if (widget.onUndo != null) { WidgetsBinding.instance.addPostFrameCallback((_) => widget.onUndo!.call()); }
+            if (widget.onUndo != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) => widget.onUndo!.call());
+            }
             if (_strokes.isNotEmpty) _undoStroke();
           },
           clearBrushOnly: _clearStrokes,
-          clearAll: () => widget.onClear != null ? widget.onClear!() : _clearStrokes(),
-          deactivateBrushDraw: () => setState(() { _brushDrawMode = false; _panMode = false; }),
+          clearAll:
+              () => widget.onClear != null ? widget.onClear!() : _clearStrokes(),
+          deactivateBrushDraw: () =>
+              setState(() {
+                _brushDrawMode = false;
+                _panMode = false;
+              }),
         ),
       ),
       buildExportMenu(
         MenuExport(
           exportPng: _exportPng,
-          showGeojsonDialog: ({required normalized}) => _showExportDialog(normalized: normalized),
-          deactivateBrushDraw: () => setState(() { _brushDrawMode = false; _panMode = false; }),
+          showGeojsonDialog: ({required normalized}) =>
+              _showExportDialog(normalized: normalized),
+          deactivateBrushDraw: () =>
+              setState(() {
+                _brushDrawMode = false;
+                _panMode = false;
+              }),
         ),
       ),
-      MenuZoom(() => setState(() { _brushDrawMode = false; _panMode = false; })),
+      MenuZoom(
+            () => setState(() {
+          _brushDrawMode = false;
+          _panMode = false;
+        }),
+      ),
       buildLockMenu(
         MenuLock(
           pageScrollLocked: _pageScrollLocked,
-          toggleLock: () => setState(() => _pageScrollLocked = !_pageScrollLocked),
-          deactivateBrushDraw: () => setState(() { _brushDrawMode = false; _panMode = false; }),
+          toggleLock: () =>
+              setState(() => _pageScrollLocked = !_pageScrollLocked),
+          deactivateBrushDraw: () =>
+              setState(() {
+                _brushDrawMode = false;
+                _panMode = false;
+              }),
         ),
       ),
     ];
@@ -516,10 +708,12 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
         children: [
           Positioned.fill(
             child: GestureDetector(
-              onLongPressStart: (_) => setState(() => _passThrough = _mapInteractionsEnabled),
-              onLongPressEnd:   (_) => setState(() => _passThrough = false),
-              onSecondaryTapDown: (_) => setState(() => _passThrough = _mapInteractionsEnabled),
-              onSecondaryTapUp:   (_) => setState(() => _passThrough = false),
+              onLongPressStart: (_) =>
+                  setState(() => _passThrough = _mapInteractionsEnabled),
+              onLongPressEnd: (_) => setState(() => _passThrough = false),
+              onSecondaryTapDown: (_) =>
+                  setState(() => _passThrough = _mapInteractionsEnabled),
+              onSecondaryTapUp: (_) => setState(() => _passThrough = false),
               behavior: HitTestBehavior.translucent,
               child: IgnorePointer(
                 ignoring: shouldIgnoreOverlay,
@@ -528,23 +722,40 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
                   onPointerDown: (e) {
                     _activePointers++;
                     final isPrimary = e.kind == PointerDeviceKind.touch ||
-                        (e.kind == PointerDeviceKind.mouse && e.buttons == kPrimaryMouseButton);
-                    if (_activePointers == 1 && !_passThrough && isPrimary) _startStroke(e.localPosition);
+                        (e.kind == PointerDeviceKind.mouse &&
+                            e.buttons == kPrimaryMouseButton);
+                    if (_activePointers == 1 && !_passThrough && isPrimary) {
+                      _startStroke(e.localPosition);
+                    }
                   },
-                  onPointerMove: (e) { if (_activePointers == 1 && !_passThrough) _appendPoint(e.localPosition); },
-                  onPointerUp: (e) { _activePointers = (_activePointers - 1).clamp(0, 10); if (_activePointers == 0) _endStroke(); },
-                  onPointerCancel: (e) { _activePointers = (_activePointers - 1).clamp(0, 10); if (_activePointers == 0) _endStroke(); },
+                  onPointerMove: (e) {
+                    if (_activePointers == 1 && !_passThrough) {
+                      _appendPoint(e.localPosition);
+                    }
+                  },
+                  onPointerUp: (e) {
+                    _activePointers = (_activePointers - 1).clamp(0, 10);
+                    if (_activePointers == 0) _endStroke();
+                  },
+                  onPointerCancel: (e) {
+                    _activePointers = (_activePointers - 1).clamp(0, 10);
+                    if (_activePointers == 0) _endStroke();
+                  },
                   onPointerSignal: (signal) {
                     if (signal is PointerScrollEvent) {
                       if (_pageScrollLocked) return;
-                      if (_mapInteractionsEnabled) _applyWheelZoom(signal.scrollDelta.dy);
+                      if (_mapInteractionsEnabled) {
+                        _applyWheelZoom(signal.scrollDelta.dy);
+                      }
                     }
                   },
                   child: CustomPaint(
                     painter: _StrokesPainter(
                       strokes: _strokes,
                       camera: cam,
-                      repaint: Listenable.merge([_painterRepaint, _drawRepaint]),
+                      repaint: Listenable.merge(
+                        [_painterRepaint, _drawRepaint],
+                      ),
                     ),
                   ),
                 ),
@@ -568,8 +779,12 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
 }
 
 class _StrokesPainter extends CustomPainter {
-  _StrokesPainter({required this.strokes, required this.camera, Listenable? repaint})
-      : super(repaint: repaint);
+  _StrokesPainter({
+    required this.strokes,
+    required this.camera,
+    Listenable? repaint,
+  }) : super(repaint: repaint);
+
   final List<Stroke> strokes;
   final MapCamera? camera;
 
@@ -578,6 +793,7 @@ class _StrokesPainter extends CustomPainter {
     for (final s in strokes) {
       final int n = s.screenSpace ? s.screenPoints.length : s.geoPoints.length;
       if (n < 2) continue;
+
       final paint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = s.width
@@ -585,18 +801,32 @@ class _StrokesPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..isAntiAlias = true;
+
       final path = ui.Path();
       Offset? last;
+
       if (s.screenSpace) {
-        for (final o in s.screenPoints) { if (last == null) { path.moveTo(o.dx, o.dy); } else { path.lineTo(o.dx, o.dy); } last = o; }
+        for (final o in s.screenPoints) {
+          if (last == null) {
+            path.moveTo(o.dx, o.dy);
+          } else {
+            path.lineTo(o.dx, o.dy);
+          }
+          last = o;
+        }
       } else {
         if (camera == null) continue;
         for (final latLng in s.geoPoints) {
           final o = camera!.latLngToScreenOffset(latLng);
-          if (last == null) { path.moveTo(o.dx, o.dy); } else { path.lineTo(o.dx, o.dy); }
+          if (last == null) {
+            path.moveTo(o.dx, o.dy);
+          } else {
+            path.lineTo(o.dx, o.dy);
+          }
           last = o;
         }
       }
+
       canvas.drawPath(path, paint);
     }
   }

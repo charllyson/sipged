@@ -1,97 +1,113 @@
 import 'package:flutter/material.dart';
+
 import 'package:siged/_blocs/actives/roads/active_roads_data.dart';
-import 'package:siged/_widgets/overlays/loading_progress.dart';
-import 'package:siged/_widgets/table/virtualized/virtualized_table_changed.dart';
+import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
-class ActiveRoadsRecordsTableSection extends StatelessWidget {
-  final Future<List<ActiveRoadsData>> futureRoads;
-  final void Function(ActiveRoadsData) onTapItem;
-  final void Function(String id) onDelete;
+typedef RoadTapCallback = void Function(ActiveRoadsData road);
+typedef RoadDeleteCallback = void Function(String roadId);
 
-  const ActiveRoadsRecordsTableSection({
+class ListRoadsTable extends StatefulWidget {
+  const ListRoadsTable({
     super.key,
-    required this.futureRoads,
+    required this.items,
+    required this.constraints,
     required this.onTapItem,
     required this.onDelete,
   });
 
+  final List<ActiveRoadsData> items;
+  final BoxConstraints constraints;
+
+  final RoadTapCallback onTapItem;
+  final RoadDeleteCallback onDelete;
+
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<ActiveRoadsData>>(
-      future: futureRoads,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const LoadingProgress();
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Erro: ${snapshot.error}'));
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Text('Nenhuma rodovia encontrada.');
-        }
-
-        final data = snapshot.data!;
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            // largura disponível segura (quando sem bound, uso a da tela)
-            final availableWidth = constraints.hasBoundedWidth
-                ? constraints.maxWidth
-                : MediaQuery.of(context).size.width;
-
-            // constraint tight e normalizado (min == max == availableWidth)
-            final safeConstraints = BoxConstraints.tightFor(width: availableWidth).normalize();
-
-            return SizedBox(
-              width: availableWidth, // garante bound estável pro filho
-              child: SimpleTableVirtualized<ActiveRoadsData>(
-                constraints: safeConstraints,   // <-- aqui o pulo do gato
-                listData: data,
-
-                columnTitles: const [
-                  'RODOVIA','UF','REGIÃO','CÓDIGO','EXTENSÃO (km)','STATUS','OBRAS',
-                  'ÓRGÃO GESTOR','SENTIDO','TMD','VEL. MÁX.','PONTOS',
-                ],
-                columnGetters: [
-                      (r) => r.acronym ?? '-',
-                      (r) => r.uf ?? '-',
-                      (r) => r.regional ?? (r.metadata?['regional']?.toString() ?? '-'),
-                      (r) => r.roadCode ?? '-',
-                      (r) => _fmtNum(r.extension, maxDecimals: 3),
-                      (r) => (r.stateSurface ?? r.surface ?? r.state) ?? '-',
-                      (r) => r.works ?? '-',
-                      (r) => r.managingAgency ?? '-',
-                      (r) => r.direction ?? '-',
-                      (r) => (r.tmd ?? '-').toString(),
-                      (r) => (r.maximumSpeed ?? '-').toString(),
-                      (r) => (r.points?.length ?? 0).toString(),
-                ],
-                onTapItem: onTapItem,
-                onDelete: (item) {
-                  final id = item.id;
-                  if (id != null && id.isNotEmpty) onDelete(id);
-                },
-                columnWidths: const [
-                  120, 60, 160, 120, 130, 140, 300, 180, 120, 90, 100, 90, 100,
-                ],
-                columnTextAligns: const [
-                  TextAlign.center, TextAlign.center, TextAlign.center, TextAlign.center,
-                  TextAlign.center, TextAlign.center, TextAlign.center, TextAlign.center,
-                  TextAlign.center, TextAlign.center, TextAlign.center, TextAlign.center,
-                ],
-                bodyHeight: 480,
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+  State<ListRoadsTable> createState() => _ListRoadsTableState();
 }
 
-// ---------- helpers ----------
-String _fmtNum(num? v, {int maxDecimals = 3}) {
-  if (v == null) return '-';
-  var s = v.toStringAsFixed(maxDecimals);
-  while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
-    s = s.substring(0, s.length - 1);
+class _ListRoadsTableState extends State<ListRoadsTable> {
+  ActiveRoadsData? _selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.items;
+    if (data.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(12.0),
+        child: Text('Nenhuma rodovia encontrada neste grupo.'),
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SimpleTableChanged<ActiveRoadsData>(
+        listData: data,
+        constraints: widget.constraints,
+
+        // linha selecionada
+        selectedItem: _selected,
+
+        sortColumnIndex: 0,
+        isAscending: true,
+        sortField: (r) => (r.acronym ?? '').toUpperCase(),
+        onSort: (_, __) {},
+
+        columnTitles: const [
+          'CÓDIGO',
+          'COMPONENTE',
+          'INÍCIO DO TRECHO',
+          'FIM DO TRECHO',
+          'REGIÃO',
+          'EXTENSÃO (km)',
+          'STATUS',
+        ],
+        columnGetters: [
+          (r) => r.roadCode ?? '-',
+          (r) => r.segmentType ?? '-',
+          (r) => r.initialSegment?.toString() ?? '-',
+          (r) => r.finalSegment?.toString() ?? '-',
+          (r) => r.regional ?? (r.metadata?['regional']?.toString() ?? '-'),
+          (r) => r.extension.toString(),
+          (r) => r.stateSurface ?? '-',
+        ],
+
+        columnWidths: const [
+          100, // CÓDIGO
+          100, // COMPONENTE
+          200, // INÍCIO
+          200, // FIM
+          120, // REGIÃO
+          130, // EXTENSÃO
+          140, // STATUS
+          56,  // DELETE
+        ],
+
+        columnTextAligns: const [
+          TextAlign.center, // CÓDIGO
+          TextAlign.center, // COMPONENTE
+          TextAlign.start, // INÍCIO
+          TextAlign.start, // FIM
+          TextAlign.center, // REGIÃO
+          TextAlign.center, // EXTENSÃO
+          TextAlign.center, // STATUS
+          TextAlign.center, // DELETE
+        ],
+
+        onTapItem: (item) {
+          setState(() => _selected = item);
+          widget.onTapItem(item);
+        },
+
+        onDelete: (item) {
+          final id = item.id;
+          if (id != null && id.isNotEmpty) {
+            widget.onDelete(id);
+          }
+        },
+
+        groupBy: null,
+        groupLabel: null,
+      ),
+    );
   }
-  return s;
 }

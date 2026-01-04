@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class SimpleTableChanged<T> extends StatelessWidget {
   final List<T> listData;
@@ -25,7 +26,7 @@ class SimpleTableChanged<T> extends StatelessWidget {
   final Color colorHeadTableText;
 
   final List<TableRow>? footerRows;
-  final T? selectedItem;
+  final T? selectedItem; // <- usado pra destacar a linha clicada
 
   const SimpleTableChanged({
     super.key,
@@ -50,7 +51,10 @@ class SimpleTableChanged<T> extends StatelessWidget {
     this.colorHeadTableText = Colors.white,
     this.footerRows,
     this.selectedItem,
-  });
+  }) : assert(
+  columnTitles.length == columnGetters.length,
+  'columnTitles e columnGetters precisam ter o mesmo tamanho.',
+  );
 
   // ---- helpers de colunas ----
   int get _leadingCols =>
@@ -58,8 +62,36 @@ class SimpleTableChanged<T> extends StatelessWidget {
   int get _deleteCols => onDelete != null ? 1 : 0;
   int get _totalColumns => _leadingCols + columnTitles.length + _deleteCols;
 
+  // Larguras efetivas (com validação)
+  List<double> get _colWidths {
+    if (columnWidths != null && columnWidths!.length == _totalColumns) {
+      return columnWidths!;
+    }
+
+    final List<double> w = [];
+    if (_leadingCols == 1) w.add(150.0);
+    for (var i = 0; i < columnTitles.length; i++) {
+      w.add(150.0);
+    }
+    if (_deleteCols == 1) w.add(56.0);
+    return w;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // valida columnWidths (em runtime para evitar const issues)
+    assert(() {
+      final expected = _totalColumns;
+      if (columnWidths != null && columnWidths!.length != expected) {
+        throw FlutterError(
+          'columnWidths deve conter largura para TODAS as colunas '
+              '(incluindo leading/delete se existirem): '
+              'esperado $expected, recebido ${columnWidths!.length}.',
+        );
+      }
+      return true;
+    }());
+
     // cópia da lista para ordenação
     List<T> data = List<T>.from(listData);
 
@@ -74,63 +106,92 @@ class SimpleTableChanged<T> extends StatelessWidget {
 
     final grouped = data.isEmpty ? <String, List<T>>{} : _groupBy(data);
 
+    final widths = _colWidths;
+    final totalWidth = widths.fold<double>(0, (s, w) => s + w);
+
+    final parentWidth = constraints.hasBoundedWidth
+        ? constraints.maxWidth
+        : MediaQuery.of(context).size.width;
+
+    final needsScroll = totalWidth > parentWidth;
+    final theme = Theme.of(context);
+
+    Widget tableContent() {
+      return Table(
+        border: TableBorder.all(
+          borderRadius: BorderRadius.circular(10),
+          color: Colors.grey.shade200,
+        ),
+        columnWidths: {
+          for (int i = 0; i < _totalColumns; i++)
+            i: FixedColumnWidth(widths[i]),
+        },
+        children: [
+          _buildHeaderRow(),
+          ...grouped.entries.expand((entry) {
+            final groupKey = entry.key;
+            final items = entry.value;
+
+            return [
+              if (groupBy != null && groupLabel != null)
+                _buildGroupRow(groupKey),
+              ...items.map((item) {
+                final isSelected =
+                    selectedItem != null && item == selectedItem;
+                return _buildDataRow(context, item, isSelected);
+              }),
+            ];
+          }),
+          ...?footerRows,
+        ],
+      );
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (data.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(left: 20.0, top: 8.0, bottom: 8.0),
-              child: Text(
-                'Nenhum registro encontrado.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey.shade600,
-                  fontStyle: FontStyle.italic,
+      child: SizedBox(
+        width: parentWidth,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (status != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                child: Text(
+                  '$status - (${data.length}) registros',
+                  style: theme.textTheme.titleMedium,
                 ),
               ),
-            ),
-          if (data.isNotEmpty)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: Table(
-                  border: TableBorder.all(
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.grey.shade200,
+            if (data.isEmpty)
+              Padding(
+                padding:
+                const EdgeInsets.only(left: 20.0, top: 8.0, bottom: 8.0),
+                child: Text(
+                  'Nenhum registro encontrado.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey.shade600,
+                    fontStyle: FontStyle.italic,
                   ),
-                  columnWidths: {
-                    for (int i = 0; i < _totalColumns; i++)
-                      i: FixedColumnWidth(
-                        (columnWidths != null && i < columnWidths!.length)
-                            ? columnWidths![i]
-                            : 150.0,
-                      ),
-                  },
-                  children: [
-                    _buildHeaderRow(),
-                    ...grouped.entries.expand((entry) {
-                      final groupKey = entry.key;
-                      final items = entry.value;
-
-                      return [
-                        if (groupBy != null && groupLabel != null)
-                          _buildGroupRow(groupKey),
-                        ...items.map((item) {
-                          final isSelected =
-                              selectedItem != null && item == selectedItem;
-                          return _buildDataRow(context, item, isSelected);
-                        }),
-                      ];
-                    }),
-                    ...?footerRows,
-                  ],
                 ),
               ),
-            ),
-        ],
+            if (data.isNotEmpty)
+              needsScroll
+                  ? SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                // aqui mantemos a largura real da tabela
+                child: SizedBox(
+                  width: totalWidth,
+                  child: tableContent(),
+                ),
+              )
+                  : SizedBox(
+                // quando não precisa de scroll, usamos a largura do pai
+                width: parentWidth,
+                child: tableContent(),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -144,7 +205,11 @@ class SimpleTableChanged<T> extends StatelessWidget {
           _buildHeader(leadingCellTitle ?? '', 0, (d) => ''),
         ...List.generate(columnTitles.length, (index) {
           final colIndex = index + _leadingCols;
-          return _buildHeader(columnTitles[index], colIndex, columnGetters[index]);
+          return _buildHeader(
+            columnTitles[index],
+            colIndex,
+            columnGetters[index],
+          );
         }),
         if (_deleteCols == 1)
           Center(
@@ -194,7 +259,11 @@ class SimpleTableChanged<T> extends StatelessWidget {
     );
   }
 
-  Widget _headerBody(String title, int columnIndex, String Function(T) getter) {
+  Widget _headerBody(
+      String title,
+      int columnIndex,
+      String Function(T) getter,
+      ) {
     return InkWell(
       onTap: () => onSort?.call(columnIndex, getter),
       child: Padding(
@@ -204,7 +273,11 @@ class SimpleTableChanged<T> extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(String title, int columnIndex, String Function(T) getter) {
+  Widget _buildHeader(
+      String title,
+      int columnIndex,
+      String Function(T) getter,
+      ) {
     return Tooltip(
       message: 'Ordenar por $title',
       child: _headerBody(title, columnIndex, getter),
@@ -215,12 +288,13 @@ class SimpleTableChanged<T> extends StatelessWidget {
   TableRow _buildGroupRow(String groupKey) {
     final List<Widget> cells = [];
 
-    // 1ª célula (label + valor) — independente de leading/delete existir
+    // 1ª célula (label + valor)
     cells.add(
       Padding(
         padding: const EdgeInsets.all(8.0),
         child: Text(
-          (groupLabel ?? 'Grupo') + (groupKey.isNotEmpty ? ': $groupKey' : ''),
+          (groupLabel ?? 'Grupo') +
+              (groupKey.isNotEmpty ? ': $groupKey' : ''),
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
         ),
       ),
@@ -238,10 +312,24 @@ class SimpleTableChanged<T> extends StatelessWidget {
   }
 
   // ---------- Data Row ----------
-  TableRow _buildDataRow(BuildContext context, T item, bool isSelected) {
+  TableRow _buildDataRow(
+      BuildContext context,
+      T item,
+      bool isSelected,
+      ) {
     return TableRow(
       decoration: BoxDecoration(
-        color: isSelected ? Colors.green.shade100 : Colors.white,
+        color: isSelected
+            ? const Color(0xFFE1F5FE) // azul clarinho para linha selecionada
+            : Colors.white,
+        border: isSelected
+            ? const Border(
+          left: BorderSide(
+            color: Color(0xFF0288D1),
+            width: 4,
+          ),
+        )
+            : null,
       ),
       children: [
         if (_leadingCols == 1)
@@ -259,7 +347,8 @@ class SimpleTableChanged<T> extends StatelessWidget {
           return _buildCell(
             columnGetters[index](item),
             item,
-            textAlign: (columnTextAligns != null && index < columnTextAligns!.length)
+            textAlign: (columnTextAligns != null &&
+                index < columnTextAligns!.length)
                 ? columnTextAligns![index]
                 : TextAlign.left,
           );
@@ -269,14 +358,22 @@ class SimpleTableChanged<T> extends StatelessWidget {
             child: IconButton(
               tooltip: 'Apagar',
               icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _confirmarExclusao(context, item),
+              onPressed: () => confirmarExclusao(
+                context: context,
+                item: item,
+                onDelete: onDelete!,
+              ),
             ),
           ),
       ],
     );
   }
 
-  TableCell _buildCell(String? text, T item, {TextAlign textAlign = TextAlign.left}) {
+  TableCell _buildCell(
+      String? text,
+      T item, {
+        TextAlign textAlign = TextAlign.left,
+      }) {
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
       child: InkWell(
@@ -311,30 +408,6 @@ class SimpleTableChanged<T> extends StatelessWidget {
       default:
         return Alignment.centerLeft;
     }
-  }
-
-  // ---------- Diálogo de exclusão ----------
-  void _confirmarExclusao(BuildContext context, T item) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmar exclusão'),
-        content: const Text('Deseja realmente excluir este item?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onDelete?.call(item);
-            },
-            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
   }
 
   // ---------- Agrupamento ----------

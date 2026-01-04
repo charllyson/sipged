@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/report/report_measurement_data.dart';
+import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
 
 class EvmSnapshot {
   final double pv;

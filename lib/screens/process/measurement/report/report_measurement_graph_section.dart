@@ -1,3 +1,4 @@
+// lib/screens/process/measurement/report/report_measurement_graph_section.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -32,13 +33,22 @@ class ReportMeasurementGraphSection extends StatelessWidget {
     final safeValues = hasData ? values : const [0.0];
     final safeSelectedIndex = hasData ? selectedIndex : null;
 
+    // largura mínima do gráfico de linha, usando double
+    final double availableWidth = math
+        .max(
+      MediaQuery.of(context).size.width - 300 - 52,
+      800,
+    )
+        .toDouble();
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
           const SizedBox(width: 12),
           GaugeCircularPercent(
-            centerTitle: valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
+            centerTitle:
+            valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
             headerTitle: 'Execução dos Reajustes',
             radius: 70,
             larguraGrafico: 200,
@@ -49,9 +59,13 @@ class ReportMeasurementGraphSection extends StatelessWidget {
             labels: safeLabels,
             values: safeValues,
             selectedIndex: safeSelectedIndex,
-            larguraGrafico: 300,
+            larguraCard: 300,
+            larguraGrafico: 240,
             onTouch: (index) {
-              if (index != null && index >= 0 && index < safeValues.length && hasData) {
+              if (index != null &&
+                  index >= 0 &&
+                  index < safeValues.length &&
+                  hasData) {
                 onSelectIndex?.call(index);
               }
             },
@@ -61,10 +75,12 @@ class ReportMeasurementGraphSection extends StatelessWidget {
             labels: safeLabels,
             values: safeValues,
             selectedIndex: safeSelectedIndex,
-            larguraGrafico: math.max(MediaQuery.of(context).size.width - 300 - 52, 800),
+            larguraGrafico: availableWidth,
             alturaGrafico: 260,
             onPointTap: (index) {
-              if (index >= 0 && index < safeValues.length && hasData) {
+              if (index >= 0 &&
+                  index < safeValues.length &&
+                  hasData) {
                 onSelectIndex?.call(index);
               }
             },
@@ -73,5 +89,4 @@ class ReportMeasurementGraphSection extends StatelessWidget {
       ),
     );
   }
-
 }

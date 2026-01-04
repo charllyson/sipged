@@ -1,5 +1,7 @@
 // lib/_blocs/process/hiring/5Edital/edital_state.dart
-part of 'edital_bloc.dart';
+
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
+import 'edital_sections.dart';
 
 class EditalState {
   final bool loading;
@@ -47,5 +49,5 @@ class EditalState {
 
   // atalhos
   String? get currentEditalId => editalId;
-  String? get currentDocsId => sectionIds[EditalSections.documentos];
+  String? get currentDocsId   => sectionIds[EditalSections.documentos];
 }

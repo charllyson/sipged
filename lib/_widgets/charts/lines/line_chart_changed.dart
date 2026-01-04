@@ -1,9 +1,12 @@
+// lib/_widgets/charts/lines/line_chart_changed.dart
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import 'package:siged/_widgets/charts/lines/shimmer_line_chart.dart';
 import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_widgets/cards/basic/basic_card.dart';
 
 class LineSeries {
   final String id;
@@ -96,15 +99,20 @@ class LineChartChanged extends StatefulWidget {
 
 class _LineChartChangedState extends State<LineChartChanged> {
   static const _palette = <Color>[
-    Color(0xFFFB8323), Color(0xFF206AF5), Color(0xFF00A86B),
-    Color(0xFF8E44AD), Color(0xFFE74C3C), Color(0xFF2C3E50),
+    Color(0xFFFB8323),
+    Color(0xFF206AF5),
+    Color(0xFF00A86B),
+    Color(0xFF8E44AD),
+    Color(0xFFE74C3C),
+    Color(0xFF2C3E50),
     Color(0xFFF1C40F),
   ];
   static const Color _startDotColor = Color(0xFFE53935); // legenda fixa
   static const double _leftTitlesReserved = 56.0;
   static final DateFormat _dateFmt = DateFormat('dd/MM/yyyy');
 
-  bool get _usandoSeries => (widget.series != null && widget.series!.isNotEmpty);
+  bool get _usandoSeries =>
+      (widget.series != null && widget.series!.isNotEmpty);
 
   List<int> _orderByDates(List<DateTime> dates) {
     final idx = List<int>.generate(dates.length, (i) => i);
@@ -140,7 +148,9 @@ class _LineChartChangedState extends State<LineChartChanged> {
   }
 
   List<double> get _legacyValuesEffective {
-    if (_globalOrder != null) return _applyOrder<double>(widget.values, _globalOrder!);
+    if (_globalOrder != null) {
+      return _applyOrder<double>(widget.values, _globalOrder!);
+    }
     return widget.values;
   }
 
@@ -159,9 +169,12 @@ class _LineChartChangedState extends State<LineChartChanged> {
   }
 
   bool get _hasAnyDateLabels {
-    if (widget.dateLabels != null && widget.dateLabels!.isNotEmpty) return true;
+    if (widget.dateLabels != null && widget.dateLabels!.isNotEmpty) {
+      return true;
+    }
     if (_usandoSeries) {
-      return _seriesEffective.any((s) => (s.dateLabels?.isNotEmpty ?? false));
+      return _seriesEffective
+          .any((s) => (s.dateLabels?.isNotEmpty ?? false));
     }
     return false;
   }
@@ -181,7 +194,11 @@ class _LineChartChangedState extends State<LineChartChanged> {
   int _effectiveCount() {
     final globalCount = _globalLabelsResolved.length;
     if (_usandoSeries) {
-      final maxSeriesLen = _seriesEffective.map((s) => s.values.length).fold<int>(0, (a, b) => a > b ? a : b);
+      final maxSeriesLen =
+      _seriesEffective.map((s) => s.values.length).fold<int>(
+        0,
+            (a, b) => a > b ? a : b,
+      );
       return math.max(globalCount, maxSeriesLen);
     } else {
       return math.max(globalCount, _legacyValuesEffective.length);
@@ -191,7 +208,9 @@ class _LineChartChangedState extends State<LineChartChanged> {
   bool get _semDados {
     if (_usandoSeries) {
       final s = _seriesEffective;
-      return !s.any((e) => e.values.isNotEmpty && e.values.any((v) => v.isFinite));
+      return !s.any(
+            (e) => e.values.isNotEmpty && e.values.any((v) => v.isFinite),
+      );
     } else {
       final vals = _legacyValuesEffective;
       if (vals.isEmpty) return true;
@@ -215,7 +234,8 @@ class _LineChartChangedState extends State<LineChartChanged> {
   }
 
   double _calcLarguraDinamica(BuildContext context) {
-    final larguraMinima = widget.larguraGrafico ?? MediaQuery.of(context).size.width;
+    final larguraMinima =
+        widget.larguraGrafico ?? MediaQuery.of(context).size.width;
     final pointsCount = _effectiveCount();
     final larguraPontos = pointsCount * 50.0;
     return math.max(larguraPontos, larguraMinima);
@@ -241,7 +261,8 @@ class _LineChartChangedState extends State<LineChartChanged> {
             show: true,
             gradient: LinearGradient(
               colors: [color.withOpacity(0.5), color.withOpacity(0.3)],
-              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
           ),
           dotData: FlDotData(
@@ -284,7 +305,8 @@ class _LineChartChangedState extends State<LineChartChanged> {
             show: s.showArea,
             gradient: LinearGradient(
               colors: [color.withOpacity(0.35), color.withOpacity(0.15)],
-              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
           ),
           dotData: FlDotData(
@@ -295,7 +317,9 @@ class _LineChartChangedState extends State<LineChartChanged> {
               return FlDotCirclePainter(
                 radius: isSelected ? s.selectedDotRadius : s.dotRadius,
                 // 🔴 “Início da obra” preenchido vermelho na base
-                color: isStart ? (s.color ?? _startDotColor) : (isSelected ? Colors.blue : Colors.white),
+                color: isStart
+                    ? (s.color ?? _startDotColor)
+                    : (isSelected ? Colors.blue : Colors.white),
                 strokeWidth: isStart ? 2 : (isSelected ? 0 : 2),
                 strokeColor: isStart ? Colors.white : color,
               );
@@ -307,7 +331,8 @@ class _LineChartChangedState extends State<LineChartChanged> {
     return bars;
   }
 
-  List<LineTooltipItem> _buildTooltipItems(LineTouchTooltipData _, List<LineBarSpot> spots) {
+  List<LineTooltipItem> _buildTooltipItems(
+      LineTouchTooltipData _, List<LineBarSpot> spots) {
     final items = <LineTooltipItem>[];
     final eff = _seriesEffective;
     for (final lbs in spots) {
@@ -318,15 +343,26 @@ class _LineChartChangedState extends State<LineChartChanged> {
         final s = eff[seriesIndex];
         name = s.name ?? s.id;
       }
-      final text = widget.tooltipFormatter?.call(y) ?? priceToString(y);
+      final text =
+          widget.tooltipFormatter?.call(y) ?? priceToString(y);
       final label = name.isEmpty ? text : '$name: $text';
-      items.add(LineTooltipItem(
-        label,
-        const TextStyle(
-          color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13,
-          shadows: [Shadow(blurRadius: 1, color: Colors.black54, offset: Offset(0, 1))],
+      items.add(
+        LineTooltipItem(
+          label,
+          const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            shadows: [
+              Shadow(
+                blurRadius: 1,
+                color: Colors.black54,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
         ),
-      ));
+      );
     }
     return items;
   }
@@ -337,46 +373,52 @@ class _LineChartChangedState extends State<LineChartChanged> {
       if (dt == null) return const SizedBox.shrink();
       return Text(
         _dateFmt.format(dt),
-        style: const TextStyle(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          fontSize: 10,
+          color: Colors.black87,
+          fontWeight: FontWeight.w600,
+        ),
         overflow: TextOverflow.ellipsis,
       );
     }
     final children = <Widget>[];
     final globals = _globalLabelsResolved;
     if (i >= 0 && i < globals.length) {
-      children.add(Text(
-        '${widget.prefix ?? ''}${globals[i]}',
-        style: const TextStyle(fontSize: 10, color: Colors.black87),
-      ));
+      children.add(
+        Text(
+          '${widget.prefix ?? ''}${globals[i]}',
+          style: const TextStyle(fontSize: 10, color: Colors.black87),
+        ),
+      );
     }
     if (_usandoSeries) {
       for (var sIdx = 0; sIdx < _seriesEffective.length; sIdx++) {
         final s = _seriesEffective[sIdx];
-        if (i < s.values.length && s.labels != null && i < s.labels!.length) {
+        if (i < s.values.length &&
+            s.labels != null &&
+            i < s.labels!.length) {
           final color = s.color ?? _palette[sIdx % _palette.length];
           final txt = s.labels![i];
           if (txt.isNotEmpty) {
-            children.add(Text(
-              txt,
-              style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
-            ));
+            children.add(
+              Text(
+                txt,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
           }
         }
       }
     }
     if (children.isEmpty) return const SizedBox.shrink();
-    return Column(mainAxisSize: MainAxisSize.min, children: children);
-  }
-
-  Widget _noData() {
-    final count = math.max(_effectiveCount(), 12);
-    final globals = _globalLabelsResolved;
-    final title = globals.isNotEmpty ? globals.first : null;
-    return LineChartShimmerWidget(
-      pointsCount: count,
-      height: widget.alturaGrafico ?? 240,
-      chartTitle: title,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: children,
     );
   }
 
@@ -387,17 +429,59 @@ class _LineChartChangedState extends State<LineChartChanged> {
 
   @override
   Widget build(BuildContext context) {
-    if (_semDados) return _noData();
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     final larguraDinamica = _calcLarguraDinamica(context);
+    final alturaGrafico = widget.alturaGrafico ?? 240;
+    final bottomReserved = _bottomReservedSize();
+    final totalHeight = alturaGrafico + bottomReserved;
+
+    // ======= SHIMMER (SEM DADOS) =======
+    if (_semDados) {
+      final count = math.max(_effectiveCount(), 12);
+      final globals = _globalLabelsResolved;
+      final title = globals.isNotEmpty ? globals.first : null;
+
+      return BasicCard(
+        isDark: isDark,
+        padding: const EdgeInsets.only(
+          left: 12.0,
+          right: 18.0,
+          bottom: 12.0,
+          top: 8.0,
+        ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: larguraDinamica,
+            height: totalHeight,
+            child: LineChartShimmerWidget(
+              pointsCount: count,
+              height: alturaGrafico,
+              chartTitle: title,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ======= COM DADOS =======
     final bars = _buildBars();
     final effectiveCount = _effectiveCount();
 
-    // ---- legenda: "Início da obra" primeiro ----
+    // legenda: "Início da obra" primeiro
     final legendWidgets = <Widget>[];
     if (_usandoSeries && widget.showLegend) {
-      if (_hasStartMarker || (widget.verticalLinesAt != null && widget.verticalLinesAt!.isNotEmpty)) {
-        legendWidgets.add(const _LegendDot(color: _startDotColor, label: 'Início da obra'));
+      if (_hasStartMarker ||
+          (widget.verticalLinesAt != null &&
+              widget.verticalLinesAt!.isNotEmpty)) {
+        legendWidgets.add(
+          const _LegendDot(
+            color: _startDotColor,
+            label: 'Início da obra',
+          ),
+        );
       }
       for (var i = 0; i < _seriesEffective.length; i++) {
         final s = _seriesEffective[i];
@@ -411,95 +495,127 @@ class _LineChartChangedState extends State<LineChartChanged> {
       }
     }
 
-    return Card(
-      color: Colors.white,
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 12.0, right: 18.0, bottom: 12.0, top: 8.0),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: larguraDinamica,
-            height: (widget.alturaGrafico ?? 240) + _bottomReservedSize(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (legendWidgets.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0, left: 4.0, right: 4.0),
-                    child: Wrap(spacing: 12, runSpacing: 4, children: legendWidgets),
+    return BasicCard(
+      isDark: isDark,
+      padding: const EdgeInsets.only(
+        left: 12.0,
+        right: 18.0,
+        bottom: 12.0,
+        top: 8.0,
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: larguraDinamica,
+          height: totalHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (legendWidgets.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: 8.0,
+                    left: 4.0,
+                    right: 4.0,
                   ),
-                Expanded(
-                  child: LineChart(
-                    LineChartData(
-                      lineTouchData: LineTouchData(
-                        handleBuiltInTouches: true,
-                        touchTooltipData: LineTouchTooltipData(
-                          getTooltipItems: (touched) => _buildTooltipItems(LineTouchTooltipData(), touched),
-                        ),
-                        touchCallback: (event, response) {
-                          if (event is FlTapUpEvent &&
-                              response?.lineBarSpots != null &&
-                              response!.lineBarSpots!.isNotEmpty) {
-                            final spot = response.lineBarSpots!.first;
-                            final idx = spot.spotIndex;
-                            if (_usandoSeries && widget.onPointTapSeries != null) {
-                              final s = _seriesEffective[spot.barIndex];
-                              widget.onPointTapSeries!.call(s.id, idx);
-                            }
-                            widget.onPointTap?.call(idx);
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 4,
+                    children: legendWidgets,
+                  ),
+                ),
+              Expanded(
+                child: LineChart(
+                  LineChartData(
+                    lineTouchData: LineTouchData(
+                      handleBuiltInTouches: true,
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipItems: (touched) =>
+                            _buildTooltipItems(
+                                const LineTouchTooltipData(), touched),
+                      ),
+                      touchCallback: (event, response) {
+                        if (event is FlTapUpEvent &&
+                            response?.lineBarSpots != null &&
+                            response!.lineBarSpots!.isNotEmpty) {
+                          final spot =
+                              response.lineBarSpots!.first;
+                          final idx = spot.spotIndex;
+                          if (_usandoSeries &&
+                              widget.onPointTapSeries != null) {
+                            final s =
+                            _seriesEffective[spot.barIndex];
+                            widget.onPointTapSeries!.call(
+                              s.id,
+                              idx,
+                            );
                           }
-                        },
-                      ),
-                      titlesData: FlTitlesData(
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: _bottomReservedSize(),
-                            interval: 1,
-                            getTitlesWidget: (value, meta) {
-                              final i = value.toInt();
-                              if (i < 0 || i > math.max(effectiveCount - 1, 0)) {
-                                return const SizedBox.shrink();
-                              }
-                              return _buildBottomTitle(i);
-                            },
-                          ),
+                          widget.onPointTap?.call(idx);
+                        }
+                      },
+                    ),
+                    titlesData: FlTitlesData(
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: bottomReserved,
+                          interval: 1,
+                          getTitlesWidget: (value, meta) {
+                            final i = value.toInt();
+                            if (i < 0 ||
+                                i > math.max(effectiveCount - 1, 0)) {
+                              return const SizedBox.shrink();
+                            }
+                            return _buildBottomTitle(i);
+                          },
                         ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: _leftTitlesReserved,
-                            getTitlesWidget: (value, meta) {
-                              if (value % 1000000 != 0) return const SizedBox.shrink();
-                              final mi = value ~/ 1000000;
-                              return Text('$mi M', style: const TextStyle(fontSize: 12));
-                            },
-                          ),
-                        ),
-                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                       ),
-                      extraLinesData: ExtraLinesData(
-                        verticalLines: (widget.verticalLinesAt ?? const <int>[])
-                            .map((x) => VerticalLine(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: _leftTitlesReserved,
+                          getTitlesWidget: (value, meta) {
+                            if (value % 1000000 != 0) {
+                              return const SizedBox.shrink();
+                            }
+                            final mi = value ~/ 1000000;
+                            return Text(
+                              '$mi M',
+                              style: const TextStyle(fontSize: 12),
+                            );
+                          },
+                        ),
+                      ),
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                    ),
+                    extraLinesData: ExtraLinesData(
+                      verticalLines:
+                      (widget.verticalLinesAt ?? const <int>[])
+                          .map(
+                            (x) => VerticalLine(
                           x: x.toDouble(),
                           strokeWidth: 1.5,
                           color: const Color(0xFF9E9E9E),
                           dashArray: [4, 4],
-                        ))
-                            .toList(),
-                      ),
-                      borderData: FlBorderData(show: true),
-                      gridData: const FlGridData(show: true),
-                      lineBarsData: bars,
-                      minX: 0,
-                      maxX: (math.max(effectiveCount - 1, 0)).toDouble(),
+                        ),
+                      )
+                          .toList(),
                     ),
+                    borderData: FlBorderData(show: true),
+                    gridData: const FlGridData(show: true),
+                    lineBarsData: bars,
+                    minX: 0,
+                    maxX: (math.max(effectiveCount - 1, 0))
+                        .toDouble(),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -517,7 +633,14 @@ class _LegendDot extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(fontSize: 12)),
       ],

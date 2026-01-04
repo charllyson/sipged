@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/tiles/tile_widget.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 import 'cleanup_subcollections_util.dart';
 
 import 'package:siged/_widgets/notification/app_notification.dart';
@@ -25,23 +27,48 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         final collectionPath = params.$1.trim();
         final subs = params.$2;
 
-        // 1) Confirmação inicial
-        final ok = await showDialog<bool>(
+        // 1) Confirmação inicial (WindowDialog)
+        final ok = await showWindowDialogMac<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Confirmar limpeza'),
-            content: Text(
-              'Isto irá APAGAR as subcoleções em TODOS os documentos de:\n'
-                  'Coleção: $collectionPath\n'
-                  'Subcoleções: ${subs.join(', ')}\n\n'
-                  'As demais coleções não serão tocadas. Deseja continuar?',
+          title: 'Confirmar limpeza',
+          width: 520,
+          barrierDismissible: true,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Isto irá APAGAR as subcoleções em TODOS os documentos de:\n'
+                      'Coleção: $collectionPath\n'
+                      'Subcoleções: ${subs.join(', ')}\n\n'
+                      'As demais coleções não serão tocadas. Deseja continuar?',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red.shade600,
+                      ),
+                      child: const Text('Apagar'),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Apagar')),
-            ],
           ),
         ) ?? false;
+
         if (!ok) return;
 
         // 2) DRY-RUN com loading
@@ -56,7 +83,11 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         Map<String, Map<String, int>> dry = const {};
         try {
           final cleaner = SubcollectionCleaner();
-          dry = await cleaner.deleteForCollectionPath(collectionPath, subs, dryRun: true);
+          dry = await cleaner.deleteForCollectionPath(
+            collectionPath,
+            subs,
+            dryRun: true,
+          );
         } catch (e) {
           // fecha loading e informa erro
           if (nav.canPop()) nav.pop();
@@ -77,20 +108,9 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         if (!context.mounted) return;
         await _showPreviewDialog(context, dry, title: 'Prévia (dry-run)');
 
-        // 3) Confirma apagar de verdade
-        final ok2 = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Apagar agora?'),
-            content: const Text('Deseja executar a limpeza de fato? Esta ação é irreversível.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Não')),
-              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sim, apagar')),
-            ],
-          ),
-        ) ?? false;
-
-        if (!ok2) return;
+        // 3) Confirma apagar de verdade (usa confirmDialog, que já pode estar mac-izado)
+        final ok2 = await confirmDialog(context, 'Apagar de verdade?');
+        if (ok2 != true) return;
 
         // 4) Execução real com loading
         if (context.mounted) {
@@ -104,7 +124,11 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         Map<String, Map<String, int>> res = const {};
         try {
           final cleaner = SubcollectionCleaner();
-          res = await cleaner.deleteForCollectionPath(collectionPath, subs, dryRun: false);
+          res = await cleaner.deleteForCollectionPath(
+            collectionPath,
+            subs,
+            dryRun: false,
+          );
         } catch (e) {
           // fecha loading e informa erro
           if (nav.canPop()) nav.pop();
@@ -143,42 +167,48 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
     final colCtrl = TextEditingController();
     final subCtrl = TextEditingController();
 
-    final ok = await showDialog<bool>(
+    final ok = await showWindowDialogMac<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Limpeza de subcoleções'),
-        content: Column(
+      title: 'Limpeza de subcoleções',
+      width: 520,
+      barrierDismissible: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
+            CustomTextField(
               controller: colCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Caminho da coleção',
-                hintText: 'Ex.: contracts ou orgs/ABC/contracts',
-                border: OutlineInputBorder(),
-              ),
+              labelText: 'Caminho da coleção',
             ),
             const SizedBox(height: 12),
-            TextField(
+            CustomTextField(
               controller: subCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Subcoleções (separadas por vírgula)',
-                hintText: 'Ex.: measurements, adjustmentMeasurement, revisionMeasurement',
-                border: OutlineInputBorder(),
-              ),
+              labelText: 'Subcoleções (separadas por vírgula)',
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancelar'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () {
+                    if (colCtrl.text.trim().isEmpty ||
+                        subCtrl.text.trim().isEmpty) {
+                      return;
+                    }
+                    Navigator.of(context).pop(true);
+                  },
+                  child: const Text('Continuar'),
+                ),
+              ],
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              if (colCtrl.text.trim().isEmpty || subCtrl.text.trim().isEmpty) return;
-              Navigator.pop(ctx, true);
-            },
-            child: const Text('Continuar'),
-          ),
-        ],
       ),
     ) ?? false;
 
@@ -201,18 +231,40 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
     final text = data.entries.map((docEntry) {
       final path = docEntry.key; // ex.: contracts/abc123
       final subs = docEntry.value;
-      final subsStr = subs.entries.map((e) => '  ${e.key}: ${e.value}').join('\n');
+      final subsStr =
+      subs.entries.map((e) => '  ${e.key}: ${e.value}').join('\n');
       return '$path\n$subsStr';
     }).join('\n\n');
 
-    await showDialog<void>(
+    await showWindowDialogMac<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: SingleChildScrollView(child: Text(text.isEmpty ? '(sem itens)' : text)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-        ],
+      title: title,
+      width: 520,
+      barrierDismissible: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 260,
+              child: SingleChildScrollView(
+                child: Text(
+                  text.isEmpty ? '(sem itens)' : text,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

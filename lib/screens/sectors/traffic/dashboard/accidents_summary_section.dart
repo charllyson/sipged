@@ -1,5 +1,6 @@
+// lib/screens/sectors/traffic/dashboard/accidents_summary_section.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/summary/summary_expandable_card.dart';
+import 'package:siged/_widgets/cards/summary/expandable_card.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 
 class AccidentsSummarySection extends StatelessWidget {
@@ -31,12 +32,12 @@ class AccidentsSummarySection extends StatelessWidget {
         runSpacing: 8,
         children: items.map((canonical) {
           final total = totalsByType[canonical] ?? 0.0;
-          return SummaryExpandableCard(
+          return ExpandableCard(
             subTitles: const ['Total'],
-            title: AccidentsData.displayTitle(canonical),          // título bonito
-            icon: AccidentsData.iconFor(canonical),                // ícone por tipo
+            title: AccidentsData.displayTitle(canonical), // título bonito
+            icon: AccidentsData.iconFor(canonical), // ícone por tipo
             colorIcon: AccidentsData.getColorByAccidentType(canonical),
-            valorTotal: Future.value(total),                       // seu card espera Future
+            valorTotal: Future.value(total), // seu card espera Future
             formatAsCurrency: false,
           );
         }).toList(),

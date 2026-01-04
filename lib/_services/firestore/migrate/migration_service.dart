@@ -19,12 +19,10 @@ class MeasurementsMigrationService {
     for (final c in contracts.docs) {
       await migrateContract(c.id, batchLimit: batchLimit);
     }
-    debugPrint('✔️ Migração concluída para todos os contratos.');
   }
 
   /// Migra UM contrato
   Future<void> migrateContract(String contractId, {int batchLimit = 400}) async {
-    debugPrint('➡️ Migrando measurements do contrato: $contractId');
     final measurementsRef = _db.collection('contracts').doc(contractId).collection('measurements');
     final snap = await measurementsRef.get();
 
@@ -148,7 +146,6 @@ class MeasurementsMigrationService {
     }
 
     if (pending > 0) await batch.commit();
-    debugPrint('✅ Migração concluída para contrato: $contractId');
   }
 
   /// remove entradas nulas para não sujar os docs no Firestore
@@ -197,7 +194,6 @@ Future<void> migrarMeasurementsParaColecoesNovas() async {
     final measSnap = await measRef.get();
     if (measSnap.docs.isEmpty) continue;
 
-    debugPrint('Migrando ${measSnap.docs.length} measurements do contrato $contractId...');
 
     for (final doc in measSnap.docs) {
       final d = doc.data();
@@ -258,6 +254,5 @@ Future<void> migrarMeasurementsParaColecoesNovas() async {
     }
   }
 
-  debugPrint('✅ Migração concluída (sem apagar a coleção original).');
 }
 

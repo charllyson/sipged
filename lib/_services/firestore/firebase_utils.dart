@@ -1,9 +1,13 @@
+// lib/_services/firebase_utils.dart (ou onde estiver esse código)
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 // 🔔 Notificações
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
+
+// ⬇️ NOVO: dialogo estilo macOS
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class FirebaseUtils {
   static Future<void> deleteCollectionCompletamente({
@@ -28,28 +32,13 @@ class FirebaseUtils {
         return;
       }
 
-      // Etapa 2: pedir confirmação
-      final bool confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Confirmar exclusão'),
-          content: Text(
-            'Tem certeza que deseja apagar a coleção:\n\n"$path"\n\nEla contém $totalDocs documentos.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Apagar tudo'),
-            ),
-          ],
-        ),
-      ) ??
-          false;
+      // Etapa 2: pedir confirmação (janela macOS)
+      final bool confirm = await confirmDialog(
+        context,
+        'Tem certeza que deseja apagar a coleção:\n\n'
+            '"$path"\n\n'
+            'Ela contém $totalDocs documentos.',
+      );
 
       if (!confirm) return;
 
@@ -83,9 +72,8 @@ class FirebaseUtils {
 
       onFinished?.call();
     } catch (e, stack) {
-      debugPrint('❌ Erro ao deletar coleção "$path": $e');
-      debugPrint(stack.toString());
-
+      // ignore: unused_local_variable
+      final _ = stack;
       _notify(
         'Erro ao deletar coleção',
         subtitle: '"$path": $e',

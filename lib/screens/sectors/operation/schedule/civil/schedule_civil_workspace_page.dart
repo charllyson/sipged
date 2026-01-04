@@ -6,10 +6,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_services/dxf/dxf_enums.dart';
 import 'package:siged/_services/dxf/map_overlay_cubit.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
 
 // UpBar / FootBar / BG
-import 'package:siged/_widgets/upBar/up_bar.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 
@@ -23,7 +24,7 @@ import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
 import 'package:siged/_widgets/schedule/civil/schedule_civil_widget.dart';
 
 // ✅ Split responsivo (lado a lado vs empilhado)
-import 'package:siged/_widgets/layout/responsive_split_view.dart';
+import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
 
 // Painel lateral civil
 import 'schedule_civil_panel.dart';
@@ -79,23 +80,15 @@ class _ScheduleCivilWorkspacePageState extends State<ScheduleCivilWorkspacePage>
               children: [
                 const Text('Nome da área', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 14),
-                TextField(
+                CustomTextField(
                   controller: txt,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Digite um nome',
-                    border: UnderlineInputBorder(),
-                  ),
+                  labelText: 'Digite um nome',
                   onSubmitted: (_) => Navigator.of(ctx).pop(txt.text.trim()),
                 ),
                 const SizedBox(height: 18),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(null),
-                      child: const Text('Cancelar'),
-                    ),
                     ElevatedButton(
                       onPressed: () => Navigator.of(ctx).pop(txt.text.trim()),
                       child: const Text('Salvar'),
@@ -146,7 +139,7 @@ class _ScheduleCivilWorkspacePageState extends State<ScheduleCivilWorkspacePage>
             const BackgroundClean(),
 
             // ====== Conteúdo base (canvas DXF) ======
-            ResponsiveSplitView(
+            SplitLayout(
 
               left: Stack(
                 children: [

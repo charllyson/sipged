@@ -1,7 +1,8 @@
-// lib/screens/sectors/planning/sigmine/planning_right_way_map.dart
+// lib/screens/sectors/operation/schedule/road/schedule_road_map.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,34 +11,36 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:siged/_widgets/schedule/modal/type.dart';
-import 'package:siged/_widgets/schedule/modal/schedule_modal_square.dart';
+import 'package:siged/screens/sectors/operation/schedule/road/schedule_modal_square.dart';
 import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 // Notificações centralizadas
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+// ✅ Cubit/State do cronograma rodoviário
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+
 import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
 
-import 'package:siged/_widgets/stakes/line_segmentation.dart';
-import 'package:siged/_services/geoJson/send_firebase.dart';
-import 'package:siged/_services/floating_buttons.dart';
-import 'package:siged/_widgets/stakes/zoom_listener.dart';
+import 'package:siged/_widgets/schedule/stakes/line_segmentation.dart';
+import 'package:siged/_widgets/schedule/stakes/zoom_listener.dart';
 
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_widgets/map/map_interactive.dart';
+import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
 import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:siged/_widgets/map/markers/tagged_marker.dart';
-import 'package:siged/_widgets/stakes/stakes_up_right.dart';
+import 'package:siged/_widgets/schedule/stakes/stakes_up_right.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
 
 // ✅ Toolbox flutuante (mesmo da página do Civil/Board)
 import 'package:siged/_widgets/toolBox/tool_widget.dart';
+
+// ✅ Janela macOS-like
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 // ====== constantes de estilo ======
 const double kLaneStrokeWidth = 7.0;
@@ -118,25 +121,53 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
   // ===== apagar traçado salvo =====
   Future<void> _onDeleteCollectionLikeBefore(ScheduleRoadState st) async {
-    final ok = await showDialog<bool>(
+    final ok = await showWindowDialogMac<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Apagar traçado'),
-        content: const Text(
-          'Tem certeza que deseja remover o traçado (geometry) salvo para este contrato? '
-              'Esta ação não pode ser desfeita.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Apagar')),
-        ],
+      title: 'Apagar traçado',
+      width: 460,
+      barrierDismissible: true,
+      child: Builder(
+        builder: (dialogCtx) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Tem certeza que deseja remover o traçado (geometry) salvo para este contrato? '
+                      'Esta ação não pode ser desfeita.',
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.redAccent.shade400,
+                      ),
+                      onPressed: () => Navigator.of(dialogCtx).pop(true),
+                      child: const Text('Apagar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
 
     if (ok == true && mounted) {
-      final bloc = context.read<ScheduleRoadBloc>();
-      bloc.add(const ScheduleProjectDeleteRequested());
-      bloc.add(const ScheduleRefreshRequested());
+      final cubit = context.read<ScheduleRoadCubit>();
+      // antes: ScheduleProjectDeleteRequested + ScheduleRefreshRequested
+      await cubit.deleteProjectGeometry();
+      await cubit.refresh();
     }
   }
 
@@ -164,11 +195,13 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       ) {
     if (selectedTags.isEmpty) {
       return polylines
-          .map((p) => _copyKeepingFlags(
-        p,
-        strokeWidth: kLaneStrokeWidth,
-        color: p.defaultColor ?? p.color,
-      ))
+          .map(
+            (p) => _copyKeepingFlags(
+          p,
+          strokeWidth: kLaneStrokeWidth,
+          color: p.defaultColor ?? p.color,
+        ),
+      )
           .toList();
     }
 
@@ -183,16 +216,46 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   }
 
   // ===== helpers “tocáveis” (ampliam área de toque) =====
-  List<TappableChangedPolyline> _withTapHelpers(List<TappableChangedPolyline> src) {
+  List<TappableChangedPolyline> _withTapHelpers(
+      List<TappableChangedPolyline> src,
+      ) {
     final helpers = <TappableChangedPolyline>[];
     for (final p in src) {
-      helpers.add(_copyKeepingFlags(
-        p,
-        color: Colors.black.withOpacity(0.01), // invisível mas clicável
-        strokeWidth: math.max(p.strokeWidth, kHitStrokeMin),
-      ));
+      helpers.add(
+        _copyKeepingFlags(
+          p,
+          color: Colors.black.withOpacity(0.01), // invisível mas clicável
+          strokeWidth: math.max(p.strokeWidth, kHitStrokeMin),
+        ),
+      );
     }
     return [...helpers, ...src];
+  }
+
+  // ===== resolver label da faixa, independente da estrutura =====
+  String _resolveLaneLabel(dynamic lane) {
+    if (lane == null) return '';
+
+    // Se for Map
+    if (lane is Map) {
+      final v = lane['label'] ?? lane['labelText'] ?? lane['name'];
+      if (v != null) return v.toString();
+    }
+
+    // Tenta .label
+    try {
+      final value = (lane as dynamic).label;
+      if (value != null) return value.toString();
+    } catch (_) {}
+
+    // Tenta .labelText
+    try {
+      final value = (lane as dynamic).labelText;
+      if (value != null) return value.toString();
+    } catch (_) {}
+
+    // Fallback
+    return lane.toString();
   }
 
   // ===== cor por segmento =====
@@ -229,13 +292,18 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     final out = <TappableChangedPolyline>[];
 
     for (int fi = 0; fi < lanes.length; fi++) {
-      final label = lanes[fi].labelText.toString().toUpperCase();
+      final rawLabel = _resolveLaneLabel(lanes[fi]);
+      final label = rawLabel.toUpperCase();
 
       // ===== identifica lado (LE / LD / CE) =====
       String side;
-      if (label.contains('LE')) side = 'LE';
-      else if (label.contains('LD')) side = 'LD';
-      else side = 'CE';
+      if (label.contains('LE')) {
+        side = 'LE';
+      } else if (label.contains('LD')) {
+        side = 'LD';
+      } else {
+        side = 'CE';
+      }
 
       // ===== define offset e direção de construção =====
       double offset = 0.0;
@@ -312,24 +380,29 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     if (markers.isEmpty) return const SizedBox.shrink();
     return MarkerLayer(
       markers: markers
-          .map((m) => Marker(
-        point: m.point,
-        width: 80,
-        height: 80,
-        alignment: Alignment.center,
-        child: StakesUpRight(
-          label: m.properties['label']?.toString() ?? '',
-          normalAngle: (m.properties['normalAngle'] as double?) ?? 0.0,
-          tickPx: (m.properties['tickPx'] as double?) ?? 12.0,
+          .map(
+            (m) => Marker(
+          point: m.point,
+          width: 80,
+          height: 80,
+          alignment: Alignment.center,
+          child: StakesUpRight(
+            label: m.properties['label']?.toString() ?? '',
+            normalAngle: (m.properties['normalAngle'] as double?) ?? 0.0,
+            tickPx: (m.properties['tickPx'] as double?) ?? 12.0,
+          ),
         ),
-      ))
+      )
           .toList(),
     );
   }
 
   // ===================== Helpers de nome (mesma regra do Board) =====================
   String _extractSide(String raw) {
-    final m = RegExp(r'\b(LE|CE|LD)\b', caseSensitive: false).firstMatch(raw.toUpperCase());
+    final m = RegExp(
+      r'\b(LE|CE|LD)\b',
+      caseSensitive: false,
+    ).firstMatch(raw.toUpperCase());
     return (m?.group(1) ?? '').toUpperCase();
   }
 
@@ -339,7 +412,13 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     if (up.contains('PISTA ATUAL')) return 'PISTA ATUAL';
     if (up.contains('CANTEIRO')) return 'CANTEIRO';
 
-    var cleaned = raw.replaceAll(RegExp(r'\b(LE|CE|LD)\b', caseSensitive: false), '');
+    var cleaned = raw.replaceAll(
+      RegExp(
+        r'\b(LE|CE|LD)\b',
+        caseSensitive: false,
+      ),
+      '',
+    );
     cleaned = cleaned.replaceAll(RegExp(r'\s*-\s*'), ' ');
     cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
     return cleaned.toUpperCase();
@@ -396,7 +475,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     }
 
     final estaca = _segToEstaca(segIdx);
-    final laneLabel = st.lanes[faixaIndex].label.toString();
+    final laneLabel = _resolveLaneLabel(st.lanes[faixaIndex]);
     final initialName = _formatRoadName(laneLabel: laneLabel, estaca: estaca);
 
     // fotos/meta existentes
@@ -411,9 +490,13 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       metaByUrl[url] = pm.CarouselMetadata(
         name: m['name']?.toString(),
         takenAt: (m['takenAtMs'] is num)
-            ? DateTime.fromMillisecondsSinceEpoch((m['takenAtMs'] as num).toInt())
+            ? DateTime.fromMillisecondsSinceEpoch(
+          (m['takenAtMs'] as num).toInt(),
+        )
             : ((m['takenAt'] is num)
-            ? DateTime.fromMillisecondsSinceEpoch((m['takenAt'] as num).toInt())
+            ? DateTime.fromMillisecondsSinceEpoch(
+          (m['takenAt'] as num).toInt(),
+        )
             : null),
         lat: (m['lat'] as num?)?.toDouble(),
         lng: (m['lng'] as num?)?.toDouble(),
@@ -429,56 +512,57 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     final initialStatus = () {
       final t = (data?.status ?? '').toLowerCase();
       if (t.contains('conclu')) return ScheduleStatus.concluido;
-      if (t.contains('andament') || t.contains('progress')) return ScheduleStatus.emAndamento;
+      if (t.contains('andament') || t.contains('progress')) {
+        return ScheduleStatus.emAndamento;
+      }
       return ScheduleStatus.aIniciar;
     }();
 
     try {
       _modalOpen = true;
+
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        useSafeArea: true,
+        backgroundColor: Colors.transparent,
         builder: (sheetCtx) {
           final bottomInset = MediaQuery.viewInsetsOf(sheetCtx).bottom;
-          return AnimatedPadding(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
+          return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: BlocProvider.value(
-                  value: context.read<ScheduleRoadBloc>(),
-                  child: ScheduleModalSquare(
-                    currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-                    tipoLabel: st.titleForHeader,
-                    type: ScheduleType.rodoviario,
-                    initialName: initialName,
-                    targets: [
-                      ScheduleApplyTarget(
-                        estaca: estaca,
-                        faixaIndex: faixaIndex,
-                        existingUrls: fotosAtuais,
-                        existingMetaByUrl: metaByUrl,
-                      ),
-                    ],
-                    initialStatus: initialStatus,
-                    initialTakenAt: data?.takenAt,
-                    initialComment: data?.comentario,
+            child: BlocProvider.value(
+              value: context.read<ScheduleRoadCubit>(),
+              child: ScheduleModalSquare(
+                currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
+                tipoLabel: st.titleForHeader,
+                type: ScheduleType.rodoviario,
+                initialName: initialName,
+                targets: [
+                  ScheduleApplyTarget(
+                    estaca: estaca,
+                    faixaIndex: faixaIndex,
+                    existingUrls: fotosAtuais,
+                    existingMetaByUrl: metaByUrl,
                   ),
-                ),
+                ],
+                initialStatus: initialStatus,
+                initialTakenAt: data?.takenAt,
+                initialComment: data?.comentario,
               ),
             ),
           );
         },
       );
 
-      context.read<ScheduleRoadBloc>().add(const ScheduleExecucoesReloadRequested());
-      _toast('Célula atualizada com sucesso!', type: AppNotificationType.success);
+      await context.read<ScheduleRoadCubit>().reloadExecucoes();
+      _toast(
+        'Célula atualizada com sucesso!',
+        type: AppNotificationType.success,
+      );
     } catch (e) {
-      _toast('Falha ao salvar a célula: $e', type: AppNotificationType.error);
+      _toast(
+        'Falha ao salvar a célula: $e',
+        type: AppNotificationType.error,
+      );
     } finally {
       _modalOpen = false;
       if (mounted) setState(() => _selectedTags.clear());
@@ -487,7 +571,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
   // ========================= Modal de lote a partir da seleção =========================
   Future<void> _openBulkModalFromSelected() async {
-    final st = context.read<ScheduleRoadBloc>().state;
+    final st = context.read<ScheduleRoadCubit>().state;
     if (!st.canBulkApply) {
       _toast('Selecione um serviço específico para editar em lote.');
       return;
@@ -505,17 +589,19 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       firstFaixa ??= parsed.faixaIndex;
       estacasSelecionadas.add(estaca);
 
-      targets.add(ScheduleApplyTarget(
-        estaca: estaca,
-        faixaIndex: parsed.faixaIndex,
-        existingUrls: st.fotosAtuaisFor(estaca, parsed.faixaIndex),
-        existingMetaByUrl: const {},
-      ));
+      targets.add(
+        ScheduleApplyTarget(
+          estaca: estaca,
+          faixaIndex: parsed.faixaIndex,
+          existingUrls: st.fotosAtuaisFor(estaca, parsed.faixaIndex),
+          existingMetaByUrl: const {},
+        ),
+      );
     }
 
     if (targets.isEmpty) return;
 
-    final laneLabel = st.lanes[firstFaixa ?? 0].label.toString();
+    final laneLabel = _resolveLaneLabel(st.lanes[firstFaixa ?? 0]);
     final initialNameMany = _formatRoadNameForMany(
       laneLabel: laneLabel,
       estacas: estacasSelecionadas,
@@ -523,38 +609,34 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
     try {
       _modalOpen = true;
+
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        useSafeArea: true,
+        backgroundColor: Colors.transparent,
         builder: (sheetCtx) {
           final bottomInset = MediaQuery.viewInsetsOf(sheetCtx).bottom;
-          return AnimatedPadding(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
+          return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: BlocProvider.value(
-                  value: context.read<ScheduleRoadBloc>(),
-                  child: ScheduleModalSquare(
-                    currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
-                    tipoLabel: st.titleForHeader,
-                    type: ScheduleType.rodoviario,
-                    initialName: initialNameMany,
-                    targets: targets,
-                  ),
-                ),
+            child: BlocProvider.value(
+              value: context.read<ScheduleRoadCubit>(),
+              child: ScheduleModalSquare(
+                currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
+                tipoLabel: st.titleForHeader,
+                type: ScheduleType.rodoviario,
+                initialName: initialNameMany,
+                targets: targets,
               ),
             ),
           );
         },
       );
 
-      context.read<ScheduleRoadBloc>().add(const ScheduleExecucoesReloadRequested());
-      _toast('Aplicado em lote: ${targets.length} segmento(s).', type: AppNotificationType.success);
+      await context.read<ScheduleRoadCubit>().reloadExecucoes();
+      _toast(
+        'Aplicado em lote: ${targets.length} segmento(s).',
+        type: AppNotificationType.success,
+      );
     } catch (e) {
       _toast('Falha no lote: $e', type: AppNotificationType.error);
     } finally {
@@ -569,7 +651,10 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   }
 
   // ===================== Notificações centralizadas =====================
-  void _toast(String msg, {AppNotificationType type = AppNotificationType.info}) {
+  void _toast(
+      String msg, {
+        AppNotificationType type = AppNotificationType.info,
+      }) {
     NotificationCenter.instance.show(
       AppNotification(
         type: type,
@@ -592,7 +677,8 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         : visible.where((p) => _selectedTags.contains(p.tag.toString())).toList();
 
     final features = selected.map((p) {
-      final coords = p.points.map((pt) => [pt.longitude, pt.latitude]).toList();
+      final coords =
+      p.points.map((pt) => [pt.longitude, pt.latitude]).toList();
       final tag = p.tag?.toString() ?? '';
       final props = {
         'tag': tag,
@@ -629,7 +715,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   @override
   Widget build(BuildContext context) {
     return BlocSelector<
-        ScheduleRoadBloc,
+        ScheduleRoadCubit,
         ScheduleRoadState,
         ({
         bool initialized,
@@ -650,10 +736,13 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       execIndex: st.execIndex,
       ),
       builder: (context, sel) {
-        if (!sel.initialized || sel.savingOrImporting) return const MapLoadingShimmer();
+        if (!sel.initialized || sel.savingOrImporting) {
+          return const MapLoadingShimmer();
+        }
 
-        final segmented = _getSegmented(axis: sel.axis, stepMeters: 20.0, zoom: sel.mapZoom);
-        final stFull = context.read<ScheduleRoadBloc>().state;
+        final segmented =
+        _getSegmented(axis: sel.axis, stepMeters: 20.0, zoom: sel.mapZoom);
+        final stFull = context.read<ScheduleRoadCubit>().state;
 
         // constroi os segmentos por faixa
         final laneSegments = _buildLanePolylines(
@@ -689,6 +778,8 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
             children: [
               MapInteractivePage<Map<String, dynamic>>(
                 showSearch: true,
+                showChangeMapType: true,
+                showMyLocation: true,
                 searchTargetZoom: 16,
                 showSearchMarker: true,
                 tappablePolylines: tappables,
@@ -698,7 +789,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                 ),
                 onClearPolylineSelection: () async {
                   setState(() => _selectedTags.clear());
-                  context.read<ScheduleRoadBloc>().add(const SchedulePolylineSelected(null));
+                  context.read<ScheduleRoadCubit>().setSelectedPolyline(null);
                 },
                 onSelectPolyline: (pl) async {
                   final tag = pl.tag?.toString();
@@ -723,43 +814,40 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                       ..clear()
                       ..add(tag);
                   });
-                  context.read<ScheduleRoadBloc>().add(SchedulePolylineSelected(tag));
+                  context.read<ScheduleRoadCubit>().setSelectedPolyline(tag);
 
                   if (parsed != null) {
                     await _openSingleSegmentModal(
-                      st: context.read<ScheduleRoadBloc>().state,
+                      st: context.read<ScheduleRoadCubit>().state,
                       faixaIndex: parsed.faixaIndex,
                       segIdx: parsed.segIdx,
                     );
                   }
                 },
                 taggedMarkers: stakeMarkers,
-                clusterWidgetBuilder: (tagged, selectedPos, onSel) => _stakesLayer(markers: tagged),
+                clusterWidgetBuilder: (tagged, selectedPos, onSel) =>
+                    _stakesLayer(markers: tagged),
               ),
 
-              // ===== ✅ Toolbox flutuante (igual ao Civil/Board, mapeado para o mapa) =====
+              // ===== ✅ Toolbox flutuante =====
               Positioned.fill(
                 child: SafeArea(
                   child: Align(
-                    alignment: Alignment.centerRight, // 👈 fixa na direita
+                    alignment: Alignment.centerRight, // direita
                     child: Padding(
                       padding: const EdgeInsets.only(top: 60.0, right: 12.0),
                       child: ToolBoxWidget(
-
-                        // deslocamento sob UpBar: ajuste se a tela já tiver AppBar próprio acima
                         topPadding: 0,
-                        // Recursos que fazem sentido no mapa:
                         snapEnabled: false,
                         snapRadius: 8,
                         snapMinGradient: 1,
-                        canFinishPolygon: false, // não desenhamos polígono aqui
-                        canUndo: _selectedTags.isNotEmpty, // desfaz última seleção
-                        canClear: _selectedTags.isNotEmpty, // limpa seleção
+                        canFinishPolygon: false,
+                        canUndo: _selectedTags.isNotEmpty,
+                        canClear: _selectedTags.isNotEmpty,
                         hasSelection: _selectedTags.isNotEmpty,
 
                         // Modos
                         onActivatePolygonMode: () {
-                          // Sem desenho nesse widget — avisamos o usuário
                           _toast('Desenho de polígono não disponível neste mapa.');
                         },
                         onActivateSelectionMode: () {
@@ -767,9 +855,11 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                             _multiSelectMode = !_multiSelectMode;
                             if (!_multiSelectMode) _selectedTags.clear();
                           });
-                          _toast(_multiSelectMode
-                              ? 'Seleção múltipla ativada — toque em segmentos.'
-                              : 'Seleção múltipla desativada.');
+                          _toast(
+                            _multiSelectMode
+                                ? 'Seleção múltipla ativada — toque em segmentos.'
+                                : 'Seleção múltipla desativada.',
+                          );
                         },
                         onActivateTextMode: (t) {
                           _toast('Anotação de texto não disponível neste mapa.');
@@ -781,35 +871,44 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                         onChangeSnapThreshold: (_) {},
 
                         // Ações
-                        onFinishPolygon: () async {}, // não usado
+                        onFinishPolygon: () async {},
                         onUndo: () {
                           if (_selectedTags.isNotEmpty) {
-                            setState(() => _selectedTags.remove(_selectedTags.last));
+                            setState(
+                                  () => _selectedTags.remove(_selectedTags.last),
+                            );
                           }
                         },
                         onClear: () {
                           setState(() => _selectedTags.clear());
-                          context.read<ScheduleRoadBloc>().add(const SchedulePolylineSelected(null));
+                          context.read<ScheduleRoadCubit>().setSelectedPolyline(null);
                         },
-                        onRenameSelected: () async => _toast('Renomear não se aplica a segmentos do mapa.'),
+                        onRenameSelected: () async => _toast(
+                          'Renomear não se aplica a segmentos do mapa.',
+                        ),
                         onDeleteSelected: () {
-                          // aqui interpretamos como "desmarcar"
                           setState(() => _selectedTags.clear());
                           _toast('Seleção limpa.');
                         },
 
                         // Exportar seleção para GeoJSON
-                        buildGeoJSON: (normalized) =>
-                            _buildSelectedGeoJSON(laneSegments: laneSegments, normalized: normalized),
+                        buildGeoJSON: (normalized) => _buildSelectedGeoJSON(
+                          laneSegments: laneSegments,
+                          normalized: normalized,
+                        ),
 
                         // Copiar para a área de transferência (já com toast)
                         copyToClipboard: (txt) async {
-                          await Clipboard.setData(ClipboardData(text: txt));
+                          await Clipboard.setData(
+                            ClipboardData(text: txt),
+                          );
                           if (context.mounted) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Copiado'),
-                                subtitle: const Text('GeoJSON copiado para a área de transferência.'),
+                                subtitle: const Text(
+                                  'GeoJSON copiado para a área de transferência.',
+                                ),
                                 type: AppNotificationType.info,
                                 duration: const Duration(seconds: 2),
                               ),
@@ -822,7 +921,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                 ),
               ),
 
-              // ===== FABs de seleção múltipla / aplicar em lote (compactos) =====
+              // ===== FABs seleção múltipla / aplicar em lote =====
               Positioned(
                 left: 12,
                 bottom: 12,
@@ -847,19 +946,32 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                                   : 'Modo seleção múltipla desativado.',
                             );
                           },
-                          icon: Icon(_multiSelectMode ? Icons.check : Icons.select_all, size: 18),
+                          icon: Icon(
+                            _multiSelectMode ? Icons.check : Icons.select_all,
+                            size: 18,
+                          ),
                           label: Text(
-                            _multiSelectMode ? 'Sair da seleção múltipla' : 'Selecionar múltiplos',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            _multiSelectMode
+                                ? 'Sair da seleção múltipla'
+                                : 'Selecionar múltiplos',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.black38,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             minimumSize: const Size(0, 36),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             visualDensity: VisualDensity.compact,
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -876,19 +988,30 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                             label: Text('${_selectedTags.length}'),
                             offset: const Offset(-6, 0),
                             child: FilledButton.icon(
-                              onPressed: _selectedTags.length >= 2 ? _openBulkModalFromSelected : null,
+                              onPressed: _selectedTags.length >= 2
+                                  ? _openBulkModalFromSelected
+                                  : null,
                               icon: const Icon(Icons.done_all, size: 18),
                               label: const Text(
                                 'Aplicar em lote',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                                 minimumSize: const Size(0, 36),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                tapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                                 visualDensity: VisualDensity.compact,
                                 elevation: 0,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                             ),
                           ),
@@ -896,26 +1019,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                     ],
                   ),
                 ),
-              ),
-
-              // ===== Ações de GeoJSON =====
-              GeoJsonActionsButtons(
-                collectionPath: 'planning_projects',
-                initiallyExpanded: true,
-                position: const GeoJsonActionsPosition.bottomLeft(),
-                onImportGeoJson: (ctx) async {
-                  final bloc = context.read<ScheduleRoadBloc>();
-                  try {
-                    await GeoJsonSendFirebase(ctx);
-                  } finally {
-                    bloc.add(const ScheduleRefreshRequested());
-                  }
-                },
-                onDeleteCollection: () async {
-                  final st = context.read<ScheduleRoadBloc>().state;
-                  await _onDeleteCollectionLikeBefore(st);
-                },
-                onCheckDistances: () async {},
               ),
             ],
           ),

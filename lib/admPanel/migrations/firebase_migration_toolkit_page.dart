@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/upBar/up_bar.dart';
+import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:siged/_widgets/menu/upBar/up_bar.dart';
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
 
 import 'package:siged/_widgets/notification/app_notification.dart';
@@ -414,14 +415,9 @@ class _FirebaseMigrationToolkitPageState
                   Row(
                     children: [
                       Expanded(
-                        child: TextField(
+                        child: CustomTextField(
                           controller: _pathCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Coleção de origem',
-                            hintText: 'Ex.: accidents ou process/abc123/accidents',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
+                          labelText: 'Coleção de origem',
                           onSubmitted: (_) => _loadCollection(),
                         ),
                       ),
@@ -446,18 +442,11 @@ class _FirebaseMigrationToolkitPageState
                   const SizedBox(height: 12),
 
                   // Novo campo: coleção destino
-                  TextField(
+                  CustomTextField(
                     controller: _targetPathCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Coleção destino (para cópia)',
-                      hintText: 'Ex.: accidents_backup ou outra coleção',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                    labelText: 'Coleção destino (para cópia)',
                   ),
-
                   const SizedBox(height: 16),
-
                   if (_errorMessage != null) ...[
                     Text(
                       _errorMessage!,

@@ -49,7 +49,8 @@ class RevisionMeasurementGraphSection extends StatelessWidget {
             labels: safeLabels,
             values: safeValues,
             selectedIndex: safeSelectedIndex,
-            larguraGrafico: 300,
+            larguraCard: 300,
+            larguraGrafico: 240,
             onTouch: (index) {
               if (index != null && index >= 0 && index < safeValues.length && hasData) {
                 onSelectIndex?.call(index);

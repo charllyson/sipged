@@ -5,7 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/list/files/auto_icon.dart';
 // mesmo viewer usado no WebPdfWidgetGeneric
-import 'package:siged/_services/pdf/pdf_preview.dart';
+import 'package:siged/_widgets/pdf/pdf_preview.dart';
 
 class SideListBox extends StatelessWidget {
   final String title;
@@ -50,7 +50,7 @@ class SideListBox extends StatelessWidget {
     }
   }
 
-  Future<void> _openPdfDialog(BuildContext context, String url, {String? title}) async {
+  Future<void> openPdfDialog(BuildContext context, String url, {String? title}) async {
     await showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -61,7 +61,6 @@ class SideListBox extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // cabeçalho simples com título e fechar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
@@ -186,7 +185,7 @@ class SideListBox extends StatelessWidget {
                         if (isAttachment) {
                           final a = raw as Attachment;
                           if (_isPdfAttachment(a)) {
-                            await _openPdfDialog(context, a.url, title: label);
+                            await openPdfDialog(context, a.url, title: label);
                           } else {
                             await _openUrlExternal(a.url);
                           }

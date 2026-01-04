@@ -1,4 +1,3 @@
-// lib/screens/process/hiring/1Dfd/dfd_sections/section_7_aprovacao.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,11 +6,12 @@ import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/mask_class.dart';
+import 'package:siged/_widgets/input/custom_auto_complete.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/autocomplete/autocomplete_user_class.dart';
+
 import 'package:siged/_widgets/input/custom_text_field.dart';
 
 class SectionAprovacao extends StatefulWidget {
@@ -47,19 +47,16 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
     super.initState();
     final d = widget.data;
 
-    _autoridadeCtrl    = TextEditingController(text: d.autoridadeAprovadora);
-    _cpfAutoridadeCtrl = TextEditingController(text: d.autoridadeCpf);
-    _dataAprovacaoCtrl = TextEditingController(text: d.dataAprovacao);
-    _parecerResumoCtrl = TextEditingController(text: d.parecerResumo);
+    _autoridadeCtrl = TextEditingController(text: d.autoridadeAprovadora ?? '');
+    _cpfAutoridadeCtrl = TextEditingController(text: d.autoridadeCpf ?? '');
+    _dataAprovacaoCtrl =
+        TextEditingController(text: _formatDate(d.dataAprovacao));
+    _parecerResumoCtrl = TextEditingController(text: d.parecerResumo ?? '');
 
-    _autoridadeUserId  = d.autoridadeUserId;
+    _autoridadeUserId = d.autoridadeUserId;
 
     _setupUsersWithSelf();
 
-    // ⚠️ IMPORTANTE:
-    // Só vamos definir a autoridade padrão (usuário logado)
-    // DEPOIS do primeiro frame, para não disparar setState no pai
-    // enquanto o filho ainda está montando.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _ensureDefaultAuthorityFromFirebase();
@@ -70,17 +67,22 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
   void didUpdateWidget(covariant SectionAprovacao oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Se os dados mudaram externamente, sincroniza os controllers:
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      _autoridadeCtrl.text    = d.autoridadeAprovadora;
-      _cpfAutoridadeCtrl.text = d.autoridadeCpf;
-      _dataAprovacaoCtrl.text = d.dataAprovacao;
-      _parecerResumoCtrl.text = d.parecerResumo;
-      _autoridadeUserId       = d.autoridadeUserId;
+
+      final aut = d.autoridadeAprovadora ?? '';
+      final cpf = d.autoridadeCpf ?? '';
+      final data = _formatDate(d.dataAprovacao);
+      final par = d.parecerResumo ?? '';
+
+      if (_autoridadeCtrl.text != aut) _autoridadeCtrl.text = aut;
+      if (_cpfAutoridadeCtrl.text != cpf) _cpfAutoridadeCtrl.text = cpf;
+      if (_dataAprovacaoCtrl.text != data) _dataAprovacaoCtrl.text = data;
+      if (_parecerResumoCtrl.text != par) _parecerResumoCtrl.text = par;
+
+      _autoridadeUserId = d.autoridadeUserId;
     }
 
-    // Se a lista de usuários mudou, refaz a lista com o próprio usuário:
     if (oldWidget.users != widget.users) {
       _setupUsersWithSelf();
     }
@@ -95,19 +97,39 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
     super.dispose();
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
+  String _formatDate(DateTime? dt) {
+    if (dt == null) return '';
+    final d = dt.day.toString().padLeft(2, '0');
+    final m = dt.month.toString().padLeft(2, '0');
+    final y = dt.year.toString().padLeft(4, '0');
+    return '$d/$m/$y';
+  }
+
+  DateTime? _parseBrDate(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return null;
+    try {
+      final parts = t.split('/');
+      if (parts.length == 3) {
+        final d = int.parse(parts[0]);
+        final m = int.parse(parts[1]);
+        final y = int.parse(parts[2]);
+        return DateTime(y, m, d);
+      }
+      return DateTime.parse(t);
+    } catch (_) {
+      return null;
+    }
+  }
 
   void _setupUsersWithSelf() {
-    final fbUser       = FirebaseAuth.instance.currentUser;
-    final currentUid   = fbUser?.uid ?? '';
-    final currentName  = (fbUser?.displayName ?? '').trim();
+    final fbUser = FirebaseAuth.instance.currentUser;
+    final currentUid = fbUser?.uid ?? '';
+    final currentName = (fbUser?.displayName ?? '').trim();
     final currentEmail = (fbUser?.email ?? '').trim();
     final currentPhoto = (fbUser?.photoURL ?? '').trim();
 
-    final alreadyInList =
-    widget.users.any((u) => (u.uid ?? '') == currentUid);
+    final alreadyInList = widget.users.any((u) => (u.uid ?? '') == currentUid);
 
     if (alreadyInList || currentUid.isEmpty) {
       _usersWithSelf = widget.users;
@@ -124,12 +146,10 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
     }
   }
 
-  /// Garante que, se não houver autoridade definida no DFD,
-  /// a autoridade padrão seja o usuário logado.
   void _ensureDefaultAuthorityFromFirebase() {
-    final fbUser       = FirebaseAuth.instance.currentUser;
-    final currentUid   = fbUser?.uid ?? '';
-    final currentName  = (fbUser?.displayName ?? '').trim();
+    final fbUser = FirebaseAuth.instance.currentUser;
+    final currentUid = fbUser?.uid ?? '';
+    final currentName = (fbUser?.displayName ?? '').trim();
     final currentEmail = (fbUser?.email ?? '').trim();
     final currentPhoto = (fbUser?.photoURL ?? '').trim();
 
@@ -151,7 +171,6 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
       final label = self.name ?? self.email ?? currentUid;
       _autoridadeCtrl.text = label;
 
-      // Agora é seguro emitir a alteração (já estamos pós-frame)
       _emitChange();
     }
   }
@@ -159,24 +178,20 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
   void _emitChange() {
     final updated = widget.data.copyWith(
       autoridadeAprovadora: _autoridadeCtrl.text,
-      autoridadeUserId:     _autoridadeUserId,
-      autoridadeCpf:        _cpfAutoridadeCtrl.text,
-      dataAprovacao:        _dataAprovacaoCtrl.text,
-      parecerResumo:        _parecerResumoCtrl.text,
+      autoridadeUserId: _autoridadeUserId,
+      autoridadeCpf: _cpfAutoridadeCtrl.text,
+      dataAprovacao: _parseBrDate(_dataAprovacaoCtrl.text),
+      parecerResumo: _parecerResumoCtrl.text,
     );
     widget.onChanged(updated);
   }
-
-  // ---------------------------------------------------------------------------
-  // UI
-  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('7) Aprovação / Alçada'),
+        const SectionTitle(text: '7) Aprovação / Alçada'),
         LayoutBuilder(
           builder: (context, inner) {
             final w3 = inputW3(context, inner);
@@ -189,13 +204,17 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
                 // Autoridade aprovadora
                 SizedBox(
                   width: w3,
-                  child: AutocompleteUserClass(
+                  child: CustomAutoComplete<UserData>(
                     label: 'Autoridade aprovadora',
                     controller: _autoridadeCtrl,
-                    allUsers: _usersWithSelf,
+                    allList: _usersWithSelf,
                     enabled: widget.isEditable,
-                    initialUserId: _autoridadeUserId,
-                    validator: validateRequired,
+                    initialId: _autoridadeUserId,
+                    idOf: (u) => u.uid,
+                    displayOf: (u) => u.name ?? u.email ?? '',
+                    subtitleOf: (u) => u.email ?? '',
+                    photoUrlOf: (u) => u.urlPhoto,
+                    validator: null,
                     onChanged: (userId) {
                       _autoridadeUserId = userId;
                       _emitChange();
@@ -209,7 +228,7 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
                   child: CustomTextField(
                     controller: _cpfAutoridadeCtrl,
                     enabled: widget.isEditable,
-                    validator: validateRequired,
+                    validator: null,
                     labelText: 'CPF da autoridade',
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,

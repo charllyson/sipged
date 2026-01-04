@@ -1,3 +1,5 @@
+// lib/_blocs/process/hiring/0Stages/hiring_stages.dart
+
 /// Mapa padrão: chave da etapa -> nome da coleção
 class HiringStageKey {
   static const dfd          = 'dfd';
@@ -8,7 +10,7 @@ class HiringStageKey {
   static const habilitacao  = 'habilitacao';
   static const dotacao      = 'dotacao';
   static const minuta       = 'minuta';
-  static const parecer     = 'parecer';
+  static const parecer      = 'parecer';
   static const publicacao   = 'publicacao';
   static const arquivamento = 'arquivamento';
 

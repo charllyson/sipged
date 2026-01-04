@@ -1,11 +1,11 @@
-// lib/screens/process/hiring/10Publicacao/section_5_responsavel.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_widgets/autocomplete/autocomplete_user_class.dart';
+import 'package:siged/_widgets/input/custom_auto_complete.dart';
+
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 
@@ -31,18 +31,22 @@ class _SectionResponsavelState extends State<SectionResponsavel>
     with FormValidationMixin {
   late final TextEditingController _responsavelCtrl;
 
+  // ✅ guardamos o ID localmente para validar por ID
+  String? _responsavelUserId;
+
   @override
   void initState() {
     super.initState();
-    // Texto fica apenas para exibição; modelo guarda só o userId
     _responsavelCtrl = TextEditingController();
+    _responsavelUserId = widget.data.responsavelUserId;
   }
 
   @override
   void didUpdateWidget(covariant SectionResponsavel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // O AutocompleteUserClass normalmente gerencia o texto sozinho
-    // com base no initialUserId, então não precisamos sincronizar aqui.
+    if (oldWidget.data != widget.data) {
+      _responsavelUserId = widget.data.responsavelUserId;
+    }
   }
 
   @override
@@ -58,7 +62,7 @@ class _SectionResponsavelState extends State<SectionResponsavel>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('5) Responsável'),
+        const SectionTitle(text: '5) Responsável'),
         LayoutBuilder(
           builder: (context, constraints) {
             final w5 = inputW5(context, constraints);
@@ -69,17 +73,27 @@ class _SectionResponsavelState extends State<SectionResponsavel>
               children: [
                 SizedBox(
                   width: w5,
-                  child: AutocompleteUserClass(
+                  child: CustomAutoComplete<UserData>(
                     label: 'Responsável pela publicação',
                     controller: _responsavelCtrl,
-                    allUsers: users,
+                    allList: users,
                     enabled: widget.isEditable,
-                    initialUserId: widget.data.responsavelUserId,
-                    validator: validateRequired,
-                    onChanged: (userId) {
+                    initialId: _responsavelUserId,
+                    idOf: (u) => u.uid,
+                    displayOf: (u) => u.name ?? u.email ?? '',
+                    subtitleOf: (u) => u.email ?? '',
+                    photoUrlOf: (u) => u.urlPhoto,
+                    validator: (v) {
+                      if (!widget.isEditable) return null;
+                      return (_responsavelUserId ?? '').isNotEmpty
+                          ? null
+                          : 'Campo obrigatório';
+                    },
+                    onChanged: (id) {
+                      _responsavelUserId = id.isEmpty ? null : id;
+
                       final updated = widget.data.copyWith(
-                        responsavelUserId:
-                        userId.isEmpty ? null : userId,
+                        responsavelUserId: _responsavelUserId,
                       );
                       widget.onChanged(updated);
                     },

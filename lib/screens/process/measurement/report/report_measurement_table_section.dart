@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/date_utils.dart';
+import 'package:siged/_utils/formats/converters_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/report/report_measurement_data.dart';
-import 'package:siged/_widgets/totalTableRows/footer_rows_generic.dart';
+import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
+import 'package:siged/_widgets/table/totalTableRows/footer_rows_generic.dart';
 
 class ReportMeasurementTableSection extends StatelessWidget {
   final void Function(ReportMeasurementData) onTapItem;
@@ -46,7 +46,7 @@ class ReportMeasurementTableSection extends StatelessWidget {
                 child: SimpleTableChanged<ReportMeasurementData>(
                   constraints: constraints,
                   listData: measurementsData,
-                  columnTitles: [
+                  columnTitles: const [
                     'ORDEM',
                     'Nº PROCESSO',
                     'DATA DA MEDIÇÃO',
@@ -61,7 +61,10 @@ class ReportMeasurementTableSection extends StatelessWidget {
                   ],
                   onTapItem: onTapItem,
                   onDelete: (item) => onDelete(item.id!),
-                  columnWidths: const [100, 200, 150, 200],
+
+                  // ✅ agora com 5 larguras (4 colunas + coluna APAGAR)
+                  columnWidths: const [100, 200, 150, 200, 56],
+
                   columnTextAligns: const [
                     TextAlign.center,
                     TextAlign.center,
@@ -102,8 +105,7 @@ class ReportMeasurementTableSection extends StatelessWidget {
                       ),
                     ],
                   ).rows,
-
-                ),
+              ),
               ),
             ],
           ),

@@ -1,4 +1,6 @@
-part of 'dotacao_bloc.dart';
+// lib/_blocs/process/hiring/7Dotacao/dotacao_state.dart
+import 'package:siged/_blocs/process/hiring/_shared/sections_types.dart';
+import 'dotacao_sections.dart';
 
 class DotacaoState {
   final bool loading;
@@ -45,5 +47,6 @@ class DotacaoState {
   }
 
   // atalhos
-  String? get currentDocsId => sectionIds[DotacaoSections.documentos];
+  String? get currentDotacaoId => dotacaoId;
+  String? get currentDocsId    => sectionIds[DotacaoSections.documentos];
 }

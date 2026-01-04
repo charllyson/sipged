@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class DividerText extends StatelessWidget {
-  final String title;
+  final String text;
   final String? subtitle;
   final bool isSend;
   final Color colorTitle;
@@ -12,7 +12,7 @@ class DividerText extends StatelessWidget {
 
   const DividerText({
     super.key,
-    required this.title,
+    required this.text,
     this.subtitle,
     this.isSend = false,
     this.colorTitle = Colors.black,
@@ -45,7 +45,7 @@ class DividerText extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 16, color: colorTitle)),
+                  Text(text, style: TextStyle(fontSize: 16, color: colorTitle)),
                   if (subtitle != null)
                     Text(subtitle!, style: TextStyle(fontSize: 12, color: subTitle)),
                 ],

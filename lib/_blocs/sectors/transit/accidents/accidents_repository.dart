@@ -1,15 +1,15 @@
+// lib/_blocs/sectors/transit/accidents/accidents_repository.dart
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:diacritic/diacritic.dart';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:equatable/equatable.dart';
 
-import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
-import 'package:siged/_blocs/sectors/transit/accidents/accidents_state.dart';
+import 'accidents_data.dart';
 
 class AccidentsRepository {
   AccidentsRepository({FirebaseFirestore? firestore})
@@ -20,7 +20,8 @@ class AccidentsRepository {
   int _yearFromDateTime(DateTime dt, {bool local = true}) =>
       local ? dt.toLocal().year : dt.toUtc().year;
 
-  Future<DocumentReference<Map<String, dynamic>>?> _getYearRefCompat(int year) async {
+  Future<DocumentReference<Map<String, dynamic>>?> _getYearRefCompat(
+      int year) async {
     final detRef = _db.collection('trafficAccidents').doc(year.toString());
     final detSnap = await detRef.get();
     if (detSnap.exists) return detRef;
@@ -35,21 +36,32 @@ class AccidentsRepository {
     return null;
   }
 
-  Future<DocumentReference<Map<String, dynamic>>> _getOrCreateYearRefCanonical(int year) async {
+  Future<DocumentReference<Map<String, dynamic>>> _getOrCreateYearRefCanonical(
+      int year) async {
     final detRef = _db.collection('trafficAccidents').doc(year.toString());
     await detRef.set({'year': year}, SetOptions(merge: true));
     return detRef;
   }
 
-  // ========= CRUD =========
-  Future<void> deleteAccident({required String id, required int year}) async {
+  // ===========================================================================
+  // CRUD
+  // ===========================================================================
+
+  Future<void> deleteAccident({
+    required String id,
+    required int year,
+  }) async {
     final yearRef = await _getYearRefCompat(year);
     if (yearRef == null) return;
+
     final doc = yearRef.collection('records').doc(id);
     final snap = await doc.get();
-    if (snap.exists) await doc.delete();
+    if (snap.exists) {
+      await doc.delete();
+    }
   }
 
+  /// Salva ou atualiza um acidente, seguindo o padrão imutável de [AccidentsData].
   Future<void> saveOrUpdateAccident(AccidentsData data) async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -57,39 +69,40 @@ class AccidentsRepository {
       throw Exception("Campo 'date' é obrigatório em AccidentsData.");
     }
 
-    final year = _yearFromDateTime(data.date!, local: true);
-    final month = data.date!.toLocal().month;
+    final DateTime dt = data.date!.toLocal();
+    final int year = _yearFromDateTime(dt, local: true);
+    final int month = dt.month;
 
     final yearRef = await _getOrCreateYearRefCanonical(year);
     final records = yearRef.collection('records');
-    final docRef = (data.id != null && data.id!.isNotEmpty)
-        ? records.doc(data.id)
-        : records.doc();
-    data.id ??= docRef.id;
 
-    data.year = year;
-    data.month = month;
-    data.yearDocId = yearRef.id;
-    data.recordPath = docRef.path;
-    data.cityNormalized =
-    data.city != null ? AccidentsData.normalizeString(data.city) : '';
+    final bool isUpdate = data.id != null && data.id!.isNotEmpty;
+    final docRef = isUpdate ? records.doc(data.id) : records.doc();
 
-    final json = data.toFirestore()
-      ..addAll({
-        'year': year,
-        'month': month,
-        'yearDocId': yearRef.id,
-        'recordPath': docRef.path,
-        'recordId': docRef.id,
-        'sourcePath': '${yearRef.path}/records/${docRef.id}',
-        'yearMonthKey':
-        '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}',
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': user?.uid ?? '',
-      });
+    final String recordId = docRef.id;
+    final String recordPath = docRef.path;
+
+    // Base vem do modelo (já calcula yearMonthKey a partir de date/year/month)
+    final base = data.toFirestore();
+
+    final json = <String, dynamic>{
+      ...base,
+      'id': data.id ?? recordId,
+      'year': year,
+      'month': month,
+      'yearDocId': yearRef.id,
+      'recordPath': recordPath,
+      'recordId': recordId,
+      'sourcePath': '${yearRef.path}/records/$recordId',
+      'yearMonthKey':
+      '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}',
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': user?.uid ?? '',
+    };
 
     final snap = await docRef.get();
     final isNew = !snap.exists || (snap.data()?['createdAt'] == null);
+
     if (isNew) {
       json['createdAt'] = FieldValue.serverTimestamp();
       json['createdBy'] = user?.uid ?? '';
@@ -101,43 +114,62 @@ class AccidentsRepository {
     });
   }
 
-  // ========= Consultas =========
-  Future<List<AccidentsData>> getAllAccidents({int? year, int? month, String? city}) async {
+  // ===========================================================================
+  // CONSULTAS
+  // ===========================================================================
+
+  Future<List<AccidentsData>> getAllAccidents({
+    int? year,
+    int? month,
+    String? city,
+  }) async {
     Query q;
 
     if (year != null) {
       final yearRef = await _getYearRefCompat(year);
       if (yearRef == null) return [];
+
       q = yearRef.collection('records').orderBy('date');
 
       if (month != null) {
         final start = DateTime(year, month, 1);
-        final end = (month == 12)
-            ? DateTime(year + 1, 1, 1)
-            : DateTime(year, month + 1, 1);
+        final end =
+        (month == 12) ? DateTime(year + 1, 1, 1) : DateTime(year, month + 1, 1);
+
         q = q
             .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
             .where('date', isLessThan: Timestamp.fromDate(end));
       }
+
       if (city != null && city.trim().isNotEmpty) {
-        final norm = removeDiacritics(city).trim().toUpperCase();
+        final norm = AccidentsData.normalizeString(city);
         q = q.where('cityNormalized', isEqualTo: norm);
       }
     } else {
       q = _db.collectionGroup('records').orderBy('date');
-      if (month != null) q = q.where('month', isEqualTo: month);
+
+      if (month != null) {
+        q = q.where('month', isEqualTo: month);
+      }
       if (city != null && city.trim().isNotEmpty) {
-        final norm = removeDiacritics(city).trim().toUpperCase();
+        final norm = AccidentsData.normalizeString(city);
         q = q.where('cityNormalized', isEqualTo: norm);
       }
     }
 
     final snap = await q.get();
-    return snap.docs.map((d) => AccidentsData.fromDocument(snapshot: d)).toList();
+    return snap.docs
+        .map((d) => AccidentsData.fromDocument(d))
+        .toList();
   }
 
-  // ========= Agregações =========
-  Future<Map<String, double>> getTotaisPorTipoAcidente(List<AccidentsData> acidentes) async {
+  // ===========================================================================
+  // AGREGAÇÕES
+  // ===========================================================================
+
+  Future<Map<String, double>> getTotaisPorTipoAcidente(
+      List<AccidentsData> acidentes,
+      ) async {
     final Map<String, double> totais = {};
     for (final a in acidentes) {
       final key = AccidentsData.canonicalType(a.typeOfAccident);
@@ -146,7 +178,9 @@ class AccidentsRepository {
     return totais;
   }
 
-  Future<Map<String, double>> getValoresPorCidade(List<AccidentsData> acidentes) async {
+  Future<Map<String, double>> getValoresPorCidade(
+      List<AccidentsData> acidentes,
+      ) async {
     final Map<String, double> totais = {};
     for (final a in acidentes) {
       final cidade = (a.city ?? '').trim();
@@ -156,24 +190,34 @@ class AccidentsRepository {
     return totais;
   }
 
-  // ========= utilitário legado =========
+  // ===========================================================================
+  // UTILITÁRIO LEGADO
+  // ===========================================================================
+
   Future<void> corrigirDatasAcidentesCollectionGroup() async {
     final DateFormat formato = DateFormat('dd/MM/yyyy');
     final snap = await _db.collectionGroup('records').get();
+
     for (final doc in snap.docs) {
       final data = doc.data();
       final rawDate = data['date'];
+
       if (rawDate is String) {
         try {
           final parsed = formato.parseStrict(rawDate);
           await doc.reference.update({'date': Timestamp.fromDate(parsed)});
-        } catch (_) {/* continua */}
+        } catch (_) {
+          // ignora erro e segue
+        }
       }
     }
   }
 
-  /// Geocodifica um CEP brasileiro (apenas dígitos) e retorna uma sugestão de endereço.
-  /// Deve preencher latitude/longitude quando o serviço suportar (ex.: Nominatim + "postalcode").
+  // ===========================================================================
+  // GEOCODING / LOCALIZAÇÃO (ViaCEP + Nominatim, sem Google)
+  // ===========================================================================
+
+  /// Geocodifica um CEP brasileiro (apenas dígitos) e retorna uma sugestão.
   Future<AddressSuggestion> geocodeCep(String cep) async {
     final digits = cep.replaceAll(RegExp(r'\D'), '');
     if (digits.length != 8) {
@@ -182,36 +226,43 @@ class AccidentsRepository {
 
     // 1) ViaCEP
     final viaCepUri = Uri.https('viacep.com.br', '/ws/$digits/json/');
-    final viaResp = await http.get(viaCepUri, headers: {'Accept': 'application/json'});
+    final viaResp = await http.get(
+      viaCepUri,
+      headers: {'Accept': 'application/json'},
+    );
     if (viaResp.statusCode != 200) {
       throw Exception('Falha no ViaCEP ($digits): HTTP ${viaResp.statusCode}');
     }
 
-    final via = json.decode(utf8.decode(viaResp.bodyBytes)) as Map<String, dynamic>;
+    final via =
+    json.decode(utf8.decode(viaResp.bodyBytes)) as Map<String, dynamic>;
+
     if (via['erro'] == true) {
       throw Exception('CEP não encontrado no ViaCEP: $digits');
     }
 
     final logradouro = (via['logradouro'] as String? ?? '').trim();
-    final bairro     = (via['bairro'] as String? ?? '').trim();
-    final cidade     = (via['localidade'] as String? ?? '').trim();
-    final uf         = (via['uf'] as String? ?? '').trim();
+    final bairro = (via['bairro'] as String? ?? '').trim();
+    final cidade = (via['localidade'] as String? ?? '').trim();
+    final uf = (via['uf'] as String? ?? '').trim();
 
-    // 2) Nominatim (tentar com filtros fortes primeiro)
+    // 2) Nominatim
     LatLng? pos;
     try {
-      // Primeiro: busca por postalcode (param dedica­do) + cidade/UF
-      final nomiUri = Uri.https('nominatim.openstreetmap.org', '/search', {
-        'format': 'jsonv2',
-        'addressdetails': '1',
-        'limit': '1',
-        'countrycodes': 'br',
-        'postalcode': digits,
-        if (cidade.isNotEmpty) 'city': cidade,
-        if (uf.isNotEmpty) 'state': uf,
-        // Dica extra: se tiver logradouro, ajuda:
-        if (logradouro.isNotEmpty) 'street': logradouro,
-      });
+      final nomiUri = Uri.https(
+        'nominatim.openstreetmap.org',
+        '/search',
+        {
+          'format': 'jsonv2',
+          'addressdetails': '1',
+          'limit': '1',
+          'countrycodes': 'br',
+          'postalcode': digits,
+          if (cidade.isNotEmpty) 'city': cidade,
+          if (uf.isNotEmpty) 'state': uf,
+          if (logradouro.isNotEmpty) 'street': logradouro,
+        },
+      );
 
       final nomiResp = await http.get(
         nomiUri,
@@ -233,7 +284,7 @@ class AccidentsRepository {
         }
       }
 
-      // fallback: busca por string “q”
+      // fallback com "q"
       if (pos == null) {
         final qParts = [
           if (logradouro.isNotEmpty) logradouro,
@@ -245,13 +296,17 @@ class AccidentsRepository {
         ];
         final q = qParts.where((e) => e.trim().isNotEmpty).join(', ');
 
-        final nomiUri2 = Uri.https('nominatim.openstreetmap.org', '/search', {
-          'format': 'jsonv2',
-          'addressdetails': '1',
-          'limit': '1',
-          'countrycodes': 'br',
-          'q': q,
-        });
+        final nomiUri2 = Uri.https(
+          'nominatim.openstreetmap.org',
+          '/search',
+          {
+            'format': 'jsonv2',
+            'addressdetails': '1',
+            'limit': '1',
+            'countrycodes': 'br',
+            'q': q,
+          },
+        );
 
         final r2 = await http.get(
           nomiUri2,
@@ -274,7 +329,7 @@ class AccidentsRepository {
         }
       }
     } catch (_) {
-      // mantém sem lat/lon — UI ainda se beneficia do endereço
+      // Mantém sem lat/lon, UI ainda aproveita o endereço
     }
 
     return AddressSuggestion(
@@ -289,7 +344,6 @@ class AccidentsRepository {
       city: cidade,
     );
   }
-
 
   // ===================== LOCALIZAÇÃO (SEM GOOGLE) =====================
 
@@ -342,12 +396,19 @@ class AccidentsRepository {
       return AddressSuggestion(latitude: lat, longitude: lon);
     }
 
-    final data = json.decode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
-    final addr = (data['address'] is Map) ? (data['address'] as Map).cast<String, dynamic>() : <String, dynamic>{};
+    final data =
+    json.decode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+    final addr = (data['address'] is Map)
+        ? (data['address'] as Map).cast<String, dynamic>()
+        : <String, dynamic>{};
 
-    final road        = addr['road'] as String? ?? addr['pedestrian'] as String? ?? addr['path'] as String?;
+    final road = addr['road'] as String? ??
+        addr['pedestrian'] as String? ??
+        addr['path'] as String?;
     final houseNumber = addr['house_number'] as String?;
-    final street      = [road, houseNumber].where((e) => e != null && e.toString().trim().isNotEmpty).join(', ');
+    final street = [road, houseNumber]
+        .where((e) => e != null && e.toString().trim().isNotEmpty)
+        .join(', ');
 
     final subLocality = _firstNonEmpty([
       addr['suburb'] as String?,
@@ -356,7 +417,7 @@ class AccidentsRepository {
       addr['quarter'] as String?,
     ]);
 
-    final city        = _firstNonEmpty([
+    final city = _firstNonEmpty([
       addr['city'] as String?,
       addr['town'] as String?,
       addr['village'] as String?,
@@ -364,10 +425,10 @@ class AccidentsRepository {
       addr['county'] as String?,
     ]);
 
-    final state       = addr['state'] as String? ?? '';
-    final postcode    = addr['postcode'] as String? ?? '';
-    final country     = addr['country'] as String? ?? '';
-    final isoCountry  = (addr['country_code'] as String? ?? '').toUpperCase();
+    final state = addr['state'] as String? ?? '';
+    final postcode = addr['postcode'] as String? ?? '';
+    final country = addr['country'] as String? ?? '';
+    final isoCountry = (addr['country_code'] as String? ?? '').toUpperCase();
 
     return AddressSuggestion(
       latitude: lat,
@@ -405,18 +466,69 @@ class AccidentsRepository {
       );
       return suggestion.latitude != null
           ? suggestion
-          : AddressSuggestion(latitude: pos.latitude, longitude: pos.longitude);
+          : AddressSuggestion(
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+      );
     } catch (_) {
       return AddressSuggestion(latitude: pos.latitude, longitude: pos.longitude);
     }
   }
 
   /// Reverse geocoding a partir de coordenadas já conhecidas (ex.: do mapa).
-  Future<AddressSuggestion> reverseGeocode({required double lat, required double lon}) async {
+  Future<AddressSuggestion> reverseGeocode({
+    required double lat,
+    required double lon,
+  }) async {
     try {
-      return await _reverseGeocodeOSM(lat: lat, lon: lon, acceptLanguage: 'pt-BR');
+      return await _reverseGeocodeOSM(
+        lat: lat,
+        lon: lon,
+        acceptLanguage: 'pt-BR',
+      );
     } catch (_) {
       return AddressSuggestion(latitude: lat, longitude: lon);
     }
   }
+}
+
+// ============================================================================
+// MODELO AUXILIAR: AddressSuggestion (padrão Equatable, igual demais modelos)
+// ============================================================================
+
+class AddressSuggestion extends Equatable {
+  final double? latitude;
+  final double? longitude;
+  final String street;
+  final String subLocality;
+  final String administrativeArea;
+  final String postalCode;
+  final String country;
+  final String isoCountryCode;
+  final String city;
+
+  const AddressSuggestion({
+    this.latitude,
+    this.longitude,
+    this.street = '',
+    this.subLocality = '',
+    this.administrativeArea = '',
+    this.postalCode = '',
+    this.country = '',
+    this.isoCountryCode = '',
+    this.city = '',
+  });
+
+  @override
+  List<Object?> get props => [
+    latitude,
+    longitude,
+    street,
+    subLocality,
+    administrativeArea,
+    postalCode,
+    country,
+    isoCountryCode,
+    city,
+  ];
 }

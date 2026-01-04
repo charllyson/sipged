@@ -12,6 +12,7 @@ class ScheduleHeader extends StatelessWidget {
   /// Se true, reduz levemente a escala para caber em 1 linha; se false, usa reticências.
   final bool shrinkToFit;
 
+
   const ScheduleHeader({
     super.key,
     required this.title,
@@ -36,21 +37,20 @@ class ScheduleHeader extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(left: leftPadding),
       child: Row(
-        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Container(
             width: 10, height: 20, margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(color: colorStripe, borderRadius: BorderRadius.circular(2)),
           ),
-          Expanded(
-            child: shrinkToFit
-                ? FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: text,
-            )
-                : text,
-          ),
+          shrinkToFit
+              ? FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: text,
+          )
+              : text,
         ],
       ),
     );

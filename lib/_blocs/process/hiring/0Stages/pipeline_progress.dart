@@ -1,3 +1,5 @@
+// lib/_blocs/process/hiring/0Stages/pipeline_progress.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
@@ -10,6 +12,7 @@ class PipelineProgressService {
     Map<String, String>? stageCollectionMap,
   })  : db = db ?? FirebaseFirestore.instance,
         stageCollectionMap = stageCollectionMap ?? {
+          // Ajuste aqui se algum nome de coleção for diferente no Firestore.
           HiringStageKey.dfd:          'dfd',
           HiringStageKey.etp:          'etp',
           HiringStageKey.tr:           'tr',
@@ -23,7 +26,39 @@ class PipelineProgressService {
           HiringStageKey.arquivamento: 'arquivamento',
         };
 
-  /// Lê o primeiro documento da coleção da etapa e retorna (approved || completed).
+  /// Resolve o *mesmo* documento que será usado em:
+  /// - isStageCompleted
+  ///
+  /// Regra:
+  /// 1) Tenta 'main'
+  /// 2) Se não existir, usa o primeiro doc da coleção (para etapas antigas)
+  Future<String?> resolveStageDocId({
+    required String contractId,
+    required String stageKey,
+  }) async {
+    final collectionName = stageCollectionMap[stageKey];
+    if (collectionName == null) return null;
+
+    final colRef = db
+        .collection('contracts')
+        .doc(contractId)
+        .collection(collectionName);
+
+    // 1) tenta 'main'
+    final mainRef = colRef.doc('main');
+    final mainSnap = await mainRef.get();
+    if (mainSnap.exists) {
+      return mainRef.id; // 'main'
+    }
+
+    // 2) fallback: primeiro doc
+    final qs = await colRef.limit(1).get();
+    if (qs.docs.isEmpty) return null;
+
+    return qs.docs.first.id;
+  }
+
+  /// Lê o documento _resolvido_ e retorna (approved || completed).
   Future<bool> isStageCompleted({
     required String contractId,
     required String stageKey,
@@ -31,19 +66,25 @@ class PipelineProgressService {
     final collectionName = stageCollectionMap[stageKey];
     if (collectionName == null) return false;
 
-    final qs = await db
+    final stageId = await resolveStageDocId(
+      contractId: contractId,
+      stageKey: stageKey,
+    );
+    if (stageId == null) return false;
+
+    final ref = db
         .collection('contracts')
         .doc(contractId)
         .collection(collectionName)
-        .limit(1)
-        .get();
+        .doc(stageId);
 
-    if (qs.docs.isEmpty) return false;
+    final snap = await ref.get();
+    final data = snap.data();
+    if (data == null) return false;
 
-    final data = qs.docs.first.data();
     final approval = (data['approval'] as Map?) ?? const {};
     final stage    = (data['stage'] as Map?) ?? const {};
-    final approved = approval['approved'] == true;
+    final approved  = approval['approved'] == true;
     final completed = stage['completed'] == true;
 
     return approved || completed;
@@ -58,22 +99,11 @@ class PipelineProgressService {
     return out;
   }
 
-  /// Descobre o ID do primeiro documento de uma etapa (se existir). Útil para watch.
+  /// Compat legacy (usa resolveStageDocId).
   Future<String?> firstDocIdOfStage({
     required String contractId,
     required String stageKey,
-  }) async {
-    final collectionName = stageCollectionMap[stageKey];
-    if (collectionName == null) return null;
-
-    final qs = await db
-        .collection('contracts')
-        .doc(contractId)
-        .collection(collectionName)
-        .limit(1)
-        .get();
-
-    if (qs.docs.isEmpty) return null;
-    return qs.docs.first.id;
+  }) {
+    return resolveStageDocId(contractId: contractId, stageKey: stageKey);
   }
 }

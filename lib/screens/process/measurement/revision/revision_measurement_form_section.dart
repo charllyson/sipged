@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/revision/revision_measurement_data.dart';
+import 'package:siged/_blocs/process/measurement/revision/revision_measurement_data.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';

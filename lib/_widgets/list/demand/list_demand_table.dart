@@ -58,7 +58,7 @@ class ListDemandTable extends StatefulWidget {
 }
 
 class _ListDemandTableState extends State<ListDemandTable> {
-  String _id(ProcessData c) => c.id ?? '';
+  ProcessData? _selected; // <- contrato selecionado (para highlight)
 
   DfdData? _dfd(ProcessData c) {
     final id = c.id;
@@ -87,14 +87,7 @@ class _ListDemandTableState extends State<ListDemandTable> {
   @override
   Widget build(BuildContext context) {
     // 🔥 Nada de IO aqui. Tabela só lê caches prontos.
-
-    // Ordena por nome da obra (descricaoObjeto do DFD)
-    final sortedContracts = List<ProcessData>.from(widget.listContractData)
-      ..sort((a, b) {
-        final an = _txt(_dfd(a)?.descricaoObjeto).toUpperCase();
-        final bn = _txt(_dfd(b)?.descricaoObjeto).toUpperCase();
-        return an.compareTo(bn);
-      });
+    final contracts = widget.listContractData;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -102,18 +95,28 @@ class _ListDemandTableState extends State<ListDemandTable> {
         children: [
           const SizedBox(width: 12),
           SimpleTableChanged<ProcessData>(
-            listData: sortedContracts,
+            listData: contracts,
             constraints: widget.constraints,
             sortColumnIndex: widget.sortColumnIndex,
             isAscending: widget.isAscending,
 
-            // Ordenação base (pelo número do contrato mostrado)
+            // destaque visual da linha selecionada
+            selectedItem: _selected,
+
+            // Ordenação base usada pelo SimpleTableChanged quando usuário clicar
+            // na coluna CONTRATO (número do contrato mostrado).
             sortField: (d) => _txt(_pub(d)?.numeroContrato),
             onSort: widget.onSort,
 
-            onTapItem: (contractData) =>
-                widget.onTapItem(context, contractData),
-            onDelete: widget.onDelete,
+            onTapItem: (contractData) {
+              setState(() => _selected = contractData);
+              widget.onTapItem(context, contractData);
+            },
+            onDelete: (contractData) async {
+              // mantém highlight no que foi apagado até a lista ser recarregada
+              setState(() => _selected = contractData);
+              await widget.onDelete(contractData);
+            },
 
             // ========== COLUNA EXTRA (“ALERTAS”) ==========
             leadingCellTitle: 'ALERTAS',
@@ -148,11 +151,11 @@ class _ListDemandTableState extends State<ListDemandTable> {
             // Larguras: 5 colunas + leading + delete
             columnWidths: const [
               120, // ALERTAS
-              130, // CONTRATO
+              110, // CONTRATO
               260, // OBRA
-              110, // REGIÃO
-              200, // EMPRESA (vencedor)
-              170, // Nº PROCESSO
+              150, // REGIÃO
+              160, // EMPRESA (vencedor)
+              200, // Nº PROCESSO
               100, // delete
             ],
 

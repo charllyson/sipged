@@ -1,31 +1,25 @@
-// lib/screens/process/hiring/6Habilitacao/habilitacao_page.dart
 import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/progress/stage_progress.dart';
-import 'package:siged/_widgets/gates/stage_gate.dart';
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
-
+// ===== Progress (etapas)
 import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-
-// BLoC Habilitação
-import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_bloc.dart';
-import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_controller.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
-
+// ===== Habilitação
+import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_cubit.dart';
+import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_data.dart';
+import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_state.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
-// Sections (widgets)
+// ===== Widgets / UI
+import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:siged/_widgets/menu/tab/stage_progress.dart';
+
+// ===== Seções
 import 'package:siged/screens/process/hiring/6Habilitacao/section_1_metadados.dart';
 import 'package:siged/screens/process/hiring/6Habilitacao/section_2_empresa.dart';
 import 'package:siged/screens/process/hiring/6Habilitacao/section_3_certidoes.dart';
@@ -33,13 +27,28 @@ import 'package:siged/screens/process/hiring/6Habilitacao/section_4_juridica_tec
 import 'package:siged/screens/process/hiring/6Habilitacao/section_5_licitacao.dart';
 import 'package:siged/screens/process/hiring/6Habilitacao/section_6_consolidacao.dart';
 
+// ===== Utils
+import 'package:siged/_utils/validates/form_validation_mixin.dart';
+
+// ===== Overlay leve
+import 'package:siged/_widgets/overlays/screen_lock.dart';
+
+// ===== Notificações
+import 'package:siged/_widgets/notification/app_notification.dart';
+import 'package:siged/_widgets/notification/notification_center.dart';
+
+// ===== Pipeline (habilitação dinâmica das abas)
+import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
+
+// ===== Stage Gate (habilitação por etapa)
+import 'package:siged/_widgets/menu/tab/stage_gate.dart';
+
 class HabilitacaoPage extends StatefulWidget {
-  final HabilitacaoController controller;
   final String contractId;
   final bool readOnly;
+
   const HabilitacaoPage({
     super.key,
-    required this.controller,
     required this.contractId,
     this.readOnly = false,
   });
@@ -53,97 +62,115 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
   @override
   bool get wantKeepAlive => true;
 
-  late final ProgressBloc _progressBloc;
+  late final ProgressCubit _progressBloc;
+
+  HabilitacaoData _formData = const HabilitacaoData.empty();
   bool _hydrated = false;
   String? _currentHabId;
+
+  final _scrollController = ScrollController();
+
+  bool get _isEditable => !widget.readOnly;
 
   @override
   void initState() {
     super.initState();
-    _progressBloc = ProgressBloc(repo: ProgressRepository());
-    context.read<HabilitacaoBloc>().add(HabilitacaoLoadRequested(widget.contractId));
-    widget.controller.setEditable(!widget.readOnly);
+    _progressBloc = ProgressCubit(repo: ProgressRepository());
+
+    // Dispara o load inicial da Habilitação
+    context.read<HabilitacaoCubit>().load(widget.contractId);
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _progressBloc.close();
     super.dispose();
   }
 
   Future<void> _saveOnly() async {
-    final bloc = context.read<HabilitacaoBloc>();
+    final cubit = context.read<HabilitacaoCubit>();
 
     final completer = Completer<void>();
     late final StreamSubscription sub;
-    sub = bloc.stream.listen((s) {
+
+    sub = cubit.stream.listen((s) {
       if (!s.saving) {
         if (!completer.isCompleted) completer.complete();
         sub.cancel();
       }
     });
 
-    bloc.add(HabilitacaoSaveRequested(
+    await cubit.saveAll(
       contractId: widget.contractId,
-      sectionsData: widget.controller.toSectionMaps(),
-    ));
+      sectionsData: _formData.toSectionsMap(),
+    );
 
     await completer.future;
 
-    if (!bloc.state.saveSuccess) {
-      final err = bloc.state.error ?? 'Falha ao salvar';
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Habilitação/Regularidade'),
-          subtitle: const Text('Erro ao salvar.'),
-          details: Text(err),
-          type: AppNotificationType.error,
-        ),
-      );
+    if (!cubit.state.saveSuccess) {
+      final err = cubit.state.error ?? 'Falha ao salvar';
+      if (mounted) {
+        NotificationCenter.instance.show(
+          AppNotification(
+            title: const Text('Habilitação/Regularidade'),
+            subtitle: const Text('Erro ao salvar.'),
+            details: Text(err),
+            type: AppNotificationType.error,
+          ),
+        );
+      }
       return;
     }
 
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('Habilitação/Regularidade'),
-        subtitle: const Text('Alterações salvas com sucesso.'),
-        type: AppNotificationType.success,
-      ),
-    );
+    if (mounted) {
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Habilitação/Regularidade'),
+          subtitle: const Text('Alterações salvas com sucesso.'),
+          type: AppNotificationType.success,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final c = widget.controller;
 
     return BlocProvider.value(
       value: _progressBloc,
-      child: BlocListener<HabilitacaoBloc, HabilitacaoState>(
+      child: BlocListener<HabilitacaoCubit, HabilitacaoState>(
         listenWhen: (prev, curr) =>
         (prev.loading && !curr.loading) || (prev.habId != curr.habId),
         listener: (context, state) {
-          if (!mounted || state.loading || !state.hasValidPath) return;
+          if (!mounted) return;
+          if (state.loading || !state.hasValidPath) return;
 
           final incomingId = state.habId;
           final needsHydrate = !_hydrated || _currentHabId != incomingId;
+
           if (needsHydrate) {
-            c.fromSectionMaps(state.sectionsData); // pode vir vazio -> limpa
+            final data = HabilitacaoData.fromSectionsMap(state.sectionsData);
+
+            setState(() {
+              _formData = data;
+            });
+
             _hydrated = true;
             _currentHabId = incomingId;
 
             if (incomingId != null && incomingId.isNotEmpty) {
-              _progressBloc.add(ProgressBindRequested(
+              _progressBloc.bindToStage(
                 contractId: widget.contractId,
                 collectionName: 'habilitacao',
-                stageId: incomingId,
-              ));
+              );
             }
           }
         },
-        child: BlocBuilder<HabilitacaoBloc, HabilitacaoState>(
+        child: BlocBuilder<HabilitacaoCubit, HabilitacaoState>(
           builder: (context, state) {
-            final pstate = context.watch<ProgressBloc>().state;
+            final pstate = context.watch<ProgressCubit>().state;
 
             final locked = state.loading || state.saving || pstate.loading;
             final msg = state.loading
@@ -166,22 +193,78 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                     children: [
                       const BackgroundClean(),
                       SingleChildScrollView(
+                        key: const PageStorageKey('habilitacao-scroll'),
+                        controller: _scrollController,
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SectionMetadados(controller: c),
-                            SectionEmpresa(controller: c),
-                            SectionCertidoes(controller: c),
-                            SectionJuridicaTecnica(controller: c),
-                            SectionLicitacao(controller: c, contractId: widget.contractId),
-                            SectionConsolidacao(controller: c),
+                            // 1) Metadados
+                            SectionMetadados(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 2) Empresa
+                            SectionEmpresa(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 3) Certidões
+                            SectionCertidoes(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 4) Jurídica / Técnica
+                            SectionJuridicaTecnica(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 5) Licitação / Adesão
+                            SectionLicitacao(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 6) Consolidação / Parecer
+                            SectionConsolidacao(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            const SizedBox(height: 8),
                           ],
                         ),
                       ),
                     ],
                   ),
-                  bottomNavigationBar: BlocBuilder<ProgressBloc, ProgressState>(
+                  bottomNavigationBar:
+                  BlocBuilder<ProgressCubit, ProgressState>(
                     builder: (context, pstate) {
                       return StageProgress(
                         title: 'Habilitação / Regularidade',
@@ -192,12 +275,15 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                         onSaveAndNext: () async {
                           await _saveOnly();
 
-                          final habId = context.read<HabilitacaoBloc>().state.habId;
+                          final habId =
+                              context.read<HabilitacaoCubit>().state.habId;
                           if (habId == null || habId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Habilitação'),
-                                subtitle: const Text('Documento não encontrado para aprovar.'),
+                                subtitle: const Text(
+                                  'Documento não encontrado para aprovar.',
+                                ),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -206,38 +292,49 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
 
                           final user = FirebaseAuth.instance.currentUser;
                           final uid = user?.uid ?? '';
-                          final nameOrEmail = (user?.displayName?.trim().isNotEmpty ?? false)
+                          final nameOrEmail =
+                          (user?.displayName?.trim().isNotEmpty ?? false)
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
                           final repo = _progressBloc.repo;
+
                           try {
                             await repo.approveStage(
                               contractId: widget.contractId,
                               collectionName: 'habilitacao',
-                              stageId: habId,
                               approverUid: uid,
                               approverName: nameOrEmail,
                             );
+
                             await repo.setCompleted(
                               contractId: widget.contractId,
                               collectionName: 'habilitacao',
-                              stageId: habId,
                               completed: true,
                             );
 
-                            // 🔹 Liberação otimista: Dotação
-                            final pipeline = context.read<PipelineProgressCubit>();
-                            pipeline.setStageEnabled(HiringStageKey.dotacao, true);
+                            // Libera DOTACAO otimistamente
+                            final pipeline =
+                            context.read<PipelineProgressCubit>();
+                            pipeline.setStageEnabled(
+                              HiringStageKey.dotacao,
+                              true,
+                            );
                             unawaited(pipeline.refresh());
 
-                            final tab = DefaultTabController.of(context);
-                            tab?.animateTo((tab.index + 1).clamp(0, tab.length - 1));
+                            final controller =
+                            DefaultTabController.of(context);
+                            controller?.animateTo(
+                              (controller.index + 1)
+                                  .clamp(0, controller.length - 1),
+                            );
 
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Habilitação'),
-                                subtitle: const Text('Aprovado e etapa concluída.'),
+                                subtitle: const Text(
+                                  'Aprovado e etapa concluída.',
+                                ),
                                 type: AppNotificationType.success,
                               ),
                             );
@@ -245,7 +342,8 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Habilitação'),
-                                subtitle: const Text('Erro ao aprovar.'),
+                                subtitle:
+                                const Text('Erro ao aprovar.'),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),
@@ -255,12 +353,15 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                         onUpdateApproved: () async {
                           await _saveOnly();
 
-                          final habId = context.read<HabilitacaoBloc>().state.habId;
+                          final habId =
+                              context.read<HabilitacaoCubit>().state.habId;
                           if (habId == null || habId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Habilitação'),
-                                subtitle: const Text('Documento não encontrado para atualizar.'),
+                                subtitle: const Text(
+                                  'Documento não encontrado para atualizar.',
+                                ),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -269,23 +370,27 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
 
                           final user = FirebaseAuth.instance.currentUser;
                           final uid = user?.uid ?? '';
-                          final nameOrEmail = (user?.displayName?.trim().isNotEmpty ?? false)
+                          final nameOrEmail =
+                          (user?.displayName?.trim().isNotEmpty ?? false)
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
                           final repo = _progressBloc.repo;
+
                           try {
                             await repo.touchApproval(
                               contractId: widget.contractId,
                               collectionName: 'habilitacao',
-                              stageId: habId,
                               updatedByUid: uid,
                               updatedByName: nameOrEmail,
                             );
+
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Habilitação'),
-                                subtitle: const Text('Aprovação atualizada.'),
+                                subtitle: const Text(
+                                  'Aprovação atualizada.',
+                                ),
                                 type: AppNotificationType.success,
                               ),
                             );
@@ -293,7 +398,9 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Habilitação'),
-                                subtitle: const Text('Erro ao atualizar aprovação.'),
+                                subtitle: const Text(
+                                  'Erro ao atualizar aprovação.',
+                                ),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),

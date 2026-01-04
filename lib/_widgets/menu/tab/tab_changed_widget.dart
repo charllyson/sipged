@@ -104,8 +104,7 @@ class TabChangedWidget extends StatefulWidget {
     this.initialTabIndex = 0,
     required this.tabs,
     this.bannerTitleBuilder,
-    this.blockedMessage =
-    '⚠️ Para acessar esta aba, salve primeiro as informações principais do contrato.',
+    this.blockedMessage = '⚠️ Para acessar esta aba, salve primeiro as informações principais do contrato.',
     this.topBarHeight = 72.0,
     this.topBarColors = const [Color(0xFF1B2031), Color(0xFF1B2039)],
     this.topBarColor,

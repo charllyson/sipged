@@ -1,6 +1,7 @@
+// lib/screens/sectors/traffic/dashboard/accident_map_section.dart
 import 'package:flutter/material.dart';
 import 'package:siged/screens/sectors/traffic/dashboard/show_city_details.dart';
-import '../../../../_widgets/map/map_interactive.dart';
+import '../../../../_widgets/map/flutter_map/map_interactive.dart';
 import '../../../../_widgets/map/polygon/polygon_changed.dart';
 import '../../../../_blocs/sectors/transit/accidents/accidents_data.dart';
 
@@ -12,7 +13,7 @@ class AccidentsMapSection extends StatefulWidget {
   /// Cores já calculadas (cidade -> cor), vindas do controller
   final Map<String, Color> regionColors;
 
-  /// Quem fornece os dados da cidade é o controller (que chama o Bloc)
+  /// Quem fornece os dados da cidade é o controller (que chama o Bloc/Cubit)
   final Future<List<AccidentsData>> Function(String city) fetchCityData;
 
   final double? height;
@@ -59,12 +60,10 @@ class _AccidentsMapSectionState extends State<AccidentsMapSection> {
       context: context,
       builder: (_) => Dialog(
         backgroundColor: Colors.white,
-        child: ShowCityDetails(dados: dados, region: region)
+        child: ShowCityDetails(dados: dados, region: region),
       ),
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {

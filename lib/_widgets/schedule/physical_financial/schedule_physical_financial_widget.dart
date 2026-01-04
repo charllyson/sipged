@@ -4,20 +4,21 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-// Additivos / Modelo + Store
-import 'package:siged/_blocs/process/additives/additive_controller.dart';
-import 'package:siged/_blocs/process/additives/additive_data.dart';
-import 'package:siged/_blocs/process/additives/additive_store.dart';
+// Additivos / Modelo + Repo
+import 'package:siged/_blocs/process/additives/additives_data.dart';
+import 'package:siged/_blocs/process/additives/additives_repository.dart';
+
 import 'package:siged/_blocs/process/phys_fin/physics_finance_data.dart';
-// ✅ NOVO: store dedicado de cronograma
+// ✅ Store dedicado de cronograma
 import 'package:siged/_blocs/process/phys_fin/physics_finance_store.dart';
 
 // SIGED deps
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
+
+// Cubit de cronograma rodoviário
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
 import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
 
 // Widgets locais/módulos
 import 'banner_tip.dart';
@@ -61,62 +62,27 @@ class _SchedulePhysicalFinancialWidgetState
   final Map<int, String> _termAdditiveId = {};
 
   bool _saving = false;
+
+  /// Controle de carregamento de termos/aditivos
   bool _termsLoaded = false;
+  bool _loadingAdds = false;
 
-  AdditiveController? _addCtrl;
-  AdditivesStore? _addStore;
-  VoidCallback? _storeListenerFn;
+  // Lista de aditivos ordenados por ordem (1º termo, 2º termo, …)
+  List<AdditivesData> _orderedAdds = <AdditivesData>[];
 
-  // ✅ NOVO: referência ao store de cronograma
+  // Store de cronograma
   PhysicsFinanceStore? _physStore;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // Controller (opcional no contexto)
-    try {
-      _addCtrl = context.read<AdditiveController>();
-    } catch (_) {
-      _addCtrl = null;
-    }
-
-    // AdditivesStore (para lista/ordem/ids de aditivos)
-    try {
-      final newStore = context.read<AdditivesStore>();
-      if (!identical(_addStore, newStore)) {
-        if (_addStore != null && _storeListenerFn != null) {
-          _addStore!.removeListener(_storeListenerFn!);
-        }
-        _addStore = newStore;
-        _storeListenerFn = () {
-          if (!mounted || !widget.chronogramMode) return;
-          setState(() => _termsLoaded = false);
-        };
-        _addStore!.addListener(_storeListenerFn!);
-      }
-    } catch (_) {
-      if (_addStore != null && _storeListenerFn != null) {
-        _addStore!.removeListener(_storeListenerFn!);
-      }
-      _addStore = null;
-      _storeListenerFn = null;
-    }
-
-    // ✅ PhysicsFinanceStore (para CRUD de schedules por termo)
+    // PhysicsFinanceStore (para CRUD de schedules por termo)
     try {
       _physStore = context.read<PhysicsFinanceStore>();
     } catch (_) {
       _physStore = null;
     }
-  }
-
-  @override
-  void dispose() {
-    if (_addStore != null && _storeListenerFn != null) {
-      _addStore!.removeListener(_storeListenerFn!);
-    }
-    super.dispose();
   }
 
   Future<void> _notifySaved({String? detail}) async {
@@ -143,7 +109,7 @@ class _SchedulePhysicalFinancialWidgetState
 
   // ===== Helpers: períodos extras por prorrogação de prazo (só no modo aditivos)
 
-  int _sumExtraExecutionDays(List<AdditiveData> orderedAdds) {
+  int _sumExtraExecutionDays(List<AdditivesData> orderedAdds) {
     int sum = 0;
     for (final a in orderedAdds) {
       final d = a.additiveValidityExecutionDays ?? 0;
@@ -156,7 +122,8 @@ class _SchedulePhysicalFinancialWidgetState
     if (extraDays <= 0 || base.isEmpty) return base;
     final out = List<int>.from(base);
 
-    final int step = base.length >= 2 ? (base.last - base[base.length - 2]).abs() : 30;
+    final int step =
+    base.length >= 2 ? (base.last - base[base.length - 2]).abs() : 30;
     int acc = 0;
     int last = base.last;
     while (acc < extraDays) {
@@ -174,7 +141,8 @@ class _SchedulePhysicalFinancialWidgetState
       List<PhysFinRow> rows,
       int periods,
       ) {
-    final map = _gridByTerm.putIfAbsent(termOrder, () => <String, List<double>>{});
+    final map =
+    _gridByTerm.putIfAbsent(termOrder, () => <String, List<double>>{});
     for (final r in rows) {
       final itemId = r.item.toString();
       map.putIfAbsent(itemId, () => List<double>.filled(periods, 0.0));
@@ -183,7 +151,10 @@ class _SchedulePhysicalFinancialWidgetState
         if (cur.length > periods) {
           map[itemId] = List<double>.from(cur.take(periods));
         } else {
-          map[itemId] = [...cur, ...List<double>.filled(periods - cur.length, 0.0)];
+          map[itemId] = [
+            ...cur,
+            ...List<double>.filled(periods - cur.length, 0.0)
+          ];
         }
       }
     }
@@ -199,12 +170,11 @@ class _SchedulePhysicalFinancialWidgetState
   /// Busca todos os schedules (por termo) e guarda em `_gridByTerm` (por itemId).
   Future<void> _warmupAllTerms({
     required int periods,
-    required List<AdditiveData> additives,
+    required List<AdditivesData> additives,
   }) async {
-    final addStore = _addStore;
     final physStore = _physStore;
     final contractId = widget.contractData.id ?? '';
-    if (addStore == null || physStore == null || contractId.isEmpty) return;
+    if (physStore == null || contractId.isEmpty) return;
 
     _termAdditiveId.clear();
     for (final a in additives) {
@@ -232,7 +202,10 @@ class _SchedulePhysicalFinancialWidgetState
               ? lst
               : (lst.length > periods
               ? List<double>.from(lst.take(periods))
-              : [...lst, ...List<double>.filled(periods - lst.length, 0.0)]);
+              : [
+            ...lst,
+            ...List<double>.filled(periods - lst.length, 0.0)
+          ]);
         });
         _gridByTerm[termOrder] = m;
       } else {
@@ -268,24 +241,51 @@ class _SchedulePhysicalFinancialWidgetState
     );
   }
 
+  /// Carrega aditivos pelo `AdditivesRepository` e aquece os termos.
   Future<void> _bootstrapTerms({
     required int periods,
   }) async {
     if (!widget.chronogramMode) return;
-    final addStore = _addStore;
+
     final contractId = widget.contractData.id ?? '';
-    if (addStore == null || contractId.isEmpty) return;
-
-    if (addStore.listFor(contractId).isEmpty && !addStore.loadingFor(contractId)) {
-      _unawaited(addStore.ensureFor(contractId));
-      return;
-    }
-
+    if (contractId.isEmpty) return;
     if (_termsLoaded) return;
 
-    final adds = addStore.listFor(contractId);
-    await _warmupAllTerms(periods: periods, additives: adds);
-    if (mounted) setState(() => _termsLoaded = true);
+    setState(() {
+      _loadingAdds = true;
+    });
+
+    try {
+      final repo = AdditivesRepository();
+      final adds = await repo.ensureForContract(contractId);
+
+      final ordered = List<AdditivesData>.from(adds)
+        ..sort(
+              (a, b) => (a.additiveOrder ?? 0).compareTo(b.additiveOrder ?? 0),
+        );
+
+      _orderedAdds = ordered;
+
+      await _warmupAllTerms(
+        periods: periods,
+        additives: ordered,
+      );
+
+      if (mounted) {
+        setState(() {
+          _termsLoaded = true;
+          _loadingAdds = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _orderedAdds = <AdditivesData>[];
+          _termsLoaded = true; // evita loop de loading infinito
+          _loadingAdds = false;
+        });
+      }
+    }
   }
 
   String _titleCase(String s) {
@@ -293,7 +293,9 @@ class _SchedulePhysicalFinancialWidgetState
     if (t.isEmpty) return t;
     return t
         .split(RegExp(r'\s+'))
-        .map((p) => p.isEmpty ? p : '${p[0].toUpperCase()}${p.substring(1).toLowerCase()}')
+        .map(
+          (p) => p.isEmpty ? p : '${p[0].toUpperCase()}${p.substring(1).toLowerCase()}',
+    )
         .join(' ');
   }
 
@@ -303,15 +305,8 @@ class _SchedulePhysicalFinancialWidgetState
     const EdgeInsets kCardPadding =
     EdgeInsets.only(left: 10, right: 10, top: 10, bottom: 10);
 
-    // rótulos e subtítulos dos termos (por ordem)
-    final additivesStore = context.read<AdditivesStore>();
-    final String? cid = widget.contractData.id;
-    final List<AdditiveData> _adds =
-    (cid == null) ? const [] : additivesStore.listFor(cid);
-
-    final orderedAdds = List<AdditiveData>.from(_adds)
-      ..sort((a, b) => (a.additiveOrder ?? 0).compareTo(b.additiveOrder ?? 0));
-
+    // rótulos e subtítulos dos termos (por ordem) usando lista local de aditivos
+    final List<AdditivesData> orderedAdds = _orderedAdds;
     final int termosQt = orderedAdds.length;
 
     final List<String> termLabels = <String>[
@@ -328,7 +323,7 @@ class _SchedulePhysicalFinancialWidgetState
       body: Stack(
         children: [
           const BackgroundClean(),
-          BlocBuilder<ScheduleRoadBloc, ScheduleRoadState>(
+          BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
             buildWhen: (a, b) =>
             a.services != b.services ||
                 a.serviceTotals != b.serviceTotals ||
@@ -338,15 +333,20 @@ class _SchedulePhysicalFinancialWidgetState
             builder: (context, state) {
               final List<int> baseDays = state.physfinPeriods.isNotEmpty
                   ? List<int>.from(state.physfinPeriods)
-                  : PhysicsFinanceController.daysFromContract(widget.contractData);
+                  : PhysicsFinanceController.daysFromContract(
+                widget.contractData,
+              );
 
-              final int extraDays =
-              widget.chronogramMode ? _sumExtraExecutionDays(orderedAdds) : 0;
+              final int extraDays = widget.chronogramMode
+                  ? _sumExtraExecutionDays(orderedAdds)
+                  : 0;
+
               final List<int> dias = widget.chronogramMode
                   ? _extendPeriods(baseDays, extraDays)
                   : baseDays;
 
-              final services = state.services.where((s) => s.key != 'geral').toList();
+              final services =
+              state.services.where((s) => s.key != 'geral').toList();
 
               if (!state.loadingServices && services.isEmpty) {
                 return const Center(
@@ -369,16 +369,14 @@ class _SchedulePhysicalFinancialWidgetState
 
               final String contractId = widget.contractData.id ?? '';
               final bool waitingStore = widget.chronogramMode &&
-                  ((_addStore == null) ||
-                      contractId.isEmpty ||
-                      _addStore!.loadingFor(contractId) ||
-                      !_termsLoaded);
+                  (contractId.isEmpty || !_termsLoaded || _loadingAdds);
 
               if (waitingStore) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final List<PhysFinRow> dados = PhysicsFinanceController.buildRows(
+              final List<PhysFinRow> dados =
+              PhysicsFinanceController.buildRows(
                 services: services,
                 serviceTotals: state.serviceTotals,
                 localGrid: _percentGrid,
@@ -399,9 +397,11 @@ class _SchedulePhysicalFinancialWidgetState
                   termLabels.length,
                       (i) => i == 0 ? null : i,
                 ),
-                getPercentFor: (serviceKeyOrItemId, {int? termOrder}) {
+                getPercentFor:
+                    (serviceKeyOrItemId, {int? termOrder}) {
                   if (termOrder == null) {
-                    return _percentGrid[serviceKeyOrItemId] ?? const <double>[];
+                    return _percentGrid[serviceKeyOrItemId] ??
+                        const <double>[];
                   } else {
                     return _getPercentsForItem(
                       serviceKeyOrItemId,
@@ -415,7 +415,8 @@ class _SchedulePhysicalFinancialWidgetState
                 periods: dias.length,
               );
 
-              final PhysFinMeasured measured = PhysicsFinanceController.measureWidths(
+              final PhysFinMeasured measured =
+              PhysicsFinanceController.measureWidths(
                 context: context,
                 rows: dados,
                 totalGeral: totals.totalGeral,
@@ -424,13 +425,15 @@ class _SchedulePhysicalFinancialWidgetState
               return LayoutBuilder(
                 builder: (context, constraints) {
                   const double kExtraCol = 120.0;
-                  final double contentViewport = constraints.maxWidth - kCardMarginH;
+                  final double contentViewport =
+                      constraints.maxWidth - kCardMarginH;
 
                   final bool preferFit = !widget.chronogramMode &&
                       constraints.maxWidth >= 1280 &&
                       (dias.isEmpty || dias.last <= 365);
 
-                  final PhysFinWidths widths = PhysicsFinanceController.resolveColumnWidths(
+                  final PhysFinWidths widths =
+                  PhysicsFinanceController.resolveColumnWidths(
                     context: context,
                     preferFit: preferFit,
                     nCols: dias.length,
@@ -438,7 +441,8 @@ class _SchedulePhysicalFinancialWidgetState
                     paddingsHorizontal: kCardPadding.horizontal,
                     measuredDescWidth: measured.descColWidth,
                     measuredValueWidth: measured.valueColWidth,
-                    extraColWidth: widget.chronogramMode ? kExtraCol : null,
+                    extraColWidth:
+                    widget.chronogramMode ? kExtraCol : null,
                   );
 
                   final double tableWidth = widths.itemCol +
@@ -447,7 +451,8 @@ class _SchedulePhysicalFinancialWidgetState
                       dias.length * widths.percentCol +
                       widths.valueCol;
 
-                  final double contentWidth = tableWidth + kCardPadding.horizontal;
+                  final double contentWidth =
+                      tableWidth + kCardPadding.horizontal;
 
                   final table = PhysFinTable(
                     chronogramMode: widget.chronogramMode,
@@ -460,17 +465,21 @@ class _SchedulePhysicalFinancialWidgetState
                     widths: widths,
                     money: _brl,
                     localGrid: _percentGrid,
-
                     getPercentFor: (key, {int? termOrder}) {
                       if (termOrder == null) {
                         return _percentGrid[key] ?? const <double>[];
                       }
                       return _getPercentsForItem(key, termOrder: termOrder);
                     },
-
-                    onPickPercent: (serviceKey, colIndex, current,
-                        alreadyAllocated, serviceTotal) async {
-                      final picked = await PhysicsFinanceController.pickPercentDialog(
+                    onPickPercent: (
+                        serviceKey,
+                        colIndex,
+                        current,
+                        alreadyAllocated,
+                        serviceTotal,
+                        ) async {
+                      final picked =
+                      await PhysicsFinanceController.pickPercentDialog(
                         context: context,
                         current: current,
                         alreadyAllocatedPercent: alreadyAllocated,
@@ -482,20 +491,28 @@ class _SchedulePhysicalFinancialWidgetState
                         _percentGrid[serviceKey]![colIndex] = picked;
                       });
 
-                      context.read<ScheduleRoadBloc>().add(
-                        PhysFinGridUpdateRequested(
-                          periods: dias,
-                          grid: _percentGrid,
-                        ),
+                      // ⬇️ Novo padrão: chamar método do Cubit
+                      await context
+                          .read<ScheduleRoadCubit>()
+                          .updatePhysFinGrid(
+                        periods: dias,
+                        grid: _percentGrid,
                       );
 
-                      await _notifySaved(detail: 'Período atualizado: ${colIndex + 1}');
+                      await _notifySaved(
+                        detail: 'Período atualizado: ${colIndex + 1}',
+                      );
                     },
-
-                    onPickPercentForTerm: (itemId, colIndex, current,
-                        alreadyAllocated, serviceTotal,
-                        {required int termOrder}) async {
-                      final picked = await PhysicsFinanceController.pickPercentDialog(
+                    onPickPercentForTerm: (
+                        itemId,
+                        colIndex,
+                        current,
+                        alreadyAllocated,
+                        serviceTotal, {
+                          required int termOrder,
+                        }) async {
+                      final picked =
+                      await PhysicsFinanceController.pickPercentDialog(
                         context: context,
                         current: current,
                         alreadyAllocatedPercent: alreadyAllocated,
@@ -504,10 +521,13 @@ class _SchedulePhysicalFinancialWidgetState
                       if (picked == null) return;
 
                       setState(() {
-                        _ensureTermGridByRows(termOrder, dados, dias.length);
+                        _ensureTermGridByRows(
+                            termOrder, dados, dias.length);
                         final grid = _gridByTerm[termOrder]!;
-                        final row =
-                        grid.putIfAbsent(itemId, () => List<double>.filled(dias.length, 0.0));
+                        final row = grid.putIfAbsent(
+                          itemId,
+                              () => List<double>.filled(dias.length, 0.0),
+                        );
                         row[colIndex] = picked;
                       });
 
@@ -517,43 +537,52 @@ class _SchedulePhysicalFinancialWidgetState
                       );
 
                       await _notifySavedLite(
-                        detail: 'Período atualizado (Termo $termOrder): ${colIndex + 1}',
+                        detail:
+                        'Período atualizado (Termo $termOrder): ${colIndex + 1}',
                       );
                     },
-
                     pickBarColors: ({int? termOrder}) {
                       if (!widget.chronogramMode) {
                         return (
-                        fill: AdditiveData.contractedColor,
-                        track: AdditiveData.trackColor,
+                        fill: AdditivesData.contractedColor,
+                        track: AdditivesData.trackColor,
                         disabled: false,
                         );
                       }
                       if (termOrder == null) {
                         return (
                         fill: const Color(0xFFBDBDBD),
-                        track: AdditiveData.trackColor,
+                        track: AdditivesData.trackColor,
                         disabled: true,
                         );
                       }
-                      final c = AdditiveData.colorForOrder(termOrder);
-                      return (fill: c, track: AdditiveData.trackColor, disabled: false);
+                      final c = AdditivesData.colorForOrder(termOrder);
+                      return (
+                      fill: c,
+                      track: AdditivesData.trackColor,
+                      disabled: false,
+                      );
                     },
                   );
 
-                  final card = PhysFinCardWrapper(padding: kCardPadding, child: table);
+                  final card =
+                  PhysFinCardWrapper(padding: kCardPadding, child: table);
 
-                  final tableRegion = (contentWidth > (constraints.maxWidth - kCardMarginH))
+                  final tableRegion =
+                  (contentWidth > (constraints.maxWidth - kCardMarginH))
                       ? SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: kCardMarginH / 2),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: kCardMarginH / 2),
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minWidth: contentWidth),
+                      constraints:
+                      BoxConstraints(minWidth: contentWidth),
                       child: card,
                     ),
                   )
                       : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: kCardMarginH / 2),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: kCardMarginH / 2),
                     child: card,
                   );
 
@@ -575,7 +604,8 @@ class _SchedulePhysicalFinancialWidgetState
                     ),
                   );
 
-                  final bool isBusy = (state.loadingServices && services.isEmpty) || _saving;
+                  final bool isBusy =
+                      (state.loadingServices && services.isEmpty) || _saving;
 
                   return Stack(
                     children: [

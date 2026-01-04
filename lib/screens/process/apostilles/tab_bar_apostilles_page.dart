@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+
 import 'package:siged/_blocs/_process/process_bloc.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
+
+// ✅ usar a ApostillesPage do módulo contracts/apostilles
 import 'package:siged/screens/process/apostilles/apostilles_page.dart';
 
 class TabBarApostillesPage extends StatelessWidget {

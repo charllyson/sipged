@@ -4,9 +4,10 @@ import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:siged/_blocs/system/setup/setup_data.dart';
 
 import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/validates/login_validators.dart';
+import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_blocs/system/pages/pages_data.dart';
 
 /// Estados de login/perfil
@@ -23,7 +24,7 @@ enum LoginState {
 /// Status do preview de acesso à área selecionada
 enum AreaAccessStatus { idle, needEmail, allowed, denied }
 
-class LoginBloc extends BlocBase with LoginValidators {
+class LoginBloc extends BlocBase with FormValidationMixin {
   // ===== Controllers (inputs) =====
   final _emailController = BehaviorSubject<String>();
   final _passwordController = BehaviorSubject<String>();
@@ -149,7 +150,7 @@ class LoginBloc extends BlocBase with LoginValidators {
   /// PRIORIDADE: se o e-mail digitado != currentUser.email, consultar por e-mail.
   Future<bool> _hasProfileForArea(String area) async {
     try {
-      final profileKey = PagesData.profileKeyForArea(area);
+      final profileKey = SetupData.profileKeyForArea(area);
       if (profileKey == null) return false;
 
       final enteredEmail = _emailController.valueOrNull?.toLowerCase().trim();

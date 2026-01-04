@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/dates/selector/selectorDates.dart';
-import 'package:siged/_blocs/process/report/report_measurement_data.dart';
+import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
 
 class MeasurementSelectorDatesSection extends StatefulWidget {
   final List<ReportMeasurementData> allMeasurements;
@@ -60,6 +60,7 @@ class _MeasurementSelectorDatesSectionState
         required List<ReportMeasurementData> filteredItems,
         int? selectedYear,
         int? selectedMonth,
+        int? selectedDay,
       }) {
         widget.onSelectionChanged(
           SelectorDatesFilterResult(

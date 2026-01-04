@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 /// ===== Especificação de coluna =====
 class PagedColumnSpec<T> {
@@ -109,21 +110,39 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
   }
 
   Future<void> _confirmarExclusao(BuildContext context, T item) async {
-    final result = await showDialog<bool>(
+    final shouldDelete = await showWindowDialogMac<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmar exclusão'),
-        content: const Text('Deseja realmente excluir este item?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      title: 'Confirmar exclusão',
+      width: 420,
+      child: Builder(
+        builder: (dialogCtx) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Deseja realmente excluir este item?'),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    FilledButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(true),
+                      child: const Text('Excluir'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
-    if (result == true) widget.onDelete?.call(item);
+
+    if (shouldDelete == true) {
+      widget.onDelete?.call(item);
+    }
   }
 
   Future<void> _goTo(int page) async {
@@ -137,7 +156,11 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
   }
 
   List<_RowChunk<T>> _buildRowChunks(List<T> data) {
-    if (widget.groupBy == null) return [ _RowChunk(type: _RowChunkType.normal, items: data) ];
+    if (widget.groupBy == null) {
+      return [
+        _RowChunk(type: _RowChunkType.normal, items: data),
+      ];
+    }
     final map = <String, List<T>>{};
     for (final item in data) {
       final key = widget.groupBy!(item);
@@ -145,8 +168,12 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
     }
     final chunks = <_RowChunk<T>>[];
     for (final entry in map.entries) {
-      chunks.add(_RowChunk(type: _RowChunkType.groupHeader, groupKey: entry.key));
-      chunks.add(_RowChunk(type: _RowChunkType.normal, items: entry.value));
+      chunks.add(
+        _RowChunk(type: _RowChunkType.groupHeader, groupKey: entry.key),
+      );
+      chunks.add(
+        _RowChunk(type: _RowChunkType.normal, items: entry.value),
+      );
     }
     return chunks;
   }
@@ -158,7 +185,8 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
 
     final hasLeading = widget.leadingCell != null;
     final hasActions = widget.onDelete != null || widget.onTapItem != null;
-    final totalColumns = (hasLeading ? 1 : 0) + widget.columns.length + (hasActions ? 1 : 0);
+    final totalColumns =
+        (hasLeading ? 1 : 0) + widget.columns.length + (hasActions ? 1 : 0);
     final theme = Theme.of(context);
 
     return Card(
@@ -166,135 +194,176 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
       elevation: widget.elevation,
       margin: widget.cardMargin,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: LayoutBuilder(builder: (context, cons) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.statusLabel != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 12, left: 12, right: 12),
-                child: Text(
-                  '${widget.statusLabel} - (${data.length}) registros',
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
-            if (data.isEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                child: Text(
-                  'Nenhum registro encontrado.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
-                    fontStyle: FontStyle.italic,
+      child: LayoutBuilder(
+        builder: (context, cons) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (widget.statusLabel != null)
+                Padding(
+                  padding:
+                  const EdgeInsets.only(top: 12, left: 12, right: 12),
+                  child: Text(
+                    '${widget.statusLabel} - (${data.length}) registros',
+                    style: theme.textTheme.titleMedium,
                   ),
                 ),
-              ),
-            if (data.isNotEmpty)
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: cons.maxWidth),
-                  child: DataTableTheme(
-                    data: DataTableThemeData(
-                      headingRowColor: MaterialStateProperty.all(widget.colorHeadTable),
-                      headingTextStyle: TextStyle(
-                        color: widget.colorHeadTableText,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+              if (data.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  child: Text(
+                    'Nenhum registro encontrado.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              if (data.isNotEmpty)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: cons.maxWidth),
+                    child: DataTableTheme(
+                      data: DataTableThemeData(
+                        headingRowColor:
+                        MaterialStateProperty.all(widget.colorHeadTable),
+                        headingTextStyle: TextStyle(
+                          color: widget.colorHeadTableText,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        dataRowColor: MaterialStateProperty.resolveWith(
+                              (states) {
+                            if (states.contains(MaterialState.hovered)) {
+                              return Colors.blue.withOpacity(0.05);
+                            }
+                            if (states.contains(MaterialState.selected)) {
+                              return const Color(0xFFE1F5FE);
+                            }
+                            return Colors.white;
+                          },
+                        ),
+                        dataTextStyle: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 14,
+                        ),
                       ),
-                      dataRowColor: MaterialStateProperty.resolveWith((states) {
-                        if (states.contains(MaterialState.hovered)) return Colors.blue.withOpacity(0.05);
-                        if (states.contains(MaterialState.selected)) return Colors.green.withOpacity(0.15);
-                        return Colors.white;
-                      }),
-                      dataTextStyle: const TextStyle(color: Colors.black, fontSize: 14),
-                    ),
-                    child: DataTable(
-                      showCheckboxColumn: widget.showCheckboxColumn,
-                      headingRowHeight: widget.headingRowHeight,
-                      dataRowMinHeight: widget.dataRowMinHeight,
-                      dataRowMaxHeight: widget.dataRowMaxHeight,
-                      sortColumnIndex: widget.sortColumnIndex,
-                      sortAscending: widget.sortAscending,
-                      columns: _buildColumns(hasLeading, hasActions),
-                      rows: chunks.expand((chunk) {
-                        if (chunk.type == _RowChunkType.groupHeader) {
-                          return [
-                            DataRow(
-                              color: MaterialStateProperty.all(Colors.grey.shade200),
-                              cells: List.generate(totalColumns, (i) {
-                                if (i == 0) {
-                                  return DataCell(Text(
-                                    '${widget.groupLabel ?? ''}: ${chunk.groupKey ?? ''}',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                  ));
-                                }
-                                return const DataCell(SizedBox.shrink());
-                              }),
-                            ),
-                          ];
-                        } else {
-                          return chunk.items!.map((item) {
-                            final isSelected = _isSelected(item);
-                            final cells = <DataCell>[];
+                      child: DataTable(
+                        showCheckboxColumn: widget.showCheckboxColumn,
+                        headingRowHeight: widget.headingRowHeight,
+                        dataRowMinHeight: widget.dataRowMinHeight,
+                        dataRowMaxHeight: widget.dataRowMaxHeight,
+                        sortColumnIndex: widget.sortColumnIndex,
+                        sortAscending: widget.sortAscending,
+                        columns: _buildColumns(hasLeading, hasActions),
+                        rows: chunks.expand((chunk) {
+                          if (chunk.type == _RowChunkType.groupHeader) {
+                            return [
+                              DataRow(
+                                color: MaterialStateProperty.all(
+                                  Colors.grey.shade200,
+                                ),
+                                cells: List.generate(totalColumns, (i) {
+                                  if (i == 0) {
+                                    return DataCell(
+                                      Text(
+                                        '${widget.groupLabel ?? ''}: ${chunk.groupKey ?? ''}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return const DataCell(SizedBox.shrink());
+                                }),
+                              ),
+                            ];
+                          } else {
+                            return chunk.items!.map((item) {
+                              final isSelected = _isSelected(item);
+                              final cells = <DataCell>[];
 
-                            if (hasLeading) {
-                              cells.add(DataCell(widget.leadingCell!(item)));
-                            }
-
-                            // --- Renderiza cada coluna ---
-                            for (final c in widget.columns) {
-                              if (c.cellBuilder != null) {
-                                cells.add(DataCell(c.cellBuilder!(item)));
-                              } else if (c.getter != null) {
-                                cells.add(DataCell(_cellText(
-                                  c.getter!(item),
-                                  context: context,
-                                  align: c.textAlign,
-                                  maxW: c.maxWidth,
-                                )));
-                              } else {
-                                cells.add(const DataCell(Text('')));
+                              if (hasLeading) {
+                                cells.add(
+                                  DataCell(widget.leadingCell!(item)),
+                                );
                               }
-                            }
 
-                            if (hasActions) {
-                              cells.add(DataCell(Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (widget.onTapItem != null)
-                                    IconButton(
-                                      tooltip: 'Selecionar',
-                                      icon: const Icon(Icons.visibility_outlined),
-                                      onPressed: () => _handleTap(item),
+                              // --- Renderiza cada coluna ---
+                              for (final c in widget.columns) {
+                                if (c.cellBuilder != null) {
+                                  cells.add(
+                                    DataCell(c.cellBuilder!(item)),
+                                  );
+                                } else if (c.getter != null) {
+                                  cells.add(
+                                    DataCell(
+                                      _cellText(
+                                        c.getter!(item),
+                                        context: context,
+                                        align: c.textAlign,
+                                        maxW: c.maxWidth,
+                                      ),
                                     ),
-                                  if (widget.onDelete != null)
-                                    IconButton(
-                                      tooltip: 'Excluir',
-                                      icon: const Icon(Icons.delete_outline),
-                                      onPressed: () => _confirmarExclusao(context, item),
-                                    ),
-                                ],
-                              )));
-                            }
+                                  );
+                                } else {
+                                  cells.add(const DataCell(Text('')));
+                                }
+                              }
 
-                            return DataRow(
-                              selected: isSelected,
-                              onSelectChanged: (_) => _handleTap(item),
-                              cells: cells,
-                            );
-                          });
-                        }
-                      }).toList(),
+                              if (hasActions) {
+                                cells.add(
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (widget.onTapItem != null)
+                                          IconButton(
+                                            tooltip: 'Selecionar',
+                                            icon: const Icon(
+                                              Icons.visibility_outlined,
+                                            ),
+                                            onPressed: () =>
+                                                _handleTap(item),
+                                          ),
+                                        if (widget.onDelete != null)
+                                          IconButton(
+                                            tooltip: 'Excluir',
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                            ),
+                                            onPressed: () =>
+                                                _confirmarExclusao(
+                                                  context,
+                                                  item,
+                                                ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return DataRow(
+                                selected: isSelected,
+                                onSelectChanged: (_) => _handleTap(item),
+                                cells: cells,
+                              );
+                            });
+                          }
+                        }).toList(),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            const SizedBox(height: 8),
-            _buildPagination(),
-          ],
-        );
-      }),
+              const SizedBox(height: 8),
+              _buildPagination(),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -308,7 +377,9 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
           const Spacer(),
           IconButton(
             tooltip: 'Primeira',
-            onPressed: (!_paging && widget.currentPage > 1) ? () => _goTo(1) : null,
+            onPressed: (!_paging && widget.currentPage > 1)
+                ? () => _goTo(1)
+                : null,
             icon: const Icon(Icons.first_page),
           ),
           IconButton(
@@ -340,21 +411,33 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
   List<DataColumn> _buildColumns(bool hasLeading, bool hasActions) {
     final cols = <DataColumn>[];
     if (hasLeading) {
-      cols.add(DataColumn(label: Center(child: Text(widget.leadingTitle ?? ''))));
+      cols.add(
+        DataColumn(
+          label: Center(
+            child: Text(widget.leadingTitle ?? ''),
+          ),
+        ),
+      );
     }
     for (var i = 0; i < widget.columns.length; i++) {
       final c = widget.columns[i];
-      cols.add(DataColumn(
-        label: Center(child: Text(c.title)),
-        onSort: widget.onSort == null
-            ? null
-            : (columnIndex, ascending) {
-          widget.onSort!.call(columnIndex, ascending, c.getter!);
-        },
-      ));
+      cols.add(
+        DataColumn(
+          label: Center(child: Text(c.title)),
+          onSort: (widget.onSort == null || c.getter == null)
+              ? null
+              : (columnIndex, ascending) {
+            widget.onSort!.call(columnIndex, ascending, c.getter!);
+          },
+        ),
+      );
     }
     if (hasActions) {
-      cols.add(const DataColumn(label: Center(child: Text('Ações'))));
+      cols.add(
+        const DataColumn(
+          label: Center(child: Text('Ações')),
+        ),
+      );
     }
     return cols;
   }
@@ -377,7 +460,10 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
       style: style,
     );
     return maxW != null
-        ? ConstrainedBox(constraints: BoxConstraints(maxWidth: maxW), child: inner)
+        ? ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxW),
+      child: inner,
+    )
         : inner;
   }
 }
@@ -390,5 +476,9 @@ class _RowChunk<T> {
   final String? groupKey;
   final List<T>? items;
 
-  _RowChunk({required this.type, this.groupKey, this.items});
+  _RowChunk({
+    required this.type,
+    this.groupKey,
+    this.items,
+  });
 }

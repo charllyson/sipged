@@ -12,23 +12,23 @@ import 'package:siged/_utils/validates/form_validation_mixin.dart';
 // Layout / Inputs / Widgets
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/progress/stage_progress.dart';
+import 'package:siged/_widgets/menu/tab/stage_progress.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
 // Pipeline / Progress
 import 'package:siged/_blocs/process/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/progress_event.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_repository.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/progress_state.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress.dart';
 import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:siged/_widgets/menu/tab/stage_gate.dart';
 
 import 'package:siged/_blocs/process/hiring/0Stages/hiring_stages.dart';
 
 // Minuta
-import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_bloc.dart';
-import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_controller.dart';
+import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_cubit.dart';
+import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_data.dart';
+import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_state.dart';
 
 // Seções
 import 'package:siged/screens/process/hiring/8Minuta/section_1_identificacao.dart';
@@ -37,13 +37,11 @@ import 'package:siged/screens/process/hiring/8Minuta/section_3_valor.dart';
 import 'package:siged/screens/process/hiring/8Minuta/section_4_gestao_refs.dart';
 
 class MinutaContratoPage extends StatefulWidget {
-  final MinutaContratoController controller;
   final String contractId;
   final bool readOnly;
 
   const MinutaContratoPage({
     super.key,
-    required this.controller,
     required this.contractId,
     this.readOnly = false,
   });
@@ -57,110 +55,117 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
   @override
   bool get wantKeepAlive => true;
 
-  late final ProgressBloc _progressBloc;
+  late final ProgressCubit _progressBloc;
+
+  MinutaContratoData _formData = const MinutaContratoData.empty();
   bool _hydrated = false;
   String? _currentMinutaId;
+
+  final _scrollController = ScrollController();
+
+  bool get _isEditable => !widget.readOnly;
 
   @override
   void initState() {
     super.initState();
-    _progressBloc = ProgressBloc(repo: ProgressRepository());
-    widget.controller.setEditable(!widget.readOnly);
+    _progressBloc = ProgressCubit(repo: ProgressRepository());
 
-    context.read<MinutaContratoBloc>().add(MinutaLoadRequested(widget.contractId));
+    // Dispara o load inicial
+    context.read<MinutaContratoCubit>().load(widget.contractId);
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _progressBloc.close();
     super.dispose();
   }
 
   Future<void> _saveOnly() async {
-    final bloc = context.read<MinutaContratoBloc>();
-
-    final quick = widget.controller.quickValidate();
-    if (quick != null) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Validação da Minuta'),
-          subtitle: Text(quick),
-          type: AppNotificationType.warning,
-        ),
-      );
-      return;
-    }
+    final cubit = context.read<MinutaContratoCubit>();
 
     final completer = Completer<void>();
     late final StreamSubscription sub;
-    sub = bloc.stream.listen((s) {
+
+    sub = cubit.stream.listen((s) {
       if (!s.saving) {
         if (!completer.isCompleted) completer.complete();
         sub.cancel();
       }
     });
 
-    bloc.add(MinutaSaveRequested(
+    await cubit.saveAll(
       contractId: widget.contractId,
-      sectionsData: widget.controller.toSectionMaps(),
-    ));
+      sectionsData: _formData.toSectionsMap(),
+    );
 
     await completer.future;
 
-    if (!bloc.state.saveSuccess) {
-      final err = bloc.state.error ?? 'Falha ao salvar';
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('Minuta'),
-          subtitle: const Text('Erro ao salvar.'),
-          details: Text(err),
-          type: AppNotificationType.error,
-        ),
-      );
+    if (!cubit.state.saveSuccess) {
+      final err = cubit.state.error ?? 'Falha ao salvar';
+      if (mounted) {
+        NotificationCenter.instance.show(
+          AppNotification(
+            title: const Text('Minuta'),
+            subtitle: const Text('Erro ao salvar.'),
+            details: Text(err),
+            type: AppNotificationType.error,
+          ),
+        );
+      }
       return;
     }
 
-    NotificationCenter.instance.show(
-      AppNotification(
-        title: const Text('Minuta'),
-        subtitle: const Text('Alterações salvas com sucesso.'),
-        type: AppNotificationType.success,
-      ),
-    );
+    if (mounted) {
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Minuta'),
+          subtitle: const Text('Alterações salvas com sucesso.'),
+          type: AppNotificationType.success,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+
+    // (imports de UserBloc/UserData permanecem para uso nas seções,
+    // mesmo que esta página em si não use diretamente)
 
     return BlocProvider.value(
       value: _progressBloc,
-      child: BlocListener<MinutaContratoBloc, MinutaState>(
+      child: BlocListener<MinutaContratoCubit, MinutaState>(
         listenWhen: (prev, curr) =>
-        (prev.loading && !curr.loading) || (prev.minutaId != curr.minutaId),
+        (prev.loading && !curr.loading) ||
+            (prev.minutaId != curr.minutaId),
         listener: (context, state) {
           if (!mounted || state.loading || !state.hasValidPath) return;
 
           final incomingId = state.minutaId;
           final needsHydrate = !_hydrated || _currentMinutaId != incomingId;
           if (needsHydrate) {
-            widget.controller.fromSectionMaps(state.sectionsData);
+            final data = MinutaContratoData.fromSectionsMap(state.sectionsData);
+
+            setState(() {
+              _formData = data;
+            });
+
             _hydrated = true;
             _currentMinutaId = incomingId;
 
             if (incomingId != null && incomingId.isNotEmpty) {
-              _progressBloc.add(ProgressBindRequested(
+              _progressBloc.bindToStage(
                 contractId: widget.contractId,
                 collectionName: 'minuta',
-                stageId: incomingId,
-              ));
+              );
             }
           }
         },
-        child: BlocBuilder<MinutaContratoBloc, MinutaState>(
+        child: BlocBuilder<MinutaContratoCubit, MinutaState>(
           builder: (context, state) {
-            final pstate = context.watch<ProgressBloc>().state;
+            final pstate = context.watch<ProgressCubit>().state;
 
             final locked = state.loading || state.saving || pstate.loading;
             final msg = state.loading
@@ -176,145 +181,197 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
               message: msg,
               details: locked ? 'Por favor, aguarde.' : null,
               keepAppBarUndimmed: true,
-              child: Scaffold(
-                body: Stack(
-                  children: [
-                    const BackgroundClean(),
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SectionIdentificacao(controller: widget.controller),
-                          SectionPartesObjeto(controller: widget.controller),
-                          SectionValor(controller: widget.controller),
-                          SectionGestaoRefs(controller: widget.controller, users: users),
-                        ],
+              child: StageGate(
+                stageKey: HiringStageKey.minuta,
+                child: Scaffold(
+                  body: Stack(
+                    children: [
+                      const BackgroundClean(),
+                      SingleChildScrollView(
+                        key: const PageStorageKey('minuta-scroll'),
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SectionIdentificacao(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            SectionPartesObjeto(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            SectionValor(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                            SectionGestaoRefs(
+                              data: _formData,
+                              isEditable: _isEditable,
+                              onChanged: (updated) {
+                                setState(() => _formData = updated);
+                              },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                bottomNavigationBar: BlocBuilder<ProgressBloc, ProgressState>(
-                  builder: (context, pstate) {
-                    return StageProgress(
-                      title: 'Minuta do Contrato',
-                      icon: Icons.description_outlined,
-                      busy: state.saving,
-                      approved: pstate.approved,
-                      onSave: _saveOnly,
-                      onSaveAndNext: () async {
-                        await _saveOnly();
+                    ],
+                  ),
+                  bottomNavigationBar:
+                  BlocBuilder<ProgressCubit, ProgressState>(
+                    builder: (context, pstate) {
+                      return StageProgress(
+                        title: 'Minuta do Contrato',
+                        icon: Icons.description_outlined,
+                        busy: state.saving,
+                        approved: pstate.approved,
+                        onSave: _saveOnly,
+                        onSaveAndNext: () async {
+                          await _saveOnly();
 
-                        final minutaId = context.read<MinutaContratoBloc>().state.minutaId;
-                        if (minutaId == null || minutaId.isEmpty) {
-                          NotificationCenter.instance.show(
-                            AppNotification(
-                              title: const Text('Minuta'),
-                              subtitle: const Text('Documento não encontrado para aprovar.'),
-                              type: AppNotificationType.error,
-                            ),
-                          );
-                          return;
-                        }
+                          final minutaId =
+                              context.read<MinutaContratoCubit>().state.minutaId;
+                          if (minutaId == null || minutaId.isEmpty) {
+                            NotificationCenter.instance.show(
+                              AppNotification(
+                                title: const Text('Minuta'),
+                                subtitle: const Text(
+                                  'Documento não encontrado para aprovar.',
+                                ),
+                                type: AppNotificationType.error,
+                              ),
+                            );
+                            return;
+                          }
 
-                        final user = FirebaseAuth.instance.currentUser;
-                        final uid = user?.uid ?? '';
-                        final nameOrEmail = (user?.displayName?.trim().isNotEmpty ?? false)
-                            ? user!.displayName!
-                            : (user?.email ?? uid);
+                          final user = FirebaseAuth.instance.currentUser;
+                          final uid = user?.uid ?? '';
+                          final nameOrEmail =
+                          (user?.displayName?.trim().isNotEmpty ?? false)
+                              ? user!.displayName!
+                              : (user?.email ?? uid);
 
-                        final repo = _progressBloc.repo;
-                        try {
-                          await repo.approveStage(
-                            contractId: widget.contractId,
-                            collectionName: 'minuta',
-                            stageId: minutaId,
-                            approverUid: uid,
-                            approverName: nameOrEmail,
-                          );
-                          await repo.setCompleted(
-                            contractId: widget.contractId,
-                            collectionName: 'minuta',
-                            stageId: minutaId,
-                            completed: true,
-                          );
+                          final repo = _progressBloc.repo;
+                          try {
+                            await repo.approveStage(
+                              contractId: widget.contractId,
+                              collectionName: 'minuta',
+                              approverUid: uid,
+                              approverName: nameOrEmail,
+                            );
 
-                          // 🔹 Liberação otimista da próxima etapa: Parecer Jurídico
-                          final pipeline = context.read<PipelineProgressCubit>();
-                          pipeline.setStageEnabled(HiringStageKey.minuta, true); // ← ajuste se seu enum divergir
-                          unawaited(pipeline.refresh());
+                            await repo.setCompleted(
+                              contractId: widget.contractId,
+                              collectionName: 'minuta',
+                              completed: true,
+                            );
 
-                          final tab = DefaultTabController.of(context);
-                          tab?.animateTo((tab.index + 1).clamp(0, tab.length - 1));
+                            // Libera PRÓXIMA etapa (ajuste se seu enum divergir)
+                            final pipeline =
+                            context.read<PipelineProgressCubit>();
+                            pipeline.setStageEnabled(
+                              HiringStageKey.minuta, // ou o próximo stage real
+                              true,
+                            );
+                            unawaited(pipeline.refresh());
 
-                          NotificationCenter.instance.show(
-                            AppNotification(
-                              title: const Text('Minuta'),
-                              subtitle: const Text('Aprovado e etapa concluída.'),
-                              type: AppNotificationType.success,
-                            ),
-                          );
-                        } catch (e) {
-                          NotificationCenter.instance.show(
-                            AppNotification(
-                              title: const Text('Minuta'),
-                              subtitle: const Text('Erro ao aprovar.'),
-                              details: Text('$e'),
-                              type: AppNotificationType.error,
-                            ),
-                          );
-                        }
-                      },
-                      onUpdateApproved: () async {
-                        await _saveOnly();
+                            final tab =
+                            DefaultTabController.of(context);
+                            tab?.animateTo(
+                              (tab.index + 1)
+                                  .clamp(0, tab.length - 1),
+                            );
 
-                        final minutaId = context.read<MinutaContratoBloc>().state.minutaId;
-                        if (minutaId == null || minutaId.isEmpty) {
-                          NotificationCenter.instance.show(
-                            AppNotification(
-                              title: const Text('Minuta'),
-                              subtitle: const Text('Documento não encontrado para atualizar.'),
-                              type: AppNotificationType.error,
-                            ),
-                          );
-                          return;
-                        }
+                            NotificationCenter.instance.show(
+                              AppNotification(
+                                title: const Text('Minuta'),
+                                subtitle: const Text(
+                                  'Aprovado e etapa concluída.',
+                                ),
+                                type: AppNotificationType.success,
+                              ),
+                            );
+                          } catch (e) {
+                            NotificationCenter.instance.show(
+                              AppNotification(
+                                title: const Text('Minuta'),
+                                subtitle:
+                                const Text('Erro ao aprovar.'),
+                                details: Text('$e'),
+                                type: AppNotificationType.error,
+                              ),
+                            );
+                          }
+                        },
+                        onUpdateApproved: () async {
+                          await _saveOnly();
 
-                        final user = FirebaseAuth.instance.currentUser;
-                        final uid = user?.uid ?? '';
-                        final nameOrEmail = (user?.displayName?.trim().isNotEmpty ?? false)
-                            ? user!.displayName!
-                            : (user?.email ?? uid);
+                          final minutaId =
+                              context.read<MinutaContratoCubit>().state.minutaId;
+                          if (minutaId == null || minutaId.isEmpty) {
+                            NotificationCenter.instance.show(
+                              AppNotification(
+                                title: const Text('Minuta'),
+                                subtitle: const Text(
+                                  'Documento não encontrado para atualizar.',
+                                ),
+                                type: AppNotificationType.error,
+                              ),
+                            );
+                            return;
+                          }
 
-                        final repo = _progressBloc.repo;
-                        try {
-                          await repo.touchApproval(
-                            contractId: widget.contractId,
-                            collectionName: 'minuta',
-                            stageId: minutaId,
-                            updatedByUid: uid,
-                            updatedByName: nameOrEmail,
-                          );
-                          NotificationCenter.instance.show(
-                            AppNotification(
-                              title: const Text('Minuta'),
-                              subtitle: const Text('Aprovação atualizada.'),
-                              type: AppNotificationType.success,
-                            ),
-                          );
-                        } catch (e) {
-                          NotificationCenter.instance.show(
-                            AppNotification(
-                              title: const Text('Minuta'),
-                              subtitle: const Text('Erro ao atualizar aprovação.'),
-                              details: Text('$e'),
-                              type: AppNotificationType.error,
-                            ),
-                          );
-                        }
-                      },
-                    );
-                  },
+                          final user = FirebaseAuth.instance.currentUser;
+                          final uid = user?.uid ?? '';
+                          final nameOrEmail =
+                          (user?.displayName?.trim().isNotEmpty ?? false)
+                              ? user!.displayName!
+                              : (user?.email ?? uid);
+
+                          final repo = _progressBloc.repo;
+                          try {
+                            await repo.touchApproval(
+                              contractId: widget.contractId,
+                              collectionName: 'minuta',
+                              updatedByUid: uid,
+                              updatedByName: nameOrEmail,
+                            );
+
+                            NotificationCenter.instance.show(
+                              AppNotification(
+                                title: const Text('Minuta'),
+                                subtitle: const Text(
+                                  'Aprovação atualizada.',
+                                ),
+                                type: AppNotificationType.success,
+                              ),
+                            );
+                          } catch (e) {
+                            NotificationCenter.instance.show(
+                              AppNotification(
+                                title: const Text('Minuta'),
+                                subtitle: const Text(
+                                  'Erro ao atualizar aprovação.',
+                                ),
+                                details: Text('$e'),
+                                type: AppNotificationType.error,
+                              ),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
             );

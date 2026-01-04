@@ -1,0 +1,8 @@
+// functions/src/config/firebase.js
+const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
+
+module.exports = admin;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class TypeBadgeButton extends StatelessWidget {
   const TypeBadgeButton({
@@ -48,23 +49,9 @@ class TypeBadgeButton extends StatelessWidget {
           return;
         }
         if (a.kind == _MenuKind.remove && onRemove != null) {
-          final ok = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Remover coluna'),
-              content: const Text('Tem certeza que deseja remover esta coluna?'),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-                FilledButton.tonal(
-                  style: FilledButton.styleFrom(foregroundColor: Colors.red),
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Remover'),
-                ),
-              ],
-            ),
-          ) ??
-              false;
-          if (ok) onRemove!.call();
+          final ok = confirmDialog(context, 'Deseja realmente remover esta coluna?');
+          if (ok != true) return;
+          onRemove!.call();
         }
       },
       itemBuilder: (ctx) => [

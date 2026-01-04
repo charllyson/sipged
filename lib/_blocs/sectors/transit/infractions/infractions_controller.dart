@@ -465,21 +465,6 @@ class InfractionsController extends ChangeNotifier {
     return t.isEmpty ? null : t;
   }
 
-  // ===================== CONFIRMAÇÃO & FEEDBACK =====================
-  Future<bool> confirm(BuildContext context, String message) async {
-    final res = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirmação'),
-        content: Text(message),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Confirmar')),
-        ],
-      ),
-    );
-    return res ?? false;
-  }
 
   void _notify(
       String title, {

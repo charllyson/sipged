@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_widgets/drawer/menu_drawer_item.dart';
+import 'package:siged/_widgets/menu/drawer/menu_drawer_item.dart';
 
 import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/drawer/menu_drawer_sub_item.dart';
+import 'package:siged/_widgets/menu/drawer/menu_drawer_sub_item.dart';
 import 'package:siged/_blocs/system/pages/pages_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/images/logos/sisgeo_logo.dart';
@@ -156,7 +156,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
     if (visibleGroups.isEmpty) return const <Widget>[];
 
     return [
-      DividerText(title: title, colorTitle: colorTitle, subTitle: colorSubTitle),
+      DividerText(text: title, colorTitle: colorTitle, subTitle: colorSubTitle),
       const SizedBox(height: 8),
       ...visibleGroups,
       const SizedBox(height: 12),

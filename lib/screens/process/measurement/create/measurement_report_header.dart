@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/report/report_measurement_data.dart';
-import 'package:siged/_utils/formats/date_utils.dart';
+import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
+import 'package:siged/_utils/formats/converters_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/screens/process/measurement/create/create_detailed_reports_page.dart';
 import 'package:siged/screens/process/measurement/create/info_grid.dart';
 import 'package:siged/screens/process/measurement/create/label_value.dart';
 
@@ -19,6 +18,9 @@ class MeasurementReportHeader extends StatelessWidget {
 
     /// 🔹 Número do contrato (PublicacaoExtratoData.numeroContrato)
     this.numeroContrato,
+
+    /// 🔹 Valor do contrato (DFD.valorDemanda)
+    this.valorDemandaContrato,
   });
 
   final ProcessData contract;
@@ -29,6 +31,9 @@ class MeasurementReportHeader extends StatelessWidget {
 
   /// 🔹 Campo vindo de PublicacaoExtratoData.numeroContrato
   final String? numeroContrato;
+
+  /// 🔹 Campo vindo de DfdData.valorDemanda
+  final num? valorDemandaContrato;
 
   String _dashIfEmpty(String? s) {
     final v = (s ?? '').trim();
@@ -48,14 +53,16 @@ class MeasurementReportHeader extends StatelessWidget {
     final obra = _dashIfEmpty(descricaoObjeto);
 
     // 🔹 LOCAL / CONSTRUTORA ficam em branco até termos fonte correta
-    final local = _dashIfEmpty('' /* ex.: region / município, quando existir */);
-    final construtora =
-    _dashIfEmpty('' /* ex.: companyLeader, quando existir no novo modelo */);
+    final local =
+    _dashIfEmpty('' /* ex.: region / município, quando existir */);
+    final construtora = _dashIfEmpty(
+        '' /* ex.: companyLeader, quando existir no novo modelo */);
 
     // 🔹 CONTRATO Nº vem da PublicacaoExtratoData.numeroContrato
     final contratoNum = _dashIfEmpty(numeroContrato);
 
-    final valorContrato = _money(contract.initialValueContract ?? 0);
+    // 🔹 Valor do contrato vem SOMENTE da demanda (DFD.valorDemanda)
+    final valorContrato = _money(valorDemandaContrato);
 
     final prazoExecStr = (contract.initialValidityExecution == null)
         ? '–'

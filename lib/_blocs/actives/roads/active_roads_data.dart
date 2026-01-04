@@ -1,8 +1,9 @@
-import 'dart:math' as Math;
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:siged/_utils/math/math_utils.dart';
 
 class ActiveRoadsData extends ChangeNotifier {
   late final String? id;
@@ -152,13 +153,15 @@ class ActiveRoadsData extends ChangeNotifier {
       maximumSpeed: _toInt(map['maximumSpeed']),
       conservationCondition: map['conservationCondition'],
       drainage: map['drainage'],
-      vsa: _toInt(map['vsa']), // ✅ corrigido
+      vsa: _toInt(map['vsa']),
       roadName: map['roadName'],
       state: map['state'],
       direction: map['direction'],
       managingAgency: map['managingAgency'],
       description: map['description'],
-      metadata: (map['metadata'] is Map<String, dynamic>) ? map['metadata'] as Map<String, dynamic> : null,
+      metadata: (map['metadata'] is Map<String, dynamic>)
+          ? map['metadata'] as Map<String, dynamic>
+          : null,
       createdAt: _parseDate(map['createdAt']),
       createdBy: map['createdBy'],
       updatedAt: _parseDate(map['updatedAt']),
@@ -219,9 +222,179 @@ class ActiveRoadsData extends ChangeNotifier {
       'updatedBy': updatedBy,
       'deletedAt': deletedAt,
       'deletedBy': deletedBy,
-      'points': points?.map((p) => GeoPoint(p.latitude, p.longitude)).toList(),
+      'points':
+      points?.map((p) => GeoPoint(p.latitude, p.longitude)).toList(),
     };
   }
+
+  // ===========================================================================
+  // Rótulos
+  // ===========================================================================
+  static String getStatusSurface(String status) {
+    switch (status.trim().toUpperCase()) {
+      case 'DUP':
+        return 'DUPLICADA';
+      case 'EOD':
+        return 'EM OBRA DE DUPLICAÇÃO';
+      case 'PAV':
+        return 'PAVIMENTADA';
+      case 'EOP':
+        return 'EM OBRAS DE PAVIMENTAÇÃO';
+      case 'IMP':
+        return 'IMPLANTADA';
+      case 'EOI':
+        return 'EM OBRAS DE IMPLANTAÇÃO';
+      case 'LEN':
+        return 'LEITO NATURAL';
+      case 'PLA':
+        return 'PLANEJADA';
+      default:
+        return 'OUTRO';
+    }
+  }
+
+  // ===========================================================================
+  // LÓGICA DA LEGENDA (tipo de linha)
+  // ===========================================================================
+  /// DUP/EOD = duas pistas; PAV/EOP = uma pista
+  static bool isDupla(String? code) {
+    final c = (code ?? '').toUpperCase().trim();
+    return c == 'DUP' || c == 'EOD';
+  }
+
+  /// EOD/EOP = tracejada; DUP/PAV = contínua
+  static bool isTracejada(String? code) {
+    final c = (code ?? '').toUpperCase().trim();
+    return c == 'EOD' || c == 'EOP';
+  }
+
+  // ===========================================================================
+  // ESCALAS COM O ZOOM
+  // ===========================================================================
+  /// largura (px) de uma pista
+  static double laneWidthForZoom(double zoom) {
+    final w =
+        1.15 * math.pow(1.36, zoom - 8); // ~1.2(z8) → ~2.6(z12) → ~5.2(z16)
+    return w.clamp(1.0, 6.2).toDouble();
+  }
+
+  /// separação (px) entre as duas pistas
+  static double laneSeparationPxForZoom(double zoom) {
+    final s =
+        0.95 * math.pow(1.58, zoom - 10); // ~1.7(z10) → ~4.4(z13) → ~11.6(z16)
+    return s.clamp(1.6, 12.5).toDouble();
+  }
+
+  /// quantos graus valem 1 px nesse centro/zoom (aprox.)
+  static double degreesPerPixel(double latitude, double zoom) {
+    final mpp = 156543.03392 *
+        math.cos(latitude * math.pi / 180.0) /
+        math.pow(2.0, zoom);
+    return mpp / 111_320.0;
+  }
+
+  // ===========================================================================
+  // OFFSET PARALELO (sem "dobras")
+  // ===========================================================================
+  /// Desloca uma polyline **paralelamente** `deslocamentoOrtogonal` graus (lado esquerdo negativo).
+  /// Usa junções com limite de mitra e opcional densificação para curvas discretizadas.
+  static List<LatLng> deslocarPontos(
+      List<LatLng> pts, {
+        required double deslocamentoOrtogonal, // em graus!
+        double miterLimit = 3.0,
+        double densifyIfSegmentMeters = 0,
+      }) {
+    if (pts.length < 2 || deslocamentoOrtogonal.abs() < 1e-12) return pts;
+
+    // Conversão LatLng <-> metros (plano local)
+    final latMean =
+        pts.map((p) => p.latitude).reduce((a, b) => a + b) / pts.length;
+    final cosLat = math.cos(latMean * math.pi / 180.0);
+    const mPerDegLat = 111_320.0;
+    final mPerDegLng = 111_320.0 * cosLat;
+
+    List<_P> toM(List<LatLng> s) =>
+        s.map((p) => _P(p.longitude * mPerDegLng, p.latitude * mPerDegLat)).toList();
+    List<LatLng> toLL(List<_P> s) =>
+        s.map((p) => LatLng(p.y / mPerDegLat, p.x / mPerDegLng)).toList();
+
+    // densify opcional
+    List<_P> densify(List<_P> src, double maxSegMeters) {
+      if (maxSegMeters <= 0) return src;
+      final out = <_P>[];
+      for (int i = 0; i < src.length - 1; i++) {
+        final a = src[i], b = src[i + 1];
+        out.add(a);
+        final dx = b.x - a.x, dy = b.y - a.y;
+        final len = math.sqrt(dx * dx + dy * dy);
+        final nSteps = (len / maxSegMeters).floor();
+        if (nSteps > 1) {
+          for (int k = 1; k < nSteps; k++) {
+            final t = k / nSteps;
+            out.add(_P(a.x + dx * t, a.y + dy * t));
+          }
+        }
+      }
+      out.add(src.last);
+      return out;
+    }
+
+    // graus -> metros
+    final dMeters = deslocamentoOrtogonal * mPerDegLat;
+
+    var m = toM(pts);
+    if (densifyIfSegmentMeters > 0) m = densify(m, densifyIfSegmentMeters);
+
+    // normais por segmento
+    final segNormals = <_P>[];
+    for (int i = 0; i < m.length - 1; i++) {
+      final a = m[i], b = m[i + 1];
+      final vx = b.x - a.x, vy = b.y - a.y;
+      final len = math.sqrt(vx * vx + vy * vy);
+      if (len < 1e-12) {
+        segNormals.add(const _P(0, 0));
+      } else {
+        segNormals.add(_P(-vy / len, vx / len)); // 90° esq
+      }
+    }
+
+    // offset ponto a ponto com mitra
+    final out = <_P>[];
+    for (int i = 0; i < m.length; i++) {
+      late _P off;
+      if (i == 0) {
+        final n = segNormals[0];
+        off = _P(n.x * dMeters, n.y * dMeters);
+      } else if (i == m.length - 1) {
+        final n = segNormals[segNormals.length - 1];
+        off = _P(n.x * dMeters, n.y * dMeters);
+      } else {
+        final n1 = segNormals[i - 1];
+        final n2 = segNormals[i];
+        var tx = n1.x + n2.x, ty = n1.y + n2.y;
+        var tlen = math.sqrt(tx * tx + ty * ty);
+        if (tlen < 1e-9) {
+          tx = n2.x;
+          ty = n2.y;
+          tlen = 1.0;
+        }
+        tx /= tlen;
+        ty /= tlen;
+        final dot = tx * n1.x + ty * n1.y; // cos(theta/2)
+        final gain = (dot.abs() < 1e-3) ? miterLimit : (1.0 / dot).abs();
+        final k = math.min(gain, miterLimit);
+        off = _P(tx * dMeters * k, ty * dMeters * k);
+      }
+      out.add(_P(m[i].x + off.x, m[i].y + off.y));
+    }
+
+    return toLL(out);
+  }
+}
+
+class _P {
+  final double x, y;
+  const _P(this.x, this.y);
 }
 
 /// ----------------- HELPERS -----------------
@@ -246,9 +419,10 @@ DateTime? _parseDate(dynamic value) {
 
 List<LatLng>? _parsePoints(dynamic value) {
   if (value is List) {
-    return value
-        .map<LatLng?>((e) {
-      if (e is GeoPoint) return LatLng(e.latitude, e.longitude);
+    return value.map<LatLng?>((e) {
+      if (e is GeoPoint) {
+        return LatLng(e.latitude, e.longitude);
+      }
       if (e is Map && e['lat'] != null && e['lng'] != null) {
         return LatLng(
           (e['lat'] as num).toDouble(),
@@ -256,9 +430,7 @@ List<LatLng>? _parsePoints(dynamic value) {
         );
       }
       return null;
-    })
-        .whereType<LatLng>()
-        .toList();
+    }).whereType<LatLng>().toList();
   }
   return null;
 }
@@ -268,17 +440,20 @@ List<LatLng>? _parsePoints(dynamic value) {
 extension RoadDataExtensions on ActiveRoadsData {
   /// Ponto inicial (pelos campos de lat/long) – se existirem.
   LatLng? get startLatLng {
-    final lat = double.tryParse((initialLatSegment ?? '').replaceAll(',', '.'));
-    final lng = double.tryParse((initialLongSegment ?? '').replaceAll(',', '.'));
+    final lat =
+    double.tryParse((initialLatSegment ?? '').replaceAll(',', '.'));
+    final lng =
+    double.tryParse((initialLongSegment ?? '').replaceAll(',', '.'));
     if (lat != null && lng != null) return LatLng(lat, lng);
     return (points != null && points!.isNotEmpty) ? points!.first : null;
-    // fallback simples
   }
 
   /// Ponto final (pelos campos de lat/long) – se existirem.
   LatLng? get endLatLng {
-    final lat = double.tryParse((finalLatSegment ?? '').replaceAll(',', '.'));
-    final lng = double.tryParse((finalLongSegment ?? '').replaceAll(',', '.'));
+    final lat =
+    double.tryParse((finalLatSegment ?? '').replaceAll(',', '.'));
+    final lng =
+    double.tryParse((finalLongSegment ?? '').replaceAll(',', '.'));
     if (lat != null && lng != null) return LatLng(lat, lng);
     return (points != null && points!.isNotEmpty) ? points!.last : null;
   }
@@ -297,7 +472,10 @@ extension RoadDataExtensions on ActiveRoadsData {
     // sem polyline? tenta média do início/fim
     final a = startLatLng, b = endLatLng;
     if (a != null && b != null) {
-      return LatLng((a.latitude + b.latitude) / 2, (a.longitude + b.longitude) / 2);
+      return LatLng(
+        (a.latitude + b.latitude) / 2,
+        (a.longitude + b.longitude) / 2,
+      );
     }
     return a ?? b;
   }
@@ -309,7 +487,8 @@ extension RoadDataExtensions on ActiveRoadsData {
     if (ps == null || ps.length < 2) return null;
 
     // Converte para “metros” aproximados para distância euclidiana
-    final meanLat = ps.fold<double>(0.0, (acc, e) => acc + e.latitude) / ps.length;
+    final meanLat =
+        ps.fold<double>(0.0, (acc, e) => acc + e.latitude) / ps.length;
     const mPerDegLat = 111320.0;
     final mPerDegLng = 111320.0 * (MathUtils.cosDeg(meanLat));
     Offset toM(LatLng ll) => Offset(ll.longitude * mPerDegLng, ll.latitude * mPerDegLat);
@@ -337,13 +516,14 @@ extension RoadDataExtensions on ActiveRoadsData {
   /// Escolhe a melhor âncora para o tooltip dado um toque.
   /// 1) projeção do toque na linha; 2) centro; 3) início; 4) fim.
   LatLng? anchorForTap(LatLng? tap) {
-    return projectOnPolyline(tap ?? centerLatLng ?? startLatLng ?? endLatLng ?? const LatLng(0, 0)) ??
+    return projectOnPolyline(
+      tap ?? centerLatLng ?? startLatLng ?? endLatLng ?? const LatLng(0, 0),
+    ) ??
         centerLatLng ??
         startLatLng ??
         endLatLng;
   }
 
-  /// Entradas para debug/inspeção
   List<MapEntry<String, String>> toEntries() {
     return [
       MapEntry('Rodovia', acronym ?? ''),
@@ -399,18 +579,6 @@ extension RoadDataExtensions on ActiveRoadsData {
       MapEntry('Metadata', metadata?.toString() ?? ''),
     ];
   }
-}
-
-/// ---- math helpers
-class MathUtils {
-  static double cosDeg(double deg) => MathUtils._cos(deg * 3.141592653589793 / 180.0);
-  static double _cos(double rad) => MathUtils._dcos(rad);
-  static double _dcos(double rad) => MathUtils._cosInternal(rad);
-  static double _cosInternal(double rad) => MathUtils.__cos(rad);
-  static double __cos(double rad) => MathUtils.___cos(rad);
-  static double ___cos(double rad) => MathUtils.____cos(rad);
-  static double ____cos(double rad) => MathUtils.realCos(rad);
-  static double realCos(double rad) => Math.cos(rad);
 }
 
 /// Função de projeção de ponto em segmento em coordenadas cartesianas (metros aproximados)

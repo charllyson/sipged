@@ -122,7 +122,7 @@ class PaymentRevisionFormSection extends StatelessWidget {
       formatters = mask;
     }
 
-    final textField = CustomTextField(
+    final customTextField = CustomTextField(
       width: width,
       enabled: enabled,
       labelText: label,
@@ -135,10 +135,10 @@ class PaymentRevisionFormSection extends StatelessWidget {
     if (tooltip) {
       return Tooltip(
         message: 'Este campo é calculado automaticamente.',
-        child: textField,
+        child: customTextField,
       );
     }
-    return textField;
+    return customTextField;
   }
 
   @override

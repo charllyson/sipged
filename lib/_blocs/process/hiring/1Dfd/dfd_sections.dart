@@ -1,4 +1,3 @@
-// lib/_blocs/process/hiring/1Dfd/dfd_sections.dart
 /// Chaves estáveis para as seções do DFD
 class DfdSections {
   static const identificacao = 'identificacao';

@@ -1,42 +1,8 @@
+// lib/_blocs/sectors/transit/accidents/accidents_state.dart
 import 'package:equatable/equatable.dart';
-import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 
-class AddressSuggestion extends Equatable {
-  final double? latitude;
-  final double? longitude;
-  final String street;
-  final String subLocality;
-  final String administrativeArea;
-  final String postalCode;
-  final String country;
-  final String isoCountryCode;
-  final String city;
-
-  const AddressSuggestion({
-    this.latitude,
-    this.longitude,
-    this.street = '',
-    this.subLocality = '',
-    this.administrativeArea = '',
-    this.postalCode = '',
-    this.country = '',
-    this.isoCountryCode = '',
-    this.city = '',
-  });
-
-  @override
-  List<Object?> get props => [
-    latitude,
-    longitude,
-    street,
-    subLocality,
-    administrativeArea,
-    postalCode,
-    country,
-    isoCountryCode,
-    city,
-  ];
-}
+import 'accidents_data.dart';
+import 'accidents_repository.dart'; // para AddressSuggestion
 
 class AccidentsState extends Equatable {
   final bool initialized;
@@ -97,11 +63,14 @@ class AccidentsState extends Equatable {
     this.locationError,
   });
 
+  factory AccidentsState.initial() => const AccidentsState();
+
   AccidentsState copyWith({
     bool? initialized,
     bool? loading,
     bool? saving,
 
+    // Filtros
     bool setYearNull = false,
     int? year,
     bool setMonthNull = false,
@@ -109,19 +78,27 @@ class AccidentsState extends Equatable {
     bool setCityNull = false,
     String? city,
 
+    // Listas
     List<AccidentsData>? universe,
     List<AccidentsData>? all,
     List<AccidentsData>? view,
     List<AccidentsData>? pageItems,
+
+    // Paginação
     int? currentPage,
     int? totalPages,
     int? limitPerPage,
+
+    // Agregações
     Map<String, double>? totalsByCity,
     Map<String, double>? totalsByType,
     Map<String, double>? resumeByType,
+
+    // Mensagens
     String? error,
     String? success,
 
+    // Localização
     bool? gettingLocation,
     AddressSuggestion? locationSuggestion,
     bool clearLocationSuggestion = false,
@@ -147,10 +124,11 @@ class AccidentsState extends Equatable {
       resumeByType: resumeByType ?? this.resumeByType,
       error: error,
       success: success,
-
       gettingLocation: gettingLocation ?? this.gettingLocation,
-      locationSuggestion: clearLocationSuggestion ? null : (locationSuggestion ?? this.locationSuggestion),
-      locationError: clearLocationError ? null : (locationError ?? this.locationError),
+      locationSuggestion:
+      clearLocationSuggestion ? null : (locationSuggestion ?? this.locationSuggestion),
+      locationError:
+      clearLocationError ? null : (locationError ?? this.locationError),
     );
   }
 

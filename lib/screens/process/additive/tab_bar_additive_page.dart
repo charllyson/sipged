@@ -1,12 +1,17 @@
 // lib/screens/process/hiring/physical_financial/tab_bar_additive_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:siged/_blocs/_process/process_bloc.dart';
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_event.dart';
+
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
+import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
+
 import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:siged/_widgets/schedule/physical_financial/schedule_physical_financial_widget.dart';
+
+// 👉 usar a AdditivePage do módulo contracts/additives
 import 'package:siged/screens/process/additive/additive_page.dart';
 
 class TabBarAdditivePage extends StatelessWidget {
@@ -31,20 +36,23 @@ class TabBarAdditivePage extends StatelessWidget {
         ContractTabDescriptor(
           label: 'Aditivos',
           requireSavedContract: true,
-          builder: (c) => AdditivePage(
-            key: ValueKey(c?.id),
-            contractData: c!,
-          ),
+          builder: (c) {
+            return AdditivePage(
+              key: ValueKey(c?.id),
+              contractData: c!,
+            );
+          },
         ),
         ContractTabDescriptor(
           label: 'Cronograma',
           requireSavedContract: true,
-          builder: (c) => BlocProvider(
-            create: (_) => ScheduleRoadBloc()
-              ..add(ScheduleWarmupRequested(
-                contractId: c.id!,
-                initialServiceKey: 'geral',
-              )),
+          builder: (c) => BlocProvider<ScheduleRoadCubit>(
+            create: (_) => ScheduleRoadCubit(
+              repository: ScheduleRoadRepository(),
+            )..warmup(
+              contractId: c.id!,
+              initialServiceKey: 'geral',
+            ),
             child: SchedulePhysicalFinancialWidget(
               contractData: c!,
               chronogramMode: true,

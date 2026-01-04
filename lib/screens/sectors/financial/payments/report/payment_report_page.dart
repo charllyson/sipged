@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:siged/_blocs/process/additives/additives_repository.dart';
 
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_report_controller.dart';
-import 'package:siged/_blocs/process/additives/additives_bloc.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/report/report_measurement_data.dart';
+import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
 import 'package:siged/_blocs/sectors/financial/payments/report/payments_reports_data.dart';
-import 'package:siged/_widgets/texts/divider_text.dart';
+
 import 'package:siged/_services/excel/import_excel_page.dart';
-import 'package:siged/_widgets/footBar/foot_bar.dart';
+import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 import 'payment_report_chart_section.dart';
 import 'payment_report_form_section.dart';
@@ -20,8 +22,8 @@ import 'payment_report_table_section.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-class PaymentsReportPage extends StatelessWidget {
-  const PaymentsReportPage({
+class PaymentReportPage extends StatelessWidget {
+  const PaymentReportPage({
     super.key,
     this.contractData,
     this.reportData = const [],
@@ -35,7 +37,7 @@ class PaymentsReportPage extends StatelessWidget {
     return ChangeNotifierProvider<PaymentsReportController>(
       create: (ctx) => PaymentsReportController(
         paymentReportBloc: ctx.read<PaymentReportBloc>(),
-        additivesBloc: ctx.read<AdditivesBloc>(),
+        additivesRepository: ctx.read<AdditivesRepository>(),
       )..init(ctx, contractData: contractData),
       builder: (context, _) {
         final c = context.watch<PaymentsReportController>();
@@ -57,9 +59,7 @@ class PaymentsReportPage extends StatelessWidget {
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        const SizedBox(height: 12),
-                        const DividerText(title: 'Gráfico dos pagamentos'),
-                        const SizedBox(height: 12),
+                        const SectionTitle(text: 'Gráfico dos pagamentos'),
                         PaymentsReportChartsSection(
                           labels: labels,
                           values: values,
@@ -71,12 +71,12 @@ class PaymentsReportPage extends StatelessWidget {
                             c.selectRow(c.reports[index]);
                           },
                         ),
-                        const SizedBox(height: 12),
-                        const DividerText(title: 'Cadastrar pagamento no sistema'),
-                        const SizedBox(height: 12),
-
+                        const SectionTitle(
+                          text: 'Cadastrar pagamento no sistema',
+                        ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          padding:
+                          const EdgeInsets.symmetric(horizontal: 12.0),
                           child: PaymentReportFormSection(
                             isSaving: c.isSaving,
                             selectedPaymentReportData: c.selected,
@@ -89,9 +89,11 @@ class PaymentsReportPage extends StatelessWidget {
                             datePaymentReportController: c.dateCtrl,
                             valuePaymentReportController: c.valueCtrl,
                             statePaymentReportController: c.stateCtrl,
-                            observationPaymentReportController: c.observationCtrl,
+                            observationPaymentReportController:
+                            c.observationCtrl,
                             bankPaymentReportController: c.bankCtrl,
-                            electronicTicketPaymentReportController: c.electronicTicketCtrl,
+                            electronicTicketPaymentReportController:
+                            c.electronicTicketCtrl,
                             fontPaymentReportController: c.fontCtrl,
                             taxPaymentReportController: c.taxCtrl,
 
@@ -100,22 +102,9 @@ class PaymentsReportPage extends StatelessWidget {
                             onSaveOrUpdate: () async {
                               await c.saveOrUpdate(
                                 onConfirm: () async {
-                                  final ok = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Confirmação'),
-                                      content: const Text('Deseja salvar este pagamento?'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, false),
-                                          child: const Text('Cancelar'),
-                                        ),
-                                        ElevatedButton(
-                                          onPressed: () => Navigator.pop(context, true),
-                                          child: const Text('Confirmar'),
-                                        ),
-                                      ],
-                                    ),
+                                  final ok = await confirmDialog(
+                                    context,
+                                    'Deseja salvar este pagamento?',
                                   );
                                   return ok == true;
                                 },
@@ -131,21 +120,26 @@ class PaymentsReportPage extends StatelessWidget {
                             // 🆕 SideListBox (multi anexos + rótulo)
                             sideItems: c.sideItems,
                             selectedSideIndex: c.selectedSideIndex,
-                            onAddSideItem: c.canAddFile ? () => c.handleAddFile(context) : null,
-                            onTapSideItem: (i) => c.handleOpenFile(context, i),
-                            onDeleteSideItem: (i) => c.handleDeleteFile(i, context),
-                            onEditLabelSideItem: (i) => c.handleEditLabelFile(i, context),
+                            onAddSideItem: c.canAddFile
+                                ? () => c.handleAddFile(context)
+                                : null,
+                            onTapSideItem: (i) =>
+                                c.handleOpenFile(context, i),
+                            onDeleteSideItem: (i) =>
+                                c.handleDeleteFile(i, context),
+                            onEditLabelSideItem: (i) =>
+                                c.handleEditLabelFile(i, context),
                           ),
                         ),
-
-                        const SizedBox(height: 12),
-                        const DividerText(title: 'Pagamentos cadastrados no sistema', isSend: true),
-
+                        const SectionTitle(
+                          text: 'Pagamentos cadastrados no sistema',
+                        ),
                         if (c.isAdmin)
                           ImportExcelPage(
                             firstCollection: c.contract?.id ?? '',
                             onFinished: () async {
-                              await c.init(context, contractData: c.contract);
+                              await c.init(context,
+                                  contractData: c.contract);
                             },
                             onSave: (dados) async {
                               final data = PaymentsReportData.fromMap(dados);
@@ -154,7 +148,9 @@ class PaymentsReportPage extends StatelessWidget {
                                 onError: () {
                                   NotificationCenter.instance.show(
                                     AppNotification(
-                                      title: Text('Erro ao importar pagamento'),
+                                      title: const Text(
+                                        'Erro ao importar pagamento',
+                                      ),
                                       type: AppNotificationType.error,
                                     ),
                                   );
@@ -162,7 +158,6 @@ class PaymentsReportPage extends StatelessWidget {
                               );
                             },
                           ),
-
                         const SizedBox(height: 12),
                         PaymentReportTableSection(
                           reportData: c.reports,
@@ -175,11 +170,13 @@ class PaymentsReportPage extends StatelessWidget {
                 const FootBar(),
               ],
             ),
-
             if (c.isSaving)
               Stack(
                 children: [
-                  ModalBarrier(dismissible: false, color: Colors.black.withOpacity(0.4)),
+                  ModalBarrier(
+                    dismissible: false,
+                    color: Colors.black.withOpacity(0.4),
+                  ),
                   const Center(child: CircularProgressIndicator()),
                 ],
               ),

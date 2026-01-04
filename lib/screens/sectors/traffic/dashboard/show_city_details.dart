@@ -1,17 +1,20 @@
+// lib/screens/sectors/traffic/dashboard/show_city_details.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/sectors/transit/accidents/accidents_data.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 
 class ShowCityDetails extends StatelessWidget {
-  const ShowCityDetails({required this.dados, required this.region, super.key});
+  const ShowCityDetails({
+    required this.dados,
+    required this.region,
+    super.key,
+  });
 
   final List<AccidentsData> dados;
   final String region;
 
-  // ===== Helpers visuais =====
   String _fmtDate(DateTime? dt) {
     if (dt == null) return 'N/A';
-    // dd/MM/yyyy HH:mm (sem depender de intl)
     final d = dt.day.toString().padLeft(2, '0');
     final m = dt.month.toString().padLeft(2, '0');
     final y = dt.year.toString().padLeft(4, '0');
@@ -21,7 +24,8 @@ class ShowCityDetails extends StatelessWidget {
   }
 
   int get _totalMortes => dados.fold(0, (a, b) => a + (b.death ?? 0));
-  int get _totalFeridos => dados.fold(0, (a, b) => a + (b.scoresVictims ?? 0));
+  int get _totalFeridos =>
+      dados.fold(0, (a, b) => a + (b.scoresVictims ?? 0));
 
   Color _chipColor(BuildContext context) =>
       Theme.of(context).colorScheme.secondaryContainer;
@@ -34,14 +38,14 @@ class ShowCityDetails extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    // ordena por data (desc)
-    final items = [...dados]..sort(
-      (a, b) => (b.date ?? DateTime(1900)).compareTo(a.date ?? DateTime(1900)),
-    );
+    final items = [...dados]
+      ..sort(
+            (a, b) => (b.date ?? DateTime(1900))
+            .compareTo(a.date ?? DateTime(1900)),
+      );
 
     final total = items.length;
 
-    // responsivo
     final size = MediaQuery.of(context).size;
     final double maxW = (size.width * 0.92).clamp(360.0, 980.0);
     final double maxH = (size.height * 0.78).clamp(420.0, 900.0);
@@ -49,13 +53,13 @@ class ShowCityDetails extends StatelessWidget {
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12), //
+        borderRadius: BorderRadius.circular(12),
         child: Column(
           children: [
-            // ===== Header com gradiente + estatísticas =====
+            // HEADER
             Container(
               width: double.infinity,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -67,15 +71,15 @@ class ShowCityDetails extends StatelessWidget {
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+                      padding:
+                      const EdgeInsets.fromLTRB(16, 16, 8, 8),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Ícone da cidade
                           Container(
                             width: 46,
                             height: 46,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
                             ),
@@ -85,16 +89,17 @@ class ShowCityDetails extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          // Títulos
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   region,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleLarge?.copyWith(
+                                  style: theme.textTheme.titleLarge
+                                      ?.copyWith(
                                     fontWeight: FontWeight.w800,
                                     color: Colors.white,
                                   ),
@@ -102,12 +107,14 @@ class ShowCityDetails extends StatelessWidget {
                               ],
                             ),
                           ),
-
-                          // Botão Fechar
                           IconButton(
                             tooltip: 'Fechar',
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            icon: Icon(Icons.close_rounded, color: Colors.white),
+                            onPressed: () =>
+                                Navigator.of(context).maybePop(),
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.white,
+                            ),
                           ),
                         ],
                       ),
@@ -115,7 +122,8 @@ class ShowCityDetails extends StatelessWidget {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
+                        padding:
+                        const EdgeInsets.only(bottom: 8.0),
                         child: Row(
                           children: [
                             const SizedBox(width: 8),
@@ -138,9 +146,12 @@ class ShowCityDetails extends StatelessWidget {
                             _InfoChip(
                               label: 'Feridos',
                               value: '$_totalFeridos',
-                              color: Colors.orange.withOpacity(.16),
-                              textColor: Colors.orange.shade800,
-                              icon: Icons.medical_services_rounded,
+                              color:
+                              Colors.orange.withOpacity(.16),
+                              textColor:
+                              Colors.orange.shade800,
+                              icon: Icons
+                                  .medical_services_rounded,
                             ),
                           ],
                         ),
@@ -151,51 +162,51 @@ class ShowCityDetails extends StatelessWidget {
               ),
             ),
 
-            // ===== Conteúdo =====
+            // CONTEÚDO
             Expanded(
-              child:
-                  items.isEmpty
-                      ? _EmptyState(cs: cs, region: region)
-                      : Stack(
-                        children: [
-                          BackgroundClean(),
-                          ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                            itemCount: items.length,
-                            separatorBuilder:
-                                (_, __) => const SizedBox(height: 12),
-                            itemBuilder: (ctx, i) {
-                              final acc = items[i];
-                              final typeCanonical = AccidentsData.canonicalType(
-                                acc.typeOfAccident,
-                              );
-                              final colorType =
-                                  AccidentsData.getColorByAccidentType(
-                                    typeCanonical,
-                                  );
-                              final iconType = AccidentsData.iconFor(
-                                typeCanonical,
-                              );
+              child: items.isEmpty
+                  ? _EmptyState(cs: cs, region: region)
+                  : Stack(
+                children: [
+                  const BackgroundClean(),
+                  ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(
+                        16, 16, 16, 24),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) =>
+                    const SizedBox(height: 12),
+                    itemBuilder: (ctx, i) {
+                      final acc = items[i];
+                      final typeCanonical =
+                      AccidentsData.canonicalType(
+                        acc.typeOfAccident,
+                      );
+                      final colorType =
+                      AccidentsData.getColorByAccidentType(
+                          typeCanonical);
+                      final iconType =
+                      AccidentsData.iconFor(typeCanonical);
 
-                              return _AccidentCard(
-                                colorType: colorType,
-                                iconType: iconType,
-                                title:
-                                    '${AccidentsData.getTitleByAccidentType(typeCanonical)} · AL-${acc.highway ?? 'Rodovia não informada'}',
-                                subtitle:
-                                    acc.location?.isNotEmpty == true
-                                        ? acc.location!.trim()
-                                        : (acc.referencePoint?.trim() ??
-                                            'Local não informado'),
-                                trailingTop: _fmtDate(acc.date),
-                                trailingBottom:
-                                    'Mortes: ${acc.death ?? 0}  •  Feridos: ${acc.scoresVictims ?? 0}',
-                                city: acc.city ?? region,
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                      return _AccidentCard(
+                        colorType: colorType,
+                        iconType: iconType,
+                        title:
+                        '${AccidentsData.getTitleByAccidentType(typeCanonical)} · AL-${acc.highway ?? 'Rodovia não informada'}',
+                        subtitle: acc.location
+                            ?.isNotEmpty ==
+                            true
+                            ? acc.location!.trim()
+                            : (acc.referencePoint?.trim() ??
+                            'Local não informado'),
+                        trailingTop: _fmtDate(acc.date),
+                        trailingBottom:
+                        'Mortes: ${acc.death ?? 0}  •  Feridos: ${acc.scoresVictims ?? 0}',
+                        city: acc.city ?? region,
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -247,7 +258,10 @@ class _InfoChip extends StatelessWidget {
           ),
           Text(
             value,
-            style: TextStyle(color: textColor, fontWeight: FontWeight.w900),
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),
@@ -289,43 +303,57 @@ class _AccidentCard extends StatelessWidget {
           child: Row(
             children: [
               Padding(
-                padding: const EdgeInsets.only(right: 8.0),
+                padding:
+                const EdgeInsets.only(right: 8.0),
                 child: Container(
                   width: 46,
                   height: 46,
                   decoration: BoxDecoration(
                     color: colorType.withOpacity(.16),
                     shape: BoxShape.circle,
-                    border: Border.all(color: colorType.withOpacity(.35), width: 1),
+                    border: Border.all(
+                      color: colorType.withOpacity(.35),
+                      width: 1,
+                    ),
                   ),
-                  child: Icon(iconType, color: colorType, size: 24),
+                  child: Icon(
+                    iconType,
+                    color: colorType,
+                    size: 24,
+                  ),
                 ),
               ),
-              // 🔧 ENVOLVE a coluna com Expanded
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: cs.onSurface,
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding:
+                      const EdgeInsets.only(top: 4),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
                         children: [
                           if (subtitle.isNotEmpty)
                             Text(
                               subtitle,
                               maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
+                              overflow:
+                              TextOverflow.ellipsis,
+                              style: theme
+                                  .textTheme.bodyMedium
+                                  ?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),
                             ),
@@ -333,15 +361,19 @@ class _AccidentCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // ✅ Scroll horizontal dos tags
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _MiniTag(icon: Icons.place_rounded, label: city),
-                          if (trailingBottom.isNotEmpty) const SizedBox(width: 8),
                           _MiniTag(
-                            icon: Icons.health_and_safety_rounded,
+                            icon: Icons.place_rounded,
+                            label: city,
+                          ),
+                          if (trailingBottom.isNotEmpty)
+                            const SizedBox(width: 8),
+                          _MiniTag(
+                            icon: Icons
+                                .health_and_safety_rounded,
                             label: trailingBottom,
                           ),
                         ],
@@ -350,7 +382,8 @@ class _AccidentCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       trailingTop,
-                      style: theme.textTheme.labelMedium?.copyWith(
+                      style: theme.textTheme.labelMedium
+                          ?.copyWith(
                         color: Colors.grey,
                       ),
                     ),
@@ -359,13 +392,11 @@ class _AccidentCard extends StatelessWidget {
               ),
             ],
           ),
-
         ),
       ),
     );
   }
 }
-
 
 class _MiniTag extends StatelessWidget {
   const _MiniTag({required this.icon, required this.label});
@@ -377,11 +408,16 @@ class _MiniTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant.withOpacity(.5)),
+        border: Border.all(
+          color: cs.outlineVariant.withOpacity(.5),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -424,17 +460,19 @@ class _EmptyState extends StatelessWidget {
             Text(
               'MUNICÍPIO: $region',
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
               'Não há dados disponíveis para este município.',
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: cs.onSurfaceVariant),
             ),
           ],
         ),

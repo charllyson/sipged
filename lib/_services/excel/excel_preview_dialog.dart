@@ -12,6 +12,9 @@ import 'progress_import_dialog.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
+// ✅ janela estilo macOS
+import 'package:siged/_widgets/windows/window_dialog.dart';
+
 class ExcelPreviewDialog extends StatefulWidget {
   final List<Map<String, dynamic>> jsonData;
   final String path;
@@ -79,63 +82,76 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
   @override
   Widget build(BuildContext context) {
     final totalPaginas = (widget.jsonData.length / _linhasPorPagina).ceil();
+    final size = MediaQuery.of(context).size;
 
     return DefaultTabController(
       length: 2,
-      child: AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text(
-          'Pré-visualização da Importação',
-          style: TextStyle(color: Colors.black),
-        ),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.85,
-          height: MediaQuery.of(context).size.height * 0.70,
-          child: Column(
-            children: [
-              const TabBar(
-                labelColor: Colors.black,
-                tabs: [
-                  Tab(text: '📄 Original'),
-                  Tab(text: '🧪 Convertido'),
+      child: WindowDialog(
+        title: 'Pré-visualização da Importação',
+        width: size.width * 0.85,
+        contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        onClose: () => Navigator.of(context).pop(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Área central com Tabs + Tabelas
+            SizedBox(
+              width: double.infinity,
+              height: size.height * 0.70,
+              child: Column(
+                children: [
+                  const TabBar(
+                    labelColor: Colors.black,
+                    tabs: [
+                      Tab(text: '📄 Original'),
+                      Tab(text: '🧪 Convertido'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildTabelaOriginal(),
+                        _buildTabelaConvertida(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _buildTabelaOriginal(),
-                    _buildTabelaConvertida(),
-                  ],
+            ),
+            const SizedBox(height: 12),
+            // Barra de ações: paginação + cancelar/confirmar
+            Row(
+              children: [
+                TextButton(
+                  onPressed: _paginaAtual > 0
+                      ? () => setState(() => _paginaAtual--)
+                      : null,
+                  child: const Text('Anterior'),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                Text('Página ${_paginaAtual + 1} de $totalPaginas'),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: (_paginaAtual + 1) * _linhasPorPagina < widget.jsonData.length
+                      ? () => setState(() => _paginaAtual++)
+                      : null,
+                  child: const Text('Próxima'),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _confirmarImportacao,
+                  child: const Text('Confirmar e Importar'),
+                ),
+              ],
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: _paginaAtual > 0
-                ? () => setState(() => _paginaAtual--)
-                : null,
-            child: const Text('Anterior'),
-          ),
-          Text('Página ${_paginaAtual + 1} de $totalPaginas'),
-          TextButton(
-            onPressed: (_paginaAtual + 1) * _linhasPorPagina < widget.jsonData.length
-                ? () => setState(() => _paginaAtual++)
-                : null,
-            child: const Text('Próxima'),
-          ),
-          const Spacer(),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: _confirmarImportacao,
-            child: const Text('Confirmar e Importar'),
-          ),
-        ],
       ),
     );
   }

@@ -1,4 +1,3 @@
-// COMPLETO — igual ao seu (mantido); sem mudanças funcionais
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp, GeoPoint;
 import 'package:latlong2/latlong.dart';
@@ -321,7 +320,9 @@ class ScheduleRoadData {
           } else if (p is Map) {
             final lat = (p['lat'] ?? p['latitude']) as num?;
             final lon = (p['lng'] ?? p['longitude']) as num?;
-            if (lat != null && lon != null) line.add(LatLng(lat.toDouble(), lon.toDouble()));
+            if (lat != null && lon != null) {
+              line.add(LatLng(lat.toDouble(), lon.toDouble()));
+            }
           } else if (p is GeoPoint) {
             line.add(LatLng(p.latitude, p.longitude));
           }
@@ -345,7 +346,9 @@ class ScheduleRoadData {
       } else if (p is Map) {
         final lat = (p['lat'] ?? p['latitude']) as num?;
         final lon = (p['lng'] ?? p['longitude']) as num?;
-        if (lat != null && lon != null) out.add(LatLng(lat.toDouble(), lon.toDouble()));
+        if (lat != null && lon != null) {
+          out.add(LatLng(lat.toDouble(), lon.toDouble()));
+        }
       }
     }
     return out.isEmpty ? null : out;

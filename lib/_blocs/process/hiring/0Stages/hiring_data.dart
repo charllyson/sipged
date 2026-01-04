@@ -183,7 +183,7 @@ class HiringData {
     'ARTES ESPECIAIS',
   ];
 
-  static const List<String> regions = [
+  /*static const List<String> regions = [
     'AGRESTE',
     'NORTE',
     'METROPOLITANA',
@@ -191,7 +191,7 @@ class HiringData {
     'SUL',
     'VALE DO MUNDAÚ',
     'VALE DO PARAÍBA'
-  ];
+  ];*/
 
   static String getTitleByStatus(String status) {
     switch (status) {
