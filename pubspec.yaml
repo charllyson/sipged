@@ -118,7 +118,6 @@ flutter:
         - asset: assets/fonts/halter.ttf
 
   assets:
-    - assets/geojson/limits/limites_regionais_der_al.geojson
     - assets/logos/deral/logo-deral.png
     - assets/images/default_avatar.png
     - assets/logos/siged/siged.png
