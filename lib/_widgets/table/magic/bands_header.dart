@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
 
-class MagicBandsHeader extends StatelessWidget {
-  const MagicBandsHeader({
+class BandsHeader extends StatelessWidget {
+  const BandsHeader({
     super.key,
     required this.ctrl,
     required this.bandHeight,

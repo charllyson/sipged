@@ -15,6 +15,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:siged/_blocs/actives/oacs/active_oacs_cubit.dart';
 
+import '_blocs/process/budget/budget_cubit.dart';
+import '_blocs/process/budget/budget_repository.dart';
 import '_blocs/process/measurement/adjustment/adjustments_measurement_cubit.dart';
 import 'firebase_options_flavors.dart';
 
@@ -73,10 +75,6 @@ import 'package:siged/_blocs/system/user/user_repository.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
-
-// ===== Módulo de orçamento =====
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_bloc.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_store.dart';
 
 // ===== Módulos de contratação (DFD, ETP, TR, etc.) =====
 import 'package:siged/_blocs/process/hiring/1Dfd/dfd_cubit.dart';
@@ -232,13 +230,16 @@ Future<void> bootstrapAndRunApp() async {
             ),
           ),
 
-          /// ======= BUDGET =======
-          Provider<BudgetBloc>(create: (_) => BudgetBloc()),
-          ChangeNotifierProvider<BudgetStore>(
-            create: (ctx) => BudgetStore(
-              bloc: ctx.read<BudgetBloc>(),
+          /// ======= BUDGET (NOVO PADRÃO: Repository + Cubit) =======
+          RepositoryProvider<BudgetRepository>(
+            create: (_) => BudgetRepository(),
+          ),
+          BlocProvider<BudgetCubit>(
+            create: (ctx) => BudgetCubit(
+              repository: ctx.read<BudgetRepository>(),
             ),
           ),
+
 
           /// ======= ADJUSTMENT MEASUREMENT (CUBIT) =======
           BlocProvider<AdjustmentMeasurementCubit>(

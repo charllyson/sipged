@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_data.dart';
+import 'package:siged/_blocs/process/budget/budget_data.dart';
 
 import 'report_measurement_data.dart';
 

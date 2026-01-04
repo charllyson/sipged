@@ -1,8 +1,8 @@
-// crie este widget simples (ex.: subwidgets/gutter_header_box.dart)
+// crie este widget simples (ex.: subwidgets/gutter_header.dart)
 import 'package:flutter/material.dart';
 
-class GutterHeaderBox extends StatelessWidget {
-  const GutterHeaderBox({
+class GutterHeader extends StatelessWidget {
+  const GutterHeader({
     super.key,
     required this.width,
     required this.height,

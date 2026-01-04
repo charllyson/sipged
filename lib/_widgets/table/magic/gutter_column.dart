@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'magic_table_controller.dart' as bc;
 
-class MagicGutterColumn extends StatelessWidget {
-  const MagicGutterColumn({
+class GutterColumn extends StatelessWidget {
+  const GutterColumn({
     super.key,
     required this.ctrl,
     required this.vGutterCtrl,

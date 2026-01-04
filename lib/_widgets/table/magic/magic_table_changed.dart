@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/table/magic/bands_header.dart';
 import 'package:siged/_widgets/table/magic/grid_body.dart';
 import 'package:siged/_widgets/table/magic/gutter_column.dart';
-import 'package:siged/_widgets/table/magic/gutter_header_box.dart';
+import 'package:siged/_widgets/table/magic/gutter_header.dart';
 import 'package:siged/_widgets/table/magic/leading_column.dart';
 import 'package:siged/_widgets/table/magic/bands_footer.dart';
 
@@ -284,7 +284,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
 
       final headerRow = Row(
         children: [
-          GutterHeaderBox(
+          GutterHeader(
             width: widget.gutterWidth,
             height: _bandHeight + widget.headerHeight,
           ),
@@ -303,13 +303,13 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                MagicBandsHeader(
+                BandsHeader(
                   ctrl: ctrl,
                   bandHeight: _bandHeight,
                   addTopBorder: true,
                 ),
                 const SizedBox(height: 2),
-                MagicHeaderRow(
+                HeaderRow(
                   hHeaderCtrl: _hGridCtrl,
                   ctrl: ctrl,
                   headerHeight: widget.headerHeight,
@@ -334,7 +334,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
         children: [
           SizedBox(
             width: widget.gutterWidth,
-            child: MagicGutterColumn(
+            child: GutterColumn(
               ctrl: ctrl,
               vGutterCtrl: _vGutterCtrl,
               rowHeight: widget.rowHeight,
@@ -350,7 +350,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
             SizedBox(
               width: widget.leadingWidth,
               child: widget.useExternalVScroll
-                  ? MagicLeadingColumn(
+                  ? LeadingColumn(
                 rowCount: ctrl.rowCount,
                 rowHeight: widget.rowHeight,
                 bottomScrollGap: widget.bottomScrollGap,
@@ -363,7 +363,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
                 thumbVisibility: true,
                 child: SingleChildScrollView(
                   controller: _vGridCtrl,
-                  child: MagicLeadingColumn(
+                  child: LeadingColumn(
                     rowCount: ctrl.rowCount,
                     rowHeight: widget.rowHeight,
                     bottomScrollGap: widget.bottomScrollGap,
@@ -381,7 +381,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
             child: Scrollbar( // Scrollbar vertical aplicada apenas ao grid (quando interno)
               controller: _vGridCtrl,
               thumbVisibility: true,
-              child: MagicGridBody(
+              child: GridBody(
                 ctrl: ctrl,
                 vGridCtrl: _vGridCtrl,
                 hGridCtrl: _hGridCtrl, // scroll H externo
@@ -408,7 +408,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
 
       final footerRow = Row(
         children: [
-          GutterHeaderBox(
+          GutterHeader(
             width: widget.gutterWidth,
             height: _totalRowHeight,
           ),
@@ -425,7 +425,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
             width: _mainGridWidth + widget.rightScrollGap,
             child: widget.footerBarBuilder != null
                 ? widget.footerBarBuilder!(context, ctrl)
-                : MagicBandsFooter(
+                : BandsFooter(
               ctrl: ctrl,
               height: _totalRowHeight,
               labelTotais: 'TOTAIS',

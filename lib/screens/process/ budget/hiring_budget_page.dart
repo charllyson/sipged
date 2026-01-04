@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
+
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
 import 'package:siged/_widgets/table/magic/magic_adapter.dart';
 
@@ -7,8 +9,10 @@ import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 
 import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_store.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_data.dart';
+
+// 🔁 NOVO PADRÃO
+import 'package:siged/_blocs/process/budget/budget_cubit.dart';
+import 'package:siged/_blocs/process/budget/budget_state.dart';
 
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
 import 'package:siged/_widgets/table/magic/magic_table_changed.dart';
@@ -30,13 +34,15 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
   bool _saving = false;
 
   Future<void> _load(
-      BudgetStore store,
+      BudgetCubit cubit,
       bc.MagicTableController ctrl,
       String contractId,
       ) async {
-    await store.ensureFor(contractId);
+    await cubit.ensureFor(contractId);
 
-    final data = store.dataFor(contractId);
+    final st = cubit.state;
+    final data = st.dataFor(contractId);
+
     if (data == null || data.isEmpty) {
       ctrl.loadFromSnapshot(
         table: const <List<String>>[<String>[]],
@@ -53,14 +59,20 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
   }
 
   Future<void> _saveNow(
-      BudgetStore store,
+      BudgetCubit cubit,
       bc.MagicTableController c,
       String contractId,
       ) async {
     setState(() => _saving = true);
+
     try {
       final domain = MagicAdapter.buildDomainFromController(controller: c);
-      await store.saveDomain(contractId: contractId, data: domain);
+
+      await cubit.saveDomain(
+        contractId: contractId,
+        data: domain,
+      );
+
       if (mounted) {
         NotificationCenter.instance.show(
           AppNotification(
@@ -88,45 +100,52 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
   @override
   Widget build(BuildContext context) {
     final contractId = widget.contractData.id!;
+
     return ChangeNotifierProvider<bc.MagicTableController>(
       create: (_) => bc.MagicTableController(
-        cellPadHorizontal: const EdgeInsets.symmetric(horizontal: 12).horizontal,
+        cellPadHorizontal:
+        const EdgeInsets.symmetric(horizontal: 12).horizontal,
       ),
       builder: (context, _) {
         final ctrl = context.watch<bc.MagicTableController>();
-        final store = context.read<BudgetStore>();
 
-        final isLoading = context.select<BudgetStore, bool>(
-              (s) => s.loadingFor(contractId),
+        // ✅ BudgetCubit agora é a fonte
+        final cubit = context.read<BudgetCubit>();
+
+        final isLoading = context.select<BudgetCubit, bool>(
+              (c) => c.state.loadingFor(contractId),
         );
+
         final isBusy = isLoading || _saving;
 
         return Scaffold(
           appBar: PreferredSize(
-              preferredSize: const Size.fromHeight(72),
-              child: UpBar(
-                leading: Padding(
-                  padding: const EdgeInsets.only(left: 12.0),
-                  child: const BackCircleButton(),
-                ),
-              )),
+            preferredSize: const Size.fromHeight(72),
+            child: UpBar(
+              leading: Padding(
+                padding: const EdgeInsets.only(left: 12.0),
+                child: const BackCircleButton(),
+              ),
+            ),
+          ),
           body: Stack(
             children: [
               const Positioned.fill(child: BackgroundClean()),
+
               Positioned.fill(
                 child: MagicTableChanged(
                   selectAllOnEdit: false,
                   controller: ctrl,
-                  onInit: (c) => _load(store, c, contractId),
+                  onInit: (c) => _load(cubit, c, contractId),
 
                   // 🔒 esconda apenas no BudgetPage:
                   allowAddColumn: false,
                   allowRemoveColumn: false,
                   allowAddRow: false,
 
-                  // (se usar auto-save quando estrutura muda)
+                  // auto-save após mudança estrutural (se existir no seu fluxo)
                   onRequestSaveAfterStructureChange: (c) =>
-                      _saveNow(store, c, contractId),
+                      _saveNow(cubit, c, contractId),
 
                   bottomScrollGap: 90,
                   rightScrollGap: 60,
@@ -151,13 +170,14 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
                           NotificationCenter.instance.show(
                             AppNotification(
                               title: const Text('Nada para salvar'),
-                              subtitle: const Text('Cole dados do Excel antes de salvar.'),
+                              subtitle: const Text(
+                                  'Cole dados do Excel antes de salvar.'),
                               type: AppNotificationType.info,
                             ),
                           );
                           return;
                         }
-                        await _saveNow(store, c, contractId);
+                        await _saveNow(cubit, c, contractId);
                       },
                       child: const Icon(Icons.save),
                     ),
@@ -172,15 +192,20 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
               ),
 
               if (isBusy) ...[
-                const ModalBarrier(dismissible: false, color: Colors.black38),
+                const ModalBarrier(
+                    dismissible: false, color: Colors.black38),
                 Center(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: const [
-                        BoxShadow(blurRadius: 10, spreadRadius: 1, color: Colors.black26),
+                        BoxShadow(
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                            color: Colors.black26),
                       ],
                     ),
                     child: Row(
@@ -193,8 +218,11 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          _saving ? 'Salvando orçamento...' : 'Carregando orçamento...',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          _saving
+                              ? 'Salvando orçamento...'
+                              : 'Carregando orçamento...',
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),

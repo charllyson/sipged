@@ -1,10 +1,11 @@
+/*
 // lib/_blocs/process/budget/budget_store.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_bloc.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_data.dart';
+import 'package:siged/_blocs/process/budget/budget_bloc.dart';
+import 'package:siged/_blocs/process/budget/budget_data.dart';
 
 class BudgetStore extends ChangeNotifier {
   BudgetStore({BudgetBloc? bloc}) : _bloc = bloc ?? BudgetBloc();
@@ -128,3 +129,4 @@ class BudgetStore extends ChangeNotifier {
     }
   }
 }
+*/

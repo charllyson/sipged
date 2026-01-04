@@ -34,8 +34,8 @@ import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_page.
 
 import 'package:siged/screens/process/additive/tab_bar_additive_page.dart';
 import 'package:siged/screens/process/apostilles/tab_bar_apostilles_page.dart';
-import 'package:siged/screens/process/hiring/5Edital/hiring_budget_page.dart';
-import 'package:siged/screens/process/hiring/5Edital/hiring_schedule_page.dart';
+import 'package:siged/screens/process/%20budget/hiring_budget_page.dart';
+import 'package:siged/screens/process/schedule/hiring_schedule_page.dart';
 import 'package:siged/screens/process/hiring/tab_bar_hiring_page.dart';
 
 import 'package:siged/screens/panels/overview-dashboard/general_dashboard_page.dart';

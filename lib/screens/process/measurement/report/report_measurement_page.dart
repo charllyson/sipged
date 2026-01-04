@@ -28,6 +28,7 @@ import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/pdf/pdf_preview.dart';
 
 // Seções da página
+import '../create/create_detailed_reports_page.dart';
 import 'report_measurement_form_section.dart';
 import 'report_measurement_graph_section.dart';
 import 'report_measurement_table_section.dart';
@@ -416,7 +417,32 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               }
                             },
                             onOpenMemoDeCalculo: null,
-                            onOpenBoletimDeMedicao: () {},
+                            onOpenBoletimDeMedicao: () async {
+                              final m = _selectedMeasurement;
+
+                              // precisa existir uma medição selecionada e salva (com id)
+                              if (m == null || (m.id == null || m.id!.isEmpty)) {
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.info,
+                                    title: const Text('Selecione uma medição'),
+                                    subtitle: const Text('Selecione (ou salve) uma medição para abrir o boletim.'),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => CreateDetailedReportPage(
+                                    titulo: 'Boletim ${m.order ?? '-'}',
+                                    contractData: widget.contractData,
+                                    measurement: m,
+                                  ),
+                                ),
+                              );
+                            },
+
                             sideItems: _sideItems,
                             selectedSideIndex: _selectedSideIndex,
                             onAddSideItem: null,

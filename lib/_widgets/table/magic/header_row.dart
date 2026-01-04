@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'magic_table_controller.dart' as bc;
-import 'type_badge_button.dart';
+import 'badge_type_button.dart';
 
-class MagicHeaderRow extends StatelessWidget {
-  const MagicHeaderRow({
+class HeaderRow extends StatelessWidget {
+  const HeaderRow({
     super.key,
     required this.ctrl,
     this.hHeaderCtrl,
@@ -130,7 +130,7 @@ class MagicHeaderRow extends StatelessWidget {
                   width: 24,
                   height: 24,
                   child: Center(
-                    child: TypeBadgeButton(
+                    child: BadgeTypeButton(
                       hasType: hasType,
                       type: (c < ctrl.colTypes.length)
                           ? ctrl.colTypes[c]

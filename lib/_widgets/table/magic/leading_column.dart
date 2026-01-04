@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/table/magic/magic_table_changed.dart';
 
-class MagicLeadingColumn extends StatelessWidget {
-  const MagicLeadingColumn({
+class LeadingColumn extends StatelessWidget {
+  const LeadingColumn({
     super.key,
     required this.rowCount,
     required this.rowHeight,

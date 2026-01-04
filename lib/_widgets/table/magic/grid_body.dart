@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
 
-class MagicGridBody extends StatelessWidget {
-  const MagicGridBody({
+class GridBody extends StatelessWidget {
+  const GridBody({
     super.key,
     required this.ctrl,
     required this.vGridCtrl,

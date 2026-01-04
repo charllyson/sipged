@@ -1,20 +1,20 @@
-// lib/_blocs/process/budget/budget_bloc.dart
+// lib/_blocs/process/budget/budget_repository.dart
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_data.dart'; // <- seu domínio tipado
-// Repo interno nesta mesma classe (para manter o nome "Bloc" que você já usa)
 
-class BudgetBloc {
-  BudgetBloc();
+import 'budget_data.dart';
+
+class BudgetRepository {
+  BudgetRepository({FirebaseFirestore? firestore})
+      : _db = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _db;
 
   // ======================= Infra (Firestore) =======================
   CollectionReference<Map<String, dynamic>> _base(String contractId) =>
-      FirebaseFirestore.instance
-          .collection('contracts')
-          .doc(contractId)
-          .collection('budget');
+      _db.collection('contracts').doc(contractId).collection('budget');
 
-  static const int _kMaxBatchOps = 500;
+  static const int kMaxBatchOps = 500;
 
   List<List<T>> _chunk<T>(List<T> list, int size) {
     final chunks = <List<T>>[];
@@ -29,38 +29,41 @@ class BudgetBloc {
     return parts.map((p) => p.padLeft(4, '0')).join('');
   }
 
-  // ======================= API NOVA (Domínio) =======================
+  // ======================= API (Domínio) =======================
 
-  /// Carrega e entrega **BudgetData** (domínio), independente do schema antigo.
   Future<BudgetData> load(String contractId) async {
     final metaRef = _base(contractId).doc('meta');
     final metaSnap = await metaRef.get();
+
     if (!metaSnap.exists) {
       return BudgetData.withSchema(BudgetSchema(const []));
     }
 
     final meta = metaSnap.data()!;
-    final List<dynamic> headersDyn = (meta['headers'] ?? []) as List<dynamic>;
-    final List<dynamic> colTypesDyn = (meta['colTypes'] ?? []) as List<dynamic>;
-    final List<dynamic> colWidthsDyn = (meta['colWidths'] ?? []) as List<dynamic>;
+    final headersDyn = (meta['headers'] ?? []) as List<dynamic>;
+    final colTypesDyn = (meta['colTypes'] ?? []) as List<dynamic>;
+    final colWidthsDyn = (meta['colWidths'] ?? []) as List<dynamic>;
     final String? activeWriteId = (meta['activeWriteId'] as String?);
 
     final headers = headersDyn.map((e) => (e ?? '').toString()).toList();
     final colTypes = colTypesDyn.map((e) => (e ?? '').toString()).toList();
     final colWidths = colWidthsDyn
-        .map((e) => (e is num) ? e.toDouble() : double.tryParse(e.toString()) ?? 120.0)
+        .map((e) => (e is num)
+        ? e.toDouble()
+        : double.tryParse(e.toString()) ?? 120.0)
         .toList();
 
-    // Reconstrói uma table "legada" para reaproveitar o parser do domínio
+    // Reconstrói table legada (linha 0 = header) para reaproveitar BudgetData.fromLegacy
     final List<List<String>> table = [];
     if (headers.isNotEmpty) table.add(headers);
 
-    List<String> _padRow(List<String> r) {
+    List<String> padRow(List<String> r) {
       if (headers.isEmpty) return r;
       if (r.length >= headers.length) return r.take(headers.length).toList();
       return [...r, for (int i = r.length; i < headers.length; i++) ''];
     }
 
+    // ------------------ Novo caminho (rows_v) ------------------
     if (activeWriteId != null && activeWriteId.isNotEmpty) {
       final groups = await metaRef
           .collection('rows_v')
@@ -75,23 +78,24 @@ class BudgetBloc {
         final title = (gData['title'] ?? '').toString();
 
         if (order.isNotEmpty || title.isNotEmpty) {
-          table.add(_padRow([order, title, '', '', '', '']));
+          table.add(padRow([order, title, '', '', '', '']));
         }
 
-        Query<Map<String, dynamic>> q = g.reference.collection('items').orderBy('index');
+        // Preferência: orderBy('index') com fallback em orderKey
         try {
-          final itSnap = await q.get();
+          final itSnap = await g.reference.collection('items').orderBy('index').get();
           for (final it in itSnap.docs) {
             final data = it.data();
-            final List<dynamic> values = (data['values'] ?? []) as List<dynamic>;
-            table.add(_padRow(values.map((e) => (e ?? '').toString()).toList()));
+            final values = (data['values'] ?? []) as List<dynamic>;
+            table.add(padRow(values.map((e) => (e ?? '').toString()).toList()));
           }
         } catch (_) {
-          final itSnap = await g.reference.collection('items').orderBy('orderKey').get();
+          final itSnap =
+          await g.reference.collection('items').orderBy('orderKey').get();
           for (final it in itSnap.docs) {
             final data = it.data();
-            final List<dynamic> values = (data['values'] ?? []) as List<dynamic>;
-            table.add(_padRow(values.map((e) => (e ?? '').toString()).toList()));
+            final values = (data['values'] ?? []) as List<dynamic>;
+            table.add(padRow(values.map((e) => (e ?? '').toString()).toList()));
           }
         }
       }
@@ -104,21 +108,25 @@ class BudgetBloc {
       );
     }
 
-    // Fallback: caminho antigo (rows/)
+    // ------------------ Fallback: caminho antigo (rows/) ------------------
     final rowsCol = metaRef.collection('rows');
     final groups = await rowsCol.orderBy('order').get();
+
     for (final g in groups.docs) {
       final gData = g.data();
       final order = (gData['order'] ?? '').toString();
       final title = (gData['title'] ?? '').toString();
+
       if (order.isNotEmpty || title.isNotEmpty) {
-        table.add(_padRow([order, title, '', '', '', '']));
+        table.add(padRow([order, title, '', '', '', '']));
       }
-      final items = await g.reference.collection('items').orderBy('index').get();
+
+      final items =
+      await g.reference.collection('items').orderBy('index').get();
       for (final it in items.docs) {
         final data = it.data();
-        final List<dynamic> values = (data['values'] ?? []) as List<dynamic>;
-        table.add(_padRow(values.map((e) => (e ?? '').toString()).toList()));
+        final values = (data['values'] ?? []) as List<dynamic>;
+        table.add(padRow(values.map((e) => (e ?? '').toString()).toList()));
       }
     }
 
@@ -130,14 +138,13 @@ class BudgetBloc {
     );
   }
 
-  /// Salva um **BudgetData** do domínio (swap de versão).
   Future<void> save({
     required String contractId,
     required BudgetData data,
   }) async {
     final metaRef = _base(contractId).doc('meta');
 
-    // 1) metadados do schema
+    // 1) schema
     await metaRef.set({
       'headers': data.schema.headerNames,
       'colTypes': data.schema.headerTypes,
@@ -150,37 +157,45 @@ class BudgetBloc {
     final rowsVersionDoc = metaRef.collection('rows_v').doc(writeId);
     final groupsCol = rowsVersionDoc.collection('groups');
 
-    final pendingGroupSets = <MapEntry<DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>>[];
-    final pendingItemSets = <MapEntry<DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>>[];
+    final pendingGroupSets = <MapEntry<DocumentReference<Map<String, dynamic>>,
+        Map<String, dynamic>>>[];
+    final pendingItemSets = <MapEntry<DocumentReference<Map<String, dynamic>>,
+        Map<String, dynamic>>>[];
 
     int runningIndex = 0;
-    int currentGroupOrder = -1;
     String currentGroupId = '';
 
     for (final entry in data.entries) {
       if (entry is BudgetSection) {
-        currentGroupOrder = entry.order;
-        currentGroupId = currentGroupOrder.toString();
+        currentGroupId = entry.order.toString();
         final gRef = groupsCol.doc(currentGroupId);
         pendingGroupSets.add(MapEntry(gRef, {
           'order': entry.order,
           'title': entry.title,
           'updatedAt': FieldValue.serverTimestamp(),
         }));
-      } else if (entry is BudgetItem) {
+        continue;
+      }
+
+      if (entry is BudgetItem) {
+        // Se item veio antes de qualquer seção, cria um grupo 0
         if (currentGroupId.isEmpty) {
-          currentGroupOrder = 0;
           currentGroupId = '0';
           final gRef = groupsCol.doc(currentGroupId);
           pendingGroupSets.add(MapEntry(gRef, {
-            'order': currentGroupOrder,
+            'order': 0,
             'title': '',
             'updatedAt': FieldValue.serverTimestamp(),
           }));
         }
+
         final itemsCol = groupsCol.doc(currentGroupId).collection('items');
         final orderKey = _orderKeyFromCode(entry.code);
-        final docId = '${orderKey}_$runningIndex'.padRight(40, '0').substring(0, 40);
+
+        // docId determinístico o suficiente para evitar colisão em batch:
+        final docId =
+        '${orderKey}_$runningIndex'.padRight(40, '0').substring(0, 40);
+
         final iRef = itemsCol.doc(docId);
 
         final fixedRow = List<String>.generate(
@@ -201,16 +216,17 @@ class BudgetBloc {
       }
     }
 
-    // 3) batches
-    for (final chunk in _chunk(pendingGroupSets, _kMaxBatchOps)) {
-      final batch = FirebaseFirestore.instance.batch();
+    // 3) commits em batch
+    for (final chunk in _chunk(pendingGroupSets, kMaxBatchOps)) {
+      final batch = _db.batch();
       for (final e in chunk) {
         batch.set(e.key, e.value, SetOptions(merge: true));
       }
       await batch.commit();
     }
-    for (final chunk in _chunk(pendingItemSets, _kMaxBatchOps)) {
-      final batch = FirebaseFirestore.instance.batch();
+
+    for (final chunk in _chunk(pendingItemSets, kMaxBatchOps)) {
+      final batch = _db.batch();
       for (final e in chunk) {
         batch.set(e.key, e.value, SetOptions(merge: true));
       }
@@ -224,16 +240,17 @@ class BudgetBloc {
     }, SetOptions(merge: true));
 
     // 5) limpeza best-effort
-    _cleanupOldVersions(metaRef, keepLast: 2);
+    await cleanupOldVersions(metaRef, keepLast: 2);
   }
 
-  Future<void> _cleanupOldVersions(
+  Future<void> cleanupOldVersions(
       DocumentReference<Map<String, dynamic>> metaRef, {
         int keepLast = 2,
       }) async {
     try {
       final rowsV = await metaRef.collection('rows_v').get();
       if (rowsV.docs.length <= keepLast) return;
+
       final docs = rowsV.docs..sort((a, b) => a.id.compareTo(b.id));
       final toDelete = docs.take(math.max(0, docs.length - keepLast)).toList();
 
@@ -241,8 +258,8 @@ class BudgetBloc {
         final groups = await d.reference.collection('groups').get();
         for (final g in groups.docs) {
           final items = await g.reference.collection('items').get();
-          for (final chunk in _chunk(items.docs, _kMaxBatchOps)) {
-            final batch = FirebaseFirestore.instance.batch();
+          for (final chunk in _chunk(items.docs, kMaxBatchOps)) {
+            final batch = _db.batch();
             for (final it in chunk) {
               batch.delete(it.reference);
             }
@@ -252,16 +269,15 @@ class BudgetBloc {
         }
         await d.reference.delete();
       }
-    } catch (_) {}
+    } catch (_) {
+      // best-effort: ignora
+    }
   }
 
-  // ======================= SHIMS DE COMPATIBILIDADE =======================
-  // Permitem manter chamadas antigas enquanto migra UI/Store.
+  // ======================= SHIM LEGADO =======================
 
-  /// LEGADO: carrega no formato de domínio (mesmo nome antigo).
   Future<BudgetData> loadBudgetNested(String contractId) => load(contractId);
 
-  /// LEGADO: recebe arrays, converte para domínio e salva.
   Future<void> saveBudgetNested({
     required String contractId,
     required List<String> headers,
@@ -270,8 +286,8 @@ class BudgetBloc {
     required List<List<String>> rows,
     bool rowsIncludesHeader = true,
   }) async {
-    // Garante que a primeira linha seja header
     final table = <List<String>>[];
+
     if (rowsIncludesHeader) {
       if (rows.isEmpty) return;
       table.add(headers.isNotEmpty ? headers : rows.first);
@@ -290,6 +306,4 @@ class BudgetBloc {
 
     await save(contractId: contractId, data: data);
   }
-
-  void dispose() {}
 }

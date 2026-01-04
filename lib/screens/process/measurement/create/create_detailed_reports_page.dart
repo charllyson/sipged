@@ -2,6 +2,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'package:siged/screens/process/measurement/create/launcher_pdf.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
@@ -13,8 +15,10 @@ import 'package:siged/_blocs/_process/process_data.dart';
 import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
 
 import 'package:siged/_widgets/table/magic/magic_adapter.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_bloc.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/budget/budget_data.dart';
+
+// ✅ NOVO PADRÃO (Budget)
+import 'package:siged/_blocs/process/budget/budget_cubit.dart';
+import 'package:siged/_blocs/process/budget/budget_data.dart';
 
 // MagicTable
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
@@ -109,10 +113,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       }
     }
 
-    // snapshot do grid (debounced)
     _scheduleSaveBreakdown();
-
-    // espelhar total do período no campo 'value' da medição
     _updateMeasurementValueFromGrid();
   }
 
@@ -129,12 +130,8 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       return;
     }
 
-    final contractId = widget.contractData.id!;
-    final measurementId = widget.measurement!.id!;
-
     final accum = prev + period;
 
-    // PU e Qtd. contratual
     final rowIndex = _ctrl.tableData.indexWhere(
           (r) => r.isNotEmpty && r[0] == budgetItemId,
     );
@@ -152,19 +149,16 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       return 0.0;
     })();
 
-    // valores em R$
     final valPrev = prev * pu;
     final valPeriod = period * pu;
     final valAccum = accum * pu;
     final valBal = saldoQtd * pu;
 
     final payload = {
-      // qty
       'qtyPrev': prev,
       'qtyPeriod': period,
       'qtyAccum': accum,
       'qtyContractBal': saldoQtd,
-      // val
       'valPrev': valPrev,
       'valPeriod': valPeriod,
       'valAccum': valAccum,
@@ -176,14 +170,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       ...payload,
     };
 
-    // TODO: integrar com seu Cubit/Repository para salvar o item da medição.
-    // Exemplo hipotético:
-    // await context.read<ReportMeasurementCubit>().upsertMeasurementItem(
-    //   contractId: contractId,
-    //   measurementId: measurementId,
-    //   budgetItemId: budgetItemId,
-    //   payload: payload,
-    // );
+    // TODO: integrar com ReportMeasurementCubit/Repo.
   }
 
   // ---------------------------------------------------------------------------
@@ -195,16 +182,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     final mId = widget.measurement?.id;
     if (cId == null || mId == null) return;
 
-    // Converte o grid -> domínio BudgetData (ou similar)
     final domain = MagicAdapter.buildDomainFromController(controller: _ctrl);
 
-    // TODO: integrar com seu Cubit/Repository para salvar o domínio do breakdown.
-    // Exemplo hipotético:
-    // await context.read<ReportMeasurementCubit>().saveBreakdownDomain(
-    //   contractId: cId,
-    //   measurementId: mId,
-    //   data: domain,
-    // );
+    // TODO: integrar com ReportMeasurementCubit/Repo.
   }
 
   void _scheduleSaveBreakdown() {
@@ -223,20 +203,13 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     final mId = widget.measurement?.id;
     if (cId == null || mId == null) return;
 
-    // Soma pela coluna de valor no período
     final totalPeriodo = _ctrl.sumByKey(_kValPeriod);
 
-    // TODO: integrar com seu Cubit/Repository para atualizar o valor da medição.
-    // Exemplo hipotético:
-    // await context.read<ReportMeasurementCubit>().updateMeasurementValue(
-    //   contractId: cId,
-    //   measurementId: mId,
-    //   value: totalPeriodo,
-    // );
+    // TODO: integrar com ReportMeasurementCubit/Repo.
   }
 
   // ---------------------------------------------------------------------------
-  // BOOTSTRAP INICIAL (CARREGAR ORÇAMENTO e APLICAR SCHEMA)
+  // BOOTSTRAP INICIAL (CARREGAR ORÇAMENTO via BudgetCubit e APLICAR SCHEMA)
   // ---------------------------------------------------------------------------
 
   Future<void> _bootstrap() async {
@@ -246,16 +219,18 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     });
 
     try {
-      if (widget.contractData.id == null) {
+      final contractId = widget.contractData.id;
+      if (contractId == null || contractId.isEmpty) {
         throw Exception('Contrato sem ID');
       }
 
-      final String contractId = widget.contractData.id!;
+      // ✅ Novo padrão: usa BudgetCubit global
+      final budgetCubit = context.read<BudgetCubit>();
+      await budgetCubit.ensureFor(contractId);
 
-      // Carrega orçamento (domínio) como na tela de Budget
-      final BudgetData budget = await BudgetBloc().load(contractId);
+      final BudgetData? budget = budgetCubit.state.dataFor(contractId);
 
-      if (budget.isEmpty) {
+      if (budget == null || budget.isEmpty) {
         _ctrl.loadFromSnapshot(
           table: const <List<String>>[<String>[]],
           colTypesAsString: const <String>[],
@@ -278,9 +253,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     } catch (e) {
       _error = 'Falha ao carregar dados: $e';
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -290,7 +263,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
 
   double _parseBR(String s) => _ctrl.parseBR(s) ?? 0.0;
 
-  // detecta cabeçalhos tolerantes (ignora acentos, maiúsculo/minúsculo, etc.)
   int _findHeaderIndexLoose(List<String> candidates) {
     String norm(String s) {
       final up = s.toUpperCase().trim();
@@ -307,20 +279,17 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     final headersNorm = _ctrl.headers.map(norm).toList();
     final candsNorm = candidates.map(norm).toList();
 
-    // match exato
     for (final c in candsNorm) {
       final i = headersNorm.indexOf(c);
       if (i >= 0) return i;
     }
 
-    // header contém candidato
     for (int i = 0; i < headersNorm.length; i++) {
       for (final c in candsNorm) {
         if (headersNorm[i].contains(c)) return i;
       }
     }
 
-    // candidato contém header
     for (int i = 0; i < headersNorm.length; i++) {
       for (final c in candsNorm) {
         if (c.contains(headersNorm[i])) return i;
@@ -343,7 +312,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       if (q > 0) return q.toDouble();
     }
 
-    // Tenta derivar por Total / PU
     final idxTotalContrato = _findHeaderIndexLoose(
       ['Total (R\$)', 'Total R\$', 'Total'],
     );
@@ -391,11 +359,11 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     final prevStr = _ctrl.tableData[row][_idxQtyPrev];
     final prev = _parseBR(prevStr);
 
-    final saldoDisponivel =
-    (qtdContrato - prev).clamp(0.0, double.infinity);
+    final saldoDisponivel = (qtdContrato - prev).clamp(0.0, double.infinity);
 
     if (qty > saldoDisponivel) {
       final novo = saldoDisponivel;
+
       _ctrl.setCellValue(
         row,
         _idxQtyPeriod,
@@ -415,7 +383,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       }
     }
 
-    // Recalcula as colunas derivadas (VALOR etc.)
     _ctrl.recomputeRow(row);
   }
 
@@ -426,7 +393,6 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
   void _applySchemaWithGroups() {
     if (!_ctrl.hasData) return;
 
-    // Colunas originais do orçamento
     final legacyCols = <bc.ColumnMeta>[];
     for (int c = 0; c < _ctrl.colCount; c++) {
       final title = (c < _ctrl.headers.length)
@@ -445,7 +411,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       );
     }
 
-    _idxItem = 0; // primeira coluna
+    _idxItem = 0;
     _idxQtdContrato = _findHeaderIndexLoose(
       ['Quantidade', 'Quantidade do contrato', 'Qtde Contratada'],
     );
@@ -483,11 +449,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         group: 'QUANTIDADE',
         normalizeOnCommit: (raw) {
           final d = _ctrl.parseBR(raw) ?? 0.0;
-          return _ctrl.formatNumberBR(
-            d,
-            decimals: 2,
-            trimZeros: true,
-          );
+          return _ctrl.formatNumberBR(d, decimals: 2, trimZeros: true);
         },
       ),
       bc.ColumnMeta(
@@ -497,15 +459,9 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         editable: false,
         group: 'QUANTIDADE',
         compute: (row, values, ctrl) {
-          final prev =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPrev)]) ?? 0.0;
-          final period =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
-          return ctrl.formatNumberBR(
-            prev + period,
-            decimals: 2,
-            trimZeros: true,
-          );
+          final prev = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPrev)]) ?? 0.0;
+          final period = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
+          return ctrl.formatNumberBR(prev + period, decimals: 2, trimZeros: true);
         },
       ),
       bc.ColumnMeta(
@@ -515,19 +471,14 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         editable: false,
         group: 'QUANTIDADE',
         compute: (row, values, ctrl) {
-          final period =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
+          final period = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
           final qtdC = _qtdContratoRowRobusto(row);
           final saldo = qtdC - period;
-          return ctrl.formatNumberBR(
-            saldo,
-            decimals: 2,
-            trimZeros: true,
-          );
+          return ctrl.formatNumberBR(saldo, decimals: 2, trimZeros: true);
         },
       ),
 
-      // VALOR (R$)
+      // VALOR
       bc.ColumnMeta(
         key: _kValPrev,
         title: 'Acumulado Anterior',
@@ -535,8 +486,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         editable: false,
         group: 'VALOR',
         compute: (row, values, ctrl) {
-          final prev =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPrev)]) ?? 0.0;
+          final prev = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPrev)]) ?? 0.0;
           final pu = _unitPriceRow(row);
           return ctrl.formatMoneyBR(prev * pu);
         },
@@ -548,8 +498,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         editable: false,
         group: 'VALOR',
         compute: (row, values, ctrl) {
-          final periodQty =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
+          final periodQty = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
           final pu = _unitPriceRow(row);
           return ctrl.formatMoneyBR(periodQty * pu);
         },
@@ -561,10 +510,8 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         editable: false,
         group: 'VALOR',
         compute: (row, values, ctrl) {
-          final prev =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPrev)]) ?? 0.0;
-          final period =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
+          final prev = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPrev)]) ?? 0.0;
+          final period = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
           final pu = _unitPriceRow(row);
           return ctrl.formatMoneyBR((prev + period) * pu);
         },
@@ -578,8 +525,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         compute: (row, values, ctrl) {
           final pu = _unitPriceRow(row);
           final qtdContrato = _qtdContratoRowRobusto(row);
-          final periodQty =
-              ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
+          final periodQty = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
           final saldoVal = (qtdContrato - periodQty) * pu;
           return ctrl.formatMoneyBR(saldoVal);
         },
@@ -697,13 +643,11 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
               return SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: 24),
                 child: ConstrainedBox(
-                  constraints:
-                  BoxConstraints(minHeight: constraints.maxHeight),
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: Column(
                     children: [
                       Padding(
-                        padding:
-                        const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                         child: MeasurementReportHeader(
                           contract: widget.contractData,
                           measurement: widget.measurement,

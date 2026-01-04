@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
-class TypeBadgeButton extends StatelessWidget {
-  const TypeBadgeButton({
+class BadgeTypeButton extends StatelessWidget {
+  const BadgeTypeButton({
     super.key,
     required this.hasType,
     required this.type,

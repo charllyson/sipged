@@ -6,8 +6,8 @@ import 'grid_body.dart';
 
 typedef RowStyleResolver = ({Color bg, TextStyle text}) Function(int r);
 
-class MagicBodyRow extends StatelessWidget {
-  const MagicBodyRow({
+class BodyRows extends StatelessWidget {
+  const BodyRows({
     super.key,
     required this.ctrl,
     required this.rowCountWithGhost,
@@ -74,7 +74,7 @@ class MagicBodyRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final bodyGrid = SizedBox(
       width: mainGridWidth,
-      child: MagicGridBody(
+      child: GridBody(
         ctrl: ctrl,
         vGridCtrl: vGridCtrl,
         hGridCtrl: hGridCtrl,
@@ -99,7 +99,7 @@ class MagicBodyRow extends StatelessWidget {
         // GUTTER (com V scroll sincronizado externamente)
         SizedBox(
           width: gutterWidth,
-          child: MagicGutterColumn(
+          child: GutterColumn(
             ctrl: ctrl,
             vGutterCtrl: vGutterCtrl,
             rowHeight: rowHeight,
@@ -115,7 +115,7 @@ class MagicBodyRow extends StatelessWidget {
           SizedBox(
             width: leadingWidth,
             child: useExternalVScroll
-                ? MagicLeadingColumn(
+                ? LeadingColumn(
               rowCount: ctrl.rowCount,
               rowHeight: rowHeight,
               bottomScrollGap: bottomScrollGap,
@@ -125,7 +125,7 @@ class MagicBodyRow extends StatelessWidget {
             )
                 : SingleChildScrollView(
               controller: vGridCtrl,
-              child: MagicLeadingColumn(
+              child: LeadingColumn(
                 rowCount: ctrl.rowCount,
                 rowHeight: rowHeight,
                 bottomScrollGap: bottomScrollGap,
