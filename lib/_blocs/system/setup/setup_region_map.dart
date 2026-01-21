@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_services/geography/ibge_location/ibge_localidade_cubit.dart';
-import 'package:siged/_services/geography/ibge_location/ibge_localidade_data.dart';
-import 'package:siged/_services/geography/ibge_location/ibge_localidade_repository.dart';
-import 'package:siged/_services/geography/ibge_location/ibge_localidade_state.dart';
+import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
+import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
+import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_repository.dart';
+import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
 import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
 import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/map/tooltip/map_tap_overlay.dart';
-import 'package:siged/_services/geometry/geometry_utils.dart';
+import 'package:siged/_utils/geometry/geometry_utils.dart';
 
 /// Abre um dialog com mapa IBGE para selecionar múltiplos municípios.
 /// [initialSelected] = municípios já vinculados a ESTA região.
@@ -74,8 +74,6 @@ class _RegionMunicipiosSelectorBodyState
   /// Municípios bloqueados (já vinculados a outras regiões)
   late Set<String> _lockedCities;
 
-  String? _lastClickedCityName;
-  String? _lastClickedCityIdIbge;
 
   /// Controller para UF (usado pelo DropDownButtonChange)
   late final TextEditingController _ufCtrl;
@@ -126,7 +124,7 @@ class _RegionMunicipiosSelectorBodyState
     if (state.cityPolygons.isEmpty) return;
 
     final availableNames = state.cityPolygons
-        .map((p) => (p.title ?? '').trim())
+        .map((p) => (p.title).trim())
         .where((name) => name.isNotEmpty)
         .toList();
 
@@ -173,13 +171,13 @@ class _RegionMunicipiosSelectorBodyState
   void _showLockedTooltipAtPolygon(String regionName, IBGELocationState state) {
     final overlay = Overlay.of(context);
     final map = _mapController;
-    if (overlay == null || map == null) return;
+    if (map == null) return;
 
     if (state.cityPolygons.isEmpty) return;
 
     // Encontra o polígono pelo nome (title)
     final poly = state.cityPolygons.firstWhere(
-          (p) => (p.title ?? '').trim().toLowerCase() ==
+          (p) => (p.title).trim().toLowerCase() ==
           regionName.trim().toLowerCase(),
       orElse: () => state.cityPolygons.first,
     );
@@ -267,8 +265,6 @@ class _RegionMunicipiosSelectorBodyState
                     onRegionTap: (region) {
                       if (region == null) {
                         setState(() {
-                          _lastClickedCityName = null;
-                          _lastClickedCityIdIbge = null;
                         });
                         return;
                       }
@@ -291,22 +287,16 @@ class _RegionMunicipiosSelectorBodyState
                       if (selectedMatch != null) {
                         setState(() {
                           _selectedCities.remove(selectedMatch);
-                          _lastClickedCityName = region;
-                          _lastClickedCityIdIbge = null;
                         });
                         return;
                       }
 
-                      final city = state.cityPolygons.firstWhere(
+                      state.cityPolygons.firstWhere(
                             (p) => p.title == region,
                         orElse: () => state.cityPolygons.first,
                       );
-                      final props = city.properties?.first;
 
                       setState(() {
-                        _lastClickedCityName = region;
-                        _lastClickedCityIdIbge =
-                        props != null ? props['idIbge']?.toString() : null;
 
                         _selectedCities.add(region);
                       });
@@ -336,8 +326,6 @@ class _RegionMunicipiosSelectorBodyState
                               .changeSelectedState(st.id);
 
                           setState(() {
-                            _lastClickedCityName = null;
-                            _lastClickedCityIdIbge = null;
                           });
 
                           // Ao trocar estado, esconde tooltip, se existir
@@ -435,7 +423,7 @@ class _RegionMunicipiosSelectorBodyState
   /// - já usados em outras regiões (cinza),
   /// - disponíveis (cinza clarinho).
   PolygonChanged _colorizePolygon(PolygonChanged p) {
-    final String name = p.title ?? '';
+    final String name = p.title;
 
     final bool isSelected = _nameInSet(_selectedCities, name);
     final bool isLocked =

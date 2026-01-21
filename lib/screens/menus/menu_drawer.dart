@@ -97,23 +97,15 @@ class _DrawerMenuState extends State<DrawerMenu> {
 
         // ====== DOCUMENTOS ======
         ..._buildSection(
-          title: 'DOCUMENTOS',
+          title: 'MÓDULOS',
           user: userData,
           colorTitle: palette.sectionTitle,
           colorSubTitle: palette.sectionSubtitle,
           items: [
             ...PagesData.panelDashboard,
             ...PagesData.drawerDocuments,
+            ...PagesData.drawerDepartments
           ],
-        ),
-
-        // ====== SETORES ======
-        ..._buildSection(
-          title: 'SETORES',
-          user: userData,
-          colorTitle: palette.sectionTitle,
-          colorSubTitle: palette.sectionSubtitle,
-          items: PagesData.drawerDepartments,
         ),
 
         // ====== ATIVOS ======
@@ -141,7 +133,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
     required UserData user,
     required Color colorTitle,
     required Color colorSubTitle,
-    required List<MenuDrawerItemModel> items,
+    required List<MenuDrawerItemModule> items,
   }) {
     final visibleGroups = items
         .map((item) => _buildExpandableGroup(

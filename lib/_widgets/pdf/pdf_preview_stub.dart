@@ -1,4 +1,4 @@
-// lib/_widgets/archives/pdf/pdf_preview_stub.dart
+// lib/_widgets/files/pdf/pdf_preview_stub.dart
 import 'package:flutter/material.dart';
 
 class PdfPreview extends StatelessWidget {

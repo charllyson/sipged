@@ -1,5 +1,4 @@
 // lib/_widgets/charts/neuralbar/types.dart
-import 'package:flutter/material.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
 /// Tipo de valor exibido (usado para formatadores).

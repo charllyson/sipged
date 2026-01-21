@@ -1,4 +1,4 @@
-// lib/_blocs/sectors/operation/photo_utils.dart
+// lib/_blocs/modules/operation/photo_utils.dart
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';

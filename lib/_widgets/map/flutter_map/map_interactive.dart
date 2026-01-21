@@ -6,7 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_services/nominatim/nominatim_service.dart';
+import 'package:siged/_services/map/map_box/service/nominatim_service.dart';
 import 'package:siged/_widgets/buttons/mini_circle_button.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -15,7 +15,7 @@ import 'package:siged/_widgets/map/markers/tagged_marker.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline_layer.dart';
 import 'package:siged/_widgets/map/base/map_base_layer.dart';
-import 'package:siged/_services/nominatim/nominatim_bloc.dart';
+import 'package:siged/_services/map/map_box/service/nominatim_bloc.dart';
 
 // 🔎 UI de busca
 import '../../search/search_widget.dart';
@@ -194,8 +194,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
   LatLng _lastCenter = const LatLng(-9.65, -36.7);
   double _lastZoom = 9.0;
-  bool _mapReadyOnce = false;
-  bool _hasUserMovedCamera = false;
 
   String _norm(String s) =>
       removeDiacritics(s).replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
@@ -263,8 +261,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     return pts;
   }
 
-  List<LatLng> _collectAllGeometryPoints() =>
-      _collectAllGeometryPointsFor(widget);
 
   bool _hasAnyGeometryFor(MapInteractivePage<T> w) =>
       _collectAllGeometryPointsFor(w).isNotEmpty;
@@ -377,7 +373,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       _mapController.move(loc, 16);
       _lastCenter = loc;
       _lastZoom = 16;
-      _hasUserMovedCamera = true;
       widget.onMapTap?.call(loc.latitude, loc.longitude);
       NotificationCenter.instance.show(
         AppNotification(
@@ -612,7 +607,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     _mapController.move(p, widget.searchTargetZoom);
     _lastCenter = p;
     _lastZoom = widget.searchTargetZoom;
-    _hasUserMovedCamera = true;
   }
 
   LatLng? _parseLatLng(String s) {
@@ -894,7 +888,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                               .addPostFrameCallback((_) {
                             try {
                               _mapController.move(_lastCenter, _lastZoom);
-                              _mapReadyOnce = true;
                             } catch (_) {}
                           });
                         },
@@ -909,7 +902,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                         onMapEvent: (event) {
                           _lastCenter = _mapController.camera.center;
                           _lastZoom = _mapController.camera.zoom;
-                          _hasUserMovedCamera = true;
                           widget.onZoomChanged?.call(_lastZoom);
                           widget.onCameraChanged
                               ?.call(_lastZoom, _lastCenter);

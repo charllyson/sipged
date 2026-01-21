@@ -4,7 +4,7 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'package:siged/_services/map/map_box/mapbox_3d.dart';
 import 'package:siged/_widgets/map/map_box/mapbox_3d_panel.dart';
-import 'package:siged/_blocs/map/map_box/mapbox_data.dart';
+import 'package:siged/_services/map/map_box/mapbox_data.dart';
 import 'package:siged/_services/map/map_box/mapbox_key_service.dart';
 
 class MapBoxChanged extends StatefulWidget {

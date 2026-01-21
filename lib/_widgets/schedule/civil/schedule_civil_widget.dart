@@ -5,7 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_services/dxf/dxf_selection_overlay.dart';
+import 'package:siged/_services/files/dxf/dxf_selection_overlay.dart';
 import 'package:siged/_widgets/input/in_line_text_box.dart';
 
 // Base/UI
@@ -15,13 +15,13 @@ import 'package:siged/_widgets/schedule/modal/type.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 
 // Modal unificado + tipos
-import 'package:siged/screens/sectors/operation/schedule/road/schedule_modal_square.dart';
+import 'package:siged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
 
 // Civil (render e UI)
-import 'package:siged/_services/dxf/dxf_empty_hint.dart';
+import 'package:siged/_services/files/dxf/dxf_empty_hint.dart';
 import 'package:siged/_widgets/schedule/civil/schedule_civil_board.dart';
 import 'package:siged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
-import 'package:siged/_services/dxf/dxf_enums.dart';
+import 'package:siged/_services/files/dxf/dxf_enums.dart';
 import 'package:siged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon_painter.dart';
 import 'package:siged/_widgets/toolBox/menuDrawerPolygon/snap_utils.dart';
 import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
@@ -33,16 +33,16 @@ import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 // BLoC/Auth
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
-import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_state.dart';
+import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
+import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
+import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_state.dart';
 
 // Storage
 import 'package:firebase_storage/firebase_storage.dart';
 
 // DXF modular
-import 'package:siged/_services/dxf/dxf_controller.dart';
-import 'package:siged/_services/dxf/dxf_to_geo.dart';
+import 'package:siged/_services/files/dxf/dxf_controller.dart';
+import 'package:siged/_services/files/dxf/dxf_to_geo.dart';
 
 // ✅ notificações ricas
 import 'package:siged/_widgets/notification/app_notification.dart';
@@ -222,7 +222,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     c.current.clear();
     c.selectedIndex = null;
     if (prevMode != ToolMode.draw) c.mode = prevMode;
-    c.notifyListeners();
   }
 
   // ========== Hydrate ==========
@@ -275,7 +274,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       _polygonIdByIndex[i] = id;
     }
 
-    widget.controller.notifyListeners();
     widget.controller.activateSelect();
     widget.controller.current.clear();
     widget.controller.selectedIndex = null;
@@ -511,32 +509,8 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
   }
 
   // ===== Texto =====
-  TextStyle _styleFor(TextItem it) => TextStyle(
-    color: it.color,
-    fontSize: it.fontSize,
-    fontWeight: it.weight,
-  );
 
-  Rect _textBounds(TextItem it) {
-    if (it.areaSize != null) {
-      return Rect.fromLTWH(it.position.dx, it.position.dy, it.areaSize!.width, it.areaSize!.height);
-    }
-    final tp = TextPainter(
-      text: TextSpan(text: it.text.isEmpty ? ' ' : it.text, style: _styleFor(it)),
-      textDirection: TextDirection.ltr,
-      maxLines: 8,
-    )..layout(maxWidth: 480);
-    final size = tp.size;
-    return Rect.fromLTWH(it.position.dx, it.position.dy, size.width, size.height);
-  }
 
-  int? _pickTextAt(Offset pagePoint) {
-    final texts = widget.controller.texts;
-    for (int i = texts.length - 1; i >= 0; i--) {
-      if (_textBounds(texts[i]).inflate(4).contains(pagePoint)) return i;
-    }
-    return null;
-  }
 
   // ========== Interação ==========
   Future<void> _onTapDown(TapDownDetails d) async {
@@ -565,7 +539,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     // Delega pro controller (select/draw de polígonos) — OBS: ele também trabalha em "image space"
     ctrl.handleTap(
       pagePoint: pImage,
-      onAskName: (s) => _askAreaName(initial: s ?? 'Área'),
+      onAskName: (s) => _askAreaName(initial: s),
     );
 
     // Evita modal durante desenho
@@ -903,7 +877,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       }
       _editingTextIndex = null;
       _editingAnchor = null;
-      ctrl.notifyListeners();
     });
 
     _textEditCtrl.clear();

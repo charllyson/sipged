@@ -8,7 +8,6 @@ import 'package:siged/_blocs/system/setup/setup_data.dart';
 
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_blocs/system/pages/pages_data.dart';
 
 /// Estados de login/perfil
 enum LoginState {

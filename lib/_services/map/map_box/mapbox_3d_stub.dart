@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:siged/_services/map/map_box/mapbox_html_builder.dart';
-import 'package:siged/_blocs/map/map_box/mapbox_data.dart';
+import 'package:siged/_services/map/map_box/mapbox_data.dart';
 
 /// Controller usado pelo Flutter para enviar comandos de câmera/estilo
 /// para o WebView (via JavaScript).

@@ -1,5 +1,4 @@
 // lib/_widgets/charts/linear_bar/horizontal_bar_chart_row.dart
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:siged/_widgets/charts/linear_bar/hatched_fill_light.dart';
@@ -256,7 +255,7 @@ class HorizontalChartBar extends StatelessWidget {
                                 // - cor da linha: hatchStyle.lineColor (informada)
                                 // - cor do fundo: mesma cor, com opacidade (para combinar)
                                 if (shouldHatch && !isSelectedSlice) {
-                                  final bg = hatchStyle!.backgroundColor();
+                                  final bg = hatchStyle.backgroundColor();
                                   final lc = hatchStyle.lineColor;
 
                                   return Expanded(

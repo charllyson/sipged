@@ -1,8 +1,6 @@
 // lib/screens/panels/specific-dashboard/specific_dashboard_schedules_details.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_widgets/charts/linear_bar/hatch_config.dart';
-import 'package:siged/_widgets/charts/linear_bar/horizontal_bar_chart_bars.dart';
 
 import 'package:siged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
 import 'package:siged/_widgets/charts/legend/chart_legend.dart';

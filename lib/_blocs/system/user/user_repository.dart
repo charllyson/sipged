@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 
 import 'package:siged/_blocs/system/user/user_data.dart';
 
@@ -107,6 +106,6 @@ class UserRepository {
     if (!doc.exists) {
       return;
     }
-    final data = doc.data();
+    doc.data();
   }
 }

@@ -113,7 +113,6 @@ class _AnchoredTooltipOverlayState extends State<_AnchoredTooltipOverlay> {
 // espaço entre card e a base da seta
     const double verticalGap = 6.0;
 // sobreposição mínima da base da seta com o card (evita “vazamento” de fundo)
-    const double baseOverlap = 2.0;
 
     final left = math.max(
       safeLeft,
@@ -125,13 +124,11 @@ class _AnchoredTooltipOverlayState extends State<_AnchoredTooltipOverlay> {
         .clamp(safeTop, double.infinity);
 
 // bordo inferior do card
-    final cardBottom = cardTop + estimatedCardHeight;
 
 // seta “cola” no card (base encosta no card e desce)
-    final balloonTop = cardBottom - baseOverlap;
 
 // centraliza seta perto do clique, limitado às bordas do card
-    final balloonLeft = math.max(
+    math.max(
       left + 10,
       math.min(_pos.dx - (arrowW / 2), left + widget.maxWidth - 10 - arrowW),
     );

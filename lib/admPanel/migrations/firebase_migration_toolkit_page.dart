@@ -405,7 +405,7 @@ class _FirebaseMigrationToolkitPageState
                         'dos documentos e visualizar seus campos.\n\n'
                         'Exemplos de origem:\n'
                         ' - accidents\n'
-                        ' - process/abc123/accidents\n'
+                        ' - operation/abc123/accidents\n'
                         ' - contracts/xyz789/measurements',
                     style: TextStyle(fontSize: 13, color: Colors.black87),
                   ),

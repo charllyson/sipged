@@ -13,102 +13,104 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:siged/_blocs/actives/oacs/active_oacs_cubit.dart';
+import 'package:siged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
+import 'package:siged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_cubit.dart';
+import 'package:siged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_repository.dart';
 
-import '_blocs/process/budget/budget_cubit.dart';
-import '_blocs/process/budget/budget_repository.dart';
-import '_blocs/process/measurement/adjustment/adjustments_measurement_cubit.dart';
+import '_blocs/modules/contracts/budget/budget_cubit.dart';
+import '_blocs/modules/contracts/budget/budget_repository.dart';
+import '_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_cubit.dart';
 import 'firebase_options_flavors.dart';
 
 // ===== Cubits / BLoCs de mapa / ativos =====
-import 'package:siged/_services/dxf/map_overlay_cubit.dart';
+import 'package:siged/_services/files/dxf/map_overlay_cubit.dart';
 
-import 'package:siged/_blocs/actives/roads/active_roads_cubit.dart';
-import 'package:siged/_blocs/actives/railway/active_railways_cubit.dart';
+import 'package:siged/_blocs/modules/actives/roads/active_roads_cubit.dart';
+import 'package:siged/_blocs/modules/actives/railway/active_railways_cubit.dart';
 
 // ✅ OAEs em Cubit
-import 'package:siged/_blocs/actives/oaes/active_oaes_cubit.dart';
+import 'package:siged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
 
 // ===== Painéis / Dashboards =====
 import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 
 // ===== Processos: ajustes, revisões, relatórios (NOVOS CUBITS) =====
-import 'package:siged/_blocs/process/measurement/revision/revision_measurement_cubit.dart';
-import 'package:siged/_blocs/process/measurement/report/report_measurement_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
 
 // ===== Processos: validades =====
-import 'package:siged/_blocs/process/validity/validity_cubit.dart';
-import 'package:siged/_blocs/process/validity/validity_repository.dart';
+import 'package:siged/_blocs/modules/contracts/validity/validity_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/validity/validity_repository.dart';
 
 // ===== Processos: aditivos =====
-import 'package:siged/_blocs/process/additives/additives_repository.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
 
 // ✅ Apostilamentos (NOVO PADRÃO: Repository; Cubit é criado na página)
-import 'package:siged/_blocs/process/apostilles/apostilles_repository.dart';
+import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
 // ===== Processos: base de contratos =====
-import 'package:siged/_blocs/_process/process_bloc.dart';
-import 'package:siged/_blocs/_process/process_store.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_store.dart';
 
 // ===== Processos: cronograma =====
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
+import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
 
 // ===== Processos: física / financeira =====
-import 'package:siged/_blocs/process/phys_fin/physics_finance_store.dart';
+import 'package:siged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
 
 // ===== Setores financeiros: pagamentos =====
-import 'package:siged/_blocs/sectors/financial/payments/adjustment/payment_adjustment_bloc.dart';
-import 'package:siged/_blocs/sectors/financial/payments/report/payment_reports_bloc.dart';
-import 'package:siged/_blocs/sectors/financial/payments/report/payments_report_storage_bloc.dart';
-import 'package:siged/_blocs/sectors/financial/payments/revision/payment_revision_bloc.dart';
+import 'package:siged/_blocs/modules/financial/payments/adjustment/payment_adjustment_bloc.dart';
+import 'package:siged/_blocs/modules/financial/payments/report/payment_reports_bloc.dart';
+import 'package:siged/_blocs/modules/financial/payments/report/payments_report_storage_bloc.dart';
+import 'package:siged/_blocs/modules/financial/payments/revision/payment_revision_bloc.dart';
 
 // ===== Setor trânsito: acidentes / infrações =====
-import 'package:siged/_blocs/sectors/transit/accidents/accidents_cubit.dart';
-import 'package:siged/_blocs/sectors/transit/infractions/infractions_bloc.dart';
-import 'package:siged/_blocs/sectors/transit/infractions/infractions_controller.dart';
+import 'package:siged/_blocs/modules/transit/accidents/accidents_cubit.dart';
+import 'package:siged/_blocs/modules/transit/infractions/infractions_bloc.dart';
+import 'package:siged/_blocs/modules/transit/infractions/infractions_controller.dart';
 
 // ===== Sistema / Usuário / Login =====
 import 'package:siged/_blocs/system/login/login_bloc.dart';
-import 'package:siged/_services/nominatim/nominatim_bloc.dart';
+import 'package:siged/_services/map/map_box/service/nominatim_bloc.dart';
 import 'package:siged/_blocs/system/user/user_repository.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_event.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 
 // ===== Módulos de contratação (DFD, ETP, TR, etc.) =====
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/2Etp/etp_cubit.dart';
-import 'package:siged/_blocs/process/hiring/2Etp/etp_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/3Tr/tr_cubit.dart';
-import 'package:siged/_blocs/process/hiring/3Tr/tr_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_cubit.dart';
-import 'package:siged/_blocs/process/hiring/4Cotacao/cotacao_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/5Edital/edital_cubit.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/edital_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_cubit.dart';
-import 'package:siged/_blocs/process/hiring/6Habilitacao/habilitacao_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/7Dotacao/dotacao_cubit.dart';
-import 'package:siged/_blocs/process/hiring/7Dotacao/dotacao_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_cubit.dart';
-import 'package:siged/_blocs/process/hiring/8Minuta/minuta_contrato_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_cubit.dart';
-import 'package:siged/_blocs/process/hiring/9Juridico/parecer_juridico_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_cubit.dart';
-import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_repository.dart';
 
-import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
-import 'package:siged/_blocs/process/hiring/11Arquivamento/termo_arquivamento_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_repository.dart';
 
 // ===== Setup =====
 import 'package:siged/_blocs/system/setup/setup_cubit.dart';
@@ -188,7 +190,6 @@ Future<void> bootstrapAndRunApp() async {
                 bindCurrentUser: true,
               )),
           ),
-
           /// ======= OAEs / Rodovias / Ferrovias =======
           BlocProvider<ActiveOaesCubit>(
             create: (_) => ActiveOaesCubit()..warmup(),

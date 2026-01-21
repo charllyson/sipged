@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
 import 'tipo_dado_enum.dart';
 
 TipoDado detectarTipo(List<Map<String, dynamic>> dados, String campo) {

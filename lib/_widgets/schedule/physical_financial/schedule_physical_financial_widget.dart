@@ -1,31 +1,30 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 // Additivos / Modelo + Repo
-import 'package:siged/_blocs/process/additives/additives_data.dart';
-import 'package:siged/_blocs/process/additives/additives_repository.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
 
-import 'package:siged/_blocs/process/phys_fin/physics_finance_data.dart';
+import 'package:siged/_blocs/modules/operation/phys_fin/physics_finance_data.dart';
 // ✅ Store dedicado de cronograma
-import 'package:siged/_blocs/process/phys_fin/physics_finance_store.dart';
+import 'package:siged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
 
 // SIGED deps
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 
 // Cubit de cronograma rodoviário
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_state.dart';
+import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
 // Widgets locais/módulos
 import 'banner_tip.dart';
 import 'busy_overlay.dart';
 import 'card_wrapper.dart';
 import 'physfin_table.dart';
-import '../../../_blocs/process/phys_fin/physics_finance_controller.dart';
+import '../../../_blocs/modules/operation/phys_fin/physics_finance_controller.dart';
 import 'physfin_models.dart';
 
 void _unawaited(Future<void> f) {}

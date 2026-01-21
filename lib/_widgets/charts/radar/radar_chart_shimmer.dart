@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 
 /// Shimmer genérico (sem dependências externas) usando ShaderMask.
 class _Shimmer extends StatefulWidget {
-  const _Shimmer({required this.child, this.speed = 1200});
+  const _Shimmer({required this.child});
   final Widget child;
-  final int speed; // ms
 
   @override
   State<_Shimmer> createState() => _ShimmerState();
@@ -23,7 +22,7 @@ class _ShimmerState extends State<_Shimmer>
       ..repeat(
         min: 0,
         max: 1,
-        period: Duration(milliseconds: widget.speed),
+        period: Duration(milliseconds: 1200),
       );
   }
 
@@ -69,7 +68,6 @@ class _RadarSkeletonPainter extends CustomPainter {
     required this.axes,
     required this.color,
     this.frameColor,
-    this.frameStroke = 2.0,
     this.radiusFactor = 0.85, // encurta o raio
     this.gridStroke = 1.0, // traço da grade
     this.ringOpacity = 0.35, // opacidade dos anéis
@@ -80,7 +78,6 @@ class _RadarSkeletonPainter extends CustomPainter {
   final int axes;
   final Color color;
   final Color? frameColor;
-  final double frameStroke;
 
   final double radiusFactor;
   final double gridStroke;
@@ -133,7 +130,7 @@ class _RadarSkeletonPainter extends CustomPainter {
     // moldura
     final framePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = frameStroke
+      ..strokeWidth = 2
       ..color = (frameColor ?? color.withOpacity(0.9));
 
     final framePath = Path();

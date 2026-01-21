@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'package:siged/_services/map/map_box/mapbox_html_builder.dart';
 import 'package:siged/_services/map/map_box/mapbox_3d_view_web.dart' as mapbox_web;
-import 'package:siged/_blocs/map/map_box/mapbox_data.dart';
+import 'package:siged/_services/map/map_box/mapbox_data.dart';
 
 /// Message bus estático para receber mensagens do iframe
 class MapboxWebMessageBus {

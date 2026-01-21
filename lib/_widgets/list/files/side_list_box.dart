@@ -183,6 +183,7 @@ class SideListBox extends StatelessWidget {
                         }
                         // sem callback: comportamento padrão
                         if (isAttachment) {
+                          // ignore: unnecessary_cast
                           final a = raw as Attachment;
                           if (_isPdfAttachment(a)) {
                             await openPdfDialog(context, a.url, title: label);

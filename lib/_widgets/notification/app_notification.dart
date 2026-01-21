@@ -40,7 +40,7 @@ class AppNotification {
       case AppNotificationType.warning: return const Color(0xFFFFB300);
       case AppNotificationType.error:   return const Color(0xFFD32F2F);
       case AppNotificationType.info:
-      default:                          return const Color(0xFF9E9E9E);
+      return const Color(0xFF9E9E9E);
     }
   }
 
@@ -56,8 +56,7 @@ class AppNotification {
       case AppNotificationType.error:
         return const Icon(Icons.error_outline, color: Color(0xFFD32F2F));
       case AppNotificationType.info:
-      default:
-        return const Icon(Icons.info_outline, color: Color(0xFF9E9E9E));
+      return const Icon(Icons.info_outline, color: Color(0xFF9E9E9E));
     }
   }
 }

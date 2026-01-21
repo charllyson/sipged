@@ -1,11 +1,11 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
-import 'package:siged/_blocs/process/measurement/adjustment/adjustment_measurement_data.dart';
-import 'package:siged/_blocs/process/measurement/revision/revision_measurement_data.dart';
-import 'package:siged/_blocs/process/additives/additives_data.dart';
-import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 
 class GeneralDashboardState extends Equatable {
   final bool initialized;

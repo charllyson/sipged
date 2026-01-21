@@ -1,6 +1,6 @@
-// lib/screens/sectors/operation/schedule/schedule_lane_edit_section.dart
+// lib/screens/modules/operation/schedule/schedule_lane_edit_section.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_style.dart';
+import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
 import 'package:siged/_widgets/schedule/linear/schedule_lane_row_data.dart';
 import 'package:siged/_widgets/windows/window_dialog.dart';

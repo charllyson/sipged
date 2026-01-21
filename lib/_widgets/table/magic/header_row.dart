@@ -113,11 +113,9 @@ class HeaderRow extends StatelessWidget {
                         .clamp(bc.MagicTableController.minColWidth, maxW)
                         .toDouble();
                     ctrl.colWidths[c] = next;
-                    ctrl.notifyListeners();
                   },
                   onDoubleTap: () {
                     ctrl.colWidths[c] = ctrl.autoFitColWidth(c);
-                    ctrl.notifyListeners();
                   },
                 ),
               ),

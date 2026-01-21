@@ -32,13 +32,13 @@ class BandsHeader extends StatelessWidget {
         } else if (g == curGroup) {
           accWidth += w;
         } else {
-          groups.add(_BandInfo(curGroup!.isEmpty ? null : curGroup!, accWidth));
+          groups.add(_BandInfo(curGroup.isEmpty ? null : curGroup, accWidth));
           curGroup = g;
           accWidth = w;
         }
       }
       if (curGroup != null) {
-        groups.add(_BandInfo(curGroup!.isEmpty ? null : curGroup!, accWidth));
+        groups.add(_BandInfo(curGroup.isEmpty ? null : curGroup, accWidth));
       }
     } else {
       // Sem schema: uma única banda cobrindo todas colunas

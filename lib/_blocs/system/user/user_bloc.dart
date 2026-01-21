@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/system/user/user_repository.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
@@ -66,7 +65,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         _attachMeStream(); // << não passa emit
         emit(state.copyWith(currentBindEnabled: true));
       }
-    } catch (err, st) {
+    } catch (err) {
       emit(state.copyWith(isLoadingUsers: false, loadUsersError: '$err'));
     }
   }
@@ -104,7 +103,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         isLoadingUsers: false,
         loadUsersError: '',
       ));
-    } catch (err, st) {
+    } catch (err) {
       emit(state.copyWith(isLoadingUsers: false, loadUsersError: '$err'));
     }
   }
@@ -160,7 +159,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       if ((u.uid ?? '').isNotEmpty) byId[u.uid!] = u;
 
       emit(state.copyWith(all: all, byId: byId));
-    } catch (err, st) {
+    } catch (err) {
       // silencioso
     }
   }
@@ -190,7 +189,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       final current = (state.current?.uid == id) ? e.user : state.current;
 
       emit(state.copyWith(all: all, byId: byId, current: current));
-    } catch (err, st) {
+    } catch (err) {
       // opção: expor um erro específico de save no estado
     }
   }
@@ -201,7 +200,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       ) async {
     try {
       await repo.markNotificationSeen(e.uid, e.notificationId);
-    } catch (err, st) {
+    } catch (err) {
     }
   }
 

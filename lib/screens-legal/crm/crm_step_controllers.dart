@@ -21,8 +21,6 @@ abstract class _BaseCrmController extends CrmStepController {
   @override
   set status(String v) => _status = v;
 
-  TextEditingController _t([String key = '']) =>
-      _map.putIfAbsent(key, () => TextEditingController());
 
   @override
   Map<String, dynamic> toMap() {

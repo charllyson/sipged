@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_services/dxf/dxf_enums.dart';
+import 'package:siged/_services/files/dxf/dxf_enums.dart';
 import 'package:siged/_widgets/toolBox/tool_action.dart';
 import 'package:siged/_widgets/toolBox/tool_slot.dart';
 

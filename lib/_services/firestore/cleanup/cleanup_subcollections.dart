@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 
 /// Subcoleções antigas que queremos remover, em cada contrato.
 const List<String> kOldMeasurementSubcollections = <String>[

@@ -1,4 +1,4 @@
-// lib/_widgets/archives/pdf/pdf_preview_web.dart
+// lib/_widgets/files/pdf/pdf_preview_web.dart
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/foundation.dart';

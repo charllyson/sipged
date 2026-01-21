@@ -141,7 +141,6 @@ class _StampChip extends StatelessWidget {
   final double? iconSize;
 
   const _StampChip({
-    super.key,
     required this.approved,
     required this.baseTint,
     required this.bgOpacity,

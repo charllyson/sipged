@@ -7,7 +7,6 @@ import 'package:siged/_services/firestore/migrate/migration.dart';
 import 'package:siged/_services/firestore/firebase_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/tiles/tile_widget.dart';
-import 'package:siged/admPanel/firebase/settings_topic_firebase_page.dart';
 import 'package:siged/admPanel/migrations/firebase_migration_toolkit_page.dart';
 
 import 'package:siged/_widgets/buttons/back_circle_button.dart';
@@ -20,7 +19,6 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 // 🪟 WindowDialog
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
-import 'migrar_contractstatus_para_status_contrato.dart';
 
 class SettingsTopicMigracoesPage extends StatefulWidget {
   const SettingsTopicMigracoesPage({super.key});
@@ -221,7 +219,7 @@ Future<String?> _askPath(BuildContext context) async {
             children: [
               CustomTextField(
                 controller: controller,
-                labelText: 'Ex: actives_oaes ou process/abc123/accidents',
+                labelText: 'Ex: actives_oaes ou operation/abc123/accidents',
               ),
               const SizedBox(height: 18),
               Row(

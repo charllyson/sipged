@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/ia/ai_chat_sheet.dart';
 import 'package:siged/_widgets/ia/ai_futuristic_button.dart';
-import 'package:siged/_services/nominatim/nominatim_bloc.dart';
+import 'package:siged/_services/map/map_box/service/nominatim_bloc.dart';
 
 class FootBar extends StatefulWidget {
   const FootBar({super.key});

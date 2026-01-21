@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_services/nominatim/nominatim_bloc.dart';
 import 'package:siged/_widgets/charts/lines/line_chart_changed.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
 class MeasurementContractSection extends StatelessWidget {
   final List<ReportMeasurementData> filteredMeasurements;

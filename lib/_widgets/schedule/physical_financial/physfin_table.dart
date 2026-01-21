@@ -1,7 +1,7 @@
 // lib/screens/_pages/physical_financial/physfin_table.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:siged/_blocs/process/additives/additives_data.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:siged/_widgets/schedule/physical_financial/physfin_models.dart';
 
 import 'percent_bar.dart';
@@ -189,7 +189,7 @@ class PhysFinTable extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            sub!,
+            sub,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,

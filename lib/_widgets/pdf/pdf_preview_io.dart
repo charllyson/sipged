@@ -1,4 +1,4 @@
-// lib/_widgets/archives/pdf/pdf_preview_io.dart
+// lib/_widgets/files/pdf/pdf_preview_io.dart
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';

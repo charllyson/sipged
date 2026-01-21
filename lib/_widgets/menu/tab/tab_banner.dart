@@ -7,9 +7,9 @@ import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/images/mini_avatars/mini_avatars.dart';
 
-import 'package:siged/_blocs/_process/process_bloc.dart';
-import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/_process/process_store.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_store.dart';
 
 import 'package:siged/_widgets/list/search/search_user_permission_widget.dart';
 
@@ -22,7 +22,6 @@ import 'package:siged/_widgets/stamp/stamp.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 // 🔹 janela estilo macOS
-import 'package:siged/_widgets/windows/window_dialog.dart';
 
 class TabBanner extends StatefulWidget {
   const TabBanner({
@@ -92,7 +91,7 @@ class _TabBannerState extends State<TabBanner> {
     final userState = context.read<UserBloc>().state;
     final currentUser = widget.userData ?? userState.current;
     final contract = c ?? _contractData;
-    if (currentUser == null || contract == null) return false;
+    if (currentUser == null) return false;
     return perms.userCanOnContract(
       user: currentUser,
       contract: contract,

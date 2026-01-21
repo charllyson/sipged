@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
 import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_state.dart';
-import 'package:siged/_widgets/charts/linear_bar/horizontal_bar_chart_bars.dart';
 
 import 'package:siged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
 import 'package:siged/_widgets/charts/legend/chart_legend.dart';
@@ -18,7 +17,6 @@ class SpecificDashboardContractSummary extends StatelessWidget {
     this.isLoading = false,
   });
 
-  String _formatMoney(double v) => 'R\$ ${v.toStringAsFixed(0)}';
 
   List<double> _ensureLength(List<double> values, int n) {
     if (values.length == n) return values;

@@ -52,8 +52,6 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
   /// Azul do submenu (mantido)
   static const macBlue = Color(0xFF0A84FF);
 
-  /// Cinza de hover/selecionado no menu principal / pai de submenu
-  static const menuHoverGrey = Color(0xFFD0D0D0);
 
   /// Altura aproximada de cada item (para alinhar submenu com o pai)
   static const double _menuItemHeight = 28.0;
@@ -108,7 +106,6 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
     _removeOverlay();
 
     final overlay = Overlay.of(context, rootOverlay: true);
-    if (overlay == null) return;
 
     _overlayEntry = OverlayEntry(
       builder: (ctx) => Stack(

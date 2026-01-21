@@ -3,22 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ===== SIGED: Models / Stores / Blocs / Cubits =====
-import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 
 // Cubit específico do dashboard detalhado
 import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
-import 'package:siged/_blocs/process/additives/additives_repository.dart';
-import 'package:siged/_blocs/process/apostilles/apostilles_repository.dart';
-import 'package:siged/_blocs/process/measurement/adjustment/adjustments_measurement_repository.dart';
-import 'package:siged/_blocs/process/measurement/report/report_measurement_repository.dart';
-import 'package:siged/_blocs/process/measurement/revision/revision_measurement_repository.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_repository.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_repository.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
 
 // Validity
-import 'package:siged/_blocs/process/validity/validity_cubit.dart';
-import 'package:siged/_blocs/process/validity/validity_repository.dart';
+import 'package:siged/_blocs/modules/contracts/validity/validity_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/validity/validity_repository.dart';
 
 // DFD Repo (usado pelo SpecificDashboardCubit)
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
 // ===== Widgets / Seções auxiliares =====
 import 'package:siged/_widgets/background/background_cleaner.dart';

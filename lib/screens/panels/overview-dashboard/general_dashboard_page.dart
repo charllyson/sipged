@@ -3,10 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
-import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/list/resume/list_resumed.dart';

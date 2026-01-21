@@ -77,7 +77,7 @@ class SettingsTopicFirebasePage extends StatelessWidget {
                     leading: Icons.upload_file_outlined,
                     onTap: () async {
                       final path = await _askPath(context,
-                          hint: 'Ex: actives_oaes ou process/abc123/accidents');
+                          hint: 'Ex: actives_oaes ou operation/abc123/accidents');
                       if (!context.mounted || path == null || path.isEmpty) return;
 
                       _showLoading(context);
@@ -172,7 +172,7 @@ class SettingsTopicFirebasePage extends StatelessWidget {
                     leading: Icons.delete_forever_rounded,
                     onTap: () async {
                       final path = await _askPath(context,
-                          hint: 'Ex: actives_oaes ou process/abc123/accidents');
+                          hint: 'Ex: actives_oaes ou operation/abc123/accidents');
                       if (!context.mounted || path == null || path.isEmpty) return;
 
                       _showLoading(context);
@@ -240,7 +240,7 @@ Future<String?> _askPath(BuildContext context, {String? hint}) async {
       title: const Text('Informe o caminho da coleção'),
       content: CustomTextField(
         controller: controller,
-        labelText: hint ?? 'Ex: actives_oaes ou process/abc123/accidents',
+        labelText: hint ?? 'Ex: actives_oaes ou operation/abc123/accidents',
       ),
       actions: [
         TextButton(

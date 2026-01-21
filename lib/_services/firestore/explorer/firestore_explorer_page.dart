@@ -29,7 +29,7 @@ class FirestoreExplorerPage extends StatefulWidget {
 }
 
 class _FirestoreExplorerPageState extends State<FirestoreExplorerPage> {
-  final _collectionCtrl = TextEditingController(text: 'process');
+  final _collectionCtrl = TextEditingController(text: 'operation');
   final _newCollectionCtrl = TextEditingController();
   final List<FieldMapping> _fieldMappings = [];
   final List<Map<String, TextEditingController>> _subcollections = [];

@@ -1,4 +1,4 @@
-// lib/_services/geoJson/stakes_up_right.dart
+// lib/_services/files/geoJson/stakes_up_right.dart
 import 'package:flutter/material.dart';
 
 /// ======= UI do risco + bolha (texto com contorno) =======

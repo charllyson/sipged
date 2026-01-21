@@ -30,7 +30,7 @@ class WeatherFloatingWidget extends StatefulWidget {
 class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
   final String apiKey = '12b6e28582eb9298577c734a31ba9f4f';
   late WeatherFactory ws;
-  AppState _state = AppState.NOT_DOWNLOADED;
+  AppState state = AppState.NOT_DOWNLOADED;
   double? _lat, _lon;
 
   @override
@@ -42,7 +42,7 @@ class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
 
   Future<void> _initLocationAndWeather() async {
     if (!mounted) return;
-    setState(() => _state = AppState.DOWNLOADING);
+    setState(() => state = AppState.DOWNLOADING);
 
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -66,7 +66,7 @@ class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
     if (_lat == null || _lon == null) { _notifyError('Localização indefinida.'); return; }
     if (!mounted) return;
 
-    setState(() => _state = AppState.DOWNLOADING);
+    setState(() => state = AppState.DOWNLOADING);
     try {
       final forecasts = await ws.fiveDayForecastByLocation(_lat!, _lon!);
       if (!mounted) return;
@@ -85,7 +85,7 @@ class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
       }
 
       if (!mounted) return;
-      setState(() => _state = AppState.FINISHED_DOWNLOADING);
+      setState(() => state = AppState.FINISHED_DOWNLOADING);
     } catch (e) {
       _notifyError('Erro na previsão: $e');
     }
@@ -195,7 +195,7 @@ class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
         duration: const Duration(seconds: 6),
       ),
     );
-    if (mounted) setState(() => _state = AppState.NOT_DOWNLOADED);
+    if (mounted) setState(() => state = AppState.NOT_DOWNLOADED);
   }
 
   @override

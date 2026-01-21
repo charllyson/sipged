@@ -9,7 +9,7 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 // 🪟 Janela macOS-like
-import 'package:siged/_widgets/windows/window_dialog.dart'; // onde está o showWindowDialogMac
+// onde está o showWindowDialogMac
 
 class ImportExcelPage extends StatefulWidget {
   final String firstCollection;

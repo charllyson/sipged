@@ -1,6 +1,6 @@
 // lib/_services/map/map_box/mapbox_html_builder.dart
 import 'dart:convert';
-import 'package:siged/_blocs/map/map_box/mapbox_data.dart';
+import 'package:siged/_services/map/map_box/mapbox_data.dart';
 
 String buildMapboxHtml(
     MapboxMapConfig config, {

@@ -138,7 +138,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
       final copy = [...ds]..sort();
       return copy;
     }
-    return _applyOrder<DateTime>(ds, _globalOrder!);
+    return _applyOrder<DateTime>(ds, _globalOrder);
   }
 
   List<String> get _globalLabelsResolved {
@@ -149,7 +149,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
 
   List<double> get _legacyValuesEffective {
     if (_globalOrder != null) {
-      return _applyOrder<double>(widget.values, _globalOrder!);
+      return _applyOrder<double>(widget.values, _globalOrder);
     }
     return widget.values;
   }
@@ -158,7 +158,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
     if (!_usandoSeries) return const <LineSeries>[];
     final list = <LineSeries>[];
     for (var s in widget.series!) {
-      if (_globalOrder != null) s = s.orderedCopy(_globalOrder!);
+      if (_globalOrder != null) s = s.orderedCopy(_globalOrder);
       if (s.dateLabels != null && s.dateLabels!.isNotEmpty) {
         final localOrder = _orderByDates(s.dateLabels!);
         s = s.orderedCopy(localOrder);

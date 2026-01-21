@@ -203,7 +203,7 @@ class _SelectorDatesState<T> extends State<SelectorDates<T>> {
 
     if (year != null) {
       final months = availableMonthsByYear[year] ?? const <int>[];
-      if (month == null || !months.contains(month)) {
+      if (!months.contains(month)) {
         // se não tiver mês inicial válido, deixa null
         month = null;
       }

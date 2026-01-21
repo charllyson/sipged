@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
 import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
 import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/hiring_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 
 import 'package:siged/_widgets/cards/summary/expandable_card.dart';
 import 'package:siged/_widgets/layout/responsive_section/responsive_section_row.dart';

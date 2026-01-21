@@ -1,12 +1,12 @@
-// lib/screens/sectors/actives/oaes/active_oaes_3d_card.dart
+// lib/screens/modules/actives/oaes/active_oaes_3d_card.dart
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/actives/oaes/active_oaes_data.dart';
+import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
-import 'package:siged/screens/actives/oaes/active_oaes_ifc_viewer_page.dart';
+import 'package:siged/screens/modules/actives/oaes/active_oaes_ifc_viewer_page.dart';
 
 class OaeModel3DCard extends StatefulWidget {
   final ActiveOaesData data;

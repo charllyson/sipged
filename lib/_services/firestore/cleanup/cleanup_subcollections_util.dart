@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 
 /// Utilitário genérico para remover subcoleções de todos os documentos
 /// de uma coleção arbitrária (ex.: 'contracts' ou 'orgs/abc/contracts').

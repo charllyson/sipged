@@ -149,7 +149,7 @@ class MenuDrawerPolygonPainter extends CustomPainter {
     if (showPct) {
       tpPct = TextPainter(
         text: TextSpan(
-          text: '${pct!.round()}%',
+          text: '${pct.round()}%',
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,

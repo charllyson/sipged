@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/map/cesium/cesium_data.dart';
-import 'package:siged/_blocs/map/cesium/cesium_map_config.dart';
+import 'package:siged/_services/map/cesium/cesium_data.dart';
+import 'package:siged/_services/map/cesium/cesium_map_config.dart';
 import 'package:siged/_services/map/cesium/cesium_controller.dart';
 import 'package:siged/_services/map/cesium/cesium_3d_view.dart';
 import 'package:siged/_services/map/cesium/cesium_web_message_bus.dart';

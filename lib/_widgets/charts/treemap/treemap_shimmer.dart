@@ -141,25 +141,21 @@ class TreemapShimmer extends StatelessWidget {
 class _FakeTreemapGrid extends StatelessWidget {
   const _FakeTreemapGrid({
     required this.height,
-    this.width,
     this.borderRadius = 14,
-    this.cuts = 14,
   });
 
   final double height;
-  final double? width;
   final double borderRadius;
-  final int cuts;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, c) {
-      final w = width ?? c.maxWidth;
+      final w = c.maxWidth;
       return CustomPaint(
         painter: _BlocksPainter(
           base: _base(context),
           borderRadius: borderRadius,
-          values: List.generate(cuts, (_) => 100),
+          values: List.generate(14, (_) => 100),
         ),
         child: SizedBox(height: height, width: w),
       );
@@ -236,9 +232,8 @@ List<Rect> _squarify(List<double> values, Rect bounds) {
 // -------------------- SHIMMER --------------------
 
 class _Shimmer extends StatefulWidget {
-  const _Shimmer({required this.child, this.speed = 1200});
+  const _Shimmer({required this.child});
   final Widget child;
-  final int speed;
 
   @override
   State<_Shimmer> createState() => _ShimmerState();
@@ -252,7 +247,7 @@ class _ShimmerState extends State<_Shimmer>
   void initState() {
     super.initState();
     _ctrl = AnimationController.unbounded(vsync: this)
-      ..repeat(min: 0, max: 1, period: Duration(milliseconds: widget.speed));
+      ..repeat(min: 0, max: 1, period: Duration(milliseconds: 1200));
   }
 
   @override

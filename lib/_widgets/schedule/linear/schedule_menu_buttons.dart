@@ -1,6 +1,6 @@
 // lib/_widgets/schedule/schedule_menu_buttons.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_data.dart';
+import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:siged/_widgets/buttons/button_flutuante_hover.dart';
 
 class ScheduleMenuButtons extends StatefulWidget {

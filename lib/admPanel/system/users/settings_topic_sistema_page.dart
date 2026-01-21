@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/tiles/tile_widget.dart';
-import 'package:siged/admPanel/firebase/settings_topic_firebase_page.dart';
 import 'package:siged/admPanel/system/users/manager_permissions_users_page.dart';
 import 'package:siged/_widgets/info/info_widget.dart';
 

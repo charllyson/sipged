@@ -287,7 +287,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
     final bool hasFilteredSeries =
         filteredSorted != null && filteredSorted.isNotEmpty;
     final bool hasAnyFilteredValue =
-        hasFilteredSeries && filteredSorted!.whereType<double>().any((v) => v > 0);
+        hasFilteredSeries && filteredSorted.whereType<double>().any((v) => v > 0);
 
     final int? externalSelectedOriginal = widget.selectedIndex;
     int? effectiveSelectedSorted;

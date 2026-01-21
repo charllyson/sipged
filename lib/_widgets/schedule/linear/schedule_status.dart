@@ -1,4 +1,4 @@
-// lib/_datas/sectors/operation/schedule/schedule_status.dart
+// lib/_datas/modules/operation/schedule/schedule_status.dart
 import 'package:flutter/material.dart';
 
 enum ScheduleStatus { concluido, emAndamento, aIniciar }

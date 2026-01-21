@@ -4,28 +4,28 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/process/apostilles/apostilles_repository.dart';
+import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
 import 'general_dashboard_state.dart';
 
-import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/_process/process_store.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_store.dart';
 
-import 'package:siged/_blocs/process/additives/additives_data.dart';
-import 'package:siged/_blocs/process/additives/additives_repository.dart';
-import 'package:siged/_blocs/process/apostilles/apostilles_data.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 
-import 'package:siged/_blocs/process/measurement/adjustment/adjustment_measurement_data.dart';
-import 'package:siged/_blocs/process/measurement/adjustment/adjustments_measurement_cubit.dart';
-import 'package:siged/_blocs/process/measurement/report/report_measurement_cubit.dart';
-import 'package:siged/_blocs/process/measurement/report/report_measurement_data.dart';
-import 'package:siged/_blocs/process/measurement/revision/revision_measurement_cubit.dart';
-import 'package:siged/_blocs/process/measurement/revision/revision_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/edital_cubit.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 import 'package:siged/_widgets/charts/radar/radar_series_data.dart';
 import 'package:siged/_widgets/charts/treemap/treemap_class.dart';
@@ -239,7 +239,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
           editalCalls++;
 
           final EditalData? edital = await editalCubit.getDataForContract(id);
-          final w = edital?.vencedor?.trim();
+          final w = edital?.vencedor.trim();
           if (w != null && w.isNotEmpty) {
             _winnerByContract[id] = w;
           }

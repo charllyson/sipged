@@ -10,8 +10,13 @@ class SectionSpec {
 }
 
 class SectionGrid extends StatelessWidget {
-  const SectionGrid(
-      {super.key, required this.title, required this.items, required this.onSelect});
+  const SectionGrid({
+    super.key,
+    required this.title,
+    required this.items,
+    required this.onSelect,
+  });
+
   final String title;
   final List<ActionItem> items;
   final void Function(MenuItem item)? onSelect;

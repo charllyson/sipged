@@ -1,8 +1,8 @@
-// lib/screens/actives/railways/network/multi_line_simplifier.dart
+// lib/screens/modules/actives/railways/network/multi_line_simplifier.dart
 import 'dart:collection';
 import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
-import '../../screens/actives/railways/network/railway_ties.dart';
+import '../../screens/modules/actives/railways/network/railway_ties.dart';
 
 class MultiLineSimplifier {
   MultiLineSimplifier._();

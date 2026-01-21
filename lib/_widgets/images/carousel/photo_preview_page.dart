@@ -605,7 +605,7 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
   }
 
   static String? _joinNotEmpty(List<String?> parts, String sep) {
-    final nonEmpty = parts.where((e) => e != null && e!.trim().isNotEmpty).map((e) => e!.trim()).toList();
+    final nonEmpty = parts.where((e) => e != null && e.trim().isNotEmpty).map((e) => e!.trim()).toList();
     if (nonEmpty.isEmpty) return null;
     return nonEmpty.join(sep);
   }
@@ -690,7 +690,6 @@ class _PreviewStamp extends StatelessWidget {
   final double fontSize;
   final double lineHeight;
   const _PreviewStamp({
-    super.key,
     required this.lines,
     this.fontSize = 18,
     this.lineHeight = 1.15,

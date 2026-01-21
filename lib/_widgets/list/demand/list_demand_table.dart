@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
-import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 
 import '../../alerts/alert_validity.dart';
 
 // Somente os DATA (sem BLoCs aqui)
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
-import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 typedef ContractNavigationCallback = void Function(
     BuildContext context,

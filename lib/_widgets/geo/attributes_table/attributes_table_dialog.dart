@@ -1,0 +1,678 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:siged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
+import 'package:siged/_blocs/modules/planning/geo/attributes_table/attributes_table_data.dart';
+import 'package:siged/_blocs/modules/planning/geo/attributes_table/attributes_table_state.dart';
+import 'package:siged/_widgets/windows/window_dialog.dart';
+
+enum AttributesTableMode { importFile, firestore }
+
+class AttributesTableDialog extends StatefulWidget {
+  final String collectionPath;
+
+  /// Mantido por compatibilidade, mas no modo QGIS não é usado.
+  final List<String> targetFields;
+
+  final String? title;
+  final String? description;
+
+  final AttributesTableMode mode;
+
+  const AttributesTableDialog({
+    super.key,
+    required this.collectionPath,
+    required this.targetFields,
+    this.title,
+    this.description,
+    this.mode = AttributesTableMode.importFile,
+  });
+
+  @override
+  State<AttributesTableDialog> createState() => _AttributesTableDialogState();
+}
+
+class _AttributesTableDialogState extends State<AttributesTableDialog> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  int _rowsPerPage = 25;
+  int _pageIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      final cubit = context.read<AttributesTableCubit>();
+      if (widget.mode == AttributesTableMode.firestore) {
+        cubit.startFromFirestore(widget.collectionPath);
+      } else {
+        cubit.startImport(widget.collectionPath);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dialogTitle = widget.title ??
+        (widget.mode == AttributesTableMode.firestore
+            ? 'Tabela de atributos (${widget.collectionPath})'
+            : 'Importar (${widget.collectionPath})');
+
+    return BlocListener<AttributesTableCubit, VectorImportState>(
+      listener: (context, state) {
+        // ✅ só fecha automaticamente quando IMPORT finaliza com sucesso
+        if (widget.mode == AttributesTableMode.importFile &&
+            state.status == AttributesTableStatus.success) {
+          Navigator.of(context).pop(true);
+        }
+      },
+      child: WindowDialog(
+        title: dialogTitle,
+        width: 1400,
+        contentPadding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+        onClose: () => Navigator.of(context).pop(false),
+        child: SizedBox(
+          height: 760,
+          child: BlocBuilder<AttributesTableCubit, VectorImportState>(
+            builder: (context, state) {
+              final isLoading = state.status == AttributesTableStatus.pickingFile ||
+                  state.status == AttributesTableStatus.loadingFirestore ||
+                  state.status == AttributesTableStatus.idle;
+
+              if (isLoading) {
+                return _center(
+                  widget.mode == AttributesTableMode.firestore
+                      ? 'Carregando dados do Firestore...'
+                      : 'Carregando arquivo para pré-visualização...',
+                );
+              }
+
+              if (state.status == AttributesTableStatus.failure) {
+                return _error(state.error);
+              }
+
+              if (state.features.isEmpty) {
+                return _center('Nenhuma feature encontrada.');
+              }
+
+              // Colunas selecionáveis (QGIS-like)
+              final columns = state.columns;
+              final selectedColumnNames = columns
+                  .where((c) => c.selected)
+                  .map((c) => c.name)
+                  .toList(growable: false);
+
+              final bool hasGeometry =
+              state.features.any((f) => f.geometryPoints.isNotEmpty);
+
+              final tableColumns = <String>[
+                ...selectedColumnNames,
+                if (hasGeometry) 'points',
+              ];
+
+              final filteredIndexes = _applySearchFilter(
+                state: state,
+                columnsForSearch: selectedColumnNames,
+                query: _searchCtrl.text,
+              );
+
+              final total = state.features.length;
+              final filteredTotal = filteredIndexes.length;
+
+              final start = _pageIndex * _rowsPerPage;
+              final end = (start + _rowsPerPage).clamp(0, filteredTotal);
+              final pageIndexes = (start < end)
+                  ? filteredIndexes.sublist(start, end)
+                  : const <int>[];
+
+              final geometryType = state.features.first.geometryType;
+              final tipo = geometryType.isNotEmpty ? geometryType : 'Desconhecido';
+
+              return Stack(
+                children: [
+                  Column(
+                    children: [
+                      _topBar(
+                        context,
+                        state: state,
+                        tipo: tipo,
+                        total: total,
+                        filteredTotal: filteredTotal,
+                        selectedColumns: selectedColumnNames.length,
+                        hasGeometry: hasGeometry,
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: _tableQgisLike(
+                          context,
+                          state: state,
+                          tableColumns: tableColumns,
+                          rowIndexes: pageIndexes,
+                          hasGeometry: hasGeometry,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _bottomBar(
+                        context,
+                        state: state,
+                        filteredTotal: filteredTotal,
+                      ),
+                    ],
+                  ),
+                  if (state.status == AttributesTableStatus.saving ||
+                      state.status == AttributesTableStatus.deleting)
+                    Positioned.fill(child: _overlaySaving(state)),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _topBar(
+      BuildContext context, {
+        required VectorImportState state,
+        required String tipo,
+        required int total,
+        required int filteredTotal,
+        required int selectedColumns,
+        required bool hasGeometry,
+      }) {
+    final cubit = context.read<AttributesTableCubit>();
+
+    final desc = widget.description ??
+        (widget.mode == AttributesTableMode.firestore
+            ? 'Modo Firestore: cada linha é um documento. Você pode selecionar linhas e excluir. '
+            'Renomear colunas aqui é apenas visual (não renomeia campos no banco).'
+            : 'Modo QGIS: cada linha será um documento no Firestore e cada coluna é um campo do GeoJSON. '
+            'Os nomes dos campos serão mantidos e todos os campos selecionados serão salvos.');
+
+    return Card(
+      elevation: 0,
+      color: Colors.grey.shade100,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(desc, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _chip('Geometria', tipo),
+                const SizedBox(width: 8),
+                _chip('Linhas', '$filteredTotal de $total'),
+                const SizedBox(width: 8),
+                _chip('Colunas selecionadas', '$selectedColumns'),
+                if (hasGeometry) ...[
+                  const SizedBox(width: 8),
+                  _chip('Geom', 'points'),
+                ],
+                const Spacer(),
+                SizedBox(
+                  width: 360,
+                  child: TextField(
+                    controller: _searchCtrl,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      hintText: 'Filtrar (busca em todas as colunas)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      suffixIcon: _searchCtrl.text.isEmpty
+                          ? null
+                          : IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          setState(() {
+                            _searchCtrl.clear();
+                            _pageIndex = 0;
+                          });
+                        },
+                      ),
+                    ),
+                    onChanged: (_) => setState(() => _pageIndex = 0),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                PopupMenuButton<String>(
+                  tooltip: 'Ações de colunas/linhas',
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(
+                      value: 'select_all_cols',
+                      child: Text('Selecionar todas as colunas'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'unselect_all_cols',
+                      child: Text('Desmarcar todas as colunas'),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'select_all_rows',
+                      child: Text('Selecionar todas as linhas'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'unselect_all_rows',
+                      child: Text('Desmarcar todas as linhas'),
+                    ),
+                  ],
+                  onSelected: (v) {
+                    if (v == 'select_all_cols') {
+                      for (int i = 0; i < state.columns.length; i++) {
+                        cubit.toggleColumnSelection(i, true);
+                      }
+                    }
+                    if (v == 'unselect_all_cols') {
+                      for (int i = 0; i < state.columns.length; i++) {
+                        cubit.toggleColumnSelection(i, false);
+                      }
+                    }
+                    if (v == 'select_all_rows') {
+                      for (int i = 0; i < state.features.length; i++) {
+                        cubit.toggleRowSelection(i, true);
+                      }
+                    }
+                    if (v == 'unselect_all_rows') {
+                      for (int i = 0; i < state.features.length; i++) {
+                        cubit.toggleRowSelection(i, false);
+                      }
+                    }
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Icon(Icons.more_vert),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(value),
+        ],
+      ),
+    );
+  }
+
+  Widget _tableQgisLike(
+      BuildContext context, {
+        required VectorImportState state,
+        required List<String> tableColumns,
+        required List<int> rowIndexes,
+        required bool hasGeometry,
+      }) {
+    if (rowIndexes.isEmpty) {
+      return _center('Nenhum registro para exibir nesta página.');
+    }
+
+    final cubit = context.read<AttributesTableCubit>();
+
+    final dataColumns = <DataColumn>[
+      const DataColumn(label: Text('Sel')),
+      const DataColumn(label: Text('FID')),
+      ...tableColumns.map((col) {
+        if (col == 'points') return const DataColumn(label: Text('points'));
+
+        final idx = state.columns.indexWhere((c) => c.name == col);
+
+        return DataColumn(
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(col, overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 6),
+              IconButton(
+                iconSize: 16,
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Renomear coluna (visual)',
+                onPressed: idx < 0
+                    ? null
+                    : () async {
+                  final newName =
+                  await _askRename(context, current: col);
+                  if (newName == null) return;
+                  if (newName.trim().isEmpty) return;
+                  cubit.renameColumn(idx, newName.trim());
+                },
+                icon: const Icon(Icons.edit_outlined),
+              ),
+              const SizedBox(width: 4),
+              PopupMenuButton<TypeFieldGeoJson>(
+                tooltip: 'Tipo da coluna',
+                onSelected: (t) {
+                  if (idx >= 0) cubit.changeColumnType(idx, t);
+                },
+                itemBuilder: (_) => TypeFieldGeoJson.values
+                    .map((t) => PopupMenuItem(
+                  value: t,
+                  child: Text('Tipo: ${t.name}'),
+                ))
+                    .toList(),
+                child: const Icon(Icons.data_object, size: 16),
+              ),
+            ],
+          ),
+        );
+      }),
+    ];
+
+    final rows = <DataRow>[];
+
+    for (final featureIndex in rowIndexes) {
+      final f = state.features[featureIndex];
+      final props = f.editedProperties;
+
+      final cells = <DataCell>[
+        DataCell(
+          Checkbox(
+            value: f.selected,
+            onChanged: (v) =>
+                cubit.toggleRowSelection(featureIndex, v ?? false),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        DataCell(Text(featureIndex.toString())),
+      ];
+
+      for (final col in tableColumns) {
+        if (col == 'points') {
+          if (!hasGeometry) {
+            cells.add(const DataCell(Text('')));
+          } else {
+            final ptsCount = f.geometryPoints.length;
+            cells.add(DataCell(Text(ptsCount == 0 ? '' : '[$ptsCount pts]')));
+          }
+          continue;
+        }
+
+        final v = props[col];
+        cells.add(DataCell(Text(_stringifyCell(v))));
+      }
+
+      rows.add(DataRow(cells: cells));
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Scrollbar(
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 1200),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: DataTable(
+                  headingRowHeight: 38,
+                  dataRowMinHeight: 34,
+                  dataRowMaxHeight: 34,
+                  columnSpacing: 18,
+                  horizontalMargin: 12,
+                  headingTextStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                  dataTextStyle: const TextStyle(color: Colors.black87),
+                  columns: dataColumns,
+                  rows: rows,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _askRename(BuildContext context, {required String current}) {
+    final ctrl = TextEditingController(text: current);
+    return showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Renomear coluna'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            labelText: 'Novo nome',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, ctrl.text),
+            child: const Text('Aplicar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _stringifyCell(dynamic v) {
+    if (v == null) return '';
+    if (v is num || v is bool) return v.toString();
+    if (v is String) return v;
+    if (v is List) return '[${v.length}]';
+    if (v is Map) return '{...}';
+    return v.toString();
+  }
+
+  Widget _bottomBar(
+      BuildContext context, {
+        required VectorImportState state,
+        required int filteredTotal,
+      }) {
+    final cubit = context.read<AttributesTableCubit>();
+    final isBusy = state.status == AttributesTableStatus.saving ||
+        state.status == AttributesTableStatus.deleting;
+
+    final totalPages = (filteredTotal / _rowsPerPage).ceil().clamp(1, 999999);
+    final currentPage = (_pageIndex + 1).clamp(1, totalPages);
+
+    return Card(
+      elevation: 0,
+      color: Colors.grey.shade100,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          children: [
+            const Text('Linhas por página: '),
+            const SizedBox(width: 8),
+            DropdownButton<int>(
+              value: _rowsPerPage,
+              items: const [10, 25, 50, 100].map((v) {
+                return DropdownMenuItem(value: v, child: Text('$v'));
+              }).toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _rowsPerPage = v;
+                  _pageIndex = 0;
+                });
+              },
+            ),
+            const SizedBox(width: 16),
+            Text('Página $currentPage de $totalPages'),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Anterior',
+              onPressed: _pageIndex <= 0 ? null : () => setState(() => _pageIndex--),
+              icon: const Icon(Icons.chevron_left),
+            ),
+            IconButton(
+              tooltip: 'Próxima',
+              onPressed: _pageIndex >= totalPages - 1
+                  ? null
+                  : () => setState(() => _pageIndex++),
+              icon: const Icon(Icons.chevron_right),
+            ),
+            const Spacer(),
+
+            if (widget.mode == AttributesTableMode.firestore) ...[
+              OutlinedButton.icon(
+                onPressed: isBusy ? null : () => cubit.startFromFirestore(widget.collectionPath),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Atualizar'),
+              ),
+              const SizedBox(width: 10),
+              FilledButton.icon(
+                onPressed: (isBusy || !state.hasAnySelected)
+                    ? null
+                    : () => cubit.deleteSelectedFromFirestore(),
+                icon: const Icon(Icons.delete_outline),
+                label: Text(isBusy ? 'Processando...' : 'Excluir selecionados'),
+              ),
+            ] else ...[
+              FilledButton.icon(
+                onPressed: isBusy ? null : cubit.saveAllFields,
+                icon: const Icon(Icons.cloud_upload_outlined),
+                label: const Text('Importar para o Firebase'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<int> _applySearchFilter({
+    required VectorImportState state,
+    required List<String> columnsForSearch,
+    required String query,
+  }) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) {
+      return List<int>.generate(state.features.length, (i) => i);
+    }
+
+    final out = <int>[];
+    for (int i = 0; i < state.features.length; i++) {
+      final f = state.features[i];
+      final props = f.editedProperties;
+
+      bool match = false;
+      for (final col in columnsForSearch) {
+        final v = props[col];
+        if (v == null) continue;
+        if (v.toString().toLowerCase().contains(q)) {
+          match = true;
+          break;
+        }
+      }
+
+      if (match) out.add(i);
+    }
+    return out;
+  }
+
+  Widget _center(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Center(child: Text(text, textAlign: TextAlign.center)),
+    );
+  }
+
+  Widget _error(String? error) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 48),
+          const SizedBox(height: 16),
+          const Text('Falha ao carregar.',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text(error ?? 'Erro desconhecido'),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Fechar'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overlaySaving(VectorImportState state) {
+    final progresso = (state.progress.clamp(0.0, 1.0) * 100).toStringAsFixed(1);
+
+    final msg = state.status == AttributesTableStatus.deleting
+        ? 'Excluindo no Firebase...'
+        : 'Salvando no Firebase...';
+
+    return Container(
+      color: Colors.black54,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 340),
+          child: Card(
+            color: Colors.black.withOpacity(0.8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: 260,
+                    child: LinearProgressIndicator(
+                      value: state.progress,
+                      backgroundColor: Colors.grey.shade300,
+                      minHeight: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('$progresso% concluído',
+                      style: const TextStyle(color: Colors.white)),
+                  const SizedBox(height: 8),
+                  Text(msg,
+                      style: const TextStyle(color: Colors.white),
+                      textAlign: TextAlign.center),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

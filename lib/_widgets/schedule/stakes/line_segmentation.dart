@@ -34,8 +34,6 @@ LatLng _offsetByMeters(LatLng p, double distanceMeters, double bearingRad) {
   return LatLng(newLat * 180.0 / math.pi, newLon * 180.0 / math.pi);
 }
 
-double _meanLat(List<LatLng> pts) =>
-    pts.isEmpty ? 0.0 : pts.map((e) => e.latitude).reduce((a, b) => a + b) / pts.length;
 
 double _metersPerPixelAt(double latitude, double zoom) {
   const earthRadius = 6378137.0;
@@ -134,7 +132,7 @@ List<TaggedChangedMarker<Map<String, dynamic>>> buildStakeMarkersUprightWithTick
     if (minLabelPixelGap > 0) {
       final currPx = _latLngToWorldPixel(anchor, zoom);
       if (lastPx != null) {
-        final d = (currPx - lastPx!).distance;
+        final d = (currPx - lastPx).distance;
         if (d < minLabelPixelGap) continue;
       }
       lastPx = currPx;

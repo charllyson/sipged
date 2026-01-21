@@ -1,5 +1,5 @@
 // lib/_widgets/table/magic/magic_adapter.dart
-import 'package:siged/_blocs/process/budget/budget_data.dart';
+import 'package:siged/_blocs/modules/contracts/budget/budget_data.dart';
 import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
 
 class MagicAdapter {

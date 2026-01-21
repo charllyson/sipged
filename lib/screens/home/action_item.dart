@@ -8,6 +8,7 @@ class ActionItem {
   final Color color;
   final MenuItem item;
   final String moduleKey;
+
   ActionItem({
     required this.icon,
     required this.title,

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/process/validity/validity_cubit.dart';
-import 'package:siged/_blocs/process/validity/validity_data.dart';
-import 'package:siged/_blocs/process/validity/validity_state.dart';
+import 'package:siged/_blocs/modules/contracts/validity/validity_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
+import 'package:siged/_blocs/modules/contracts/validity/validity_state.dart';
 
 import 'package:siged/_utils/formats/converters_utils.dart';
 
-import 'package:siged/_blocs/process/additives/additives_data.dart';
-import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_widgets/timeline/time_line_item.dart';
 import 'package:siged/_widgets/timeline/timeline_shimmer.dart';
 

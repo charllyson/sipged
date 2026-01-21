@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'list_demand_table.dart';
 
 // DFD / Edital / Publicação (apenas os DATA)
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_blocs/process/hiring/5Edital/edital_data.dart';
-import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 typedef DemandNavigationCallback = void Function(
     BuildContext context,

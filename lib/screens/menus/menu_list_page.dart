@@ -6,69 +6,69 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
 // ===== Process (core) =====
-import 'package:siged/_blocs/_process/process_data.dart';
-import 'package:siged/_blocs/_process/process_store.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_store.dart';
 
 // ===== Dashboards / Stores auxiliares =====
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 
 // ===== Setores (Operação) =====
-import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_bloc.dart';
-import 'package:siged/_blocs/sectors/operation/civil/civil_schedule_event.dart';
+import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
+import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
 
 // ✅ Road agora usa Cubit
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_repository.dart';
-import 'package:siged/_blocs/sectors/operation/road/schedule_road_cubit.dart';
+import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
+import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 
 // ===== UI / Serviços =====
 import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_services/dxf/map_overlay_cubit.dart';
+import 'package:siged/_services/files/dxf/map_overlay_cubit.dart';
 import 'package:siged/_widgets/list/demand/list_demand_page.dart';
 import 'package:siged/screens/home/home_page.dart';
 
 // ===== Páginas =====
 import 'package:siged/screens-legal/crm/tab_bar_crm_precatory_page.dart';
+import 'package:siged/screens/modules/operation/schedule/financial/hiring_schedule_page.dart';
 import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_page.dart';
 
-import 'package:siged/screens/process/additive/tab_bar_additive_page.dart';
-import 'package:siged/screens/process/apostilles/tab_bar_apostilles_page.dart';
-import 'package:siged/screens/process/%20budget/hiring_budget_page.dart';
-import 'package:siged/screens/process/schedule/hiring_schedule_page.dart';
-import 'package:siged/screens/process/hiring/tab_bar_hiring_page.dart';
+import 'package:siged/screens/modules/contracts/additive/tab_bar_additive_page.dart';
+import 'package:siged/screens/modules/contracts/apostilles/tab_bar_apostilles_page.dart';
+import 'package:siged/screens/modules/contracts/budget/hiring_budget_page.dart';
+import 'package:siged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 import 'package:siged/screens/panels/overview-dashboard/general_dashboard_page.dart';
-import 'package:siged/screens/process/measurement/tab_bar_measurement_page.dart';
-import 'package:siged/screens/process/validity/validity_tab_bar.dart';
+import 'package:siged/screens/modules/contracts/measurement/tab_bar_measurement_page.dart';
+import 'package:siged/screens/modules/contracts/validity/validity_tab_bar.dart';
 
-import 'package:siged/screens/sectors/operation/schedule/civil/schedule_civil_workspace_page.dart';
+import 'package:siged/screens/modules/operation/schedule/physical/civil/schedule_civil_workspace_page.dart';
 import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
 
-import 'package:siged/screens/actives/airports/network/active_airports_network_page.dart';
-import 'package:siged/screens/actives/airports/records/active_airports_records_page.dart';
-import 'package:siged/screens/actives/railways/network/active_railways_network_page.dart';
-import 'package:siged/screens/actives/railways/records/active_railways_records_page.dart';
-import 'package:siged/screens/actives/oaes/network/active_oaes_network_page.dart';
-import 'package:siged/screens/actives/oaes/records/active_oaes_records_page.dart';
-import 'package:siged/screens/actives/roads/network/active_roads_network_page.dart';
-import 'package:siged/screens/actives/roads/records/active_roads_records_page.dart';
+import 'package:siged/screens/modules/actives/airports/network/active_airports_network_page.dart';
+import 'package:siged/screens/modules/actives/airports/records/active_airports_records_page.dart';
+import 'package:siged/screens/modules/actives/railways/network/active_railways_network_page.dart';
+import 'package:siged/screens/modules/actives/railways/records/active_railways_records_page.dart';
+import 'package:siged/screens/modules/actives/oaes/network/active_oaes_network_page.dart';
+import 'package:siged/screens/modules/actives/oaes/records/active_oaes_records_page.dart';
+import 'package:siged/screens/modules/actives/roads/network/active_roads_network_page.dart';
+import 'package:siged/screens/modules/actives/roads/records/active_roads_records_page.dart';
 
-import 'package:siged/screens/sectors/financial/tab_bar_financial_page.dart';
+import 'package:siged/screens/modules/financial/tab_bar_financial_page.dart';
 
-import 'package:siged/screens/sectors/operation/schedule/road/schedule_road_workspace_page.dart';
-import 'package:siged/screens/sectors/planning/miner/planning_network_page.dart';
+import 'package:siged/screens/modules/operation/schedule/physical/road/schedule_road_workspace_page.dart';
+import 'package:siged/screens/modules/planning/geo/geo_network_page.dart';
 import 'package:siged/screens/menus/menu_drawer.dart';
 
 import 'package:siged/_blocs/system/pages/pages_data.dart';
 import 'package:siged/_widgets/buttons/float_button_menu.dart';
 
-import 'package:siged/screens/sectors/planning/rightWay/planning_right_way_workspace_page.dart';
+import 'package:siged/screens/modules/planning/rightWay/planning_right_way_workspace_page.dart';
 
-import 'package:siged/screens/sectors/traffic/accidents/accidents_records_network_page.dart';
-import 'package:siged/screens/sectors/traffic/dashboard/accidents_dashboard_network_page.dart';
-import 'package:siged/screens/sectors/traffic/infractions-dashboard/infractions_dashboard_page.dart';
-import 'package:siged/screens/sectors/traffic/infrations-records/infractions_records_page.dart';
+import 'package:siged/screens/modules/traffic/accidents/accidents_records_network_page.dart';
+import 'package:siged/screens/modules/traffic/dashboard/accidents_dashboard_network_page.dart';
+import 'package:siged/screens/modules/traffic/infractions-dashboard/infractions_dashboard_page.dart';
+import 'package:siged/screens/modules/traffic/infrations-records/infractions_records_page.dart';
 
 // ===== Sistema / Usuários =====
 import 'package:siged/_blocs/system/user/user_bloc.dart';
@@ -77,11 +77,11 @@ import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
 // ===== DFD via BLoC =====
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 // ===== Publicação (para número do contrato) =====
-import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_cubit.dart';
-import 'package:siged/_blocs/process/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 class MenuListPage extends StatefulWidget {
   const MenuListPage({super.key});
@@ -436,7 +436,7 @@ class _MenuListPageState extends State<MenuListPage> {
         }, pageTitle: 'Diário de Obra');
 
       case MenuItem.planningProjectRegistration:
-        return PlanningNetworkPage();
+        return GeoNetworkPage();
 
       case MenuItem.planningRightOfWayRecords:
         return _buildContractsListPage((context, contract) {
@@ -450,7 +450,7 @@ class _MenuListPageState extends State<MenuListPage> {
         }, pageTitle: 'Desapropriações');
 
       case MenuItem.planningEnvironmentRecords:
-        return const PlanningNetworkPage();
+        return const GeoNetworkPage();
 
       case MenuItem.trafficAccidentsDashboard:
         return const AccidentsDashboardNetworkPage();

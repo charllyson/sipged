@@ -3,15 +3,15 @@
 // ==============================
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/_process/process_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 
 // NOVO: ler DfdData completo
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_repository.dart';
-import 'package:siged/_blocs/process/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 // Aditivos via Repository (novo padrão)
-import 'package:siged/_blocs/process/additives/additives_repository.dart';
-import 'package:siged/_blocs/process/additives/additives_data.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
 
 class AlertValidity extends StatelessWidget {
   final ProcessData contract;

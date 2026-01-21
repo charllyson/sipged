@@ -51,7 +51,7 @@ class _ManagerPermissionsUsersPageState extends State<ManagerPermissionsUsersPag
     context.read<UserBloc>().add(const UsersEnsureLoadedRequested(listenRealtime: true));
   }
 
-  /// Agrupa por prefixo antes do primeiro '-' (process / operation / planning / traffic / financial / active ...)
+  /// Agrupa por prefixo antes do primeiro '-' (operation / operation / planning / traffic / financial / active ...)
   Map<String, List<String>> _groupModules(Iterable<String> modules) {
     final map = <String, List<String>>{};
     for (final m in modules) {

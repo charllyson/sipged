@@ -1,7 +1,7 @@
 // lib/_widgets/map/map_box/mapbox_3d_panel.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/map/map_box/mapbox_data.dart';
+import 'package:siged/_services/map/map_box/mapbox_data.dart';
 import 'package:siged/_widgets/map/map_box/mapbox_cube_widget.dart';
 import 'package:siged/_services/map/map_box/mapbox_3d.dart';
 

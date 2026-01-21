@@ -12,7 +12,6 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 // 🪟 Janela estilo macOS
-import 'package:siged/_widgets/windows/window_dialog.dart';
 
 class GenericImportExcelPage extends StatefulWidget {
   final String? path;

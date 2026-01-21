@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_utils/colors/colors_system_change.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_blocs/process/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 class StageGate extends StatelessWidget {
   final String stageKey;
@@ -75,11 +75,9 @@ class StageGate extends StatelessWidget {
                 ),
                 onPressed: () {
                   final tab = DefaultTabController.of(context);
-                  if (tab != null) {
-                    final prev = (tab.index - 1).clamp(0, tab.length - 1);
-                    tab.animateTo(prev);
-                  }
-                },
+                  final prev = (tab.index - 1).clamp(0, tab.length - 1);
+                  tab.animateTo(prev);
+                                },
                 icon: const Icon(Icons.arrow_back),
                 label: const Text('Ir para etapa anterior'),
               ),

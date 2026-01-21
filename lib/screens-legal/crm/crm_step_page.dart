@@ -76,7 +76,6 @@ class CrmStepPage extends StatelessWidget {
                       onChanged: (v) {
                         if (v != null) {
                           controller.status = v;
-                          controller.notifyListeners();
                         }
                       },
                     ),
@@ -89,7 +88,6 @@ class CrmStepPage extends StatelessWidget {
                       enabled: !readOnly,
                       onChanged: (v) {
                         controller.nextActionDate = v;
-                        controller.notifyListeners();
                       },
                     ),
                   ),
@@ -116,7 +114,6 @@ class CrmStepPage extends StatelessWidget {
                     label: const Text('Carregar mock'),
                     onPressed: readOnly ? null : () {
                       controller.initWithMock();
-                      controller.notifyListeners();
                     },
                   ),
                 ],
@@ -128,10 +125,6 @@ class CrmStepPage extends StatelessWidget {
     );
   }
 
-  String _labelForKey(String key) {
-    final k = key.replaceAll('_', ' ');
-    return k.substring(0,1).toUpperCase() + k.substring(1);
-  }
 }
 
 class _StatusDropdown extends StatelessWidget {

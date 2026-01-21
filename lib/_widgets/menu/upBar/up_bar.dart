@@ -1,7 +1,5 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:siged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
-import 'package:siged/_widgets/menu/upBar/one_line_row.dart';
 import 'package:siged/_widgets/menu/upBar/tight.dart';
 
 class UpBar extends StatelessWidget implements PreferredSizeWidget {
