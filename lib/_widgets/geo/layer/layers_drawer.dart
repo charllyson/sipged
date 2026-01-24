@@ -6,23 +6,22 @@ import 'package:siged/screens/modules/planning/geo/layer/layers_geo.dart';
 /// - [layers]: lista de camadas/grupos em árvore.
 /// - [activeLayerIds]: IDs das camadas atualmente ativas (checkbox marcado).
 /// - [onToggleLayer]: callback chamado ao marcar/desmarcar um checkbox.
-/// - [onConnectLayer]: callback chamado ao clicar no ícone de corrente
-///   de uma camada folha (não pasta).
+/// - [onConnectLayer]: callback chamado ao clicar no ícone de conexão/tabela.
 /// - [hasDbByLayer]: mapa {layerId: true/false} indicando se existe dado no banco
-///   para pintar a correntinha verde.
+///   para pintar o ícone.
 class LayersDrawer extends StatefulWidget {
   final List<LayersGeo> layers;
   final Set<String> activeLayerIds;
   final void Function(String id, bool isActive) onToggleLayer;
 
-  /// Callback disparado ao clicar no botão de corrente (camada folha).
+  /// Callback disparado ao clicar no botão de conexão (camada folha).
   final void Function(String id)? onConnectLayer;
 
-  /// ✅ Status vindo do Firestore: id -> tem dados
+  /// Status vindo do Firestore: id -> tem dados
   final Map<String, bool> hasDbByLayer;
 
-  /// (Opcional) se quiser esconder a correntinha em layers que não suportam import.
-  /// Se null, mostra correntinha para todas as folhas quando onConnectLayer != null.
+  /// (Opcional) se quiser esconder o botão em layers que não suportam import.
+  /// Se null, mostra botão para todas as folhas quando onConnectLayer != null.
   final bool Function(String layerId)? supportsConnect;
 
   const LayersDrawer({
@@ -46,25 +45,44 @@ class _LayersDrawerState extends State<LayersDrawer> {
   /// ID do item (camada ou pasta) selecionado visualmente.
   String? _selectedId;
 
+  /// Quando o usuário clica no ícone de conexão, suprime o onTap da linha.
+  bool _suppressRowTapOnce = false;
+
   @override
   void initState() {
     super.initState();
-    // Começa com todos os grupos expandidos
-    _expandedGroupIds = {
-      for (final l in widget.layers)
-        if (l.isGroup) l.id,
-    };
+    // ✅ Expande TODOS os grupos (recursivo).
+    _expandedGroupIds = _collectAllGroupIds(widget.layers);
   }
 
   @override
   void didUpdateWidget(covariant LayersDrawer oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Garante que seleção não aponte pra item removido
     if (_selectedId != null) {
       final stillExists = _existsLayerWithId(widget.layers, _selectedId!);
-      if (!stillExists) {
-        _selectedId = null;
+      if (!stillExists) _selectedId = null;
+    }
+
+    // Se chegaram novos grupos na árvore, mantém a política: expandidos por padrão
+    final newAllGroups = _collectAllGroupIds(widget.layers);
+    _expandedGroupIds.addAll(newAllGroups);
+  }
+
+  Set<String> _collectAllGroupIds(List<LayersGeo> nodes) {
+    final ids = <String>{};
+    void walk(List<LayersGeo> list) {
+      for (final n in list) {
+        if (n.isGroup) {
+          ids.add(n.id);
+          if (n.children.isNotEmpty) walk(n.children);
+        }
       }
     }
+
+    walk(nodes);
+    return ids;
   }
 
   bool _existsLayerWithId(List<LayersGeo> nodes, String id) {
@@ -132,8 +150,26 @@ class _LayersDrawerState extends State<LayersDrawer> {
   bool _supportsConnect(String layerId) {
     if (widget.onConnectLayer == null) return false;
     if (widget.supportsConnect != null) return widget.supportsConnect!(layerId);
-    // padrão: se tem callback, permite para qualquer folha
-    return true;
+    return true; // padrão: se tem callback, permite para qualquer folha
+  }
+
+  void _handleRowTapSelect(String id) {
+    // ✅ se o clique veio do ícone de conexão, não seleciona linha
+    if (_suppressRowTapOnce) {
+      _suppressRowTapOnce = false;
+      return;
+    }
+    _selectItem(id);
+  }
+
+  void _handleConnectTap(String layerId) {
+    // ✅ garante que o tap do ícone não dispare o tap da linha
+    _suppressRowTapOnce = true;
+
+    final cb = widget.onConnectLayer;
+    if (cb == null) return;
+
+    cb(layerId);
   }
 
   @override
@@ -203,10 +239,6 @@ class _LayersDrawerState extends State<LayersDrawer> {
     final allChildrenActive = _areAllChildrenActive(group);
     final anyChildActive = _hasAnyChildActive(group);
 
-    // valor do checkbox:
-    // true  -> todos filhos ativos
-    // null  -> algum ativo, mas não todos (estado "-")
-    // false -> nenhum ativo
     final bool? checkboxValue =
     allChildrenActive ? true : (anyChildActive ? null : false);
 
@@ -214,11 +246,10 @@ class _LayersDrawerState extends State<LayersDrawer> {
     final textColor = isSelected ? Colors.white : Colors.black87;
     final iconColor = isSelected ? Colors.white : Colors.grey.shade800;
 
-    // Cor única para todos os checkboxes marcados
     final primaryCheckboxColor = Theme.of(context).colorScheme.primary;
 
     return InkWell(
-      onTap: () => _selectItem(group.id), // só seleciona em azul
+      onTap: () => _handleRowTapSelect(group.id),
       child: Container(
         color: bgColor,
         height: 36,
@@ -228,10 +259,8 @@ class _LayersDrawerState extends State<LayersDrawer> {
         ),
         child: Row(
           children: [
-            // Slot vazio para alinhar com o link dos itens folha
             const SizedBox(width: 40),
 
-            // Checkbox do grupo → ativa/desativa TODAS as camadas filhas
             SizedBox(
               width: 24,
               height: 24,
@@ -239,10 +268,7 @@ class _LayersDrawerState extends State<LayersDrawer> {
                 value: checkboxValue,
                 tristate: true,
                 onChanged: (v) {
-                  // Regra: se clicar, define tudo ligado/desligado.
-                  // - quando v == null, Flutter pode mandar null em alguns cenários,
-                  //   então usamos o estado desejado:
-                  final shouldEnable = !(allChildrenActive); // se já tá tudo ligado, desliga
+                  final shouldEnable = !allChildrenActive;
                   final leaves = _flattenLeaves(group);
                   for (final leaf in leaves) {
                     widget.onToggleLayer(leaf.id, shouldEnable);
@@ -268,7 +294,6 @@ class _LayersDrawerState extends State<LayersDrawer> {
               ),
             ),
 
-            // Setinha no final
             IconButton(
               iconSize: 18,
               padding: EdgeInsets.zero,
@@ -300,19 +325,20 @@ class _LayersDrawerState extends State<LayersDrawer> {
     isSelected ? Colors.white : (isActive ? layer.color : Colors.grey);
 
     final canConnect = _supportsConnect(layer.id);
-
-    // ✅ cor da correntinha: verde se tem dado no banco
     final hasDb = _hasDb(layer.id);
 
-    final linkIconColor = isSelected
-        ? Colors.white
-        : (hasDb ? Colors.blue : Colors.grey.shade300);
+    // ✅ cor do ícone de ação
+    final actionIconColor =
+    isSelected ? Colors.white : (hasDb ? Colors.blue : Colors.grey.shade300);
 
-    // Cor única para todos os checkboxes marcados
     final primaryCheckboxColor = Theme.of(context).colorScheme.primary;
 
+    // ✅ Ícone: tabela quando tem dados, corrente quando não tem
+    final actionIcon = hasDb ? Icons.table_view : Icons.link;
+    final tooltip = hasDb ? 'Abrir tabela de atributos' : 'Conectar / Importar dados';
+
     return InkWell(
-      onTap: () => _selectItem(layer.id),
+      onTap: () => _handleRowTapSelect(layer.id),
       child: Container(
         color: bgColor,
         height: 36,
@@ -322,10 +348,8 @@ class _LayersDrawerState extends State<LayersDrawer> {
         ),
         child: Row(
           children: [
-            // Slot para alinhar (grupo usa setinha; aqui é vazio)
             const SizedBox(width: 40),
 
-            // Checkbox da camada (como era antes)
             SizedBox(
               width: 24,
               height: 24,
@@ -349,15 +373,23 @@ class _LayersDrawerState extends State<LayersDrawer> {
               ),
             ),
 
-            // Botão de corrente (vínculo / serviço)
-            IconButton(
-              iconSize: 18,
-              padding: EdgeInsets.zero,
-              visualDensity: VisualDensity.compact,
-              onPressed: (!canConnect) ? null : () => widget.onConnectLayer!(layer.id),
-              icon: Icon(hasDb ? Icons.table_view : Icons.link_off, color: linkIconColor),
-              tooltip: hasDb ? 'Dados disponíveis no banco' : 'Sem dados no banco',
-            ),
+            if (canConnect)
+              Tooltip(
+                message: tooltip,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (_) {
+                    _suppressRowTapOnce = true;
+                  },
+                  onTap: () => _handleConnectTap(layer.id),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                    child: Icon(actionIcon, size: 18, color: actionIconColor),
+                  ),
+                ),
+              )
+            else
+              const SizedBox(width: 30),
           ],
         ),
       ),

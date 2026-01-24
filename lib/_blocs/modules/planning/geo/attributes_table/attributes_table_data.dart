@@ -1,4 +1,3 @@
-// lib/_services/files/geoJson/attributes_table_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 const String kGeometrySourceLabel = '[GEOMETRIA] Coordenadas (array GeoPoint)';
@@ -18,8 +17,17 @@ class AttributesTableData {
   final bool selected;
 
   final bool saveGeometry;
+
+  /// Nome do campo "flatten" de geometria no Firestore (ex.: "points")
   final String geometryFieldName;
+
+  /// ✅ Flatten (compatibilidade): lista única de pontos
   final List<GeoPoint> geometryPoints;
+
+  /// ✅ Segmentos (MultiLineString seguro): cada item é um trecho (>=2 pts)
+  final List<List<GeoPoint>> geometryParts;
+
+  /// Ex.: LineString, MultiLineString, Polygon etc.
   final String geometryType;
 
   const AttributesTableData({
@@ -31,6 +39,7 @@ class AttributesTableData {
     required this.saveGeometry,
     required this.geometryFieldName,
     required this.geometryPoints,
+    required this.geometryParts,
     required this.geometryType,
   });
 
@@ -43,6 +52,7 @@ class AttributesTableData {
     bool? saveGeometry,
     String? geometryFieldName,
     List<GeoPoint>? geometryPoints,
+    List<List<GeoPoint>>? geometryParts,
     String? geometryType,
   }) {
     return AttributesTableData(
@@ -54,6 +64,7 @@ class AttributesTableData {
       saveGeometry: saveGeometry ?? this.saveGeometry,
       geometryFieldName: geometryFieldName ?? this.geometryFieldName,
       geometryPoints: geometryPoints ?? this.geometryPoints,
+      geometryParts: geometryParts ?? this.geometryParts,
       geometryType: geometryType ?? this.geometryType,
     );
   }

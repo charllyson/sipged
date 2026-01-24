@@ -637,6 +637,8 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
         ? 'Excluindo no Firebase...'
         : 'Salvando no Firebase...';
 
+    final isIndeterminate = state.progress <= 0.0;
+
     return Container(
       color: Colors.black54,
       child: Center(
@@ -655,10 +657,10 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                   SizedBox(
                     width: 260,
                     child: LinearProgressIndicator(
-                      value: state.progress,
+                      value: isIndeterminate ? null : state.progress,
                       backgroundColor: Colors.grey.shade300,
                       minHeight: 6,
-                    ),
+                    )
                   ),
                   const SizedBox(height: 12),
                   Text('$progresso% concluído',

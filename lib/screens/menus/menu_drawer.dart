@@ -116,14 +116,6 @@ class _DrawerMenuState extends State<DrawerMenu> {
           colorSubTitle: palette.sectionSubtitle,
           items: PagesData.drawerActives,
         ),
-
-        ..._buildSection(
-          title: 'PROCESSOS',
-          user: userData,
-          colorTitle: palette.sectionTitle,
-          colorSubTitle: palette.sectionSubtitle,
-          items: PagesData.crmLegal,
-        )
       ],
     );
   }

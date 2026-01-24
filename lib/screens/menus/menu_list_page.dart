@@ -29,7 +29,6 @@ import 'package:siged/_widgets/list/demand/list_demand_page.dart';
 import 'package:siged/screens/home/home_page.dart';
 
 // ===== Páginas =====
-import 'package:siged/screens-legal/crm/tab_bar_crm_precatory_page.dart';
 import 'package:siged/screens/modules/operation/schedule/financial/hiring_schedule_page.dart';
 import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_page.dart';
 
@@ -522,8 +521,6 @@ class _MenuListPageState extends State<MenuListPage> {
       case MenuItem.activeRegistrationPorts:
         return const ActiveRoadsRecordsPage();
 
-      case MenuItem.crmLegal:
-        return TabBarCrmPrecatoryPage();
     }
   }
 

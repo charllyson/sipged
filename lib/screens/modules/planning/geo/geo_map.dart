@@ -1,3 +1,4 @@
+// lib/screens/modules/planning/geo/geo_map.dart
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -17,6 +18,9 @@ import 'package:siged/_widgets/map/tooltip/tooltip_animated_card.dart';
 import 'package:siged/_widgets/map/tooltip/tooltip_balloon_tip.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
+// ✅ ENERGY
+import 'package:siged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_state.dart';
+
 class GeoMap extends StatefulWidget {
   const GeoMap({
     super.key,
@@ -26,31 +30,43 @@ class GeoMap extends StatefulWidget {
     required this.getColorForMinerio,
     required this.onRegionTap,
     required this.onControllerReady,
-    // callback opcional para mudanças de câmera (centro / zoom)
     this.onCameraChanged,
+
     // UF selector
     required this.ufs,
     required this.selectedUF,
     required this.loading,
     required this.onChangeUF,
+
     // Detalhes SIGMINE
     required this.onRequestDetails,
     required this.onRequestDetailsByProcess,
     required this.showSigmine,
+
     // IBGE – geometria
     required this.ibgeCityPolygons,
     required this.showIbgeCities,
+
     // IBGE – agregados (choropleth)
     this.showIbgeStats = false,
     this.ibgeStatsValues = const <String, double>{},
+
     // clique em município
     this.onMunicipioTap,
+
     // mapa base
     this.selectedBaseIndex,
-    // RODOVIAS – OSM (já como TappableChangedPolyline)
+
+    // RODOVIAS – OSM
     this.roadPolylines = const <TappableChangedPolyline>[],
     this.showRoads = false,
-    // PLUVIOMETRIA – estações com chuva mensal (ANA)
+
+    // ✅ ENERGY
+    this.showUnitsEnergy = false,
+    this.unitsEnergyMarkers = const <EnergyPlantMarkerData>[],
+    this.onEnergyMarkerTap,
+
+    // PLUVIOMETRIA
     this.showPluviometria = false,
   });
 
@@ -76,28 +92,30 @@ class GeoMap extends StatefulWidget {
 
   final bool showSigmine;
 
-  // IBGE – geometria (já em PolygonChanged)
+  // IBGE – geometria
   final List<PolygonChanged> ibgeCityPolygons;
   final bool showIbgeCities;
 
-  // IBGE – agregados (valores por município, usando idIbge)
+  // IBGE – agregados
   final bool showIbgeStats;
   final Map<String, double> ibgeStatsValues;
 
-  /// Chamado quando o usuário clica em um polígono de MUNICÍPIO (IBGE).
-  /// Recebe o `idIbge` daquele município.
+  /// clique em município
   final void Function(String idIbge)? onMunicipioTap;
 
-  /// Índice do mapa base selecionado em MapBaseLayer.mapBase (ou null).
+  /// mapa base
   final int? selectedBaseIndex;
 
-  /// Rodovias já prontas como polylines clicáveis (OSM).
+  /// Rodovias polylines
   final List<TappableChangedPolyline> roadPolylines;
-
-  /// Flag geral de visibilidade das rodovias.
   final bool showRoads;
 
-  /// Flag geral de visibilidade da camada de Pluviometria (heatmap).
+  /// ✅ Energy markers
+  final bool showUnitsEnergy;
+  final List<EnergyPlantMarkerData> unitsEnergyMarkers;
+  final void Function(EnergyPlantMarkerData item)? onEnergyMarkerTap;
+
+  /// Pluviometria
   final bool showPluviometria;
 
   @override
@@ -108,7 +126,6 @@ class _GeoMapState extends State<GeoMap> {
   MapController? _controller;
   StreamSubscription<MapEvent>? _mapSubscription;
 
-  // lookup por processo (normalizado) para SIGMINE
   late Map<String, SigMineData> _byProcess;
 
   // tooltip SIGMINE
@@ -117,19 +134,15 @@ class _GeoMapState extends State<GeoMap> {
   String _tooltipTitle = '';
   String? _tooltipSubtitle;
 
-  // município IBGE selecionado (para lógica externa, não mais para estilo)
-
   // layout tooltip
   static const double _cardMaxWidth = 260;
   static const double _cardEstimatedHeight = 130;
   static const double _balloonHeight = 6;
   static const double _yOffset = 4;
 
-  // controller para o dropdown de UF
   late final TextEditingController _ufController;
 
-  String _normProc(String s) =>
-      s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  String _normProc(String s) => s.replaceAll(RegExp(r'\s+'), ' ').trim();
 
   @override
   void initState() {
@@ -149,9 +162,7 @@ class _GeoMapState extends State<GeoMap> {
 
     if (oldWidget.selectedUF != widget.selectedUF) {
       final newText = widget.selectedUF ?? '';
-      if (_ufController.text != newText) {
-        _ufController.text = newText;
-      }
+      if (_ufController.text != newText) _ufController.text = newText;
     }
   }
 
@@ -182,7 +193,6 @@ class _GeoMapState extends State<GeoMap> {
     return null;
   }
 
-  // -------- tooltip SIGMINE --------
   void _openTooltipForProcess(String processoRaw) {
     final f = _resolveProcess(processoRaw);
     if (f == null) return;
@@ -222,41 +232,76 @@ class _GeoMapState extends State<GeoMap> {
     setState(() => _tooltipScreenPos = pos);
   }
 
-  // ---------------------------------------------------------------------------
-  // BUILD
-  // ---------------------------------------------------------------------------
+  // ✅ Converte as usinas para Markers e envia via extraMarkers.
+  List<Marker> _buildEnergyExtraMarkers() {
+    if (!widget.showUnitsEnergy || widget.unitsEnergyMarkers.isEmpty) {
+      return const <Marker>[];
+    }
+
+    return widget.unitsEnergyMarkers.map((m) {
+      return Marker(
+        point: m.point,
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => widget.onEnergyMarkerTap?.call(m),
+          child: Tooltip(
+            message: m.name.trim().isNotEmpty ? m.name.trim() : 'Usina de energia',
+            child: const SizedBox(
+              width: 34,
+              height: 34,
+              child: Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // contorno branco (ícone maior atrás)
+                    Icon(
+                      Icons.bolt,
+                      size: 32,
+                      color: Colors.white,
+                    ),
+                    // ícone principal
+                    Icon(
+                      Icons.bolt,
+                      size: 22,
+                      color: Colors.orange,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // --------- SIGMINE: monta polígonos ----------
     final sigminePolygons = _buildSigminePolygons();
-
-    // cores de legenda por substância (SIGMINE)
     final Map<String, Color> sigmineColors = _buildSigmineLegendColors();
 
-    // --------- IBGE: mapa de cores (neutro ou por indicador) ----------
     final Map<String, Color> ibgeColors = _buildIbgeChoroplethColors();
 
-
-    // Combina cores de SIGMINE + IBGE para a legenda
     final Map<String, Color> polygonColors = {
       ...ibgeColors,
       ...sigmineColors,
-      // heatmap não entra na legenda nominal (opcional)
     };
 
-    // --------- IBGE: aplica estilo normal/selecionado ----------
     final ibgePolygonsStyled = _buildIbgeStyledPolygons(ibgeColors);
 
-    // Lista final de polígonos
     final allPolygons = <PolygonChanged>[
       if (widget.showIbgeCities) ...ibgePolygonsStyled,
       if (widget.showSigmine) ...sigminePolygons,
     ];
 
-    // --------- RODOVIAS (OSM): usa lista já pronta / filtrada ----------
     final tappableRoads = widget.showRoads
         ? widget.roadPolylines
         : const <TappableChangedPolyline>[];
+
+    final extraMarkers = _buildEnergyExtraMarkers();
 
     return Stack(
       children: [
@@ -265,12 +310,19 @@ class _GeoMapState extends State<GeoMap> {
           showLegend: false,
           showSearch: true,
           showMyLocation: true,
-          showChangeMapType: false, // base vem de selectedBaseIndex externo
+          showChangeMapType: false,
+
           polygonsChanged: allPolygons,
-          polygonChangeColors: polygonColors, // opcional para legenda
+          polygonChangeColors: polygonColors,
+
           tappablePolylines: tappableRoads,
+
+          // ✅ AQUI: usa o que o seu MapInteractive já suporta.
+          extraMarkers: extraMarkers,
+
           allowMultiSelect: false,
           onRegionTap: _handleRegionTap,
+
           onControllerReady: (c) {
             _controller = c;
             widget.onControllerReady(c);
@@ -283,10 +335,10 @@ class _GeoMapState extends State<GeoMap> {
               widget.onCameraChanged?.call(cam.center, cam.zoom);
             });
           },
+
           selectedBaseIndex: widget.selectedBaseIndex,
         ),
 
-        // seletor de UF
         Positioned(
           top: 16,
           right: 16,
@@ -297,14 +349,12 @@ class _GeoMapState extends State<GeoMap> {
               if (uf == null) return;
               widget.onChangeUF(uf);
               _closeTooltip();
-              setState(() {
-              });
+              setState(() {});
             },
             labelText: 'Selecione a UF',
           ),
         ),
 
-        // tooltip ancorado no labelPoint do PROCESSO (apenas SIGMINE)
         if (_tooltipAnchor != null && _tooltipScreenPos != null)
           Positioned(
             left: _tooltipScreenPos!.dx - (_cardMaxWidth / 2),
@@ -337,9 +387,6 @@ class _GeoMapState extends State<GeoMap> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // HELPERS DE CONSTRUÇÃO
-  // ---------------------------------------------------------------------------
   List<PolygonChanged> _buildSigminePolygons() {
     return widget.featuresAtivos.map((f) {
       final minerioNorm = removeDiacritics((f.substancia ?? 'INDEFINIDO'))
@@ -351,14 +398,10 @@ class _GeoMapState extends State<GeoMap> {
 
       return PolygonChanged(
         title: f.processo,
-        polygon: Polygon(
-          points: f.polygon.points,
-        ),
-        // estilo normal
+        polygon: Polygon(points: f.polygon.points),
         normalFillColor: base.withOpacity(0.45),
         normalBorderColor: base.withOpacity(0.95),
         normalBorderWidth: 0.8,
-        // estilo selecionado (quando o usuário clica no processo)
         selectedFillColor: base.withOpacity(0.75),
         selectedBorderColor: Colors.black,
         selectedBorderWidth: 2.0,
@@ -374,13 +417,11 @@ class _GeoMapState extends State<GeoMap> {
 
   Map<String, Color> _buildSigmineLegendColors() {
     final Map<String, Color> sigmineColors = {};
-
     for (final f in widget.featuresAtivos) {
       final key = removeDiacritics((f.substancia ?? 'INDEFINIDO'))
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim()
           .toUpperCase();
-
       sigmineColors[key] = widget.getColorForMinerio(key);
     }
     return sigmineColors;
@@ -391,15 +432,14 @@ class _GeoMapState extends State<GeoMap> {
 
     if (!widget.showIbgeCities) return ibgeColors;
 
-    final hasStats =
-        widget.showIbgeStats && widget.ibgeStatsValues.isNotEmpty;
+    final hasStats = widget.showIbgeStats && widget.ibgeStatsValues.isNotEmpty;
     double? minVal;
     double? maxVal;
 
     if (hasStats) {
       for (final v in widget.ibgeStatsValues.values) {
-        minVal = (minVal == null) ? v : math.min(minVal, v);
-        maxVal = (maxVal == null) ? v : math.max(maxVal, v);
+        minVal = (minVal == null) ? v : math.min(minVal!, v);
+        maxVal = (maxVal == null) ? v : math.max(maxVal!, v);
       }
     }
 
@@ -422,10 +462,9 @@ class _GeoMapState extends State<GeoMap> {
             widget.ibgeStatsValues.containsKey(idIbge) &&
             minVal != null &&
             maxVal != null &&
-            maxVal > minVal) {
+            maxVal! > minVal!) {
           final v = widget.ibgeStatsValues[idIbge]!;
-          final t =
-          ((v - minVal) / (maxVal - minVal)).clamp(0.0, 1.0);
+          final t = ((v - minVal!) / (maxVal! - minVal!)).clamp(0.0, 1.0);
 
           base = Color.lerp(
             Colors.yellow.shade200,
@@ -442,27 +481,20 @@ class _GeoMapState extends State<GeoMap> {
     return ibgeColors;
   }
 
-  List<PolygonChanged> _buildIbgeStyledPolygons(
-      Map<String, Color> ibgeColors,
-      ) {
+  List<PolygonChanged> _buildIbgeStyledPolygons(Map<String, Color> ibgeColors) {
     if (!widget.showIbgeCities) return const [];
 
     return widget.ibgeCityPolygons.map((p) {
       final basePoly = p.polygon;
-      final String title =
-      p.title.isEmpty ? 'MUNICIPIO_SEM_NOME' : p.title;
+      final String title = p.title.isEmpty ? 'MUNICIPIO_SEM_NOME' : p.title;
       final baseColor = ibgeColors[title] ?? Colors.white;
 
       return PolygonChanged(
         title: p.title,
-        polygon: Polygon(
-          points: basePoly.points,
-        ),
-        // normal: cor do choropleth + borda cinza
+        polygon: Polygon(points: basePoly.points),
         normalFillColor: baseColor,
         normalBorderColor: Colors.grey.shade300,
         normalBorderWidth: 2.0,
-        // selecionado: vermelho (interior e borda)
         selectedFillColor: Colors.red.withOpacity(0.25),
         selectedBorderColor: Colors.red,
         selectedBorderWidth: 3.0,
@@ -472,30 +504,24 @@ class _GeoMapState extends State<GeoMap> {
     }).toList();
   }
 
-  // ---------------------------------------------------------------------------
-  // HANDLER DE CLIQUE NO MAPA (polígonos)
-  // ---------------------------------------------------------------------------
   void _handleRegionTap(String? regionTitle) {
     if (regionTitle == null) {
-      // Deseleção geral
       _closeTooltip();
-      setState(() {
-      });
+      setState(() {});
       widget.onRegionTap(null);
       return;
     }
 
-    // 1) Tenta interpretar como PROCESSO SIGMINE
+    // SIGMINE
     final f = _resolveProcess(regionTitle);
     if (f != null) {
       _openTooltipForProcess(regionTitle);
-      setState(() {
-      });
+      setState(() {});
       widget.onRegionTap(regionTitle);
       return;
     }
 
-    // 2) Não é processo conhecido => trata como MUNICÍPIO IBGE
+    // IBGE
     _closeTooltip();
 
     if (widget.onMunicipioTap != null && widget.showIbgeCities) {
@@ -511,15 +537,12 @@ class _GeoMapState extends State<GeoMap> {
       }
 
       if (found != null) {
-        setState(() {
-        });
-
+        setState(() {});
         String? idIbge;
         final propsList = found.properties ?? const <dynamic>[];
 
         for (final props in propsList) {
-          if (props is Map<String, dynamic> &&
-              props['idIbge'] != null) {
+          if (props is Map<String, dynamic> && props['idIbge'] != null) {
             idIbge = props['idIbge'].toString();
             break;
           }

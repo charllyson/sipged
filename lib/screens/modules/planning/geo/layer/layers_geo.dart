@@ -72,7 +72,7 @@ const List<LayersGeo> kEnvironmentLayers = [
   ),
   LayersGeo(
     id: 'general_units',
-    title: 'UNIDADES',
+    title: 'UNIDADES PRODUTIVAS',
     icon: Icons.folder_open_outlined,
     color: Color(0xFF92400E),
     isGroup: true,
@@ -155,13 +155,6 @@ const List<LayersGeo> kEnvironmentLayers = [
         defaultVisible: false,
       ),
       LayersGeo(
-        id: 'outras_rodovias',
-        title: 'Outras Rodovias',
-        icon: Icons.alt_route,
-        color: Color(0xFF546E7A),
-        defaultVisible: false,
-      ),
-      LayersGeo(
         id: 'railways',
         title: 'Ferrovias',
         icon: Icons.train_outlined,
@@ -222,14 +215,14 @@ const List<LayersGeo> kEnvironmentLayers = [
     children: [
       LayersGeo(
         id: 'rain_gauge',
-        title: 'Pluviometria (Estações ANA)',
+        title: 'Pluviometria',
         icon: Icons.thunderstorm_outlined,
         color: Color(0xFF0EA5E9),
         defaultVisible: true,
       ),
       LayersGeo(
         id: 'weather_open_meteo',
-        title: 'Clima (Open-Meteo)',
+        title: 'Clima',
         icon: Icons.cloud_outlined,
         color: Color(0xFF38BDF8),
         defaultVisible: false,

@@ -1,11 +1,26 @@
+// lib/screens/modules/planning/geo/geo_network_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+
 import 'package:siged/screens/modules/planning/geo/layer/layer_db_status_cubit.dart';
 
 import 'package:siged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_cubit.dart';
 import 'package:siged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_repository.dart';
 import 'package:siged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_state.dart';
+
+import 'package:siged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_cubit.dart';
+import 'package:siged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_repository.dart';
+import 'package:siged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_state.dart';
+
+import 'package:siged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_cubit.dart';
+import 'package:siged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_repository.dart';
+import 'package:siged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_state.dart';
+
+// ✅ RAILWAYS
+import 'package:siged/_blocs/modules/planning/geo/transportes/railways/railways_cubit.dart';
+import 'package:siged/_blocs/modules/planning/geo/transportes/railways/railways_repository.dart';
+import 'package:siged/_blocs/modules/planning/geo/transportes/railways/railways_state.dart';
 
 import 'package:siged/_widgets/geo/attributes_table/attributes_table_dialog.dart';
 
@@ -17,6 +32,11 @@ import 'package:siged/_blocs/modules/planning/geo/sig_miner/sigmine_repository.d
 // IBGE
 import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
 import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
+
+// ✅ ENERGY PLANTS
+import 'package:siged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_cubit.dart';
+import 'package:siged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_repository.dart';
+import 'package:siged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_state.dart';
 
 // SETUP
 import 'package:siged/_blocs/system/setup/setup_data.dart';
@@ -38,8 +58,8 @@ import 'package:siged/screens/modules/planning/geo/geo_right_pane.dart';
 // Import vetorial
 import 'package:siged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
 
-// ✅ Railways repo (hasData)
-import 'package:siged/_blocs/modules/planning/geo/transportes/railways/railways_repository.dart';
+// ✅ Polyline type
+import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
 class GeoNetworkPage extends StatelessWidget {
   const GeoNetworkPage({super.key});
@@ -58,17 +78,46 @@ class GeoNetworkPage extends StatelessWidget {
         ),
         BlocProvider(create: (_) => IBGELocationCubit()),
         BlocProvider(create: (_) => AttributesTableCubit()),
+
         BlocProvider(
           create: (_) => RoadsFederalCubit(
             repository: RoadsFederalRepository(),
           ),
         ),
 
-        // ✅ Provider do status de DB (para pintar correntinha)
+        BlocProvider(
+          create: (_) => RoadsStateCubit(
+            repository: RoadsStateRepository(),
+          ),
+        ),
+
+        BlocProvider(
+          create: (_) => RoadsMunicipalCubit(
+            repository: RoadsMunicipalRepository(),
+          ),
+        ),
+
+        BlocProvider(
+          create: (_) => RailwaysCubit(
+            repository: RailwaysRepository(),
+          ),
+        ),
+
+        // ✅ USINAS DE ENERGIA
+        BlocProvider(
+          create: (_) => EnergyPlantsCubit(
+            repository: EnergyPlantsRepository(),
+          ),
+        ),
+
+        // ✅ Provider do status de DB (ícone no drawer)
         BlocProvider(
           create: (_) => LayerDbStatusCubit(
             roadsFederalHasData: (uf) => RoadsFederalRepository().hasData(uf: uf),
+            roadsStateHasData: (uf) => RoadsStateRepository().hasData(uf: uf),
+            roadsMunicipalHasData: (uf) => RoadsMunicipalRepository().hasData(uf: uf),
             railwaysHasData: (uf) => RailwaysRepository().hasData(uf: uf),
+            energyPlantsHasData: (uf) => EnergyPlantsRepository().hasData(uf: uf),
           )..refreshAll(uf: ufInicial),
         ),
       ],
@@ -95,10 +144,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
   late LayersController _layersController;
 
-  // UF atual
   late String _currentUF;
 
-  // Controle “carregou ao menos 1x”
   final Set<String> _loadedOnce = <String>{};
 
   @override
@@ -106,7 +153,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     super.initState();
     _currentUF = widget.initialUf;
 
-    // ✅ Inicia só com o mapa base (sem SIGMINE / IBGE / etc.)
+    // ✅ Inicia só com o mapa base
     _layersController = LayersController({'base_normal'});
   }
 
@@ -115,8 +162,13 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
   bool get _isSigMineVisible => _layersController.isSigMineVisible;
   bool get _isIbgeVisible => _layersController.isIbgeVisible;
 
-  bool get _isFederalRoadVisible =>
-      _layersController.activeLayerIds.contains('federal_road');
+  bool get _isFederalRoadVisible => _layersController.activeLayerIds.contains('federal_road');
+  bool get _isStateRoadVisible => _layersController.activeLayerIds.contains('state_road');
+  bool get _isMunicipalRoadVisible => _layersController.activeLayerIds.contains('municipal_road');
+  bool get _isRailwaysVisible => _layersController.activeLayerIds.contains('railways');
+
+  // ✅ ENERGY PLANTS (ID REAL DO LAYER)
+  bool get _isUnitsEnergyVisible => _layersController.activeLayerIds.contains('units_energy');
 
   int? get _selectedBaseIndex {
     final baseId = _layersController.activeBaseLayerId;
@@ -151,6 +203,47 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
       final bucket = RoadsFederalCubit.bucketForZoom(zoom);
 
       context.read<RoadsFederalCubit>().loadByUF(_currentUF, bucket: bucket);
+      return;
+    }
+
+    if (id == 'state_road' && !_loadedOnce.contains('state_road')) {
+      _loadedOnce.add('state_road');
+
+      final zoom = _controller?.camera.zoom ?? 8.5;
+      final bucket = RoadsStateCubit.bucketForZoom(zoom);
+
+      context.read<RoadsStateCubit>().loadByUF(_currentUF, bucket: bucket);
+      return;
+    }
+
+    if (id == 'municipal_road' && !_loadedOnce.contains('municipal_road')) {
+      _loadedOnce.add('municipal_road');
+
+      final zoom = _controller?.camera.zoom ?? 8.5;
+      final bucket = RoadsMunicipalCubit.bucketForZoom(zoom);
+
+      context.read<RoadsMunicipalCubit>().loadByUF(_currentUF, bucket: bucket);
+      return;
+    }
+
+    if (id == 'railways' && !_loadedOnce.contains('railways')) {
+      _loadedOnce.add('railways');
+
+      final zoom = _controller?.camera.zoom ?? 8.5;
+      final bucket = RailwaysCubit.bucketForZoom(zoom);
+
+      context.read<RailwaysCubit>().loadByUF(
+        _currentUF,
+        zoom: zoom,
+        bucket: bucket,
+      );
+      return;
+    }
+
+    // ✅ ENERGY PLANTS (markers) - usando ID REAL: units_energy
+    if (id == 'units_energy' && !_loadedOnce.contains('units_energy')) {
+      _loadedOnce.add('units_energy');
+      context.read<EnergyPlantsCubit>().loadByUF(_currentUF);
       return;
     }
   }
@@ -224,8 +317,98 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     );
   }
 
+  Future<void> _openImportForStateRoads() async {
+    const collectionPath = 'geo/transportes/rodovias_estaduais';
+    const targetFields = ['uf', 'name', 'code', 'owner', 'points'];
+
+    final importCubit = context.read<AttributesTableCubit>();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => BlocProvider.value(
+        value: importCubit,
+        child: AttributesTableDialog(
+          mode: AttributesTableMode.importFile,
+          collectionPath: collectionPath,
+          targetFields: targetFields,
+          title: 'Importar Rodovias Estaduais',
+          description: 'Importe GeoJSON / KML / KMZ contendo rodovias estaduais (linhas).',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openImportForMunicipalRoads() async {
+    const collectionPath = 'geo/transportes/rodovias_municipais';
+    const targetFields = ['uf', 'name', 'code', 'owner', 'points'];
+
+    final importCubit = context.read<AttributesTableCubit>();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => BlocProvider.value(
+        value: importCubit,
+        child: AttributesTableDialog(
+          mode: AttributesTableMode.importFile,
+          collectionPath: collectionPath,
+          targetFields: targetFields,
+          title: 'Importar Rodovias Municipais',
+          description: 'Importe GeoJSON / KML / KMZ contendo rodovias municipais (linhas).',
+        ),
+      ),
+    );
+  }
+
+  // ✅ ENERGY PLANTS import (mesmo repository/cubit, mas path por layer)
+  Future<void> _openImportForUnitsEnergy() async {
+    const collectionPath = 'geo/unidades_produtivas/usinas_de_energia';
+    const targetFields = ['uf', 'name', 'code', 'owner', 'point'];
+
+    final importCubit = context.read<AttributesTableCubit>();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => BlocProvider.value(
+        value: importCubit,
+        child: const AttributesTableDialog(
+          mode: AttributesTableMode.importFile,
+          collectionPath: collectionPath,
+          targetFields: targetFields,
+          title: 'Importar Usinas de Energia',
+          description: 'Importe GeoJSON / KML / KMZ contendo pontos (usinas).',
+        ),
+      ),
+    );
+  }
+
+  // ✅ AIRPORT import (generic)
+  Future<void> _openImportForAirports() async {
+    const collectionPath = 'geo/transportes/aeroportos';
+    const targetFields = ['uf', 'name', 'code', 'owner', 'point'];
+
+    final importCubit = context.read<AttributesTableCubit>();
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => BlocProvider.value(
+        value: importCubit,
+        child: const AttributesTableDialog(
+          mode: AttributesTableMode.importFile,
+          collectionPath: collectionPath,
+          targetFields: targetFields,
+          title: 'Importar Aeroportos',
+          description: 'Importe GeoJSON / KML / KMZ contendo pontos (aeroportos).',
+        ),
+      ),
+    );
+  }
+
   // ===========================================================================
-  // VIEW FIRESTORE (tabela QGIS-like usando MESMO dialog)
+  // VIEW FIRESTORE
   // ===========================================================================
   Future<void> _openFirestoreTable({
     required String collectionPath,
@@ -241,7 +424,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
         child: AttributesTableDialog(
           mode: AttributesTableMode.firestore,
           collectionPath: collectionPath,
-          targetFields: const [], // não usado no modo firestore (mantido compat)
+          targetFields: const [],
           title: title ?? 'Tabela de atributos',
           description: 'Visualização Firestore: cada documento é uma linha. '
               'Você pode filtrar, selecionar e excluir documentos.',
@@ -258,8 +441,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     return MultiBlocListener(
       listeners: [
         BlocListener<SigMineCubit, SigMineState>(
-          listenWhen: (p, c) =>
-          p.errorMessage != c.errorMessage || p.features != c.features,
+          listenWhen: (p, c) => p.errorMessage != c.errorMessage || p.features != c.features,
           listener: (context, state) {
             if (state.errorMessage != null) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -267,11 +449,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
               );
             }
 
-            if (_controller != null &&
-                _isSigMineVisible &&
-                state.features.isNotEmpty) {
-              final bounds =
-              SigMineRepository.boundsFromFeatures(state.features);
+            if (_controller != null && _isSigMineVisible && state.features.isNotEmpty) {
+              final bounds = SigMineRepository.boundsFromFeatures(state.features);
               _controller!.fitCamera(
                 CameraFit.bounds(
                   bounds: bounds,
@@ -292,13 +471,53 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
           },
         ),
         BlocListener<RoadsFederalCubit, RoadsFederalState>(
-          listenWhen: (p, c) =>
-          p.errorMessage != c.errorMessage ||
-              p.polylines.length != c.polylines.length,
+          listenWhen: (p, c) => p.errorMessage != c.errorMessage || p.polylines.length != c.polylines.length,
           listener: (context, state) {
             if (state.errorMessage != null) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Rodovias Federais: ${state.errorMessage}')),
+              );
+            }
+          },
+        ),
+        BlocListener<RoadsStateCubit, RoadsStateState>(
+          listenWhen: (p, c) => p.errorMessage != c.errorMessage || p.polylines.length != c.polylines.length,
+          listener: (context, state) {
+            if (state.errorMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Rodovias Estaduais: ${state.errorMessage}')),
+              );
+            }
+          },
+        ),
+        BlocListener<RoadsMunicipalCubit, RoadsMunicipalState>(
+          listenWhen: (p, c) => p.errorMessage != c.errorMessage || p.polylines.length != c.polylines.length,
+          listener: (context, state) {
+            if (state.errorMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Rodovias Municipais: ${state.errorMessage}')),
+              );
+            }
+          },
+        ),
+        BlocListener<RailwaysCubit, RailwaysState>(
+          listenWhen: (p, c) => p.errorMessage != c.errorMessage || p.polylines.length != c.polylines.length,
+          listener: (context, state) {
+            if (state.errorMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Ferrovias: ${state.errorMessage}')),
+              );
+            }
+          },
+        ),
+
+        // ✅ ENERGY PLANTS listener
+        BlocListener<EnergyPlantsCubit, EnergyPlantsState>(
+          listenWhen: (p, c) => p.errorMessage != c.errorMessage || p.markers.length != c.markers.length,
+          listener: (context, state) {
+            if (state.errorMessage != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Usinas de Energia: ${state.errorMessage}')),
               );
             }
           },
@@ -310,17 +529,32 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
           final ibgeCubit = context.read<IBGELocationCubit>();
 
           final ibgeState = context.watch<IBGELocationCubit>().state;
+
           final roadsFederalState = context.watch<RoadsFederalCubit>().state;
+          final roadsStateState = context.watch<RoadsStateCubit>().state;
+          final roadsMunicipalState = context.watch<RoadsMunicipalCubit>().state;
+          final railwaysState = context.watch<RailwaysCubit>().state;
+
+          final energyState = context.watch<EnergyPlantsCubit>().state;
 
           // ✅ status do banco para o Drawer
-          final hasDbByLayer =
-              context.watch<LayerDbStatusCubit>().state.hasDbByLayer;
+          final hasDbByLayer = context.watch<LayerDbStatusCubit>().state.hasDbByLayer;
 
-          final derived =
-          sigCubit.buildDerived(sigmineAtivo: _isSigMineVisible);
+          final derived = sigCubit.buildDerived(sigmineAtivo: _isSigMineVisible);
           Color getColor(String s) => sigCubit.getColorForMinerio(s);
 
           final federalOn = _isFederalRoadVisible;
+          final stateOn = _isStateRoadVisible;
+          final municipalOn = _isMunicipalRoadVisible;
+          final railwaysOn = _isRailwaysVisible;
+          final energyOn = _isUnitsEnergyVisible;
+
+          final List<TappableChangedPolyline> combinedRoads = <TappableChangedPolyline>[
+            if (federalOn) ...roadsFederalState.polylines,
+            if (stateOn) ...roadsStateState.polylines,
+            if (municipalOn) ...roadsMunicipalState.polylines,
+            if (railwaysOn) ...railwaysState.polylines,
+          ];
 
           final map = GeoMap(
             featuresAtivos: derived.visibleFeatures,
@@ -331,51 +565,94 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
               sigCubit.openDetailsByProcess(processo);
             },
             onControllerReady: (c) => _controller = c,
+
             onCameraChanged: (_, zoom) {
-              if (!federalOn) return;
-              context
-                  .read<RoadsFederalCubit>()
-                  .onZoomChanged(uf: _currentUF, zoom: zoom);
+              if (federalOn) context.read<RoadsFederalCubit>().onZoomChanged(uf: _currentUF, zoom: zoom);
+              if (stateOn) context.read<RoadsStateCubit>().onZoomChanged(uf: _currentUF, zoom: zoom);
+              if (municipalOn) context.read<RoadsMunicipalCubit>().onZoomChanged(uf: _currentUF, zoom: zoom);
+              if (railwaysOn) context.read<RailwaysCubit>().onZoomChanged(uf: _currentUF, zoom: zoom);
             },
+
             onRequestDetails: sigCubit.openDetailsByFeature,
             onRequestDetailsByProcess: sigCubit.openDetailsByProcess,
             showSigmine: _isSigMineVisible,
-            roadPolylines: federalOn ? roadsFederalState.polylines : const [],
-            showRoads: federalOn,
+
+            roadPolylines: combinedRoads,
+            showRoads: federalOn || stateOn || municipalOn || railwaysOn,
+
             ufs: SetupData.ufs,
             selectedUF: _currentUF,
+
             loading: (sigState.isLoading && _isSigMineVisible) ||
                 (ibgeState.isLoading && _isIbgeVisible) ||
-                (roadsFederalState.isLoading && federalOn),
+                (roadsFederalState.isLoading && federalOn) ||
+                (roadsStateState.isLoading && stateOn) ||
+                (roadsMunicipalState.isLoading && municipalOn) ||
+                (railwaysState.isLoading && railwaysOn) ||
+                (energyState.isLoading && energyOn),
+
             onChangeUF: (uf) {
               setState(() => _currentUF = uf);
 
-              // ✅ atualiza status do DB (correntinha)
               context.read<LayerDbStatusCubit>().refreshAll(uf: uf);
 
-              // SIGMINE
               if (_loadedOnce.contains('sigmine') || _isSigMineVisible) {
                 context.read<SigMineCubit>().loadUF(uf);
               }
 
-              // IBGE
               if (_loadedOnce.contains('ibge_cities') || _isIbgeVisible) {
                 ibgeCubit.changeSelectedStateBySigla(uf);
               }
 
-              // Rodovias Federais
-              final federalOnNow =
-              _layersController.activeLayerIds.contains('federal_road');
+              final zoom = _controller?.camera.zoom ?? 8.5;
+
+              final federalOnNow = _layersController.activeLayerIds.contains('federal_road');
               if (_loadedOnce.contains('federal_road') || federalOnNow) {
-                final zoom = _controller?.camera.zoom ?? 8.5;
                 final bucket = RoadsFederalCubit.bucketForZoom(zoom);
                 context.read<RoadsFederalCubit>().loadByUF(uf, bucket: bucket);
               }
+
+              final stateOnNow = _layersController.activeLayerIds.contains('state_road');
+              if (_loadedOnce.contains('state_road') || stateOnNow) {
+                final bucket = RoadsStateCubit.bucketForZoom(zoom);
+                context.read<RoadsStateCubit>().loadByUF(uf, bucket: bucket);
+              }
+
+              final municipalOnNow = _layersController.activeLayerIds.contains('municipal_road');
+              if (_loadedOnce.contains('municipal_road') || municipalOnNow) {
+                final bucket = RoadsMunicipalCubit.bucketForZoom(zoom);
+                context.read<RoadsMunicipalCubit>().loadByUF(uf, bucket: bucket);
+              }
+
+              final railwaysOnNow = _layersController.activeLayerIds.contains('railways');
+              if (_loadedOnce.contains('railways') || railwaysOnNow) {
+                final bucket = RailwaysCubit.bucketForZoom(zoom);
+                context.read<RailwaysCubit>().loadByUF(
+                  uf,
+                  zoom: zoom,
+                  bucket: bucket,
+                );
+              }
+
+              final energyOnNow = _layersController.activeLayerIds.contains('units_energy');
+              if (_loadedOnce.contains('units_energy') || energyOnNow) {
+                context.read<EnergyPlantsCubit>().loadByUF(uf);
+              }
             },
+
             ibgeCityPolygons: ibgeState.cityPolygons,
             showIbgeCities: _isIbgeVisible,
             onMunicipioTap: (id) => _handleMunicipioTap(context, id),
+
             selectedBaseIndex: _selectedBaseIndex,
+
+            // ✅ AQUI ESTÁ A PARTE QUE FALTAVA
+            showUnitsEnergy: energyOn,
+            unitsEnergyMarkers: energyState.markers,
+            onEnergyMarkerTap: (item) {
+              debugPrint('ENERGY TAP: ${item.name} (${item.point.latitude}, ${item.point.longitude})');
+            },
+
             showPluviometria: false,
           );
 
@@ -391,7 +668,11 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
           final bool isLoading = (sigState.isLoading && _isSigMineVisible) ||
               (ibgeState.isLoading && _isIbgeVisible) ||
-              (roadsFederalState.isLoading && federalOn);
+              (roadsFederalState.isLoading && federalOn) ||
+              (roadsStateState.isLoading && stateOn) ||
+              (roadsMunicipalState.isLoading && municipalOn) ||
+              (railwaysState.isLoading && railwaysOn) ||
+              (energyState.isLoading && energyOn);
 
           return Scaffold(
             key: _scaffoldKey,
@@ -406,8 +687,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                   BackCircleButton(
                     tooltip: 'Camadas do mapa',
                     icon: Icons.layers_outlined,
-                    onPressed: () =>
-                        _scaffoldKey.currentState?.openEndDrawer(),
+                    onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
                   ),
                 ],
               ),
@@ -417,21 +697,62 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
               activeLayerIds: _activeLayerIds,
               onToggleLayer: _toggleLayer,
               hasDbByLayer: hasDbByLayer,
+              onConnectLayer: (rawId) async {
+                // -----------------------------------------------------------------------
+                // ✅ 1) Normaliza o ID (mantém compatibilidade com possíveis aliases)
+                // -----------------------------------------------------------------------
+                String normalizeLayerId(String id) {
+                  const aliases = <String, String>{
+                    // Energy
+                    'energy_plants': 'units_energy',
+                    'usinas_de_energia': 'units_energy',
+                    'energyPlants': 'units_energy',
+                    'energy_plant': 'units_energy',
+                    'usinas_energia': 'units_energy',
 
-              onConnectLayer: (id) async {
+                    // Airport (se algum dia vier com outro id)
+                    'aeroportos': 'airport',
+                    'airports': 'airport',
+                  };
+                  return aliases[id] ?? id;
+                }
+
+                final id = normalizeLayerId(rawId);
+
+                // -----------------------------------------------------------------------
+                // ✅ 2) hasDb precisa ser consultado com o ID normalizado
+                // -----------------------------------------------------------------------
                 final hasDb = hasDbByLayer[id] == true;
 
-                // Map layer -> coleção
+                debugPrint('CONNECT CLICK rawId=$rawId => id=$id | hasDb=$hasDb');
+
+                // -----------------------------------------------------------------------
+                // ✅ 3) Map de paths (AGORA inclui units_energy e airport)
+                // -----------------------------------------------------------------------
                 final collectionByLayer = <String, String>{
                   'federal_road': 'geo/transportes/rodovias_federais',
+                  'state_road': 'geo/transportes/rodovias_estaduais',
+                  'municipal_road': 'geo/transportes/rodovias_municipais',
                   'railways': 'geo/transportes/ferrovias',
+
+                  // ✅ Energy (ID REAL)
+                  'units_energy': 'geo/unidades_produtivas/usinas_de_energia',
+
+                  // ✅ Airport
+                  'airport': 'geo/transportes/aeroportos',
                 };
 
                 final path = collectionByLayer[id];
-                if (path == null) return;
 
+                if (path == null) {
+                  debugPrint('CONNECT CLICK: sem path para id=$id (rawId=$rawId)');
+                  return;
+                }
+
+                // -----------------------------------------------------------------------
+                // ✅ 4) Se tem dados → abre tabela Firestore
+                // -----------------------------------------------------------------------
                 if (hasDb) {
-                  // ✅ NOVO: abre o MESMO dialog em modo Firestore
                   await _openFirestoreTable(
                     collectionPath: path,
                     title: 'Tabela de atributos',
@@ -439,30 +760,91 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                   return;
                 }
 
-                // ❌ sem dados -> abre import
+                // -----------------------------------------------------------------------
+                // ✅ 5) Sem dados → abre import por tipo
+                // -----------------------------------------------------------------------
                 if (id == 'federal_road') {
                   await _openImportForFederalRoads();
-
-                  // atualiza correntinha
                   context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
 
-                  // se layer está ligada, recarrega desenho
-                  final federalOnNow =
-                  _layersController.activeLayerIds.contains('federal_road');
-                  if (federalOnNow) {
+                  final onNow = _layersController.activeLayerIds.contains('federal_road');
+                  if (onNow) {
                     _loadedOnce.add('federal_road');
                     final zoom = _controller?.camera.zoom ?? 8.5;
                     final bucket = RoadsFederalCubit.bucketForZoom(zoom);
-                    context
-                        .read<RoadsFederalCubit>()
-                        .loadByUF(_currentUF, bucket: bucket);
+                    context.read<RoadsFederalCubit>().loadByUF(_currentUF, bucket: bucket);
                   }
+                  return;
+                }
+
+                if (id == 'state_road') {
+                  await _openImportForStateRoads();
+                  context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
+
+                  final onNow = _layersController.activeLayerIds.contains('state_road');
+                  if (onNow) {
+                    _loadedOnce.add('state_road');
+                    final zoom = _controller?.camera.zoom ?? 8.5;
+                    final bucket = RoadsStateCubit.bucketForZoom(zoom);
+                    context.read<RoadsStateCubit>().loadByUF(_currentUF, bucket: bucket);
+                  }
+                  return;
+                }
+
+                if (id == 'municipal_road') {
+                  await _openImportForMunicipalRoads();
+                  context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
+
+                  final onNow = _layersController.activeLayerIds.contains('municipal_road');
+                  if (onNow) {
+                    _loadedOnce.add('municipal_road');
+                    final zoom = _controller?.camera.zoom ?? 8.5;
+                    final bucket = RoadsMunicipalCubit.bucketForZoom(zoom);
+                    context.read<RoadsMunicipalCubit>().loadByUF(_currentUF, bucket: bucket);
+                  }
+                  return;
                 }
 
                 if (id == 'railways') {
                   await _openImportForRailways();
                   context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
+
+                  final onNow = _layersController.activeLayerIds.contains('railways');
+                  if (onNow) {
+                    _loadedOnce.add('railways');
+                    final zoom = _controller?.camera.zoom ?? 8.5;
+                    final bucket = RailwaysCubit.bucketForZoom(zoom);
+                    context.read<RailwaysCubit>().loadByUF(
+                      _currentUF,
+                      zoom: zoom,
+                      bucket: bucket,
+                    );
+                  }
+                  return;
                 }
+
+                // ✅ ENERGY (AGORA FUNCIONA)
+                if (id == 'units_energy') {
+                  await _openImportForUnitsEnergy();
+                  context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
+
+                  final onNow = _layersController.activeLayerIds.contains('units_energy');
+                  if (onNow) {
+                    _loadedOnce.add('units_energy');
+                    context.read<EnergyPlantsCubit>().loadByUF(_currentUF);
+                  }
+                  return;
+                }
+
+                // ✅ AIRPORT (AGORA FUNCIONA)
+                if (id == 'airport') {
+                  await _openImportForAirports();
+                  // (opcional) você pode criar airportHasData no LayerDbStatusCubit futuramente
+                  return;
+                }
+
+                // fallback (não esperado): abre import genérico
+                await _openImportForAirports();
               },
             ),
             body: ScreenLock(
@@ -473,10 +855,10 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                 children: [
                   const BackgroundClean(),
                   SplitLayout(
+                    rightPanelWidth: 550,
                     left: map,
                     right: rightPane,
                     showRightPanel: sigState.showPanel || _isIbgeVisible,
-                    breakpoint: 1300,
                     showDividers: true,
                   ),
                 ],

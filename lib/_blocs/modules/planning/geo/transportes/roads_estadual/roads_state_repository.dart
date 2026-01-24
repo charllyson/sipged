@@ -1,27 +1,28 @@
-// lib/_blocs/modules/planning/geo/transportes/railways/railways_repository.dart
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
-class RailwaysRepository {
-  RailwaysRepository({FirebaseFirestore? firestore})
+class RoadsStateRepository {
+  RoadsStateRepository({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
 
   CollectionReference<Map<String, dynamic>> _col() {
-    return _db.collection('geo').doc('transportes').collection('ferrovias');
+    return _db
+        .collection('geo')
+        .doc('transportes')
+        .collection('rodovias_estaduais');
   }
 
-  /// ✅ Usado para pintar a correntinha (verde quando existir dado).
+  /// ✅ Usado para pintar a correntinha (azul quando existir dado).
   Future<bool> hasData({required String uf}) async {
     final ufNorm = uf.trim().toUpperCase();
 
     final snap = await _col().where('uf', isEqualTo: ufNorm).limit(1).get();
     if (snap.docs.isNotEmpty) return true;
 
-    // fallback opcional: se existir qualquer dado na coleção
     final any = await _col().limit(1).get();
     return any.docs.isNotEmpty;
   }
@@ -30,7 +31,6 @@ class RailwaysRepository {
     final ufNorm = uf.trim().toUpperCase();
 
     final snap = await _col().where('uf', isEqualTo: ufNorm).get();
-
     if (snap.docs.isNotEmpty) {
       return snap.docs.map((d) {
         final data = d.data();
@@ -39,7 +39,6 @@ class RailwaysRepository {
       }).toList();
     }
 
-    // fallback: se não tiver UF setada, retorna tudo
     final all = await _col().get();
     return all.docs.map((d) {
       final data = d.data();
@@ -49,22 +48,15 @@ class RailwaysRepository {
   }
 
   // ===========================================================================
-  // PARSER (EM SEGMENTOS) – evita “pontes”/conexões indevidas
-  // Aceita:
-  // - GeoJSON {type, coordinates}
-  // - points: List<GeoPoint>
-  // - points: List<List<GeoPoint>>
-  // - points: List<Map{lat,lng}>
-  // - points: List<List<[lon,lat]>>
+  // PARSER (EM SEGMENTOS) — igual ao federal
   // ===========================================================================
+
   List<List<LatLng>> parseSegments(dynamic raw) {
     if (raw == null) return const <List<LatLng>>[];
 
-    // Caso 1: GeoJSON style {type, coordinates}
     if (raw is Map) {
       final type = (raw['type'] ?? '').toString();
       final coords = raw['coordinates'];
-
       if (coords is! List) return const <List<LatLng>>[];
 
       if (type == 'LineString') {
@@ -82,12 +74,10 @@ class RailwaysRepository {
         return segs;
       }
 
-      // fallback
       final seg = _parseGeoJsonLineString(coords);
       return seg.length >= 2 ? <List<LatLng>>[seg] : const <List<LatLng>>[];
     }
 
-    // Caso 2: List
     if (raw is List) return _parseListAsSegments(raw);
 
     return const <List<LatLng>>[];
@@ -97,7 +87,6 @@ class RailwaysRepository {
     if (list.isEmpty) return const <List<LatLng>>[];
     final first = list.first;
 
-    // List<GeoPoint>
     if (first is GeoPoint) {
       final seg = <LatLng>[];
       for (final e in list) {
@@ -107,7 +96,6 @@ class RailwaysRepository {
       return seg.length >= 2 ? <List<LatLng>>[seg] : const <List<LatLng>>[];
     }
 
-    // List<List<GeoPoint>>
     if (first is List && first.isNotEmpty && first.first is GeoPoint) {
       final segs = <List<LatLng>>[];
       for (final line in list) {
@@ -122,7 +110,6 @@ class RailwaysRepository {
       return segs;
     }
 
-    // List<Map{lat,lng}>
     if (first is Map) {
       final seg = <LatLng>[];
       for (final e in list) {
@@ -135,7 +122,6 @@ class RailwaysRepository {
       return seg.length >= 2 ? <List<LatLng>>[seg] : const <List<LatLng>>[];
     }
 
-    // List<List<num>> / MultiLineString style
     if (first is List) {
       if (first.isNotEmpty && first.first is List) {
         final segs = <List<LatLng>>[];
@@ -174,8 +160,9 @@ class RailwaysRepository {
   }
 
   // ===========================================================================
-  // SIMPLIFICAÇÃO (por segmento) – idêntico ao padrão das rodovias
+  // SIMPLIFICAÇÃO (por segmento)
   // ===========================================================================
+
   List<LatLng> decimate(List<LatLng> pts, int step) {
     if (pts.length <= 2) return pts;
     if (step <= 1) return pts;

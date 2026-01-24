@@ -1,4 +1,3 @@
-// lib/_services/files/geoJson/attributes_table_repository.dart
 import 'dart:convert';
 
 import 'package:archive/archive.dart' as archive;
@@ -38,7 +37,6 @@ class AttributesTableRepository {
     final file = result.files.first;
     final ext = (file.extension ?? '').toLowerCase();
 
-    // Web geralmente vem com bytes; Mobile pode vir com path e bytes null
     final bytes = file.bytes ??
         await VectorImportFileReader.readBytes(
           Uri.file(file.path!),
@@ -65,6 +63,7 @@ class AttributesTableRepository {
       ) {
     if (rawFeatures.isEmpty) return (const [], const []);
 
+    // 1) Descobrir todas as colunas
     final keys = <String>{};
     for (final feat in rawFeatures) {
       final props = Map<String, dynamic>.from(feat['properties'] ?? {});
@@ -74,9 +73,14 @@ class AttributesTableRepository {
     final sortedKeys = keys.toList()..sort();
 
     final columns = sortedKeys
-        .map((name) => ImportColumnMeta(name: name, selected: true, type: TypeFieldGeoJson.string))
+        .map((name) => ImportColumnMeta(
+      name: name,
+      selected: true,
+      type: TypeFieldGeoJson.string,
+    ))
         .toList(growable: false);
 
+    // 2) Montar features com geometria (flatten + segmentos)
     final features = <AttributesTableData>[];
 
     for (final feat in rawFeatures) {
@@ -85,8 +89,25 @@ class AttributesTableRepository {
       final geometryType = (geometry['type'] ?? 'LineString').toString();
       final coords = geometry['coordinates'];
 
-      final points = _convertToLatLngList(geometryType, coords);
-      final geoPoints = points.map((p) => GeoPoint(p.latitude, p.longitude)).toList(growable: false);
+      // ✅ Segmentos como List<List<LatLng>> (sempre)
+      final partsLatLng = _convertToLatLngParts(geometryType, coords);
+
+      // Filtra segmentos inválidos
+      final cleanPartsLatLng = partsLatLng.where((s) => s.length >= 2).toList(growable: false);
+
+      // Flatten
+      final flatLatLng = <LatLng>[];
+      for (final seg in cleanPartsLatLng) {
+        flatLatLng.addAll(seg);
+      }
+
+      final geoPointsFlat = flatLatLng
+          .map((p) => GeoPoint(p.latitude, p.longitude))
+          .toList(growable: false);
+
+      final geoParts = cleanPartsLatLng
+          .map((seg) => seg.map((p) => GeoPoint(p.latitude, p.longitude)).toList(growable: false))
+          .toList(growable: false);
 
       final colTypes = {for (final c in columns) c.name: c.type};
 
@@ -101,10 +122,11 @@ class AttributesTableRepository {
           originalProperties: props,
           editedProperties: edited,
           columnTypes: colTypes,
-          selected: true, // modo import: default selecionado
+          selected: true,
           saveGeometry: true,
           geometryFieldName: 'points',
-          geometryPoints: geoPoints,
+          geometryPoints: geoPointsFlat,
+          geometryParts: geoParts,
           geometryType: geometryType,
         ),
       );
@@ -120,6 +142,7 @@ class AttributesTableRepository {
     required String collectionPath,
     int limit = 2000,
     String geometryFieldName = 'points',
+    String partsFieldName = 'parts', // ✅ novo campo seguro (sem nested arrays)
     String orderByField = 'createdAt',
     bool orderDescending = true,
   }) async {
@@ -145,14 +168,17 @@ class AttributesTableRepository {
       return (<AttributesTableData>[], <ImportColumnMeta>[]);
     }
 
+    // 1) Monta colunas (exceto geometria)
     final keys = <String>{};
     bool hasGeometry = false;
 
     for (final d in docs) {
       final data = d.data();
       for (final k in data.keys) {
-        if (k == geometryFieldName) {
-          if (data[k] is List && (data[k] as List).isNotEmpty) hasGeometry = true;
+        if (k == geometryFieldName || k == partsFieldName) {
+          // detecta presença de geometria
+          final v = data[k];
+          if (v is List && v.isNotEmpty) hasGeometry = true;
           continue;
         }
         keys.add(k);
@@ -161,26 +187,62 @@ class AttributesTableRepository {
 
     final sortedKeys = keys.toList()..sort();
 
-    // Colunas
     final columns = sortedKeys
         .map((name) => ImportColumnMeta(name: name, selected: true, type: TypeFieldGeoJson.string))
         .toList(growable: false);
 
+    // 2) Features
     final features = <AttributesTableData>[];
+
     for (final d in docs) {
       final data = Map<String, dynamic>.from(d.data());
-
-      // ✅ docId real para delete/update
       final docId = d.id;
 
-      // geometria
-      final rawGeom = data[geometryFieldName];
+      // ✅ parts: List<Map>{ pts: List<GeoPoint> }
+      final geoParts = <List<GeoPoint>>[];
+      final rawParts = data[partsFieldName];
+
+      if (rawParts is List) {
+        for (final item in rawParts) {
+          // Novo formato: { pts: [...] }
+          if (item is Map) {
+            final ptsRaw = item['pts'];
+            if (ptsRaw is List) {
+              final pts = <GeoPoint>[];
+              for (final p in ptsRaw) {
+                if (p is GeoPoint) pts.add(p);
+              }
+              if (pts.length >= 2) geoParts.add(pts);
+            }
+            continue;
+          }
+
+          // Fallback (caso algum dia venha como lista direta)
+          if (item is List) {
+            final pts = <GeoPoint>[];
+            for (final p in item) {
+              if (p is GeoPoint) pts.add(p);
+            }
+            if (pts.length >= 2) geoParts.add(pts);
+          }
+        }
+      }
+
+      // ✅ points flatten
       final geoPoints = <GeoPoint>[];
+      final rawGeom = data[geometryFieldName];
       if (rawGeom is List) {
         for (final v in rawGeom) {
           if (v is GeoPoint) geoPoints.add(v);
         }
       }
+
+      // Se points não existe/está vazio e parts existe, reconstrói flatten
+      final geoPointsFlat = geoPoints.isNotEmpty
+          ? geoPoints
+          : <GeoPoint>[
+        for (final seg in geoParts) ...seg,
+      ];
 
       final geometryType = (data['geometryType'] ?? '').toString();
 
@@ -197,10 +259,11 @@ class AttributesTableRepository {
           originalProperties: Map<String, dynamic>.from(edited),
           editedProperties: edited,
           columnTypes: colTypes,
-          selected: false, // modo firestore: default não selecionado
+          selected: false,
           saveGeometry: hasGeometry,
           geometryFieldName: geometryFieldName,
-          geometryPoints: geoPoints,
+          geometryPoints: geoPointsFlat,
+          geometryParts: geoParts,
           geometryType: geometryType,
         ),
       );
@@ -217,6 +280,7 @@ class AttributesTableRepository {
     required List<AttributesTableData> features,
     required void Function(double progress) onProgress,
     String geometryTypeField = 'geometryType',
+    String partsFieldName = 'parts', // ✅ novo campo seguro
   }) async {
     final uid = _auth.currentUser?.uid ?? '';
     final col = _firestore.collection(collectionPath);
@@ -225,8 +289,10 @@ class AttributesTableRepository {
     final total = selecionadas.length;
     if (total == 0) return;
 
-    const chunkSize = 400;
+    const chunkSize = 20;
     int written = 0;
+
+    onProgress(0.01);
 
     for (int i = 0; i < selecionadas.length; i += chunkSize) {
       final end = (i + chunkSize < selecionadas.length) ? i + chunkSize : selecionadas.length;
@@ -236,7 +302,6 @@ class AttributesTableRepository {
 
       for (final feat in chunk) {
         final docRef = col.doc();
-
         final data = Map<String, dynamic>.from(feat.editedProperties);
 
         data['id'] = docRef.id;
@@ -246,8 +311,17 @@ class AttributesTableRepository {
         data['updatedBy'] = uid;
         data[geometryTypeField] = feat.geometryType;
 
+        // ✅ points flatten (permitido)
         if (feat.saveGeometry && feat.geometryPoints.isNotEmpty) {
           data[feat.geometryFieldName] = feat.geometryPoints;
+        }
+
+        // ✅ parts sem nested arrays: List<Map>{pts: List<GeoPoint>}
+        if (feat.saveGeometry && feat.geometryParts.isNotEmpty) {
+          data[partsFieldName] = feat.geometryParts
+              .where((seg) => seg.isNotEmpty)
+              .map((seg) => <String, dynamic>{'pts': seg})
+              .toList(growable: false);
         }
 
         batch.set(docRef, data, SetOptions(merge: true));
@@ -256,7 +330,9 @@ class AttributesTableRepository {
       await batch.commit();
 
       written += chunk.length;
-      onProgress(written / total);
+
+      final p = written / total;
+      onProgress(p.clamp(0.0, 1.0));
     }
   }
 
@@ -272,8 +348,10 @@ class AttributesTableRepository {
 
     final col = _firestore.collection(collectionPath);
 
-    const chunkSize = 450;
+    const chunkSize = 20;
     int deleted = 0;
+
+    onProgress(0.01);
 
     for (int i = 0; i < docIds.length; i += chunkSize) {
       final end = (i + chunkSize < docIds.length) ? i + chunkSize : docIds.length;
@@ -287,7 +365,9 @@ class AttributesTableRepository {
       await batch.commit();
 
       deleted += chunk.length;
-      onProgress(deleted / docIds.length);
+
+      final p = deleted / docIds.length;
+      onProgress(p.clamp(0.0, 1.0));
     }
   }
 
@@ -417,27 +497,38 @@ class AttributesTableRepository {
     return coords;
   }
 
-  List<LatLng> _convertToLatLngList(String type, dynamic coords) {
-    final pontos = <LatLng>[];
+  // ===========================================================================
+  // ✅ Geometria: converte coords em SEMPRE "parts" (segmentos)
+  // ===========================================================================
+  List<List<LatLng>> _convertToLatLngParts(String type, dynamic coords) {
+    final parts = <List<LatLng>>[];
 
-    if (coords is List && coords.isNotEmpty) {
-      if (type == 'MultiLineString') {
-        for (final sub in coords) {
-          for (final p in (sub as List)) {
-            if (p is List && p.length >= 2) {
-              pontos.add(LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()));
-            }
-          }
-        }
-      } else {
-        for (final p in coords) {
+    if (coords is! List || coords.isEmpty) return parts;
+
+    // MultiLineString: coords = [ [ [lon,lat], ... ], [ [lon,lat], ... ] ]
+    if (type == 'MultiLineString') {
+      for (final sub in coords) {
+        if (sub is! List) continue;
+        final seg = <LatLng>[];
+        for (final p in sub) {
           if (p is List && p.length >= 2) {
-            pontos.add(LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()));
+            seg.add(LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()));
           }
         }
+        if (seg.length >= 2) parts.add(seg);
       }
+      return parts;
     }
 
-    return pontos;
+    // LineString: coords = [ [lon,lat], [lon,lat], ... ]
+    final seg = <LatLng>[];
+    for (final p in coords) {
+      if (p is List && p.length >= 2) {
+        seg.add(LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()));
+      }
+    }
+    if (seg.length >= 2) parts.add(seg);
+
+    return parts;
   }
 }

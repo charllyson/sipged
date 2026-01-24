@@ -45,7 +45,6 @@ enum MenuItem {
   activeRegistrationPorts,
   activePortsNetwork,
 
-  crmLegal,
 }
 
 /// Configuração de seções da HOME (título + grupos do drawer)
@@ -101,8 +100,6 @@ class PagesData {
 
     'active-ports-records',
     'active-ports-network',
-
-    'crm-legal',
   ];
 
   /// =========== PAINÉIS =============
@@ -434,24 +431,6 @@ class PagesData {
     ),
   ];
 
-  /// =========== JURÍDICO/CRM =============
-  static List<MenuDrawerItemModule> crmLegal = [
-    MenuDrawerItemModule(
-      label: 'PROCESSOS',
-      icon: Icons.area_chart,
-      subItems: [
-        MenuDrawerSubItem(
-          label: 'CRM',
-          menuItem: MenuItem.crmLegal,
-          permissionModule: 'crm-legal',
-          homeIcon: Icons.account_tree_outlined,
-          homeSubtitle: 'Pipeline e relacionamento',
-          homeColor: Color(0xFF800020),
-        ),
-      ],
-    ),
-  ];
-
   /// ==========================
   /// HOME (Fonte única de seções)
   /// ==========================
@@ -468,10 +447,6 @@ class PagesData {
       title: 'ATIVOS',
       groups: drawerActives,
     ),
-    HomeSectionConfig(
-      title: 'PROCESSOS',
-      groups: crmLegal,
-    ),
   ];
 
   /// ==========================
@@ -483,7 +458,6 @@ class PagesData {
     ...drawerDocuments,
     ...drawerDepartments,
     ...drawerActives,
-    ...crmLegal,
   ];
 
 }

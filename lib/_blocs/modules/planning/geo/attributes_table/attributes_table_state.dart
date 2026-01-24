@@ -22,6 +22,7 @@ class VectorImportState extends Equatable {
   final List<AttributesTableData> features;
   final List<ImportColumnMeta> columns;
 
+  /// 0.0 .. 1.0
   final double progress;
 
   final Map<String, String> fieldMapping;
@@ -57,7 +58,8 @@ class VectorImportState extends Equatable {
   }) {
     return VectorImportState(
       status: status ?? this.status,
-      error: error,
+      // ✅ preserva erro anterior quando não informado
+      error: error ?? this.error,
       collectionPath: collectionPath ?? this.collectionPath,
       features: features ?? this.features,
       columns: columns ?? this.columns,

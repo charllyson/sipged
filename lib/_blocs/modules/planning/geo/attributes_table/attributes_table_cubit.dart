@@ -153,7 +153,7 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
         return;
       }
 
-      // Mantém apenas as colunas selecionadas em editedProperties (para o payload ficar limpo)
+      // Mantém apenas as colunas selecionadas em editedProperties (payload limpo)
       final prepared = state.features.map((f) {
         final newProps = <String, dynamic>{};
         for (final colName in selectedCols) {
