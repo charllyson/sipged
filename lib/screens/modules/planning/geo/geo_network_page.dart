@@ -650,7 +650,6 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
             showUnitsEnergy: energyOn,
             unitsEnergyMarkers: energyState.markers,
             onEnergyMarkerTap: (item) {
-              debugPrint('ENERGY TAP: ${item.name} (${item.point.latitude}, ${item.point.longitude})');
             },
 
             showPluviometria: false,
@@ -724,8 +723,6 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                 // -----------------------------------------------------------------------
                 final hasDb = hasDbByLayer[id] == true;
 
-                debugPrint('CONNECT CLICK rawId=$rawId => id=$id | hasDb=$hasDb');
-
                 // -----------------------------------------------------------------------
                 // ✅ 3) Map de paths (AGORA inclui units_energy e airport)
                 // -----------------------------------------------------------------------
@@ -745,7 +742,6 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                 final path = collectionByLayer[id];
 
                 if (path == null) {
-                  debugPrint('CONNECT CLICK: sem path para id=$id (rawId=$rawId)');
                   return;
                 }
 

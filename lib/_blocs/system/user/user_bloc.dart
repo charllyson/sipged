@@ -1,3 +1,4 @@
+// lib/_blocs/system/user/user_bloc.dart
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/system/user/user_repository.dart';
@@ -22,25 +23,19 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     on<UserSaveRequested>(_onSave);
     on<UserMarkNotificationSeenRequested>(_onMarkSeen);
 
-    // Handlers para eventos vindos das streams
     on<UsersStreamUpdated>(_onUsersStreamUpdated);
     on<UsersStreamError>(_onUsersStreamError);
     on<CurrentUserStreamUpdated>(_onCurrentUserStreamUpdated);
   }
 
   @override
-  Future<void> close() {
-    _usersSub?.cancel();
-    _meSub?.cancel();
+  Future<void> close() async {
+    await _usersSub?.cancel();
+    await _meSub?.cancel();
     return super.close();
   }
 
-  // ---------------- Handlers ----------------
-
-  Future<void> _onWarmup(
-      UserWarmupRequested e,
-      Emitter<UserState> emit,
-      ) async {
+  Future<void> _onWarmup(UserWarmupRequested e, Emitter<UserState> emit) async {
     emit(state.copyWith(isLoadingUsers: true, loadUsersError: null));
     try {
       final users = await repo.getAll();
@@ -58,14 +53,15 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       ));
 
       if (e.listenRealtime) {
-        _attachUsersStream(); // << não passa emit
+        _attachUsersStream();
         emit(state.copyWith(realtimeEnabled: true));
       }
       if (e.bindCurrentUser) {
-        _attachMeStream(); // << não passa emit
+        _attachMeStream();
         emit(state.copyWith(currentBindEnabled: true));
       }
     } catch (err) {
+      if (isClosed) return;
       emit(state.copyWith(isLoadingUsers: false, loadUsersError: '$err'));
     }
   }
@@ -104,6 +100,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
         loadUsersError: '',
       ));
     } catch (err) {
+      if (isClosed) return;
       emit(state.copyWith(isLoadingUsers: false, loadUsersError: '$err'));
     }
   }
@@ -141,7 +138,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       Emitter<UserState> emit,
       ) async {
     final cached = state.byId[e.uid];
-    if (cached != null) return; // já temos
+    if (cached != null) return;
 
     try {
       final u = await repo.getById(e.uid);
@@ -159,19 +156,15 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       if ((u.uid ?? '').isNotEmpty) byId[u.uid!] = u;
 
       emit(state.copyWith(all: all, byId: byId));
-    } catch (err) {
+    } catch (_) {
       // silencioso
     }
   }
 
-  Future<void> _onSave(
-      UserSaveRequested e,
-      Emitter<UserState> emit,
-      ) async {
+  Future<void> _onSave(UserSaveRequested e, Emitter<UserState> emit) async {
     try {
       await repo.save(e.user);
 
-      // atualiza cache local
       final all = [...state.all];
       final id = (e.user.uid ?? '').trim();
       if (id.isNotEmpty) {
@@ -189,8 +182,8 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       final current = (state.current?.uid == id) ? e.user : state.current;
 
       emit(state.copyWith(all: all, byId: byId, current: current));
-    } catch (err) {
-      // opção: expor um erro específico de save no estado
+    } catch (_) {
+      // opcional: expor erro no estado
     }
   }
 
@@ -200,16 +193,10 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       ) async {
     try {
       await repo.markNotificationSeen(e.uid, e.notificationId);
-    } catch (err) {
-    }
+    } catch (_) {}
   }
 
-  // ---- Handlers dos eventos disparados pelas streams ----
-
-  void _onUsersStreamUpdated(
-      UsersStreamUpdated e,
-      Emitter<UserState> emit,
-      ) {
+  void _onUsersStreamUpdated(UsersStreamUpdated e, Emitter<UserState> emit) {
     final byId = {
       for (final u in e.list)
         if ((u.uid ?? '').isNotEmpty) u.uid!: u,
@@ -217,10 +204,7 @@ class UserBloc extends Bloc<UserEvent, UserState> {
     emit(state.copyWith(all: e.list, byId: byId, loadUsersError: ''));
   }
 
-  void _onUsersStreamError(
-      UsersStreamError e,
-      Emitter<UserState> emit,
-      ) {
+  void _onUsersStreamError(UsersStreamError e, Emitter<UserState> emit) {
     emit(state.copyWith(loadUsersError: e.message));
   }
 
@@ -230,8 +214,6 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       ) {
     emit(state.copyWith(current: e.current));
   }
-
-  // ---------------- Helpers de stream ----------------
 
   void _attachUsersStream() {
     _usersSub?.cancel();

@@ -210,13 +210,6 @@ class RoadsMunicipalCubit extends Cubit<RoadsMunicipalState> {
         );
       }
     }
-
-    if (kDebugMode) {
-      // ignore: avoid_print
-      print('[PERF] RoadsMunicipal.build bucket=$bucket tol=${toleranceMeters.toStringAsFixed(0)}m '
-          'polylines=${polylines.length}');
-    }
-
     return polylines;
   }
 

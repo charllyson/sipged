@@ -284,13 +284,6 @@ class RoadsStateCubit extends Cubit<RoadsStateState> {
         return 1;
     }
   }
-
-  void _perf(String msg) {
-    if (kDebugMode) {
-      // ignore: avoid_print
-      print(msg);
-    }
-  }
 }
 
 class _RoadRowSegments {

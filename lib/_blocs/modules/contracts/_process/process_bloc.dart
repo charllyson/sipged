@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
 
 class ProcessBloc extends BlocBase {
 

@@ -144,7 +144,7 @@ class LaneRegularizationController extends ChangeNotifier
   bool get isAdmin {
     final u = currentUser;
     if (u == null) return false;
-    return roles.roleForUser(u) == roles.BaseRole.ADMINISTRADOR;
+    return roles.roleForUser(u) == roles.UserProfile.ADMINISTRADOR;
   }
 
   // ===== Helpers (rótulo/sugestão) =====

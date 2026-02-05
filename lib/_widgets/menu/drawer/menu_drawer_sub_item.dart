@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/system/pages/pages_data.dart';
+import 'package:siged/_blocs/system/module/module_data.dart';
 
 class MenuDrawerSubItem {
   final String label;
-  final MenuItem menuItem;
+  final ModuleItem menuItem;
   final String permissionModule;
 
   /// Ícone exclusivo do card da Home (se null, herda do grupo no ThemedActionsGrid)

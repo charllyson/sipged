@@ -100,12 +100,4 @@ class UserRepository {
     final last = qs.docs.isEmpty ? null : qs.docs.last;
     return (list, last);
   }
-
-  Future<void> debugPrintUser(String uid) async {
-    final doc = await _userDoc(uid).get();
-    if (!doc.exists) {
-      return;
-    }
-    doc.data();
-  }
 }

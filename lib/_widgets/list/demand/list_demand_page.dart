@@ -33,6 +33,9 @@ import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
+// 🔐 ACL de contratos (novo)
+import 'package:siged/_blocs/system/permitions/contract_permission.dart';
+
 typedef DemandNavigationCallback = void Function(
     BuildContext context,
     ProcessData contract,
@@ -279,7 +282,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
   }
 
   // ===========================================================================
-  // FILTROS / AGRUPAMENTO
+  // FILTROS / AGRUPAMENTO (com ACL)
   // ===========================================================================
 
   Future<void> _applyFilters(ProcessStore store) async {
@@ -290,23 +293,31 @@ class _ListDemandPageState extends State<ListDemandPage> {
       final search =
       _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim();
 
-      final base = store.all;
+      final currentUser =
+          context.read<UserBloc>().state.current;
+
+      if (currentUser == null) return;
+
+      // 🔐 APLICA ACL ANTES DE TUDO
+      final baseAll = store.all;
+      final base = ContractPermissions.filterVisible(
+        user: currentUser,
+        contracts: baseAll,
+      );
 
       final ids = <String>{
         for (final c in base)
           if (_idToString(c.id) != null) _idToString(c.id)!,
       };
 
-      // Carrega DFD / Edital / Publicação para todos esses contratos
+      // Carrega DFD / Edital / Publicação para todos esses contratos (já filtrados)
       await _ensureDemandDataLoadedForContracts(ids);
 
       Iterable<ProcessData> r = base;
 
-      // 🔹 filtro por status da DEMANDA (statusDemanda do DfdData),
-      //     com fallback para "EM PROJETO"
+      // 🔹 filtro por status da DEMANDA
       if (statusFiltro != null && statusFiltro.isNotEmpty) {
         final alvo = statusFiltro.trim().toUpperCase();
-
         r = r.where((c) {
           final id = _idToString(c.id);
           if (id == null) return false;
@@ -329,10 +340,8 @@ class _ListDemandPageState extends State<ListDemandPage> {
           final pub = _pubByContractId[id];
 
           final objeto = (dfd?.descricaoObjeto ?? '').toUpperCase();
-          final processo =
-          (dfd?.processoAdministrativo ?? '').toUpperCase();
-          final numeroContrato =
-          (pub?.numeroContrato ?? '').toUpperCase();
+          final processo = (dfd?.processoAdministrativo ?? '').toUpperCase();
+          final numeroContrato = (pub?.numeroContrato ?? '').toUpperCase();
           final vencedor = (edital?.vencedor ?? '').toUpperCase();
 
           return objeto.contains(s) ||
@@ -345,7 +354,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
       final list = r.toList(growable: false);
 
       // 🔹 reagrupa por statusDemanda do DFD
-      //     → se vier vazio, cai no fallback "EM PROJETO"
       _cachedByStatus.clear();
 
       for (final c in list) {
@@ -362,7 +370,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
       // 🔹 lógica de expansão automática durante busca
       final hasSearch = _searchCtrl.text.trim().isNotEmpty;
       if (hasSearch) {
-        // salva snapshot de expansão apenas na primeira busca
         if (_preSearchExpandedSnapshot.isEmpty) {
           _preSearchExpandedSnapshot = Set<String>.from(_expandedKeys);
         }
@@ -379,7 +386,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
         });
         await _saveExpandedToPrefs();
       } else {
-        // restaura estados de expansão anteriores à busca
         if (_preSearchExpandedSnapshot.isNotEmpty) {
           setState(() {
             _expandedKeys
@@ -390,7 +396,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
           await _saveExpandedToPrefs();
         }
 
-        // remove grupos vazios salvos na prefs
         setState(() {
           _expandedKeys.removeWhere(
                 (k) =>
@@ -465,32 +470,31 @@ class _ListDemandPageState extends State<ListDemandPage> {
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: GeneralDashboardStyle.statusMenu
-                              .map((status) {
+                          children: GeneralDashboardStyle.statusMenu.map((status) {
                             final label = status.$1;
                             final rawKey = status.$2;
                             final k = _norm(rawKey);
-                            final items =
-                                _cachedByStatus[k] ?? const <ProcessData>[];
+                            final items = _cachedByStatus[k] ?? const <ProcessData>[];
 
                             return ListDemandStatus(
                               title: label,
                               statusKey: k,
                               items: items,
-                              constraints: constraints,
+                              constraints: constraints, // ✅ obrigatório
                               sortColumnIndex: _sortColumnIndex,
                               isAscending: _isAscending,
                               onSort: (index, _) => _handleSort(index),
-                              onDelete: (item) async {
+
+                              onDelete: (item) async { // ✅ obrigatório
                                 if (item.id != null && item.id!.isNotEmpty) {
                                   await store.delete(item.id!);
                                   await _refresh(store);
                                 }
                               },
+
                               onTapItem: widget.onTapItem,
                               initiallyExpanded: _isExpanded(k),
-                              onExpansionChanged: (open) =>
-                                  _setExpanded(k, open),
+                              onExpansionChanged: (open) => _setExpanded(k, open),
 
                               // 🔥 passa caches já carregados
                               dfdByContractId: _dfdByContractId,
@@ -509,13 +513,13 @@ class _ListDemandPageState extends State<ListDemandPage> {
         ],
       ),
       floatingActionButton: DemandAddButton(
-        isEditable: true,
+        isEditable: ContractPermissions.isSuperUser(currentUser),
         onAdd: () async {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => TabBarHingPage(
                 key: UniqueKey(),
-                contractData: ProcessData(), // ou ProcessData.empty() se você tiver
+                contractData: ProcessData(),
               ),
             ),
           );

@@ -76,7 +76,6 @@ class IBGELocationCubit extends Cubit<IBGELocationState> {
         await loadPolygonsForState(selected);
       } else {
         if (kDebugMode) {
-          // ignore: avoid_print
 
         }
       }

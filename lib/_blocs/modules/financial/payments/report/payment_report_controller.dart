@@ -24,7 +24,7 @@ import 'package:siged/_utils/formats/converters_utils.dart';
 
 // permissões
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
 
 // anexos + preview
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -110,7 +110,7 @@ class PaymentsReportController extends ChangeNotifier
   bool get isAdmin {
     final u = currentUser;
     if (u == null) return false;
-    return roles.roleForUser(u) == roles.BaseRole.ADMINISTRADOR;
+    return roles.roleForUser(u) == roles.UserProfile.ADMINISTRADOR;
   }
 
   // ======= ORDENS: dropdown inteligente =======
@@ -227,7 +227,7 @@ class PaymentsReportController extends ChangeNotifier
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
 
-    if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) return true;
+    if (roles.roleForUser(user) == roles.UserProfile.ADMINISTRADOR) return true;
 
     final canEdit = perms.userCanModule(
       user: user,

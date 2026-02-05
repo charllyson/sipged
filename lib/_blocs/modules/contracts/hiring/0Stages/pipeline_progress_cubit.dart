@@ -100,7 +100,6 @@ class PipelineProgressCubit extends Cubit<PipelineProgressState> {
     final map = Map<String, bool>.from(state.forceEnabled);
     map[stageKey] = enabled;
     emit(state.copyWith(forceEnabled: map));
-    _log('FORCE $stageKey=$enabled');
   }
 
   /// Assina TODAS as etapas na ordem.
@@ -147,6 +146,4 @@ class PipelineProgressCubit extends Cubit<PipelineProgressState> {
     await _cancelAllWatches();
     return super.close();
   }
-
-  void _log(String m) => debugPrint(m);
 }

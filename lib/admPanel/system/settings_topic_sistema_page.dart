@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_services/excel/generic_import_excel_page.dart';
-import 'package:siged/_widgets/info/tip_box.dart';
 import 'package:siged/_widgets/tiles/tile_widget.dart';
+import 'package:siged/admPanel/system/manager_permissions_users_page.dart';
+import 'package:siged/_widgets/info/info_widget.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';
 import '../../_widgets/menu/upBar/up_bar.dart';
 
-class SettingsTopicConversoresPage extends StatelessWidget {
-  const SettingsTopicConversoresPage({super.key});
+class SettingsTopicSistemaPage extends StatelessWidget {
+  const SettingsTopicSistemaPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final topSafe = MediaQuery.of(context).padding.top;
-    const barHeight = 72.0;
+    const barHeight = 72.0; // mantenha igual ao usado na página Firebase
     final topPadding = topSafe + barHeight + 12;
 
     return Scaffold(
@@ -46,18 +46,19 @@ class SettingsTopicConversoresPage extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(16, topPadding, 16, 24),
                 children: [
                   TileWidget(
-                    title: 'Excel → JSON (Genérico)',
-                    subtitle: 'Converter Excel para JSON (pré-visualizar e salvar local)',
-                    leading: Icons.code_outlined,
+                    title: 'Gerenciar permissões de usuário',
+                    subtitle: 'Perfis base + permissões granulares por módulo',
+                    leading: Icons.security_outlined,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const GenericImportExcelPage()),
+                      MaterialPageRoute(builder: (_) => const ManagerPermissionsUsersPage()),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const TipBox(
+                  const info(
                     text:
-                    'Se quiser, crie aqui também um conversor GeoJSON ↔ Firestore, CSV ↔ JSON, etc.',
+                    'Aqui você pode adicionar outras ferramentas específicas do sistema '
+                        '(auditoria, logs, preferências, temas, dicionário de dados, etc.).',
                   ),
                 ],
               ),

@@ -58,14 +58,6 @@ class FinancialDashboardCubit extends Cubit<FinancialDashboardState> {
         _apostillesRepo = apostillesRepository ?? ApostillesRepository(),
         super(FinancialDashboardState.initial());
 
-  // =========================
-  // HELPERS
-  // =========================
-
-  void _log(String m) {
-    if (kDebugMode) debugPrint('[FinancialDashboardCubit] $m');
-  }
-
   String? _idToString(Object? id) {
     if (id == null) return null;
     try {
@@ -253,8 +245,6 @@ class FinancialDashboardCubit extends Cubit<FinancialDashboardState> {
     final ordered = demandTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final demandTotalsSorted = {for (final e in ordered) e.key: e.value};
-
-    _log('demandTotals: ${demandTotalsSorted.length} demandas; contracts=${contractIds.length}');
 
     return (
     allAdditives: allAdditives,

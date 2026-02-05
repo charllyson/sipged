@@ -80,7 +80,6 @@ class ValidityPage extends StatelessWidget {
               );
             } catch (e) {
               // Aqui você pode exibir uma notificação de erro se quiser
-              debugPrint('Erro ao adicionar anexo: $e');
             }
           }
 

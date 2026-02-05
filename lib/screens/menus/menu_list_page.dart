@@ -26,7 +26,7 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_services/files/dxf/map_overlay_cubit.dart';
 import 'package:siged/_widgets/list/demand/list_demand_page.dart';
-import 'package:siged/screens/home/home_page.dart';
+import 'package:siged/screens/common/home/home_page.dart';
 
 // ===== Páginas =====
 import 'package:siged/screens/modules/operation/schedule/financial/hiring_schedule_page.dart';
@@ -59,7 +59,7 @@ import 'package:siged/screens/modules/operation/schedule/physical/road/schedule_
 import 'package:siged/screens/modules/planning/geo/geo_network_page.dart';
 import 'package:siged/screens/menus/menu_drawer.dart';
 
-import 'package:siged/_blocs/system/pages/pages_data.dart';
+import 'package:siged/_blocs/system/module/module_data.dart';
 import 'package:siged/_widgets/buttons/float_button_menu.dart';
 
 import 'package:siged/screens/modules/planning/rightWay/planning_right_way_workspace_page.dart';
@@ -90,7 +90,7 @@ class MenuListPage extends StatefulWidget {
 }
 
 class _MenuListPageState extends State<MenuListPage> {
-  MenuItem? _selectedItem;
+  ModuleItem? _selectedItem;
   bool _didWarmupUserBloc = false;
   bool _didWarmupStores = false;
 
@@ -99,7 +99,7 @@ class _MenuListPageState extends State<MenuListPage> {
     super.initState();
   }
 
-  void _onSelectPage(MenuItem item) {
+  void _onSelectPage(ModuleItem item) {
     setState(() => _selectedItem = item);
     Navigator.of(context).maybePop();
   }
@@ -273,13 +273,13 @@ class _MenuListPageState extends State<MenuListPage> {
     );
   }
 
-  Widget _getPage(MenuItem item, UserData currentUser) {
+  Widget _getPage(ModuleItem item, UserData currentUser) {
     switch (item) {
-      case MenuItem.overviewDashboard:
+      case ModuleItem.overviewDashboard:
       // Cubit DemandsDashboardCubit já é injetado globalmente no bootstrap.
         return const GeneralDashboardPage();
 
-      case MenuItem.specificDashboard:
+      case ModuleItem.specificDashboard:
         return _buildContractsListPage((context, contract) async {
           context.read<ProcessStore>().select(contract);
 
@@ -315,7 +315,7 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Planejamento específico');
 
-      case MenuItem.processHiringRecords:
+      case ModuleItem.processHiringRecords:
         return _buildContractsListPage((context, contract) {
           final storesCtx = context;
 
@@ -330,7 +330,7 @@ class _MenuListPageState extends State<MenuListPage> {
           });
         }, pageTitle: 'Contratação');
 
-      case MenuItem.processValidityRecords:
+      case ModuleItem.processValidityRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
@@ -340,7 +340,7 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Ordens e Vigência');
 
-      case MenuItem.processAdditiveRecords:
+      case ModuleItem.processAdditiveRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
@@ -350,7 +350,7 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Aditivos');
 
-      case MenuItem.processApostillesRecords:
+      case ModuleItem.processApostillesRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
@@ -361,7 +361,7 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Apostilamentos');
 
-      case MenuItem.processHiringBudget:
+      case ModuleItem.processHiringBudget:
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
@@ -371,7 +371,7 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Orçamento');
 
-      case MenuItem.processHiringSchedule:
+      case ModuleItem.processHiringSchedule:
         return _buildContractsListPage((context, contract) async {
           context.read<ProcessStore>().select(contract);
 
@@ -417,7 +417,7 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Cronograma');
 
-      case MenuItem.processMeasurementsRecords:
+      case ModuleItem.processMeasurementsRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
@@ -428,16 +428,16 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Medições');
 
-      case MenuItem.operationMonitoringWork:
+      case ModuleItem.operationMonitoringWork:
         return _buildContractsListPage((context, contract) async {
           context.read<ProcessStore>().select(contract);
           await _navigateByWorkType(context, contract);
         }, pageTitle: 'Diário de Obra');
 
-      case MenuItem.planningProjectRegistration:
+      case ModuleItem.planningProjectRegistration:
         return GeoNetworkPage();
 
-      case MenuItem.planningRightOfWayRecords:
+      case ModuleItem.planningRightOfWayRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
@@ -448,25 +448,25 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Desapropriações');
 
-      case MenuItem.planningEnvironmentRecords:
+      case ModuleItem.planningEnvironmentRecords:
         return const GeoNetworkPage();
 
-      case MenuItem.trafficAccidentsDashboard:
+      case ModuleItem.trafficAccidentsDashboard:
         return const AccidentsDashboardNetworkPage();
 
-      case MenuItem.trafficAccidentsRecords:
+      case ModuleItem.trafficAccidentsRecords:
         return const AccidentsRecordsNetworkPage();
 
-      case MenuItem.trafficInfractionsDashboard:
+      case ModuleItem.trafficInfractionsDashboard:
         return const InfractionsDashboardPage();
 
-      case MenuItem.trafficInfractionsRecords:
+      case ModuleItem.trafficInfractionsRecords:
         return const InfractionsRecordsPage();
 
-      case MenuItem.financialPaymentsDashboard:
+      case ModuleItem.financialPaymentsDashboard:
         return const TabBarFinancialPage();
 
-      case MenuItem.financialPaymentsRecords:
+      case ModuleItem.financialPaymentsRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
@@ -477,10 +477,10 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Pagamentos de medições');
 
-      case MenuItem.financialCommitmentDashboard:
+      case ModuleItem.financialCommitmentDashboard:
         return const TabBarFinancialPage();
 
-      case MenuItem.financialCommitmentRecords:
+      case ModuleItem.financialCommitmentRecords:
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
@@ -491,34 +491,34 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }, pageTitle: 'Pagamentos de medições');
 
-      case MenuItem.activeRoadNetwork:
+      case ModuleItem.activeRoadNetwork:
         return const ActiveRoadsNetworkPage();
 
-      case MenuItem.activeRoadRegistration:
+      case ModuleItem.activeRoadRegistration:
         return const ActiveRoadsRecordsPage();
 
-      case MenuItem.activesOAEsNetwork:
+      case ModuleItem.activesOAEsNetwork:
         return const ActiveOAEsNetworkPage();
 
-      case MenuItem.activeOAEsRegistration:
+      case ModuleItem.activeOAEsRegistration:
         return const ActiveOaesRecordsPage();
 
-      case MenuItem.activeAirportsNetwork:
+      case ModuleItem.activeAirportsNetwork:
         return const ActiveAirportNetworkPage();
 
-      case MenuItem.activeAirportsRegistration:
+      case ModuleItem.activeAirportsRegistration:
         return const ActiveAirportRecordsPage();
 
-      case MenuItem.activeRailwaysNetwork:
+      case ModuleItem.activeRailwaysNetwork:
         return const ActiveRailwaysNetworkPage();
 
-      case MenuItem.activeRailwaysRegistration:
+      case ModuleItem.activeRailwaysRegistration:
         return const ActiveRailwaysRecordsPage();
 
-      case MenuItem.activePortsNetwork:
+      case ModuleItem.activePortsNetwork:
         return const ActiveRoadsNetworkPage();
 
-      case MenuItem.activeRegistrationPorts:
+      case ModuleItem.activeRegistrationPorts:
         return const ActiveRoadsRecordsPage();
 
     }

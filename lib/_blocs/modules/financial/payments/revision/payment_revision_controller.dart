@@ -24,7 +24,7 @@ import 'package:siged/_blocs/modules/financial/payments/revision/payment_revisio
 
 // permissões
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class PaymentsRevisionController extends ChangeNotifier
@@ -108,7 +108,7 @@ class PaymentsRevisionController extends ChangeNotifier
   bool get isAdmin {
     final u = currentUser;
     if (u == null) return false;
-    return roles.roleForUser(u) == roles.BaseRole.ADMINISTRADOR;
+    return roles.roleForUser(u) == roles.UserProfile.ADMINISTRADOR;
   }
 
   // ======= ORDENS: dropdown inteligente =======
@@ -218,7 +218,7 @@ class PaymentsRevisionController extends ChangeNotifier
   // --- Permissão (módulo: payments_revision)
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
-    if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) return true;
+    if (roles.roleForUser(user) == roles.UserProfile.ADMINISTRADOR) return true;
 
     final canEdit = perms.userCanModule(
       user: user,

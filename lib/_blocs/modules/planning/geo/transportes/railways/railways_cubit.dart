@@ -666,7 +666,6 @@ class RailwaysCubit extends Cubit<RailwaysState> {
 
   void _perf(String msg) {
     if (kDebugMode) {
-      // ignore: avoid_print
       print(msg);
     }
   }

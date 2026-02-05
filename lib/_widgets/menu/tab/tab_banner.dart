@@ -1,4 +1,3 @@
-// lib/_widgets/menu/tab/tab_banner.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,21 +12,21 @@ import 'package:siged/_blocs/modules/contracts/_process/process_store.dart';
 
 import 'package:siged/_widgets/list/search/search_user_permission_widget.dart';
 
-// permissões globais & por documento
-import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+// RBAC (módulo)
+import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
+// perfis
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
+// ✅ ACL do contrato
+import 'package:siged/_blocs/system/permitions/contract_permission.dart' as acl;
 
-// selo reutilizável
 import 'package:siged/_widgets/stamp/stamp.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
-
-// 🔹 janela estilo macOS
 
 class TabBanner extends StatefulWidget {
   const TabBanner({
     super.key,
     required this.contract,
-    this.titleText, // 🔹 agora opcional
+    this.titleText,
     this.onTap,
     this.interactive = true,
     this.userData,
@@ -43,11 +42,7 @@ class TabBanner extends StatefulWidget {
     this.stampPendingColor,
   });
 
-  /// Contrato continua sendo o modelo principal
   final ProcessData contract;
-
-  /// Texto pronto para exibir no banner (ex.: "123/2024 – Objeto X")
-  /// Se for null ou vazio, o banner não aparece.
   final String? titleText;
 
   final VoidCallback? onTap;
@@ -55,7 +50,6 @@ class TabBanner extends StatefulWidget {
   final UserData? userData;
   final ProcessBloc? contractsBloc;
 
-  // Selo
   final bool showStamp;
   final bool stampApproved;
   final double stampScaleFactor;
@@ -87,14 +81,17 @@ class _TabBannerState extends State<TabBanner> {
     }
   }
 
+  UserData? _currentUser() {
+    final st = context.read<UserBloc>().state;
+    return widget.userData ?? st.current;
+  }
+
   bool _can(String action, {ProcessData? c}) {
-    final userState = context.read<UserBloc>().state;
-    final currentUser = widget.userData ?? userState.current;
-    final contract = c ?? _contractData;
-    if (currentUser == null) return false;
-    return perms.userCanOnContract(
-      user: currentUser,
-      contract: contract,
+    final u = _currentUser();
+    if (u == null) return false;
+    return acl.ContractPermissions.can(
+      user: u,
+      contract: c ?? _contractData,
       action: action,
     );
   }
@@ -105,6 +102,10 @@ class _TabBannerState extends State<TabBanner> {
       ) async {
     final contractBloc = widget.contractsBloc ?? context.read<ProcessBloc>();
     final userState = context.read<UserBloc>().state;
+
+    // precisa pelo menos conseguir ler o contrato
+    if (!_can('read', c: contrato)) return;
+
     final canEditParticipants = _can('edit', c: contrato);
     final users = userState.all;
 
@@ -127,10 +128,8 @@ class _TabBannerState extends State<TabBanner> {
         getRole: (uid) {
           final st = context.read<UserBloc>().state;
           final u = st.byId[uid];
-          final base = (u != null)
-              ? roles.roleForUser(u)
-              : roles.BaseRole.LEITOR;
-          return roles.baseRoleLabel(base);
+          final base = (u != null) ? roles.roleForUser(u) : roles.UserProfile.LEITOR;
+          return roles.UserRoleCodec.label(base);
         },
         getPerms: (uid) {
           final raw = contrato.permissionContractId[uid];
@@ -141,12 +140,11 @@ class _TabBannerState extends State<TabBanner> {
         onChanged: canEditParticipants
             ? (uids) async {
           if (contrato.id == null) return;
-          final atuais =
-          Map<String, Map<String, bool>>.from(
+
+          final atuais = Map<String, Map<String, bool>>.from(
             contrato.permissionContractId,
           );
 
-          // remove quem saiu
           for (final uid in atuais.keys.toList()) {
             if (!uids.contains(uid)) {
               await contractBloc.removeParticipant(
@@ -157,7 +155,6 @@ class _TabBannerState extends State<TabBanner> {
             }
           }
 
-          // adiciona quem entrou
           for (final uid in uids) {
             if (!atuais.containsKey(uid)) {
               final initialPerms = perms.initialDocPerms();
@@ -167,6 +164,7 @@ class _TabBannerState extends State<TabBanner> {
                 permMap: initialPerms,
                 meta: const {},
               );
+
               contrato.upsertParticipantLocal(
                 uid,
                 read: initialPerms['read']!,
@@ -194,25 +192,27 @@ class _TabBannerState extends State<TabBanner> {
       }) async {
     final bloc = widget.contractsBloc ?? context.read<ProcessBloc>();
     if (contrato.id == null) return;
+
     final fresh = await bloc.getContractById(contrato.id!);
     if (fresh == null || !mounted) return;
+
     setState(() => _contractData = fresh);
     rebuildDialog?.call();
   }
 
   @override
   Widget build(BuildContext context) {
-    final userState = context.read<UserBloc>().state;
     final contract = _contractData;
-
     final titleText = widget.titleText?.trim() ?? '';
-    if (titleText.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (titleText.isEmpty) return const SizedBox.shrink();
+
+    // ✅ se não pode ler, não mostra banner
+    if (!_can('read', c: contract)) return const SizedBox.shrink();
+
+    final userState = context.read<UserBloc>().state;
 
     final ids = contract.permissionContractId.keys.toList();
-    final users =
-    ids.map((id) => userState.byId[id] ?? UserData(uid: id)).toList();
+    final users = ids.map((id) => userState.byId[id] ?? UserData(uid: id)).toList();
 
     final visible = users
         .where((u) =>
@@ -226,17 +226,19 @@ class _TabBannerState extends State<TabBanner> {
         : (primary?.email?.trim().isNotEmpty == true
         ? primary!.email!
         : (primary?.uid ?? 'usuário'));
+
     final others = (users.length > 1) ? users.length - 1 : 0;
 
     final isMobile = MediaQuery.of(context).size.width < 720;
     final isNarrow = MediaQuery.of(context).size.width < 520;
 
-    final titleStyle = const TextStyle(
+    const titleStyle = TextStyle(
       color: Colors.black87,
       fontSize: 13.5,
       fontWeight: FontWeight.w500,
     );
-    final metaStyle = const TextStyle(
+
+    const metaStyle = TextStyle(
       color: Colors.black54,
       fontSize: 12.0,
       fontWeight: FontWeight.w500,
@@ -276,10 +278,7 @@ class _TabBannerState extends State<TabBanner> {
       onTap: widget.onTap ??
               () async {
             if (widget.interactive) {
-              await _openParticipantsDialogFromBanner(
-                context,
-                _contractData,
-              );
+              await _openParticipantsDialogFromBanner(context, _contractData);
             }
           },
       borderRadius: BorderRadius.circular(4),
@@ -292,23 +291,16 @@ class _TabBannerState extends State<TabBanner> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Conteúdo principal
             Expanded(
               child: isMobile
-              // MOBILE: 2 linhas
                   ? Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    titleText,
-                    textAlign: TextAlign.center,
-                    style: titleStyle,
-                  ),
+                  Text(titleText, textAlign: TextAlign.center, style: titleStyle),
                   const SizedBox(height: 2),
                   participantsRow,
                 ],
               )
-              // DESKTOP: 1 linha, altura fixa
                   : SizedBox(
                 height: 36,
                 child: Row(
@@ -330,13 +322,9 @@ class _TabBannerState extends State<TabBanner> {
                 ),
               ),
             ),
-
             if (widget.showStamp) ...[
               const SizedBox(width: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: stampWidget,
-              ),
+              Align(alignment: Alignment.centerRight, child: stampWidget),
             ],
           ],
         ),

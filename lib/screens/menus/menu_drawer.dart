@@ -5,7 +5,7 @@ import 'package:siged/_widgets/menu/drawer/menu_drawer_item.dart';
 
 import 'package:siged/_widgets/texts/divider_text.dart';
 import 'package:siged/_widgets/menu/drawer/menu_drawer_sub_item.dart';
-import 'package:siged/_blocs/system/pages/pages_data.dart';
+import 'package:siged/_blocs/system/module/module_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_widgets/images/logos/sisgeo_logo.dart';
 
@@ -15,13 +15,13 @@ import 'package:siged/_blocs/system/user/user_event.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 
 // Permissões centralizadas
-import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
 
 /// =======================================================
 /// DrawerMenu dinâmico (muda cor conforme o perfil do usuário)
 /// =======================================================
 class DrawerMenu extends StatefulWidget {
-  final void Function(MenuItem) onTap;
+  final void Function(ModuleItem) onTap;
   final VoidCallback? onTapHome;
 
   const DrawerMenu({
@@ -102,9 +102,9 @@ class _DrawerMenuState extends State<DrawerMenu> {
           colorTitle: palette.sectionTitle,
           colorSubTitle: palette.sectionSubtitle,
           items: [
-            ...PagesData.panelDashboard,
-            ...PagesData.drawerDocuments,
-            ...PagesData.drawerDepartments
+            ...ModuleData.panelDashboard,
+            ...ModuleData.drawerDocuments,
+            ...ModuleData.drawerDepartments
           ],
         ),
 
@@ -114,7 +114,7 @@ class _DrawerMenuState extends State<DrawerMenu> {
           user: userData,
           colorTitle: palette.sectionTitle,
           colorSubTitle: palette.sectionSubtitle,
-          items: PagesData.drawerActives,
+          items: ModuleData.drawerActives,
         ),
       ],
     );

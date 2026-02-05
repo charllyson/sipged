@@ -42,8 +42,7 @@ class DfdState {
       loading: loading ?? this.loading,
       saving: saving ?? this.saving,
       saveSuccess: saveSuccess ?? this.saveSuccess,
-      // sempre que copiar, se não passar error explicitamente, zera
-      // (fica como comportamento de "clear error" a cada nova ação)
+      // comportamento: se não passar "error", limpa
       error: error,
       contractId: contractId ?? this.contractId,
       dfdId: dfdId ?? this.dfdId,

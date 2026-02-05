@@ -5,9 +5,8 @@ import 'package:siged/_widgets/menu/upBar/up_bar.dart';
 import 'package:siged/_widgets/cards/hub/hub_card.dart';
 
 // Páginas por tópico
-import 'package:siged/admPanel/system/users/settings_topic_sistema_page.dart';
+import 'package:siged/admPanel/system/settings_topic_sistema_page.dart';
 import 'firebase/settings_topic_firebase_page.dart';
-import 'converters/settings_topic_conversores_page.dart';
 import 'migrations/settings_topic_migracoes_page.dart';
 
 class SystemHubPage extends StatelessWidget {
@@ -36,13 +35,6 @@ class SystemHubPage extends StatelessWidget {
         icon: Icons.manage_accounts_outlined,
         color: Colors.teal.shade700,
         builder: (_) => const SettingsTopicSistemaPage(),
-      ),
-      HubCard(
-        title: 'Conversores',
-        subtitle: 'Excel → JSON / Firebase',
-        icon: Icons.table_chart_outlined,
-        color: Colors.indigo.shade700,
-        builder: (_) => const SettingsTopicConversoresPage(),
       ),
       HubCard(
         title: 'Migrações & Limpeza',

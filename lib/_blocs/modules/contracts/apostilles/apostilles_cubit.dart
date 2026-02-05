@@ -11,7 +11,7 @@ import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.
 // usuário/permissões
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
 
 import 'package:siged/_widgets/list/files/attachment.dart';
 
@@ -32,8 +32,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     UserData? initialUser,
   })  : _currentUser = initialUser,
         super(ApostillesState.initial()) {
-    // ignore: avoid_print
-    print('>>> ApostillesCubit criado para contrato: ${contract.id}');
     _init();
     if (initialUser != null) {
       updateUser(initialUser);
@@ -90,7 +88,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
-    if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) return true;
+    if (roles.roleForUser(user) == roles.UserProfile.ADMINISTRADOR) return true;
 
     final canEdit = perms.userCanModule(
       user: user,
@@ -145,8 +143,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
     } catch (e, st) {
-      // ignore: avoid_print
-      print('>>> ERRO em loadApostilles: $e\n$st');
       emit(
         state.copyWith(
           status: ApostillesStatus.error,
@@ -360,8 +356,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       // createNewApostille();
 
     } catch (e, st) {
-      // ignore: avoid_print
-      print('>>> ERRO em saveOrUpdate Apostille: $e\n$st');
       NotificationCenter.instance.show(
         AppNotification(
           title: Text('Erro ao salvar: $e'),
@@ -410,8 +404,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       await loadApostilles();
       createNewApostille();
     } catch (e, st) {
-      // ignore: avoid_print
-      print('>>> ERRO em deleteSelectedApostille: $e\n$st');
       NotificationCenter.instance.show(
         AppNotification(
           title: Text('Erro ao deletar: $e'),
@@ -589,8 +581,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
     } catch (e, st) {
-      // ignore: avoid_print
-      print('>>> ERRO em addAttachmentWithPicker Apostille: $e\n$st');
       NotificationCenter.instance.show(
         AppNotification(
           title: Text('Erro ao anexar: $e'),
@@ -682,8 +672,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
     } catch (e, st) {
-      // ignore: avoid_print
-      print('>>> ERRO em renameAttachment Apostille: $e\n$st');
       NotificationCenter.instance.show(
         AppNotification(
           title: Text('Erro ao renomear: $e'),
@@ -762,8 +750,6 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         ),
       );
     } catch (e, st) {
-      // ignore: avoid_print
-      print('>>> ERRO em deleteAttachment Apostille: $e\n$st');
       NotificationCenter.instance.show(
         AppNotification(
           title: Text('Erro ao remover: $e'),

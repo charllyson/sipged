@@ -80,14 +80,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
   /// Contratos para os quais já tentamos buscar Edital uma vez
   final Set<String> _editalCheckedContracts = {};
 
-  // ========= HELPERS PERF =========
-
-  void _logPerf(String message) {
-    if (kDebugMode) {
-      debugPrint('[GeneralDashboardCubit] $message');
-    }
-  }
-
   // ========= HELPERS =========
 
   String? _idToString(Object? id) {
@@ -252,9 +244,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     }
 
     swTotal.stop();
-    _logPerf(
-      '_preloadDfdLabels: contratos=${base.length}, DFD calls=$dfdCalls, Edital calls=$editalCalls => ${swTotal.elapsedMilliseconds} ms',
-    );
   }
 
   Map<String, String> get regionByMunicipio {
@@ -724,30 +713,20 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
 
   Future<void> initialize() async {
     final swTotal = Stopwatch()..start();
-    _logPerf('initialize() START');
 
     emit(state.copyWith(isLoading: true));
 
     final swContracts = Stopwatch()..start();
     final allContracts = store.all;
     swContracts.stop();
-    _logPerf(
-      'initialize(): store.all => ${swContracts.elapsedMilliseconds} ms (count=${allContracts.length})',
-    );
 
     final swPreload = Stopwatch()..start();
     await _preloadDfdLabels(allContracts);
     swPreload.stop();
-    _logPerf(
-      'initialize(): _preloadDfdLabels => ${swPreload.elapsedMilliseconds} ms',
-    );
 
     final swReloadGroups = Stopwatch()..start();
     await _reloadMeasurementGroups();
     swReloadGroups.stop();
-    _logPerf(
-      'initialize(): _reloadMeasurementGroups => ${swReloadGroups.elapsedMilliseconds} ms',
-    );
 
     final uniqueCompanies = _extractCompanies(allContracts);
 
@@ -761,9 +740,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     final swApply = Stopwatch()..start();
     await aplicarFiltrosERecalcular();
     swApply.stop();
-    _logPerf(
-      'initialize(): aplicarFiltrosERecalcular => ${swApply.elapsedMilliseconds} ms',
-    );
 
     emit(state.copyWith(
       initialized: true,
@@ -771,21 +747,16 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     ));
 
     swTotal.stop();
-    _logPerf(
-      'initialize() TOTAL => ${swTotal.elapsedMilliseconds} ms',
-    );
   }
 
   /// Recarrega listas globais de medições/reajustes/revisões e recalcula
   Future<void> refreshAndRecalc() async {
     final sw = Stopwatch()..start();
-    _logPerf('refreshAndRecalc() START');
 
     await _reloadMeasurementGroups();
     await aplicarFiltrosERecalcular();
 
     sw.stop();
-    _logPerf('refreshAndRecalc() TOTAL => ${sw.elapsedMilliseconds} ms');
   }
 
   /// Usado em hot-reload
@@ -812,9 +783,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     ));
 
     sw.stop();
-    _logPerf(
-      '_reloadMeasurementGroups: med=${allMeasurements.length}, reaj=${allAdjustments.length}, rev=${allRevisions.length} => ${sw.elapsedMilliseconds} ms',
-    );
   }
 
   // ========= MUTAÇÕES DE FILTRO =========
@@ -1135,7 +1103,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
   Future<void> aplicarFiltrosERecalcular() async {
     final runId = ++_applyRunId;
     final swTotal = Stopwatch()..start();
-    _logPerf('aplicarFiltrosERecalcular(runId=$runId) START');
 
     final allContracts =
     state.allContracts.isEmpty ? store.all : state.allContracts;
@@ -1150,16 +1117,10 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     await _preloadDfdLabels(allContracts);
     swPreload.stop();
     if (isClosed || runId != _applyRunId) return;
-    _logPerf(
-      'aplicarFiltrosERecalcular: _preloadDfdLabels => ${swPreload.elapsedMilliseconds} ms',
-    );
 
     final swFilter = Stopwatch()..start();
     final filtered = _filterContracts(allContracts);
     swFilter.stop();
-    _logPerf(
-      'aplicarFiltrosERecalcular: _filterContracts => ${swFilter.elapsedMilliseconds} ms (filtered=${filtered.length}/${allContracts.length})',
-    );
 
     // ===== Cálculos em mapas locais (iniciais, filtrados) =====
     final swMapsIni = Stopwatch()..start();
@@ -1178,9 +1139,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       regIni[regiao] = (regIni[regiao] ?? 0.0) + valor;
     }
     swMapsIni.stop();
-    _logPerf(
-      'aplicarFiltrosERecalcular: mapas iniciais (status/empresa/região FILTRADO) => ${swMapsIni.elapsedMilliseconds} ms',
-    );
 
     // ===== Preparação de IDs / mapas auxiliares =====
     final allIds = <String>{
@@ -1205,9 +1163,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         : <AdditivesData>[];
     swAddAll.stop();
     if (isClosed || runId != _applyRunId) return;
-    _logPerf(
-      'aplicarFiltrosERecalcular: getAdditivesByContractIds(allIds=${allIds.length}) ONCE => ${swAddAll.elapsedMilliseconds} ms (ret=${allAdditives.length})',
-    );
 
     final swApAll = Stopwatch()..start();
     final allApostilles = allIds.isNotEmpty
@@ -1215,9 +1170,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         : <ApostillesData>[];
     swApAll.stop();
     if (isClosed || runId != _applyRunId) return;
-    _logPerf(
-      'aplicarFiltrosERecalcular: getForContractIds(allIds=${allIds.length}) ONCE => ${swApAll.elapsedMilliseconds} ms (ret=${allApostilles.length})',
-    );
 
     // ===== Mapas FULL e FILTRADOS de uma vez (status, empresa, região) =====
     final swMapsFull = Stopwatch()..start();
@@ -1308,9 +1260,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     }
 
     swMapsFull.stop();
-    _logPerf(
-      'aplicarFiltrosERecalcular: mapas FULL + FILTRADOS (status/empresa/região/adit/apostila) => ${swMapsFull.elapsedMilliseconds} ms',
-    );
 
     // ===== Rodovias Full / Filtrado =====
     final swRod = Stopwatch()..start();
@@ -1332,9 +1281,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       rodFiltrado[rod] = (rodFiltrado[rod] ?? 0.0) + valor;
     }
     swRod.stop();
-    _logPerf(
-      'aplicarFiltrosERecalcular: mapas rodovias FULL/FILTRADO => ${swRod.elapsedMilliseconds} ms',
-    );
 
     // ===== Totais Medições / Reajustes / Revisões =====
     final swMed = Stopwatch()..start();
@@ -1360,9 +1306,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     final totalRevisoes = revisionMeasurementCubit.sum(entriesRev);
 
     swMed.stop();
-    _logPerf(
-      'aplicarFiltrosERecalcular: totais medições/reajustes/revisões => ${swMed.elapsedMilliseconds} ms (med=${filtradasMed.length}, reaj=${entriesReaj.length}, rev=${entriesRev.length})',
-    );
 
     final uniqueCompanies = _extractCompanies(allContracts);
 
@@ -1403,13 +1346,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       totalRevisoes: totalRevisoes,
     ));
     swEmit.stop();
-    _logPerf(
-      'aplicarFiltrosERecalcular: emit state => ${swEmit.elapsedMilliseconds} ms',
-    );
-
     swTotal.stop();
-    _logPerf(
-      'aplicarFiltrosERecalcular(runId=$runId) TOTAL => ${swTotal.elapsedMilliseconds} ms',
-    );
-  }
+    }
 }

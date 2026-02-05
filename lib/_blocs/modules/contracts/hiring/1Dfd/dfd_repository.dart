@@ -62,6 +62,7 @@ class DfdRepository {
     sectionsData.forEach((sec, data) {
       final id = sectionIds[sec];
       if (id == null) return;
+
       final ref = dfdRef.collection(sec).doc(id);
       wb.set(
         ref,
@@ -83,7 +84,9 @@ class DfdRepository {
     required String sectionDocId,
     required Map<String, dynamic> data,
   }) async {
-    final ref = _col(contractId).doc(dfdId).collection(sectionKey).doc(sectionDocId);
+    final ref =
+    _col(contractId).doc(dfdId).collection(sectionKey).doc(sectionDocId);
+
     await ref.set(
       {
         ...data,
@@ -108,7 +111,7 @@ class DfdRepository {
 
     return DfdData.fromSectionsMap(
       sections,
-      contractId: contractId, // <- runtime only
+      contractId: contractId, // runtime only
     );
   }
 

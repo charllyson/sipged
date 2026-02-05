@@ -20,9 +20,6 @@ class IfcWebViewRegistry {
       for (final msg in pendings) {
         iframe.contentWindow?.postMessage(msg, '*');
       }
-      debugPrint(
-        'IFC WebView: ${pendings.length} mensagem(ns) pendente(s) enviada(s) para iframe $id',
-      );
     }
   }
 
@@ -32,14 +29,10 @@ class IfcWebViewRegistry {
     if (frame == null) {
       // iframe ainda não foi registrado → guarda na fila
       (_pendingMessages[id] ??= <Object>[]).add(message);
-      debugPrint(
-        'IFC WebView: iframe ainda não registrado para $id; mensagem enfileirada.',
-      );
       return;
     }
 
     frame.contentWindow?.postMessage(message, '*');
-    debugPrint('IFC WebView: postMessage enviado para iframe $id');
   }
 }
 

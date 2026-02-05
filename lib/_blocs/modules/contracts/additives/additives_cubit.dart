@@ -13,7 +13,7 @@ import 'package:siged/_blocs/modules/contracts/additives/additives_repository.da
 // usuário/permissões
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
 import 'package:siged/_widgets/list/files/attachment.dart';
 
 // notificações locais
@@ -33,8 +33,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     UserData? initialUser,
   })  : _currentUser = initialUser,
         super(AdditivesState.initial()) {
-    // ignore: avoid_print
-    print('>>> AdditivesCubit criado para contrato: ${contract.id}');
     _init();
     if (initialUser != null) {
       updateUser(initialUser);
@@ -52,8 +50,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   Future<void> _init() async {
     if (contract.id == null || contract.id!.isEmpty) {
-      // ignore: avoid_print
-      print('>>> _init: contrato sem ID, nada a carregar');
       emit(
         state.copyWith(
           status: AdditivesStatus.loaded,
@@ -68,9 +64,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       );
       return;
     }
-
-    // ignore: avoid_print
-    print('>>> _init: carregando aditivos do contrato ${contract.id}');
     await loadAdditives();
   }
 
@@ -91,14 +84,12 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   void updateUser(UserData? user) {
     _currentUser = user;
     final editable = _canEditUser(user);
-    // ignore: avoid_print
-    print('>>> updateUser: editable=$editable');
     emit(state.copyWith(isEditable: editable));
   }
 
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
-    if (roles.roleForUser(user) == roles.BaseRole.ADMINISTRADOR) {
+    if (roles.roleForUser(user) == roles.UserProfile.ADMINISTRADOR) {
       return true;
     }
     final canEdit = perms.userCanModule(
@@ -120,8 +111,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   Future<void> loadAdditives() async {
     if (contract.id == null || contract.id!.isEmpty) {
-      // ignore: avoid_print
-      print('>>> loadAdditives: contrato sem ID, limpando lista.');
       emit(
         state.copyWith(
           status: AdditivesStatus.loaded,
@@ -136,21 +125,12 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       );
       return;
     }
-
-    // ignore: avoid_print
-    print('>>> loadAdditives: iniciando para contrato ${contract.id}');
     emit(state.copyWith(status: AdditivesStatus.loading));
 
     try {
       final list = await repository.ensureForContract(contract.id!);
       final orders = _extractExistingOrders(list);
       final next = _computeNextOrder(orders);
-
-      // ignore: avoid_print
-      print(
-        '>>> loadAdditives: carregados ${list.length} aditivos. Próxima ordem: $next',
-      );
-
       emit(
         state.copyWith(
           status: AdditivesStatus.loaded,
@@ -162,8 +142,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         ),
       );
     } catch (e, st) {
-      // ignore: avoid_print
-      print('>>> ERRO em loadAdditives: $e\n$st');
       emit(
         state.copyWith(
           status: AdditivesStatus.error,
@@ -250,8 +228,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   void _selectAdditive(AdditivesData data, int? index) {
-    // ignore: avoid_print
-    print('>>> _selectAdditive: id=${data.id}, ordem=${data.additiveOrder}');
     emit(
       state.copyWith(
         selected: data,
@@ -264,8 +240,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   }
 
   void _clearSelection() {
-    // ignore: avoid_print
-    print('>>> _clearSelection: limpando seleção de aditivo');
     emit(
       state.copyWith(
         clearSelected: true,
@@ -278,8 +252,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   void createNewAdditive() {
     final next = _computeNextOrder(state.existingOrders);
-    // ignore: avoid_print
-    print('>>> createNewAdditive: próxima ordem sugerida = $next');
     emit(
       state.copyWith(
         editingMode: false,
@@ -329,8 +301,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
     final valid = obrig.every((s) => s.trim().isNotEmpty);
     if (valid != state.formValid) {
-      // ignore: avoid_print
-      print('>>> updateFormValidity: formValid = $valid');
       emit(state.copyWith(formValid: valid));
     }
   }
@@ -360,9 +330,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     required String typeText,
   }) async {
     if (contract.id == null) return;
-
-    // ignore: avoid_print
-    print('>>> saveOrUpdate: iniciando salvamento/atualização...');
     emit(state.copyWith(isSaving: true, clearError: true));
 
     try {
@@ -413,8 +380,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         createNewAdditive();
       }
     } catch (e, st) {
-      // ignore: avoid_print
-      print('>>> ERRO em saveOrUpdate: $e\n$st');
       NotificationCenter.instance.show(
         AppNotification(
           title: Text('Erro ao salvar: $e'),
@@ -434,8 +399,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
       return;
     } finally {
       emit(state.copyWith(isSaving: false));
-      // ignore: avoid_print
-      print('>>> saveOrUpdate: finalizado (isSaving=false)');
     }
   }
 
@@ -443,7 +406,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     final selected = state.selected;
     if (contract.id == null || selected?.id == null) return;
 
-    // ignore: avoid_print
     print('>>> deleteSelectedAdditive: ${selected!.id}');
     emit(state.copyWith(isSaving: true, clearError: true));
 

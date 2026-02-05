@@ -471,8 +471,8 @@ class ActiveOacsData {
     attachments = d.attachments == null ? null : List<Attachment>.from(d.attachments!);
     photos = d.photos == null ? null : List<Attachment>.from(d.photos!);
 
-    inspections = d.inspections == null ? null : d.inspections!.map((e) => e.copy()).toList();
-    maintenances = d.maintenances == null ? null : d.maintenances!.map((e) => e.copy()).toList();
+    inspections = d.inspections?.map((e) => e.copy()).toList();
+    maintenances = d.maintenances?.map((e) => e.copy()).toList();
 
     createdAt = d.createdAt;
     createdBy = d.createdBy;

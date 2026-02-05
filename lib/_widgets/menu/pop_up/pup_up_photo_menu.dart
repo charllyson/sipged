@@ -11,7 +11,7 @@ import 'package:siged/admPanel/system_hub_page.dart';
 
 // ✅ helper de papéis globais
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/screens/menus/profile_page.dart';
+import 'package:siged/screens/common/profile/profile_page.dart';
 
 class PopUpPhotoMenu extends StatelessWidget {
   const PopUpPhotoMenu({super.key});
@@ -35,7 +35,7 @@ class PopUpPhotoMenu extends StatelessWidget {
 
     // ✅ Usa o novo modelo para checar papel global
     final base = roles.roleForUser(userData); // BaseRole
-    final isAdmin = base == roles.BaseRole.ADMINISTRADOR || base == roles.BaseRole.DESENVOLVEDOR;
+    final isAdmin = base == roles.UserProfile.ADMINISTRADOR || base == roles.UserProfile.DESENVOLVEDOR;
 
     return PopupMenuButton<String>(
       color: Colors.white,

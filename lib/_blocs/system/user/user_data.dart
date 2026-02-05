@@ -10,7 +10,7 @@ import 'package:siged/screens/menus/menu_drawer.dart';
 ///
 /// Toda a lógica de papéis/permissões deve ficar em:
 /// - lib/_utils/user_permission.dart  (BaseRole, helpers)
-/// - lib/_utils/page_permission.dart  (Perms, checagem módulo/doc)
+/// - lib/_utils/module_permission.dart  (Perms, checagem módulo/doc)
 class UserData extends ChangeNotifier {
   // ===== Identificação e perfil =====
   String? uid;

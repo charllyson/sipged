@@ -6,7 +6,7 @@ import 'package:siged/_blocs/system/user/user_data.dart';
 
 // 🔹 Regras de permissão centralizadas
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/system/permitions/page_permission.dart' as perms;
+import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
 
 /// Store central de contratos (ProcessData).
 /// Mantém um cache em memória e avisa listeners via ChangeNotifier.
@@ -73,8 +73,8 @@ class ProcessStore extends ChangeNotifier {
     final baseRole = roles.roleForUser(user);
 
     // 🔹 Admin & Dev: acesso total, independente da ACL do documento
-    if (baseRole == roles.BaseRole.ADMINISTRADOR ||
-        baseRole == roles.BaseRole.DESENVOLVEDOR) {
+    if (baseRole == roles.UserProfile.ADMINISTRADOR ||
+        baseRole == roles.UserProfile.DESENVOLVEDOR) {
       return source;
     }
 

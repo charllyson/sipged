@@ -116,8 +116,5 @@ class LayerRegistry {
         missing.add(id);
       }
     }
-    if (missing.isNotEmpty) {
-      debugPrint('LayerRegistry missing mappings: $missing');
-    }
   }
 }
