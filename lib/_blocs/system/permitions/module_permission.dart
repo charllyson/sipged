@@ -112,7 +112,7 @@ ModulePermissions defaultPermsForRole(up.UserProfile role) {
     case up.UserProfile.FISCAL:
     case up.UserProfile.COLABORADOR:
     case up.UserProfile.LEITOR:
-      return const ModulePermissions(read: true);
+      return const ModulePermissions(read: false);
   }
 }
 

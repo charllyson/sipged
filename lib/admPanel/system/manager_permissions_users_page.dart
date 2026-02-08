@@ -1,4 +1,3 @@
-// lib/screens/system/manager_permissions_users_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -42,43 +41,52 @@ class _ManagerPermissionsUsersPageState
     });
   }
 
-  Future<void> _persistRole(UserData user, roles.UserProfile newRole) async {
-    // Se você implementou o setUserRole com flag legado, pode ligar:
-    // await roles.setUserRole(user, newRole, writeLegacyBaseProfile: true);
-    await roles.setUserRole(user, newRole);
-
+  Future<void> _reloadUsers() async {
     if (!mounted) return;
     context
         .read<UserBloc>()
         .add(const UsersEnsureLoadedRequested(listenRealtime: true));
   }
 
+  Future<void> _persistRole(UserData user, roles.UserProfile newRole) async {
+    await roles.setUserRole(user, newRole);
+    await _reloadUsers();
+  }
+
+  bool _isSuperUser(roles.UserProfile role) =>
+      role == roles.UserProfile.ADMINISTRADOR ||
+          role == roles.UserProfile.DESENVOLVEDOR;
+
   /// Liga/desliga SOMENTE o "read" do módulo (override). Outras flags são preservadas.
   Future<void> _persistModuleRead(
-      UserData user, String module, bool allow) async {
+      UserData user,
+      String module,
+      bool allow,
+      ) async {
     final current = pp.getOverrideForUserModule(user, module);
     final updated = current.copyWith(read: allow);
     await pp.setOverrideForUserModule(user, module, updated);
-
-    if (!mounted) return;
-    context
-        .read<UserBloc>()
-        .add(const UsersEnsureLoadedRequested(listenRealtime: true));
+    await _reloadUsers();
   }
 
   /// Marca/Desmarca todos os módulos do grupo (apenas read)
   Future<void> _persistGroupRead(
-      UserData user, List<String> modules, bool allow) async {
+      UserData user,
+      List<String> modules,
+      bool allow,
+      ) async {
+    if (modules.isEmpty) return;
+
+    // otimiza: dispara todas as gravações em paralelo
+    final futures = <Future<void>>[];
     for (final m in modules) {
       final current = pp.getOverrideForUserModule(user, m);
       final updated = current.copyWith(read: allow);
-      await pp.setOverrideForUserModule(user, m, updated);
+      futures.add(pp.setOverrideForUserModule(user, m, updated));
     }
+    await Future.wait(futures);
 
-    if (!mounted) return;
-    context
-        .read<UserBloc>()
-        .add(const UsersEnsureLoadedRequested(listenRealtime: true));
+    await _reloadUsers();
   }
 
   @override
@@ -141,11 +149,12 @@ class _ManagerPermissionsUsersPageState
                 child: const UpBar(leading: BackCircleButton()),
               ),
             ),
-            body: const Center(child: Text('Nenhum usuário encontrado.')),
+            body: const Center(
+                child: Text('Nenhum usuário encontrado.')),
           );
         }
 
-        // ✅ vem do menu real
+        // ✅ fonte única: grupos e itens exatamente como no drawer/home
         final groups = ModuleData.permissionModulesByDrawerGroup();
 
         return Scaffold(
@@ -165,8 +174,12 @@ class _ManagerPermissionsUsersPageState
             itemBuilder: (context, index) {
               final user = users[index];
 
-              // ✅ IMPORTANTE: baseRole deve ser derivado com normalização
+              // ✅ papel base normalizado
               final baseRole = roles.roleForUser(user);
+              final isSuper = _isSuperUser(baseRole);
+
+              final nameText =
+              '${user.name ?? '-'} ${user.surname ?? ''}'.trim();
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -195,23 +208,36 @@ class _ManagerPermissionsUsersPageState
                           final isWide = maxW >= 720;
                           final dropWidth = 300.0;
 
-                          final nameText =
-                          '${user.name ?? '-'} ${user.surname ?? ''}'.trim();
-
                           if (isWide) {
                             return Row(
                               children: [
                                 PhotoCircle(userData: user),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    nameText,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        nameText,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      if (isSuper)
+                                        const Text(
+                                          'Acesso total (Administrador/Desenvolvedor)',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.black54,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(width: 16),
@@ -235,17 +261,37 @@ class _ManagerPermissionsUsersPageState
                             children: [
                               PhotoCircle(userData: user),
                               ConstrainedBox(
-                                constraints:
-                                BoxConstraints(maxWidth: maxW - 80, minWidth: 100),
-                                child: Text(
-                                  nameText,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
-                                  softWrap: true,
+                                constraints: BoxConstraints(
+                                  maxWidth: maxW - 80,
+                                  minWidth: 100,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      nameText,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 2,
+                                      softWrap: true,
+                                    ),
+                                    if (isSuper)
+                                      const Padding(
+                                        padding: EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          'Acesso total (Administrador/Desenvolvedor)',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.black54,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                               SizedBox(
@@ -263,14 +309,22 @@ class _ManagerPermissionsUsersPageState
                     ),
 
                     Container(
-                        height: 1, color: Colors.grey, width: double.infinity),
+                      height: 1,
+                      color: Colors.grey,
+                      width: double.infinity,
+                    ),
 
                     // ===== Acesso aos MÓDULOS agrupados =====
                     Column(
                       children: groups.entries.map((entry) {
-                        final groupLabel = entry.key;
+                        final groupLabel = entry.key; // já vem em upper do helper
                         final items = entry.value;
-                        final modules = items.map((e) => e.module).toList();
+
+                        // módulos válidos e não vazios
+                        final modules = items
+                            .map((e) => e.module.trim())
+                            .where((m) => m.isNotEmpty)
+                            .toList(growable: false);
 
                         // estado do grupo (override.read)
                         int checkedCount = 0;
@@ -295,28 +349,38 @@ class _ManagerPermissionsUsersPageState
                               children: [
                                 Checkbox(
                                   tristate: true,
-                                  value: triValue,
-                                  onChanged: (v) async {
+                                  value: isSuper ? true : triValue,
+                                  onChanged: isSuper
+                                      ? null
+                                      : (v) async {
                                     final target = (v ?? false);
                                     await _persistGroupRead(
                                         user, modules, target);
                                   },
                                 ),
                                 const SizedBox(width: 6),
-                                Text(
-                                  groupLabel,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: .5,
+                                Expanded(
+                                  child: Text(
+                                    groupLabel,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: .5,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
                             ),
                             children: [
                               ...items.map((it) {
-                                final ov = pp.getOverrideForUserModule(
-                                    user, it.module);
-                                final checked = ov.read;
+                                final moduleId = it.module.trim();
+                                if (moduleId.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                final ov =
+                                pp.getOverrideForUserModule(user, moduleId);
+                                final checked = isSuper ? true : ov.read;
 
                                 return CheckboxListTile(
                                   dense: true,
@@ -325,22 +389,25 @@ class _ManagerPermissionsUsersPageState
                                   controlAffinity:
                                   ListTileControlAffinity.leading,
                                   title: Text(
-                                    it.label.toUpperCase(),
+                                    it.label.trim().toUpperCase(),
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.w600),
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                   subtitle: Text(
-                                    it.module,
+                                    moduleId,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.black54,
                                     ),
                                   ),
                                   value: checked,
-                                  onChanged: (v) async {
+                                  onChanged: isSuper
+                                      ? null
+                                      : (v) async {
                                     if (v == null) return;
                                     await _persistModuleRead(
-                                        user, it.module, v);
+                                        user, moduleId, v);
                                   },
                                 );
                               }),
@@ -381,7 +448,6 @@ class _RoleDropdownState extends State<_RoleDropdown> {
   void initState() {
     super.initState();
     _ctrl = TextEditingController(
-      // ✅ Ajuste: label centralizado no codec
       text: roles.UserRoleCodec.label(widget.baseRole),
     );
   }
@@ -412,8 +478,6 @@ class _RoleDropdownState extends State<_RoleDropdown> {
       onChanged: (value) async {
         if (value == null) return;
 
-        // ✅ mantém compatibilidade com DropDownButtonChange (que retorna label),
-        // mas usa o codec como fonte única.
         final picked = roles.UserProfile.values.firstWhere(
               (r) => roles.UserRoleCodec.label(r) == value,
           orElse: () => widget.baseRole,
