@@ -70,50 +70,64 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
     _initIbgeUfMunicipios();
 
-    if (_companyId == null || _companyId!.isEmpty) {
-      _resolveCompanyIdFromData();
+    // ✅ NÃO chame ensureCompanySetupLoaded no build.
+    // Chame aqui/updates.
+    if ((_companyId ?? '').isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
+      });
     } else {
-      context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
+      _resolveCompanyIdFromData();
     }
   }
 
   @override
   void didUpdateWidget(covariant SectionLocalizacao oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data != widget.data) {
-      final d = widget.data;
+    if (oldWidget.data == widget.data) return;
 
-      final uf = d.uf ?? '';
-      final mun = d.municipio ?? '';
-      final reg = d.regional ?? '';
-      final kmIni = d.kmInicial ?? '';
-      final kmFim = d.kmFinal ?? '';
+    final d = widget.data;
 
-      if (_ufCtrl.text != uf) _ufCtrl.text = uf;
-      if (_municipioCtrl.text != mun) _municipioCtrl.text = mun;
-      if (_regionalCtrl.text != reg) _regionalCtrl.text = reg;
-      if (_kmInicialCtrl.text != kmIni) _kmInicialCtrl.text = kmIni;
-      if (_kmFinalCtrl.text != kmFim) _kmFinalCtrl.text = kmFim;
-
-      if (oldWidget.data.companyId != widget.data.companyId) {
-        _companyId = widget.data.companyId;
-        if (_companyId != null && _companyId!.isNotEmpty) {
-          context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
-        }
-      }
-
-      if (oldWidget.data.regionId != widget.data.regionId) {
-        _regionDocId = widget.data.regionId;
-      }
-
-      if (oldWidget.data.orgaoDemandante != widget.data.orgaoDemandante) {
-        if (_companyId == null || _companyId!.isEmpty) {
-          _resolveCompanyIdFromData();
-        }
-      }
-
-      _updateUfSelectionFromController();
+    void sync(TextEditingController c, String v) {
+      if (c.text != v) c.text = v;
     }
+
+    sync(_ufCtrl, d.uf ?? '');
+    sync(_municipioCtrl, d.municipio ?? '');
+    sync(_regionalCtrl, d.regional ?? '');
+    sync(_kmInicialCtrl, d.kmInicial ?? '');
+    sync(_kmFinalCtrl, d.kmFinal ?? '');
+
+    // company mudou?
+    final oldCompany = _companyId;
+    final newCompany = d.companyId;
+
+    if (oldCompany != newCompany) {
+      _companyId = newCompany;
+
+      if ((_companyId ?? '').isNotEmpty) {
+        // ✅ agenda pro pós-frame para não mexer em estado durante build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
+        });
+      }
+    }
+
+    // region mudou?
+    if (oldWidget.data.regionId != widget.data.regionId) {
+      _regionDocId = widget.data.regionId;
+    }
+
+    // se label mudou e ainda não temos companyId
+    if (oldWidget.data.orgaoDemandante != widget.data.orgaoDemandante) {
+      if ((_companyId ?? '').isEmpty) {
+        _resolveCompanyIdFromData();
+      }
+    }
+
+    _updateUfSelectionFromController();
   }
 
   @override
@@ -156,7 +170,10 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
       _companyId = id;
     });
 
-    systemCubit.ensureCompanySetupLoaded(id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<SetupCubit>().ensureCompanySetupLoaded(id);
+    });
   }
 
   Future<void> _initIbgeUfMunicipios() async {
@@ -187,7 +204,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
         }
       });
     } catch (_) {
-      // log se quiser
+      // se quiser logar
     }
   }
 
@@ -196,7 +213,6 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
     if (ufNow.isEmpty || !_ufs.contains(ufNow)) return;
 
     final munis = await _ibgeService.getMunicipiosByUfSigla(ufNow);
-
     if (!mounted) return;
 
     setState(() {
@@ -212,15 +228,9 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
   @override
   Widget build(BuildContext context) {
     final systemCubit = context.read<SetupCubit>();
-    context.watch<SetupCubit>(); // para rebuildar
+    context.watch<SetupCubit>(); // somente para rebuild
 
-    if (_companyId != null && _companyId!.isNotEmpty) {
-      systemCubit.ensureCompanySetupLoaded(_companyId!);
-    }
-
-    final List<SetupData> regions =
-    systemCubit.getRegionsForCompany(_companyId);
-
+    final List<SetupData> regions = systemCubit.getRegionsForCompany(_companyId);
     final d = widget.data;
 
     return Column(
@@ -235,7 +245,6 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
               spacing: 12,
               runSpacing: 12,
               children: [
-                // UF
                 SizedBox(
                   width: w5,
                   child: DropDownButtonChange(
@@ -248,22 +257,16 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                     items: _ufs,
                     onChanged: (v) {
                       final uf = (v ?? '').trim().toUpperCase();
-                      if (_ufCtrl.text != uf) {
-                        _ufCtrl.text = uf;
-                      }
+                      if (_ufCtrl.text != uf) _ufCtrl.text = uf;
                       _updateUfSelectionFromController();
                       _emitChange();
                     },
                   ),
                 ),
-
-                // Município principal
                 SizedBox(
                   width: w5,
                   child: DropDownButtonChange(
-                    key: ValueKey(
-                      'mun-${d.municipio}-${_ufSelecionada ?? ""}',
-                    ),
+                    key: ValueKey('mun-${d.municipio}-${_ufSelecionada ?? ""}'),
                     width: w5,
                     labelText: 'Município (principal)',
                     controller: _municipioCtrl,
@@ -271,22 +274,15 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                     validator: null,
                     items: _munisDaUf,
                     onChanged: (v) {
-                      final text = v ?? '';
-                      if (_municipioCtrl.text != text) {
-                        _municipioCtrl.text = text;
-                      }
+                      _municipioCtrl.text = v ?? '';
                       _emitChange();
                     },
                   ),
                 ),
-
-                // Regional / Área
                 SizedBox(
                   width: w5,
                   child: DropDownButtonChange(
-                    key: ValueKey(
-                      'regions-${widget.data.orgaoDemandante}-${_companyId ?? "none"}',
-                    ),
+                    key: ValueKey('regions-${widget.data.orgaoDemandante}-${_companyId ?? "none"}'),
                     width: w5,
                     labelText: 'Região/Área',
                     tooltipMessage: _companyId == null
@@ -301,16 +297,11 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                     showSpecialAlways: true,
                     onChanged: (value) {
                       final label = value ?? '';
-                      if (_regionalCtrl.text != label) {
-                        _regionalCtrl.text = label;
-                      }
+                      _regionalCtrl.text = label;
 
                       final selected = regions.firstWhere(
                             (e) => e.label == label,
-                        orElse: () => const SetupData(
-                          id: '',
-                          label: '',
-                        ),
+                        orElse: () => const SetupData(id: '', label: ''),
                       );
 
                       _regionDocId = selected.id.isEmpty ? null : selected.id;
@@ -318,26 +309,18 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       _emitChange();
                       setState(() {});
                     },
-
-                    // Detalhes
                     onDetailsTap: (_ctx, label) async {
                       if (_companyId == null) return;
 
-                      final systemCubit = context.read<SetupCubit>();
-                      final regionsList =
-                      systemCubit.getRegionsForCompany(_companyId);
+                      final regionsList = systemCubit.getRegionsForCompany(_companyId);
 
                       final region = regionsList.firstWhere(
                             (r) => r.label == label,
-                        orElse: () => const SetupData(
-                          id: '',
-                          label: '',
-                        ),
+                        orElse: () => const SetupData(id: '', label: ''),
                       );
                       if (region.id.isEmpty) return;
 
-                      final initialSelected =
-                          region.municipios ?? const <String>[];
+                      final initialSelected = region.municipios ?? const <String>[];
 
                       final lockedMunicipios = regionsList
                           .where((r) => r.id != region.id)
@@ -349,9 +332,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       final ufSigla = _ufCtrl.text.trim().toUpperCase();
                       if (ufSigla.isNotEmpty) {
                         final maybeId = _ibgeService.getUfIdBySigla(ufSigla);
-                        if (maybeId != null) {
-                          initialUfCode = maybeId;
-                        }
+                        if (maybeId != null) initialUfCode = maybeId;
                       }
 
                       final selectedMunicipios = await setupRegionMap(
@@ -374,16 +355,10 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                         _emitChange();
                       }
                     },
-
-                    onCreateNewItem:
-                    (!widget.isEditable || _companyId == null)
+                    onCreateNewItem: (!widget.isEditable || _companyId == null)
                         ? null
                         : (label) async {
-                      final created =
-                      await systemCubit.createRegion(
-                        _companyId!,
-                        label,
-                      );
+                      final created = await systemCubit.createRegion(_companyId!, label);
                       if (created != null) {
                         _regionDocId = created.id;
                         _regionalCtrl.text = created.label;
@@ -391,13 +366,9 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                         setState(() {});
                       }
                     },
-
-                    // editar região
-                    onEditItem:
-                    (widget.isEditable && _companyId != null)
+                    onEditItem: (widget.isEditable && _companyId != null)
                         ? (oldLabel, newLabel) async {
-                      final list = systemCubit.getRegionsForCompany(
-                          _companyId);
+                      final list = systemCubit.getRegionsForCompany(_companyId);
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -408,28 +379,17 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       if (target.id.isEmpty) return;
 
                       final updated =
-                      await systemCubit.updateRegionName(
-                        _companyId!,
-                        target.id,
-                        newLabel,
-                      );
+                      await systemCubit.updateRegionName(_companyId!, target.id, newLabel);
 
-                      if (updated != null &&
-                          _regionDocId == target.id) {
-                        setState(() {
-                          _regionalCtrl.text = updated.label;
-                        });
+                      if (updated != null && _regionDocId == target.id) {
+                        setState(() => _regionalCtrl.text = updated.label);
                         _emitChange();
                       }
                     }
                         : null,
-
-                    // deletar região
-                    onDeleteItem:
-                    (widget.isEditable && _companyId != null)
+                    onDeleteItem: (widget.isEditable && _companyId != null)
                         ? (ctx, label) async {
-                      final list = systemCubit.getRegionsForCompany(
-                          _companyId);
+                      final list = systemCubit.getRegionsForCompany(_companyId);
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -439,13 +399,9 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
                       if (target.id.isEmpty) return;
 
-                      await systemCubit.deleteRegion(
-                        _companyId!,
-                        target.id,
-                      );
+                      await systemCubit.deleteRegion(_companyId!, target.id);
 
-                      if (_regionDocId == target.id ||
-                          _regionalCtrl.text == label) {
+                      if (_regionDocId == target.id || _regionalCtrl.text == label) {
                         setState(() {
                           _regionDocId = null;
                           _regionalCtrl.clear();
@@ -456,8 +412,6 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                         : null,
                   ),
                 ),
-
-                // KM inicial
                 SizedBox(
                   width: w5,
                   child: CustomTextField(
@@ -468,8 +422,6 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
-
-                // KM final
                 SizedBox(
                   width: w5,
                   child: CustomTextField(

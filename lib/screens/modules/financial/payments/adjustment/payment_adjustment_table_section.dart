@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';

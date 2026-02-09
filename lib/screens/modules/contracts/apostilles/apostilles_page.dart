@@ -11,7 +11,7 @@ import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.
 import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
 import 'apostilles_form_section.dart';

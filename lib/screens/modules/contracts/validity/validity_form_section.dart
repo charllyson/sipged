@@ -7,7 +7,7 @@ import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_state.dart';
 
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';

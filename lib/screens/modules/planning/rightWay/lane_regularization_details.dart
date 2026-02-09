@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 
 import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_data.dart';
 import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_storage_bloc.dart';

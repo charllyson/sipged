@@ -7,7 +7,7 @@ import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_repository.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_state.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 
 class ValidityCubit extends Cubit<ValidityState> {
   final ValidityRepository _repository;

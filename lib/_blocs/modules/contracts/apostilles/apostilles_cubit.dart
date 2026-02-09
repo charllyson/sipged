@@ -20,7 +20,7 @@ import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
 // utils
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
 import 'apostilles_state.dart';

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/overlays/loading_progress.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 
 import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';

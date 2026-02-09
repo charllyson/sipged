@@ -7,8 +7,8 @@ import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_storage_bloc.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
 
+import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -36,33 +36,50 @@ class SectionDocumentos extends StatefulWidget {
 
 class _SectionDocumentosState extends State<SectionDocumentos> {
   late final DfdStorageBloc _storage;
-  late final StreamSubscription<DfdState> _sub;
+  StreamSubscription<DfdState>? _sub;
 
   bool _busy = false;
   double? _uploadProgress;
   int? _selectedIndex;
   List<Attachment> _items = const [];
 
+  String? _lastDfdId;
+  String? _lastDocsId;
+
   @override
   void initState() {
     super.initState();
     _storage = DfdStorageBloc();
 
-    _sub = context.read<DfdCubit>().stream.listen((state) async {
+    final cubit = context.read<DfdCubit>();
+    _sub = cubit.stream.listen((state) async {
+      if (!mounted) return;
+      if (state.loading) return;
+
+      final dfdId = state.dfdId;
       final docsId = state.sectionIds['documentos'];
-      if (!state.loading && state.dfdId != null && docsId != null) {
-        await _refreshDocs(state.dfdId!, docsId);
-      }
+
+      if (dfdId == null || docsId == null) return;
+
+      // ✅ só refresh quando mudou de verdade
+      final changed = dfdId != _lastDfdId || docsId != _lastDocsId;
+      if (!changed) return;
+
+      _lastDfdId = dfdId;
+      _lastDocsId = docsId;
+
+      await _refreshDocs(dfdId, docsId);
     });
   }
 
   @override
   void dispose() {
-    _sub.cancel();
+    _sub?.cancel();
     super.dispose();
   }
 
   Future<void> _refreshDocs(String dfdId, String documentosId) async {
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       final list = await _storage.listarDocsDfd(
@@ -88,9 +105,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     final documentosId = state.sectionIds['documentos'];
     if (dfdId == null || documentosId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Aguarde: preparando área de documentos...'),
-        ),
+        const SnackBar(content: Text('Aguarde: preparando área de documentos...')),
       );
       return;
     }
@@ -101,10 +116,12 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
         contractId: widget.contractId,
         dfdId: dfdId,
         documentosId: documentosId,
-        onProgress: (p) => setState(() => _uploadProgress = p),
+        onProgress: (p) {
+          if (mounted) setState(() => _uploadProgress = p);
+        },
         allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
       );
-      setState(() => _items = [..._items, a]);
+      if (mounted) setState(() => _items = [..._items, a]);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -131,6 +148,9 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
       documentosId: documentosId,
       fileName: fileName,
     );
+
+    if (!mounted) return;
+
     if (ok) {
       setState(() {
         final list = [..._items]..removeAt(i);
@@ -140,31 +160,15 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
         }
       });
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível excluir o anexo.')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível excluir o anexo.')),
+      );
     }
   }
 
-  void _updateEtp(String? v) {
-    final updated = widget.data.copyWith(etpAnexo: v);
-    widget.onChanged(updated);
-    setState(() {});
-  }
-
-  void _updateProjetoBasico(String? v) {
-    final updated = widget.data.copyWith(projetoBasico: v);
-    widget.onChanged(updated);
-    setState(() {});
-  }
-
-  void _updateTermoMatriz(String? v) {
-    final updated = widget.data.copyWith(termoMatrizRiscos: v);
-    widget.onChanged(updated);
-    setState(() {});
-  }
+  void _updateEtp(String? v) => widget.onChanged(widget.data.copyWith(etpAnexo: v));
+  void _updateProjetoBasico(String? v) => widget.onChanged(widget.data.copyWith(projetoBasico: v));
+  void _updateTermoMatriz(String? v) => widget.onChanged(widget.data.copyWith(termoMatrizRiscos: v));
 
   @override
   Widget build(BuildContext context) {
@@ -233,8 +237,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
                 children: [
                   if (_busy) const LinearProgressIndicator(),
                   if (_uploadProgress != null) const SizedBox(height: 6),
-                  if (_uploadProgress != null)
-                    LinearProgressIndicator(value: _uploadProgress),
+                  if (_uploadProgress != null) LinearProgressIndicator(value: _uploadProgress),
                   const SizedBox(height: 5),
                   SideListBox(
                     title: 'Documentos do DFD',
@@ -264,18 +267,14 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
                                   CustomTextField(
                                     controller: ctrl,
                                     labelText: 'Novo rótulo',
-                                    onSubmitted: (_) {
-                                      Navigator.of(dialogCtx).pop(ctrl.text.trim());
-                                    },
+                                    onSubmitted: (_) => Navigator.of(dialogCtx).pop(ctrl.text.trim()),
                                   ),
                                   const SizedBox(height: 18),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
                                       FilledButton(
-                                        onPressed: () => Navigator.of(dialogCtx).pop(
-                                          ctrl.text.trim(),
-                                        ),
+                                        onPressed: () => Navigator.of(dialogCtx).pop(ctrl.text.trim()),
                                         child: const Text('Salvar'),
                                       ),
                                     ],
@@ -287,7 +286,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
                         ),
                       );
 
-                      if (newLabel != null && newLabel.isNotEmpty) {
+                      if (newLabel != null && newLabel.isNotEmpty && mounted) {
                         setState(() {
                           final cur = _items[i];
                           _items = [

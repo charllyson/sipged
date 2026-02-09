@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/screens/modules/contracts/measurement/create/info_grid.dart';
 import 'package:siged/screens/modules/contracts/measurement/create/label_value.dart';

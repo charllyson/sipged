@@ -8,7 +8,15 @@ class CustomTextField extends StatelessWidget {
     this.stream,
     this.initialValue,
     this.valueColor,
+
+    // ✅ prefixos (texto ou widget)
     this.prefix,
+    this.prefixText,
+    this.prefixStyle,
+
+    // ✅ se quiser ícone, use prefixIcon
+    this.prefixIcon,
+
     this.suffix,
     this.inputFormatters,
     this.obscure = false,
@@ -20,9 +28,9 @@ class CustomTextField extends StatelessWidget {
     this.validator,
     this.labelText,
     this.textAlign = TextAlign.start,
-    this.fontSize = 14.0,                // <-- tamanho do rótulo (label)
-    this.textStyle,                      // <-- estilo do texto digitado
-    this.textFontSize,                   // <-- atalho para tamanho do texto digitado
+    this.fontSize = 14.0,
+    this.textStyle,
+    this.textFontSize,
     this.maxLength,
     this.textInputAction,
     this.focusNode,
@@ -36,14 +44,14 @@ class CustomTextField extends StatelessWidget {
     this.readOnly = false,
 
     // Aparência da borda
-    this.outlined = true,                // <-- escolhe outline ou não
+    this.outlined = true,
     this.borderRadius = 10.0,
     this.borderColor,
     this.focusedBorderColor,
     this.errorBorderColor = Colors.red,
     this.borderWidth = 1.0,
 
-    // Opções extras de layout
+    // Layout extra
     this.textAlignVertical,
     this.isDense,
     this.isCollapsed,
@@ -55,26 +63,33 @@ class CustomTextField extends StatelessWidget {
 
   final List<String>? autofillHints;
   final Stream<String>? stream;
+
   final TextEditingController? controller;
-  final String? hintText;
   final String? initialValue;
-  final Widget? prefix;
+
+  final String? hintText;
+
+  // ✅ prefixos
+  final Widget? prefix;              // vai para InputDecoration.prefix
+  final String? prefixText;          // vai para InputDecoration.prefixText (RECOMENDADO p/ "R$")
+  final TextStyle? prefixStyle;      // estilo do prefixText
+  final Widget? prefixIcon;          // vai para InputDecoration.prefixIcon (ícone)
+
   final Widget? suffix;
+
   final bool obscure;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
-  final Function(String?)? onSaved;
+  final FormFieldSetter<String>? onSaved;
   final bool? enabled;
   final Color? valueColor;
   final String? labelText;
   final TextAlign? textAlign;
 
-  // Label
   final double fontSize;
 
-  // Texto digitado
   final TextStyle? textStyle;
   final double? textFontSize;
 
@@ -82,14 +97,13 @@ class CustomTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final FocusNode? focusNode;
   final bool autoCorrect;
-  final Function(String)? onSubmitted;
+  final ValueChanged<String>? onSubmitted;
   final Color? fillCollor;
   final double? width;
   final double? height;
   final int? maxLines;
   final bool readOnly;
 
-  // Aparência da borda
   final bool outlined;
   final double borderRadius;
   final Color? borderColor;
@@ -97,7 +111,6 @@ class CustomTextField extends StatelessWidget {
   final Color errorBorderColor;
   final double borderWidth;
 
-  // Layout extra
   final TextAlignVertical? textAlignVertical;
   final bool? isDense;
   final bool? isCollapsed;
@@ -108,11 +121,43 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveEnabled = enabled ?? true;
+
+    final base = (textStyle ?? const TextStyle());
+    final effectiveStyle = base.copyWith(
+      fontSize: textFontSize ?? base.fontSize,
+      color: valueColor ?? base.color,
+    );
+
+    final effectiveBorderColor = borderColor ?? Colors.grey.shade500;
+    final effectiveFocusedColor = focusedBorderColor ?? Colors.blue;
+
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(borderRadius),
+      borderSide: BorderSide(color: effectiveBorderColor, width: borderWidth),
+    );
+
+    final focusedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(borderRadius),
+      borderSide: BorderSide(color: effectiveFocusedColor, width: borderWidth),
+    );
+
+    final errorBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(borderRadius),
+      borderSide: BorderSide(color: errorBorderColor, width: borderWidth),
+    );
+
+    final effectivePrefixTextStyle = prefixStyle ??
+        effectiveStyle.copyWith(
+          color: Colors.grey.shade700,
+        );
 
     return SizedBox(
       width: width,
       height: height,
       child: TextFormField(
+        controller: controller,
+        initialValue: controller == null ? initialValue : null,
         readOnly: readOnly,
         maxLines: maxLines,
         onFieldSubmitted: onSubmitted,
@@ -120,62 +165,59 @@ class CustomTextField extends StatelessWidget {
         textInputAction: textInputAction,
         focusNode: focusNode,
         maxLength: maxLength,
-        controller: controller,
         obscureText: obscure,
-        initialValue: initialValue,
-        enabled: enabled,
+        enabled: effectiveEnabled,
         validator: validator,
         onSaved: onSaved,
         onChanged: onChanged,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
         textAlign: textAlign ?? TextAlign.start,
-        // estilo do texto digitado
-        style: (textStyle ?? const TextStyle()).copyWith(
-          fontSize: textFontSize ?? textStyle?.fontSize,
-          color: valueColor ?? textStyle?.color,
-        ),
-
-        textAlignVertical: textAlignVertical,
-
+        style: effectiveStyle,
+        textAlignVertical: textAlignVertical ?? TextAlignVertical.center,
+        autofillHints: autofillHints,
         decoration: InputDecoration(
-          labelStyle: TextStyle(color: Colors.grey, fontSize: fontSize,),
+          labelStyle: TextStyle(color: Colors.grey, fontSize: fontSize),
           filled: true,
           fillColor: fillCollor ?? Colors.white,
           labelText: labelText,
-
           hintText: hintText,
           hintStyle: hintStyle,
-
           isDense: isDense,
           isCollapsed: isCollapsed,
-          contentPadding: contentPadding ?? const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          contentPadding: contentPadding ??
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
 
-          prefixIcon: prefix,
+          // ✅ IMPORTANTE:
+          // Se prefixText existir, não use prefix widget (evita conflitos).
+          prefix: prefixText != null
+              ? null
+              : (prefix != null
+              ? Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: prefix,
+          )
+              : null),
+          prefixText: prefixText,
+          prefixStyle: prefixText != null ? effectivePrefixTextStyle : null,
+
+          // ✅ ícone de verdade (se usar)
+          prefixIcon: prefixIcon,
           prefixIconConstraints: prefixIconConstraints,
+
           suffixIcon: suffix,
           suffixIconConstraints: suffixIconConstraints,
 
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10.0),
-            borderSide: BorderSide(color: Colors.grey.shade500),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10.0),
-            borderSide: const BorderSide(color: Colors.blue),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10.0),
-            borderSide: const BorderSide(color: Colors.red),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10.0),
-            borderSide: const BorderSide(color: Colors.red),
-          ),
-          disabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10.0),
-            borderSide: BorderSide(color: Colors.grey.shade400),
-          ),
+          enabledBorder: outlined ? border : InputBorder.none,
+          focusedBorder: outlined ? focusedBorder : InputBorder.none,
+          errorBorder: outlined ? errorBorder : InputBorder.none,
+          focusedErrorBorder: outlined ? errorBorder : InputBorder.none,
+          disabledBorder: outlined
+              ? border.copyWith(
+            borderSide:
+            BorderSide(color: Colors.grey.shade400, width: borderWidth),
+          )
+              : InputBorder.none,
         ),
       ),
     );

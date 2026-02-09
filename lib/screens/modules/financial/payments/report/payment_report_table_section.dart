@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_blocs/modules/financial/payments/report/payment_report_controller.dart';
 

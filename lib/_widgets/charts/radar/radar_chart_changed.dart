@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_widgets/charts/radar/radar_chart_shimmer.dart';
 import 'package:siged/_widgets/charts/radar/radar_series_data.dart';
 import 'package:siged/_widgets/cards/basic/basic_card.dart';

@@ -20,7 +20,7 @@ import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:siged/_utils/validates/form_validation_mixin.dart';
 import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 
 // permissões
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;

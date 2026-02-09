@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_utils/formats/converters_utils.dart';
+import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/table/virtualized/virtualized_table_changed.dart';
 

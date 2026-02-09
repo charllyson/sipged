@@ -1,8 +1,7 @@
+// lib/screens/modules/contracts/hiring/1Dfd/section_5_riscos.dart
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
@@ -25,14 +24,14 @@ class SectionRiscos extends StatefulWidget {
   State<SectionRiscos> createState() => _SectionRiscosState();
 }
 
-class _SectionRiscosState extends State<SectionRiscos>
-    with FormValidationMixin {
+class _SectionRiscosState extends State<SectionRiscos> {
   late final TextEditingController _riscosCtrl;
   late final TextEditingController _impactoCtrl;
   late final TextEditingController _dataLimiteCtrl;
   late final TextEditingController _motivacaoLegalCtrl;
   late final TextEditingController _amparoNormativoCtrl;
 
+  late final TextEditingController _prioridadeCtrl; // ✅ fix: não cria no build
   String? _prioridade;
 
   @override
@@ -41,38 +40,35 @@ class _SectionRiscosState extends State<SectionRiscos>
     final d = widget.data;
 
     _riscosCtrl = TextEditingController(text: d.riscos ?? '');
-    _impactoCtrl =
-        TextEditingController(text: d.impactoNaoContratar ?? '');
-    _dataLimiteCtrl =
-        TextEditingController(text: _formatDate(d.dataLimite));
-    _motivacaoLegalCtrl =
-        TextEditingController(text: d.motivacaoLegal ?? '');
-    _amparoNormativoCtrl =
-        TextEditingController(text: d.amparoNormativo ?? '');
+    _impactoCtrl = TextEditingController(text: d.impactoNaoContratar ?? '');
+    _dataLimiteCtrl = TextEditingController(text: _formatDate(d.dataLimite));
+    _motivacaoLegalCtrl = TextEditingController(text: d.motivacaoLegal ?? '');
+    _amparoNormativoCtrl = TextEditingController(text: d.amparoNormativo ?? '');
 
     _prioridade = d.prioridade;
+    _prioridadeCtrl = TextEditingController(text: _prioridade ?? '');
   }
 
   @override
   void didUpdateWidget(covariant SectionRiscos oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data != widget.data) {
-      final d = widget.data;
+    if (oldWidget.data == widget.data) return;
 
-      final riscos = d.riscos ?? '';
-      final impacto = d.impactoNaoContratar ?? '';
-      final dataLim = _formatDate(d.dataLimite);
-      final mot = d.motivacaoLegal ?? '';
-      final amp = d.amparoNormativo ?? '';
+    final d = widget.data;
 
-      if (_riscosCtrl.text != riscos) _riscosCtrl.text = riscos;
-      if (_impactoCtrl.text != impacto) _impactoCtrl.text = impacto;
-      if (_dataLimiteCtrl.text != dataLim) _dataLimiteCtrl.text = dataLim;
-      if (_motivacaoLegalCtrl.text != mot) _motivacaoLegalCtrl.text = mot;
-      if (_amparoNormativoCtrl.text != amp) _amparoNormativoCtrl.text = amp;
+    _sync(_riscosCtrl, d.riscos);
+    _sync(_impactoCtrl, d.impactoNaoContratar);
+    _sync(_dataLimiteCtrl, _formatDate(d.dataLimite));
+    _sync(_motivacaoLegalCtrl, d.motivacaoLegal);
+    _sync(_amparoNormativoCtrl, d.amparoNormativo);
 
-      _prioridade = d.prioridade;
-    }
+    _prioridade = d.prioridade;
+    _sync(_prioridadeCtrl, _prioridade);
+  }
+
+  void _sync(TextEditingController c, String? newText) {
+    final v = newText ?? '';
+    if (c.text != v) c.text = v;
   }
 
   @override
@@ -82,6 +78,7 @@ class _SectionRiscosState extends State<SectionRiscos>
     _dataLimiteCtrl.dispose();
     _motivacaoLegalCtrl.dispose();
     _amparoNormativoCtrl.dispose();
+    _prioridadeCtrl.dispose();
     super.dispose();
   }
 
@@ -111,15 +108,16 @@ class _SectionRiscosState extends State<SectionRiscos>
   }
 
   void _emitChange() {
-    final updated = widget.data.copyWith(
-      riscos: _riscosCtrl.text,
-      impactoNaoContratar: _impactoCtrl.text,
-      prioridade: _prioridade ?? '',
-      dataLimite: _parseBrDate(_dataLimiteCtrl.text),
-      motivacaoLegal: _motivacaoLegalCtrl.text,
-      amparoNormativo: _amparoNormativoCtrl.text,
+    widget.onChanged(
+      widget.data.copyWith(
+        riscos: _riscosCtrl.text,
+        impactoNaoContratar: _impactoCtrl.text,
+        prioridade: _prioridade ?? '',
+        dataLimite: _parseBrDate(_dataLimiteCtrl.text),
+        motivacaoLegal: _motivacaoLegalCtrl.text,
+        amparoNormativo: _amparoNormativoCtrl.text,
+      ),
     );
-    widget.onChanged(updated);
   }
 
   @override
@@ -137,7 +135,6 @@ class _SectionRiscosState extends State<SectionRiscos>
               spacing: 12,
               runSpacing: 12,
               children: [
-                // Riscos principais
                 SizedBox(
                   width: w2,
                   child: CustomTextField(
@@ -148,8 +145,6 @@ class _SectionRiscosState extends State<SectionRiscos>
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
-
-                // Impacto se não contratar
                 SizedBox(
                   width: w2,
                   child: CustomTextField(
@@ -160,27 +155,22 @@ class _SectionRiscosState extends State<SectionRiscos>
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
-
-                // Prioridade
                 SizedBox(
                   width: w4,
                   child: DropDownButtonChange(
                     enabled: widget.isEditable,
                     labelText: 'Prioridade',
-                    controller: TextEditingController(
-                      text: _prioridade ?? '',
-                    ),
+                    controller: _prioridadeCtrl,
                     items: const ['Baixa', 'Média', 'Alta', 'Crítica'],
                     onChanged: (v) {
-                      _prioridade = v ?? '';
+                      _prioridade = (v ?? '').trim();
+                      _prioridadeCtrl.text = _prioridade ?? '';
                       _emitChange();
                       setState(() {});
                     },
                     validator: null,
                   ),
                 ),
-
-                // Data limite / urgência
                 SizedBox(
                   width: w4,
                   child: CustomDateField(
@@ -190,8 +180,6 @@ class _SectionRiscosState extends State<SectionRiscos>
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
-
-                // Motivação legal
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
@@ -201,8 +189,6 @@ class _SectionRiscosState extends State<SectionRiscos>
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
-
-                // Amparo normativo
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
