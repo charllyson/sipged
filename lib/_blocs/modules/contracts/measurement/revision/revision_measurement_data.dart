@@ -71,7 +71,7 @@ class RevisionMeasurementData {
 
   factory RevisionMeasurementData.fromDocument(DocumentSnapshot snap) {
     final data = (snap.data() as Map<String, dynamic>?) ?? {};
-    final _contractId = snap.reference.parent.parent?.id;
+    final contractId = snap.reference.parent.parent?.id;
 
     return RevisionMeasurementData(
       id: (data['id'] as String?) ?? snap.id,
@@ -80,7 +80,7 @@ class RevisionMeasurementData {
       date: _toDate(data['date']),
       value: _toDouble(data['value']),
       pdfUrl: data['pdfUrl'] as String?,
-      contractId: _contractId,
+      contractId: contractId,
       createdAt: _toDate(data['createdAt']),
       createdBy: data['createdBy'] as String?,
       updatedAt: _toDate(data['updatedAt']),

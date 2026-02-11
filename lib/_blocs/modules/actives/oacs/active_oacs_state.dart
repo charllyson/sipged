@@ -254,7 +254,7 @@ class ActiveOacsState extends Equatable {
         selectedPieIndex < 0 ||
         selectedPieIndex >= values.length) {
       return GaugeVM(
-        label: region == null ? 'Total' : region,
+        label: region ?? 'Total',
         count: total,
         total: total,
         percent: 1.0,

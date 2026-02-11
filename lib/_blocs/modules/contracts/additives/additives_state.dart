@@ -1,4 +1,3 @@
-// lib/_blocs/modules/contracts/additives/additives_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -19,6 +18,10 @@ class AdditivesState extends Equatable {
   final Set<int> existingOrders;
   final String? errorMessage;
 
+  /// ✅ SideListBox progress
+  final bool sideLoading;
+  final double? uploadProgress;
+
   bool get canAddFile => isEditable && selected?.id != null;
 
   List<String> get orderOptions {
@@ -28,8 +31,7 @@ class AdditivesState extends Equatable {
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
-  Set<String> get greyOrderItems =>
-      existingOrders.map((e) => e.toString()).toSet();
+  Set<String> get greyOrderItems => existingOrders.map((e) => e.toString()).toSet();
 
   const AdditivesState({
     required this.status,
@@ -44,6 +46,8 @@ class AdditivesState extends Equatable {
     required this.nextAvailableOrder,
     required this.existingOrders,
     required this.errorMessage,
+    required this.sideLoading,
+    required this.uploadProgress,
   });
 
   factory AdditivesState.initial() {
@@ -60,6 +64,8 @@ class AdditivesState extends Equatable {
       nextAvailableOrder: 1,
       existingOrders: <int>{},
       errorMessage: null,
+      sideLoading: false,
+      uploadProgress: null,
     );
   }
 
@@ -76,9 +82,12 @@ class AdditivesState extends Equatable {
     int? nextAvailableOrder,
     Set<int>? existingOrders,
     String? errorMessage,
+    bool? sideLoading,
+    double? uploadProgress,
     bool clearSelected = false,
     bool clearError = false,
     bool clearSelectedIndex = false,
+    bool clearUploadProgress = false,
   }) {
     return AdditivesState(
       status: status ?? this.status,
@@ -93,6 +102,8 @@ class AdditivesState extends Equatable {
       nextAvailableOrder: nextAvailableOrder ?? this.nextAvailableOrder,
       existingOrders: existingOrders ?? this.existingOrders,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      sideLoading: sideLoading ?? this.sideLoading,
+      uploadProgress: clearUploadProgress ? null : (uploadProgress ?? this.uploadProgress),
     );
   }
 
@@ -110,5 +121,7 @@ class AdditivesState extends Equatable {
     nextAvailableOrder,
     existingOrders,
     errorMessage,
+    sideLoading,
+    uploadProgress,
   ];
 }

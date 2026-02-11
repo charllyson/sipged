@@ -138,7 +138,7 @@ class EmpenhoData {
 
   factory EmpenhoData.fromDocument(DocumentSnapshot snap) {
     final data = _readSnapData(snap);
-    final _pdfUrl = data['pdfUrl'] as String?;
+    final pdfUrl = data['pdfUrl'] as String?;
 
     // ✅ NOVO: demanda id+label
     final demandId = (data['demandContractId'] ?? data['demandId'])?.toString();
@@ -178,8 +178,8 @@ class EmpenhoData {
       date: _toDate(data['date']) ?? DateTime.now(),
       empenhadoTotal: _toDouble(data['empenhadoTotal']) ?? 0.0,
       slices: _toSlices(data['slices']),
-      pdfUrl: _pdfUrl,
-      attachments: _toAttachments(data['attachments'], fallbackPdfUrl: _pdfUrl),
+      pdfUrl: pdfUrl,
+      attachments: _toAttachments(data['attachments'], fallbackPdfUrl: pdfUrl),
       createdAt: _toDate(data['createdAt']),
       createdBy: data['createdBy'] as String?,
       updatedAt: _toDate(data['updatedAt']),

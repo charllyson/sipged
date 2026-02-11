@@ -12,10 +12,7 @@ class ApostillesState extends Equatable {
 
   final bool isSaving;
   final bool isEditable;
-
-  /// true quando há um item selecionado para edição
   final bool editingMode;
-
   final bool formValid;
   final int? selectedIndex;
 
@@ -26,6 +23,10 @@ class ApostillesState extends Equatable {
 
   final String? errorMessage;
 
+  /// ✅ SideList progress
+  final bool sideLoading;
+  final double? uploadProgress;
+
   bool get canAddFile => isEditable && selected?.id != null;
 
   List<String> get orderOptions {
@@ -35,8 +36,7 @@ class ApostillesState extends Equatable {
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
-  Set<String> get greyOrderItems =>
-      existingOrders.map((e) => e.toString()).toSet();
+  Set<String> get greyOrderItems => existingOrders.map((e) => e.toString()).toSet();
 
   const ApostillesState({
     required this.status,
@@ -51,6 +51,8 @@ class ApostillesState extends Equatable {
     required this.nextAvailableOrder,
     required this.existingOrders,
     required this.errorMessage,
+    required this.sideLoading,
+    required this.uploadProgress,
   });
 
   factory ApostillesState.initial() {
@@ -67,6 +69,8 @@ class ApostillesState extends Equatable {
       nextAvailableOrder: 1,
       existingOrders: <int>{},
       errorMessage: null,
+      sideLoading: false,
+      uploadProgress: null,
     );
   }
 
@@ -83,9 +87,12 @@ class ApostillesState extends Equatable {
     int? nextAvailableOrder,
     Set<int>? existingOrders,
     String? errorMessage,
+    bool? sideLoading,
+    double? uploadProgress,
     bool clearSelected = false,
     bool clearError = false,
     bool clearSelectedIndex = false,
+    bool clearUploadProgress = false,
   }) {
     return ApostillesState(
       status: status ?? this.status,
@@ -95,12 +102,13 @@ class ApostillesState extends Equatable {
       isEditable: isEditable ?? this.isEditable,
       editingMode: editingMode ?? this.editingMode,
       formValid: formValid ?? this.formValid,
-      selectedIndex:
-      clearSelectedIndex ? null : (selectedIndex ?? this.selectedIndex),
+      selectedIndex: clearSelectedIndex ? null : (selectedIndex ?? this.selectedIndex),
       sideAttachments: sideAttachments ?? this.sideAttachments,
       nextAvailableOrder: nextAvailableOrder ?? this.nextAvailableOrder,
       existingOrders: existingOrders ?? this.existingOrders,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      sideLoading: sideLoading ?? this.sideLoading,
+      uploadProgress: clearUploadProgress ? null : (uploadProgress ?? this.uploadProgress),
     );
   }
 
@@ -118,5 +126,7 @@ class ApostillesState extends Equatable {
     nextAvailableOrder,
     existingOrders,
     errorMessage,
+    sideLoading,
+    uploadProgress,
   ];
 }

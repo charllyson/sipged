@@ -136,8 +136,4 @@ class PaymentReportBloc extends BlocBase {
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

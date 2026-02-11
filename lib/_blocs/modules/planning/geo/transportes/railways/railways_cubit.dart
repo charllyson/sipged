@@ -297,7 +297,6 @@ class RailwaysCubit extends Cubit<RailwaysState> {
     return out;
   }
 
-  /// Converte parts=[{pts:[GeoPoint...]},...] -> List<List<GeoPoint>>
   dynamic _normalizePartsPayload(dynamic raw) {
     if (raw is List && raw.isNotEmpty && raw.first is Map) {
       final segs = <List<GeoPoint>>[];

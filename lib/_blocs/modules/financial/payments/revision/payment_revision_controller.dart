@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart'; // ✅ necessário (ctx.read<UserBloc>())
 import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/pdf/pdf_preview.dart';
@@ -12,10 +14,7 @@ import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
-
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:siged/_blocs/modules/financial/payments/revision/payment_revision_bloc.dart';
@@ -25,10 +24,10 @@ import 'package:siged/_blocs/modules/financial/payments/revision/payment_revisio
 // permissões
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
+
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
-class PaymentsRevisionController extends ChangeNotifier
-    with FormValidationMixin {
+class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
   PaymentsRevisionController({
     required PaymentRevisionBloc paymentRevisionBloc,
     required AdditivesRepository additivesRepository,
@@ -49,7 +48,7 @@ class PaymentsRevisionController extends ChangeNotifier
   UserData? currentUser;
   ProcessData? contract;
 
-  // valor da demanda (DFD)
+  // valor da demanda (DFD) — você ainda não está carregando aqui
   double _valorDemanda = 0.0;
 
   // --- Dados
@@ -58,9 +57,10 @@ class PaymentsRevisionController extends ChangeNotifier
   PaymentsRevisionsData? _selected;
   String? _currentId;
 
-  // --- SideListBox (dinâmico: String | Attachment)
+  // --- SideListBox (dinâmico: Attachment)
   List<dynamic> sideItems = const <dynamic>[];
   int? selectedSideIndex;
+
   bool get canAddFile => isEditable && _selected?.idRevisionPayment != null;
 
   // --- Estado UI
@@ -96,8 +96,7 @@ class PaymentsRevisionController extends ChangeNotifier
   List<double> get chartValues =>
       _revisions.map((e) => e.valuePaymentRevision ?? 0.0).toList();
 
-  double get totalMedicoes =>
-      chartValues.fold<double>(0.0, (a, b) => a + b);
+  double get totalMedicoes => chartValues.fold<double>(0.0, (a, b) => a + b);
   double get valorTotal => _valorInicial + _valorAditivos;
   double get saldo => valorTotal - totalMedicoes;
 
@@ -128,26 +127,31 @@ class PaymentsRevisionController extends ChangeNotifier
 
   List<String> get orderNumberOptions {
     final set = _existingOrders;
-    final maxPlusOne =
-    set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    final maxPlusOne = set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
-  Set<String> get greyOrderItems =>
-      _existingOrders.map((e) => e.toString()).toSet();
+  Set<String> get greyOrderItems => _existingOrders.map((e) => e.toString()).toSet();
 
   void onChangeOrderNumber(String? v) {
     final picked = int.tryParse(v ?? '');
     if (picked == null || picked <= 0) return;
 
-    final idx = _lastSnapshot
-        .indexWhere((x) => (x.orderPaymentRevision ?? -1) == picked);
+    final idx =
+    _lastSnapshot.indexWhere((x) => (x.orderPaymentRevision ?? -1) == picked);
     if (idx >= 0) {
       selectRow(_lastSnapshot[idx]); // existente → carrega
     } else {
       createNew(overrideOrder: picked); // livre → inicia novo
       notifyListeners();
     }
+  }
+
+  // ✅ usado pelo page/form para sincronizar mudanças locais do SideListBox (opcional)
+  void setSideItemsLocal(List<dynamic> items, {int? selected}) {
+    sideItems = items;
+    selectedSideIndex = selected;
+    notifyListeners();
   }
 
   // --- Init/Dispose
@@ -179,6 +183,7 @@ class PaymentsRevisionController extends ChangeNotifier
       [orderCtrl, processCtrl, valueCtrl, dateCtrl],
       _validateFormInternal,
     );
+
     await _loadInitial();
   }
 
@@ -237,15 +242,15 @@ class PaymentsRevisionController extends ChangeNotifier
   Future<void> _loadInitial() async {
     if (contract?.id == null) return;
 
-    // ✅ usa valorDemanda do DfdData
+    // ✅ usa valorDemanda do DfdData (por enquanto é 0.0, você ainda não carrega aqui)
     _valorInicial = _valorDemanda;
 
     // ✅ usa repositório de aditivos no padrão novo
-    _valorAditivos =
-    await _additivesRepository.getAllAdditivesValue(contract!.id!);
+    _valorAditivos = await _additivesRepository.getAllAdditivesValue(contract!.id!);
 
-    _revisions = await _paymentRevisionBloc
-        .getAllReportPaymentsOfContract(contractId: contract!.id!);
+    _revisions = await _paymentRevisionBloc.getAllReportPaymentsOfContract(
+      contractId: contract!.id!,
+    );
 
     _lastSnapshot = List<PaymentsRevisionsData>.from(_revisions);
 
@@ -271,10 +276,10 @@ class PaymentsRevisionController extends ChangeNotifier
   // --- Side list helpers (multi-anexos + migração de pdfUrl)
   Future<void> _refreshSideList() async {
     final p = _selected;
+
     if (p == null) {
       sideItems = const <dynamic>[];
       selectedSideIndex = null;
-      notifyListeners();
       return;
     }
 
@@ -282,14 +287,11 @@ class PaymentsRevisionController extends ChangeNotifier
     if ((p.attachments ?? const []).isNotEmpty) {
       sideItems = List<dynamic>.from(p.attachments!);
       selectedSideIndex = null;
-      notifyListeners();
       return;
     }
 
-    // 2) migra pdfUrl legado (se existir) → cria Attachment único
-    if ((p.pdfUrl ?? '').isNotEmpty &&
-        p.idRevisionPayment != null &&
-        contract?.id != null) {
+    // 2) migra pdfUrl legado → Attachment único
+    if ((p.pdfUrl ?? '').isNotEmpty && p.idRevisionPayment != null && contract?.id != null) {
       final att = Attachment(
         id: 'legacy-pdf',
         label: 'Documento da revisão',
@@ -299,17 +301,19 @@ class PaymentsRevisionController extends ChangeNotifier
         createdAt: DateTime.now(),
         createdBy: currentUser?.uid,
       );
+
       await _paymentRevisionBloc.setAttachments(
         contractId: contract!.id!,
         revisionPaymentId: p.idRevisionPayment!,
         attachments: [att],
       );
+
       _selected = p
         ..attachments = [att]
         ..pdfUrl = null;
+
       sideItems = [att];
       selectedSideIndex = null;
-      notifyListeners();
       return;
     }
 
@@ -319,13 +323,13 @@ class PaymentsRevisionController extends ChangeNotifier
         contractId: contract!.id!,
         revisionPaymentId: p.idRevisionPayment!,
       );
+
       if (files.isNotEmpty) {
         final list = files
             .map(
               (f) => Attachment(
             id: f.name,
-            label:
-            f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+            label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
             url: f.url,
             path:
             'contracts/${contract!.id}/revisionPayments/${p.idRevisionPayment}/${f.name}',
@@ -348,14 +352,12 @@ class PaymentsRevisionController extends ChangeNotifier
         _selected = p..attachments = list;
         sideItems = List<dynamic>.from(list);
         selectedSideIndex = null;
-        notifyListeners();
         return;
       }
     }
 
     sideItems = const <dynamic>[];
     selectedSideIndex = null;
-    notifyListeners();
   }
 
   // --- Ações UI
@@ -369,20 +371,18 @@ class PaymentsRevisionController extends ChangeNotifier
 
     orderCtrl.text = (data.orderPaymentRevision ?? '').toString();
     processCtrl.text = data.processPaymentRevision ?? '';
-    valueCtrl.text = priceToString(data.valuePaymentRevision);
+    valueCtrl.text = SipGedFormatMoney.doubleToText(data.valuePaymentRevision);
     dateCtrl.text = data.datePaymentRevision != null
-        ? dateTimeToDDMMYYYY(data.datePaymentRevision!)
+        ? SipGedFormatDates.dateToDdMMyyyy(data.datePaymentRevision!)
         : '';
     stateCtrl.text = data.statePaymentRevision ?? '';
     observationCtrl.text = data.observationPaymentRevision ?? '';
     bankCtrl.text = data.orderBankPaymentRevision ?? '';
-    electronicTicketCtrl.text =
-        data.electronicTicketPaymentRevision ?? '';
+    electronicTicketCtrl.text = data.electronicTicketPaymentRevision ?? '';
     fontCtrl.text = data.fontPaymentRevision ?? '';
-    taxCtrl.text = priceToString(data.taxPaymentRevision);
+    taxCtrl.text = SipGedFormatMoney.doubleToText(data.taxPaymentRevision);
 
-    _refreshSideList();
-    notifyListeners();
+    _refreshSideList().then((_) => notifyListeners());
   }
 
   void createNew({int? overrideOrder}) {
@@ -407,8 +407,7 @@ class PaymentsRevisionController extends ChangeNotifier
     fontCtrl.clear();
     taxCtrl.clear();
 
-    _refreshSideList();
-    notifyListeners();
+    _refreshSideList().then((_) => notifyListeners());
   }
 
   Future<bool> saveOrUpdate({
@@ -430,22 +429,23 @@ class PaymentsRevisionController extends ChangeNotifier
         idRevisionPayment: _currentId,
         orderPaymentRevision: int.tryParse(orderCtrl.text),
         processPaymentRevision: processCtrl.text,
-        valuePaymentRevision: parseCurrencyToDouble(valueCtrl.text),
-        datePaymentRevision: convertDDMMYYYYToDateTime(dateCtrl.text),
+        valuePaymentRevision: SipGedFormatMoney.parseBrl(valueCtrl.text),
+        datePaymentRevision: SipGedFormatDates.ddMMyyyyToDate(dateCtrl.text),
         statePaymentRevision: stateCtrl.text,
         observationPaymentRevision: observationCtrl.text,
         orderBankPaymentRevision: bankCtrl.text,
         electronicTicketPaymentRevision: electronicTicketCtrl.text,
         fontPaymentRevision: fontCtrl.text,
-        taxPaymentRevision: parseCurrencyToDouble(taxCtrl.text),
+        taxPaymentRevision: SipGedFormatMoney.parseBrl(taxCtrl.text),
         pdfUrl: _selected?.pdfUrl, // legado preservado
         attachments: _selected?.attachments, // mantém anexos numa edição
       );
 
       await _paymentRevisionBloc.saveOrUpdatePayment(data);
 
-      _revisions = await _paymentRevisionBloc
-          .getAllReportPaymentsOfContract(contractId: contract!.id!);
+      _revisions = await _paymentRevisionBloc.getAllReportPaymentsOfContract(
+        contractId: contract!.id!,
+      );
       _lastSnapshot = List<PaymentsRevisionsData>.from(_revisions);
 
       createNew();
@@ -481,8 +481,7 @@ class PaymentsRevisionController extends ChangeNotifier
         statePaymentRevision: data.statePaymentRevision,
         observationPaymentRevision: data.observationPaymentRevision,
         orderBankPaymentRevision: data.orderBankPaymentRevision,
-        electronicTicketPaymentRevision:
-        data.electronicTicketPaymentRevision,
+        electronicTicketPaymentRevision: data.electronicTicketPaymentRevision,
         fontPaymentRevision: data.fontPaymentRevision,
         taxPaymentRevision: data.taxPaymentRevision,
         pdfUrl: data.pdfUrl,
@@ -491,8 +490,9 @@ class PaymentsRevisionController extends ChangeNotifier
 
       await _paymentRevisionBloc.saveOrUpdatePayment(toSave);
 
-      _revisions = await _paymentRevisionBloc
-          .getAllReportPaymentsOfContract(contractId: contract!.id!);
+      _revisions = await _paymentRevisionBloc.getAllReportPaymentsOfContract(
+        contractId: contract!.id!,
+      );
       _lastSnapshot = List<PaymentsRevisionsData>.from(_revisions);
 
       createNew();
@@ -511,13 +511,13 @@ class PaymentsRevisionController extends ChangeNotifier
         VoidCallback? onError,
       }) async {
     if (contract?.id == null) return;
+
     try {
-      await _paymentRevisionBloc.deletarPayment(
-        contract!.id!,
-        idPaymentRevision,
+      await _paymentRevisionBloc.deletarPayment(contract!.id!, idPaymentRevision);
+
+      _revisions = await _paymentRevisionBloc.getAllReportPaymentsOfContract(
+        contractId: contract!.id!,
       );
-      _revisions = await _paymentRevisionBloc
-          .getAllReportPaymentsOfContract(contractId: contract!.id!);
       _lastSnapshot = List<PaymentsRevisionsData>.from(_revisions);
 
       selectedIndex = null;
@@ -539,6 +539,7 @@ class PaymentsRevisionController extends ChangeNotifier
 
   Future<void> handleAddFile(BuildContext context) async {
     final p = _selected;
+
     if (!canAddFile ||
         contract?.id == null ||
         p?.idRevisionPayment == null ||
@@ -548,16 +549,11 @@ class PaymentsRevisionController extends ChangeNotifier
       isSaving = true;
       notifyListeners();
 
-      final (Uint8List bytes, String originalName) =
-      await _storageBloc.pickFileBytes();
+      final (Uint8List bytes, String originalName) = await _storageBloc.pickFileBytes();
 
       final suggestion = _suggestLabelFromName(originalName);
       final label = await askLabelDialog(context, suggestion);
-      if (label == null) {
-        isSaving = false;
-        notifyListeners();
-        return;
-      }
+      if (label == null) return;
 
       final att = await _storageBloc.uploadAttachmentBytes(
         contract: contract!,
@@ -584,70 +580,86 @@ class PaymentsRevisionController extends ChangeNotifier
     }
   }
 
-  Future<void> handleEditLabelFile(
-      int index,
-      BuildContext context,
-      ) async {
+  /// ✅ NOVO: persistência de rename (com rollback)
+  Future<bool> handleRenamePersist({
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
     final p = _selected;
     if (p == null ||
+        contract?.id == null ||
+        p.idRevisionPayment == null ||
         p.attachments == null ||
         index < 0 ||
-        index >= p.attachments!.length) return;
+        index >= p.attachments!.length) {
+      return false;
+    }
+
+    // garante que o item é o mesmo
+    if (p.attachments![index].id != oldItem.id) {
+      // tenta achar pelo id (caso reordene)
+      final realIndex = p.attachments!.indexWhere((a) => a.id == oldItem.id);
+      if (realIndex < 0) return false;
+      index = realIndex;
+    }
 
     try {
       isSaving = true;
       notifyListeners();
 
-      final att = p.attachments![index];
-      final suggestion =
-      att.label.isNotEmpty ? att.label : _suggestLabelFromName(att.id);
-      final newLabel = await askLabelDialog(context, suggestion);
-      if (newLabel == null) {
-        isSaving = false;
-        notifyListeners();
-        return;
-      }
-
-      p.attachments![index] = Attachment(
-        id: att.id,
-        label: newLabel.isEmpty ? suggestion : newLabel,
-        url: att.url,
-        path: att.path,
-        ext: att.ext,
-        size: att.size,
-        createdAt: att.createdAt,
-        createdBy: att.createdBy,
+      final updated = Attachment(
+        id: oldItem.id,
+        label: newItem.label,
+        url: oldItem.url,
+        path: oldItem.path,
+        ext: oldItem.ext,
+        size: oldItem.size,
+        createdAt: oldItem.createdAt,
+        createdBy: oldItem.createdBy,
         updatedAt: DateTime.now(),
         updatedBy: currentUser?.uid,
       );
 
+      final next = List<Attachment>.from(p.attachments!);
+      next[index] = updated;
+
       await _paymentRevisionBloc.setAttachments(
         contractId: contract!.id!,
         revisionPaymentId: p.idRevisionPayment!,
-        attachments: p.attachments!,
+        attachments: next,
       );
 
-      await _refreshSideList();
+      _selected = p..attachments = next;
+      sideItems = List<dynamic>.from(next);
+      selectedSideIndex = index;
+
+      return true;
+    } catch (_) {
+      // rollback local
+      final next = List<Attachment>.from(p.attachments!);
+      next[index] = oldItem;
+
+      _selected = p..attachments = next;
+      sideItems = List<dynamic>.from(next);
+      selectedSideIndex = index;
+
+      return false;
     } finally {
       isSaving = false;
       notifyListeners();
     }
   }
 
-  Future<void> handleDeleteFile(
-      int index,
-      BuildContext context,
-      ) async {
+  Future<void> handleDeleteFile(int index, BuildContext context) async {
     final p = _selected;
-    if (p == null ||
-        p.idRevisionPayment == null ||
-        contract?.id == null) return;
+    if (p == null || p.idRevisionPayment == null || contract?.id == null) return;
 
     try {
       isSaving = true;
       notifyListeners();
 
-      final atts = p.attachments ?? [];
+      final atts = List<Attachment>.from(p.attachments ?? const []);
       if (index >= 0 && index < atts.length) {
         final removed = atts.removeAt(index);
         if ((removed.path).isNotEmpty) {
@@ -680,6 +692,7 @@ class PaymentsRevisionController extends ChangeNotifier
     if (p == null) return;
 
     String? url;
+
     if ((p.attachments ?? []).isNotEmpty) {
       if (index < 0 || index >= p.attachments!.length) return;
       url = p.attachments![index].url;
@@ -688,6 +701,7 @@ class PaymentsRevisionController extends ChangeNotifier
     } else {
       url = p.pdfUrl; // legado
     }
+
     if (url == null || url.isEmpty) return;
 
     await showDialog(

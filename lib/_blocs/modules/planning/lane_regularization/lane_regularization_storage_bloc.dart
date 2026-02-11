@@ -154,8 +154,4 @@ class LaneRegularizationStorageBloc extends BlocBase {
     } catch (_) {}
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

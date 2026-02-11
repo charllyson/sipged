@@ -21,7 +21,6 @@ class HabilitacaoCubit extends Cubit<HabilitacaoState> {
   ///
   /// Uso típico:
   ///   final hab = await context
-  ///       .read<HabilitacaoCubit>()
   ///       .getDataForContract(contractId);
   ///
   Future<HabilitacaoData?> getDataForContract(String contractId) {

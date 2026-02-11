@@ -1,8 +1,8 @@
 // lib/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
-
-import 'package:siged/_utils/converters/converters_utils.dart';
+import 'package:siged/_utils/formats/sipged_format_firestore.dart';
+import 'package:siged/_utils/formats/sipged_format_numbers.dart';
 import 'publicacao_extrato_sections.dart';
 
 class PublicacaoExtratoData extends Equatable {
@@ -121,13 +121,13 @@ class PublicacaoExtratoData extends Equatable {
       objetoResumo: map['objetoResumo'] as String?,
       contratadaRazao: map['contratadaRazao'] as String?,
       contratadaCnpj: map['contratadaCnpj'] as String?,
-      valor: converterToDouble(map['valor']),
-      vigencia: converterToInt(map['vigencia']),
+      valor: SipGedFormatNumbers.toDouble(map['valor']),
+      vigencia: SipGedFormatNumbers.toInt(map['vigencia']),
       cnoRef: map['cnoRef'] as String?,
       veiculo: map['veiculo'] as String?,
       edicaoNumero: map['edicaoNumero'] as String?,
-      dataEnvio: converterToDate(map['dataEnvio']),
-      dataPublicacao: converterToDate(map['dataPublicacao']),
+      dataEnvio: SipGedFormatFirestore.toDate(map['dataEnvio']),
+      dataPublicacao: SipGedFormatFirestore.toDate(map['dataPublicacao']),
       linkPublicacao: map['linkPublicacao'] as String?,
       status: map['status'] as String?,
       prazoLegal: map['prazoLegal'] as String?,
@@ -162,14 +162,14 @@ class PublicacaoExtratoData extends Equatable {
 
       contratadaRazao: p['contratadaRazao'] as String?,
       contratadaCnpj: p['contratadaCnpj'] as String?,
-      valor: converterToDouble(p['valor']),
-      vigencia: converterToInt(p['vigencia']),
+      valor: SipGedFormatNumbers.toDouble(p['valor']),
+      vigencia: SipGedFormatNumbers.toInt(p['vigencia']),
       cnoRef: p['cnoRef'] as String?,
 
       veiculo: v['veiculo'] as String?,
       edicaoNumero: v['edicaoNumero'] as String?,
-      dataEnvio: converterToDate(v['dataEnvio']),
-      dataPublicacao: converterToDate(v['dataPublicacao']),
+      dataEnvio: SipGedFormatFirestore.toDate(v['dataEnvio']),
+      dataPublicacao: SipGedFormatFirestore.toDate(v['dataPublicacao']),
       linkPublicacao: v['linkPublicacao'] as String?,
 
       status: s['status'] as String?,

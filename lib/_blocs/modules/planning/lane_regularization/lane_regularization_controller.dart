@@ -1,7 +1,9 @@
+// lib/screens/.../lane_regularization_controller.dart
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -9,9 +11,12 @@ import 'lane_regularization_data.dart';
 import 'lane_regularization_store.dart';
 import 'lane_regularization_storage_bloc.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
+
+// ✅ NOVO: sem intl
+import 'package:siged/_utils/formats/sipged_format_numbers.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
+
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 
 // ✅ helpers papel
@@ -27,8 +32,7 @@ import 'package:siged/_widgets/pdf/pdf_preview.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
-class LaneRegularizationController extends ChangeNotifier
-    with FormValidationMixin {
+class LaneRegularizationController extends ChangeNotifier with SipGedValidation {
   final ProcessData contract;
   final LaneRegularizationStore store;
   final LaneRegularizationStorageBloc storage;
@@ -54,12 +58,74 @@ class LaneRegularizationController extends ChangeNotifier
   bool formValidated = false;
   bool isEditable = true;
 
-  // ===== Arquivos: agora como Attachment =====
+  // ===== Arquivos: Attachment =====
   List<Attachment> geoItems = [];
   int? selectedGeoIndex;
 
   List<Attachment> docItems = [];
   int? selectedDocIndex;
+
+  // ====== SideListBox NEW API: sync list ======
+  void setGeoItems(List<dynamic> items) {
+    geoItems = items.whereType<Attachment>().toList();
+    if (selectedGeoIndex != null &&
+        (selectedGeoIndex! < 0 || selectedGeoIndex! >= geoItems.length)) {
+      selectedGeoIndex = null;
+    }
+    notifyListeners();
+  }
+
+  void setDocItems(List<dynamic> items) {
+    docItems = items.whereType<Attachment>().toList();
+    if (selectedDocIndex != null &&
+        (selectedDocIndex! < 0 || selectedDocIndex! >= docItems.length)) {
+      selectedDocIndex = null;
+    }
+    notifyListeners();
+  }
+
+  // ====== SideListBox NEW API: persist rename ======
+  Future<bool> persistRenameGeo({
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
+    try {
+      if (index < 0 || index >= geoItems.length) return false;
+      if (geoItems[index].id != oldItem.id) return false;
+
+      final label = newItem.label.trim();
+      if (label.isEmpty) return false;
+
+      geoItems[index] = geoItems[index].copyWith(label: label);
+      await _persistAttachments();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> persistRenameDoc({
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
+    try {
+      if (index < 0 || index >= docItems.length) return false;
+      if (docItems[index].id != oldItem.id) return false;
+
+      final label = newItem.label.trim();
+      if (label.isEmpty) return false;
+
+      docItems[index] = docItems[index].copyWith(label: label);
+      await _persistAttachments();
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
   // CONTROLLERS BÁSICOS
   final ownerCtrl = TextEditingController();
@@ -147,29 +213,50 @@ class LaneRegularizationController extends ChangeNotifier
     return roles.roleForUser(u) == roles.UserProfile.ADMINISTRADOR;
   }
 
+  // =======================
+  // ✅ Helpers de formatação
+  // =======================
+  String _fmtDec(double? v, {int digits = 2, String empty = ''}) {
+    if (v == null) return empty;
+    return SipGedFormatNumbers.decimalPtBr(v, fractionDigits: digits);
+  }
+
+  /// Mantém o mesmo comportamento do antigo priceToString (com "R$")
+  String _fmtMoney(double? v, {String empty = ''}) {
+    if (v == null) return empty;
+    return SipGedFormatMoney.doubleToText(v);
+  }
+
+  double? _toDouble(String s) => SipGedFormatNumbers.toDouble(s);
+
   // ===== Helpers (rótulo/sugestão) =====
   String _baseName(String name) {
     var s = name.trim();
-    final q = s.indexOf('?'); if (q != -1) s = s.substring(0, q);
-    final h = s.indexOf('#'); if (h != -1) s = s.substring(0, h);
+    final q = s.indexOf('?');
+    if (q != -1) s = s.substring(0, q);
+    final h = s.indexOf('#');
+    if (h != -1) s = s.substring(0, h);
     s = s.split('/').last;
     return s.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
   }
-
 
   // ====== INIT ======
   Future<void> _init() async {
     futureProps = _getAll();
 
-    // 🔁 validação reativa — inclui campos condicionais
     setupValidation([
-      registryCtrl, statusCtrl, stageCtrl,
-      dupNumberCtrl, dupDateCtrl,
-      appraisalNumberCtrl, appraisalDateCtrl, appraisalValueCtrl,
-      indemnityCtrl, paymentFormCtrl,
+      registryCtrl,
+      statusCtrl,
+      stageCtrl,
+      dupNumberCtrl,
+      dupDateCtrl,
+      appraisalNumberCtrl,
+      appraisalDateCtrl,
+      appraisalValueCtrl,
+      indemnityCtrl,
+      paymentFormCtrl,
     ], _validate);
 
-    // default para novo
     if (statusCtrl.text.trim().isEmpty) {
       statusCtrl.text = 'A NEGOCIAR';
     }
@@ -183,7 +270,8 @@ class LaneRegularizationController extends ChangeNotifier
 
   void _validate() {
     final obrig = <TextEditingController>[
-      registryCtrl, statusCtrl,
+      registryCtrl,
+      statusCtrl,
     ];
     if (stageCtrl.text == 'DUP/NOTIFICAÇÃO') {
       obrig.addAll([dupNumberCtrl, dupDateCtrl]);
@@ -206,8 +294,7 @@ class LaneRegularizationController extends ChangeNotifier
     notifyListeners();
   }
 
-  void applySnapshot(List<LaneRegularizationData> list) {
-  }
+  void applySnapshot(List<LaneRegularizationData> list) {}
 
   // ====== Seleção
   void fillFields(LaneRegularizationData p) {
@@ -233,46 +320,69 @@ class LaneRegularizationController extends ChangeNotifier
 
     roadNameCtrl.text = p.roadName ?? '';
     laneSideCtrl.text = p.laneSide ?? '';
-    kmStartCtrl.text = doubleToString(p.kmStart);
-    kmEndCtrl.text = doubleToString(p.kmEnd);
-    corridorWidthCtrl.text = doubleToString(p.corridorWidthM);
-    centroidLatCtrl.text = doubleToString(p.centroidLat);
-    centroidLngCtrl.text = doubleToString(p.centroidLng);
+
+    kmStartCtrl.text = _fmtDec(p.kmStart, digits: 3);
+    kmEndCtrl.text = _fmtDec(p.kmEnd, digits: 3);
+    corridorWidthCtrl.text = _fmtDec(p.corridorWidthM, digits: 2);
+    centroidLatCtrl.text = _fmtDec(p.centroidLat, digits: 6);
+    centroidLngCtrl.text = _fmtDec(p.centroidLng, digits: 6);
 
     processCtrl.text = p.processNumber ?? '';
     dupNumberCtrl.text = p.dupNumber ?? '';
-    dupDateCtrl.text = p.dupDate != null ? dateTimeToDDMMYYYY(p.dupDate!) : '';
+    dupDateCtrl.text =
+    p.dupDate != null ? SipGedFormatDates.dateToDdMMyyyy(p.dupDate!) : '';
     doPublicationCtrl.text = p.doPublication ?? '';
-    doPublicationDateCtrl.text = p.doPublicationDate != null ? dateTimeToDDMMYYYY(p.doPublicationDate!) : '';
+    doPublicationDateCtrl.text = p.doPublicationDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.doPublicationDate!)
+        : '';
     arCtrl.text = p.notificationAR ?? '';
 
-    notifDateCtrl.text = p.notificationDate != null ? dateTimeToDDMMYYYY(p.notificationDate!) : '';
-    inspDateCtrl.text = p.inspectionDate != null ? dateTimeToDDMMYYYY(p.inspectionDate!) : '';
-    agreeDateCtrl.text = p.agreementDate != null ? dateTimeToDDMMYYYY(p.agreementDate!) : '';
-    paymentDateCtrl.text = p.paymentDate != null ? dateTimeToDDMMYYYY(p.paymentDate!) : '';
-    possessionDateCtrl.text = p.possessionDate != null ? dateTimeToDDMMYYYY(p.possessionDate!) : '';
-    evictionDateCtrl.text = p.evictionDate != null ? dateTimeToDDMMYYYY(p.evictionDate!) : '';
-    registryUpdateDateCtrl.text = p.registryUpdateDate != null ? dateTimeToDDMMYYYY(p.registryUpdateDate!) : '';
+    notifDateCtrl.text = p.notificationDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.notificationDate!)
+        : '';
+    inspDateCtrl.text = p.inspectionDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.inspectionDate!)
+        : '';
+    agreeDateCtrl.text = p.agreementDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.agreementDate!)
+        : '';
+    paymentDateCtrl.text = p.paymentDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.paymentDate!)
+        : '';
+    possessionDateCtrl.text = p.possessionDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.possessionDate!)
+        : '';
+    evictionDateCtrl.text = p.evictionDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.evictionDate!)
+        : '';
+    registryUpdateDateCtrl.text = p.registryUpdateDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.registryUpdateDate!)
+        : '';
 
     appraisalNumberCtrl.text = p.appraisalNumber ?? '';
     appraiserNameCtrl.text = p.appraiserName ?? '';
     appraisalMethodCtrl.text = p.appraisalMethod ?? '';
-    appraisalDateCtrl.text = p.appraisalDate != null ? dateTimeToDDMMYYYY(p.appraisalDate!) : '';
-    appraisalValueCtrl.text = priceToString(p.appraisalValue);
+    appraisalDateCtrl.text = p.appraisalDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.appraisalDate!)
+        : '';
 
-    totalAreaCtrl.text = doubleToString(p.totalArea);
-    affectedAreaCtrl.text = doubleToString(p.affectedArea);
-    indemnityCtrl.text = priceToString(p.indemnityValue);
+    appraisalValueCtrl.text = _fmtMoney(p.appraisalValue);
 
-    ownerCounterCtrl.text = priceToString(p.ownerCounterValue);
-    govProposalCtrl.text = priceToString(p.govProposalValue);
+    totalAreaCtrl.text = _fmtDec(p.totalArea, digits: 2);
+    affectedAreaCtrl.text = _fmtDec(p.affectedArea, digits: 2);
+
+    indemnityCtrl.text = _fmtMoney(p.indemnityValue);
+    ownerCounterCtrl.text = _fmtMoney(p.ownerCounterValue);
+    govProposalCtrl.text = _fmtMoney(p.govProposalValue);
 
     paymentFormCtrl.text = p.paymentForm ?? '';
     bankNameCtrl.text = p.bankName ?? '';
     bankAgencyCtrl.text = p.bankAgency ?? '';
     bankAccountCtrl.text = p.bankAccount ?? '';
     pixKeyCtrl.text = p.pixKey ?? '';
-    paymentDateCtrl.text = p.paymentDate != null ? dateTimeToDDMMYYYY(p.paymentDate!) : '';
+    paymentDateCtrl.text = p.paymentDate != null
+        ? SipGedFormatDates.dateToDdMMyyyy(p.paymentDate!)
+        : '';
 
     carCtrl.text = p.carNumber ?? '';
     ccirCtrl.text = p.ccirNumber ?? '';
@@ -282,7 +392,8 @@ class LaneRegularizationController extends ChangeNotifier
     courtCtrl.text = p.courtName ?? '';
     caseNumberCtrl.text = p.caseNumber ?? '';
     rpvPrecCtrl.text = p.rpvOrPrecatorio ?? '';
-    depositInCourtCtrl.text = priceToString(p.depositInCourtValue);
+
+    depositInCourtCtrl.text = _fmtMoney(p.depositInCourtValue);
 
     ressettlementCtrl.text = (p.resettlementRequired == true) ? 'Sim' : 'Não';
     familyCountCtrl.text = (p.familyCount ?? 0).toString();
@@ -293,7 +404,7 @@ class LaneRegularizationController extends ChangeNotifier
     notesCtrl.text = p.notes ?? '';
 
     _validate();
-    _refreshFilesForCurrentProperty(); // carrega e/ou migra anexos
+    _refreshFilesForCurrentProperty();
     notifyListeners();
   }
 
@@ -303,61 +414,107 @@ class LaneRegularizationController extends ChangeNotifier
     selected = null;
 
     for (final c in [
-      ownerCtrl, cpfCnpjCtrl, typeCtrl, statusCtrl,
-      registryCtrl, officeCtrl, addressCtrl, cityCtrl, ufCtrl,
-      processCtrl, notifDateCtrl, inspDateCtrl, agreeDateCtrl,
-      totalAreaCtrl, affectedAreaCtrl, indemnityCtrl,
-      phoneCtrl, emailCtrl, notesCtrl,
-      stageCtrl, negotiationCtrl, indemnityTypeCtrl, useOfLandCtrl, improvementsCtrl,
-      laneSideCtrl, roadNameCtrl, kmStartCtrl, kmEndCtrl, corridorWidthCtrl, centroidLatCtrl, centroidLngCtrl,
-      dupNumberCtrl, dupDateCtrl, doPublicationCtrl, doPublicationDateCtrl, arCtrl,
-      appraisalNumberCtrl, appraiserNameCtrl, appraisalMethodCtrl, appraisalDateCtrl, appraisalValueCtrl,
-      ownerCounterCtrl, govProposalCtrl,
-      paymentFormCtrl, bankNameCtrl, bankAgencyCtrl, bankAccountCtrl, pixKeyCtrl, paymentDateCtrl,
-      possessionDateCtrl, evictionDateCtrl, registryUpdateDateCtrl,
-      carCtrl, ccirCtrl, nirfCtrl, sncrCtrl,
-      courtCtrl, caseNumberCtrl, rpvPrecCtrl, depositInCourtCtrl,
-      ressettlementCtrl, familyCountCtrl, socialNotesCtrl,
-    ]) { c.clear(); }
+      ownerCtrl,
+      cpfCnpjCtrl,
+      typeCtrl,
+      statusCtrl,
+      registryCtrl,
+      officeCtrl,
+      addressCtrl,
+      cityCtrl,
+      ufCtrl,
+      processCtrl,
+      notifDateCtrl,
+      inspDateCtrl,
+      agreeDateCtrl,
+      totalAreaCtrl,
+      affectedAreaCtrl,
+      indemnityCtrl,
+      phoneCtrl,
+      emailCtrl,
+      notesCtrl,
+      stageCtrl,
+      negotiationCtrl,
+      indemnityTypeCtrl,
+      useOfLandCtrl,
+      improvementsCtrl,
+      laneSideCtrl,
+      roadNameCtrl,
+      kmStartCtrl,
+      kmEndCtrl,
+      corridorWidthCtrl,
+      centroidLatCtrl,
+      centroidLngCtrl,
+      dupNumberCtrl,
+      dupDateCtrl,
+      doPublicationCtrl,
+      doPublicationDateCtrl,
+      arCtrl,
+      appraisalNumberCtrl,
+      appraiserNameCtrl,
+      appraisalMethodCtrl,
+      appraisalDateCtrl,
+      appraisalValueCtrl,
+      ownerCounterCtrl,
+      govProposalCtrl,
+      paymentFormCtrl,
+      bankNameCtrl,
+      bankAgencyCtrl,
+      bankAccountCtrl,
+      pixKeyCtrl,
+      paymentDateCtrl,
+      possessionDateCtrl,
+      evictionDateCtrl,
+      registryUpdateDateCtrl,
+      carCtrl,
+      ccirCtrl,
+      nirfCtrl,
+      sncrCtrl,
+      courtCtrl,
+      caseNumberCtrl,
+      rpvPrecCtrl,
+      depositInCourtCtrl,
+      ressettlementCtrl,
+      familyCountCtrl,
+      socialNotesCtrl,
+    ]) {
+      c.clear();
+    }
 
-    // status padrão
     statusCtrl.text = 'A NEGOCIAR';
 
-    geoItems.clear(); selectedGeoIndex = null;
-    docItems.clear(); selectedDocIndex = null;
+    geoItems.clear();
+    selectedGeoIndex = null;
+    docItems.clear();
+    selectedDocIndex = null;
 
     _validate();
     notifyListeners();
   }
-
-  double? _toDouble(String s) => stringToDouble(s);
 
   // ====== CRUD
   Future<void> saveOrUpdate(BuildContext context) async {
     if (contract.id == null) return;
     isSaving = true;
     notifyListeners();
-    final wasEditing = editingMode; // preservar estado
+    final wasEditing = editingMode;
     try {
       final novo = LaneRegularizationData(
         id: currentId,
         contractId: contract.id,
         ownerName: ownerCtrl.text.trim(),
         status: (statusCtrl.text.trim().isEmpty) ? 'A NEGOCIAR' : statusCtrl.text,
-
         currentStage: stageCtrl.text,
         negotiationStatus: negotiationCtrl.text,
         indemnityType: indemnityTypeCtrl.text,
         useOfLand: useOfLandCtrl.text,
         hasImprovements: improvementsCtrl.text.trim().isNotEmpty,
         improvementsSummary: improvementsCtrl.text.trim(),
-
         registryNumber: registryCtrl.text.trim(),
         registryOffice: officeCtrl.text.trim(),
         address: addressCtrl.text.trim(),
         city: cityCtrl.text.trim(),
         state: ufCtrl.text.trim().toUpperCase(),
-
         roadName: roadNameCtrl.text.trim(),
         laneSide: laneSideCtrl.text,
         kmStart: _toDouble(kmStartCtrl.text),
@@ -365,53 +522,44 @@ class LaneRegularizationController extends ChangeNotifier
         corridorWidthM: _toDouble(corridorWidthCtrl.text),
         centroidLat: _toDouble(centroidLatCtrl.text),
         centroidLng: _toDouble(centroidLngCtrl.text),
-
         processNumber: processCtrl.text.trim(),
         dupNumber: dupNumberCtrl.text.trim(),
-        dupDate: convertDDMMYYYYToDateTime(dupDateCtrl.text),
+        dupDate: SipGedFormatDates.ddMMyyyyToDate(dupDateCtrl.text),
         doPublication: doPublicationCtrl.text.trim(),
-        doPublicationDate: convertDDMMYYYYToDateTime(doPublicationDateCtrl.text),
+        doPublicationDate: SipGedFormatDates.ddMMyyyyToDate(doPublicationDateCtrl.text),
         notificationAR: arCtrl.text.trim(),
-
-        notificationDate: convertDDMMYYYYToDateTime(notifDateCtrl.text),
-        inspectionDate: convertDDMMYYYYToDateTime(inspDateCtrl.text),
-        appraisalDate: convertDDMMYYYYToDateTime(appraisalDateCtrl.text),
-        agreementDate: convertDDMMYYYYToDateTime(agreeDateCtrl.text),
-        paymentDate: convertDDMMYYYYToDateTime(paymentDateCtrl.text),
-        possessionDate: convertDDMMYYYYToDateTime(possessionDateCtrl.text),
-        evictionDate: convertDDMMYYYYToDateTime(evictionDateCtrl.text),
-        registryUpdateDate: convertDDMMYYYYToDateTime(registryUpdateDateCtrl.text),
-
+        notificationDate: SipGedFormatDates.ddMMyyyyToDate(notifDateCtrl.text),
+        inspectionDate: SipGedFormatDates.ddMMyyyyToDate(inspDateCtrl.text),
+        appraisalDate: SipGedFormatDates.ddMMyyyyToDate(appraisalDateCtrl.text),
+        agreementDate: SipGedFormatDates.ddMMyyyyToDate(agreeDateCtrl.text),
+        paymentDate: SipGedFormatDates.ddMMyyyyToDate(paymentDateCtrl.text),
+        possessionDate: SipGedFormatDates.ddMMyyyyToDate(possessionDateCtrl.text),
+        evictionDate: SipGedFormatDates.ddMMyyyyToDate(evictionDateCtrl.text),
+        registryUpdateDate: SipGedFormatDates.ddMMyyyyToDate(registryUpdateDateCtrl.text),
         appraisalNumber: appraisalNumberCtrl.text.trim(),
         appraiserName: appraiserNameCtrl.text.trim(),
         appraisalMethod: appraisalMethodCtrl.text.trim(),
         appraisalValue: _toDouble(appraisalValueCtrl.text),
-
         totalArea: _toDouble(totalAreaCtrl.text),
         affectedArea: _toDouble(affectedAreaCtrl.text),
         indemnityValue: _toDouble(indemnityCtrl.text),
-
         ownerCounterValue: _toDouble(ownerCounterCtrl.text),
         govProposalValue: _toDouble(govProposalCtrl.text),
-
         paymentForm: paymentFormCtrl.text,
         bankName: bankNameCtrl.text,
         bankAgency: bankAgencyCtrl.text,
         bankAccount: bankAccountCtrl.text,
         pixKey: pixKeyCtrl.text,
-
         isRural: (typeCtrl.text == 'RURAL'),
         carNumber: carCtrl.text,
         ccirNumber: ccirCtrl.text,
         nirfNumber: nirfCtrl.text,
         incraSncr: sncrCtrl.text,
-
         isJudicial: (indemnityTypeCtrl.text == 'Judicial') || (statusCtrl.text == 'JUDICIALIZADO'),
         courtName: courtCtrl.text,
         caseNumber: caseNumberCtrl.text,
         rpvOrPrecatorio: rpvPrecCtrl.text,
         depositInCourtValue: _toDouble(depositInCourtCtrl.text),
-
         resettlementRequired: ressettlementCtrl.text.toLowerCase() == 'sim',
         familyCount: int.tryParse(familyCountCtrl.text),
         socialNotes: socialNotesCtrl.text,
@@ -422,7 +570,6 @@ class LaneRegularizationController extends ChangeNotifier
 
       await store.saveOrUpdate(contract.id!, novo);
 
-      // persiste anexos atuais (geo/doc) no doc do imóvel
       await _persistAttachments();
 
       await reload();
@@ -457,12 +604,15 @@ class LaneRegularizationController extends ChangeNotifier
     final pId = selected?.id;
     if (cId == null || pId == null) return null;
     return FirebaseFirestore.instance
-        .collection('contracts').doc(cId)
-        .collection('planning_right_way_properties').doc(pId);
+        .collection('contracts')
+        .doc(cId)
+        .collection('planning_right_way_properties')
+        .doc(pId);
   }
 
   Future<void> _persistAttachments() async {
-    final ref = _propRef(); if (ref == null) return;
+    final ref = _propRef();
+    if (ref == null) return;
     await ref.set({
       'geoAttachments': geoItems.map((e) => e.toMap()).toList(),
       'docAttachments': docItems.map((e) => e.toMap()).toList(),
@@ -471,48 +621,71 @@ class LaneRegularizationController extends ChangeNotifier
   }
 
   Future<void> _refreshFilesForCurrentProperty() async {
-    geoItems.clear(); selectedGeoIndex = null;
-    docItems.clear(); selectedDocIndex = null;
+    geoItems.clear();
+    selectedGeoIndex = null;
+    docItems.clear();
+    selectedDocIndex = null;
 
     final ref = _propRef();
-    if (ref == null) { notifyListeners(); return; }
+    if (ref == null) {
+      notifyListeners();
+      return;
+    }
 
     try {
       final snap = await ref.get();
       final data = snap.data() ?? {};
-      final geo = (data['geoAttachments'] as List?)?.map((e) => Attachment.fromMap(Map<String, dynamic>.from(e))).toList() ?? <Attachment>[];
-      final docs = (data['docAttachments'] as List?)?.map((e) => Attachment.fromMap(Map<String, dynamic>.from(e))).toList() ?? <Attachment>[];
+      final geo = (data['geoAttachments'] as List?)
+          ?.map((e) => Attachment.fromMap(Map<String, dynamic>.from(e)))
+          .toList() ??
+          <Attachment>[];
+      final docs = (data['docAttachments'] as List?)
+          ?.map((e) => Attachment.fromMap(Map<String, dynamic>.from(e)))
+          .toList() ??
+          <Attachment>[];
 
-      // MIGRAÇÃO: se vazio, buscar no Storage e persistir
       if (geo.isEmpty) {
-        final listed = await storage.listarGeo(contractId: contract.id!, propertyId: selected!.id!);
-        geoItems = listed.map((f) => Attachment(
-          id: f.name,
-          label: _baseName(f.name),
-          url: f.url,
-          path: f.path,
-          ext: '',
-          createdAt: DateTime.now(),
-        )).toList();
+        final listed = await storage.listarGeo(
+          contractId: contract.id!,
+          propertyId: selected!.id!,
+        );
+        geoItems = listed
+            .map(
+              (f) => Attachment(
+            id: f.name,
+            label: _baseName(f.name),
+            url: f.url,
+            path: f.path,
+            ext: '',
+            createdAt: DateTime.now(),
+          ),
+        )
+            .toList();
       } else {
         geoItems = geo;
       }
 
       if (docs.isEmpty) {
-        final listed = await storage.listarDocs(contractId: contract.id!, propertyId: selected!.id!);
-        docItems = listed.map((f) => Attachment(
-          id: f.name,
-          label: _baseName(f.name),
-          url: f.url,
-          path: f.path,
-          ext: '.pdf',
-          createdAt: DateTime.now(),
-        )).toList();
+        final listed = await storage.listarDocs(
+          contractId: contract.id!,
+          propertyId: selected!.id!,
+        );
+        docItems = listed
+            .map(
+              (f) => Attachment(
+            id: f.name,
+            label: _baseName(f.name),
+            url: f.url,
+            path: f.path,
+            ext: '.pdf',
+            createdAt: DateTime.now(),
+          ),
+        )
+            .toList();
       } else {
         docItems = docs;
       }
 
-      // persiste caso tenha migrado
       await _persistAttachments();
     } catch (_) {}
 
@@ -520,10 +693,13 @@ class LaneRegularizationController extends ChangeNotifier
   }
 
   Future<void> addGeoFile(BuildContext context) async {
-    final ref = _propRef(); if (ref == null) return;
+    final ref = _propRef();
+    if (ref == null) return;
+
     const progressId = 'lane_geo_upload_progress';
     try {
       String? last;
+
       final uploaded = await storage.uploadGeoWithPickerDetailed(
         contractId: contract.id!,
         propertyId: selected!.id!,
@@ -535,14 +711,13 @@ class LaneRegularizationController extends ChangeNotifier
               'Enviando georreferenciado',
               type: AppNotificationType.info,
               subtitle: '$pct%',
-              id: progressId, // atualiza a mesma notificação
+              id: progressId,
             );
             last = m;
           }
         },
       );
 
-      // fecha notificação de progresso
       NotificationCenter.instance.dismissById(progressId);
 
       final suggestion = _baseName(uploaded.name);
@@ -552,26 +727,31 @@ class LaneRegularizationController extends ChangeNotifier
         label: (label == null || label.isEmpty) ? suggestion : label,
         url: uploaded.url,
         path: uploaded.path,
-        ext: '', // geo
+        ext: '',
         createdAt: DateTime.now(),
       );
       geoItems = [att, ...geoItems];
       await _persistAttachments();
       notifyListeners();
 
-      _notify('Arquivo georreferenciado adicionado!', type: AppNotificationType.success);
+      _notify('Arquivo georreferenciado adicionado!',
+          type: AppNotificationType.success);
       mapRefresh.value++;
     } catch (e) {
       NotificationCenter.instance.dismissById(progressId);
-      _notify('Falha ao adicionar georreferenciado', type: AppNotificationType.error, subtitle: '$e');
+      _notify('Falha ao adicionar georreferenciado',
+          type: AppNotificationType.error, subtitle: '$e');
     }
   }
 
   Future<void> addDocFile(BuildContext context) async {
-    final ref = _propRef(); if (ref == null) return;
+    final ref = _propRef();
+    if (ref == null) return;
+
     const progressId = 'lane_doc_upload_progress';
     try {
       String? last;
+
       final uploaded = await storage.uploadDocWithPickerDetailed(
         contractId: contract.id!,
         propertyId: selected!.id!,
@@ -609,19 +789,23 @@ class LaneRegularizationController extends ChangeNotifier
       _notify('Arquivo adicionado!', type: AppNotificationType.success);
     } catch (e) {
       NotificationCenter.instance.dismissById(progressId);
-      _notify('Falha ao adicionar anexo', type: AppNotificationType.error, subtitle: '$e');
+      _notify('Falha ao adicionar anexo',
+          type: AppNotificationType.error, subtitle: '$e');
     }
   }
 
-  // abrir GEO (continua externo)
+  // abrir GEO (externo)
   void openGeoAt(int i) async {
     if (i < 0 || i >= geoItems.length) return;
-    selectedGeoIndex = i; notifyListeners();
+    selectedGeoIndex = i;
+    notifyListeners();
     final url = geoItems[i].url;
-    try { await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication); } catch (_) {}
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
-  // 🔥 abrir DOC (PDF) no dialog interno
+  // abrir DOC (PDF) no dialog interno
   Future<void> openDocAt(BuildContext context, int i) async {
     if (i < 0 || i >= docItems.length) return;
     selectedDocIndex = i;
@@ -648,7 +832,8 @@ class LaneRegularizationController extends ChangeNotifier
       await _persistAttachments();
       notifyListeners();
       mapRefresh.value++;
-      _notify('Arquivo georreferenciado removido.', type: AppNotificationType.warning);
+      _notify('Arquivo georreferenciado removido.',
+          type: AppNotificationType.warning);
     } catch (e) {
       _notify('Erro ao remover', type: AppNotificationType.error, subtitle: '$e');
     }
@@ -667,27 +852,55 @@ class LaneRegularizationController extends ChangeNotifier
     }
   }
 
-  // editar rótulo
+  // ============================================================
+  // ✅ Métodos antigos (com dialog) — mantidos p/ compatibilidade
+  // ============================================================
+  Future<void> renameGeoLabel({
+    required int index,
+    required String newLabel,
+  }) async {
+    if (index < 0 || index >= geoItems.length) return;
+    final trimmed = newLabel.trim();
+    if (trimmed.isEmpty) return;
+
+    final current = geoItems[index];
+    if (current.label == trimmed) return;
+
+    geoItems[index] = current.copyWith(label: trimmed);
+    await _persistAttachments();
+    notifyListeners();
+  }
+
+  Future<void> renameDocLabel({
+    required int index,
+    required String newLabel,
+  }) async {
+    if (index < 0 || index >= docItems.length) return;
+    final trimmed = newLabel.trim();
+    if (trimmed.isEmpty) return;
+
+    final current = docItems[index];
+    if (current.label == trimmed) return;
+
+    docItems[index] = current.copyWith(label: trimmed);
+    await _persistAttachments();
+    notifyListeners();
+  }
+
   Future<void> editGeoLabel(BuildContext context, int i) async {
     if (i < 0 || i >= geoItems.length) return;
     final current = geoItems[i];
     final newLabel = await askLabelDialog(context, current.label);
-    if (newLabel == null || newLabel.isEmpty || newLabel == current.label) return;
-
-    geoItems[i] = current..label = newLabel;
-    await _persistAttachments();
-    notifyListeners();
+    if (newLabel == null) return;
+    await renameGeoLabel(index: i, newLabel: newLabel);
   }
 
   Future<void> editDocLabel(BuildContext context, int i) async {
     if (i < 0 || i >= docItems.length) return;
     final current = docItems[i];
     final newLabel = await askLabelDialog(context, current.label);
-    if (newLabel == null || newLabel.isEmpty || newLabel == current.label) return;
-
-    docItems[i] = current..label = newLabel;
-    await _persistAttachments();
-    notifyListeners();
+    if (newLabel == null) return;
+    await renameDocLabel(index: i, newLabel: newLabel);
   }
 
   // 🔔 util de notificação global
@@ -704,7 +917,9 @@ class LaneRegularizationController extends ChangeNotifier
       AppNotification(
         id: id,
         title: Text(title),
-        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        subtitle: (subtitle != null && subtitle.isNotEmpty)
+            ? Text(subtitle)
+            : null,
         type: type,
       ),
     );
@@ -713,29 +928,86 @@ class LaneRegularizationController extends ChangeNotifier
   @override
   void dispose() {
     removeValidation([
-      registryCtrl, statusCtrl, stageCtrl,
-      dupNumberCtrl, dupDateCtrl,
-      appraisalNumberCtrl, appraisalDateCtrl, appraisalValueCtrl,
-      indemnityCtrl, paymentFormCtrl,
+      registryCtrl,
+      statusCtrl,
+      stageCtrl,
+      dupNumberCtrl,
+      dupDateCtrl,
+      appraisalNumberCtrl,
+      appraisalDateCtrl,
+      appraisalValueCtrl,
+      indemnityCtrl,
+      paymentFormCtrl,
     ], _validate);
 
     for (final c in [
-      ownerCtrl, cpfCnpjCtrl, typeCtrl, statusCtrl,
-      registryCtrl, officeCtrl, addressCtrl, cityCtrl, ufCtrl,
-      processCtrl, notifDateCtrl, inspDateCtrl, agreeDateCtrl,
-      totalAreaCtrl, affectedAreaCtrl, indemnityCtrl,
-      phoneCtrl, emailCtrl, notesCtrl,
-      stageCtrl, negotiationCtrl, indemnityTypeCtrl, useOfLandCtrl, improvementsCtrl,
-      laneSideCtrl, roadNameCtrl, kmStartCtrl, kmEndCtrl, corridorWidthCtrl, centroidLatCtrl, centroidLngCtrl,
-      dupNumberCtrl, dupDateCtrl, doPublicationCtrl, doPublicationDateCtrl, arCtrl,
-      appraisalNumberCtrl, appraiserNameCtrl, appraisalMethodCtrl, appraisalDateCtrl, appraisalValueCtrl,
-      ownerCounterCtrl, govProposalCtrl,
-      paymentFormCtrl, bankNameCtrl, bankAgencyCtrl, bankAccountCtrl, pixKeyCtrl, paymentDateCtrl,
-      possessionDateCtrl, evictionDateCtrl, registryUpdateDateCtrl,
-      carCtrl, ccirCtrl, nirfCtrl, sncrCtrl,
-      courtCtrl, caseNumberCtrl, rpvPrecCtrl, depositInCourtCtrl,
-      ressettlementCtrl, familyCountCtrl, socialNotesCtrl,
-    ]) { c.dispose(); }
+      ownerCtrl,
+      cpfCnpjCtrl,
+      typeCtrl,
+      statusCtrl,
+      registryCtrl,
+      officeCtrl,
+      addressCtrl,
+      cityCtrl,
+      ufCtrl,
+      processCtrl,
+      notifDateCtrl,
+      inspDateCtrl,
+      agreeDateCtrl,
+      totalAreaCtrl,
+      affectedAreaCtrl,
+      indemnityCtrl,
+      phoneCtrl,
+      emailCtrl,
+      notesCtrl,
+      stageCtrl,
+      negotiationCtrl,
+      indemnityTypeCtrl,
+      useOfLandCtrl,
+      improvementsCtrl,
+      laneSideCtrl,
+      roadNameCtrl,
+      kmStartCtrl,
+      kmEndCtrl,
+      corridorWidthCtrl,
+      centroidLatCtrl,
+      centroidLngCtrl,
+      dupNumberCtrl,
+      dupDateCtrl,
+      doPublicationCtrl,
+      doPublicationDateCtrl,
+      arCtrl,
+      appraisalNumberCtrl,
+      appraiserNameCtrl,
+      appraisalMethodCtrl,
+      appraisalDateCtrl,
+      appraisalValueCtrl,
+      ownerCounterCtrl,
+      govProposalCtrl,
+      paymentFormCtrl,
+      bankNameCtrl,
+      bankAgencyCtrl,
+      bankAccountCtrl,
+      pixKeyCtrl,
+      paymentDateCtrl,
+      possessionDateCtrl,
+      evictionDateCtrl,
+      registryUpdateDateCtrl,
+      carCtrl,
+      ccirCtrl,
+      nirfCtrl,
+      sncrCtrl,
+      courtCtrl,
+      caseNumberCtrl,
+      rpvPrecCtrl,
+      depositInCourtCtrl,
+      ressettlementCtrl,
+      familyCountCtrl,
+      socialNotesCtrl,
+    ]) {
+      c.dispose();
+    }
+
     super.dispose();
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 import 'report_measurement_state.dart';
 import 'report_measurement_data.dart';
@@ -22,9 +23,7 @@ class ReportMeasurementCubit extends Cubit<ReportMeasurementState> {
       contractId: contractId,
     ));
     try {
-      final list = await _repo.getAllMeasurementsOfContract(
-        uidContract: contractId,
-      );
+      final list = await _repo.getAllMeasurementsOfContract(uidContract: contractId);
       emit(
         state.copyWith(
           status: ReportMeasurementStatus.success,
@@ -44,7 +43,7 @@ class ReportMeasurementCubit extends Cubit<ReportMeasurementState> {
   }
 
   // ---------------------------------------------------------------------------
-  // CollectionGroup (para dashboards) – retorna direto
+  // CollectionGroup (para dashboards)
   // ---------------------------------------------------------------------------
 
   Future<List<ReportMeasurementData>> getAllMeasurementsCollectionGroup() {
@@ -52,7 +51,7 @@ class ReportMeasurementCubit extends Cubit<ReportMeasurementState> {
   }
 
   // ---------------------------------------------------------------------------
-  // CRUD delegando para o Repository
+  // CRUD
   // ---------------------------------------------------------------------------
 
   Future<void> saveOrUpdate(ReportMeasurementData data) async {
@@ -66,15 +65,75 @@ class ReportMeasurementCubit extends Cubit<ReportMeasurementState> {
     required String contractId,
     required String measurementId,
   }) async {
-    await _repo.deleteMeasurement(
+    await _repo.deleteMeasurement(contractId: contractId, measurementId: measurementId);
+    if (state.contractId == contractId) {
+      await loadByContract(contractId);
+    }
+  }
+
+  double sum(List<ReportMeasurementData> list) => _repo.somarValorMedicoes(list);
+
+  // ---------------------------------------------------------------------------
+  // ✅ Attachments (SideListBox)
+  // ---------------------------------------------------------------------------
+
+  Future<Attachment> pickAndUploadAttachment({
+    required String contractId,
+    required String measurementId,
+  }) async {
+    emit(state.copyWith(uploading: true, uploadProgress: 0.0, error: null));
+
+    try {
+      final att = await _repo.pickAndUploadAttachment(
+        contractId: contractId,
+        measurementId: measurementId,
+        onProgress: (p) {
+          emit(state.copyWith(uploading: true, uploadProgress: p));
+        },
+      );
+
+      // recarrega lista para refletir attachments
+      if (state.contractId == contractId) {
+        await loadByContract(contractId);
+      }
+
+      emit(state.copyWith(uploading: false, uploadProgress: null));
+      return att;
+    } catch (e) {
+      emit(state.copyWith(uploading: false, uploadProgress: null, error: e.toString()));
+      rethrow;
+    }
+  }
+
+  Future<void> deleteAttachment({
+    required String contractId,
+    required String measurementId,
+    required Attachment attachment,
+  }) async {
+    await _repo.deleteAttachment(
       contractId: contractId,
       measurementId: measurementId,
+      attachment: attachment,
     );
     if (state.contractId == contractId) {
       await loadByContract(contractId);
     }
   }
 
-  double sum(List<ReportMeasurementData> list) =>
-      _repo.somarValorMedicoes(list);
+  Future<void> renameAttachmentLabel({
+    required String contractId,
+    required String measurementId,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
+    await _repo.renameAttachmentLabel(
+      contractId: contractId,
+      measurementId: measurementId,
+      oldItem: oldItem,
+      newItem: newItem,
+    );
+    if (state.contractId == contractId) {
+      await loadByContract(contractId);
+    }
+  }
 }

@@ -16,7 +16,6 @@ class EtpCubit extends Cubit<EtpState> {
   // ===========================================================
   ///
   /// Uso típico:
-  ///   final etp = await context.read<EtpCubit>().getDataForContract(contractId);
   ///
   Future<EtpData?> getDataForContract(String contractId) {
     return repo.readDataForContract(contractId);

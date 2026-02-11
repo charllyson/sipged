@@ -61,7 +61,7 @@ class PlanningHighwayDomainData extends Equatable {
       }
     }
 
-    DateTime? _d(dynamic v) {
+    DateTime? d(dynamic v) {
       if (v == null) return null;
       if (v is Timestamp) return v.toDate();
       if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
@@ -75,9 +75,9 @@ class PlanningHighwayDomainData extends Equatable {
       properties: Map<String, dynamic>.from((m['props'] as Map?) ?? const {}),
       geometryType: (m['geometryType'] ?? 'LineString').toString(),
       points: pts,
-      createdAt: _d(m['createdAt']),
+      createdAt: d(m['createdAt']),
       createdBy: (m['createdBy'] ?? '') as String?,
-      updatedAt: _d(m['updatedAt']),
+      updatedAt: d(m['updatedAt']),
       updatedBy: (m['updatedBy'] ?? '') as String?,
     );
   }

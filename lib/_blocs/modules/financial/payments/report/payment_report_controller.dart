@@ -17,11 +17,10 @@ import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
-
+import 'package:siged/_utils/validates/sipged_validation.dart';
 // permissões
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
@@ -33,7 +32,7 @@ import 'package:siged/_widgets/pdf/pdf_preview.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class PaymentsReportController extends ChangeNotifier
-    with FormValidationMixin {
+    with SipGedValidation {
   PaymentsReportController({
     required PaymentReportBloc paymentReportBloc,
     required AdditivesRepository additivesRepository,
@@ -288,16 +287,16 @@ class PaymentsReportController extends ChangeNotifier
 
     orderCtrl.text = (data.orderPaymentReport ?? '').toString();
     processCtrl.text = data.processPaymentReport ?? '';
-    valueCtrl.text = priceToString(data.valuePaymentReport);
+    valueCtrl.text = SipGedFormatMoney.doubleToText(data.valuePaymentReport);
     dateCtrl.text = data.datePaymentReport != null
-        ? dateTimeToDDMMYYYY(data.datePaymentReport!)
+        ? SipGedFormatDates.dateToDdMMyyyy(data.datePaymentReport!)
         : '';
     stateCtrl.text = data.statePaymentReport ?? '';
     observationCtrl.text = data.observationPaymentReport ?? '';
     bankCtrl.text = data.orderBankPaymentReport ?? '';
     electronicTicketCtrl.text = data.electronicTicketPaymentReport ?? '';
     fontCtrl.text = data.fontPaymentReport ?? '';
-    taxCtrl.text = priceToString(data.taxPaymentReport);
+    taxCtrl.text = SipGedFormatMoney.doubleToText(data.taxPaymentReport);
 
     _refreshSideList();
     notifyListeners();
@@ -347,14 +346,14 @@ class PaymentsReportController extends ChangeNotifier
         contractId: contract!.id!,
         orderPaymentReport: int.tryParse(orderCtrl.text),
         processPaymentReport: processCtrl.text,
-        valuePaymentReport: parseCurrencyToDouble(valueCtrl.text),
-        datePaymentReport: convertDDMMYYYYToDateTime(dateCtrl.text),
+        valuePaymentReport: SipGedFormatMoney.parseBrl(valueCtrl.text),
+        datePaymentReport: SipGedFormatDates.ddMMyyyyToDate(dateCtrl.text),
         statePaymentReport: stateCtrl.text,
         observationPaymentReport: observationCtrl.text,
         orderBankPaymentReport: bankCtrl.text,
         electronicTicketPaymentReport: electronicTicketCtrl.text,
         fontPaymentReport: fontCtrl.text,
-        taxPaymentReport: parseCurrencyToDouble(taxCtrl.text),
+        taxPaymentReport: SipGedFormatMoney.parseBrl(taxCtrl.text),
         pdfUrl: _selected?.pdfUrl, // legado preservado
         attachments: _selected?.attachments, // mantém anexos numa edição
       );
@@ -711,4 +710,101 @@ class PaymentsReportController extends ChangeNotifier
     _selected = _selected!..pdfUrl = url;
     await _refreshSideList();
   }
+
+  // =========================
+  // SideListBox (NOVO) hooks
+  // =========================
+
+  /// SideListBox novo pode avisar a lista atual (pós rename / delete etc.)
+  /// Aqui a gente só sincroniza com o controller.
+  void setSideItems(List<dynamic> newItems) {
+    sideItems = List<dynamic>.from(newItems);
+
+    // Se todos forem Attachment, mantém o selected.attachments sincronizado em memória.
+    final p = _selected;
+    if (p != null) {
+      final atts = _extractAttachments(newItems);
+      if (atts != null) {
+        p.attachments = atts;
+      }
+    }
+
+    notifyListeners();
+  }
+
+  /// Persistência do rename do SideListBox novo.
+  /// Retorne true se salvou OK; false pra UI reverter.
+  Future<bool> persistRenameAttachment({
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
+    final p = _selected;
+    final cId = contract?.id;
+
+    if (p == null) return false;
+    if (cId == null || cId.isEmpty) return false;
+    if (p.idPaymentReport == null || p.idPaymentReport!.isEmpty) return false;
+
+    final current = List<Attachment>.from(p.attachments ?? const []);
+
+    // Segurança: se index não bate, tenta achar pelo id/url
+    int idx = (index >= 0 && index < current.length) ? index : -1;
+    if (idx == -1) {
+      idx = current.indexWhere((a) =>
+      a.id == oldItem.id ||
+          (a.url.isNotEmpty && a.url == oldItem.url));
+    }
+    if (idx == -1) return false;
+
+    // Atualiza apenas o label + auditoria
+    final updated = Attachment(
+      id: current[idx].id,
+      label: newItem.label,
+      url: current[idx].url,
+      path: current[idx].path,
+      ext: current[idx].ext,
+      size: current[idx].size,
+      createdAt: current[idx].createdAt,
+      createdBy: current[idx].createdBy,
+      updatedAt: DateTime.now(),
+      updatedBy: currentUser?.uid,
+    );
+
+    current[idx] = updated;
+
+    try {
+      await _paymentReportBloc.setAttachments(
+        contractId: cId,
+        paymentId: p.idPaymentReport!,
+        attachments: current,
+      );
+
+      // Mantém memória + UI sincronizadas
+      p.attachments = current;
+
+      // sideItems precisa refletir o rename (pra UI não depender do refresh)
+      sideItems = List<dynamic>.from(current);
+
+      // mantém seleção
+      if (selectedSideIndex != null && selectedSideIndex == index) {
+        selectedSideIndex = idx;
+      }
+
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Helper: se a lista for toda Attachment, retorna; senão, null
+  List<Attachment>? _extractAttachments(List<dynamic> items) {
+    if (items.isEmpty) return <Attachment>[];
+    for (final it in items) {
+      if (it is! Attachment) return null;
+    }
+    return items.cast<Attachment>().toList();
+  }
+
 }

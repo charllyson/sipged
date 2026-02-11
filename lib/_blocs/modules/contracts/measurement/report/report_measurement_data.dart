@@ -100,8 +100,8 @@ class ReportMeasurementData {
   // ---------- from/to ----------
   factory ReportMeasurementData.fromDocument(DocumentSnapshot snap) {
     final data = _readSnapData(snap);
-    final _contractId = snap.reference.parent.parent?.id;
-    final _pdfUrl = data['pdfUrl'] as String?;
+    final contractId = snap.reference.parent.parent?.id;
+    final pdfUrl = data['pdfUrl'] as String?;
 
     return ReportMeasurementData(
       id: (data['id'] as String?) ?? snap.id,
@@ -110,18 +110,18 @@ class ReportMeasurementData {
           data['measurementnumberprocess'] as String?,
       date: _toDate(data['date'] ?? data['measurementdata']),
       value: _toDouble(data['value'] ?? data['measurementinitialvalue']),
-      pdfUrl: _pdfUrl,
-      contractId: _contractId,
+      pdfUrl: pdfUrl,
+      contractId: contractId,
       createdAt: _toDate(data['createdAt']),
       createdBy: data['createdBy'] as String?,
       updatedAt: _toDate(data['updatedAt']),
       updatedBy: data['updatedBy'] as String?,
-      attachments: _toAttachments(data['attachments'], fallbackPdfUrl: _pdfUrl),
+      attachments: _toAttachments(data['attachments'], fallbackPdfUrl: pdfUrl),
     );
   }
 
   factory ReportMeasurementData.fromMap(Map<String, dynamic> json) {
-    final _pdfUrl = json['pdfUrl'] as String?;
+    final pdfUrl = json['pdfUrl'] as String?;
     return ReportMeasurementData(
       id: json['id'] as String?,
       order: _toInt(json['order'] ?? json['measurementorder']),
@@ -129,13 +129,13 @@ class ReportMeasurementData {
           json['measurementnumberprocess'] as String?,
       date: _toDate(json['date'] ?? json['measurementdata']),
       value: _toDouble(json['value'] ?? json['measurementinitialvalue']),
-      pdfUrl: _pdfUrl,
+      pdfUrl: pdfUrl,
       contractId: json['contractId'] as String?,
       createdAt: _toDate(json['createdAt']),
       createdBy: json['createdBy'] as String?,
       updatedAt: _toDate(json['updatedAt']),
       updatedBy: json['updatedBy'] as String?,
-      attachments: _toAttachments(json['attachments'], fallbackPdfUrl: _pdfUrl),
+      attachments: _toAttachments(json['attachments'], fallbackPdfUrl: pdfUrl),
     );
   }
 

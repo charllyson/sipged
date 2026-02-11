@@ -42,10 +42,6 @@ class AttributesTableRepository {
           Uri.file(file.path!),
         );
 
-    if (bytes == null) {
-      throw Exception('Não foi possível ler o arquivo selecionado (bytes/path indisponível).');
-    }
-
     if (ext == 'geojson' || ext == 'json') {
       return _featuresFromGeoJsonBytes(bytes);
     } else if (ext == 'kml' || ext == 'kmz') {
@@ -148,7 +144,7 @@ class AttributesTableRepository {
   }) async {
     Query<Map<String, dynamic>> q = _firestore.collection(collectionPath);
 
-    Future<QuerySnapshot<Map<String, dynamic>>> _tryGet(bool withOrder) async {
+    Future<QuerySnapshot<Map<String, dynamic>>> tryGet(bool withOrder) async {
       Query<Map<String, dynamic>> qq = q;
       if (withOrder) {
         qq = qq.orderBy(orderByField, descending: orderDescending);
@@ -158,9 +154,9 @@ class AttributesTableRepository {
 
     QuerySnapshot<Map<String, dynamic>> snap;
     try {
-      snap = await _tryGet(true);
+      snap = await tryGet(true);
     } catch (_) {
-      snap = await _tryGet(false);
+      snap = await tryGet(false);
     }
 
     final docs = snap.docs;

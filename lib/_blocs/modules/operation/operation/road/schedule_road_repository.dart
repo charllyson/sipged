@@ -175,7 +175,7 @@ class ScheduleRoadRepository {
 
     final out = <String, double>{};
 
-    Future<void> _sumForGroups(
+    Future<void> sumForGroups(
         QuerySnapshot<Map<String, dynamic>> groups,
         ) async {
       for (final g in groups.docs) {
@@ -205,10 +205,10 @@ class ScheduleRoadRepository {
           .collection('groups')
           .orderBy('order')
           .get();
-      await _sumForGroups(groups);
+      await sumForGroups(groups);
     } else {
       final groups = await metaRef.collection('rows').orderBy('order').get();
-      await _sumForGroups(groups);
+      await sumForGroups(groups);
     }
 
     return out;
@@ -328,7 +328,7 @@ class ScheduleRoadRepository {
 
     final results = <ScheduleRoadData>[];
 
-    ScheduleRoadData _fromDoc(
+    ScheduleRoadData fromDoc(
         Map<String, dynamic> m, {
           ScheduleRoadData? meta,
         }) {
@@ -362,7 +362,7 @@ class ScheduleRoadRepository {
         ]);
         for (final snap in snaps) {
           for (final d in snap.docs) {
-            results.add(_fromDoc(d.data(), meta: metaForSelected));
+            results.add(fromDoc(d.data(), meta: metaForSelected));
           }
         }
       }
@@ -370,7 +370,7 @@ class ScheduleRoadRepository {
       final snap = await _contractCol(contractId, _collectionForService(selectedServiceKey))
           .get();
       for (final d in snap.docs) {
-        results.add(_fromDoc(d.data(), meta: metaForSelected));
+        results.add(fromDoc(d.data(), meta: metaForSelected));
       }
     }
 

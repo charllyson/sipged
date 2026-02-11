@@ -143,8 +143,4 @@ class PaymentAdjustmentBloc extends BlocBase {
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

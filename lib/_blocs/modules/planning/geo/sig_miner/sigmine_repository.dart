@@ -80,7 +80,7 @@ class SigMineRepository {
       if (rings.isEmpty) continue;
 
       // helpers robustos
-      String? _s(Iterable keys) {
+      String? s0(Iterable keys) {
         for (final k in keys) {
           final v = attr[k];
           if (v == null) continue;
@@ -90,30 +90,30 @@ class SigMineRepository {
         return null;
       }
 
-      double? _d(Iterable keys) {
-        final s = _s(keys);
+      double? d(Iterable keys) {
+        final s = s0(keys);
         if (s == null) return null;
         final ss = s.replaceAll(',', '.');
         return double.tryParse(ss);
       }
 
-      final processo = _s(['PROCESSO']) ?? 'DESCONHECIDO';
+      final processo = s0(['PROCESSO']) ?? 'DESCONHECIDO';
       final fase =
-      _s(['FASE', 'SITUACAO_FASE', 'SIT_FASE']);
+      s0(['FASE', 'SITUACAO_FASE', 'SIT_FASE']);
       final subs =
-      _s(['SUBS', 'SUBSTANCIA']);
+      s0(['SUBS', 'SUBSTANCIA']);
       final titular =
-      _s(['NOME', 'TITULAR']);
+      s0(['NOME', 'TITULAR']);
       final uso =
-      _s(['USO', 'CLASSE_USO', 'CLASSE']);
-      final uf = _s(['UF']);
+      s0(['USO', 'CLASSE_USO', 'CLASSE']);
+      final uf = s0(['UF']);
       final areaHa =
-      _d(['AREA_HA', 'AREA_HA_DEC', 'AREA_HA_TXT', 'AREA']);
-      final ultimoEvento = _s(
+      d(['AREA_HA', 'AREA_HA_DEC', 'AREA_HA_TXT', 'AREA']);
+      final ultimoEvento = s0(
           ['ULT_EVENTO', 'ULTIMO_EVENTO', 'EVENTO_DESCR']);
       final dataUltEvento =
-      _s(['DATA', 'DT_EVENTO', 'DATA_ULT_EVENTO']);
-      final situacao = _s(['SITUACAO', 'STATUS']);
+      s0(['DATA', 'DT_EVENTO', 'DATA_ULT_EVENTO']);
+      final situacao = s0(['SITUACAO', 'STATUS']);
 
       for (final ring in rings) {
         final pts = (ring as List)

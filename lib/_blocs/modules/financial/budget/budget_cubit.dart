@@ -117,6 +117,25 @@ class BudgetCubit extends Cubit<BudgetState> {
 
   // ==================== ATTACHMENTS ====================
 
+  // ==================== ATTACHMENTS ====================
+
+// ✅ novo: substituir lista inteira (usado pelo SideListBox.onItemsChanged)
+  void setAttachments(List<Attachment> list) {
+    // mantém selectedSideIndex consistente
+    int? nextSelected = state.selectedSideIndex;
+    if (list.isEmpty) {
+      nextSelected = null;
+    } else if (nextSelected == null || nextSelected < 0 || nextSelected >= list.length) {
+      nextSelected = 0;
+    }
+
+    emit(state.copyWith(
+      attachments: list,
+      selectedSideIndex: nextSelected,
+    ));
+  }
+
+// (mantém o seu)
   void selectSideIndex(int? i) => emit(state.copyWith(selectedSideIndex: i));
 
   void addAttachment(Attachment a) {

@@ -93,7 +93,7 @@ class PaymentsRevisionsData extends ChangeNotifier {
   }
 
   factory PaymentsRevisionsData.fromJson(Map<String, dynamic> json) {
-    List<Attachment>? _parseAtts(dynamic v) {
+    List<Attachment>? parseAtts(dynamic v) {
       if (v is List) {
         return v
             .whereType<Map<String, dynamic>>()
@@ -103,12 +103,12 @@ class PaymentsRevisionsData extends ChangeNotifier {
       return null;
     }
 
-    double _parseDouble(dynamic v) {
+    double parseDouble(dynamic v) {
       if (v is num) return v.toDouble();
       return double.tryParse(v?.toString() ?? '') ?? 0.0;
     }
 
-    DateTime? _parseDate(dynamic v) {
+    DateTime? parseDate(dynamic v) {
       if (v is Timestamp) return v.toDate();
       if (v is DateTime) return v;
       if (v is String) return DateTime.tryParse(v);
@@ -121,19 +121,19 @@ class PaymentsRevisionsData extends ChangeNotifier {
       statePaymentRevision: json['statePaymentRevision'] ?? '',
       observationPaymentRevision: json['observationPaymentRevision'] ?? '',
       orderBankPaymentRevision: json['orderBankPaymentRevision'] ?? '',
-      datePaymentRevision: _parseDate(json['datePaymentRevision']),
+      datePaymentRevision: parseDate(json['datePaymentRevision']),
       processPaymentRevision: json['numberProcessPaymentRevision'] ?? '',
-      valuePaymentRevision: _parseDouble(json['valuePaymentRevision']),
+      valuePaymentRevision: parseDouble(json['valuePaymentRevision']),
       electronicTicketPaymentRevision: json['electronicTicketPaymentRevision'] ?? '',
       fontPaymentRevision: json['fontPaymentRevision'] ?? '',
-      taxPaymentRevision: _parseDouble(json['taxPaymentRevision']),
+      taxPaymentRevision: parseDouble(json['taxPaymentRevision']),
       pdfUrl: json['pdfUrl'] as String?,
-      attachments: _parseAtts(json['attachments']),
-      createdAt: _parseDate(json['createdAt']),
+      attachments: parseAtts(json['attachments']),
+      createdAt: parseDate(json['createdAt']),
       createdBy: json['createdBy'] ?? '',
-      updatedAt: _parseDate(json['updatedAt']),
+      updatedAt: parseDate(json['updatedAt']),
       updatedBy: json['updatedBy'] ?? '',
-      deletedAt: _parseDate(json['deletedAt']),
+      deletedAt: parseDate(json['deletedAt']),
       deletedBy: json['deletedBy'] ?? '',
     );
   }

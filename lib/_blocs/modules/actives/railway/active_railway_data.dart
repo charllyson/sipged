@@ -150,9 +150,7 @@ class ActiveRailwayData extends ChangeNotifier {
     extensao = d.extensao;
     extensaoE = d.extensaoE;
     extensaoC = d.extensaoC;
-    multiLine = d.multiLine == null
-        ? null
-        : d.multiLine!.map((seg) => List<LatLng>.from(seg)).toList();
+    multiLine = d.multiLine?.map((seg) => List<LatLng>.from(seg)).toList();
     geometryType = d.geometryType;
     order = d.order;
     score = d.score;

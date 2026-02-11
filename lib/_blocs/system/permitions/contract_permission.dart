@@ -32,14 +32,14 @@ class ContractPermissions {
     final raw = contract.permissionContractId[uid];
 
     // ❗Null / tipo inesperado => sem permissões
-    if (raw == null || raw is! Map) {
+    if (raw == null) {
       return mp.ModulePermissions.none;
     }
 
     // Converte chaves para String e valores para dynamic
     final m = <String, dynamic>{};
     raw.forEach((key, value) {
-      if (key is String) m[key] = value;
+      m[key] = value;
     });
 
     return mp.ModulePermissions.fromMap(m);

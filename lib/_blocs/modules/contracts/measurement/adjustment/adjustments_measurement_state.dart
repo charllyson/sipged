@@ -1,4 +1,3 @@
-// lib/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_state.dart
 import 'package:equatable/equatable.dart';
 
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -15,23 +14,20 @@ enum AdjustmentMeasurementStatus {
 class AdjustmentMeasurementState extends Equatable {
   final AdjustmentMeasurementStatus status;
 
-  /// Lista de reajustes do contrato corrente (quando usado em telas de contrato).
   final List<AdjustmentMeasurementData> adjustments;
-
-  /// Opcional: erro.
   final String? errorMessage;
-
-  /// Opcional: id do contrato carregado.
   final String? contractId;
 
-  /// Se há operação de salvamento em andamento.
+  /// loading geral (salvar / delete / setAttachments etc.)
   final bool isSaving;
 
-  /// Seleção de linha (para tela de contrato).
+  /// ✅ NOVO: upload/anexo
+  final bool uploading;
+  final double? uploadProgress;
+
   final AdjustmentMeasurementData? selected;
   final int? selectedIndex;
 
-  /// Lista de anexos do registro selecionado.
   final List<Attachment> attachments;
   final int? selectedAttachmentIndex;
 
@@ -41,6 +37,8 @@ class AdjustmentMeasurementState extends Equatable {
     this.errorMessage,
     this.contractId,
     this.isSaving = false,
+    this.uploading = false,
+    this.uploadProgress,
     this.selected,
     this.selectedIndex,
     this.attachments = const [],
@@ -53,6 +51,8 @@ class AdjustmentMeasurementState extends Equatable {
     String? errorMessage,
     String? contractId,
     bool? isSaving,
+    bool? uploading,
+    double? uploadProgress,
     AdjustmentMeasurementData? selected,
     int? selectedIndex,
     List<Attachment>? attachments,
@@ -64,6 +64,8 @@ class AdjustmentMeasurementState extends Equatable {
       errorMessage: errorMessage ?? this.errorMessage,
       contractId: contractId ?? this.contractId,
       isSaving: isSaving ?? this.isSaving,
+      uploading: uploading ?? this.uploading,
+      uploadProgress: uploadProgress ?? this.uploadProgress,
       selected: selected ?? this.selected,
       selectedIndex: selectedIndex ?? this.selectedIndex,
       attachments: attachments ?? this.attachments,
@@ -79,6 +81,8 @@ class AdjustmentMeasurementState extends Equatable {
         errorMessage: null,
         contractId: null,
         isSaving: false,
+        uploading: false,
+        uploadProgress: null,
         selected: null,
         selectedIndex: null,
         attachments: [],
@@ -92,6 +96,8 @@ class AdjustmentMeasurementState extends Equatable {
     errorMessage,
     contractId,
     isSaving,
+    uploading,
+    uploadProgress,
     selected,
     selectedIndex,
     attachments,

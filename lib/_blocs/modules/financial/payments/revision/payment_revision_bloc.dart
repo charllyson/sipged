@@ -143,8 +143,4 @@ class PaymentRevisionBloc extends BlocBase {
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }

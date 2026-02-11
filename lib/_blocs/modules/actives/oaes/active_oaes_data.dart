@@ -261,7 +261,7 @@ class ActiveOaesData {
       extension: extension ?? this.extension,
       width: width ?? this.width,
       area: area ?? this.area,
-      estructureType: structureType ?? this.estructureType,
+      estructureType: structureType ?? estructureType,
       relatedContracts: relatedContracts ?? this.relatedContracts,
       valueIntervention: valueIntervention ?? this.valueIntervention,
       linearCostMedia: linearCostMedia ?? this.linearCostMedia,

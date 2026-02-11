@@ -19,7 +19,6 @@ class ParecerJuridicoCubit extends Cubit<ParecerState> {
   ///
   /// Uso típico:
   ///   final parecer = await context
-  ///       .read<ParecerJuridicoCubit>()
   ///       .getDataForContract(contractId);
   ///
   Future<ParecerJuridicoData?> getDataForContract(String contractId) {

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'aerodromes_repository.dart';
@@ -34,10 +33,6 @@ class AerodromesCubit extends Cubit<AerodromesState> {
 
       final out = <AerodromeMarkerData>[];
 
-      int skippedNoPoint = 0;
-      int skippedZero = 0;
-      int skippedInvalid = 0;
-
       for (final r in rows) {
         final docId = (r['_id'] ?? '').toString();
 
@@ -57,17 +52,14 @@ class AerodromesCubit extends Cubit<AerodromesState> {
         point ??= _repo.parsePointFromRow(r);
 
         if (point == null) {
-          skippedNoPoint++;
           continue;
         }
 
         if (point.latitude == 0 || point.longitude == 0) {
-          skippedZero++;
           continue;
         }
 
         if (!_repo.isValidLatLng(point.latitude, point.longitude)) {
-          skippedInvalid++;
           continue;
         }
 
@@ -94,10 +86,4 @@ class AerodromesCubit extends Cubit<AerodromesState> {
 
   void clearCache() => _cacheByUf.clear();
 
-  void _perf(String msg) {
-    if (kDebugMode) {
-      // ignore: avoid_print
-      print(msg);
-    }
-  }
 }

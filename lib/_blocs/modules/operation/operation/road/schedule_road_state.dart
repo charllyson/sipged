@@ -371,12 +371,12 @@ class ScheduleRoadState extends Equatable {
       amount = 1.0;
     }
 
-    int _mix(int c, int w, double a) =>
+    int mix(int c, int w, double a) =>
         (c + ((w - c) * a)).round().clamp(0, 255);
 
-    final r = _mix(base.red, 255, amount);
-    final g = _mix(base.green, 255, amount);
-    final b = _mix(base.blue, 255, amount);
+    final r = mix(base.red, 255, amount);
+    final g = mix(base.green, 255, amount);
+    final b = mix(base.blue, 255, amount);
     return Color.fromARGB(base.alpha, r, g, b);
   }
 

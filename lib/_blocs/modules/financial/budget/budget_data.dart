@@ -110,7 +110,7 @@ class BudgetData {
 
   factory BudgetData.fromDocument(DocumentSnapshot snap) {
     final data = _readSnapData(snap);
-    final _pdfUrl = data['pdfUrl'] as String?;
+    final pdfUrl = data['pdfUrl'] as String?;
 
     return BudgetData(
       id: (data['id'] as String?) ?? snap.id,
@@ -129,8 +129,8 @@ class BudgetData {
           ? null
           : (data['description'] as String?)?.trim(),
       amount: _toDouble(data['amount']) ?? 0.0,
-      pdfUrl: _pdfUrl,
-      attachments: _toAttachments(data['attachments'], fallbackPdfUrl: _pdfUrl),
+      pdfUrl: pdfUrl,
+      attachments: _toAttachments(data['attachments'], fallbackPdfUrl: pdfUrl),
       createdAt: _toDate(data['createdAt']),
       createdBy: data['createdBy'] as String?,
       updatedAt: _toDate(data['updatedAt']),

@@ -11,7 +11,7 @@ enum ReportMeasurementStatus {
 class ReportMeasurementState extends Equatable {
   final ReportMeasurementStatus status;
 
-  /// Lista de medições do contrato corrente (quando usado em telas de contrato).
+  /// Lista de medições do contrato corrente
   final List<ReportMeasurementData> measurements;
 
   /// Opcional: erro.
@@ -20,11 +20,17 @@ class ReportMeasurementState extends Equatable {
   /// Opcional: id do contrato carregado.
   final String? contractId;
 
+  /// ✅ Upload (SideListBox)
+  final bool uploading;
+  final double? uploadProgress; // 0..1
+
   const ReportMeasurementState({
     this.status = ReportMeasurementStatus.initial,
     this.measurements = const [],
     this.error,
     this.contractId,
+    this.uploading = false,
+    this.uploadProgress,
   });
 
   ReportMeasurementState copyWith({
@@ -32,12 +38,16 @@ class ReportMeasurementState extends Equatable {
     List<ReportMeasurementData>? measurements,
     String? error,
     String? contractId,
+    bool? uploading,
+    double? uploadProgress,
   }) {
     return ReportMeasurementState(
       status: status ?? this.status,
       measurements: measurements ?? this.measurements,
       error: error ?? this.error,
       contractId: contractId ?? this.contractId,
+      uploading: uploading ?? this.uploading,
+      uploadProgress: uploadProgress ?? this.uploadProgress,
     );
   }
 
@@ -46,8 +56,11 @@ class ReportMeasurementState extends Equatable {
     measurements: [],
     error: null,
     contractId: null,
+    uploading: false,
+    uploadProgress: null,
   );
 
   @override
-  List<Object?> get props => [status, measurements, error, contractId];
+  List<Object?> get props =>
+      [status, measurements, error, contractId, uploading, uploadProgress];
 }

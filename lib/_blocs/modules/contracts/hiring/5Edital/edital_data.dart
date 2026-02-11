@@ -6,7 +6,6 @@ import 'edital_sections.dart';
 /// Data model do Edital (SEM controller / ChangeNotifier)
 ///
 /// - Mantém os MESMOS nomes de campos do EditalJulgamentoController antigo.
-/// - Propostas e lances são listas de Map<String, dynamic> com as mesmas chaves
 ///   (licitante, cnpj, valor, status, motivoDesclass, link, dataHora).
 class EditalData extends Equatable {
   // ===== 1) DIVULGAÇÃO / PNCP / PRAZOS =====

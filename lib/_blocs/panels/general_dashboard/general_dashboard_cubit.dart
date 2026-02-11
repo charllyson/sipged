@@ -1,7 +1,6 @@
 // lib/_blocs/panels/general_dashboard/general_dashboard_cubit.dart
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
@@ -146,8 +145,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
   Future<void> _preloadDfdLabels(Iterable<ProcessData> base) async {
     final swTotal = Stopwatch()..start();
 
-    int dfdCalls = 0;
-    int editalCalls = 0;
 
     final futures = <Future<void>>[];
 
@@ -184,7 +181,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         // DFD
         if (precisaAlgoDeDfd && !jaTentouDfd) {
           _dfdCheckedContracts.add(id);
-          dfdCalls++;
 
           final DfdData? dfd = await dfdCubit.getDataForContract(id);
 
@@ -228,8 +224,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         // Edital (vencedor)
         if (precisaAlgoDeEdital && !jaTentouEdital) {
           _editalCheckedContracts.add(id);
-          editalCalls++;
-
           final EditalData? edital = await editalCubit.getDataForContract(id);
           final w = edital?.vencedor.trim();
           if (w != null && w.isNotEmpty) {

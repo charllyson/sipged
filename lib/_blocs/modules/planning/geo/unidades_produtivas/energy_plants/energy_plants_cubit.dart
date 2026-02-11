@@ -1,5 +1,4 @@
 // lib/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_cubit.dart
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'energy_plants_repository.dart';
@@ -39,10 +38,6 @@ class EnergyPlantsCubit extends Cubit<EnergyPlantsState> {
 
       final out = <EnergyPlantMarkerData>[];
 
-      int skippedNoPoint = 0;
-      int skippedZero = 0;
-      int skippedInvalid = 0;
-
       for (final r in rows) {
         final docId = (r['_id'] ?? '').toString();
 
@@ -64,18 +59,15 @@ class EnergyPlantsCubit extends Cubit<EnergyPlantsState> {
         point ??= _repo.parsePointFromRow(r);
 
         if (point == null) {
-          skippedNoPoint++;
           continue;
         }
 
         // filtros básicos para evitar "sumir" no mapa por dados ruins
         if (point.latitude == 0 || point.longitude == 0) {
-          skippedZero++;
           continue;
         }
 
         if (!_repo.isValidLatLng(point.latitude, point.longitude)) {
-          skippedInvalid++;
           continue;
         }
 

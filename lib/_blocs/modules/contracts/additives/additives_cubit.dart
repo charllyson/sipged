@@ -1,4 +1,3 @@
-// lib/_blocs/modules/contracts/additives/additives_cubit.dart
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -14,16 +13,13 @@ import 'package:siged/_blocs/modules/contracts/additives/additives_repository.da
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_numbers.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 
 // notificações locais
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
-
-// utils
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
-
 import 'additives_state.dart';
 
 class AdditivesCubit extends Cubit<AdditivesState> {
@@ -44,10 +40,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   UserData? _currentUser;
 
-  // =========================
-  // Inicialização
-  // =========================
-
   Future<void> _init() async {
     if (contract.id == null || contract.id!.isEmpty) {
       emit(
@@ -60,6 +52,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           clearSelectedIndex: true,
           editingMode: false,
           sideAttachments: <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
       return;
@@ -121,6 +115,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           clearSelectedIndex: true,
           editingMode: false,
           sideAttachments: <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
       return;
@@ -137,11 +133,9 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           additives: list,
           existingOrders: orders,
           nextAvailableOrder: next,
-          // não força seleção aqui; a Page decide
-          sideAttachments: state.sideAttachments,
         ),
       );
-    } catch (e, st) {
+    } catch (e) {
       emit(
         state.copyWith(
           status: AdditivesStatus.error,
@@ -151,8 +145,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     }
   }
 
-  /// Seleção por índice (tabela, gráfico).
-  /// Se clicar novamente no mesmo índice, faz toggle (desseleciona tudo).
   void selectAdditiveByIndex(int index) {
     if (index < 0 || index >= state.additives.length) {
       _clearSelection();
@@ -168,8 +160,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     _selectAdditive(data, index);
   }
 
-  /// Seleção por objeto (tabela).
-  /// Se clicar novamente no mesmo item, toggle.
   void selectAdditive(AdditivesData data) {
     final index = state.additives.indexWhere((e) => e.id == data.id);
     if (index == -1) {
@@ -185,26 +175,23 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     _selectAdditive(data, index);
   }
 
-  /// ✅ NOVO: seleção pelo dropdown (ordem)
-  /// - Se existir, seleciona e sincroniza (form + gráfico + tabela + anexos)
-  /// - Se não existir, fica "novo" (limpa seleção)
   void selectAdditiveByOrder(int order) {
     if (order <= 0) {
       _clearSelection();
       return;
     }
 
-    final index =
-    state.additives.indexWhere((e) => (e.additiveOrder ?? 0) == order);
+    final index = state.additives.indexWhere((e) => (e.additiveOrder ?? 0) == order);
 
     if (index == -1) {
-      // não existe ainda -> modo novo
       emit(
         state.copyWith(
           clearSelected: true,
           clearSelectedIndex: true,
           editingMode: false,
           sideAttachments: <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
       return;
@@ -212,7 +199,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
     final data = state.additives[index];
 
-    // se já está selecionado, apenas garante selectedIndex e anexos
     if (state.selected?.id == data.id) {
       emit(
         state.copyWith(
@@ -235,6 +221,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         editingMode: true,
         sideAttachments: (data.attachments ?? const <Attachment>[]),
         clearSelected: false,
+        sideLoading: false,
+        clearUploadProgress: true,
       ),
     );
   }
@@ -246,6 +234,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         clearSelectedIndex: true,
         editingMode: false,
         sideAttachments: <Attachment>[],
+        sideLoading: false,
+        clearUploadProgress: true,
       ),
     );
   }
@@ -260,6 +250,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         sideAttachments: <Attachment>[],
         nextAvailableOrder: next,
         formValid: false,
+        sideLoading: false,
+        clearUploadProgress: true,
       ),
     );
   }
@@ -267,14 +259,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   // =========================
   // Regras exibição campos
   // =========================
-
-  static bool exibeValor(String typeText) =>
-      const ['VALOR', 'REEQUÍLIBRIO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
-          .contains(typeText.toUpperCase());
-
-  static bool exibePrazo(String typeText) =>
-      const ['PRAZO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
-          .contains(typeText.toUpperCase());
 
   void updateFormValidity({
     required String typeText,
@@ -285,11 +269,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     required String addContractText,
   }) {
     final tipo = typeText.toUpperCase();
-    final obrig = <String>[
-      dateText,
-      processText,
-      typeText,
-    ];
+    final obrig = <String>[dateText, processText, typeText];
 
     if (tipo == 'VALOR' || tipo == 'REEQUÍLIBRIO') {
       obrig.add(valueText);
@@ -335,7 +315,6 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     try {
       final int ord = int.tryParse(orderText.trim()) ?? 0;
 
-      // ✅ Proteção: se não há selected mas a ordem já existe, atualiza aquele item
       final AdditivesData? byOrder = _findByOrder(ord);
       final String? resolvedId = state.selected?.id ?? byOrder?.id;
 
@@ -343,10 +322,9 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         id: resolvedId,
         additiveNumberProcess: processText,
         additiveOrder: ord > 0 ? ord : null,
-        additiveDate: convertDDMMYYYYToDateTime(dateText),
-        additiveValue: stringToDouble(valueText),
-        additiveValidityContractDays:
-        int.tryParse(_onlyDigits(addDaysContractText)),
+        additiveDate: SipGedFormatDates.ddMMyyyyToDate(dateText),
+        additiveValue: SipGedFormatNumbers.toDouble(valueText),
+        additiveValidityContractDays: int.tryParse(_onlyDigits(addDaysContractText)),
         additiveValidityExecutionDays: int.tryParse(_onlyDigits(addDaysExecText)),
         typeOfAdditive: typeText,
         pdfUrl: state.selected?.pdfUrl ?? byOrder?.pdfUrl,
@@ -364,38 +342,26 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         AppNotification(
           title: Text(didUpdate ? 'Aditivo atualizado' : 'Aditivo salvo'),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
 
       await loadAdditives();
 
-      // ✅ Após salvar, mantém tudo sincronizado selecionando a mesma ordem
       if (ord > 0) {
         selectAdditiveByOrder(ord);
       } else {
         createNewAdditive();
       }
-    } catch (e, st) {
+    } catch (e) {
       NotificationCenter.instance.show(
         AppNotification(
           title: Text('Erro ao salvar: $e'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-      emit(
-        state.copyWith(
-          isSaving: false,
-          errorMessage: 'Erro ao salvar: $e',
-        ),
-      );
+      emit(state.copyWith(isSaving: false, errorMessage: 'Erro ao salvar: $e'));
       return;
     } finally {
       emit(state.copyWith(isSaving: false));
@@ -406,23 +372,19 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     final selected = state.selected;
     if (contract.id == null || selected?.id == null) return;
 
-    print('>>> deleteSelectedAdditive: ${selected!.id}');
     emit(state.copyWith(isSaving: true, clearError: true));
 
     try {
       await repository.deleteAdditive(
         contractId: contract.id!,
-        additiveId: selected.id!,
+        additiveId: selected!.id!,
       );
 
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Aditivo deletado'),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
 
@@ -435,18 +397,10 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         AppNotification(
           title: Text('Erro ao deletar: $e'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-      emit(
-        state.copyWith(
-          isSaving: false,
-          errorMessage: 'Erro ao deletar: $e',
-        ),
-      );
+      emit(state.copyWith(isSaving: false, errorMessage: 'Erro ao deletar: $e'));
       return;
     } finally {
       emit(state.copyWith(isSaving: false));
@@ -460,85 +414,116 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   Future<void> reloadAttachments() async {
     final selected = state.selected;
     if (selected == null || contract.id == null || selected.id == null) {
-      emit(state.copyWith(sideAttachments: <Attachment>[]));
+      emit(
+        state.copyWith(
+          sideAttachments: <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
+        ),
+      );
       return;
     }
 
-    if ((selected.attachments ?? const <Attachment>[]).isNotEmpty) {
-      emit(state.copyWith(sideAttachments: selected.attachments!));
-      return;
+    emit(state.copyWith(sideLoading: true, clearUploadProgress: true));
+
+    try {
+      if ((selected.attachments ?? const <Attachment>[]).isNotEmpty) {
+        emit(
+          state.copyWith(
+            sideAttachments: selected.attachments!,
+            sideLoading: false,
+            clearUploadProgress: true,
+          ),
+        );
+        return;
+      }
+
+      if ((selected.pdfUrl ?? '').isNotEmpty) {
+        emit(
+          state.copyWith(
+            sideAttachments: <Attachment>[],
+            sideLoading: false,
+            clearUploadProgress: true,
+          ),
+        );
+        return;
+      }
+
+      final files = await repository.listarArquivosDoAditivo(
+        contractId: contract.id!,
+        additiveId: selected.id!,
+      );
+
+      if (files.isEmpty) {
+        emit(
+          state.copyWith(
+            sideAttachments: <Attachment>[],
+            sideLoading: false,
+            clearUploadProgress: true,
+          ),
+        );
+        return;
+      }
+
+      final List<Attachment> list = files
+          .map(
+            (f) => Attachment(
+          id: f.name,
+          label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+          url: f.url,
+          path: 'contracts/${contract.id}/additives/${selected.id}/${f.name}',
+          ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
+              .firstMatch(f.name)
+              ?.group(0) ??
+              '',
+          createdAt: DateTime.now(),
+          createdBy: _currentUser?.uid,
+        ),
+      )
+          .toList();
+
+      await repository.setAttachments(
+        contractId: contract.id!,
+        additiveId: selected.id!,
+        attachments: list,
+      );
+
+      final updatedSelected = AdditivesData(
+        id: selected.id,
+        contractId: selected.contractId,
+        additiveNumberProcess: selected.additiveNumberProcess,
+        additiveOrder: selected.additiveOrder,
+        additiveDate: selected.additiveDate,
+        typeOfAdditive: selected.typeOfAdditive,
+        additiveValue: selected.additiveValue,
+        additiveValidityContractDays: selected.additiveValidityContractDays,
+        additiveValidityExecutionDays: selected.additiveValidityExecutionDays,
+        pdfUrl: null,
+        attachments: list,
+        createdAt: selected.createdAt,
+        createdBy: selected.createdBy,
+        updatedAt: selected.updatedAt,
+        updatedBy: selected.updatedBy,
+        deletedAt: selected.deletedAt,
+        deletedBy: selected.deletedBy,
+      );
+
+      emit(
+        state.copyWith(
+          selected: updatedSelected,
+          sideAttachments: list,
+          sideLoading: false,
+          clearUploadProgress: true,
+        ),
+      );
+    } catch (_) {
+      emit(state.copyWith(sideLoading: false, clearUploadProgress: true));
+      rethrow;
     }
-
-    if ((selected.pdfUrl ?? '').isNotEmpty) {
-      emit(state.copyWith(sideAttachments: <Attachment>[]));
-      return;
-    }
-
-    final files = await repository.listarArquivosDoAditivo(
-      contractId: contract.id!,
-      additiveId: selected.id!,
-    );
-
-    if (files.isEmpty) {
-      emit(state.copyWith(sideAttachments: <Attachment>[]));
-      return;
-    }
-
-    final List<Attachment> list = files
-        .map(
-          (f) => Attachment(
-        id: f.name,
-        label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
-        url: f.url,
-        path: 'contracts/${contract.id}/additives/${selected.id}/${f.name}',
-        ext: RegExp(
-          r'\.([a-z0-9]+)$',
-          caseSensitive: false,
-        ).firstMatch(f.name)?.group(0) ??
-            '',
-        createdAt: DateTime.now(),
-        createdBy: _currentUser?.uid,
-      ),
-    )
-        .toList();
-
-    await repository.setAttachments(
-      contractId: contract.id!,
-      additiveId: selected.id!,
-      attachments: list,
-    );
-
-    final updatedSelected = AdditivesData(
-      id: selected.id,
-      contractId: selected.contractId,
-      additiveNumberProcess: selected.additiveNumberProcess,
-      additiveOrder: selected.additiveOrder,
-      additiveDate: selected.additiveDate,
-      typeOfAdditive: selected.typeOfAdditive,
-      additiveValue: selected.additiveValue,
-      additiveValidityContractDays: selected.additiveValidityContractDays,
-      additiveValidityExecutionDays: selected.additiveValidityExecutionDays,
-      pdfUrl: null,
-      attachments: list,
-      createdAt: selected.createdAt,
-      createdBy: selected.createdBy,
-      updatedAt: selected.updatedAt,
-      updatedBy: selected.updatedBy,
-      deletedAt: selected.deletedAt,
-      deletedBy: selected.deletedBy,
-    );
-
-    emit(
-      state.copyWith(
-        selected: updatedSelected,
-        sideAttachments: list,
-      ),
-    );
   }
 
   String _suggestLabelFromName(AdditivesData additive, String original) {
-    final base =
-    original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+    final base = original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
     final ord = additive.additiveOrder ?? 0;
     return 'Aditivo $ord - $base';
   }
@@ -549,11 +534,17 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     if (cId == null || a == null || a.id == null) return;
     if (!state.canAddFile) return;
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    // ✅ SideList progress ON (sem travar a tela toda)
+    emit(
+      state.copyWith(
+        sideLoading: true,
+        uploadProgress: 0.0,
+        clearError: true,
+      ),
+    );
 
     try {
-      final (Uint8List bytes, String originalName) =
-      await repository.pickFileBytes();
+      final (Uint8List bytes, String originalName) = await repository.pickFileBytes();
 
       final suggestion = _suggestLabelFromName(a, originalName);
       final label = suggestion;
@@ -564,10 +555,14 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         bytes: bytes,
         originalName: originalName,
         label: label,
+        onProgress: (p) {
+          final v = p.isNaN ? 0.0 : p.clamp(0.0, 1.0);
+          // evita spam de emits se quiser: aqui mantive simples
+          emit(state.copyWith(uploadProgress: v, sideLoading: true));
+        },
       );
 
-      final current =
-      List<Attachment>.from(a.attachments ?? const <Attachment>[])..add(att);
+      final current = List<Attachment>.from(a.attachments ?? const <Attachment>[])..add(att);
 
       await repository.setAttachments(
         contractId: cId,
@@ -599,6 +594,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         state.copyWith(
           selected: updatedSelected,
           sideAttachments: current,
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
 
@@ -607,34 +604,26 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           title: const Text('Anexo adicionado'),
           subtitle: Text(att.label),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
     } catch (e, st) {
       // ignore: avoid_print
-      print('>>> ERRO em addAttachmentWithPicker: $e\n$st');
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao anexar: $e'),
+          title: Text('Erro ao anexar'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
       emit(
         state.copyWith(
-          isSaving: false,
-          errorMessage: 'Erro ao anexar: $e',
+          sideLoading: false,
+          clearUploadProgress: true,
+          errorMessage: 'Erro ao anexar',
         ),
       );
       return;
-    } finally {
-      emit(state.copyWith(isSaving: false));
     }
   }
 
@@ -646,7 +635,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     if (a == null || a.attachments == null) return;
     if (index < 0 || index >= a.attachments!.length) return;
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
 
     try {
       final att = a.attachments![index];
@@ -695,6 +684,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         state.copyWith(
           selected: updatedSelected,
           sideAttachments: list,
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
 
@@ -702,34 +693,26 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         AppNotification(
           title: const Text('Nome do anexo atualizado'),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
     } catch (e, st) {
       // ignore: avoid_print
-      print('>>> ERRO em renameAttachment: $e\n$st');
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao renomear: $e'),
+          title: Text('Erro ao renomear'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
       emit(
         state.copyWith(
-          isSaving: false,
-          errorMessage: 'Erro ao renomear: $e',
+          sideLoading: false,
+          clearUploadProgress: true,
+          errorMessage: 'Erro ao renomear',
         ),
       );
       return;
-    } finally {
-      emit(state.copyWith(isSaving: false));
     }
   }
 
@@ -737,7 +720,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
     final a = state.selected;
     if (a == null || a.id == null || contract.id == null) return;
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
 
     try {
       final atts = List<Attachment>.from(a.attachments ?? const <Attachment>[]);
@@ -777,6 +760,8 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         state.copyWith(
           selected: updatedSelected,
           sideAttachments: atts,
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
 
@@ -784,34 +769,26 @@ class AdditivesCubit extends Cubit<AdditivesState> {
         AppNotification(
           title: const Text('Anexo removido'),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
     } catch (e, st) {
       // ignore: avoid_print
-      print('>>> ERRO em deleteAttachment: $e\n$st');
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao remover: $e'),
+          title: Text('Erro ao remover'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
       emit(
         state.copyWith(
-          isSaving: false,
-          errorMessage: 'Erro ao remover: $e',
+          sideLoading: false,
+          clearUploadProgress: true,
+          errorMessage: 'Erro ao remover',
         ),
       );
       return;
-    } finally {
-      emit(state.copyWith(isSaving: false));
     }
   }
 
@@ -820,10 +797,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
   // =========================
 
   Set<int> _extractExistingOrders(List<AdditivesData> list) {
-    return list
-        .map((e) => e.additiveOrder ?? 0)
-        .where((e) => e > 0)
-        .toSet();
+    return list.map((e) => e.additiveOrder ?? 0).where((e) => e > 0).toSet();
   }
 
   int _computeNextOrder(Set<int> existing) {

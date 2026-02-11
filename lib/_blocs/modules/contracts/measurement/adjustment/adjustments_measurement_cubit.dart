@@ -1,10 +1,10 @@
-// lib/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_repository.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_state.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 
 class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   final AdjustmentMeasurementRepository _repo;
@@ -12,10 +12,6 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   AdjustmentMeasurementCubit({AdjustmentMeasurementRepository? repository})
       : _repo = repository ?? AdjustmentMeasurementRepository(),
         super(AdjustmentMeasurementState.initial());
-
-  // ---------------------------------------------------------------------------
-  // Carregar reajustes de um contrato
-  // ---------------------------------------------------------------------------
 
   Future<void> loadByContract(String contractId) async {
     emit(
@@ -27,14 +23,14 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         selectedIndex: null,
         attachments: const [],
         selectedAttachmentIndex: null,
-        isSaving: false, // 🔴 GARANTE QUE O LOADING SOME
+        isSaving: false,
+        uploading: false,
+        uploadProgress: null,
       ),
     );
 
     try {
-      final list = await _repo.getAllAdjustmentsOfContract(
-        uidContract: contractId,
-      );
+      final list = await _repo.getAllAdjustmentsOfContract(uidContract: contractId);
 
       emit(
         state.copyWith(
@@ -42,7 +38,9 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
           adjustments: list,
           errorMessage: null,
           contractId: contractId,
-          isSaving: false, // 🔴 AQUI TAMBÉM
+          isSaving: false,
+          uploading: false,
+          uploadProgress: null,
         ),
       );
     } catch (e) {
@@ -50,26 +48,19 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         state.copyWith(
           status: AdjustmentMeasurementStatus.error,
           errorMessage: e.toString(),
-          isSaving: false, // 🔴 EM CASO DE ERRO TAMBÉM
+          isSaving: false,
+          uploading: false,
+          uploadProgress: null,
         ),
       );
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // CollectionGroup (para dashboards)
-  // ---------------------------------------------------------------------------
-
   Future<List<AdjustmentMeasurementData>> getAllAdjustmentsCollectionGroup() {
     return _repo.getAllAdjustmentsCollectionGroup();
   }
 
-  double sum(List<AdjustmentMeasurementData> list) =>
-      _repo.sumAdjustments(list);
-
-  // ---------------------------------------------------------------------------
-  // CRUD principal delegando para o Repository
-  // ---------------------------------------------------------------------------
+  double sum(List<AdjustmentMeasurementData> list) => _repo.sumAdjustments(list);
 
   Future<void> saveOrUpdate(AdjustmentMeasurementData data) async {
     final contractId = data.contractId ?? state.contractId;
@@ -91,7 +82,6 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         adj: data.copyWith(contractId: contractId),
       );
 
-      // Recarrega lista para o mesmo contrato
       if (state.contractId == null || state.contractId == contractId) {
         await loadByContract(contractId);
       } else {
@@ -103,7 +93,6 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
         );
       }
     } catch (e) {
-      // Se der erro, garante que o loading some e repassa o erro
       emit(
         state.copyWith(
           status: AdjustmentMeasurementStatus.error,
@@ -128,10 +117,7 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
     );
 
     try {
-      await _repo.deleteAdjustment(
-        contractId: contractId,
-        adjustmentId: adjustmentId,
-      );
+      await _repo.deleteAdjustment(contractId: contractId, adjustmentId: adjustmentId);
 
       if (state.contractId == null || state.contractId == contractId) {
         await loadByContract(contractId);
@@ -205,7 +191,7 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
   }
 
   // ---------------------------------------------------------------------------
-  // Anexos
+  // Anexos (multi)
   // ---------------------------------------------------------------------------
 
   Future<void> updateAttachments(List<Attachment> attachments) async {
@@ -250,6 +236,148 @@ class AdjustmentMeasurementCubit extends Cubit<AdjustmentMeasurementState> {
           errorMessage: e.toString(),
         ),
       );
+    }
+  }
+
+  /// ✅ + real: picker -> upload -> append -> setAttachments
+  Future<Attachment> pickAndUploadAttachment({
+    required ProcessData contract,
+    required String contractId,
+    required String adjustmentId,
+  }) async {
+    final selected = state.selected;
+    if (selected == null || selected.id == null || selected.id!.isEmpty) {
+      throw Exception('Selecione/salve o reajuste antes de anexar arquivos.');
+    }
+
+    emit(state.copyWith(uploading: true, uploadProgress: 0.0));
+
+    try {
+      final (bytes, name) = await _repo.pickFileBytes();
+
+      final att = await _repo.uploadAttachmentBytes(
+        contract: contract,
+        adjustment: selected.copyWith(id: adjustmentId, contractId: contractId),
+        bytes: bytes,
+        originalName: name,
+        label: '',
+        onProgress: (p) => emit(state.copyWith(uploadProgress: p)),
+      );
+
+      final next = [...state.attachments, att];
+
+      await _repo.setAttachments(
+        contractId: contractId,
+        adjustmentId: adjustmentId,
+        attachments: next,
+      );
+
+      final updatedSelected = selected.copyWith(attachments: next);
+      final updatedList = state.adjustments.map((e) {
+        if (e.id == updatedSelected.id) return updatedSelected;
+        return e;
+      }).toList();
+
+      emit(
+        state.copyWith(
+          uploading: false,
+          uploadProgress: null,
+          attachments: next,
+          selected: updatedSelected,
+          adjustments: updatedList,
+        ),
+      );
+
+      return att;
+    } catch (e) {
+      emit(state.copyWith(uploading: false, uploadProgress: null));
+      rethrow;
+    }
+  }
+
+  /// ✅ delete real: Storage + Firestore
+  Future<void> deleteAttachment({
+    required String contractId,
+    required String adjustmentId,
+    required Attachment attachment,
+  }) async {
+    final selected = state.selected;
+    if (selected == null) return;
+
+    final next = List<Attachment>.from(state.attachments)
+      ..removeWhere((a) => a.id == attachment.id && a.url == attachment.url);
+
+    emit(state.copyWith(isSaving: true, errorMessage: null));
+
+    try {
+      await _repo.deleteAttachment(
+        contractId: contractId,
+        adjustmentId: adjustmentId,
+        attachment: attachment,
+        nextAttachments: next,
+      );
+
+      final updatedSelected = selected.copyWith(attachments: next);
+      final updatedList = state.adjustments.map((e) {
+        if (e.id == updatedSelected.id) return updatedSelected;
+        return e;
+      }).toList();
+
+      emit(
+        state.copyWith(
+          isSaving: false,
+          attachments: next,
+          selected: updatedSelected,
+          adjustments: updatedList,
+        ),
+      );
+    } catch (e) {
+      emit(state.copyWith(isSaving: false, errorMessage: e.toString()));
+      rethrow;
+    }
+  }
+
+  /// ✅ rename persistido (somente Firestore attachments[])
+  Future<void> renameAttachmentLabel({
+    required String contractId,
+    required String adjustmentId,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
+    final selected = state.selected;
+    if (selected == null) return;
+
+    final next = List<Attachment>.from(state.attachments);
+    final idx = next.indexWhere((a) => a.id == oldItem.id && a.url == oldItem.url);
+    if (idx < 0) return;
+    next[idx] = newItem;
+
+    emit(state.copyWith(isSaving: true, errorMessage: null));
+
+    try {
+      await _repo.renameAttachmentLabel(
+        contractId: contractId,
+        adjustmentId: adjustmentId,
+        attachments: next,
+      );
+
+      final updatedSelected = selected.copyWith(attachments: next);
+      final updatedList = state.adjustments.map((e) {
+        if (e.id == updatedSelected.id) return updatedSelected;
+        return e;
+      }).toList();
+
+      emit(
+        state.copyWith(
+          isSaving: false,
+          attachments: next,
+          selected: updatedSelected,
+          adjustments: updatedList,
+        ),
+      );
+    } catch (e) {
+      emit(state.copyWith(isSaving: false, errorMessage: e.toString()));
+      rethrow;
     }
   }
 

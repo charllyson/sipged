@@ -39,7 +39,7 @@ class ApostillesRepository {
 
   String? _idToString(String? id) {
     if (id == null || id.trim().isEmpty) return null;
-    return id;
+    return id.trim();
   }
 
   void _invalidateAllApostillesCache() {
@@ -80,10 +80,8 @@ class ApostillesRepository {
 
       if (dfdSnap.docs.isEmpty) return null;
 
-      final identSnap = await dfdSnap.docs.first.reference
-          .collection('identificacao')
-          .limit(1)
-          .get();
+      final identSnap =
+      await dfdSnap.docs.first.reference.collection('identificacao').limit(1).get();
 
       if (identSnap.docs.isEmpty) return null;
 
@@ -97,9 +95,7 @@ class ApostillesRepository {
     }
   }
 
-  Future<void> _ensureStatusesForContracts(
-      Iterable<ProcessData> contratos,
-      ) async {
+  Future<void> _ensureStatusesForContracts(Iterable<ProcessData> contratos) async {
     final futures = <Future<void>>[];
 
     for (final c in contratos) {
@@ -133,10 +129,7 @@ class ApostillesRepository {
     return _loadAllApostillesOnce();
   }
 
-  /// (mantém nome antigo por compatibilidade no seu projeto, se quiser)
-  Future<List<ApostillesData>> getApostillesByContractIds(
-      Set<String> contractIds,
-      ) async {
+  Future<List<ApostillesData>> getApostillesByContractIds(Set<String> contractIds) async {
     if (contractIds.isEmpty) return const <ApostillesData>[];
     final all = await _loadAllApostillesOnce();
     return all
@@ -165,11 +158,7 @@ class ApostillesRepository {
       }
     }
 
-    final list = snap.docs
-        .map((d) => ApostillesData.fromDocument(snapshot: d))
-        .toList();
-
-    return list;
+    return snap.docs.map((d) => ApostillesData.fromDocument(snapshot: d)).toList();
   }
 
   Future<List<ApostillesData>> ensureForContract(String contractId) async {
@@ -213,12 +202,9 @@ class ApostillesRepository {
   }) async {
     final firebaseUser = _auth.currentUser;
 
-    final ref = _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection('apostilles');
+    final ref = _db.collection('contracts').doc(contractId).collection('apostilles');
 
-    final docRef = (data.id != null && data.id!.isNotEmpty)
+    final docRef = (data.id != null && data.id!.trim().isNotEmpty)
         ? ref.doc(data.id)
         : ref.doc();
 
@@ -231,7 +217,7 @@ class ApostillesRepository {
         'contractId': contractId,
       });
 
-    // preserva createdAt/createdBy
+    // ✅ preserva createdAt/createdBy
     final snapshot = await docRef.get();
     final hasCreatedAt = snapshot.exists && snapshot.data()?['createdAt'] != null;
     if (!hasCreatedAt) {
@@ -240,6 +226,7 @@ class ApostillesRepository {
     }
 
     await docRef.set(json, SetOptions(merge: true));
+
     await _notificarUsuariosSobreApostilamento(data, contractId);
 
     await refreshForContract(contractId);
@@ -277,11 +264,7 @@ class ApostillesRepository {
     if (uid == null) return;
 
     final batch = _db.batch();
-    final ref = _db
-        .collection('users')
-        .doc(uid)
-        .collection('notifications')
-        .doc();
+    final ref = _db.collection('users').doc(uid).collection('notifications').doc();
 
     batch.set(ref, {
       'tipo': 'apostilamento',
@@ -348,55 +331,6 @@ class ApostillesRepository {
   // Agregações por status (DFD.statusContrato)
   // =========================
 
-  Future<double> getValorPorStatus(
-      List<ProcessData> contratos,
-      String statusDesejado,
-      ) async {
-    if (contratos.isEmpty) return 0.0;
-
-    await _ensureStatusesForContracts(contratos);
-
-    final alvo = statusDesejado.trim().toUpperCase();
-
-    final idsFiltrados = <String>{
-      for (final c in contratos)
-        if (_idToString(c.id) != null)
-          if ((_getDfdStatusForId(_idToString(c.id)) ?? '').toUpperCase() ==
-              alvo)
-            _idToString(c.id)!,
-    };
-
-    if (idsFiltrados.isEmpty) return 0.0;
-
-    final totais = await Future.wait(
-      idsFiltrados.map((contractId) async {
-        try {
-          final snap = await _db
-              .collection('contracts')
-              .doc(contractId)
-              .collection('apostilles')
-              .get();
-
-          return snap.docs.fold<double>(0.0, (sum, doc) {
-            final data = doc.data();
-            final raw = data['apostilleValue'] ?? data['apostillevalue'];
-            num? n;
-            if (raw is num) {
-              n = raw;
-            } else if (raw is String) {
-              n = num.tryParse(raw);
-            }
-            return sum + (n?.toDouble() ?? 0.0);
-          });
-        } catch (_) {
-          return 0.0;
-        }
-      }),
-    );
-
-    return totais.fold<double>(0.0, (a, b) => a + b);
-  }
-
   Future<double> somarValoresApostilamentosPorStatus({
     required List<ProcessData> contratos,
     required String status,
@@ -411,17 +345,12 @@ class ApostillesRepository {
     final ids = <String>[
       for (final c in contratos)
         if (_idToString(c.id) != null)
-          if ((_getDfdStatusForId(_idToString(c.id)) ?? '').toUpperCase() ==
-              alvo)
+          if ((_getDfdStatusForId(_idToString(c.id)) ?? '').toUpperCase() == alvo)
             _idToString(c.id)!,
     ];
 
     for (final contractId in ids) {
-      final s = await _db
-          .collection('contracts')
-          .doc(contractId)
-          .collection('apostilles')
-          .get();
+      final s = await _db.collection('contracts').doc(contractId).collection('apostilles').get();
 
       for (final d in s.docs) {
         final a = ApostillesData.fromDocument(snapshot: d);
@@ -433,11 +362,7 @@ class ApostillesRepository {
   }
 
   Future<double> getAllApostillesValue(String contractId) async {
-    final s = await _db
-        .collection('contracts')
-        .doc(contractId)
-        .collection('apostilles')
-        .get();
+    final s = await _db.collection('contracts').doc(contractId).collection('apostilles').get();
 
     return s.docs.fold<double>(0.0, (sum, d) {
       final a = ApostillesData.fromDocument(snapshot: d);
@@ -452,8 +377,7 @@ class ApostillesRepository {
   String _sanitize(String s) => s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
   String _extFromName(String name) {
-    final m = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
-        .firstMatch(name.trim());
+    final m = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false).firstMatch(name.trim());
     return m == null ? '' : '.${m.group(1)!.toLowerCase()}';
   }
 
@@ -539,8 +463,7 @@ class ApostillesRepository {
     required String contractId,
     required String apostilleId,
   }) async {
-    final folderRef =
-    _storage.ref('contracts/$contractId/apostilles/$apostilleId/');
+    final folderRef = _storage.ref('contracts/$contractId/apostilles/$apostilleId/');
     final result = await folderRef.listAll();
 
     final out = <({String name, String url})>[];
@@ -556,11 +479,7 @@ class ApostillesRepository {
   }
 
   Future<void> deleteStorageByPath(String storagePath) async {
-    try {
-      await _storage.ref(storagePath).delete();
-    } catch (_) {
-      rethrow;
-    }
+    await _storage.ref(storagePath).delete();
   }
 
   Future<void> setAttachments({
@@ -608,10 +527,7 @@ class ApostillesRepository {
     final path = legacyPathFor(contract, apostille);
     final ref = _storage.ref(path);
 
-    final task = ref.putData(
-      bytes,
-      SettableMetadata(contentType: 'application/pdf'),
-    );
+    final task = ref.putData(bytes, SettableMetadata(contentType: 'application/pdf'));
 
     if (onProgress != null) {
       task.snapshotEvents.listen((e) {

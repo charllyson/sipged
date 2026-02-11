@@ -147,7 +147,7 @@ class ActiveRailwaysRepository {
       List<List<dynamic>> segmentos) {
     final caminhoFinal = <Map<String, double>>[];
 
-    double _dist(Map<String, double> p1, Map<String, double> p2) {
+    double dist(Map<String, double> p1, Map<String, double> p2) {
       final dx = p1['longitude']! - p2['longitude']!;
       final dy = p1['latitude']! - p2['latitude']!;
       return dx * dx + dy * dy;
@@ -177,8 +177,8 @@ class ActiveRailwaysRepository {
         final primeiro = pontos.first;
         final fim = pontos.last;
 
-        final distFirst = _dist(ultimo, primeiro);
-        final distLast = _dist(ultimo, fim);
+        final distFirst = dist(ultimo, primeiro);
+        final distLast = dist(ultimo, fim);
 
         final pontosOrdenados =
         distLast < distFirst ? pontos.reversed.toList() : pontos;

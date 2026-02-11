@@ -91,7 +91,7 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
   }
 
   factory PaymentsAdjustmentsData.fromJson(Map<String, dynamic> json) {
-    List<Attachment>? _parseAtts(dynamic v) {
+    List<Attachment>? parseAtts(dynamic v) {
       if (v is List) {
         return v.whereType<Map<String, dynamic>>().map(Attachment.fromMap).toList();
       }
@@ -116,7 +116,7 @@ class PaymentsAdjustmentsData extends ChangeNotifier {
           ? (json['taxPaymentAdjustment'] as num).toDouble()
           : double.tryParse(json['taxPaymentAdjustment']?.toString() ?? '') ?? 0.0,
       pdfUrl: json['pdfUrl'] as String?,
-      attachments: _parseAtts(json['attachments']),
+      attachments: parseAtts(json['attachments']),
       createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
       createdBy: json['createdBy'] ?? '',
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),

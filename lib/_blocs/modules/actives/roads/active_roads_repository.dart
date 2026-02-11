@@ -1,13 +1,16 @@
+// lib/_blocs/modules/actives/roads/active_roads_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:siged/_blocs/modules/actives/roads/active_roads_data.dart';
 
 class ActiveRoadsRepository {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final _ref = FirebaseFirestore.instance.collection('actives_roads');
 
+  /// ✅ Mantém para debug/admin (carrega tudo)
   Future<List<ActiveRoadsData>> fetchAll() async {
     final qs = await _ref.get();
-    // Corrige estruturas MultiLineString salvas como lista de listas (se houver)
+
     final list = <ActiveRoadsData>[];
     for (final doc in qs.docs) {
       final data = doc.data();
@@ -15,6 +18,44 @@ class ActiveRoadsRepository {
       list.add(ActiveRoadsData.fromMap(fixed, id: doc.id));
     }
     return list;
+  }
+
+  /// ✅ NOVO: tiles/bucket (viewport only)
+  ///
+  /// Estrutura recomendada:
+  /// actives_roads_tiles/b{bucket}/{quadKey}/items/{roadId}
+  ///
+  /// Doc:
+  ///  - id (opcional)
+  ///  - acronym, roadCode, stateSurface, regional, extension...
+  ///  - points: [GeoPoint...]
+  ///  - geometryType: 'LineString'
+  Future<List<ActiveRoadsData>> fetchByTiles({
+    required int bucket,
+    required List<String> quadKeys,
+  }) async {
+    if (quadKeys.isEmpty) return const [];
+
+    final byId = <String, ActiveRoadsData>{};
+
+    for (final qk in quadKeys) {
+      final qs = await _db
+          .collection('actives_roads_tiles')
+          .doc('b$bucket')
+          .collection(qk)
+          .doc('roads')
+          .collection('items')
+          .get();
+
+      for (final doc in qs.docs) {
+        final data = doc.data();
+        final fixed = _normalizeIfNeeded(data, doc.reference);
+        final road = ActiveRoadsData.fromMap(fixed, id: doc.id);
+        if (road.id != null) byId[road.id!] = road;
+      }
+    }
+
+    return byId.values.toList(growable: false);
   }
 
   Future<ActiveRoadsData> upsert(ActiveRoadsData data) async {
@@ -36,15 +77,11 @@ class ActiveRoadsRepository {
 
     await docRef.set(base, SetOptions(merge: true));
     final after = await docRef.get();
-    return ActiveRoadsData.fromMap(
-      after.data() as Map<String, dynamic>,
-      id: after.id,
-    );
+    return ActiveRoadsData.fromMap(after.data() as Map<String, dynamic>, id: after.id);
   }
 
   Future<void> deleteById(String id) async => _ref.doc(id).delete();
 
-  /// Importa várias rodovias já com `points` no documento principal.
   Future<void> importarRodoviasComCoordenadas({
     required List<Map<String, dynamic>> linhasPrincipais,
     required List<Map<String, dynamic>> subcolecoes,
@@ -64,9 +101,7 @@ class ActiveRoadsRepository {
       if (i < subcolecoes.length) {
         final sub = Map<String, dynamic>.from(subcolecoes[i]);
 
-        // Se vier MultiLineString, achata para LineString
-        if (sub['geometryType'] == 'MultiLineString' &&
-            sub['points'] is List) {
+        if (sub['geometryType'] == 'MultiLineString' && sub['points'] is List) {
           final ml = (sub['points'] as List).cast<List>();
           final flattened = _flattenMultiLinePoints(ml);
           sub['points'] = flattened;
@@ -87,6 +122,7 @@ class ActiveRoadsRepository {
   }
 
   // -------- internals --------
+
   Map<String, dynamic> _normalizeIfNeeded(
       Map<String, dynamic> data,
       DocumentReference ref,
@@ -95,8 +131,9 @@ class ActiveRoadsRepository {
       final pts = data['points'];
       final gtype = (data['geometryType'] ?? '').toString();
 
-      final isNested =
-          pts is List && pts.isNotEmpty && (pts.first is List || (gtype == 'MultiLineString'));
+      final isNested = pts is List &&
+          pts.isNotEmpty &&
+          (pts.first is List || (gtype == 'MultiLineString'));
 
       if (isNested) {
         final ml = (pts).cast<List>();
@@ -109,6 +146,7 @@ class ActiveRoadsRepository {
           ..['geometryType'] = 'LineString';
 
         // opcional: persistir correção
+        // ignore: unawaited_futures
         ref.update({'points': flattened, 'geometryType': 'LineString'});
       }
       return data;

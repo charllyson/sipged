@@ -7,12 +7,12 @@ import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_
 import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
 import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_repository.dart';
 import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
+import 'package:siged/_utils/geometry/sipged_geo_math.dart';
 import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
 import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/map/tooltip/map_tap_overlay.dart';
-import 'package:siged/_utils/geometry/geometry_utils.dart';
 
 /// Abre um dialog com mapa IBGE para selecionar múltiplos municípios.
 /// [initialSelected] = municípios já vinculados a ESTA região.
@@ -187,7 +187,7 @@ class _RegionMunicipiosSelectorBodyState
 
     // Usa o mesmo helper que você já usa em PlanningRightWay: MapMath.latLngToScreen
     final cam = map.camera;
-    final Offset localPos = MapMath.latLngToScreen(cam, center);
+    final Offset localPos = SipGedGeoMath.latLngToScreen(cam, center);
 
     // Converte para coordenada GLOBAL
     final renderObj = context.findRenderObject();

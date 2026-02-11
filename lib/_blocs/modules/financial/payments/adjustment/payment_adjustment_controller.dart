@@ -8,6 +8,8 @@ import 'package:siged/_blocs/modules/contracts/additives/additives_repository.da
 import 'package:siged/_blocs/modules/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
 import 'package:siged/_blocs/modules/financial/payments/adjustment/payment_adjustment_bloc.dart';
 import 'package:siged/_blocs/modules/financial/payments/adjustment/payments_adjustments_data.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/pdf/pdf_preview.dart';
@@ -17,17 +19,14 @@ import 'package:siged/_blocs/system/user/user_state.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class PaymentsAdjustmentController extends ChangeNotifier
-    with FormValidationMixin {
+    with SipGedValidation {
   PaymentsAdjustmentController({
     required PaymentAdjustmentBloc paymentAdjustmentBloc,
     required AdditivesRepository additivesRepository,
@@ -48,7 +47,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
   ProcessData? contract;
 
   List<PaymentsAdjustmentsData> _payments = <PaymentsAdjustmentsData>[];
-  // snapshot para suporte ao dropdown inteligente
   List<PaymentsAdjustmentsData> _lastSnapshot = <PaymentsAdjustmentsData>[];
 
   PaymentsAdjustmentsData? _selected;
@@ -62,7 +60,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
   double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
-  // SideListBox (agora dinâmico: String | Attachment)
+  // SideListBox (String | Attachment)
   List<dynamic> sideItems = const <dynamic>[];
   int? selectedSideIndex;
   bool get canAddFile => isEditable && _selected?.idPaymentAdjustment != null;
@@ -100,7 +98,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
     return roles.roleForUser(u) == roles.UserProfile.ADMINISTRADOR;
   }
 
-  // ======= ORDENS: dropdown inteligente (espelha o módulo de pagamentos) =======
+  // ======= ORDENS (dropdown inteligente) =======
   Set<int> get _existingOrders => _lastSnapshot
       .map((v) => v.orderPaymentAdjustment ?? 0)
       .where((n) => n > 0)
@@ -108,16 +106,13 @@ class PaymentsAdjustmentController extends ChangeNotifier
 
   int _nextAvailableOrder(Set<int> set) {
     if (set.isEmpty) return 1;
-    // primeiro buraco entre 1..N
     for (int i = 1; i <= set.length + 1; i++) {
       if (!set.contains(i)) return i;
     }
-    // se não houver buraco, segue após o máximo
     final max = set.reduce((a, b) => a > b ? a : b);
     return max + 1;
   }
 
-  /// Opções mostradas no dropdown (1 .. maxExistente+1)
   List<String> get orderNumberOptions {
     final set = _existingOrders;
     final maxPlusOne =
@@ -125,11 +120,9 @@ class PaymentsAdjustmentController extends ChangeNotifier
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
-  /// Itens em cinza (já usados)
   Set<String> get greyOrderItems =>
       _existingOrders.map((e) => e.toString()).toSet();
 
-  /// Clique num item do dropdown
   void onChangeOrderNumber(String? v) {
     final picked = int.tryParse(v ?? '');
     if (picked == null || picked <= 0) return;
@@ -137,10 +130,8 @@ class PaymentsAdjustmentController extends ChangeNotifier
     final idx = _lastSnapshot
         .indexWhere((x) => (x.orderPaymentAdjustment ?? -1) == picked);
     if (idx >= 0) {
-      // já existe -> carrega registro
       selectRow(_lastSnapshot[idx]);
     } else {
-      // livre -> inicia novo naquela ordem
       createNew(overrideOrder: picked);
       notifyListeners();
     }
@@ -151,7 +142,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
         required ProcessData? contractData,
       }) async {
     contract = contractData;
-
     if (contract?.id == null) return;
 
     final userBloc = context.read<UserBloc>();
@@ -175,6 +165,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
       [orderCtrl, processCtrl, valueCtrl, dateCtrl],
       _validateFormInternal,
     );
+
     await _loadInitial();
   }
 
@@ -229,21 +220,18 @@ class PaymentsAdjustmentController extends ChangeNotifier
   Future<void> _loadInitial() async {
     if (contract?.id == null) return;
 
-    // usa o novo repositório de aditivos no padrão atual
     _valorAditivos =
     await _additivesRepository.getAllAdditivesValue(contract!.id!);
 
     _payments = await _paymentAdjustmentBloc
         .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
 
-    // mantém snapshot para o dropdown
     _lastSnapshot = List<PaymentsAdjustmentsData>.from(_payments);
 
-    // define próxima ordem livre
     final next = _nextAvailableOrder(_existingOrders);
     orderCtrl.text = '$next';
 
-    await _refreshSideList();
+    await _refreshSideList(notify: false);
     notifyListeners();
   }
 
@@ -268,19 +256,19 @@ class PaymentsAdjustmentController extends ChangeNotifier
 
     orderCtrl.text = (data.orderPaymentAdjustment ?? '').toString();
     processCtrl.text = data.processPaymentAdjustment ?? '';
-    valueCtrl.text = priceToString(data.valuePaymentAdjustment);
+    valueCtrl.text =
+        SipGedFormatMoney.doubleToText(data.valuePaymentAdjustment);
     dateCtrl.text = data.datePaymentAdjustment != null
-        ? dateTimeToDDMMYYYY(data.datePaymentAdjustment!)
+        ? SipGedFormatDates.dateToDdMMyyyy(data.datePaymentAdjustment!)
         : '';
     stateCtrl.text = data.statePaymentAdjustment ?? '';
     observationCtrl.text = data.observationPaymentAdjustment ?? '';
     bankCtrl.text = data.orderBankPaymentAdjustment ?? '';
     electronicTicketCtrl.text = data.electronicTicketPaymentAdjustment ?? '';
     fontCtrl.text = data.fontPaymentAdjustment ?? '';
-    taxCtrl.text = priceToString(data.taxPaymentAdjustment);
+    taxCtrl.text = SipGedFormatMoney.doubleToText(data.taxPaymentAdjustment);
 
-    _refreshSideList();
-    notifyListeners();
+    _refreshSideList(notify: true);
   }
 
   void createNew({int? overrideOrder}) {
@@ -288,7 +276,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
     _selected = null;
     _currentId = null;
 
-    // mantém o valor escolhido no dropdown; se vazio, usa próxima livre
     if (overrideOrder != null && overrideOrder > 0) {
       orderCtrl.text = '$overrideOrder';
     } else if (orderCtrl.text.trim().isEmpty) {
@@ -306,8 +293,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
     fontCtrl.clear();
     taxCtrl.clear();
 
-    _refreshSideList();
-    notifyListeners();
+    _refreshSideList(notify: true);
   }
 
   Future<bool> saveOrUpdate({
@@ -329,14 +315,14 @@ class PaymentsAdjustmentController extends ChangeNotifier
         contractId: contract!.id!,
         orderPaymentAdjustment: int.tryParse(orderCtrl.text),
         processPaymentAdjustment: processCtrl.text,
-        valuePaymentAdjustment: parseCurrencyToDouble(valueCtrl.text),
-        datePaymentAdjustment: convertDDMMYYYYToDateTime(dateCtrl.text),
+        valuePaymentAdjustment: SipGedFormatMoney.parseBrl(valueCtrl.text),
+        datePaymentAdjustment: SipGedFormatDates.ddMMyyyyToDate(dateCtrl.text),
         statePaymentAdjustment: stateCtrl.text,
         observationPaymentAdjustment: observationCtrl.text,
         orderBankPaymentAdjustment: bankCtrl.text,
         electronicTicketPaymentAdjustment: electronicTicketCtrl.text,
         fontPaymentAdjustment: fontCtrl.text,
-        taxPaymentAdjustment: parseCurrencyToDouble(taxCtrl.text),
+        taxPaymentAdjustment: SipGedFormatMoney.parseBrl(taxCtrl.text),
         pdfUrl: _selected?.pdfUrl,
         attachments: _selected?.attachments,
       );
@@ -345,7 +331,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
 
       _payments = await _paymentAdjustmentBloc
           .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
-      // mantém snapshot atualizado
       _lastSnapshot = List<PaymentsAdjustmentsData>.from(_payments);
 
       createNew();
@@ -381,8 +366,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
         statePaymentAdjustment: data.statePaymentAdjustment,
         observationPaymentAdjustment: data.observationPaymentAdjustment,
         orderBankPaymentAdjustment: data.orderBankPaymentAdjustment,
-        electronicTicketPaymentAdjustment:
-        data.electronicTicketPaymentAdjustment,
+        electronicTicketPaymentAdjustment: data.electronicTicketPaymentAdjustment,
         fontPaymentAdjustment: data.fontPaymentAdjustment,
         taxPaymentAdjustment: data.taxPaymentAdjustment,
         pdfUrl: data.pdfUrl,
@@ -393,7 +377,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
 
       _payments = await _paymentAdjustmentBloc
           .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
-      // mantém snapshot atualizado
       _lastSnapshot = List<PaymentsAdjustmentsData>.from(_payments);
 
       createNew();
@@ -419,7 +402,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
       );
       _payments = await _paymentAdjustmentBloc
           .getAllAdjustmentPaymentsOfContract(contractId: contract!.id!);
-      // mantém snapshot atualizado
       _lastSnapshot = List<PaymentsAdjustmentsData>.from(_payments);
 
       selectedIndex = null;
@@ -440,24 +422,27 @@ class PaymentsAdjustmentController extends ChangeNotifier
     return 'Reajuste $ord - $base';
   }
 
-  Future<void> _refreshSideList() async {
+  /// ✅ ÚNICO ponto que "materializa" a sideItems do selected
+  Future<void> _refreshSideList({required bool notify}) async {
     final v = _selected;
+
     if (v == null) {
       sideItems = const <dynamic>[];
       selectedSideIndex = null;
-      notifyListeners();
+      if (notify) notifyListeners();
       return;
     }
 
-    // 1) já tem attachments
-    if ((v.attachments ?? const []).isNotEmpty) {
-      sideItems = List<dynamic>.from(v.attachments!);
+    // 1) attachments já existem no doc
+    final existing = v.attachments ?? const <Attachment>[];
+    if (existing.isNotEmpty) {
+      sideItems = List<dynamic>.from(existing);
       selectedSideIndex = null;
-      notifyListeners();
+      if (notify) notifyListeners();
       return;
     }
 
-    // 2) migra pdfUrl legado
+    // 2) migra pdfUrl legado -> vira attachment e zera pdfUrl
     if ((v.pdfUrl ?? '').isNotEmpty &&
         v.idPaymentAdjustment != null &&
         contract?.id != null) {
@@ -470,33 +455,36 @@ class PaymentsAdjustmentController extends ChangeNotifier
         createdAt: DateTime.now(),
         createdBy: currentUser?.uid,
       );
+
       await _paymentAdjustmentBloc.setAttachments(
         contractId: contract!.id!,
         paymentAdjustmentId: v.idPaymentAdjustment!,
         attachments: [att],
       );
+
       _selected = v
         ..attachments = [att]
         ..pdfUrl = null;
+
       sideItems = [att];
       selectedSideIndex = null;
-      notifyListeners();
+      if (notify) notifyListeners();
       return;
     }
 
-    // 3) materializa arquivos do Storage (se houver)
+    // 3) materializa arquivos do Storage (se houver) e salva como attachments
     if (contract?.id != null && v.idPaymentAdjustment != null) {
       final files = await _storageBloc.listarArquivosDoPagamento(
         contractId: contract!.id!,
         paymentAdjustmentId: v.idPaymentAdjustment!,
       );
+
       if (files.isNotEmpty) {
         final list = files
             .map(
               (f) => Attachment(
             id: f.name,
-            label:
-            f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+            label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
             url: f.url,
             path:
             'contracts/${contract!.id}/adjustmentPayments/${v.idPaymentAdjustment}/${f.name}',
@@ -519,14 +507,14 @@ class PaymentsAdjustmentController extends ChangeNotifier
         _selected = v..attachments = list;
         sideItems = List<dynamic>.from(list);
         selectedSideIndex = null;
-        notifyListeners();
+        if (notify) notifyListeners();
         return;
       }
     }
 
     sideItems = const <dynamic>[];
     selectedSideIndex = null;
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   Future<void> handleAddFile(BuildContext context) async {
@@ -569,43 +557,39 @@ class PaymentsAdjustmentController extends ChangeNotifier
       );
 
       _selected = v..attachments = current;
-      await _refreshSideList();
+      await _refreshSideList(notify: false);
     } finally {
       isSaving = false;
       notifyListeners();
     }
   }
 
-  Future<void> handleEditLabelFile(int index, BuildContext context) async {
+  /// ✅ NOVO: persistência do rename vindo do SideListBox
+  /// Retorna true/false para o widget manter/reverter
+  Future<bool> handleRenamePersist({
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
     final v = _selected;
     if (v == null ||
-        v.attachments == null ||
-        index < 0 ||
-        index >= v.attachments!.length) return;
+        contract?.id == null ||
+        v.idPaymentAdjustment == null) return false;
+
+    final atts = List<Attachment>.from(v.attachments ?? const []);
+    if (index < 0 || index >= atts.length) return false;
 
     try {
-      isSaving = true;
-      notifyListeners();
-
-      final att = v.attachments![index];
-      final suggestion =
-      att.label.isNotEmpty ? att.label : _suggestLabelFromName(att.id);
-      final newLabel = await askLabelDialog(context, suggestion);
-      if (newLabel == null) {
-        isSaving = false;
-        notifyListeners();
-        return;
-      }
-
-      v.attachments![index] = Attachment(
-        id: att.id,
-        label: newLabel.isEmpty ? suggestion : newLabel,
-        url: att.url,
-        path: att.path,
-        ext: att.ext,
-        size: att.size,
-        createdAt: att.createdAt,
-        createdBy: att.createdBy,
+      // Só atualiza metadados (label); NÃO mexe no storage
+      atts[index] = Attachment(
+        id: oldItem.id,
+        label: newItem.label,
+        url: oldItem.url,
+        path: oldItem.path,
+        ext: oldItem.ext,
+        size: oldItem.size,
+        createdAt: oldItem.createdAt,
+        createdBy: oldItem.createdBy,
         updatedAt: DateTime.now(),
         updatedBy: currentUser?.uid,
       );
@@ -613,14 +597,31 @@ class PaymentsAdjustmentController extends ChangeNotifier
       await _paymentAdjustmentBloc.setAttachments(
         contractId: contract!.id!,
         paymentAdjustmentId: v.idPaymentAdjustment!,
-        attachments: v.attachments!,
+        attachments: atts,
       );
 
-      await _refreshSideList();
-    } finally {
-      isSaving = false;
+      _selected = v..attachments = atts;
+      await _refreshSideList(notify: false);
       notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
     }
+  }
+
+  /// ✅ NOVO: mantém controller sincronizado quando SideListBox altera a lista
+  /// (por exemplo, rename otimista já aplicado)
+  void syncSideItemsFromWidget(List<dynamic> newItems) {
+    sideItems = List<dynamic>.from(newItems);
+
+    final v = _selected;
+    if (v != null) {
+      final onlyAtt = newItems.whereType<Attachment>().toList();
+      v.attachments = onlyAtt;
+      _selected = v;
+    }
+
+    notifyListeners();
   }
 
   Future<void> handleDeleteFile(int index, BuildContext context) async {
@@ -633,7 +634,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
       isSaving = true;
       notifyListeners();
 
-      final atts = v.attachments ?? [];
+      final atts = List<Attachment>.from(v.attachments ?? const []);
       if (index >= 0 && index < atts.length) {
         final removed = atts.removeAt(index);
         if ((removed.path).isNotEmpty) {
@@ -654,7 +655,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
         _selected = v..pdfUrl = null;
       }
 
-      await _refreshSideList();
+      await _refreshSideList(notify: false);
     } finally {
       isSaving = false;
       notifyListeners();
@@ -666,14 +667,17 @@ class PaymentsAdjustmentController extends ChangeNotifier
     if (v == null) return;
 
     String? url;
-    if ((v.attachments ?? []).isNotEmpty) {
-      if (index < 0 || index >= v.attachments!.length) return;
-      url = v.attachments![index].url;
+    final atts = v.attachments ?? const <Attachment>[];
+
+    if (atts.isNotEmpty) {
+      if (index < 0 || index >= atts.length) return;
+      url = atts[index].url;
       selectedSideIndex = index;
       notifyListeners();
     } else {
       url = v.pdfUrl; // legado
     }
+
     if (url == null || url.isEmpty) return;
 
     await showDialog(

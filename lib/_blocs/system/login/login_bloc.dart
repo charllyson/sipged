@@ -7,7 +7,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:siged/_blocs/system/setup/setup_data.dart';
 
 import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 /// Estados de login/perfil
 enum LoginState {
@@ -23,7 +23,7 @@ enum LoginState {
 /// Status do preview de acesso à área selecionada
 enum AreaAccessStatus { idle, needEmail, allowed, denied }
 
-class LoginBloc extends BlocBase with FormValidationMixin {
+class LoginBloc extends BlocBase with SipGedValidation {
   // ===== Controllers (inputs) =====
   final _emailController = BehaviorSubject<String>();
   final _passwordController = BehaviorSubject<String>();

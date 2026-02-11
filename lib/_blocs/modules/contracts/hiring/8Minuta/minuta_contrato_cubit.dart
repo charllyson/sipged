@@ -21,7 +21,6 @@ class MinutaContratoCubit extends Cubit<MinutaState> {
   ///
   /// Uso típico:
   ///   final minuta = await context
-  ///       .read<MinutaContratoCubit>()
   ///       .getDataForContract(contractId);
   ///
   Future<MinutaContratoData?> getDataForContract(String contractId) {

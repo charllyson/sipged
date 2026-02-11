@@ -152,9 +152,8 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
     required String label,
     PublicacaoExtratoData? extrato,
   }) async {
-    final safeName = fileName(contract, payment, extrato: extrato)
-        .replaceFirst('.pdf', '') +
-        '-${_sanitize(originalName)}';
+    final safeName = '${fileName(contract, payment, extrato: extrato)
+        .replaceFirst('.pdf', '')}-${_sanitize(originalName)}';
     final ref = _storage.ref(fullPath(contract, payment, safeName));
     final task = ref.putData(
       bytes,
@@ -244,10 +243,6 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }
 
 class _StorageFile {

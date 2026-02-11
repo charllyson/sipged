@@ -21,25 +21,16 @@ class AdjustmentMeasurementRepository {
   })  : _db = firestore ?? FirebaseFirestore.instance,
         _storage = storage ?? FirebaseStorage.instance;
 
-  // -----------------------------------------------------
-  // Helpers de coleção (Firestore)
-  // -----------------------------------------------------
   CollectionReference<Map<String, dynamic>> _col(String contractId) =>
       _db.collection('contracts').doc(contractId).collection(
         AdjustmentMeasurementData.collectionName,
       );
 
-  // -----------------------------------------------------
-  // CRUD – Firestore
-  // -----------------------------------------------------
-
   Future<List<AdjustmentMeasurementData>> getAllAdjustmentsOfContract({
     required String uidContract,
   }) async {
     final qs = await _col(uidContract).orderBy('order').get();
-    return qs.docs
-        .map((d) => AdjustmentMeasurementData.fromDocument(d))
-        .toList();
+    return qs.docs.map((d) => AdjustmentMeasurementData.fromDocument(d)).toList();
   }
 
   Future<void> saveOrUpdateAdjustment({
@@ -48,11 +39,7 @@ class AdjustmentMeasurementRepository {
   }) async {
     final user = FirebaseAuth.instance.currentUser;
 
-    // Garante ID
-    final docId = adj.id?.isNotEmpty == true
-        ? adj.id!
-        : _col(contractId).doc().id;
-
+    final docId = adj.id?.isNotEmpty == true ? adj.id! : _col(contractId).doc().id;
     final docRef = _col(contractId).doc(docId);
 
     final data = adj
@@ -84,10 +71,6 @@ class AdjustmentMeasurementRepository {
     await _col(contractId).doc(adjustmentId).delete();
     await _recalcularFinancialPercentage(contractId);
   }
-
-  // =====================================================
-  // Cálculo do percentual financeiro (igual ao Bloc antigo)
-  // =====================================================
 
   Future<void> _recalcularFinancialPercentage(String contractId) async {
     double total = 0.0;
@@ -124,8 +107,7 @@ class AdjustmentMeasurementRepository {
 
     final c = await _db.collection('contracts').doc(contractId).get();
     final initialValue = (c.data()?['initialContractValue'] ?? 0);
-    final baseInicial =
-    (initialValue is num) ? initialValue.toDouble() : 0.0;
+    final baseInicial = (initialValue is num) ? initialValue.toDouble() : 0.0;
 
     final adds = await _db
         .collection('contracts')
@@ -158,10 +140,6 @@ class AdjustmentMeasurementRepository {
     }, SetOptions(merge: true));
   }
 
-  // =====================================================
-  // Attachments – Firestore
-  // =====================================================
-
   Future<void> salvarUrlPdfDaAdjustmentMeasurement({
     required String contractId,
     required String adjustmentId,
@@ -193,13 +171,12 @@ class AdjustmentMeasurementRepository {
   }
 
   // =====================================================
-  // Storage – multi-anexos (baseado no StorageBloc antigo)
+  // Storage – multi-anexos
   // =====================================================
 
   String _sanitize(String s) =>
       s.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '-');
 
-  /// Nome do PDF usando SOMENTE PublicacaoExtratoData.numeroContrato
   String fileName(
       ProcessData c,
       AdjustmentMeasurementData a, {
@@ -251,7 +228,6 @@ class AdjustmentMeasurementRepository {
     return '$base-$rnd${ext.isEmpty ? ".bin" : ext}';
   }
 
-  /// FilePicker aqui fica opcional. Se você preferir, pode deixar isso na UI.
   Future<(Uint8List bytes, String originalName)> pickFileBytes() async {
     final result = await FilePicker.platform.pickFiles(withData: true);
     if (result == null || result.files.single.bytes == null) {
@@ -312,8 +288,61 @@ class AdjustmentMeasurementRepository {
     } catch (_) {}
   }
 
-  // ======= API legado (PDF único) =======
+  // =====================================================
+  // ✅ NOVO: rename persistido (só Firestore)
+  // =====================================================
+  Future<void> renameAttachmentLabel({
+    required String contractId,
+    required String adjustmentId,
+    required List<Attachment> attachments,
+  }) async {
+    await setAttachments(
+      contractId: contractId,
+      adjustmentId: adjustmentId,
+      attachments: attachments,
+    );
+  }
 
+  // =====================================================
+  // ✅ NOVO: delete real (Storage + Firestore)
+  // =====================================================
+  Future<void> deleteAttachment({
+    required String contractId,
+    required String adjustmentId,
+    required Attachment attachment,
+    required List<Attachment> nextAttachments,
+  }) async {
+    if (attachment.path != null && attachment.path!.isNotEmpty) {
+      await deleteStorageByPath(attachment.path!);
+    }
+    await setAttachments(
+      contractId: contractId,
+      adjustmentId: adjustmentId,
+      attachments: nextAttachments,
+    );
+  }
+
+  // =====================================================
+  // CollectionGroup / dashboards
+  // =====================================================
+
+  Future<List<AdjustmentMeasurementData>> getAllAdjustmentsCollectionGroup() async {
+    final qs = await _db.collectionGroup(AdjustmentMeasurementData.collectionName).get();
+
+    return qs.docs
+        .map((d) => AdjustmentMeasurementData.fromDocument(d))
+        .toList();
+  }
+
+  double sumAdjustments(List<AdjustmentMeasurementData> items) {
+    double total = 0.0;
+    for (final i in items) {
+      total += (i.value ?? 0.0);
+    }
+    return total;
+  }
+
+  // ======= API legado (PDF único) =======
   Future<bool> exists({
     required ProcessData contract,
     required String measurementId,
@@ -354,7 +383,7 @@ class AdjustmentMeasurementRepository {
         ),
       )
           .getDownloadURL();
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
@@ -413,7 +442,7 @@ class AdjustmentMeasurementRepository {
       )
           .delete();
       return true;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
@@ -434,30 +463,6 @@ class AdjustmentMeasurementRepository {
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
       });
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  // =====================================================
-  // CollectionGroup / “Store global” (para dashboards)
-  // =====================================================
-
-  Future<List<AdjustmentMeasurementData>> getAllAdjustmentsCollectionGroup() async {
-    final qs = await _db
-        .collectionGroup(AdjustmentMeasurementData.collectionName)
-        .get();
-
-    return qs.docs
-        .map((d) => AdjustmentMeasurementData.fromDocument(d))
-        .toList();
-  }
-
-  double sumAdjustments(List<AdjustmentMeasurementData> items) {
-    double total = 0.0;
-    for (final i in items) {
-      total += (i.value ?? 0.0);
-    }
-    return total;
+    } catch (_) {}
   }
 }

@@ -6,8 +6,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_repository.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_state.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
 
 class ValidityCubit extends Cubit<ValidityState> {
   final ValidityRepository _repository;
@@ -248,7 +248,7 @@ class ValidityCubit extends Cubit<ValidityState> {
       state.copyWith(
         selectedValidity: current.copyWith(
           orderdate: ddMMyyyy != null && ddMMyyyy.isNotEmpty
-              ? convertDDMMYYYYToDateTime(ddMMyyyy)
+              ? SipGedFormatDates.ddMMyyyyToDate(ddMMyyyy)
               : null,
         ),
       ),

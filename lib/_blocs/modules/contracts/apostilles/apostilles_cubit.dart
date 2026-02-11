@@ -8,20 +8,16 @@ import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
-// usuário/permissões
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
 
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_numbers.dart';
 
-// notificações locais
+import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
-
-// utils
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
 
 import 'apostilles_state.dart';
 
@@ -38,6 +34,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     }
   }
 
+
   final ProcessData contract;
   final ApostillesRepository repository;
 
@@ -48,7 +45,8 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   // =========================
 
   Future<void> _init() async {
-    if (contract.id == null || contract.id!.isEmpty) {
+    final cId = contract.id?.trim();
+    if (cId == null || cId.isEmpty) {
       emit(
         state.copyWith(
           status: ApostillesStatus.loaded,
@@ -58,7 +56,9 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           clearSelected: true,
           clearSelectedIndex: true,
           editingMode: false,
-          sideAttachments: <Attachment>[],
+          sideAttachments: const <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
       return;
@@ -83,12 +83,17 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   void updateUser(UserData? user) {
     _currentUser = user;
     final editable = _canEditUser(user);
-    emit(state.copyWith(isEditable: editable));
+    if (editable != state.isEditable) {
+      emit(state.copyWith(isEditable: editable));
+    }
   }
 
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
-    if (roles.roleForUser(user) == roles.UserProfile.ADMINISTRADOR) return true;
+
+    if (roles.roleForUser(user) == roles.UserProfile.ADMINISTRADOR) {
+      return true;
+    }
 
     final canEdit = perms.userCanModule(
       user: user,
@@ -100,6 +105,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
       module: 'apostilles',
       action: 'create',
     );
+
     return canEdit || canCreate;
   }
 
@@ -108,7 +114,8 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   // =========================
 
   Future<void> loadApostilles() async {
-    if (contract.id == null || contract.id!.isEmpty) {
+    final cId = contract.id?.trim();
+    if (cId == null || cId.isEmpty) {
       emit(
         state.copyWith(
           status: ApostillesStatus.loaded,
@@ -118,16 +125,19 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           clearSelected: true,
           clearSelectedIndex: true,
           editingMode: false,
-          sideAttachments: <Attachment>[],
+          sideAttachments: const <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
+          clearError: true,
         ),
       );
       return;
     }
 
-    emit(state.copyWith(status: ApostillesStatus.loading));
+    emit(state.copyWith(status: ApostillesStatus.loading, clearError: true));
 
     try {
-      final list = await repository.ensureForContract(contract.id!);
+      final list = await repository.ensureForContract(cId);
       final orders = _extractExistingOrders(list);
       final next = _computeNextOrder(orders);
 
@@ -137,12 +147,11 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           apostilles: list,
           existingOrders: orders,
           nextAvailableOrder: next,
-          clearSelected: false,
-          clearSelectedIndex: false,
+          // SideListBox permanece como está; reloadAttachments controla o resto
           sideAttachments: state.sideAttachments,
         ),
       );
-    } catch (e, st) {
+    } catch (e) {
       emit(
         state.copyWith(
           status: ApostillesStatus.error,
@@ -186,26 +195,24 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     _selectApostille(data, index);
   }
 
-  /// ✅ NOVO: seleção pelo dropdown (ordem)
-  /// - Se existir, seleciona (form + gráfico + tabela)
-  /// - Se não existir, limpa seleção e deixa como "novo"
   void selectApostilleByOrder(int order) {
     if (order <= 0) {
       _clearSelection();
       return;
     }
 
-    final index =
-    state.apostilles.indexWhere((e) => (e.apostilleOrder ?? 0) == order);
+    final index = state.apostilles.indexWhere((e) => (e.apostilleOrder ?? 0) == order);
 
     if (index == -1) {
-      // não existe ainda -> modo novo
       emit(
         state.copyWith(
           clearSelected: true,
           clearSelectedIndex: true,
           editingMode: false,
-          sideAttachments: <Attachment>[],
+          sideAttachments: const <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
+          nextAvailableOrder: order,
         ),
       );
       return;
@@ -213,13 +220,14 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
     final data = state.apostilles[index];
 
-    // se já está selecionado, mantém selecionado (não toggle aqui)
     if (state.selected?.id == data.id) {
       emit(
         state.copyWith(
           selectedIndex: index,
           editingMode: true,
           sideAttachments: (data.attachments ?? const <Attachment>[]),
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
       return;
@@ -236,6 +244,8 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         editingMode: true,
         sideAttachments: (data.attachments ?? const <Attachment>[]),
         clearSelected: false,
+        sideLoading: false,
+        clearUploadProgress: true,
       ),
     );
   }
@@ -246,21 +256,26 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         clearSelected: true,
         clearSelectedIndex: true,
         editingMode: false,
-        sideAttachments: <Attachment>[],
+        sideAttachments: const <Attachment>[],
+        sideLoading: false,
+        clearUploadProgress: true,
       ),
     );
   }
 
-  void createNewApostille() {
-    final next = _computeNextOrder(state.existingOrders);
+  void createNewApostille({int? keepOrder}) {
+    final next = keepOrder ?? _computeNextOrder(state.existingOrders);
     emit(
       state.copyWith(
         editingMode: false,
         clearSelected: true,
         clearSelectedIndex: true,
-        sideAttachments: <Attachment>[],
+        sideAttachments: const <Attachment>[],
         nextAvailableOrder: next,
         formValid: false,
+        clearError: true,
+        sideLoading: false,
+        clearUploadProgress: true,
       ),
     );
   }
@@ -294,8 +309,7 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   ApostillesData? _findByOrder(int order) {
     if (order <= 0) return null;
     try {
-      return state.apostilles
-          .firstWhere((e) => (e.apostilleOrder ?? 0) == order);
+      return state.apostilles.firstWhere((e) => (e.apostilleOrder ?? 0) == order);
     } catch (_) {
       return null;
     }
@@ -307,32 +321,29 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     required String valueText,
     required String processText,
   }) async {
-    if (contract.id == null) return;
+    final cId = contract.id?.trim();
+    if (cId == null || cId.isEmpty) return;
 
     emit(state.copyWith(isSaving: true, clearError: true));
 
     try {
       final int ord = int.tryParse(orderText.trim()) ?? 0;
 
-      // ✅ Proteção: se não há selected mas a ordem já existe, atualiza aquele item
       final ApostillesData? byOrder = _findByOrder(ord);
-
       final String? resolvedId = state.selected?.id ?? byOrder?.id;
 
       final apostille = ApostillesData(
         id: resolvedId,
+        contractId: cId,
         apostilleOrder: ord > 0 ? ord : null,
-        apostilleData: convertDDMMYYYYToDateTime(dateText),
-        apostilleValue: stringToDouble(valueText),
-        apostilleNumberProcess: processText,
+        apostilleData: SipGedFormatDates.ddMMyyyyToDate(dateText),
+        apostilleValue: SipGedFormatNumbers.toDouble(valueText),
+        apostilleNumberProcess: processText.trim(),
         pdfUrl: state.selected?.pdfUrl ?? byOrder?.pdfUrl,
         attachments: state.selected?.attachments ?? byOrder?.attachments,
       );
 
-      await repository.saveOrUpdateApostille(
-        contractId: contract.id!,
-        data: apostille,
-      );
+      await repository.saveOrUpdateApostille(contractId: cId, data: apostille);
 
       final bool didUpdate = resolvedId != null;
 
@@ -340,38 +351,26 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         AppNotification(
           title: Text(didUpdate ? 'Apostilamento atualizado' : 'Apostilamento salvo'),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
 
       await loadApostilles();
 
-      // ✅ Após salvar, volta a selecionar o mesmo order (mantém gráfico/tabela sincronizados)
-      selectApostilleByOrder(ord);
-
-      // opcional: se você quiser voltar para "novo", substitua a linha acima por:
-      // createNewApostille();
-
-    } catch (e, st) {
+      if (ord > 0) {
+        selectApostilleByOrder(ord);
+      } else {
+        createNewApostille();
+      }
+    } catch (e) {
       NotificationCenter.instance.show(
         AppNotification(
           title: Text('Erro ao salvar: $e'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-      emit(
-        state.copyWith(
-          isSaving: false,
-          errorMessage: 'Erro ao salvar: $e',
-        ),
-      );
+      emit(state.copyWith(isSaving: false, errorMessage: 'Erro ao salvar: $e'));
       return;
     } finally {
       emit(state.copyWith(isSaving: false));
@@ -379,47 +378,34 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   Future<void> deleteSelectedApostille() async {
+    final cId = contract.id?.trim();
     final selected = state.selected;
-    if (contract.id == null || selected?.id == null) return;
+    if (cId == null || cId.isEmpty || selected?.id == null) return;
 
     emit(state.copyWith(isSaving: true, clearError: true));
 
     try {
-      await repository.deleteApostille(
-        contractId: contract.id!,
-        apostilleId: selected!.id!,
-      );
+      await repository.deleteApostille(contractId: cId, apostilleId: selected!.id!);
 
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Apostilamento deletado'),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
 
       await loadApostilles();
       createNewApostille();
-    } catch (e, st) {
+    } catch (e) {
       NotificationCenter.instance.show(
         AppNotification(
           title: Text('Erro ao deletar: $e'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-      emit(
-        state.copyWith(
-          isSaving: false,
-          errorMessage: 'Erro ao deletar: $e',
-        ),
-      );
+      emit(state.copyWith(isSaving: false, errorMessage: 'Erro ao deletar: $e'));
       return;
     } finally {
       emit(state.copyWith(isSaving: false));
@@ -427,106 +413,132 @@ class ApostillesCubit extends Cubit<ApostillesState> {
   }
 
   // =========================
-  // Attachments (SideList)
+  // Attachments (SideList) - PADRÃO ADITIVOS
   // =========================
 
   Future<void> reloadAttachments() async {
+    final cId = contract.id?.trim();
     final selected = state.selected;
-    if (selected == null || contract.id == null || selected.id == null) {
-      emit(state.copyWith(sideAttachments: <Attachment>[]));
+
+    if (selected == null || cId == null || cId.isEmpty || selected.id == null) {
+      emit(
+        state.copyWith(
+          sideAttachments: const <Attachment>[],
+          sideLoading: false,
+          clearUploadProgress: true,
+        ),
+      );
       return;
     }
 
-    if ((selected.attachments ?? const <Attachment>[]).isNotEmpty) {
-      emit(state.copyWith(sideAttachments: selected.attachments!));
-      return;
-    }
+    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
 
-    // pdfUrl legado: deixa vazio; a UI pode tratar separadamente
-    if ((selected.pdfUrl ?? '').isNotEmpty) {
-      emit(state.copyWith(sideAttachments: <Attachment>[]));
-      return;
-    }
+    try {
+      // 1) se já tem attachments no doc, usa isso
+      if ((selected.attachments ?? const <Attachment>[]).isNotEmpty) {
+        emit(
+          state.copyWith(
+            sideAttachments: selected.attachments!,
+            sideLoading: false,
+            clearUploadProgress: true,
+          ),
+        );
+        return;
+      }
 
-    final files = await repository.listarArquivosDaApostila(
-      contractId: contract.id!,
-      apostilleId: selected.id!,
-    );
+      // 2) se tem pdfUrl legado, não lista anexos
+      if ((selected.pdfUrl ?? '').isNotEmpty) {
+        emit(
+          state.copyWith(
+            sideAttachments: const <Attachment>[],
+            sideLoading: false,
+            clearUploadProgress: true,
+          ),
+        );
+        return;
+      }
 
-    if (files.isEmpty) {
-      emit(state.copyWith(sideAttachments: <Attachment>[]));
-      return;
-    }
+      // 3) lista storage e grava attachments no doc
+      final files = await repository.listarArquivosDaApostila(
+        contractId: cId,
+        apostilleId: selected.id!,
+      );
 
-    final List<Attachment> list = files
-        .map(
-          (f) => Attachment(
-        id: f.name,
-        label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
-        url: f.url,
-        path: 'contracts/${contract.id}/apostilles/${selected.id}/${f.name}',
-        ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
+      if (files.isEmpty) {
+        emit(
+          state.copyWith(
+            sideAttachments: const <Attachment>[],
+            sideLoading: false,
+            clearUploadProgress: true,
+          ),
+        );
+        return;
+      }
+
+      final List<Attachment> list = files.map((f) {
+        final ext = RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
             .firstMatch(f.name)
             ?.group(0) ??
-            '',
-        createdAt: DateTime.now(),
-        createdBy: _currentUser?.uid,
-      ),
-    )
-        .toList();
+            '';
 
-    await repository.setAttachments(
-      contractId: contract.id!,
-      apostilleId: selected.id!,
-      attachments: list,
-    );
+        return Attachment(
+          id: f.name,
+          label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+          url: f.url,
+          path: 'contracts/$cId/apostilles/${selected.id}/${f.name}',
+          ext: ext,
+          createdAt: DateTime.now(),
+          createdBy: _currentUser?.uid,
+        );
+      }).toList();
 
-    final updatedSelected = ApostillesData(
-      id: selected.id,
-      contractId: selected.contractId,
-      apostilleNumberProcess: selected.apostilleNumberProcess,
-      apostilleOrder: selected.apostilleOrder,
-      apostilleData: selected.apostilleData,
-      apostilleValue: selected.apostilleValue,
-      pdfUrl: null,
-      attachments: list,
-      createdAt: selected.createdAt,
-      createdBy: selected.createdBy,
-      updatedAt: selected.updatedAt,
-      updatedBy: selected.updatedBy,
-      deletedAt: selected.deletedAt,
-      deletedBy: selected.deletedBy,
-    );
+      await repository.setAttachments(
+        contractId: cId,
+        apostilleId: selected.id!,
+        attachments: list,
+      );
 
-    emit(
-      state.copyWith(
-        selected: updatedSelected,
-        sideAttachments: list,
-      ),
-    );
+      final updatedSelected = selected.copyWith(pdfUrl: null, attachments: list);
+
+      emit(
+        state.copyWith(
+          selected: updatedSelected,
+          sideAttachments: list,
+          sideLoading: false,
+          clearUploadProgress: true,
+        ),
+      );
+    } catch (_) {
+      emit(state.copyWith(sideLoading: false, clearUploadProgress: true));
+      rethrow;
+    }
   }
 
   String _suggestLabelFromName(ApostillesData apostille, String original) {
-    final base =
-    original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+    final base = original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
     final ord = apostille.apostilleOrder ?? 0;
     return 'Apostilamento $ord - $base';
   }
 
   Future<void> addAttachmentWithPicker(BuildContext context) async {
-    final cId = contract.id;
+    final cId = contract.id?.trim();
     final a = state.selected;
-    if (cId == null || a == null || a.id == null) return;
+
+    if (cId == null || cId.isEmpty || a == null || a.id == null) return;
     if (!state.canAddFile) return;
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    emit(
+      state.copyWith(
+        sideLoading: true,
+        uploadProgress: 0.0,
+        clearError: true,
+      ),
+    );
 
     try {
-      final (Uint8List bytes, String originalName) =
-      await repository.pickFileBytes();
+      final (Uint8List bytes, String originalName) = await repository.pickFileBytes();
 
-      final suggestion = _suggestLabelFromName(a, originalName);
-      final label = suggestion;
+      final label = _suggestLabelFromName(a, originalName);
 
       final att = await repository.uploadAttachmentBytes(
         contract: contract,
@@ -534,38 +546,24 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         bytes: bytes,
         originalName: originalName,
         label: label,
+        onProgress: (p) {
+          final v = p.isNaN ? 0.0 : p.clamp(0.0, 1.0);
+          emit(state.copyWith(uploadProgress: v, sideLoading: true));
+        },
       );
 
-      final current =
-      List<Attachment>.from(a.attachments ?? const <Attachment>[])..add(att);
+      final current = List<Attachment>.from(a.attachments ?? const <Attachment>[])..add(att);
 
-      await repository.setAttachments(
-        contractId: cId,
-        apostilleId: a.id!,
-        attachments: current,
-      );
+      await repository.setAttachments(contractId: cId, apostilleId: a.id!, attachments: current);
 
-      final updatedSelected = ApostillesData(
-        id: a.id,
-        contractId: a.contractId,
-        apostilleNumberProcess: a.apostilleNumberProcess,
-        apostilleOrder: a.apostilleOrder,
-        apostilleData: a.apostilleData,
-        apostilleValue: a.apostilleValue,
-        pdfUrl: a.pdfUrl,
-        attachments: current,
-        createdAt: a.createdAt,
-        createdBy: a.createdBy,
-        updatedAt: a.updatedAt,
-        updatedBy: a.updatedBy,
-        deletedAt: a.deletedAt,
-        deletedBy: a.deletedBy,
-      );
+      final updatedSelected = a.copyWith(attachments: current);
 
       emit(
         state.copyWith(
           selected: updatedSelected,
           sideAttachments: current,
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
 
@@ -574,32 +572,25 @@ class ApostillesCubit extends Cubit<ApostillesState> {
           title: const Text('Anexo adicionado'),
           subtitle: Text(att.label),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-    } catch (e, st) {
+    } catch (e) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao anexar: $e'),
+          title: const Text('Erro ao anexar'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
+
       emit(
         state.copyWith(
-          isSaving: false,
+          sideLoading: false,
+          clearUploadProgress: true,
           errorMessage: 'Erro ao anexar: $e',
         ),
       );
-      return;
-    } finally {
-      emit(state.copyWith(isSaving: false));
     }
   }
 
@@ -607,11 +598,14 @@ class ApostillesCubit extends Cubit<ApostillesState> {
     required int index,
     required String newLabel,
   }) async {
+    final cId = contract.id?.trim();
     final a = state.selected;
-    if (a == null || a.attachments == null) return;
+
+    if (cId == null || cId.isEmpty || a == null || a.attachments == null) return;
+    if (a.id == null) return;
     if (index < 0 || index >= a.attachments!.length) return;
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
 
     try {
       final att = a.attachments![index];
@@ -631,33 +625,14 @@ class ApostillesCubit extends Cubit<ApostillesState> {
 
       final list = List<Attachment>.from(a.attachments!)..[index] = updated;
 
-      await repository.setAttachments(
-        contractId: contract.id!,
-        apostilleId: a.id!,
-        attachments: list,
-      );
-
-      final updatedSelected = ApostillesData(
-        id: a.id,
-        contractId: a.contractId,
-        apostilleNumberProcess: a.apostilleNumberProcess,
-        apostilleOrder: a.apostilleOrder,
-        apostilleData: a.apostilleData,
-        apostilleValue: a.apostilleValue,
-        pdfUrl: a.pdfUrl,
-        attachments: list,
-        createdAt: a.createdAt,
-        createdBy: a.createdBy,
-        updatedAt: a.updatedAt,
-        updatedBy: a.updatedBy,
-        deletedAt: a.deletedAt,
-        deletedBy: a.deletedBy,
-      );
+      await repository.setAttachments(contractId: cId, apostilleId: a.id!, attachments: list);
 
       emit(
         state.copyWith(
-          selected: updatedSelected,
+          selected: a.copyWith(attachments: list),
           sideAttachments: list,
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
 
@@ -665,40 +640,35 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         AppNotification(
           title: const Text('Nome do anexo atualizado'),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-    } catch (e, st) {
+    } catch (e) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao renomear: $e'),
+          title: const Text('Erro ao renomear'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
+
       emit(
         state.copyWith(
-          isSaving: false,
+          sideLoading: false,
+          clearUploadProgress: true,
           errorMessage: 'Erro ao renomear: $e',
         ),
       );
-      return;
-    } finally {
-      emit(state.copyWith(isSaving: false));
     }
   }
 
   Future<void> deleteAttachment(int index) async {
+    final cId = contract.id?.trim();
     final a = state.selected;
-    if (a == null || a.id == null || contract.id == null) return;
 
-    emit(state.copyWith(isSaving: true, clearError: true));
+    if (cId == null || cId.isEmpty || a == null || a.id == null) return;
+
+    emit(state.copyWith(sideLoading: true, clearUploadProgress: true, clearError: true));
 
     try {
       final atts = List<Attachment>.from(a.attachments ?? const <Attachment>[]);
@@ -708,34 +678,15 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         if (removed.path.isNotEmpty) {
           await repository.deleteStorageByPath(removed.path);
         }
-        await repository.setAttachments(
-          contractId: contract.id!,
-          apostilleId: a.id!,
-          attachments: atts,
-        );
+        await repository.setAttachments(contractId: cId, apostilleId: a.id!, attachments: atts);
       }
-
-      final updatedSelected = ApostillesData(
-        id: a.id,
-        contractId: a.contractId,
-        apostilleNumberProcess: a.apostilleNumberProcess,
-        apostilleOrder: a.apostilleOrder,
-        apostilleData: a.apostilleData,
-        apostilleValue: a.apostilleValue,
-        pdfUrl: a.pdfUrl,
-        attachments: atts,
-        createdAt: a.createdAt,
-        createdBy: a.createdBy,
-        updatedAt: a.updatedAt,
-        updatedBy: a.updatedBy,
-        deletedAt: a.deletedAt,
-        deletedBy: a.deletedBy,
-      );
 
       emit(
         state.copyWith(
-          selected: updatedSelected,
+          selected: a.copyWith(attachments: atts),
           sideAttachments: atts,
+          sideLoading: false,
+          clearUploadProgress: true,
         ),
       );
 
@@ -743,32 +694,25 @@ class ApostillesCubit extends Cubit<ApostillesState> {
         AppNotification(
           title: const Text('Anexo removido'),
           type: AppNotificationType.success,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-    } catch (e, st) {
+    } catch (e) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Erro ao remover: $e'),
+          title: const Text('Erro ao remover'),
           type: AppNotificationType.error,
-          details: Text(
-            '${_userName()} • ${_stamp()}',
-            style: const TextStyle(fontSize: 11),
-          ),
+          details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
+
       emit(
         state.copyWith(
-          isSaving: false,
+          sideLoading: false,
+          clearUploadProgress: true,
           errorMessage: 'Erro ao remover: $e',
         ),
       );
-      return;
-    } finally {
-      emit(state.copyWith(isSaving: false));
     }
   }
 

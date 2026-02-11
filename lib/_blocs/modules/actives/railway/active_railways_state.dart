@@ -7,14 +7,16 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:siged/_blocs/modules/actives/railway/active_railway_data.dart';
 import 'package:siged/_blocs/modules/actives/railway/active_railways_style.dart';
+import 'package:siged/_utils/geometry/sipged_poly_simplify.dart';
 import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'package:siged/screens/modules/actives/railways/network/railway_ties.dart';
-import 'package:siged/_utils/map/multi_line_simplifier.dart';
 
 enum ActiveRailwaysLoadStatus { idle, loading, success, failure }
 
 class ActiveRailwaysState extends Equatable {
   static const _unset = Object();
+
+  static final SipGedPolyline _simplifier = SipGedPolyline(maxCacheEntries: 120, metersPerPixelFn: RailwayTies.metersPerPixel);
 
   final bool initialized;
   final ActiveRailwaysLoadStatus loadStatus;
@@ -24,8 +26,8 @@ class ActiveRailwaysState extends Equatable {
   final String? selectedPolylineId;
 
   final int? selectedPieIndexFilter;
-  final String? selectedRegionFilter;  // usa mesma canonização de regiões
-  final String? selectedStatusFilter;  // código canônico (ver Rules)
+  final String? selectedRegionFilter; // usa mesma canonização de regiões
+  final String? selectedStatusFilter; // código canônico (ver Rules)
 
   final bool savingOrImporting;
 
@@ -90,8 +92,7 @@ class ActiveRailwaysState extends Equatable {
   // Regiões (vindas do Setup)
   // =========================
 
-  String _canonRegion(String? s) =>
-      ActiveRailwayData.canonRegion(s, regionLabels);
+  String _canonRegion(String? s) => ActiveRailwayData.canonRegion(s, regionLabels);
 
   int? indexOfRegionNormalized(String? label) {
     if (label == null) return null;
@@ -102,15 +103,13 @@ class ActiveRailwaysState extends Equatable {
   // =========================
   // Status -> códigos canônicos
   // =========================
-  String _statusCodeOf(ActiveRailwayData r) =>
-      ActiveRailwayData.statusCodeOf(r.status);
+  String _statusCodeOf(ActiveRailwayData r) => ActiveRailwayData.statusCodeOf(r.status);
 
   // =========================
   // PIE: soma extensão (km) por status
   // =========================
   List<String> get _statusOrder => ActiveRailwayData.statusOrder;
-  String _labelForStatus(String code) =>
-      ActiveRailwayData.labelForStatus(code);
+  String _labelForStatus(String code) => ActiveRailwayData.labelForStatus(code);
 
   Map<String, double> get _sumExtByStatus {
     final map = <String, double>{for (final s in _statusOrder) s: 0.0};
@@ -122,8 +121,7 @@ class ActiveRailwaysState extends Equatable {
     return map;
   }
 
-  List<({String code, Color color, String labelText, double value})>
-  get _pieItems {
+  List<({String code, Color color, String labelText, double value})> get _pieItems {
     final sums = _sumExtByStatus;
     return _statusOrder.map((code) {
       final km = (sums[code] ?? 0.0);
@@ -191,9 +189,8 @@ class ActiveRailwaysState extends Equatable {
           : statusCodeFromPieChartIndex(selectedPieIndexFilter!);
 
   List<ActiveRailwayData> get filteredAll {
-    final regionFilterC = selectedRegionFilter == null
-        ? null
-        : _canonRegion(selectedRegionFilter);
+    final regionFilterC =
+    selectedRegionFilter == null ? null : _canonRegion(selectedRegionFilter);
     final statusCode = _statusFilterFromPieOrNull ?? selectedStatusFilter;
 
     return all.where((f) {
@@ -221,15 +218,16 @@ class ActiveRailwaysState extends Equatable {
     // Métricas por zoom
     final m = RailwayTies.metricsForZoom(z);
 
-    // Simplificação adaptativa por zoom
-    List<LatLng> _simplifyForZoom(List<LatLng> seg) {
-      return MultiLineSimplifier.simplifyAdaptive(
+    // ✅ Simplificação adaptativa por zoom (cache LRU reutilizável)
+    List<LatLng> simplifyForZoom(List<LatLng> seg) {
+      return _simplifier.simplifyAdaptive(
         seg,
         zoom: z,
         tolerancePxFar: 5.5, // z < 9
         tolerancePxMid: 3.5, // 9 <= z < 12
         minAngleDeg: 18, // preserva curvas acentuadas
         maxSegmentMeters: 120, // anti-“quadrado”
+        metersPerPixelFn: RailwayTies.metersPerPixel, // ✅ FALTAVA ISSO
       );
     }
 
@@ -239,13 +237,12 @@ class ActiveRailwaysState extends Equatable {
       final tagId = fer.id!;
       final statusCode = ActiveRailwayData.statusCodeOf(fer.status);
       final estiloCamadas = ActiveRailwaysStyle.styleLane(statusCode, z);
-      final isSelected =
-      (selectedPolylineId != null && selectedPolylineId == tagId);
+      final isSelected = (selectedPolylineId != null && selectedPolylineId == tagId);
 
       for (final rawSeg in fer.getSegments()) {
         if (rawSeg.length < 2) continue;
 
-        final seg = _simplifyForZoom(rawSeg);
+        final seg = simplifyForZoom(rawSeg);
 
         // --- TRILHO (sempre) ---
         for (final entry in estiloCamadas.asMap().entries) {
@@ -268,21 +265,22 @@ class ActiveRailwaysState extends Equatable {
                 strokeWidth: (isSelected ? camada.width + 2 : camada.width) +
                     m.outlinePx * 2,
                 tag: '${tagId}_halo_$idx',
-                hitTestable: false, // halo não intercepta clique
+                hitTestable: false,
               ),
             );
           }
 
-          // trilho principal — TAG = id puro (para seleção/tooltip)
+          // trilho principal — TAG = id puro
           lines.add(
             TappableChangedPolyline(
               isDotted: false,
               points: ptsMain,
               color: isSelected ? Colors.redAccent : camada.cor,
               defaultColor: camada.cor,
-              strokeWidth:
-              isSelected ? camada.width + 2 : math.max(camada.width, m.railStrokePx),
-              tag: tagId, // ✅ mantém id puro
+              strokeWidth: isSelected
+                  ? camada.width + 2
+                  : math.max(camada.width, m.railStrokePx),
+              tag: tagId,
               hitTestable: true,
             ),
           );
@@ -297,7 +295,6 @@ class ActiveRailwaysState extends Equatable {
             lengthPx: m.lengthPx,
           );
 
-          // evita excesso em linhas longas
           const maxTiesPerSeg = 220;
           final usable = ties.length > maxTiesPerSeg
               ? [
@@ -311,7 +308,6 @@ class ActiveRailwaysState extends Equatable {
           for (var i = 0; i < usable.length; i++) {
             final t = usable[i];
 
-            // halo dos dormentes (zoom médio)
             if (m.tieHaloPx > 0) {
               lines.add(
                 TappableChangedPolyline(
@@ -321,12 +317,11 @@ class ActiveRailwaysState extends Equatable {
                   defaultColor: Colors.white,
                   strokeWidth: m.tieStrokePx + m.tieHaloPx * 2,
                   tag: '${tagId}_tie_halo_$i',
-                  hitTestable: false, // não clica
+                  hitTestable: false,
                 ),
               );
             }
 
-            // dormente
             lines.add(
               TappableChangedPolyline(
                 isDotted: false,
@@ -335,13 +330,14 @@ class ActiveRailwaysState extends Equatable {
                 defaultColor: Colors.black,
                 strokeWidth: m.tieStrokePx,
                 tag: '${tagId}_tie_$i',
-                hitTestable: false, // não clica
+                hitTestable: false,
               ),
             );
           }
         }
       }
     }
+
     return lines;
   }
 

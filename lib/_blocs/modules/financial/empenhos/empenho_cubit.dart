@@ -187,6 +187,96 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
     }
     emit(state.copyWith(attachments: list, selectedSideIndex: nextSelected));
   }
+  /// SideListBox (novo) -> quando a UI muda a lista (reorder/rename local etc)
+  void setAttachmentsFromUi(List<dynamic> items) {
+    final list = <Attachment>[];
+    for (final it in items) {
+      if (it is Attachment) list.add(it);
+    }
+
+    // mantém selectedSideIndex válido
+    int? idx = state.selectedSideIndex;
+    if (idx != null) {
+      if (list.isEmpty) idx = null;
+      else if (idx < 0) idx = 0;
+      else if (idx >= list.length) idx = list.length - 1;
+    }
+
+    emit(state.copyWith(attachments: list, selectedSideIndex: idx));
+  }
+
+  /// SideListBox (novo) -> rename com persistência (retorna bool)
+  Future<bool> persistRenameAttachment({
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
+    // só permite se existir registro selecionado (id)
+    final sel = state.selected;
+    if (sel?.id == null) return false;
+
+    if (index < 0 || index >= state.attachments.length) return false;
+
+    final newLabel = newItem.label.trim();
+    if (newLabel.isEmpty) return false;
+
+    // evita escrita desnecessária
+    if (oldItem.label.trim() == newLabel) return true;
+
+    try {
+      // atualiza lista local
+      final list = [...state.attachments];
+      list[index] = list[index].copyWith(
+        label: newLabel,
+        updatedAt: DateTime.now(),
+        // updatedBy: ... (se você tiver uid no state, pluga aqui)
+      );
+      emit(state.copyWith(attachments: list));
+
+      // persiste no Firestore via repo (update parcial)
+      final payload = EmpenhoData(
+        id: sel!.id,
+        contractId: sel.contractId,
+        numero: sel.numero,
+
+        demandContractId: sel.demandContractId,
+        demandLabel: sel.demandLabel,
+        credor: sel.credor,
+
+        companyId: sel.companyId,
+        companyLabel: sel.companyLabel,
+
+        fundingSourceId: sel.fundingSourceId,
+        fundingSourceLabel: sel.fundingSourceLabel,
+        objeto: sel.objeto,
+
+        date: sel.date,
+        empenhadoTotal: sel.empenhadoTotal,
+        slices: sel.slices,
+
+        attachments: list.isEmpty ? null : list,
+        pdfUrl: list.isNotEmpty ? list.first.url : null, // compat
+      );
+
+      await _repo.saveOrUpdate(payload);
+
+      // mantém state.selected coerente (pra reabrir e não perder rename)
+      emit(state.copyWith(selected: sel.copyWith(
+        attachments: list.isEmpty ? null : list,
+        pdfUrl: list.isNotEmpty ? list.first.url : null,
+      )));
+
+      return true;
+    } catch (_) {
+      // se falhar, tenta reverter no state (opcional)
+      final list = [...state.attachments];
+      if (index >= 0 && index < list.length) {
+        list[index] = list[index].copyWith(label: oldItem.label);
+        emit(state.copyWith(attachments: list));
+      }
+      return false;
+    }
+  }
 
   void editAttachmentLabel(int index, String newLabel) {
     if (index < 0 || index >= state.attachments.length) return;

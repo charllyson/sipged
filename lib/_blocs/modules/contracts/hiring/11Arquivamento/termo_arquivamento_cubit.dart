@@ -21,7 +21,6 @@ class TermoArquivamentoCubit extends Cubit<TermoArquivamentoState> {
   ///
   /// Uso típico:
   ///   final ta = await context
-  ///       .read<TermoArquivamentoCubit>()
   ///       .getDataForContract(contractId);
   ///
   Future<TermoArquivamentoData?> getDataForContract(String contractId) {

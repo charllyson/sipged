@@ -346,7 +346,7 @@ class ActiveOaesState extends Equatable {
         selectedPieIndex < 0 ||
         selectedPieIndex >= vm.values.length) {
       return GaugeVM(
-        label: region == null ? 'Total' : region,
+        label: region ?? 'Total',
         count: total,
         total: total,
         percent: 1.0,

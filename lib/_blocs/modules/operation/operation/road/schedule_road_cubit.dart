@@ -465,7 +465,7 @@ class ScheduleRoadCubit extends Cubit<ScheduleRoadState> {
       final hasPhotos =
           finalPhotoUrls.isNotEmpty || newFilesBytes.isNotEmpty;
 
-      String _canon(String? s) {
+      String canon0(String? s) {
         s = (s ?? '').toLowerCase();
         if (s.contains('conclu')) return 'concluido';
         if (s.contains('andament') || s.contains('progress')) {
@@ -475,7 +475,7 @@ class ScheduleRoadCubit extends Cubit<ScheduleRoadState> {
       }
 
       // Normaliza status vindo do UI
-      var canon = _canon(status);
+      var canon = canon0(status);
 
       // 🔴 Regra: se o usuário não mexeu no status (a_iniciar),
       // mas adicionou comentário ou foto, considera pelo menos em_andamento.
