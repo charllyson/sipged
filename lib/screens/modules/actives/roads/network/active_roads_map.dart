@@ -73,7 +73,7 @@ class _ActiveRoadsMapState extends State<ActiveRoadsMap> {
 
         return ValueListenableBuilder<double>(
           valueListenable: _centerLatVN,
-          builder: (context, centerLat, __) {
+          builder: (context, centerLat, _) {
             return MapInteractivePage<ActiveRoadsData>(
               showSearch: true,
               searchTargetZoom: 16,

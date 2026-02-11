@@ -50,7 +50,7 @@ class _ListRoadsTableState extends State<ListRoadsTable> {
         sortColumnIndex: 0,
         isAscending: true,
         sortField: (r) => (r.acronym ?? '').toUpperCase(),
-        onSort: (_, __) {},
+        onSort: (_, _) {},
 
         columnTitles: const [
           'CÓDIGO',

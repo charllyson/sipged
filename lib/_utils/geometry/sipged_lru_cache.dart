@@ -4,7 +4,7 @@ class SipGedLruCache<K, V> {
   SipGedLruCache({required this.maxEntries});
 
   final int maxEntries;
-  final _map = LinkedHashMap<K, V>();
+  final _map = <K, V>{};
 
   V? get(K key) {
     final value = _map.remove(key);

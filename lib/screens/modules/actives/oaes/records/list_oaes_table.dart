@@ -58,7 +58,7 @@ class _ListOaesTableState extends State<ListOaesTable> {
         sortColumnIndex: 0,
         isAscending: true,
         sortField: (o) => (_txt(o.identificationName)).toUpperCase(),
-        onSort: (_, __) {},
+        onSort: (_, _) {},
         leadingCellTitle: 'STATUS',
         leadingCell: (o) {
           final normalized = OaeScoreHelper.normalizeScore(o.score);

@@ -223,7 +223,7 @@ class FixedDecimalsFormatter extends TextInputFormatter {
     var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
 
     if (digits.isEmpty) {
-      final zero = '0${decimalSeparator}${'0' * decimals}';
+      final zero = '0$decimalSeparator${'0' * decimals}';
       return TextEditingValue(
         text: zero,
         selection: TextSelection.collapsed(offset: zero.length),

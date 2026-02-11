@@ -772,7 +772,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       layers.add(
         ValueListenableBuilder<Set<String>>(
           valueListenable: _selectedRegionsVN,
-          builder: (_, selected, __) {
+          builder: (_, selected, _) {
             return PolygonLayer(
               polygons: regional.map((entry) {
                 final poly = entry.polygon;
@@ -865,7 +865,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     layers.add(
       ValueListenableBuilder<LatLng?>(
         valueListenable: _userLocationVN,
-        builder: (_, pos, __) {
+        builder: (_, pos, _) {
           if (pos == null) return const SizedBox.shrink();
           return MarkerLayer(
             markers: [
@@ -912,7 +912,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       layers.add(
         ValueListenableBuilder<LatLng?>(
           valueListenable: _searchHitVN,
-          builder: (_, pos, __) {
+          builder: (_, pos, _) {
             if (pos == null) return const SizedBox.shrink();
             const double pinH = 56.0;
             const double pinW = 44.0;

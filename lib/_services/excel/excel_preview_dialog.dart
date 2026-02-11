@@ -362,7 +362,7 @@ class _ExcelPreviewDialogState extends State<ExcelPreviewDialog> {
 
         return ValueListenableBuilder<int>(
           valueListenable: progress,
-          builder: (_, current, __) {
+          builder: (_, current, _) {
             return ProgressImportDialog(total: total, current: current);
           },
         );

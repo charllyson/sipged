@@ -197,8 +197,9 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
     // mantém selectedSideIndex válido
     int? idx = state.selectedSideIndex;
     if (idx != null) {
-      if (list.isEmpty) idx = null;
-      else if (idx < 0) idx = 0;
+      if (list.isEmpty) {
+        idx = null;
+      } else if (idx < 0) idx = 0;
       else if (idx >= list.length) idx = list.length - 1;
     }
 

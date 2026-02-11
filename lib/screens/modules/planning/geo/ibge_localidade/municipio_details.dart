@@ -73,7 +73,7 @@ class MunicipioDetails extends StatelessWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: attrs.length,
-              separatorBuilder: (_, __) => const Divider(height: 8),
+              separatorBuilder: (_, _) => const Divider(height: 8),
               itemBuilder: (_, i) {
                 final k = attrs.keys.elementAt(i);
                 final v = attrs[k]!;

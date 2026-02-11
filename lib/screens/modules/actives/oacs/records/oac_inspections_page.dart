@@ -358,7 +358,7 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: inspections.length,
-                    separatorBuilder: (_, __) => const Divider(height: 16),
+                    separatorBuilder: (_, _) => const Divider(height: 16),
                     itemBuilder: (_, i) {
                       final ins = inspections[i];
 

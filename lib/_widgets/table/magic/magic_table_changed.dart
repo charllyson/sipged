@@ -102,7 +102,7 @@ class _MagicTableChangedState extends State<MagicTableChanged> {
   bool _didInit = false;
 
   static const double _bandHeight = 28;
-  double _totalRowHeight = 36;
+  final double _totalRowHeight = 36;
 
   @override
   void initState() {

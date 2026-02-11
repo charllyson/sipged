@@ -77,7 +77,7 @@ class PhotoCarousel extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: theme.listPadding,
         itemCount: total,
-        separatorBuilder: (_, __) => SizedBox(width: theme.spacing),
+        separatorBuilder: (_, _) => SizedBox(width: theme.spacing),
         itemBuilder: (context, globalIndex) {
           if (hasLeading && globalIndex == 0) {
             return SizedBox(

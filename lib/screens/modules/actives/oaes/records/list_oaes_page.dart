@@ -74,7 +74,7 @@ class ListOaesPage extends StatefulWidget {
 class _ListOaesPageState extends State<ListOaesPage> {
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
-  String _search = '';
+  final String _search = '';
 
   /// Conjunto de notas expandidas (0..5, -1 para "sem nota").
   final Set<int> _expandedScores = <int>{};

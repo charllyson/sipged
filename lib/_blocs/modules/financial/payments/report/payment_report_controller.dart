@@ -54,7 +54,7 @@ class PaymentsReportController extends ChangeNotifier
   ProcessData? contract;
 
   // valor da demanda (DFD)
-  double _valorDemanda = 0.0;
+  final double _valorDemanda = 0.0;
 
   // --- Dados
   List<PaymentsReportData> _reports = <PaymentsReportData>[];
@@ -540,7 +540,9 @@ class PaymentsReportController extends ChangeNotifier
   Future<void> handleAddFile(BuildContext context) async {
     if (!canAddFile ||
         contract?.id == null ||
-        _selected?.idPaymentReport == null) return;
+        _selected?.idPaymentReport == null) {
+      return;
+    }
 
     try {
       isSaving = true;
@@ -591,7 +593,9 @@ class PaymentsReportController extends ChangeNotifier
     if (p == null ||
         p.attachments == null ||
         index < 0 ||
-        index >= p.attachments!.length) return;
+        index >= p.attachments!.length) {
+      return;
+    }
 
     try {
       isSaving = true;
@@ -640,7 +644,9 @@ class PaymentsReportController extends ChangeNotifier
     final p = _selected;
     if (p == null ||
         p.idPaymentReport == null ||
-        contract?.id == null) return;
+        contract?.id == null) {
+      return;
+    }
 
     try {
       isSaving = true;

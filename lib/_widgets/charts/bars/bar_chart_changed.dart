@@ -77,7 +77,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final Gradient? gradient = isDark
+    final Gradient gradient = isDark
         ? const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,

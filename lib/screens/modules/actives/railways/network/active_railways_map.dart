@@ -52,7 +52,7 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
           _ZoomListenerOverlay(mapController: mc),
 
       // 👉 atualiza o tooltip ancorado conforme pan/zoom
-      onCameraChanged: (double _, LatLng __) {
+      onCameraChanged: (double _, LatLng _) {
         if (_anchorLatLng != null &&
             _lastMapController != null &&
             _toGlobal != null) {

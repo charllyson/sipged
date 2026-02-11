@@ -256,7 +256,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                               const SizedBox(height: 8),
                               ValueListenableBuilder<bool>(
                                 valueListenable: _loading,
-                                builder: (_, loading, __) {
+                                builder: (_, loading, _) {
                                   return ElevatedButton(
                                     style: TextButton.styleFrom(
                                       backgroundColor: Colors.blue,
@@ -293,7 +293,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
             ValueListenableBuilder<bool>(
               valueListenable: _loading,
-              builder: (_, loading, __) {
+              builder: (_, loading, _) {
                 if (!loading) return const SizedBox.shrink();
                 return const _BlockingOverlay(message: 'Criando conta…');
               },

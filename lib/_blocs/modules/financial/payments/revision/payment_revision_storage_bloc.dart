@@ -248,10 +248,6 @@ class PaymentRevisionStorageBloc extends BlocBase {
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }
 
 class _StorageFile {

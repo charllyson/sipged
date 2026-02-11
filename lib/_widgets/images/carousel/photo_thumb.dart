@@ -83,7 +83,7 @@ class PhotoThumb extends StatelessWidget {
           height: size,
           fit: BoxFit.cover,
           loadingBuilder: (c, child, prog) => prog == null ? child : _loadingBox(size),
-          errorBuilder: (_, __, ___) => _errorBox(size),
+          errorBuilder: (_, _, _) => _errorBox(size),
         );
       }
 
@@ -106,7 +106,7 @@ class PhotoThumb extends StatelessWidget {
             width: size,
             height: size,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _errorBox(size),
+            errorBuilder: (_, _, _) => _errorBox(size),
           );
         },
       );
@@ -119,7 +119,7 @@ class PhotoThumb extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _errorBox(size),
+        errorBuilder: (_, _, _) => _errorBox(size),
       );
     }
 

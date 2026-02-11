@@ -502,7 +502,7 @@ class _FirebaseMigrationToolkitPageState
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _docs.length,
-                          separatorBuilder: (_, __) => Divider(
+                          separatorBuilder: (_, _) => Divider(
                             height: 1,
                             color: Colors.grey.shade300,
                           ),
@@ -600,7 +600,7 @@ class _FirebaseMigrationToolkitPageState
                                     physics:
                                     const NeverScrollableScrollPhysics(),
                                     itemCount: fieldKeys.length,
-                                    separatorBuilder: (_, __) => Divider(
+                                    separatorBuilder: (_, _) => Divider(
                                       height: 1,
                                       color: Colors.grey.shade200,
                                     ),

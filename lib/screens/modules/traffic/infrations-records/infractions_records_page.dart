@@ -53,7 +53,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
               children: [
                 Expanded(
                   child: Consumer<InfractionsController>(
-                    builder: (_, ctrl, __) {
+                    builder: (_, ctrl, _) {
                       return SingleChildScrollView(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,7 +251,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
 
             // Overlay de "salvando..."
             Consumer<InfractionsController>(
-              builder: (_, ctrl, __) => ctrl.isSaving
+              builder: (_, ctrl, _) => ctrl.isSaving
                   ? Stack(
                 children: [
                   ModalBarrier(dismissible: false, color: Colors.black.withOpacity(0.4)),

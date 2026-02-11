@@ -337,7 +337,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         itemCount: (_filtered.isEmpty ? 0 : _filtered.length) +
                             (widget.isEditable ? 1 : 0),
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        separatorBuilder: (_, _) => const SizedBox(width: 10),
                         itemBuilder: (context, index) {
                           final bool hasAdder = widget.isEditable;
                           final int offset = hasAdder ? 1 : 0;

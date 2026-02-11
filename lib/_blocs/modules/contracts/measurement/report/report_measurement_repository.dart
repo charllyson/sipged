@@ -322,7 +322,7 @@ class ReportMeasurementRepository {
     }, SetOptions(merge: true));
 
     // 2) apaga do storage
-    final p = (attachment.path ?? '').trim();
+    final p = (attachment.path).trim();
     if (p.isNotEmpty) {
       try {
         await _storageRef(p).delete();

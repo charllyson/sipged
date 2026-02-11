@@ -269,7 +269,7 @@ class CivilScheduleRepository {
       for (int i = 0; i < newFilesBytes.length; i++) {
         final name = (newFileNames != null && i < newFileNames.length && (newFileNames[i].trim().isNotEmpty))
             ? newFileNames[i].trim()
-            : 'img_$nowMs\_$i.jpg';
+            : 'img_${nowMs}_$i.jpg';
         final unique = '$name.${DateTime.now().microsecondsSinceEpoch}';
         final task = await folder.child(unique).putData(
           newFilesBytes[i],

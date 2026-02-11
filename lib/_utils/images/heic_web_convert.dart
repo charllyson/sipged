@@ -1,25 +1,34 @@
-// Converte HEIC -> JPEG no Web via biblioteca JS heic2any (precisa estar incluída no index.html)
-import 'dart:async';
+// Converte HEIC -> JPEG no Web via biblioteca JS heic2any
+// (precisa estar incluída no index.html e exposta no global scope como `heic2any`)
+
 import 'dart:typed_data';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-import 'dart:js_util' as jsu;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+
+import 'package:web/web.dart' as web;
+
+@JS('heic2any')
+external JSPromise<web.Blob> _heic2any(JSObject options);
 
 Future<Uint8List> convertHeicBytesToJpegWeb(Uint8List heicBytes) async {
-  final blob = html.Blob([heicBytes], 'image/heic');
-  final promise = jsu.callMethod(html.window, 'heic2any', [
-    {'blob': blob, 'toType': 'image/jpeg'}
-  ]);
-  final result = await jsu.promiseToFuture(promise);
-  if (result is html.Blob) {
-    final reader = html.FileReader();
-    final completer = Completer<Uint8List>();
-    reader.onLoadEnd.listen((_) {
-      final buf = reader.result as ByteBuffer;
-      completer.complete(buf.asUint8List());
-    });
-    reader.readAsArrayBuffer(result);
-    return completer.future;
-  }
-  throw Exception('Falha ao converter HEIC');
+  // ✅ BlobPart tipado corretamente
+  final parts = <web.BlobPart>[heicBytes.toJS].toJS;
+
+  final heicBlob = web.Blob(
+    parts,
+    web.BlobPropertyBag(type: 'image/heic'),
+  );
+
+  // options { blob: heicBlob, toType: 'image/jpeg' }
+  final opts = JSObject();
+  opts.setProperty('blob'.toJS, heicBlob);
+  opts.setProperty('toType'.toJS, 'image/jpeg'.toJS);
+
+  // Promise<Blob>
+  final jpgBlob = await _heic2any(opts).toDart;
+
+  // Blob -> ArrayBuffer -> Uint8List
+  final jsBuf = await jpgBlob.arrayBuffer().toDart;
+  final byteBuffer = jsBuf.toDart;
+  return byteBuffer.asUint8List();
 }

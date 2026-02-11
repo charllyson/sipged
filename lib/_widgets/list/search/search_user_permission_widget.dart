@@ -234,7 +234,7 @@ class _SearchUserPermissionWidgetState extends State<SearchUserPermissionWidget>
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: _selectedIds.length,
-                    separatorBuilder: (_, __) => Container(),
+                    separatorBuilder: (_, _) => Container(),
                     itemBuilder: (context, i) {
                       final uid = _selectedIds[i];
 

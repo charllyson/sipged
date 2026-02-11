@@ -173,7 +173,7 @@ class ShowCityDetails extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(
                         16, 16, 16, 24),
                     itemCount: items.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, _) =>
                     const SizedBox(height: 12),
                     itemBuilder: (ctx, i) {
                       final acc = items[i];

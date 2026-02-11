@@ -27,8 +27,9 @@ class HealthScoreCard extends StatelessWidget {
         (riskScore * weights[3]);
 
     Color badge;
-    if (score >= 80) badge = Colors.green;
-    else if (score >= 60) badge = Colors.orange;
+    if (score >= 80) {
+      badge = Colors.green;
+    } else if (score >= 60) badge = Colors.orange;
     else badge = Colors.red;
 
     return Card(
@@ -48,9 +49,9 @@ class HealthScoreCard extends StatelessWidget {
               const SizedBox(width: 12),
               _kv('Custo (CPI)', '${cpi.toStringAsFixed(2)} • ${custo.toStringAsFixed(0)}'),
               const SizedBox(width: 12),
-              _kv('Qualidade', '${quality.toStringAsFixed(0)}'),
+              _kv('Qualidade', quality.toStringAsFixed(0)),
               const SizedBox(width: 12),
-              _kv('Riscos', '${riskScore.toStringAsFixed(0)}'),
+              _kv('Riscos', riskScore.toStringAsFixed(0)),
             ],
           ),
         ),

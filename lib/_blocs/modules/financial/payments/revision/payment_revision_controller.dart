@@ -49,7 +49,7 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
   ProcessData? contract;
 
   // valor da demanda (DFD) — você ainda não está carregando aqui
-  double _valorDemanda = 0.0;
+  final double _valorDemanda = 0.0;
 
   // --- Dados
   List<PaymentsRevisionsData> _revisions = <PaymentsRevisionsData>[];
@@ -543,7 +543,9 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
     if (!canAddFile ||
         contract?.id == null ||
         p?.idRevisionPayment == null ||
-        p == null) return;
+        p == null) {
+      return;
+    }
 
     try {
       isSaving = true;

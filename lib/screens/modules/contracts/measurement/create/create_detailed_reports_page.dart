@@ -54,7 +54,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
   String? _error;
 
   /// Map com breakdown de cada item (por id de item de orçamento)
-  Map<String, Map<String, dynamic>> _items = {};
+  final Map<String, Map<String, dynamic>> _items = {};
   final Map<String, double> _lastSavedPeriod = {};
 
   // Keys de colunas adicionais

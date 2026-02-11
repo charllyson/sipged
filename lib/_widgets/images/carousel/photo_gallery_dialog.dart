@@ -49,7 +49,7 @@ Future<void> showPhotoGalleryDialog(
         img = Image.network(
           item.url,
           fit: fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain,
-          errorBuilder: (_, __, ___) => const Center(
+          errorBuilder: (_, _, _) => const Center(
             child: Text('Erro ao carregar', style: TextStyle(color: Colors.redAccent)),
           ),
         );

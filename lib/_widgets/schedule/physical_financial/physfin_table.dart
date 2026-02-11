@@ -774,7 +774,7 @@ class PhysFinTable extends StatelessWidget {
 
         termFooters.addAll([
           _footerRow(
-            label: 'Total ${ord}º termo',
+            label: 'Total $ordº termo',
             cells: termoParciais,
             totalRight: totalTermo,
             widths: widths,
@@ -789,7 +789,7 @@ class PhysFinTable extends StatelessWidget {
             valueFontSize: 12.5,
           ),
           _footerRow(
-            label: 'Acumulado ${ord}º termo',
+            label: 'Acumulado $ordº termo',
             cells: termoAcum,
             totalRight: termoAcum.isEmpty ? 0.0 : termoAcum.last,
             widths: widths,

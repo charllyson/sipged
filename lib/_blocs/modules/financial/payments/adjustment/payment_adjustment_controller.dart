@@ -57,7 +57,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
   bool isSaving = false;
   bool formValidated = false;
 
-  double _valorInicial = 0.0;
+  final double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
   // SideListBox (String | Attachment)
@@ -522,7 +522,9 @@ class PaymentsAdjustmentController extends ChangeNotifier
     if (!canAddFile ||
         contract?.id == null ||
         v?.idPaymentAdjustment == null ||
-        v == null) return;
+        v == null) {
+      return;
+    }
 
     try {
       isSaving = true;
@@ -574,7 +576,9 @@ class PaymentsAdjustmentController extends ChangeNotifier
     final v = _selected;
     if (v == null ||
         contract?.id == null ||
-        v.idPaymentAdjustment == null) return false;
+        v.idPaymentAdjustment == null) {
+      return false;
+    }
 
     final atts = List<Attachment>.from(v.attachments ?? const []);
     if (index < 0 || index >= atts.length) return false;
@@ -628,7 +632,9 @@ class PaymentsAdjustmentController extends ChangeNotifier
     final v = _selected;
     if (v == null ||
         v.idPaymentAdjustment == null ||
-        contract?.id == null) return;
+        contract?.id == null) {
+      return;
+    }
 
     try {
       isSaving = true;

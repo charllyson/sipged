@@ -79,11 +79,11 @@ class _TreemapChartChangedState extends State<TreemapChartChanged> {
       builder: (context) {
         return ValueListenableBuilder<TreemapItem?>(
           valueListenable: _tooltipItem,
-          builder: (_, item, __) {
+          builder: (_, item, _) {
             if (item == null) return const SizedBox.shrink();
             return ValueListenableBuilder<Offset?>(
               valueListenable: _tooltipPos,
-              builder: (_, pos, __) {
+              builder: (_, pos, _) {
                 if (pos == null) return const SizedBox.shrink();
 
                 return Positioned(

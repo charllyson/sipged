@@ -384,7 +384,7 @@ class _SideListBoxState extends State<SideListBox> {
                             ? const AlwaysScrollableScrollPhysics()
                             : const NeverScrollableScrollPhysics(),
                         itemCount: _items.length,
-                        separatorBuilder: (_, __) =>
+                        separatorBuilder: (_, _) =>
                             Divider(height: 1, thickness: 1, color: divider),
                         itemBuilder: (context, i) {
                           final selected =

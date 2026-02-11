@@ -48,7 +48,7 @@ class _AccidentsDashboardNetworkPageState
     Color(0xFFD32F2F), // vermelho
   ];
   final Color _zeroValueColor = Colors.grey;
-  bool _useLogScale = false;
+  final bool _useLogScale = false;
 
   @override
   void initState() {

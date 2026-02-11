@@ -150,7 +150,7 @@ class SearchOverlay {
                             padding: const EdgeInsets.symmetric(vertical: 6),
                             shrinkWrap: true,
                             itemCount: _suggestions.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (_, _) =>
                             const Divider(height: 1, thickness: 0.5),
                             itemBuilder: (ctx, i) {
                               final s = _suggestions[i];
