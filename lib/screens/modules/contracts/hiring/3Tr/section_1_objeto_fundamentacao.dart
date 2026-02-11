@@ -9,7 +9,7 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 class SectionObjetoFundamentacao extends StatefulWidget {
   final bool isEditable;
@@ -32,7 +32,7 @@ class SectionObjetoFundamentacao extends StatefulWidget {
 
 class _SectionObjetoFundamentacaoState
     extends State<SectionObjetoFundamentacao>
-    with FormValidationMixin {
+    with SipGedValidation {
   // Controllers internos (não expostos, padrão Dfd)
   late final TextEditingController _tipoContratacaoCtrl;
   late final TextEditingController _regimeExecucaoCtrl;
@@ -59,17 +59,17 @@ class _SectionObjetoFundamentacaoState
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? newText) {
+      void sync(TextEditingController c, String? newText) {
         final v = newText ?? '';
         if (c.text != v) {
           c.text = v;
         }
       }
 
-      _sync(_tipoContratacaoCtrl, d.tipoContratacao);
-      _sync(_regimeExecucaoCtrl, d.regimeExecucao);
-      _sync(_objetoCtrl, d.objeto);
-      _sync(_justificativaCtrl, d.justificativa);
+      sync(_tipoContratacaoCtrl, d.tipoContratacao);
+      sync(_regimeExecucaoCtrl, d.regimeExecucao);
+      sync(_objetoCtrl, d.objeto);
+      sync(_justificativaCtrl, d.justificativa);
     }
   }
 

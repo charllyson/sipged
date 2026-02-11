@@ -1,4 +1,6 @@
 // lib/screens/modules/actives/oaes/active_oaes_network_page.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
@@ -25,8 +27,7 @@ class ActiveOAEsNetworkPage extends StatefulWidget {
   const ActiveOAEsNetworkPage({super.key});
 
   @override
-  State<ActiveOAEsNetworkPage> createState() =>
-      _ActiveOAEsNetworkPageState();
+  State<ActiveOAEsNetworkPage> createState() => _ActiveOAEsNetworkPageState();
 }
 
 class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
@@ -70,11 +71,10 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   }
 
   // =============================================================================
-  // SIDE LISTBOX — ANEXOS (UPLOAD, EDITAR, EXCLUIR)
+  // SIDE LISTBOX — ANEXOS (UPLOAD, RENOMEAR, EXCLUIR)
   // =============================================================================
 
-  String _attachmentsDir(ActiveOaesData d) =>
-      'actives_oaes/${d.id}/attachments';
+  String _attachmentsDir(ActiveOaesData d) => 'actives_oaes/${d.id}/attachments';
 
   List<Attachment> _currentAttachments() =>
       _detailsMarker?.data.attachments ?? const <Attachment>[];
@@ -87,6 +87,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     final updated = d.copyWith(attachments: next);
     await _repo.upsert(updated);
 
+    if (!mounted) return;
     setState(() {
       _detailsMarker = TaggedChangedMarker<ActiveOaesData>(
         point: marker.point,
@@ -111,7 +112,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   }
 
   bool _isPdfAttachment(Attachment a) {
-    final ext = (a.ext).toLowerCase();
+    final ext = (a.ext).toLowerCase().trim();
     if (ext == 'pdf' || ext == '.pdf') return true;
     final u = (a.url).toLowerCase();
     return u.endsWith('.pdf') || u.contains('.pdf?');
@@ -201,14 +202,12 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: () =>
-                          Navigator.of(dialogCtx).pop(false),
+                      onPressed: () => Navigator.of(dialogCtx).pop(false),
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
-                      onPressed: () =>
-                          Navigator.of(dialogCtx).pop(true),
+                      onPressed: () => Navigator.of(dialogCtx).pop(true),
                       child: const Text('Excluir'),
                     ),
                   ],
@@ -230,37 +229,48 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     final next = [...items]..removeAt(index);
     await _persistAttachments(next);
 
+    if (!mounted) return;
     setState(() {
-      if (_selectedSideIndex != null &&
-          _selectedSideIndex! >= next.length) {
+      if (_selectedSideIndex != null && _selectedSideIndex! >= next.length) {
         _selectedSideIndex = next.isEmpty ? null : next.length - 1;
       }
     });
   }
 
-  Future<void> _onEditLabelSideItem(int index) async {
+  // ✅ NOVO: persistência de rename vindo do SideListBox
+  Future<bool> _onRenamePersist({
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
     final items = _currentAttachments();
-    if (index < 0 || index >= items.length) return;
+    if (index < 0 || index >= items.length) return false;
 
-    final current = items[index];
+    try {
+      final next = [...items]..[index] = newItem.copyWith(updatedAt: DateTime.now());
+      await _persistAttachments(next);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
-    final newLabel = await askLabelDialog(
-      context,
-      current.label.isNotEmpty ? current.label : 'Rótulo do arquivo',
-    );
+  // ✅ NOVO: SideListBox pode notificar a lista (já renomeada)
+  void _onItemsChanged(List<dynamic> newItems) {
+    final next = newItems.whereType<Attachment>().toList();
+    // Não persiste aqui (evita duplicar chamadas). Persistência é no onRenamePersist/delete/add.
+    // Mas mantém o marker sincronizado pra UI refletir imediatamente.
+    final marker = _detailsMarker;
+    final d = marker?.data;
+    if (marker == null || d == null) return;
 
-    if (newLabel == null) return;
-
-    final trimmed = newLabel.trim();
-    if (trimmed.isEmpty || trimmed == current.label) return;
-
-    final updated = current.copyWith(
-      label: trimmed,
-      updatedAt: DateTime.now(),
-    );
-
-    final next = [...items]..[index] = updated;
-    await _persistAttachments(next);
+    setState(() {
+      _detailsMarker = TaggedChangedMarker<ActiveOaesData>(
+        point: marker.point,
+        data: d.copyWith(attachments: next),
+        properties: d.copyWith(attachments: next).toMap(),
+      );
+    });
   }
 
   // =============================================================================
@@ -283,9 +293,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
             IconButton(
               tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
               icon: Icon(
-                _showPanel
-                    ? Icons.view_sidebar
-                    : Icons.view_sidebar_outlined,
+                _showPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
                 color: Colors.white,
               ),
               onPressed: _togglePanelVisibility,
@@ -297,26 +305,27 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
         // 🔥 Rebuilda mapa + painel apenas quando dados/filtros realmente mudam
         buildWhen: (prev, curr) {
           return prev.all != curr.all ||
-              prev.selectedPieIndexFilter !=
-                  curr.selectedPieIndexFilter ||
-              prev.selectedRegionFilter !=
-                  curr.selectedRegionFilter ||
+              prev.selectedPieIndexFilter != curr.selectedPieIndexFilter ||
+              prev.selectedRegionFilter != curr.selectedRegionFilter ||
               prev.regionLabels != curr.regionLabels;
         },
         builder: (context, state) {
           Widget? rightPane;
+
           switch (_mode) {
             case _RightPanelMode.none:
               rightPane = null;
               break;
+
             case _RightPanelMode.analytics:
               rightPane = ActiveOaesPanel(onClose: _closePanel);
               break;
+
             case _RightPanelMode.details:
               final marker = _detailsMarker;
               if (marker != null) {
-                final sideItems =
-                    marker.data.attachments ?? const <Attachment>[];
+                final sideItems = marker.data.attachments ?? const <Attachment>[];
+
                 rightPane = ActiveOaesDetails(
                   key: ValueKey(marker.data.id),
                   marker: marker,
@@ -326,7 +335,11 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
                   onAddSideItem: _onAddSideItem,
                   onTapSideItem: _onTapSideItem,
                   onDeleteSideItem: _onDeleteSideItem,
-                  onEditLabelSideItem: _onEditLabelSideItem,
+
+                  // ✅ SideListBox novo (rename embutido)
+                  onRenamePersist: _onRenamePersist,
+                  onItemsChanged: _onItemsChanged,
+
                   isEditable: true,
                 );
               } else {

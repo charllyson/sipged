@@ -417,7 +417,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
       ['Unitário', 'Preço Unitário', 'PU', 'Unitário (R\$)'],
     );
 
-    double _unitPriceRow(int row) {
+    double unitPriceRow(int row) {
       if (_idxPU >= 0 &&
           row >= 0 &&
           row < _ctrl.tableData.length &&
@@ -485,7 +485,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         group: 'VALOR',
         compute: (row, values, ctrl) {
           final prev = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPrev)]) ?? 0.0;
-          final pu = _unitPriceRow(row);
+          final pu = unitPriceRow(row);
           return ctrl.formatMoneyBR(prev * pu);
         },
       ),
@@ -497,7 +497,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         group: 'VALOR',
         compute: (row, values, ctrl) {
           final periodQty = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
-          final pu = _unitPriceRow(row);
+          final pu = unitPriceRow(row);
           return ctrl.formatMoneyBR(periodQty * pu);
         },
       ),
@@ -510,7 +510,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         compute: (row, values, ctrl) {
           final prev = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPrev)]) ?? 0.0;
           final period = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
-          final pu = _unitPriceRow(row);
+          final pu = unitPriceRow(row);
           return ctrl.formatMoneyBR((prev + period) * pu);
         },
       ),
@@ -521,7 +521,7 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
         editable: false,
         group: 'VALOR',
         compute: (row, values, ctrl) {
-          final pu = _unitPriceRow(row);
+          final pu = unitPriceRow(row);
           final qtdContrato = _qtdContratoRowRobusto(row);
           final periodQty = ctrl.parseBR(values[ctrl.colIndexByKey(_kQtyPeriod)]) ?? 0.0;
           final saldoVal = (qtdContrato - periodQty) * pu;

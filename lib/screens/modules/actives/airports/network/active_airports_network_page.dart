@@ -23,8 +23,7 @@ class ActiveAirportNetworkPage extends StatefulWidget {
   const ActiveAirportNetworkPage({super.key});
 
   @override
-  State<ActiveAirportNetworkPage> createState() =>
-      _ActiveAirportNetworkPageState();
+  State<ActiveAirportNetworkPage> createState() => _ActiveAirportNetworkPageState();
 }
 
 class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
@@ -79,11 +78,11 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
   }
 
   // =============================================================================
-  // SIDE LISTBOX — ANEXOS (UPLOAD, EDITAR, EXCLUIR)
+  // SIDE LISTBOX — ANEXOS (UPLOAD, RENOMEAR, EXCLUIR)
   // =============================================================================
 
-  String _attachmentsDir(ActiveOaesData d) =>
-      'actives_oaes/${d.id}/attachments';
+  String _attachmentsDir(ActiveOaesData d) => 'actives_oaes/${d.id}/attachments';
+
   List<Attachment> _currentAttachments() =>
       _detailsMarker?.data.attachments ?? const <Attachment>[];
 
@@ -95,6 +94,7 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
     final updated = d.copyWith(attachments: next);
     await _repo.upsert(updated);
 
+    if (!mounted) return;
     setState(() {
       _detailsMarker = TaggedChangedMarker<ActiveOaesData>(
         point: marker.point,
@@ -119,7 +119,7 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
   }
 
   bool _isPdfAttachment(Attachment a) {
-    final ext = (a.ext).toLowerCase();
+    final ext = (a.ext).toLowerCase().trim();
     if (ext == 'pdf' || ext == '.pdf') return true;
     final u = (a.url).toLowerCase();
     return u.endsWith('.pdf') || u.contains('.pdf?');
@@ -159,8 +159,7 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
                 onPressed: () {
                   final uri = Uri.tryParse(att.url);
                   if (uri != null) {
-                    launchUrl(uri,
-                        mode: LaunchMode.externalApplication);
+                    launchUrl(uri, mode: LaunchMode.externalApplication);
                   }
                 },
                 icon: const Icon(Icons.open_in_new),
@@ -210,14 +209,12 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed: () =>
-                          Navigator.of(dialogCtx).pop(false),
+                      onPressed: () => Navigator.of(dialogCtx).pop(false),
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
-                      onPressed: () =>
-                          Navigator.of(dialogCtx).pop(true),
+                      onPressed: () => Navigator.of(dialogCtx).pop(true),
                       child: const Text('Excluir'),
                     ),
                   ],
@@ -239,38 +236,48 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
     final next = [...items]..removeAt(index);
     await _persistAttachments(next);
 
+    if (!mounted) return;
     setState(() {
-      if (_selectedSideIndex != null &&
-          _selectedSideIndex! >= next.length) {
-        _selectedSideIndex =
-        next.isEmpty ? null : next.length - 1;
+      if (_selectedSideIndex != null && _selectedSideIndex! >= next.length) {
+        _selectedSideIndex = next.isEmpty ? null : next.length - 1;
       }
     });
   }
 
-  Future<void> _onEditLabelSideItem(int index) async {
+  // ✅ NOVO: persistência de rename vindo do SideListBox
+  Future<bool> _onRenamePersist({
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
     final items = _currentAttachments();
-    if (index < 0 || index >= items.length) return;
+    if (index < 0 || index >= items.length) return false;
 
-    final current = items[index];
+    try {
+      final next = [...items]..[index] = newItem.copyWith(updatedAt: DateTime.now());
+      await _persistAttachments(next);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 
-    final newLabel = await askLabelDialog(
-      context,
-      current.label.isNotEmpty ? current.label : 'Rótulo do arquivo',
-    );
+  // ✅ NOVO: SideListBox pode notificar lista atual (já renomeada etc.)
+  void _onItemsChanged(List<dynamic> newItems) {
+    final next = newItems.whereType<Attachment>().toList();
 
-    if (newLabel == null) return;
+    final marker = _detailsMarker;
+    final d = marker?.data;
+    if (marker == null || d == null) return;
 
-    final trimmed = newLabel.trim();
-    if (trimmed.isEmpty || trimmed == current.label) return;
-
-    final updated = current.copyWith(
-      label: trimmed,
-      updatedAt: DateTime.now(),
-    );
-
-    final next = [...items]..[index] = updated;
-    await _persistAttachments(next);
+    setState(() {
+      final updated = d.copyWith(attachments: next);
+      _detailsMarker = TaggedChangedMarker<ActiveOaesData>(
+        point: marker.point,
+        data: updated,
+        properties: updated.toMap(),
+      );
+    });
   }
 
   // =============================================================================
@@ -289,17 +296,13 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
             actions: [
               IconButton(
                 tooltip: 'Limpar filtros',
-                icon: const Icon(Icons.filter_alt_off,
-                    color: Colors.white),
+                icon: const Icon(Icons.filter_alt_off, color: Colors.white),
                 onPressed: _clearFilters,
               ),
               IconButton(
-                tooltip:
-                _showPanel ? 'Ocultar painel' : 'Mostrar painel',
+                tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
                 icon: Icon(
-                  _showPanel
-                      ? Icons.view_sidebar
-                      : Icons.view_sidebar_outlined,
+                  _showPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
                   color: Colors.white,
                 ),
                 onPressed: _togglePanelVisibility,
@@ -310,18 +313,21 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
         body: BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
           builder: (context, state) {
             Widget? rightPane;
+
             switch (_mode) {
               case _RightPanelMode.none:
                 rightPane = null;
                 break;
+
               case _RightPanelMode.analytics:
                 rightPane = ActiveOaesPanel(onClose: _closePanel);
                 break;
+
               case _RightPanelMode.details:
                 final marker = _detailsMarker;
                 if (marker != null) {
-                  final sideItems =
-                      marker.data.attachments ?? const <Attachment>[];
+                  final sideItems = marker.data.attachments ?? const <Attachment>[];
+
                   rightPane = ActiveOaesDetails(
                     key: ValueKey(marker.data.id),
                     marker: marker,
@@ -331,7 +337,11 @@ class _ActiveAirportNetworkPageState extends State<ActiveAirportNetworkPage> {
                     onAddSideItem: _onAddSideItem,
                     onTapSideItem: _onTapSideItem,
                     onDeleteSideItem: _onDeleteSideItem,
-                    onEditLabelSideItem: _onEditLabelSideItem,
+
+                    // ✅ SideListBox novo
+                    onRenamePersist: _onRenamePersist,
+                    onItemsChanged: _onItemsChanged,
+
                     isEditable: true,
                   );
                 } else {

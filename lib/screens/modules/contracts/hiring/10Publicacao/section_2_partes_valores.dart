@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
@@ -27,7 +27,7 @@ class SectionPartesValoresVigencia extends StatefulWidget {
 }
 
 class _SectionPartesValoresVigenciaState
-    extends State<SectionPartesValoresVigencia> with FormValidationMixin {
+    extends State<SectionPartesValoresVigencia> with SipGedValidation {
   late final TextEditingController _contratadaRazaoCtrl;
   late final TextEditingController _contratadaCnpjCtrl;
   late final TextEditingController _cnoCtrl;
@@ -155,7 +155,7 @@ class _SectionPartesValoresVigenciaState
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(14),
-                      TextInputMask(mask: '99.999.999/9999-99'),
+                      SipGedMasks.cnpj,
                     ],
                     keyboardType: TextInputType.number,
                     validator: validateRequired,

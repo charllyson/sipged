@@ -1,13 +1,12 @@
 // lib/screens/modules/contracts/hiring/8Minuta/section_1_identificacao.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_data.dart';
 
 class SectionIdentificacao extends StatefulWidget {
@@ -27,7 +26,7 @@ class SectionIdentificacao extends StatefulWidget {
 }
 
 class _SectionIdentificacaoState extends State<SectionIdentificacao>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _numeroCtrl;
   late final TextEditingController _versaoCtrl;
   late final TextEditingController _dataElabCtrl;
@@ -48,14 +47,14 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_numeroCtrl, d.numero);
-      _sync(_versaoCtrl, d.versao);
-      _sync(_dataElabCtrl, d.dataElaboracao);
+      sync(_numeroCtrl, d.numero);
+      sync(_versaoCtrl, d.versao);
+      sync(_dataElabCtrl, d.dataElaboracao);
     }
   }
 
@@ -120,7 +119,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     keyboardType: TextInputType.number,
                     onChanged: (_) => _emitChange(),

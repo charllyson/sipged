@@ -185,8 +185,7 @@ class CustomTextField extends StatelessWidget {
           hintStyle: hintStyle,
           isDense: isDense,
           isCollapsed: isCollapsed,
-          contentPadding: contentPadding ??
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          contentPadding: contentPadding ?? const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
 
           // ✅ IMPORTANTE:
           // Se prefixText existir, não use prefix widget (evita conflitos).

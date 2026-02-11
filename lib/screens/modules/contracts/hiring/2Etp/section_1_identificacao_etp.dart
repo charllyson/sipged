@@ -13,7 +13,7 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 
 class SectionIdentificacaoEtp extends StatefulWidget {
@@ -33,7 +33,7 @@ class SectionIdentificacaoEtp extends StatefulWidget {
 }
 
 class _SectionIdentificacaoEtpState extends State<SectionIdentificacaoEtp>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _numeroCtrl;
   late final TextEditingController _dataElaboracaoCtrl;
   late final TextEditingController _responsavelNomeCtrl;
@@ -61,15 +61,15 @@ class _SectionIdentificacaoEtpState extends State<SectionIdentificacaoEtp>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? value) {
+      void sync(TextEditingController c, String? value) {
         final v = value ?? '';
         if (c.text != v) c.text = v;
       }
 
-      _sync(_numeroCtrl, d.numero);
-      _sync(_dataElaboracaoCtrl, d.dataElaboracao);
-      _sync(_responsavelNomeCtrl, d.responsavelElaboracaoNome);
-      _sync(_artNumeroCtrl, d.artNumero);
+      sync(_numeroCtrl, d.numero);
+      sync(_dataElaboracaoCtrl, d.dataElaboracao);
+      sync(_responsavelNomeCtrl, d.responsavelElaboracaoNome);
+      sync(_artNumeroCtrl, d.artNumero);
 
       _responsavelUserId = d.responsavelElaboracaoUserId;
     }

@@ -1,13 +1,12 @@
 // lib/screens/modules/contracts/hiring/9Juridico/section_5_pendencias.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-
 import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
 
 class SectionPendencias extends StatefulWidget {
@@ -104,7 +103,7 @@ class _SectionPendenciasState extends State<SectionPendencias> {
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     onChanged: (_) => _emitChange(),
                   ),

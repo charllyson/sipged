@@ -28,7 +28,7 @@ import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/section_5_li
 import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/section_6_consolidacao.dart';
 
 // ===== Utils
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 // ===== Overlay leve
 import 'package:siged/_widgets/overlays/screen_lock.dart';
@@ -58,7 +58,7 @@ class HabilitacaoPage extends StatefulWidget {
 }
 
 class _HabilitacaoPageState extends State<HabilitacaoPage>
-    with FormValidationMixin, AutomaticKeepAliveClientMixin {
+    with SipGedValidation, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 

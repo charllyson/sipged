@@ -54,7 +54,7 @@ Future<Uint8List> buildPdfBytes({
           : pw.Alignment.centerLeft
   };
 
-  List<List<T>> _chunk<T>(List<T> list, int size) {
+  List<List<T>> chunk<T>(List<T> list, int size) {
     final out = <List<T>>[];
     for (var i = 0; i < list.length; i += size) {
       out.add(
@@ -67,7 +67,7 @@ Future<Uint8List> buildPdfBytes({
   const int maxColsPerPage = 14;
   const int rowsPerPage = 28;
 
-  Map<int, pw.TableColumnWidth> _globalColumnWidths(List<String> headers) {
+  Map<int, pw.TableColumnWidth> globalColumnWidths0(List<String> headers) {
     return <int, pw.TableColumnWidth>{
       0: const pw.FixedColumnWidth(30),
       1: const pw.FixedColumnWidth(200),
@@ -87,7 +87,7 @@ Future<Uint8List> buildPdfBytes({
     };
   }
 
-  pw.TableColumnWidth _defaultWidthFor(int globalIndex) {
+  pw.TableColumnWidth defaultWidthFor(int globalIndex) {
     if (globalIndex == 0) {
       return const pw.FlexColumnWidth(2);
     }
@@ -97,23 +97,23 @@ Future<Uint8List> buildPdfBytes({
     return const pw.FlexColumnWidth(1);
   }
 
-  Map<int, pw.TableColumnWidth> _subColumnWidthsFromGlobal(
+  Map<int, pw.TableColumnWidth> subColumnWidthsFromGlobal(
       List<int> colIdxs,
       Map<int, pw.TableColumnWidth> globalWidths,
       ) {
     final map = <int, pw.TableColumnWidth>{};
     for (int i = 0; i < colIdxs.length; i++) {
       final gi = colIdxs[i];
-      map[i] = globalWidths[gi] ?? _defaultWidthFor(gi);
+      map[i] = globalWidths[gi] ?? defaultWidthFor(gi);
     }
     return map;
   }
 
   final allColIdx = List<int>.generate(headers.length, (i) => i);
-  final colChunks = _chunk<int>(allColIdx, maxColsPerPage);
-  final globalColumnWidths = _globalColumnWidths(headers);
+  final colChunks = chunk<int>(allColIdx, maxColsPerPage);
+  final globalColumnWidths = globalColumnWidths0(headers);
 
-  const Set<int> _centerColsGlobal = {0, 2, 3, 4, 6, 7, 8, 9};
+  const Set<int> centerColsGlobal = {0, 2, 3, 4, 6, 7, 8, 9};
 
   doc.addPage(
     pw.MultiPage(
@@ -149,7 +149,7 @@ Future<Uint8List> buildPdfBytes({
           final subAligns = <int, pw.Alignment>{};
           for (int i = 0; i < colIdxs.length; i++) {
             final global = colIdxs[i];
-            if (_centerColsGlobal.contains(global)) {
+            if (centerColsGlobal.contains(global)) {
               subAligns[i] = pw.Alignment.center;
             } else {
               subAligns[i] = alignFor[global] ?? pw.Alignment.centerLeft;
@@ -157,7 +157,7 @@ Future<Uint8List> buildPdfBytes({
           }
 
           final subColumnWidths =
-          _subColumnWidthsFromGlobal(colIdxs, globalColumnWidths);
+          subColumnWidthsFromGlobal(colIdxs, globalColumnWidths);
 
           if (colChunks.length > 1) {
             widgets.add(
@@ -178,7 +178,7 @@ Future<Uint8List> buildPdfBytes({
             for (int i = 0; i < colIdxs.length; i++) i: pw.Alignment.center
           };
 
-          final rowChunks = _chunk<List<String>>(data, rowsPerPage);
+          final rowChunks = chunk<List<String>>(data, rowsPerPage);
           for (final rowsSlice in rowChunks) {
             final subData = <List<String>>[
               for (final r in rowsSlice)

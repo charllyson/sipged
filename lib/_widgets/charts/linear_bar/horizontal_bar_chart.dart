@@ -70,7 +70,7 @@ class HorizontalChartBar extends StatelessWidget {
     final bool rowHasSelection =
         selectedRowIndex != null && selectedRowIndex == rowIndex;
 
-    Widget _wrapSlice(int sliceIndex, Widget child) {
+    Widget wrapSlice(int sliceIndex, Widget child) {
       final String? sliceLabel =
       (groupLegendLabels != null && sliceIndex < groupLegendLabels!.length)
           ? groupLegendLabels![sliceIndex]
@@ -94,7 +94,7 @@ class HorizontalChartBar extends StatelessWidget {
       );
     }
 
-    Widget _buildSliceLabelsAboveBar() {
+    Widget buildSliceLabelsAboveBar() {
       if (sliceLabelLocation != LabelLocation.aboveBar ||
           groupLegendLabels == null ||
           groupLegendLabels!.isEmpty) {
@@ -114,7 +114,7 @@ class HorizontalChartBar extends StatelessWidget {
 
                 return Expanded(
                   flex: flex,
-                  child: _wrapSlice(
+                  child: wrapSlice(
                     i,
                     Center(
                       child: Text(
@@ -139,7 +139,7 @@ class HorizontalChartBar extends StatelessWidget {
       );
     }
 
-    Widget _buildLabelAndBarRow() {
+    Widget buildLabelAndBarRow() {
       final double overflow = rangeOverlay?.overlayOverflow ?? 0;
 
       return Row(
@@ -244,7 +244,7 @@ class HorizontalChartBar extends StatelessWidget {
                                 if (sliceValue <= 0 && !isSelectedSlice) {
                                   return Expanded(
                                     flex: 1,
-                                    child: _wrapSlice(
+                                    child: wrapSlice(
                                       i,
                                       ColoredBox(color: sliceColor),
                                     ),
@@ -260,7 +260,7 @@ class HorizontalChartBar extends StatelessWidget {
 
                                   return Expanded(
                                     flex: flexTotal,
-                                    child: _wrapSlice(
+                                    child: wrapSlice(
                                       i,
                                       ClipRect(
                                         child: HatchedFillLight(
@@ -283,7 +283,7 @@ class HorizontalChartBar extends StatelessWidget {
 
                                 return Expanded(
                                   flex: flexTotal,
-                                  child: _wrapSlice(
+                                  child: wrapSlice(
                                     i,
                                     Container(
                                       decoration: BoxDecoration(
@@ -349,12 +349,12 @@ class HorizontalChartBar extends StatelessWidget {
             if (sliceLabelLocation == LabelLocation.aboveBar &&
                 groupLegendLabels != null &&
                 groupLegendLabels!.isNotEmpty)
-              _buildSliceLabelsAboveBar(),
+              buildSliceLabelsAboveBar(),
             if (sliceLabelLocation == LabelLocation.aboveBar &&
                 groupLegendLabels != null &&
                 groupLegendLabels!.isNotEmpty)
               const SizedBox(height: 4),
-            _buildLabelAndBarRow(),
+            buildLabelAndBarRow(),
           ],
         ),
       ),

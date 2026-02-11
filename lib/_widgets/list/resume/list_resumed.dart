@@ -7,7 +7,7 @@ import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_style.da
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 // DFD
@@ -173,7 +173,7 @@ class _ListResumedState extends State<ListResumed> {
     final v = dfd?.valorDemanda;
 
     if (v == null) return '—';
-    return priceToString(v);
+    return SipGedFormatMoney.doubleToText(v);
   }
 
   @override

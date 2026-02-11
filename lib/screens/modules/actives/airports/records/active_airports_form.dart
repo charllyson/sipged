@@ -1,4 +1,3 @@
-// lib/screens/modules/actives/oaes/active_oaes_form.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,7 +5,9 @@ import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
+
+// ✅ novo (substitui mask_class.dart)
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:siged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
@@ -44,6 +45,8 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
   final _longitudeCtrl = TextEditingController();
   final _altitudeCtrl = TextEditingController();
 
+  bool _syncingUi = false;
+
   @override
   void dispose() {
     _orderCtrl.dispose();
@@ -67,36 +70,38 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
     super.dispose();
   }
 
-  // --- helpers ---
+  // --- UI hydration ---
   void _fillUiFromForm(ActiveOaesData f) {
+    _syncingUi = true;
+
     _setIfDiff(_orderCtrl, (f.order ?? '').toString());
     _setIfDiff(_nameCtrl, f.identificationName ?? '');
-    _setIfDiff(_latitudeCtrl, (f.latitude ?? '').toString());
-    _setIfDiff(_longitudeCtrl, (f.longitude ?? '').toString());
+    _setIfDiff(_latitudeCtrl, _fmtNumberLoose(f.latitude));
+    _setIfDiff(_longitudeCtrl, _fmtNumberLoose(f.longitude));
 
-    _setIfDiff(_scoreCtrl, (f.score ?? '').toString());
+    _setIfDiff(_scoreCtrl, _fmtNumberLoose(f.score));
     _setIfDiff(_stateCtrl, f.state ?? '');
     _setIfDiff(_roadCtrl, f.road ?? '');
     _setIfDiff(_regionCtrl, f.region ?? '');
-    _setIfDiff(_extensionCtrl, (f.extension ?? '').toString());
-    _setIfDiff(_widthCtrl, (f.width ?? '').toString());
-    _setIfDiff(_areaCtrl, (f.area ?? '').toString());
-    _setIfDiff(_structureCtrl, f.estructureType ?? '');
+    _setIfDiff(_extensionCtrl, _fmtNumberLoose(f.extension));
+    _setIfDiff(_widthCtrl, _fmtNumberLoose(f.width));
+    _setIfDiff(_areaCtrl, _fmtNumberLoose(f.area));
+    _setIfDiff(_structureCtrl, f.estructureType ?? f.estructureType ?? '');
     _setIfDiff(_contractsCtrl, f.relatedContracts ?? '');
     _setIfDiff(_linearCostCtrl, _fmtMoneyBR(f.linearCostMedia));
     _setIfDiff(_estimateCtrl, _fmtMoneyBR(f.costEstimate));
     _setIfDiff(_companyCtrl, f.companyBuild ?? '');
-    _setIfDiff(
-      _dateCtrl,
-      f.lastDateIntervention != null ? _fmtDDMMYYYY(f.lastDateIntervention!) : '',
-    );
-    _setIfDiff(_altitudeCtrl, (f.altitude ?? '').toString());
+    _setIfDiff(_dateCtrl, f.lastDateIntervention != null ? _fmtDDMMYYYY(f.lastDateIntervention!) : '');
+    _setIfDiff(_altitudeCtrl, _fmtNumberLoose(f.altitude));
+
+    _syncingUi = false;
   }
 
   void _setIfDiff(TextEditingController ctrl, String value) {
     if (ctrl.text != value) ctrl.text = value;
   }
 
+  // --- parsers / formatters (ideal mover pro _utils depois) ---
   DateTime? _parseDDMMYYYY(String s) {
     if (s.trim().isEmpty) return null;
     final p = s.split('/');
@@ -115,27 +120,35 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
     return '$dd/$mm/$yy';
   }
 
+  String _fmtNumberLoose(num? v) {
+    if (v == null) return '';
+    // mantém ponto (.) para decimal no armazenamento do controller, usuário pode digitar com vírgula também
+    return v.toString();
+  }
+
   double? _parseCurrencyBR(String s) {
     if (s.trim().isEmpty) return null;
-    s = s.replaceAll('R\$', '').trim();
-    s = s.replaceAll('.', '');
-    s = s.replaceAll(',', '.');
-    return double.tryParse(s);
+    var t = s.replaceAll('R\$', '').trim();
+    t = t.replaceAll('.', '');
+    t = t.replaceAll(',', '.');
+    return double.tryParse(t);
   }
 
   double? _parseNumberLoose(String s) {
     if (s.trim().isEmpty) return null;
-    final t = s.contains(',') && !s.contains('.')
-        ? s.replaceAll('.', '').replaceAll(',', '.')
-        : s;
-    return double.tryParse(t);
+    final cleaned = s
+        .trim()
+        .replaceAll(RegExp(r'[^\d,.\-]'), '')
+        .replaceAll('.', '') // remove milhar
+        .replaceAll(',', '.'); // decimal BR -> US
+    return double.tryParse(cleaned);
   }
 
   String _fmtMoneyBR(double? v) {
     if (v == null) return '';
     final s = v.toStringAsFixed(2);
     final parts = s.split('.');
-    String intPart = parts[0];
+    final intPart = parts[0];
     final dec = parts[1];
 
     final buf = StringBuffer();
@@ -144,28 +157,27 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
       final left = intPart.length - i - 1;
       if (left > 0 && left % 3 == 0) buf.write('.');
     }
-    final withThousands = buf.toString();
-    return 'R\$ $withThousands,$dec';
+    return 'R\$ ${buf.toString()},$dec';
   }
 
   ActiveOaesData _patchFromUi(ActiveOaesData base) {
     return base.copyWith(
       order: int.tryParse(_orderCtrl.text),
-      identificationName: _nameCtrl.text,
+      identificationName: _nameCtrl.text.trim(),
       latitude: _parseNumberLoose(_latitudeCtrl.text),
       longitude: _parseNumberLoose(_longitudeCtrl.text),
       score: _parseNumberLoose(_scoreCtrl.text),
-      state: _stateCtrl.text,
-      road: _roadCtrl.text,
-      region: _regionCtrl.text,
+      state: _stateCtrl.text.trim(),
+      road: _roadCtrl.text.trim(),
+      region: _regionCtrl.text.trim(),
       extension: _parseNumberLoose(_extensionCtrl.text),
       width: _parseNumberLoose(_widthCtrl.text),
       area: _parseNumberLoose(_areaCtrl.text),
-      structureType: _structureCtrl.text,
-      relatedContracts: _contractsCtrl.text,
+      structureType: _structureCtrl.text.trim(),
+      relatedContracts: _contractsCtrl.text.trim(),
       linearCostMedia: _parseCurrencyBR(_linearCostCtrl.text),
       costEstimate: _parseCurrencyBR(_estimateCtrl.text),
-      companyBuild: _companyCtrl.text,
+      companyBuild: _companyCtrl.text.trim(),
       lastDateIntervention: _parseDDMMYYYY(_dateCtrl.text),
       altitude: _parseNumberLoose(_altitudeCtrl.text),
     );
@@ -182,16 +194,18 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
-      // rebuilda quando form/saving mudarem
-      buildWhen: (a, b) =>
-      a.form != b.form || a.saving != b.saving || a.selectedIndex != b.selectedIndex,
+      buildWhen: (a, b) => a.form != b.form || a.saving != b.saving || a.selectedIndex != b.selectedIndex,
       builder: (context, st) {
         final cubit = context.read<ActiveOaesCubit>();
 
-        // refletir State -> UI (sem loop, pois _setIfDiff evita set redundante)
-        WidgetsBinding.instance.addPostFrameCallback((_) => _fillUiFromForm(st.form));
+        // refletir State -> UI (sem loop)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _fillUiFromForm(st.form);
+        });
 
-        void _onFieldChanged(String _) {
+        void onAnyFieldChanged(String _) {
+          if (_syncingUi) return;
           final patched = _patchFromUi(st.form);
           cubit.patchForm(patched);
         }
@@ -200,117 +214,24 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(
-              _orderCtrl,
-              'ORDEM',
-              enabled: false,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _nameCtrl,
-              'IDENTIFICAÇÃO',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _latitudeCtrl,
-              'LATITUDE',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _longitudeCtrl,
-              'LONGITUDE',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _scoreCtrl,
-              'SCORE (0..5)',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _stateCtrl,
-              'STATUS/UF',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _roadCtrl,
-              'RODOVIA',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _regionCtrl,
-              'REGIÃO',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _extensionCtrl,
-              'EXTENSÃO',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _widthCtrl,
-              'LARGURA',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _areaCtrl,
-              'ÁREA',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _structureCtrl,
-              'TIPO DE ESTRUTURA',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _contractsCtrl,
-              'CONTRATOS RELACIONADOS',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _linearCostCtrl,
-              'CUSTO MÉDIO',
-              tooltip: true,
-              money: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _estimateCtrl,
-              'CUSTO ESTIMADO',
-              tooltip: true,
-              money: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _companyCtrl,
-              'EMPRESA QUE CONSTRUIU',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _dateCtrl,
-              'ÚLTIMA DATA DE INTERVENÇÃO',
-              tooltip: true,
-              date: true,
-              onChanged: _onFieldChanged,
-            ),
-            _input(
-              _altitudeCtrl,
-              'ALTITUDE',
-              tooltip: true,
-              onChanged: _onFieldChanged,
-            ),
+            _input(_orderCtrl, 'ORDEM', enabled: false, onChanged: onAnyFieldChanged),
+            _input(_nameCtrl, 'IDENTIFICAÇÃO', tooltip: true, onChanged: onAnyFieldChanged),
+            _input(_latitudeCtrl, 'LATITUDE', tooltip: true, onChanged: onAnyFieldChanged, number: true),
+            _input(_longitudeCtrl, 'LONGITUDE', tooltip: true, onChanged: onAnyFieldChanged, number: true),
+            _input(_scoreCtrl, 'SCORE (0..5)', tooltip: true, onChanged: onAnyFieldChanged, number: true),
+            _input(_stateCtrl, 'STATUS/UF', tooltip: true, onChanged: onAnyFieldChanged),
+            _input(_roadCtrl, 'RODOVIA', tooltip: true, onChanged: onAnyFieldChanged),
+            _input(_regionCtrl, 'REGIÃO', tooltip: true, onChanged: onAnyFieldChanged),
+            _input(_extensionCtrl, 'EXTENSÃO', tooltip: true, onChanged: onAnyFieldChanged, number: true),
+            _input(_widthCtrl, 'LARGURA', tooltip: true, onChanged: onAnyFieldChanged, number: true),
+            _input(_areaCtrl, 'ÁREA', tooltip: true, onChanged: onAnyFieldChanged, number: true),
+            _input(_structureCtrl, 'TIPO DE ESTRUTURA', tooltip: true, onChanged: onAnyFieldChanged),
+            _input(_contractsCtrl, 'CONTRATOS RELACIONADOS', tooltip: true, onChanged: onAnyFieldChanged),
+            _input(_linearCostCtrl, 'CUSTO MÉDIO', tooltip: true, money: true, onChanged: onAnyFieldChanged),
+            _input(_estimateCtrl, 'CUSTO ESTIMADO', tooltip: true, money: true, onChanged: onAnyFieldChanged),
+            _input(_companyCtrl, 'EMPRESA QUE CONSTRUIU', tooltip: true, onChanged: onAnyFieldChanged),
+            _input(_dateCtrl, 'ÚLTIMA DATA DE INTERVENÇÃO', tooltip: true, date: true, onChanged: onAnyFieldChanged),
+            _input(_altitudeCtrl, 'ALTITUDE', tooltip: true, onChanged: onAnyFieldChanged, number: true),
           ],
         );
 
@@ -329,9 +250,7 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
                   AppNotification(
                     title: const Text('Enviando...'),
                     subtitle: Text(
-                      (st.selectedIndex != null)
-                          ? 'Atualizando registro'
-                          : 'Criando registro',
+                      (st.selectedIndex != null) ? 'Atualizando registro' : 'Criando registro',
                     ),
                     type: AppNotificationType.info,
                     duration: const Duration(seconds: 2),
@@ -347,9 +266,7 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
               TextButton.icon(
                 icon: const Icon(Icons.cleaning_services_outlined),
                 label: const Text('Limpar'),
-                onPressed: () {
-                  cubit.clearSelection();
-                },
+                onPressed: cubit.clearSelection,
               ),
           ],
         );
@@ -381,6 +298,7 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
         bool enabled = true,
         bool date = false,
         bool money = false,
+        bool number = false,
         bool tooltip = false,
         TextInputFormatter? mask,
         void Function(String)? onChanged,
@@ -393,18 +311,20 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
         enabled: enabled,
         labelText: label,
         onChanged: onChanged,
-        keyboardType:
-        date ? TextInputType.datetime : (money ? TextInputType.number : null),
+        keyboardType: date
+            ? TextInputType.datetime
+            : (money ? TextInputType.number : (number ? const TextInputType.numberWithOptions(decimal: true, signed: true) : null)),
         inputFormatters: [
           if (date) FilteringTextInputFormatter.digitsOnly,
-          if (date) TextInputMask(mask: '99/99/9999'),
+          if (date) SipGedMasks.dateDDMMYYYY,
           if (money)
             CurrencyInputFormatter(
-              leadingSymbol: 'R\$',
+              leadingSymbol: 'R\$ ',
               useSymbolPadding: true,
               thousandSeparator: ThousandSeparator.Period,
               mantissaLength: 2,
             ),
+          if (number) FilteringTextInputFormatter.allow(RegExp(r'[0-9\-\.,]')),
           if (mask != null) mask,
         ],
       ),

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_utils/converters/converters_utils.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_blocs/modules/financial/payments/report/payment_report_controller.dart';
 
 import 'package:siged/_blocs/modules/financial/payments/report/payments_reports_data.dart';
-import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/table/totalTableRows/footer_rows_generic.dart';
 
 class PaymentReportTableSection extends StatelessWidget {
@@ -58,10 +58,10 @@ class PaymentReportTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.orderPaymentReport ?? '-'}',
                         (a) => a.processPaymentReport ?? '-',
-                        (a) => dateTimeToDDMMYYYY(
+                        (a) => SipGedFormatDates.dateToDdMMyyyy(
                       a.datePaymentReport ?? DateTime.now(),
                     ),
-                        (a) => priceToString(a.valuePaymentReport),
+                        (a) => SipGedFormatMoney.doubleToText(a.valuePaymentReport),
                   ],
                   onTapItem: (data) => c.selectRow(data),
                   onDelete: (data) async {

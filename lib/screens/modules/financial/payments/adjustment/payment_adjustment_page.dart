@@ -20,6 +20,9 @@ import 'payment_adjustment_table_section.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
+// 🧩 Attachment (para onRenamePersist)
+import 'package:siged/_widgets/list/files/attachment.dart';
+
 class PaymentAdjustmentPage extends StatelessWidget {
   const PaymentAdjustmentPage({super.key, this.contractData});
   final ProcessData? contractData;
@@ -66,6 +69,7 @@ class PaymentAdjustmentPage extends StatelessWidget {
                             c.selectRow(c.payments[index]);
                           },
                         ),
+
                         const SectionTitle(text: 'Cadastrar pagamento de reajuste no sistema'),
                         PaymentAdjustmentFormSection(
                           orderCtrl: c.orderCtrl,
@@ -92,17 +96,46 @@ class PaymentAdjustmentPage extends StatelessWidget {
                             );
                           },
                           onClear: c.createNew,
+
+                          // ===== SideListBox =====
                           sideItems: c.sideItems,
                           selectedSideIndex: c.selectedSideIndex,
                           onAddSideItem: c.canAddFile ? () => c.handleAddFile(context) : null,
                           onTapSideItem: (i) => c.handleOpenFile(context, i),
                           onDeleteSideItem: (i) => c.handleDeleteFile(i, context),
-                          onEditLabelSideItem: (i) => c.handleEditLabelFile(i, context),
+
+                          // ✅ NOVO: rename interno do SideListBox
+                          onRenamePersist: ({
+                            required int index,
+                            required Attachment oldItem,
+                            required Attachment newItem,
+                          }) async {
+                            try {
+                              // Mantém sua lógica centralizada no controller
+                              final ok = await c.handleRenamePersist(
+                                index: index,
+                                oldItem: oldItem,
+                                newItem: newItem,
+                              );
+                              return ok;
+                            } catch (_) {
+                              return false;
+                            }
+                          },
+
+                          // ✅ opcional: se você quiser sincronizar lista no controller
+                          onItemsChanged: (newItems) {
+                            c.syncSideItemsFromWidget(newItems);
+                          },
+
                           contractData: c.contract,
+
+                          // ===== Ordem =====
                           orderNumberOptions: c.orderNumberOptions,
                           greyOrderItems: c.greyOrderItems,
                           onChangedOrderNumber: c.onChangeOrderNumber,
                         ),
+
                         const SectionTitle(
                           text: 'Pagamentos de reajustes cadastrados no sistema',
                         ),

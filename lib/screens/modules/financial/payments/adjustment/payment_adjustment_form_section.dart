@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_utils/formats/input_formatters.dart';
-
-// 🆕 SideListBox
+// 🆕 SideListBox (novo: rename interno)
 import 'package:siged/_widgets/list/files/side_list_box.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 // 🆕 Dropdown de ordem com itens em cinza
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
@@ -42,7 +41,11 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
-    this.onEditLabelSideItem,
+
+    // ✅ NOVO (SideListBox v2)
+    this.onRenamePersist,
+    this.onItemsChanged,
+
     this.contractData,
 
     // 🆕 props do dropdown de ordem
@@ -77,7 +80,16 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
-  final void Function(int index)? onEditLabelSideItem;
+
+  // ✅ NOVO: rename/persist (sem dialog no pai)
+  final Future<bool> Function({
+  required int index,
+  required Attachment oldItem,
+  required Attachment newItem,
+  })? onRenamePersist;
+
+  // ✅ NOVO: notifica lista alterada (rename/delete etc.)
+  final void Function(List<dynamic> newItems)? onItemsChanged;
 
   final ProcessData? contractData;
 
@@ -121,7 +133,7 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
     } else if (date) {
       formatters = [
         FilteringTextInputFormatter.digitsOnly,
-        TextInputMask(mask: '99/99/9999'),
+        SipGedMasks.dateDDMMYYYY,
       ];
     } else if (mask != null) {
       formatters = mask;
@@ -132,8 +144,9 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
       enabled: enabled,
       labelText: label,
       controller: controller,
-      keyboardType:
-      money ? TextInputType.number : (date ? TextInputType.datetime : TextInputType.text),
+      keyboardType: money
+          ? TextInputType.number
+          : (date ? TextInputType.datetime : TextInputType.text),
       inputFormatters: formatters,
     );
 
@@ -158,7 +171,7 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
             spacing: 12,
             runSpacing: 12,
             children: [
-              // 🆕 Ordem com dropdown inteligente (itens em cinza + carrega existente)
+              // Ordem com dropdown inteligente
               DropDownButtonChange(
                 width: w,
                 labelText: 'Ordem do reajuste',
@@ -173,7 +186,7 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
                 w,
                 controller: processCtrl,
                 label: 'Nº processo de pagamento do reajuste',
-                mask: [processoMaskFormatter],
+                mask: [SipGedMasks.processo],
               ),
               _input(w, controller: valueCtrl, label: 'Valor do pagamento do reajuste', money: true),
               _input(w, controller: stateCtrl, label: 'Estado do pagamento do reajuste'),
@@ -194,6 +207,7 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
                 labelText: 'Data do pagamento do reajuste',
                 onChanged: (date) => (selected)?.datePaymentAdjustment = date,
               ),
+
               _input(w, controller: taxCtrl, label: 'Imposto do pagamento do reajuste', money: true),
             ],
           );
@@ -232,8 +246,12 @@ class PaymentAdjustmentFormSection extends StatelessWidget {
             onAddPressed: (selected != null && isEditable) ? onAddSideItem : null,
             onTap: onTapSideItem,
             onDelete: isEditable ? onDeleteSideItem : null,
-            onEditLabel: isEditable ? onEditLabelSideItem : null,
             width: sideWidth,
+
+            // ✅ NOVO
+            enableRename: isEditable,
+            onRenamePersist: isEditable ? onRenamePersist : null,
+            onItemsChanged: onItemsChanged,
           );
 
           return Container(

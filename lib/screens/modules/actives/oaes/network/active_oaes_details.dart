@@ -39,7 +39,15 @@ class ActiveOaesDetails extends StatefulWidget {
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
-    this.onEditLabelSideItem,
+
+    // ✅ novo padrão SideListBox
+    this.onRenamePersist,
+    this.onItemsChanged,
+
+    // overlay opcional do SideListBox (se quiser plugar progresso externo)
+    this.sideLoading = false,
+    this.sideUploadProgress,
+
     this.isEditable = true,
     this.titleSideList = 'Projetos e Documentos',
   });
@@ -48,12 +56,27 @@ class ActiveOaesDetails extends StatefulWidget {
   final VoidCallback? onClose;
 
   // ---- SideListBox props ----
-  final List<dynamic> sideItems; // Aceita List<Attachment> OU List<String>
+  final List<dynamic> sideItems; // List<Attachment> OU List<String>
   final int? selectedSideIndex;
-  final VoidCallback? onAddSideItem;
-  final void Function(int index)? onTapSideItem;
-  final void Function(int index)? onDeleteSideItem;
-  final void Function(int index)? onEditLabelSideItem;
+
+  // ✅ agora compatível com async/sync
+  final FutureOr<void> Function()? onAddSideItem;
+  final FutureOr<void> Function(int index)? onTapSideItem;
+  final FutureOr<void> Function(int index)? onDeleteSideItem;
+
+  // ✅ rename embutido
+  final Future<bool> Function({
+  required int index,
+  required Attachment oldItem,
+  required Attachment newItem,
+  })? onRenamePersist;
+
+  final void Function(List<dynamic> newItems)? onItemsChanged;
+
+  // overlay
+  final bool sideLoading;
+  final double? sideUploadProgress;
+
   final bool isEditable;
   final String titleSideList;
 
@@ -62,7 +85,6 @@ class ActiveOaesDetails extends StatefulWidget {
 }
 
 class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
-  final _photosCtrl = StreamController<List<Attachment>>.broadcast();
   final _repo = ActiveOaesRepository();
 
   List<Attachment> _allPhotos = const [];
@@ -83,17 +105,14 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     }
   }
 
-  Future<void> _wrapBusy(VoidCallback? fn) async {
+  Future<void> _wrapBusy(FutureOr<void> Function()? fn) async {
     if (fn == null) return;
-    await _withBusy(() async => fn());
+    await _withBusy(() async => Future.sync(fn));
   }
 
-  Future<void> _wrapBusyIndex(
-      void Function(int index)? fn,
-      int index,
-      ) async {
+  Future<void> _wrapBusyIndex(FutureOr<void> Function(int index)? fn, int index) async {
     if (fn == null) return;
-    await _withBusy(() async => fn(index));
+    await _withBusy(() async => Future.sync(() => fn(index)));
   }
 
   @override
@@ -106,14 +125,15 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
   @override
   void didUpdateWidget(covariant ActiveOaesDetails oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     final oldId = oldWidget.marker.data.id;
     final newId = widget.marker.data.id;
+
     if (oldId != newId) {
       _selectedYear = null;
       _selectedMonth = null;
       _allPhotos = const [];
       _filtered = const [];
-      _photosCtrl.add(const []);
       _loadInitialPhotos();
       setState(() {});
     } else {
@@ -125,7 +145,9 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
     try {
       final id = widget.marker.data.id;
       if (id == null) {
-        _photosCtrl.add(const []);
+        _allPhotos = const [];
+        _filtered = const [];
+        if (mounted) setState(() {});
         return;
       }
 
@@ -133,13 +155,11 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
       _allPhotos = list;
       _filtered = List<Attachment>.from(_allPhotos);
-      _photosCtrl.add(_allPhotos);
-      setState(() {});
+      _applyCurrentFilter();
     } catch (_) {
       _allPhotos = const [];
       _filtered = const [];
-      _photosCtrl.add(const []);
-      setState(() {});
+      if (mounted) setState(() {});
     }
   }
 
@@ -165,7 +185,6 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
       _allPhotos = [..._allPhotos, att];
       _applyCurrentFilter();
-      _photosCtrl.add(_allPhotos);
       await _persistPhotos();
 
       if (!mounted) return;
@@ -183,11 +202,9 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
       }
 
       _allPhotos = List<Attachment>.from(_allPhotos)
-        ..removeWhere(
-              (e) => (e.path) == (att.path),
-        );
+        ..removeWhere((e) => e.path == att.path);
+
       _applyCurrentFilter();
-      _photosCtrl.add(_allPhotos);
       await _persistPhotos();
 
       if (!mounted) return;
@@ -199,8 +216,13 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
   void _applyCurrentFilter() {
     if (_selectedYear == null && _selectedMonth == null) {
-      _filtered = List<Attachment>.from(_allPhotos);
-      setState(() {});
+      _filtered = List<Attachment>.from(_allPhotos)
+        ..sort((a, b) {
+          final ta = a.createdAt?.millisecondsSinceEpoch ?? 0;
+          final tb = b.createdAt?.millisecondsSinceEpoch ?? 0;
+          return tb.compareTo(ta);
+        });
+      if (mounted) setState(() {});
       return;
     }
 
@@ -209,8 +231,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
       final dt = a.createdAt;
       if (dt == null) return false;
       final okYear = (_selectedYear == null) || dt.year == _selectedYear;
-      final okMonth =
-          (_selectedMonth == null) || dt.month == _selectedMonth;
+      final okMonth = (_selectedMonth == null) || dt.month == _selectedMonth;
       return okYear && okMonth;
     })
         .toList()
@@ -220,13 +241,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
         return tb.compareTo(ta);
       });
 
-    setState(() {});
-  }
-
-  @override
-  void dispose() {
-    _photosCtrl.close();
-    super.dispose();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -238,10 +253,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
       MapEntry('UF', d.state ?? '-'),
       // TODO: substituir município quando houver campo específico
       MapEntry('Município', d.state ?? '-'),
-      MapEntry(
-        'Nota',
-        (d.score != null) ? d.score!.toStringAsFixed(1) : '-',
-      ),
+      MapEntry('Nota', (d.score != null) ? d.score!.toStringAsFixed(1) : '-'),
       MapEntry('Ordem', d.order?.toString() ?? '-'),
       MapEntry(
         'Coordenadas',
@@ -262,8 +274,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
           LayoutBuilder(
             builder: (context, constraints) {
               final bool isSmall = constraints.maxWidth < 860;
-              final double sideWidth =
-              isSmall ? constraints.maxWidth : 300.0;
+              final double sideWidth = isSmall ? constraints.maxWidth : 300.0;
 
               final side = Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -280,15 +291,19 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                         ? (i) => _wrapBusyIndex(widget.onTapSideItem, i)
                         : null,
                     onDelete: widget.isEditable && !_busy
-                        ? (i) =>
-                        _wrapBusyIndex(widget.onDeleteSideItem, i)
+                        ? (i) => _wrapBusyIndex(widget.onDeleteSideItem, i)
                         : null,
-                    onEditLabel: widget.isEditable && !_busy
-                        ? (i) => _wrapBusyIndex(
-                      widget.onEditLabelSideItem,
-                      i,
-                    )
-                        : null,
+
+                    // ✅ padrão novo
+                    enableRename: widget.isEditable,
+                    onRenamePersist: widget.onRenamePersist,
+                    onItemsChanged: widget.onItemsChanged,
+
+                    // ✅ overlay
+                    loading: widget.sideLoading,
+                    uploadProgress: widget.sideUploadProgress,
+
+                    width: sideWidth,
                   ),
                 ),
               );
@@ -319,13 +334,10 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                       height: photosHeight,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
-                        padding:
-                        const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount:
-                        (_filtered.isEmpty ? 0 : _filtered.length) +
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        itemCount: (_filtered.isEmpty ? 0 : _filtered.length) +
                             (widget.isEditable ? 1 : 0),
-                        separatorBuilder: (_, __) =>
-                        const SizedBox(width: 10),
+                        separatorBuilder: (_, __) => const SizedBox(width: 10),
                         itemBuilder: (context, index) {
                           final bool hasAdder = widget.isEditable;
                           final int offset = hasAdder ? 1 : 0;
@@ -338,11 +350,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                               editorMaxScale: 5.0,
                               editorExportQuality: 100,
                               editorCircleCrop: false,
-                              editorAspectRatios: const [
-                                1,
-                                4 / 3,
-                                16 / 9,
-                              ],
+                              editorAspectRatios: const [1, 4 / 3, 16 / 9],
                             );
                           }
 
@@ -353,15 +361,12 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                             item: item,
                             theme: carouselTheme,
                             onTap: () async {
-                              final items = _filtered
-                                  .map((a) => a.toPhotoItem())
-                                  .toList();
+                              final items = _filtered.map((a) => a.toPhotoItem()).toList();
                               final start = index - offset;
                               await showPhotoGalleryDialog(
                                 context,
                                 items: items,
-                                initialIndex:
-                                start.clamp(0, items.length - 1),
+                                initialIndex: start.clamp(0, items.length - 1),
                               );
                             },
                             onRemove: (widget.isEditable && !_busy)
@@ -375,8 +380,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
 
                     // ====== Filtro de datas ======
                     Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
                       child: AbsorbPointer(
                         absorbing: _busy,
                         child: Opacity(
@@ -389,7 +393,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                             sortDescending: true,
                             onFilterChanged: (filtered) {
                               _filtered = filtered;
-                              setState(() {});
+                              if (mounted) setState(() {});
                             },
                             onSelectionChanged: ({
                               required filteredItems,
@@ -409,8 +413,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                     // ====== Modelo 3D ======
                     const SectionTitle(text: 'Modelo 3D'),
                     Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
                       child: OaeModel3DCard(
                         data: d,
                         isEditable: widget.isEditable,
@@ -418,37 +421,29 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                     ),
                     const SizedBox(height: 24),
 
-                    const SectionTitle(
-                        text: 'Projetos e Documentos da OAE'),
+                    const SectionTitle(text: 'Projetos e Documentos da OAE'),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: isSmall
                           ? Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.stretch,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           side,
-                          const SectionTitle(
-                              text: 'Informações gerais da OAE'),
+                          const SectionTitle(text: 'Informações gerais da OAE'),
                           Padding(
-                            padding:
-                            const EdgeInsets.symmetric(
-                                horizontal: 12.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
                             child: details,
                           ),
                         ],
                       )
                           : Row(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           side,
-                          const SectionTitle(
-                              text: 'Informações gerais da OAE'),
+                          const SectionTitle(text: 'Informações gerais da OAE'),
                           Flexible(
                             child: Padding(
-                              padding: const EdgeInsets.only(
-                                  right: 12.0),
+                              padding: const EdgeInsets.only(right: 12.0),
                               child: details,
                             ),
                           ),

@@ -49,14 +49,14 @@ class _SectionLicenciamentoSegurancaSustentabilidadeState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final nv = v ?? '';
         if (c.text != nv) c.text = nv;
       }
 
-      _sync(_licenciamentoCtrl, d.licenciamentoAmbiental);
-      _sync(_segurancaCtrl, d.segurancaTrabalho);
-      _sync(_sustentabilidadeCtrl, d.sustentabilidade);
+      sync(_licenciamentoCtrl, d.licenciamentoAmbiental);
+      sync(_segurancaCtrl, d.segurancaTrabalho);
+      sync(_sustentabilidadeCtrl, d.sustentabilidade);
     }
   }
 

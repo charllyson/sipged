@@ -119,7 +119,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
         // ================== ESTADO OK ==================
         final roads = st.all;
 
-        void _onTapRoad(ActiveRoadsData item) {
+        void onTapRoad(ActiveRoadsData item) {
           _openTabBarForRoad(item);
           final rotulo = item.acronym ?? item.id ?? '';
           NotificationCenter.instance.show(
@@ -132,7 +132,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
           );
         }
 
-        void _onDeleteRoad(String id) {
+        void onDeleteRoad(String id) {
           cubit.deleteById(id);
           NotificationCenter.instance.show(
             AppNotification(
@@ -143,7 +143,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
           );
         }
 
-        void _onAddRoad() {
+        void onAddRoad() {
           _openTabBarForRoad(null);
         }
 
@@ -184,8 +184,8 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),
                   child: ListRoadsPage(
                     roads: roads,
-                    onTapItem: _onTapRoad,
-                    onDelete: _onDeleteRoad,
+                    onTapItem: onTapRoad,
+                    onDelete: onDeleteRoad,
                   ),
                 ),
               ),
@@ -194,7 +194,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
 
           // Botão flutuante para adicionar rodovia
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: _onAddRoad,
+            onPressed: onAddRoad,
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text(
               'Adicionar rodovia',

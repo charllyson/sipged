@@ -64,16 +64,16 @@ class _SectionObrigacoesEquipeGestaoState
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final nv = v ?? '';
         if (c.text != nv) c.text = nv;
       }
 
-      _sync(_equipeMinimaCtrl, d.equipeMinima);
-      _sync(_fiscalCtrl, d.fiscalNome);
-      _sync(_gestorCtrl, d.gestorNome);
-      _sync(_obrContratadaCtrl, d.obrigacoesContratada);
-      _sync(_obrContratanteCtrl, d.obrigacoesContratante);
+      sync(_equipeMinimaCtrl, d.equipeMinima);
+      sync(_fiscalCtrl, d.fiscalNome);
+      sync(_gestorCtrl, d.gestorNome);
+      sync(_obrContratadaCtrl, d.obrigacoesContratada);
+      sync(_obrContratanteCtrl, d.obrigacoesContratante);
 
       _fiscalUserId = d.fiscalUserId;
       _gestorUserId = d.gestorUserId;

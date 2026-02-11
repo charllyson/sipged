@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
 import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 class AdjustmentMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
@@ -34,12 +34,25 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
-  final void Function(int index)? onEditLabelSideItem;
 
-  // ▶️ NOVOS: dados do dropdown de ordem
-  final List<String> orderOptions;                 // 1..(max+1)
-  final Set<String> greyOrderItems;                // existentes (cinza)
-  final void Function(String?) onChangedOrder;     // ação ao escolher
+  /// ✅ persistência do rename (SideListBox cuida do dialog)
+  final Future<bool> Function({
+  required int index,
+  required Attachment oldItem,
+  required Attachment newItem,
+  })? onRenamePersist;
+
+  /// ✅ notifica a tela pai com a lista já atualizada (rename otimista etc.)
+  final void Function(List<dynamic> newItems)? onSideItemsChanged;
+
+  /// ✅ overlay de upload/carregamento (igual ao ReportMeasurement)
+  final bool sideLoading;
+  final double? sideUploadProgress;
+
+  // Dropdown de ordem
+  final List<String> orderOptions; // 1..(max+1)
+  final Set<String> greyOrderItems; // existentes (cinza)
+  final void Function(String?) onChangedOrder;
 
   const AdjustmentMeasurementFormSection({
     super.key,
@@ -59,8 +72,10 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
-    this.onEditLabelSideItem,
-    // dropdown de ordem
+    this.onRenamePersist,
+    this.onSideItemsChanged,
+    this.sideLoading = false,
+    this.sideUploadProgress,
     required this.orderOptions,
     required this.greyOrderItems,
     required this.onChangedOrder,
@@ -102,7 +117,7 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
     } else if (date) {
       formatters = [
         FilteringTextInputFormatter.digitsOnly,
-        TextInputMask(mask: '99/99/9999'),
+        SipGedMasks.dateDDMMYYYY,
       ];
     } else if (mask != null) {
       formatters = mask;
@@ -139,23 +154,21 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: [
-        // 🔄 Substituição do input pela combo de ordem
         DropDownButtonChange(
           width: w,
           controller: orderAdjustmentController,
           labelText: 'Ordem da medição',
-          items: orderOptions,       // 1..(max+1)
-          greyItems: greyOrderItems, // existentes => cinza
-          enabled: true,             // permite clicar para selecionar/filtrar mesmo que form não editável
-          onChanged: onChangedOrder, // ação do controller
+          items: orderOptions,
+          greyItems: greyOrderItems,
+          enabled: true, // mantém selecionável mesmo se isEditable=false
+          onChanged: onChangedOrder,
         ),
-
         _input(
           w,
           processNumberAdjustmentController,
           'Nº processo da medição',
           enabled: isEditable,
-          mask: [processoMaskFormatter],
+          mask: [SipGedMasks.processo],
         ),
         CustomDateField(
           width: w,
@@ -180,7 +193,9 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       children: [
         TextButton.icon(
           icon: const Icon(Icons.save),
-          label: Text(currentAdjustmentMeasurementId != null ? 'Atualizar' : 'Salvar'),
+          label: Text(
+            currentAdjustmentMeasurementId != null ? 'Atualizar' : 'Salvar',
+          ),
           onPressed: formValidated ? (isEditable ? onSave : null) : null,
         ),
         const SizedBox(width: 12),
@@ -206,10 +221,21 @@ class AdjustmentMeasurementFormSection extends StatelessWidget {
       title: 'Arquivos do Reajuste',
       items: sideItems,
       selectedIndex: selectedSideIndex,
-      onAddPressed: (selectedAdjustmentMeasurement != null && isEditable) ? onAddSideItem : null,
-      onTap: onTapSideItem, // <- a tela pai passa ctrl.handleOpenFile(context, i)
+      onAddPressed: (selectedAdjustmentMeasurement != null && isEditable)
+          ? onAddSideItem
+          : null,
+      onTap: onTapSideItem,
       onDelete: isEditable ? onDeleteSideItem : null,
-      onEditLabel: isEditable ? onEditLabelSideItem : null,
+
+      // ✅ rename + sync
+      enableRename: isEditable,
+      onRenamePersist: onRenamePersist,
+      onItemsChanged: onSideItemsChanged,
+
+      // ✅ overlay (mesma lógica do outro módulo)
+      loading: sideLoading,
+      uploadProgress: sideUploadProgress,
+
       width: sideWidth,
     );
 

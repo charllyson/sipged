@@ -48,16 +48,16 @@ class _SectionPremissasRestricoesLicenciamentoState
       covariant SectionPremissasRestricoesLicenciamento oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final s = v ?? '';
         if (c.text != s) c.text = s;
       }
 
       final d = widget.data;
-      _sync(_licenciamentoCtrl, d.licenciamentoAmbiental);
-      _sync(_obsAmbientaisCtrl, d.observacoesAmbientais);
-      _sync(_premissasCtrl, d.premissas);
-      _sync(_restricoesCtrl, d.restricoes);
+      sync(_licenciamentoCtrl, d.licenciamentoAmbiental);
+      sync(_obsAmbientaisCtrl, d.observacoesAmbientais);
+      sync(_premissasCtrl, d.premissas);
+      sync(_restricoesCtrl, d.restricoes);
     }
   }
 

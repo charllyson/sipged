@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_blocs/system/setup/setup_cubit.dart';
 import 'package:siged/_blocs/system/setup/setup_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
@@ -28,7 +28,7 @@ class SectionEstimativa extends StatefulWidget {
 }
 
 class _SectionEstimativaState extends State<SectionEstimativa>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _fonteRecursoCtrl;
   late final TextEditingController _programaTrabalhoCtrl;
   late final TextEditingController _ptresCtrl;

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 import 'package:siged/_widgets/input/custom_auto_complete.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
@@ -31,7 +31,7 @@ class SectionMetadados extends StatefulWidget {
 }
 
 class _SectionMetadadosState extends State<SectionMetadados>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _numeroCtrl;
   late final TextEditingController _dataCtrl;
   late final TextEditingController _orgaoCtrl;
@@ -125,7 +125,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     onChanged: (_) => _emitChange(),
                   ),

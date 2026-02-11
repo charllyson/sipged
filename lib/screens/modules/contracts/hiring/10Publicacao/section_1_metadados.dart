@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart'
     show DropDownButtonChange;
@@ -29,7 +29,7 @@ class SectionMetadadosExtrato extends StatefulWidget {
 }
 
 class _SectionMetadadosExtratoState extends State<SectionMetadadosExtrato>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _tipoExtratoCtrl;
   late final TextEditingController _numeroContratoCtrl;
   late final TextEditingController _processoCtrl;

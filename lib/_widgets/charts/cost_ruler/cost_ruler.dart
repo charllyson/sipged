@@ -2,7 +2,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import 'package:siged/_utils/formats/format_field.dart'; // priceToString default
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
 import 'package:siged/_widgets/charts/cost_ruler/ruler_painter.dart';
 
@@ -73,7 +73,7 @@ class CostRuler extends StatefulWidget {
     this.trackColorEnd = const Color(0xFFDDE5FF),
   });
 
-  static String _defaultMoneyFormatter(double v) => priceToString(v);
+  static String _defaultMoneyFormatter(double v) => SipGedFormatMoney.doubleToText(v);
 
   @override
   State<CostRuler> createState() => _CostRulerState();

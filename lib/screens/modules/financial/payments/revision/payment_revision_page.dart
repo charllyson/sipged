@@ -20,6 +20,9 @@ import 'package:siged/_blocs/modules/financial/payments/revision/payments_revisi
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
+// ✅ necessário para tipar o rename persist
+import 'package:siged/_widgets/list/files/attachment.dart';
+
 class PaymentRevisionPage extends StatelessWidget {
   const PaymentRevisionPage({super.key, this.contractData});
   final ProcessData? contractData;
@@ -79,12 +82,14 @@ class PaymentRevisionPage extends StatelessWidget {
                             fontCtrl: c.fontCtrl,
                             dateCtrl: c.dateCtrl,
                             taxCtrl: c.taxCtrl,
+
                             // estado
                             selectedPaymentRevisionData: c.selected,
                             currentPaymentRevisionId: c.currentPaymentRevisionId,
                             isEditable: c.isEditable,
                             isSaving: c.isSaving,
                             formValidated: c.formValidated,
+
                             onSaveOrUpdate: () async {
                               await c.saveOrUpdate(
                                 onConfirm: () async {
@@ -100,13 +105,32 @@ class PaymentRevisionPage extends StatelessWidget {
                             greyOrderItems: c.greyOrderItems,
                             onChangedOrderNumber: c.onChangeOrderNumber,
 
-                            // 🆕 SideListBox (multi anexos + rótulo)
+                            // 📎 SideListBox (multi anexos + rename)
                             sideItems: c.sideItems,
                             selectedSideIndex: c.selectedSideIndex,
                             onAddSideItem: c.canAddFile ? () => c.handleAddFile(context) : null,
                             onTapSideItem: (i) => c.handleOpenFile(context, i),
                             onDeleteSideItem: (i) => c.handleDeleteFile(i, context),
-                            onEditLabelSideItem: (i) => c.handleEditLabelFile(i, context),
+
+                            // ✅ novo contrato SideListBox
+                            onRenamePersist: ({
+                              required int index,
+                              required Attachment oldItem,
+                              required Attachment newItem,
+                            }) {
+                              return c.handleRenamePersist(
+                                index: index,
+                                oldItem: oldItem,
+                                newItem: newItem,
+                              );
+                            },
+
+                            // opcional: se você quiser manter o controller sempre sincronizado
+                            onSideItemsChanged: (items) {
+                              c.sideItems = items;
+                              c.selectedSideIndex = null;
+                              c.notifyListeners();
+                            },
                           ),
                         ),
                         const SectionTitle(
@@ -131,7 +155,6 @@ class PaymentRevisionPage extends StatelessWidget {
                               );
                             },
                           ),
-
                         const SizedBox(height: 12),
                         PaymentRevisionTableSection(
                           onTapItem: c.selectRow,
@@ -144,7 +167,6 @@ class PaymentRevisionPage extends StatelessWidget {
                           saldo: saldo,
                           contractData: c.contract,
                         ),
-
                         const SizedBox(height: 20),
                       ],
                     ),
@@ -153,7 +175,6 @@ class PaymentRevisionPage extends StatelessWidget {
                 const FootBar(),
               ],
             ),
-
             if (c.isSaving)
               Stack(
                 children: [

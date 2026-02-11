@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_data.dart';
@@ -51,15 +51,15 @@ class _SectionReservaState extends State<SectionReserva> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_reservaNumeroCtrl, d.reservaNumero);
-      _sync(_reservaDataCtrl, d.reservaData);
-      _sync(_reservaValorCtrl, d.reservaValor);
-      _sync(_reservaObservacoesCtrl, d.reservaObservacoes);
+      sync(_reservaNumeroCtrl, d.reservaNumero);
+      sync(_reservaDataCtrl, d.reservaData);
+      sync(_reservaValorCtrl, d.reservaValor);
+      sync(_reservaObservacoesCtrl, d.reservaObservacoes);
     }
   }
 
@@ -115,7 +115,7 @@ class _SectionReservaState extends State<SectionReserva> {
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     keyboardType: TextInputType.number,
                     onChanged: (_) => _emitChange(),

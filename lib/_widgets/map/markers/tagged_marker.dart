@@ -25,7 +25,7 @@ class TaggedChangedMarker<T> {
     return TaggedChangedMarker(
       point: point ?? this.point,
       properties: properties ?? this.properties,
-      data: this.data,
+      data: data,
     );
   }
 }

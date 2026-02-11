@@ -71,7 +71,7 @@ class ScheduleGridRow extends StatelessWidget {
     }
 
     // Resolver: UID -> rótulo legível (usa helper do estado)
-    String _resolveUser(String? uid) => userState.labelFor(uid);
+    String resolveUser(String? uid) => userState.labelFor(uid);
 
     return SizedBox(
       height: columnHeight,
@@ -136,7 +136,7 @@ class ScheduleGridRow extends StatelessWidget {
                   onTap: () => onTapSquare(exec),
                   isSelected: isSelected,
                   highlightColor: highlightColor,
-                  userLabelResolver: _resolveUser,
+                  userLabelResolver: resolveUser,
                   enabled: enabled, // ← controla tooltip/click e overlay listrado
                 ),
               ),

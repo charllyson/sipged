@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
 
 class SectionEscopoRequisitos extends StatefulWidget {
@@ -25,7 +25,7 @@ class SectionEscopoRequisitos extends StatefulWidget {
 }
 
 class _SectionEscopoRequisitosState extends State<SectionEscopoRequisitos>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _escopoCtrl;
   late final TextEditingController _requisitosCtrl;
   late final TextEditingController _especificacoesCtrl;
@@ -47,14 +47,14 @@ class _SectionEscopoRequisitosState extends State<SectionEscopoRequisitos>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final nv = v ?? '';
         if (c.text != nv) c.text = nv;
       }
 
-      _sync(_escopoCtrl, d.escopoDetalhado);
-      _sync(_requisitosCtrl, d.requisitosTecnicos);
-      _sync(_especificacoesCtrl, d.especificacoesNormas);
+      sync(_escopoCtrl, d.escopoDetalhado);
+      sync(_requisitosCtrl, d.requisitosTecnicos);
+      sync(_especificacoesCtrl, d.especificacoesNormas);
     }
   }
 

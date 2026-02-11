@@ -394,7 +394,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       final lonTag = tags['GPS GPSLongitude'];
       final lonRef = tags['GPS GPSLongitudeRef']?.printable; // 'E' ou 'W'
 
-      double? _ratiosToDeg(exif.IfdValues? v) {
+      double? ratiosToDeg(exif.IfdValues? v) {
         if (v is exif.IfdRatios && v.ratios.length >= 3) {
           final d = v.ratios[0].toDouble();
           final m = v.ratios[1].toDouble();
@@ -405,8 +405,8 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       }
 
       if (latTag != null && lonTag != null && latRef != null && lonRef != null) {
-        lat = _ratiosToDeg(latTag.values);
-        lon = _ratiosToDeg(lonTag.values);
+        lat = ratiosToDeg(latTag.values);
+        lon = ratiosToDeg(lonTag.values);
         if (lat != null && lon != null) {
           if (latRef.toUpperCase().startsWith('S')) lat = -lat;
           if (lonRef.toUpperCase().startsWith('W')) lon = -lon;

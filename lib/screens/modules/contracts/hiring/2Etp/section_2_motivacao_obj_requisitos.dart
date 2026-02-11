@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
 
 class SectionMotivacaoObjRequisitos extends StatefulWidget
-    with FormValidationMixin {
+    with SipGedValidation {
   final EtpData data;
   final bool isEditable;
   final void Function(EtpData updated) onChanged;
@@ -44,15 +44,15 @@ class _SectionMotivacaoObjRequisitosState
       covariant SectionMotivacaoObjRequisitos oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      void _sync(TextEditingController c, String? value) {
+      void sync(TextEditingController c, String? value) {
         final v = value ?? '';
         if (c.text != v) c.text = v;
       }
 
       final d = widget.data;
-      _sync(_motivacaoCtrl, d.motivacao);
-      _sync(_objetivosCtrl, d.objetivos);
-      _sync(_requisitosCtrl, d.requisitosMinimos);
+      sync(_motivacaoCtrl, d.motivacao);
+      sync(_objetivosCtrl, d.objetivos);
+      sync(_requisitosCtrl, d.requisitosMinimos);
     }
   }
 

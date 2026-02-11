@@ -190,7 +190,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
     }.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    SetupData? _findBodyByLabel(String label) {
+    SetupData? findBodyByLabel(String label) {
       final lower = label.trim().toLowerCase();
       try {
         return bodies.firstWhere(
@@ -427,7 +427,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
                               final val = label ?? '';
                               p.licitanteCtrl.text = val;
 
-                              final body = _findBodyByLabel(val);
+                              final body = findBodyByLabel(val);
                               if (body?.cnpjCompanyContracted != null &&
                                   body!.cnpjCompanyContracted!
                                       .trim()

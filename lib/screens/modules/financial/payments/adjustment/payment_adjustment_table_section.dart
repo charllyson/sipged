@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_blocs/modules/financial/payments/adjustment/payments_adjustments_data.dart';
-import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/table/totalTableRows/footer_rows_generic.dart';
 
 class PaymentAdjustmentTableSection extends StatelessWidget {
@@ -61,10 +61,10 @@ class PaymentAdjustmentTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.orderPaymentAdjustment ?? '-'}',
                         (a) => a.processPaymentAdjustment ?? '-',
-                        (a) => dateTimeToDDMMYYYY(
+                        (a) => SipGedFormatDates.dateToDdMMyyyy(
                       a.datePaymentAdjustment ?? DateTime.now(),
                     ),
-                        (a) => priceToString(a.valuePaymentAdjustment),
+                        (a) => SipGedFormatMoney.doubleToText(a.valuePaymentAdjustment),
                   ],
                   onTapItem: onTapItem,
                   onDelete: (item) => onDelete(item.idPaymentAdjustment!),

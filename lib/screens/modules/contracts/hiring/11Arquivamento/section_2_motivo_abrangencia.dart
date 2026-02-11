@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart'
     show DropDownButtonChange;
@@ -29,7 +29,7 @@ class SectionMotivoAbrangenciaTA extends StatefulWidget {
 }
 
 class _SectionMotivoAbrangenciaTAState
-    extends State<SectionMotivoAbrangenciaTA> with FormValidationMixin {
+    extends State<SectionMotivoAbrangenciaTA> with SipGedValidation {
   late final TextEditingController _motivoCtrl;
   late final TextEditingController _abrangenciaCtrl;
   late final TextEditingController _descricaoAbrangenciaCtrl;
@@ -53,14 +53,14 @@ class _SectionMotivoAbrangenciaTAState
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_motivoCtrl, d.taMotivo);
-      _sync(_abrangenciaCtrl, d.taAbrangencia);
-      _sync(_descricaoAbrangenciaCtrl, d.taDescricaoAbrangencia);
+      sync(_motivoCtrl, d.taMotivo);
+      sync(_abrangenciaCtrl, d.taAbrangencia);
+      sync(_descricaoAbrangenciaCtrl, d.taDescricaoAbrangencia);
     }
   }
 

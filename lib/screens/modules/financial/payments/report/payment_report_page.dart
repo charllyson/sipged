@@ -71,12 +71,9 @@ class PaymentReportPage extends StatelessWidget {
                             c.selectRow(c.reports[index]);
                           },
                         ),
-                        const SectionTitle(
-                          text: 'Cadastrar pagamento no sistema',
-                        ),
+                        const SectionTitle(text: 'Cadastrar pagamento no sistema'),
                         Padding(
-                          padding:
-                          const EdgeInsets.symmetric(horizontal: 12.0),
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
                           child: PaymentReportFormSection(
                             isSaving: c.isSaving,
                             selectedPaymentReportData: c.selected,
@@ -89,11 +86,9 @@ class PaymentReportPage extends StatelessWidget {
                             datePaymentReportController: c.dateCtrl,
                             valuePaymentReportController: c.valueCtrl,
                             statePaymentReportController: c.stateCtrl,
-                            observationPaymentReportController:
-                            c.observationCtrl,
+                            observationPaymentReportController: c.observationCtrl,
                             bankPaymentReportController: c.bankCtrl,
-                            electronicTicketPaymentReportController:
-                            c.electronicTicketCtrl,
+                            electronicTicketPaymentReportController: c.electronicTicketCtrl,
                             fontPaymentReportController: c.fontCtrl,
                             taxPaymentReportController: c.taxCtrl,
 
@@ -112,34 +107,29 @@ class PaymentReportPage extends StatelessWidget {
                             },
                             onClear: c.createNew,
 
-                            // 🆕 Dropdown de ordem
+                            // Dropdown de ordem
                             orderNumberOptions: c.orderNumberOptions,
                             greyOrderItems: c.greyOrderItems,
                             onChangedOrderNumber: c.onChangeOrderNumber,
 
-                            // 🆕 SideListBox (multi anexos + rótulo)
+                            // ✅ SideListBox novo
                             sideItems: c.sideItems,
                             selectedSideIndex: c.selectedSideIndex,
-                            onAddSideItem: c.canAddFile
-                                ? () => c.handleAddFile(context)
-                                : null,
-                            onTapSideItem: (i) =>
-                                c.handleOpenFile(context, i),
-                            onDeleteSideItem: (i) =>
-                                c.handleDeleteFile(i, context),
-                            onEditLabelSideItem: (i) =>
-                                c.handleEditLabelFile(i, context),
+                            onAddSideItem: c.canAddFile ? () => c.handleAddFile(context) : null,
+                            onTapSideItem: (i) => c.handleOpenFile(context, i),
+                            onDeleteSideItem: (i) => c.handleDeleteFile(i, context),
+                            onRenamePersist: c.persistRenameAttachment,
+                            onSideItemsChanged: c.setSideItems,
                           ),
                         ),
-                        const SectionTitle(
-                          text: 'Pagamentos cadastrados no sistema',
-                        ),
+
+                        const SectionTitle(text: 'Pagamentos cadastrados no sistema'),
+
                         if (c.isAdmin)
                           ImportExcelPage(
                             firstCollection: c.contract?.id ?? '',
                             onFinished: () async {
-                              await c.init(context,
-                                  contractData: c.contract);
+                              await c.init(context, contractData: c.contract);
                             },
                             onSave: (dados) async {
                               final data = PaymentsReportData.fromMap(dados);
@@ -148,9 +138,7 @@ class PaymentReportPage extends StatelessWidget {
                                 onError: () {
                                   NotificationCenter.instance.show(
                                     AppNotification(
-                                      title: const Text(
-                                        'Erro ao importar pagamento',
-                                      ),
+                                      title: const Text('Erro ao importar pagamento'),
                                       type: AppNotificationType.error,
                                     ),
                                   );
@@ -158,6 +146,7 @@ class PaymentReportPage extends StatelessWidget {
                               );
                             },
                           ),
+
                         const SizedBox(height: 12),
                         PaymentReportTableSection(
                           reportData: c.reports,
@@ -170,6 +159,7 @@ class PaymentReportPage extends StatelessWidget {
                 const FootBar(),
               ],
             ),
+
             if (c.isSaving)
               Stack(
                 children: [

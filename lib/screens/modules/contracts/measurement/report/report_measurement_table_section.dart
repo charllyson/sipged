@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
-import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 import 'package:siged/_widgets/table/totalTableRows/footer_rows_generic.dart';
@@ -56,8 +56,8 @@ class ReportMeasurementTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.order ?? '-'}',
                         (a) => a.numberprocess ?? '-',
-                        (a) => dateTimeToDDMMYYYY(a.date ?? DateTime.now()),
-                        (a) => priceToString(a.value),
+                        (a) => SipGedFormatDates.dateToDdMMyyyy(a.date ?? DateTime.now()),
+                        (a) => SipGedFormatMoney.doubleToText(a.value),
                   ],
                   onTapItem: onTapItem,
                   onDelete: (item) => onDelete(item.id!),

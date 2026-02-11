@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:siged/_utils/geometry/geometry_utils.dart';
+import 'package:siged/_utils/geometry/sipged_geometry.dart';
 
 // === SIGED widgets ===
 import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
@@ -183,7 +183,7 @@ class _PlanningRightWayPropertyMapState
         required String propertyId,
       }) {
     for (final g in geoms) {
-      if (g.type == GeometryType.line && g.points.length >= 2) {
+      if (g.type == SipGedGeometry.line && g.points.length >= 2) {
         _lines.add(
           TappableChangedPolyline(
             points: g.points,
@@ -192,7 +192,7 @@ class _PlanningRightWayPropertyMapState
             tag: 'Traçado',
           ),
         );
-      } else if (g.type == GeometryType.polygon && g.points.length >= 3) {
+      } else if (g.type == SipGedGeometry.polygon && g.points.length >= 3) {
         _polygons.add(
           Polygon<String>(
             points: g.points,

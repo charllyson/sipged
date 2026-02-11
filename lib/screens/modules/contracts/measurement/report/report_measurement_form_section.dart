@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
-import 'package:siged/_utils/formats/input_formatters.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
-// ✅ lista lateral de arquivos
+// ✅ lista lateral de arquivos (novo: rename embutido)
 import 'package:siged/_widgets/list/files/side_list_box.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 class ReportMeasurementFormSection extends StatelessWidget {
   final bool isEditable;
@@ -40,7 +40,21 @@ class ReportMeasurementFormSection extends StatelessWidget {
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
-  final void Function(int index)? onEditLabelSideItem; // opcional
+
+  /// ✅ opcional: notifica pai com a lista atual (já renomeada / deletada etc.)
+  final void Function(List<dynamic> newItems)? onSideItemsChanged;
+
+  /// ✅ opcional: persistir rename (Firestore/Storage)
+  /// Retorne true/false para o SideListBox decidir commit/revert.
+  final Future<bool> Function({
+  required int index,
+  required Attachment oldItem,
+  required Attachment newItem,
+  })? onRenamePersist;
+
+  /// ✅ NOVO: overlay de upload/carregamento
+  final bool sideLoading;
+  final double? sideUploadProgress;
 
   const ReportMeasurementFormSection({
     super.key,
@@ -63,7 +77,10 @@ class ReportMeasurementFormSection extends StatelessWidget {
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
-    this.onEditLabelSideItem,
+    this.onSideItemsChanged,
+    this.onRenamePersist,
+    this.sideLoading = false,
+    this.sideUploadProgress,
   });
 
   Widget _input(
@@ -87,7 +104,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
           : (date ? TextInputType.datetime : TextInputType.text),
       inputFormatters: [
         if (date) FilteringTextInputFormatter.digitsOnly,
-        if (date) TextInputMask(mask: '99/99/9999'),
+        if (date) SipGedMasks.dateDDMMYYYY,
         if (money)
           CurrencyInputFormatter(
             leadingSymbol: 'R\$ ',
@@ -107,12 +124,9 @@ class ReportMeasurementFormSection extends StatelessWidget {
   }
 
   String _numeroBoletim() {
-    // 1) prioriza a medição selecionada
     final sel = selectedReportMeasurement?.order;
-    if (sel != null && sel.toString().isNotEmpty) {
-      return '$sel';
-    }
-    // 2) tenta extrair dígitos do campo "ordem"
+    if (sel != null && sel.toString().isNotEmpty) return '$sel';
+
     final text = orderController.text;
     final m = RegExp(r'\d+').firstMatch(text);
     return m?.group(0) ?? '-';
@@ -123,8 +137,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bool isSmallScreen = constraints.maxWidth < 700;
-        final double sideWidth =
-        isSmallScreen ? constraints.maxWidth : 300.0;
+        final double sideWidth = isSmallScreen ? constraints.maxWidth : 300.0;
 
         final double inputsWidth = responsiveInputWidth(
           context: context,
@@ -154,7 +167,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
               processNumberController,
               'Nº processo da medição',
               isEditable: isEditable,
-              mask: processoMaskFormatter,
+              mask: SipGedMasks.processo,
             ),
             CustomDateField(
               width: inputsWidth,
@@ -178,14 +191,12 @@ class ReportMeasurementFormSection extends StatelessWidget {
           ],
         );
 
-        // -------- Botões do formulário (mesma largura dos inputs)
         final numero = _numeroBoletim();
 
         final botoesEsquerda = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            // 🔒 Mantém desabilitado por enquanto
             SizedBox(
               width: inputsWidth,
               child: OutlinedButton.icon(
@@ -193,10 +204,9 @@ class ReportMeasurementFormSection extends StatelessWidget {
                 label: Text(
                   'Abrir memória de calculo do $numero° boletim de medição',
                 ),
-                onPressed: onOpenMemoDeCalculo, // hoje provavelmente null
+                onPressed: onOpenMemoDeCalculo,
               ),
             ),
-            // ✅ Abre o modal (callback custom se fornecido)
             SizedBox(
               width: inputsWidth,
               child: OutlinedButton.icon(
@@ -208,7 +218,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
           ],
         );
 
-        // -------- Botões à direita (Salvar/Limpar)
         final botoesDireita = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -217,8 +226,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
               label: Text(
                 currentReportMeasurementId != null ? 'Atualizar' : 'Salvar',
               ),
-              onPressed:
-              formValidated ? (isEditable ? onSave : null) : null,
+              onPressed: formValidated ? (isEditable ? onSave : null) : null,
             ),
             const SizedBox(width: 12),
             if (currentReportMeasurementId != null)
@@ -230,7 +238,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
           ],
         );
 
-        // -------- Barra combinada
         final barraAcoes = Padding(
           padding: const EdgeInsets.only(top: 8.0),
           child: isSmallScreen
@@ -259,7 +266,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
           ),
         );
 
-        // -------- Corpo
         final corpo = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -274,13 +280,24 @@ class ReportMeasurementFormSection extends StatelessWidget {
           title: 'Arquivos da Medição',
           items: sideItems,
           selectedIndex: selectedSideIndex,
-          onAddPressed: (selectedReportMeasurement != null && isEditable)
-              ? onAddSideItem
-              : null,
-          onTap: onTapSideItem,
-          onDelete: isEditable ? onDeleteSideItem : null,
-          onEditLabel: isEditable ? onEditLabelSideItem : null,
           width: sideWidth,
+
+          // ✅ botão + habilita quando editável (o pai decide se pode anexar)
+          onAddPressed: isEditable ? onAddSideItem : null,
+
+          // ✅ só seleciona no pai
+          onTap: (i) => onTapSideItem?.call(i),
+
+          // ✅ sem preview interno
+          openOnTap: false,
+          onDelete: isEditable ? (i) => onDeleteSideItem?.call(i) : null,
+          enableRename: isEditable && selectedReportMeasurement != null,
+          onRenamePersist: onRenamePersist,
+          onItemsChanged: onSideItemsChanged,
+
+          // ✅ overlay
+          loading: sideLoading,
+          uploadProgress: sideUploadProgress,
         );
 
         return Container(

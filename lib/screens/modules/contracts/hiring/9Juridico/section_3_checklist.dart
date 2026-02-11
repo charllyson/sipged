@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
 
@@ -25,7 +25,7 @@ class SectionChecklist extends StatefulWidget {
 }
 
 class _SectionChecklistState extends State<SectionChecklist>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _analiseCtrl;
 
   @override

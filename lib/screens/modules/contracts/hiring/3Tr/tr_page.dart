@@ -40,7 +40,7 @@ import 'package:siged/screens/modules/contracts/hiring/3Tr/section_7_precos_paga
 import 'package:siged/screens/modules/contracts/hiring/3Tr/section_8_riscos_penalidades_condicoes.dart';
 import 'package:siged/screens/modules/contracts/hiring/3Tr/section_9_documentos_referencias.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 class TermoReferenciaPage extends StatefulWidget {
   final String contractId;
@@ -57,7 +57,7 @@ class TermoReferenciaPage extends StatefulWidget {
 }
 
 class _TermoReferenciaPageState extends State<TermoReferenciaPage>
-    with FormValidationMixin, AutomaticKeepAliveClientMixin {
+    with SipGedValidation, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 

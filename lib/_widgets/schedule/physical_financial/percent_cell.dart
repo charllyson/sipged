@@ -43,7 +43,7 @@ class PhysFinPercentCell extends StatelessWidget {//
     final double p = (colIndex < rowPercents.length) ? rowPercents[colIndex] : 0.0;
     final double valorPeriodo = serviceTotalReais * (p / 100.0);
 
-    Future<void> _handleTap() async {
+    Future<void> handleTap() async {
       if (readOnly || onChanged == null) return;
       // soma dos outros períodos
       final alreadyAllocated = rowPercents.asMap().entries
@@ -59,7 +59,7 @@ class PhysFinPercentCell extends StatelessWidget {//
           percent: p,
           width: barWidth,
           height: 24,
-          onTap: readOnly ? null : _handleTap,
+          onTap: readOnly ? null : handleTap,
           fillColor: readOnly ? inactiveBarColor : activeBarColor,
           trackColor: trackColor,
           disabled: readOnly,

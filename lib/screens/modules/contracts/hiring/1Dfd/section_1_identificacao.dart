@@ -1,5 +1,3 @@
-// lib/screens/modules/contracts/hiring/1Dfd/section_1_identificacao.dart
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,10 +9,13 @@ import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 
 import 'package:siged/_blocs/system/setup/setup_cubit.dart';
+import 'package:siged/_blocs/system/setup/setup_data.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/formats/sipged_format_numbers.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
+
 import 'package:siged/_widgets/input/custom_auto_complete.dart';
-
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
@@ -39,39 +40,43 @@ class SectionIdentificacao extends StatefulWidget {
 }
 
 class _SectionIdentificacaoState extends State<SectionIdentificacao>
-    with FormValidationMixin {
-  // Controllers (labels)
+    with SipGedValidation {
   late final TextEditingController _orgaoDemandanteCtrl;
   late final TextEditingController _unidadeSolicitanteCtrl;
+
   late final TextEditingController _solicitanteCtrl;
   late final TextEditingController _cpfSolicitanteCtrl;
   late final TextEditingController _cargoSolicitanteCtrl;
   late final TextEditingController _emailSolicitanteCtrl;
   late final TextEditingController _telefoneSolicitanteCtrl;
-  late final TextEditingController _dataSolicitacaoCtrl;
+
   late final TextEditingController _processoAdministrativoCtrl;
 
   late final TextEditingController _statusContratoCtrl;
   late final TextEditingController _naturezaIntervencaoCtrl;
 
-  // IDs de Setup (fonte de verdade)
-  String? _companyId; // docId do company
-  String? _unitId; // docId da unidade
+  String? _companyId;
+  String? _unitId;
 
-  // IDs “semânticos” do DFD (ids próprios do modelo)
-  String? _orgaoDemandanteId; // espelha companyId
-  String? _unidadeSolicitanteId; // espelha unitId
+  String? _orgaoDemandanteId;
+  String? _unidadeSolicitanteId;
 
-  // Demais estados
   String? _naturezaIntervencao;
   String? _solicitanteUserId;
   String? _statusContrato;
 
+  DateTime? _dataSolicitacao;
+
   int _companyNonce = 0;
+  bool _syncing = false;
+
+  static const String _cpfMask = '999.999.999-99';
+  static const String _phoneMask = '(99) 99999-9999';
 
   @override
   void initState() {
     super.initState();
+
     final d = widget.data;
 
     _orgaoDemandanteCtrl = TextEditingController(text: d.orgaoDemandante ?? '');
@@ -79,15 +84,26 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
         TextEditingController(text: d.unidadeSolicitante ?? '');
 
     _solicitanteCtrl = TextEditingController(text: d.solicitanteNome ?? '');
-    _cpfSolicitanteCtrl = TextEditingController(text: d.solicitanteCpf ?? '');
+
+    // CPF do banco: puro -> controller: formatado
+    final cpfDigitsInit = (d.solicitanteCpf ?? '').replaceAll(RegExp(r'\D'), '');
+    final cpfTextInit = cpfDigitsInit.length == 11
+        ? SipGedFormatNumbers.formatCPF(cpfDigitsInit)
+        : (d.solicitanteCpf ?? '');
+    _cpfSolicitanteCtrl = TextEditingController(text: cpfTextInit);
+
     _cargoSolicitanteCtrl =
         TextEditingController(text: d.solicitanteCargo ?? '');
     _emailSolicitanteCtrl =
         TextEditingController(text: d.solicitanteEmail ?? '');
-    _telefoneSolicitanteCtrl =
-        TextEditingController(text: d.solicitanteTelefone ?? '');
-    _dataSolicitacaoCtrl =
-        TextEditingController(text: _formatDate(d.dataSolicitacao));
+
+    // ✅ TELEFONE: banco (puro ou formatado) -> controller: sempre mascarado
+    final phoneDigitsInit =
+    (d.solicitanteTelefone ?? '').replaceAll(RegExp(r'\D'), '');
+    final phoneTextInit = phoneDigitsInit.isEmpty
+        ? ''
+        : _applyMask(_phoneMask, phoneDigitsInit);
+    _telefoneSolicitanteCtrl = TextEditingController(text: phoneTextInit);
 
     _processoAdministrativoCtrl =
         TextEditingController(text: d.processoAdministrativo ?? '');
@@ -95,30 +111,22 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     _statusContrato = d.statusDemanda;
     _naturezaIntervencao = d.naturezaIntervencao;
     _solicitanteUserId = d.solicitanteUserId;
+    _dataSolicitacao = d.dataSolicitacao;
 
     _statusContratoCtrl = TextEditingController(text: _statusContrato ?? '');
     _naturezaIntervencaoCtrl =
         TextEditingController(text: _naturezaIntervencao ?? '');
 
-    // ✅ IDs já persistidos no DFD
-    _companyId = d.companyId;
-    _unitId = d.unitId;
+    _companyId = _normalizeId(d.companyId);
+    _unitId = _normalizeId(d.unitId);
 
-    // ✅ espelha também nos campos “semânticos”
-    _orgaoDemandanteId = d.orgaoDemandanteId ?? _companyId;
-    _unidadeSolicitanteId = d.unidadeSolicitanteId ?? _unitId;
+    _orgaoDemandanteId = _normalizeId(d.orgaoDemandanteId) ?? _companyId;
+    _unidadeSolicitanteId = _normalizeId(d.unidadeSolicitanteId) ?? _unitId;
 
-    final systemCubit = context.read<SetupCubit>();
-    systemCubit.loadCompanies();
-
+    final setup = context.read<SetupCubit>();
+    setup.loadCompanies();
     if ((_companyId ?? '').isNotEmpty) {
-      systemCubit.ensureCompanySetupLoaded(_companyId!);
-    }
-
-    // Auto-preencher solicitante se vazio e houver usuário logado (opcional)
-    if ((_solicitanteUserId ?? '').isEmpty &&
-        (FirebaseAuth.instance.currentUser?.uid ?? '').isNotEmpty) {
-      _solicitanteUserId = FirebaseAuth.instance.currentUser!.uid;
+      setup.ensureCompanySetupLoaded(_companyId!);
     }
   }
 
@@ -129,35 +137,47 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
     final d = widget.data;
 
-    void _sync(TextEditingController c, String? newText) {
-      final v = newText ?? '';
-      if (c.text != v) c.text = v;
-    }
+    _syncControllerText(_orgaoDemandanteCtrl, d.orgaoDemandante ?? '');
+    _syncControllerText(_unidadeSolicitanteCtrl, d.unidadeSolicitante ?? '');
+    _syncControllerText(_solicitanteCtrl, d.solicitanteNome ?? '');
 
-    _sync(_orgaoDemandanteCtrl, d.orgaoDemandante);
-    _sync(_unidadeSolicitanteCtrl, d.unidadeSolicitante);
-    _sync(_solicitanteCtrl, d.solicitanteNome);
-    _sync(_cpfSolicitanteCtrl, d.solicitanteCpf);
-    _sync(_cargoSolicitanteCtrl, d.solicitanteCargo);
-    _sync(_emailSolicitanteCtrl, d.solicitanteEmail);
-    _sync(_telefoneSolicitanteCtrl, d.solicitanteTelefone);
-    _sync(_dataSolicitacaoCtrl, _formatDate(d.dataSolicitacao));
-    _sync(_processoAdministrativoCtrl, d.processoAdministrativo);
+    // ✅ CPF: sincroniza por dígitos + preserva cursor (igual processo)
+    final incomingCpfDigits =
+    (d.solicitanteCpf ?? '').replaceAll(RegExp(r'\D'), '');
+    _syncMaskedController(_cpfSolicitanteCtrl, incomingCpfDigits, _cpfMask);
+
+    _syncControllerText(_cargoSolicitanteCtrl, d.solicitanteCargo ?? '');
+    _syncControllerText(_emailSolicitanteCtrl, d.solicitanteEmail ?? '');
+
+    // ✅ TELEFONE: sincroniza por dígitos + preserva cursor (igual processo)
+    final incomingPhoneDigits =
+    (d.solicitanteTelefone ?? '').replaceAll(RegExp(r'\D'), '');
+    _syncMaskedController(
+      _telefoneSolicitanteCtrl,
+      incomingPhoneDigits,
+      _phoneMask,
+    );
+
+    _syncControllerText(
+      _processoAdministrativoCtrl,
+      d.processoAdministrativo ?? '',
+    );
 
     _statusContrato = d.statusDemanda;
     _naturezaIntervencao = d.naturezaIntervencao;
     _solicitanteUserId = d.solicitanteUserId;
+    _dataSolicitacao = d.dataSolicitacao;
 
-    _sync(_statusContratoCtrl, _statusContrato);
-    _sync(_naturezaIntervencaoCtrl, _naturezaIntervencao);
+    _syncControllerText(_statusContratoCtrl, _statusContrato ?? '');
+    _syncControllerText(_naturezaIntervencaoCtrl, _naturezaIntervencao ?? '');
 
     final oldCompanyId = _companyId;
 
-    _companyId = d.companyId;
-    _unitId = d.unitId;
+    _companyId = _normalizeId(d.companyId);
+    _unitId = _normalizeId(d.unitId);
 
-    _orgaoDemandanteId = d.orgaoDemandanteId ?? _companyId;
-    _unidadeSolicitanteId = d.unidadeSolicitanteId ?? _unitId;
+    _orgaoDemandanteId = _normalizeId(d.orgaoDemandanteId) ?? _companyId;
+    _unidadeSolicitanteId = _normalizeId(d.unidadeSolicitanteId) ?? _unitId;
 
     if (oldCompanyId != _companyId && (_companyId ?? '').isNotEmpty) {
       context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
@@ -174,45 +194,121 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     _cargoSolicitanteCtrl.dispose();
     _emailSolicitanteCtrl.dispose();
     _telefoneSolicitanteCtrl.dispose();
-    _dataSolicitacaoCtrl.dispose();
     _processoAdministrativoCtrl.dispose();
     _statusContratoCtrl.dispose();
     _naturezaIntervencaoCtrl.dispose();
     super.dispose();
   }
 
-  String _formatDate(DateTime? dt) {
-    if (dt == null) return '';
-    final d = dt.day.toString().padLeft(2, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final y = dt.year.toString().padLeft(4, '0');
-    return '$d/$m/$y';
+  String? _normalizeId(String? v) {
+    final s = (v ?? '').trim();
+    return s.isEmpty ? null : s;
   }
 
-  DateTime? _parseBrDate(String text) {
-    final t = text.trim();
-    if (t.isEmpty) return null;
-    try {
-      final parts = t.split('/');
-      if (parts.length == 3) {
-        final d = int.parse(parts[0]);
-        final m = int.parse(parts[1]);
-        final y = int.parse(parts[2]);
-        return DateTime(y, m, d);
-      }
-      return DateTime.parse(t);
-    } catch (_) {
-      return null;
+  void _syncControllerText(TextEditingController c, String v) {
+    if (c.text == v) return;
+
+    final oldSel = c.selection;
+    _syncing = true;
+    c.text = v;
+
+    final newLen = c.text.length;
+    int base = oldSel.baseOffset;
+    int extent = oldSel.extentOffset;
+
+    if (base < 0 || extent < 0) {
+      c.selection = TextSelection.collapsed(offset: newLen);
+    } else {
+      base = base.clamp(0, newLen);
+      extent = extent.clamp(0, newLen);
+      c.selection = TextSelection(baseOffset: base, extentOffset: extent);
     }
+
+    _syncing = false;
+  }
+
+  // ======= Máscara (CPF/Telefone): sync por dígitos + preserva cursor =======
+
+  static bool _isPlaceholder(String ch) => ch == '9' || ch == '#';
+
+  static String _onlyDigits(String s) => s.replaceAll(RegExp(r'\D'), '');
+
+  static int _countDigitsBefore(String text, int cursor) {
+    final safeCursor = cursor.clamp(0, text.length);
+    int count = 0;
+    for (int i = 0; i < safeCursor; i++) {
+      final cu = text.codeUnitAt(i);
+      if (cu >= 48 && cu <= 57) count++;
+    }
+    return count;
+  }
+
+  static String _applyMask(String mask, String digits) {
+    final buf = StringBuffer();
+    var di = 0;
+
+    for (int i = 0; i < mask.length && di < digits.length; i++) {
+      final m = mask[i];
+      if (_isPlaceholder(m)) {
+        buf.write(digits[di++]);
+      } else {
+        buf.write(m);
+      }
+    }
+    return buf.toString();
+  }
+
+  static int _cursorPosForDigitsCount(String formatted, int digitsCount) {
+    if (digitsCount <= 0) return 0;
+
+    int seen = 0;
+    for (int i = 0; i < formatted.length; i++) {
+      final cu = formatted.codeUnitAt(i);
+      if (cu >= 48 && cu <= 57) {
+        seen++;
+        if (seen == digitsCount) return i + 1;
+      }
+    }
+    return formatted.length;
+  }
+
+  void _syncMaskedController(
+      TextEditingController c,
+      String incomingDigits,
+      String mask,
+      ) {
+    final currentDigits = _onlyDigits(c.text);
+    if (currentDigits == incomingDigits) return;
+
+    final oldText = c.text;
+    final oldCursor = c.selection.extentOffset;
+
+    final digitsBefore = _countDigitsBefore(oldText, oldCursor);
+
+    final formatted = _applyMask(mask, incomingDigits);
+    final newCursor = _cursorPosForDigitsCount(formatted, digitsBefore);
+
+    _syncing = true;
+    c.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(
+        offset: newCursor.clamp(0, formatted.length),
+      ),
+      composing: TextRange.empty,
+    );
+    _syncing = false;
   }
 
   void _emitChange() {
+    // ✅ salva PURO (só dígitos)
+    final cpfDigits = _cpfSolicitanteCtrl.text.replaceAll(RegExp(r'\D'), '');
+    final phoneDigits =
+    _telefoneSolicitanteCtrl.text.replaceAll(RegExp(r'\D'), '');
+
     final updated = widget.data.copyWith(
-      // labels
       orgaoDemandante: _orgaoDemandanteCtrl.text,
       unidadeSolicitante: _unidadeSolicitanteCtrl.text,
 
-      // ✅ IDs corretos e persistidos
       companyId: _companyId,
       unitId: _unitId,
       orgaoDemandanteId: _orgaoDemandanteId ?? _companyId,
@@ -220,12 +316,14 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
       solicitanteNome: _solicitanteCtrl.text,
       solicitanteUserId: _solicitanteUserId,
-      solicitanteCpf: _cpfSolicitanteCtrl.text,
+      solicitanteCpf: cpfDigits,
       solicitanteCargo: _cargoSolicitanteCtrl.text,
       solicitanteEmail: _emailSolicitanteCtrl.text,
-      solicitanteTelefone: _telefoneSolicitanteCtrl.text,
 
-      dataSolicitacao: _parseBrDate(_dataSolicitacaoCtrl.text),
+      // ✅ telefone salvo puro
+      solicitanteTelefone: phoneDigits,
+
+      dataSolicitacao: _dataSolicitacao,
       processoAdministrativo: _processoAdministrativoCtrl.text,
 
       naturezaIntervencao: _naturezaIntervencao ?? '',
@@ -239,11 +337,11 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
   Widget build(BuildContext context) {
     final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
 
-    final systemCubit = context.read<SetupCubit>();
-    final systemState = context.watch<SetupCubit>().state;
+    final setupCubit = context.read<SetupCubit>();
+    final setupState = context.watch<SetupCubit>().state;
 
-    final companies = systemState.companies;
-    final units = systemCubit.getUnitsForCompany(_companyId);
+    final companies = setupState.companies;
+    final List<SetupData> units = setupCubit.getUnitsForCompany(_companyId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,7 +355,6 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
               spacing: 12,
               runSpacing: 12,
               children: [
-                // Contratante
                 SizedBox(
                   width: w4,
                   child: DropDownButtonChange(
@@ -266,13 +363,14 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     controller: _orgaoDemandanteCtrl,
                     enabled: widget.isEditable,
                     validator: (v) => widget.isEditable
-                        ? validateDropdown(v,
-                        message: 'Selecione o contratante')
+                        ? validateDropdown(v, message: 'Selecione o contratante')
                         : null,
                     items: companies.map((e) => e.label).toList(),
                     specialItemLabel: 'Adicionar contratante',
                     menuMaxHeight: 260,
                     onChanged: (label) async {
+                      if (!widget.isEditable) return;
+
                       if (label == null || label.isEmpty) {
                         setState(() {
                           _companyId = null;
@@ -305,15 +403,13 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                         _unidadeSolicitanteId = null;
                       });
 
-                      await systemCubit
-                          .ensureCompanySetupLoaded(selectedCompanyId);
+                      await setupCubit.ensureCompanySetupLoaded(selectedCompanyId);
                       _emitChange();
                     },
                     onCreateNewItem: widget.isEditable
                         ? (label) async {
-                      final created =
-                      await systemCubit.createCompany(label);
-                      if (created == null) return;
+                      final created = await setupCubit.createCompany(label);
+                      if (!mounted || created == null) return;
 
                       final createdCompanyId = created.id;
 
@@ -328,14 +424,13 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                         _unidadeSolicitanteId = null;
                       });
 
-                      await systemCubit
-                          .ensureCompanySetupLoaded(createdCompanyId);
+                      await setupCubit.ensureCompanySetupLoaded(createdCompanyId);
                       _emitChange();
                     }
                         : null,
                     onEditItem: widget.isEditable
                         ? (oldLabel, newLabel) async {
-                      final list = systemCubit.state.companies;
+                      final list = setupCubit.state.companies;
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -346,18 +441,21 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                       final id = target.id;
                       if (id.isEmpty) return;
 
-                      final updated = await systemCubit
-                          .updateCompanyName(id, newLabel);
+                      final updated = await setupCubit.updateCompanyName(
+                        id,
+                        newLabel,
+                      );
+                      if (!mounted) return;
+
                       if (updated != null && _companyId == id) {
-                        setState(() =>
-                        _orgaoDemandanteCtrl.text = updated.label);
+                        setState(() => _orgaoDemandanteCtrl.text = updated.label);
                         _emitChange();
                       }
                     }
                         : null,
                     onDeleteItem: widget.isEditable
                         ? (ctx, label) async {
-                      final list = systemCubit.state.companies;
+                      final list = setupCubit.state.companies;
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -368,7 +466,8 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                       final id = target.id;
                       if (id.isEmpty) return;
 
-                      await systemCubit.deleteCompany(id);
+                      await setupCubit.deleteCompany(id);
+                      if (!mounted) return;
 
                       if (_companyId == id) {
                         setState(() {
@@ -387,12 +486,10 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                   ),
                 ),
 
-                // Unidade/Setor
                 SizedBox(
                   width: w4,
                   child: DropDownButtonChange(
-                    key: ValueKey(
-                        'units-$_companyNonce-${_companyId ?? "none"}'),
+                    key: ValueKey('units-$_companyNonce-${_companyId ?? "none"}'),
                     width: w4,
                     tooltipMessage:
                     _companyId == null ? 'Selecione o contratante' : null,
@@ -404,6 +501,8 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     specialItemLabel: 'Adicionar unidade',
                     items: units.map((e) => e.label).toList(),
                     onChanged: (label) async {
+                      if (!widget.isEditable) return;
+
                       if (label == null || label.isEmpty) {
                         setState(() {
                           _unitId = null;
@@ -430,9 +529,9 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     },
                     onCreateNewItem: (widget.isEditable && _companyId != null)
                         ? (label) async {
-                      final created = await systemCubit.createUnit(
-                          _companyId!, label);
-                      if (created == null) return;
+                      final created =
+                      await setupCubit.createUnit(_companyId!, label);
+                      if (!mounted || created == null) return;
 
                       final createdUnitId = created.id;
 
@@ -447,8 +546,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                         : null,
                     onEditItem: (widget.isEditable && _companyId != null)
                         ? (oldLabel, newLabel) async {
-                      final list =
-                      systemCubit.getUnitsForCompany(_companyId);
+                      final list = setupCubit.getUnitsForCompany(_companyId);
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -459,19 +557,22 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                       final id = target.id;
                       if (id.isEmpty) return;
 
-                      final updated = await systemCubit.updateUnitName(
-                          _companyId!, id, newLabel);
+                      final updated = await setupCubit.updateUnitName(
+                        _companyId!,
+                        id,
+                        newLabel,
+                      );
+                      if (!mounted) return;
+
                       if (updated != null && _unitId == id) {
-                        setState(() => _unidadeSolicitanteCtrl.text =
-                            updated.label);
+                        setState(() => _unidadeSolicitanteCtrl.text = updated.label);
                         _emitChange();
                       }
                     }
                         : null,
                     onDeleteItem: (widget.isEditable && _companyId != null)
                         ? (ctx, label) async {
-                      final list =
-                      systemCubit.getUnitsForCompany(_companyId);
+                      final list = setupCubit.getUnitsForCompany(_companyId);
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -482,7 +583,8 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                       final id = target.id;
                       if (id.isEmpty) return;
 
-                      await systemCubit.deleteUnit(_companyId!, id);
+                      await setupCubit.deleteUnit(_companyId!, id);
+                      if (!mounted) return;
 
                       if (_unitId == id) {
                         setState(() {
@@ -497,7 +599,6 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                   ),
                 ),
 
-                // Status do contrato
                 SizedBox(
                   width: w4,
                   child: DropDownButtonChange(
@@ -508,15 +609,16 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     enabled: widget.isEditable,
                     validator: null,
                     onChanged: (v) {
-                      _statusContrato = (v == null || v.isEmpty) ? null : v;
-                      _statusContratoCtrl.text = _statusContrato ?? '';
+                      if (!widget.isEditable) return;
+                      setState(() {
+                        _statusContrato = (v == null || v.isEmpty) ? null : v;
+                        _statusContratoCtrl.text = _statusContrato ?? '';
+                      });
                       _emitChange();
-                      setState(() {});
                     },
                   ),
                 ),
 
-                // ✅ Solicitante (agora genérico)
                 SizedBox(
                   width: w4,
                   child: CustomAutoComplete<UserData>(
@@ -531,19 +633,18 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     photoUrlOf: (u) => u.urlPhoto,
                     validator: (value) {
                       if (!widget.isEditable) return null;
-                      // o widget valida por ID internamente; basta exigir seleção.
                       return (_solicitanteUserId ?? '').isNotEmpty
                           ? null
                           : 'Selecione o solicitante';
                     },
                     onChanged: (userId) {
+                      if (!widget.isEditable) return;
                       _solicitanteUserId = userId;
                       _emitChange();
                     },
                   ),
                 ),
 
-                // Processo
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
@@ -552,11 +653,13 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     validator: null,
                     labelText: 'Nº do processo (SEI/Interno)',
                     keyboardType: TextInputType.text,
-                    onChanged: (_) => _emitChange(),
+                    onChanged: (_) {
+                      if (_syncing) return;
+                      _emitChange();
+                    },
                   ),
                 ),
 
-                // Natureza
                 SizedBox(
                   width: w4,
                   child: DropDownButtonChange(
@@ -566,45 +669,54 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     controller: _naturezaIntervencaoCtrl,
                     items: HiringData.typeOfService,
                     validator: (v) => widget.isEditable
-                        ? validateDropdown(v,
-                        message: 'Informe a natureza da intervenção')
+                        ? validateDropdown(
+                      v,
+                      message: 'Informe a natureza da intervenção',
+                    )
                         : null,
                     onChanged: (v) {
-                      _naturezaIntervencao = v ?? '';
-                      _naturezaIntervencaoCtrl.text = _naturezaIntervencao ?? '';
+                      if (!widget.isEditable) return;
+                      setState(() {
+                        _naturezaIntervencao = v ?? '';
+                        _naturezaIntervencaoCtrl.text = _naturezaIntervencao ?? '';
+                      });
                       _emitChange();
-                      setState(() {});
                     },
                   ),
                 ),
 
-                // CPF
+                // ✅ CPF: máscara + backspace em separador remove dígito (igual processo)
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
                     controller: _cpfSolicitanteCtrl,
                     enabled: widget.isEditable,
                     labelText: 'CPF do solicitante',
+                    hintText: '000.000.000-00',
                     keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
+                    inputFormatters: const [
+                      SipGedMasks.cpf,
                     ],
-                    onChanged: (_) => _emitChange(),
+                    onChanged: (_) {
+                      if (_syncing) return;
+                      _emitChange();
+                    },
                   ),
                 ),
 
-                // Cargo
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
                     controller: _cargoSolicitanteCtrl,
                     enabled: widget.isEditable,
                     labelText: 'Cargo do solicitante',
-                    onChanged: (_) => _emitChange(),
+                    onChanged: (_) {
+                      if (_syncing) return;
+                      _emitChange();
+                    },
                   ),
                 ),
 
-                // Email
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
@@ -612,30 +724,43 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                     enabled: widget.isEditable,
                     labelText: 'E-mail do solicitante',
                     keyboardType: TextInputType.emailAddress,
-                    onChanged: (_) => _emitChange(),
+                    onChanged: (_) {
+                      if (_syncing) return;
+                      _emitChange();
+                    },
                   ),
                 ),
 
-                // Telefone
+                // ✅ TELEFONE: máscara + backspace em separador remove dígito (igual processo)
                 SizedBox(
                   width: w4,
                   child: CustomTextField(
                     controller: _telefoneSolicitanteCtrl,
                     enabled: widget.isEditable,
                     labelText: 'Telefone do solicitante',
+                    hintText: '(00) 00000-0000',
                     keyboardType: TextInputType.phone,
-                    onChanged: (_) => _emitChange(),
+                    inputFormatters: const [
+                      SipGedMasks.phoneBR, // ✅ precisa existir no seu sipged_masks.dart
+                    ],
+                    onChanged: (_) {
+                      if (_syncing) return;
+                      _emitChange();
+                    },
                   ),
                 ),
 
-                // Data Solicitação
                 SizedBox(
                   width: w4,
                   child: CustomDateField(
-                    controller: _dataSolicitacaoCtrl,
                     enabled: widget.isEditable,
                     labelText: 'Data da solicitação',
-                    onChanged: (_) => _emitChange(),
+                    initialValue: _dataSolicitacao,
+                    onChanged: (dt) {
+                      if (!widget.isEditable) return;
+                      setState(() => _dataSolicitacao = dt);
+                      _emitChange();
+                    },
                   ),
                 ),
               ],

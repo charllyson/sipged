@@ -3,8 +3,7 @@
 // ==============================
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
-
-import 'package:siged/_utils/converters/converters_utils.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 
 class ValidityTableSection extends StatelessWidget {
@@ -53,7 +52,7 @@ class ValidityTableSection extends StatelessWidget {
           columnGetters: [
                 (item) => item.orderNumber?.toString() ?? '',
                 (item) => item.ordertype ?? '',
-                (item) => dateTimeToDDMMYYYY(item.orderdate),
+                (item) => SipGedFormatDates.dateToDdMMyyyy(item.orderdate),
           ],
           columnTextAligns: const [
             TextAlign.center,

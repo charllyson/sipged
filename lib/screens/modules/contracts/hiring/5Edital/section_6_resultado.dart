@@ -4,14 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/system/setup/setup_data.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-
 import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 // System
@@ -154,7 +153,7 @@ class _SectionResultadoState extends State<SectionResultado> {
     }.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    SetupData? _findBodyByLabel(String label) {
+    SetupData? findBodyByLabel(String label) {
       final lower = label.trim().toLowerCase();
       try {
         return bodies.firstWhere(
@@ -248,7 +247,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                           final val = label ?? '';
                           _vencedorCtrl.text = val;
 
-                          final body = _findBodyByLabel(val);
+                          final body = findBodyByLabel(val);
                           if (body?.cnpjCompanyContracted != null &&
                               body!.cnpjCompanyContracted!
                                   .trim()
@@ -294,7 +293,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(8),
-                          TextInputMask(mask: '99/99/9999'),
+                          SipGedMasks.dateDDMMYYYY,
                         ],
                         onChanged: (_) => _emitChange(),
                       ),
@@ -308,7 +307,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(8),
-                          TextInputMask(mask: '99/99/9999'),
+                          SipGedMasks.dateDDMMYYYY,
                         ],
                         onChanged: (_) => _emitChange(),
                       ),
@@ -322,7 +321,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(8),
-                          TextInputMask(mask: '99/99/9999'),
+                          SipGedMasks.dateDDMMYYYY,
                         ],
                         onChanged: (_) => _emitChange(),
                       ),

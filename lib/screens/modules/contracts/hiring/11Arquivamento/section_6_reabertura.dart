@@ -46,13 +46,13 @@ class _SectionReaberturaTAState extends State<SectionReaberturaTA> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_condicaoCtrl, d.taReaberturaCondicao);
-      _sync(_prazoCtrl, d.taPrazoReabertura);
+      sync(_condicaoCtrl, d.taReaberturaCondicao);
+      sync(_prazoCtrl, d.taPrazoReabertura);
     }
   }
 

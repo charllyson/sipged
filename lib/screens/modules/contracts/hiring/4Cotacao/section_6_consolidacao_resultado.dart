@@ -52,14 +52,14 @@ class _SectionConsolidacaoResultadoState
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_criterioCtrl, d.criterioConsolidacao);
-      _sync(_valorConsolidadoCtrl, d.valorConsolidado);
-      _sync(_observacoesCtrl, d.observacoes);
+      sync(_criterioCtrl, d.criterioConsolidacao);
+      sync(_valorConsolidadoCtrl, d.valorConsolidado);
+      sync(_observacoesCtrl, d.observacoes);
     }
   }
 

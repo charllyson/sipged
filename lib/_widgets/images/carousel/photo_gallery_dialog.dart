@@ -22,7 +22,7 @@ Future<void> showPhotoGalleryDialog(
 
 
 
-  Future<Widget> _buildImage(PhotoItem item) async {
+  Future<Widget> buildImage(PhotoItem item) async {
     Image img;
     if (item is PhotoBytesItem) {
       img = Image.memory(
@@ -89,7 +89,7 @@ Future<void> showPhotoGalleryDialog(
                           itemCount: items.length,
                           itemBuilder: (_, pageIndex) {
                             return FutureBuilder<Widget>(
-                              future: _buildImage(items[pageIndex]),
+                              future: buildImage(items[pageIndex]),
                               builder: (c, snap) {
                                 if (snap.connectionState != ConnectionState.done) {
                                   return const Center(child: CircularProgressIndicator(strokeWidth: 2));

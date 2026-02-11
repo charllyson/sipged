@@ -1,6 +1,6 @@
 // lib/_widgets/menu/tab/tab_blocked.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/colors/colors_system_change.dart';
+import 'package:siged/_utils/theme/sipged_theme.dart';
 
 class TabBlocked extends StatelessWidget {
   final String message;
@@ -35,7 +35,7 @@ class TabBlocked extends StatelessWidget {
               Icon(
                 icon,
                 size: 40,
-                color: ColorsSystemChange.primaryColor,
+                color: SipGedTheme.primaryColor,
               ),
               const SizedBox(height: 12),
               Text(
@@ -44,7 +44,7 @@ class TabBlocked extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: ColorsSystemChange.primaryColor,
+                  color: SipGedTheme.primaryColor,
                 ),
               ),
               const SizedBox(height: 8),

@@ -25,7 +25,7 @@ import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/menu/tab/stage_progress.dart';
 
 // ===== Utils
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 // ===== Overlay leve
 import 'package:siged/_widgets/overlays/screen_lock.dart';
@@ -62,7 +62,7 @@ class DfdPage extends StatefulWidget {
 }
 
 class _DfdPageState extends State<DfdPage>
-    with FormValidationMixin, AutomaticKeepAliveClientMixin {
+    with SipGedValidation, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 

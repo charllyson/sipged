@@ -1,8 +1,7 @@
 // lib/screens/modules/contracts/hiring/4Cotacao/fornecedor_card.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-import 'package:siged/_utils/formats/mask_class.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
@@ -98,7 +97,7 @@ class FornecedorCard extends StatelessWidget {
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(14),
-                        TextInputMask(mask: '99.999.999/9999-99'),
+                        SipGedMasks.cnpj,
                       ],
                       keyboardType: TextInputType.number,
                     ),

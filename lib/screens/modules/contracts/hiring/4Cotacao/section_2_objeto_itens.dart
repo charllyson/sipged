@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
 
 class SectionObjetoItens extends StatefulWidget {
@@ -24,7 +24,7 @@ class SectionObjetoItens extends StatefulWidget {
 }
 
 class _SectionObjetoItensState extends State<SectionObjetoItens>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _unidadeMedidaCtrl;
   late final TextEditingController _quantidadeCtrl;
   late final TextEditingController _objetoCtrl;
@@ -49,15 +49,15 @@ class _SectionObjetoItensState extends State<SectionObjetoItens>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_unidadeMedidaCtrl, d.unidadeMedida);
-      _sync(_quantidadeCtrl, d.quantidade);
-      _sync(_objetoCtrl, d.objeto);
-      _sync(_especificacoesCtrl, d.especificacoes);
+      sync(_unidadeMedidaCtrl, d.unidadeMedida);
+      sync(_quantidadeCtrl, d.quantidade);
+      sync(_objetoCtrl, d.objeto);
+      sync(_especificacoesCtrl, d.especificacoes);
     }
   }
 

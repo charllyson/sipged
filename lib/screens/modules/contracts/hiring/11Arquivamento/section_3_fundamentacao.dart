@@ -1,7 +1,7 @@
 // lib/screens/modules/contracts/hiring/11Arquivamento/section_3_fundamentacao.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
@@ -26,7 +26,7 @@ class SectionFundamentacaoTA extends StatefulWidget {
 }
 
 class _SectionFundamentacaoTAState extends State<SectionFundamentacaoTA>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _fundamentosCtrl;
   late final TextEditingController _justificativaCtrl;
 
@@ -47,13 +47,13 @@ class _SectionFundamentacaoTAState extends State<SectionFundamentacaoTA>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_fundamentosCtrl, d.taFundamentosLegais);
-      _sync(_justificativaCtrl, d.taJustificativa);
+      sync(_fundamentosCtrl, d.taFundamentosLegais);
+      sync(_justificativaCtrl, d.taJustificativa);
     }
   }
 

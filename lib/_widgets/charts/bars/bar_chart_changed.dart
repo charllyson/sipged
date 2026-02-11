@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
 
 import 'bar_chart_shimmer_widget.dart';
@@ -169,13 +169,13 @@ class _BarChartChangedState extends State<BarChartChanged> {
     // 1) Índices + ordenação
     final List<int> indices = List.generate(totalBars, (i) => i);
 
-    int _compareValues(int a, int b) {
+    int compareValues(int a, int b) {
       final va = widget.values[a] ?? 0.0;
       final vb = widget.values[b] ?? 0.0;
       return va.compareTo(vb);
     }
 
-    int _compareLabels(int a, int b) {
+    int compareLabels(int a, int b) {
       final la = widget.labels[a];
       final lb = widget.labels[b];
       return la.toUpperCase().compareTo(lb.toUpperCase());
@@ -183,16 +183,16 @@ class _BarChartChangedState extends State<BarChartChanged> {
 
     switch (widget.sortType) {
       case BarChartSortType.ascending:
-        indices.sort(_compareValues);
+        indices.sort(compareValues);
         break;
       case BarChartSortType.descending:
-        indices.sort((a, b) => _compareValues(b, a));
+        indices.sort((a, b) => compareValues(b, a));
         break;
       case BarChartSortType.labelAZ:
-        indices.sort(_compareLabels);
+        indices.sort(compareLabels);
         break;
       case BarChartSortType.labelZA:
-        indices.sort((a, b) => _compareLabels(b, a));
+        indices.sort((a, b) => compareLabels(b, a));
         break;
       case BarChartSortType.none:
         break;
@@ -306,7 +306,7 @@ class _BarChartChangedState extends State<BarChartChanged> {
 
     final bool hasSelection = effectiveSelectedSorted != null;
 
-    final String Function(double) fmt = widget.valueFormatter ?? priceToString;
+    final String Function(double) fmt = widget.valueFormatter ?? SipGedFormatMoney.doubleToText;
 
     final double maxCalculado =
     (nonNullValues.reduce(math.max) * 1.2).ceilToDouble();
@@ -452,8 +452,9 @@ class _BarChartChangedState extends State<BarChartChanged> {
                               getTitlesWidget: (value, meta) => Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: Text(
-                                  (widget.valueFormatter ?? formatToMillions)(
-                                      value),
+                                  widget.valueFormatter != null
+                                      ? widget.valueFormatter!(value)
+                                      : SipGedFormatMoney.compactSimple(value), // ✅ aqui
                                   style: const TextStyle(fontSize: 11),
                                 ),
                               ),

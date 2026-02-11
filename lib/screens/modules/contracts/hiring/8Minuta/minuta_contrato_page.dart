@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Users / Utils
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 // Layout / Inputs / Widgets
 import 'package:siged/_widgets/background/background_cleaner.dart';
@@ -49,7 +49,7 @@ class MinutaContratoPage extends StatefulWidget {
 }
 
 class _MinutaContratoPageState extends State<MinutaContratoPage>
-    with FormValidationMixin, AutomaticKeepAliveClientMixin {
+    with SipGedValidation, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 

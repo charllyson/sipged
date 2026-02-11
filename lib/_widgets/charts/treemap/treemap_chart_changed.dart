@@ -1,11 +1,11 @@
 // lib/_widgets/charts/treemap/treemap_chart_changed.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 import 'package:siged/_widgets/charts/treemap/treemap_class.dart';
 import 'package:siged/_widgets/charts/treemap/treemap_painter.dart';
 import 'package:siged/_widgets/charts/treemap/treemap_shimmer.dart';
-import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
 
 class TreemapChartChanged extends StatefulWidget {
@@ -114,7 +114,7 @@ class _TreemapChartChangedState extends State<TreemapChartChanged> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Text('Investido: ${priceToString(item.value)}'),
+                            Text('Investido: ${SipGedFormatMoney.doubleToText(item.value)}'),
                           ],
                         ),
                       ),

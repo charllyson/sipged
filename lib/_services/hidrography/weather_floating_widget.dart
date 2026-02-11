@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 import 'package:weather/weather.dart';
 
-import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
 
@@ -151,7 +151,7 @@ class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
         : '--';
     final vento = w.windSpeed != null ? '${w.windSpeed!.toStringAsFixed(2)} m/s' : null;
 
-    final subtitle = w.date != null ? Text('Data: ${dateAndTimeHumanized(w.date!)}') : null;
+    final subtitle = w.date != null ? Text('Data: ${SipGedFormatDates.dateAndTimeHumanized(w.date!)}') : null;
     final id = 'weather-${w.areaName ?? "local"}-${w.date?.millisecondsSinceEpoch ?? 0}';
 
     NotificationCenter.instance.show(

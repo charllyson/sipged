@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 
-class SectionConsolidacao extends StatefulWidget with FormValidationMixin {
+class SectionConsolidacao extends StatefulWidget with SipGedValidation {
   final HabilitacaoData data;
   final bool isEditable;
   final void Function(HabilitacaoData updated) onChanged;
@@ -52,14 +52,14 @@ class _SectionConsolidacaoState extends State<SectionConsolidacao> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_situacaoCtrl, d.situacaoHabilitacao);
-      _sync(_dataConclusaoCtrl, d.dataConclusao);
-      _sync(_parecerCtrl, d.parecerConclusivo);
+      sync(_situacaoCtrl, d.situacaoHabilitacao);
+      sync(_dataConclusaoCtrl, d.dataConclusao);
+      sync(_parecerCtrl, d.parecerConclusivo);
     }
   }
 
@@ -117,7 +117,7 @@ class _SectionConsolidacaoState extends State<SectionConsolidacao> {
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     onChanged: (_) => _emitChange(),
                   ),

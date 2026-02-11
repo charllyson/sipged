@@ -1,15 +1,18 @@
+// lib/screens/modules/planning/rightWay/property/lane_regularization_details_panel.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
-
 import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_data.dart';
 import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_storage_bloc.dart';
+
+// ✅ NOVO: sem intl
+import 'package:siged/_utils/formats/sipged_format_numbers.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 // Attachment igual ao usado nas Medições/SideListBox
 import 'package:siged/_widgets/list/files/attachment.dart';
@@ -43,20 +46,23 @@ class _LaneRegularizationDetailsPanelState
   bool _loadingFiles = false;
 
   // ===== Helpers =====
-  String fmtDoubleNullable(double? v, {int fractionDigits = 2}) {
-    if (v == null) return '-';
-    return doubleToString(v, fractionDigits: fractionDigits);
+
+  String fmtDoubleNullable(double? v, {int fractionDigits = 2, String empty = '-'}) {
+    if (v == null) return empty;
+    return SipGedFormatNumbers.decimalPtBr(v, fractionDigits: fractionDigits);
   }
 
-  String fmtPriceNullable(double? v) {
-    if (v == null) return '-';
-    return priceToString(v);
+  String fmtPriceNullable(double? v, {String empty = '-'}) {
+    if (v == null) return empty;
+    return SipGedFormatMoney.doubleToText(v);
   }
 
   String _baseName(String name) {
     var s = name.trim();
-    final q = s.indexOf('?'); if (q != -1) s = s.substring(0, q);
-    final h = s.indexOf('#'); if (h != -1) s = s.substring(0, h);
+    final q = s.indexOf('?');
+    if (q != -1) s = s.substring(0, q);
+    final h = s.indexOf('#');
+    if (h != -1) s = s.substring(0, h);
     s = s.split('/').last;
     return s.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
   }
@@ -105,14 +111,16 @@ class _LaneRegularizationDetailsPanelState
           contractId: widget.contract.id!,
           propertyId: widget.propertyId,
         );
-        geos = listed.map((f) => Attachment(
+        geos = listed
+            .map((f) => Attachment(
           id: f.name,
           label: _baseName(f.name),
           url: f.url,
           path: f.path,
           ext: '', // geo
           createdAt: DateTime.now(),
-        )).toList();
+        ))
+            .toList();
       } else {
         geos = rawGeos;
       }
@@ -122,14 +130,16 @@ class _LaneRegularizationDetailsPanelState
           contractId: widget.contract.id!,
           propertyId: widget.propertyId,
         );
-        docs = listed.map((f) => Attachment(
+        docs = listed
+            .map((f) => Attachment(
           id: f.name,
           label: _baseName(f.name),
           url: f.url,
           path: f.path,
           ext: '.pdf',
           createdAt: DateTime.now(),
-        )).toList();
+        ))
+            .toList();
       } else {
         docs = rawDocs;
       }
@@ -151,7 +161,8 @@ class _LaneRegularizationDetailsPanelState
         contractId: widget.contract.id!,
         propertyId: widget.propertyId,
         onProgress: (p) {
-          final m = 'Enviando georreferenciado ${(p * 100).toStringAsFixed(0)}%';
+          final m =
+              'Enviando georreferenciado ${(p * 100).toStringAsFixed(0)}%';
           if (m != last && mounted) {
             // ⚡ feedback rápido de progresso
             NotificationCenter.instance.show(
@@ -166,8 +177,10 @@ class _LaneRegularizationDetailsPanelState
           }
         },
       );
+
       final suggestion = _baseName(uploaded.name);
       final label = (await askLabelDialog(context, suggestion))?.trim();
+
       final att = Attachment(
         id: uploaded.name,
         label: (label == null || label.isEmpty) ? suggestion : label,
@@ -176,6 +189,7 @@ class _LaneRegularizationDetailsPanelState
         ext: '',
         createdAt: DateTime.now(),
       );
+
       setState(() => _geos = [att, ..._geos]);
       await _persistAttachments();
 
@@ -223,8 +237,10 @@ class _LaneRegularizationDetailsPanelState
           }
         },
       );
+
       final suggestion = _baseName(uploaded.name);
       final label = (await askLabelDialog(context, suggestion))?.trim();
+
       final att = Attachment(
         id: uploaded.name,
         label: (label == null || label.isEmpty) ? suggestion : label,
@@ -233,6 +249,7 @@ class _LaneRegularizationDetailsPanelState
         ext: '.pdf',
         createdAt: DateTime.now(),
       );
+
       setState(() => _docs = [att, ..._docs]);
       await _persistAttachments();
 
@@ -284,7 +301,9 @@ class _LaneRegularizationDetailsPanelState
       if (!mounted) return;
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text(isGeo ? 'Arquivo georreferenciado removido.' : 'Arquivo removido.'),
+          title: Text(isGeo
+              ? 'Arquivo georreferenciado removido.'
+              : 'Arquivo removido.'),
           type: AppNotificationType.success,
           leadingLabel: const Text('Regularização'),
           duration: const Duration(seconds: 3),
@@ -308,6 +327,7 @@ class _LaneRegularizationDetailsPanelState
     final list = isGeo ? _geos : _docs;
     if (index < 0 || index >= list.length) return;
     final current = list[index];
+
     final newLabel = await askLabelDialog(context, current.label);
     if (newLabel == null || newLabel.isEmpty || newLabel == current.label) return;
 
@@ -322,7 +342,6 @@ class _LaneRegularizationDetailsPanelState
     });
     await _persistAttachments();
 
-    // 📌 feedback leve de renomeio
     NotificationCenter.instance.show(
       AppNotification(
         title: const Text('Rótulo atualizado'),
@@ -340,6 +359,7 @@ class _LaneRegularizationDetailsPanelState
         .doc(widget.contract.id)
         .collection('planning_right_way_properties')
         .doc(widget.propertyId);
+
     return col.snapshots().map((snap) {
       if (!snap.exists) return null;
       return LaneRegularizationData.fromDocument(snap);
@@ -445,7 +465,9 @@ class _LaneRegularizationDetailsPanelState
                         icon: Icons.gavel_outlined,
                         title: 'Matrícula / Cartório',
                         subtitle:
-                        'Matrícula: ${prop?.registryNumber ?? '-'}\nCartório: ${prop?.registryOffice ?? '-'}\nEndereço/Descrição: ${prop?.address ?? '-'}',
+                        'Matrícula: ${prop?.registryNumber ?? '-'}\n'
+                            'Cartório: ${prop?.registryOffice ?? '-'}\n'
+                            'Endereço/Descrição: ${prop?.address ?? '-'}',
                       ),
                     ],
                   ),
@@ -468,7 +490,7 @@ class _LaneRegularizationDetailsPanelState
                         title: 'Notificação',
                         subtitle: prop?.notificationDate == null
                             ? '-'
-                            : dateTimeToDDMMYYYY(prop!.notificationDate!),
+                            : SipGedFormatDates.dateToDdMMyyyy(prop!.notificationDate!),
                       ),
                       const Divider(height: 0),
                       _tile(
@@ -476,7 +498,7 @@ class _LaneRegularizationDetailsPanelState
                         title: 'Vistoria',
                         subtitle: prop?.inspectionDate == null
                             ? '-'
-                            : dateTimeToDDMMYYYY(prop!.inspectionDate!),
+                            : SipGedFormatDates.dateToDdMMyyyy(prop!.inspectionDate!),
                       ),
                       const Divider(height: 0),
                       _tile(
@@ -484,7 +506,7 @@ class _LaneRegularizationDetailsPanelState
                         title: 'Acordo/Indenização',
                         subtitle: prop?.agreementDate == null
                             ? '-'
-                            : dateTimeToDDMMYYYY(prop!.agreementDate!),
+                            : SipGedFormatDates.dateToDdMMyyyy(prop!.agreementDate!),
                       ),
                     ],
                   ),
@@ -500,7 +522,8 @@ class _LaneRegularizationDetailsPanelState
                         icon: Icons.square_foot_outlined,
                         title: 'Áreas (m²)',
                         subtitle:
-                        'Total: ${fmtDoubleNullable(prop?.totalArea)} | Afetada: ${fmtDoubleNullable(prop?.affectedArea)}',
+                        'Total: ${fmtDoubleNullable(prop?.totalArea, fractionDigits: 2)}'
+                            ' | Afetada: ${fmtDoubleNullable(prop?.affectedArea, fractionDigits: 2)}',
                       ),
                       const Divider(height: 0),
                       _tile(
@@ -522,7 +545,8 @@ class _LaneRegularizationDetailsPanelState
                         icon: Icons.phone_outlined,
                         title: 'Contato',
                         subtitle:
-                        'Telefone: ${prop?.phone ?? '-'}\nE-mail: ${prop?.email ?? '-'}',
+                        'Telefone: ${prop?.phone ?? '-'}\n'
+                            'E-mail: ${prop?.email ?? '-'}',
                       ),
                       if ((prop?.notes?.trim().isNotEmpty ?? false)) ...[
                         const Divider(height: 0),
@@ -566,10 +590,7 @@ class _LaneRegularizationDetailsPanelState
                           return ListTile(
                             dense: true,
                             leading: const Icon(Icons.insert_drive_file),
-                            title: Text(
-                              g.label,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            title: Text(g.label, overflow: TextOverflow.ellipsis),
                             subtitle: Text(g.id, overflow: TextOverflow.ellipsis),
                             trailing: Wrap(
                               spacing: 6,
@@ -598,8 +619,10 @@ class _LaneRegularizationDetailsPanelState
                           padding: EdgeInsets.only(left: 16, bottom: 12),
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: Text('— Nenhum arquivo adicionado —',
-                                style: TextStyle(color: Colors.black54)),
+                            child: Text(
+                              '— Nenhum arquivo adicionado —',
+                              style: TextStyle(color: Colors.black54),
+                            ),
                           ),
                         ),
                     ],
@@ -636,10 +659,7 @@ class _LaneRegularizationDetailsPanelState
                           return ListTile(
                             dense: true,
                             leading: const Icon(Icons.insert_drive_file),
-                            title: Text(
-                              d.label,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            title: Text(d.label, overflow: TextOverflow.ellipsis),
                             subtitle: Text(d.id, overflow: TextOverflow.ellipsis),
                             trailing: Wrap(
                               spacing: 6,
@@ -668,8 +688,10 @@ class _LaneRegularizationDetailsPanelState
                           padding: EdgeInsets.only(left: 16, bottom: 12),
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: Text('— Nenhum arquivo adicionado —',
-                                style: TextStyle(color: Colors.black54)),
+                            child: Text(
+                              '— Nenhum arquivo adicionado —',
+                              style: TextStyle(color: Colors.black54),
+                            ),
                           ),
                         ),
                     ],

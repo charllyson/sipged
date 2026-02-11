@@ -49,14 +49,14 @@ class _SectionConviteDivulgacaoState extends State<SectionConviteDivulgacao> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_meioDivulgacaoCtrl, d.meioDivulgacao);
-      _sync(_prazoRespostaCtrl, d.prazoResposta);
-      _sync(_fornecedoresConvidadosCtrl, d.fornecedoresConvidados);
+      sync(_meioDivulgacaoCtrl, d.meioDivulgacao);
+      sync(_prazoRespostaCtrl, d.prazoResposta);
+      sync(_fornecedoresConvidadosCtrl, d.fornecedoresConvidados);
     }
   }
 

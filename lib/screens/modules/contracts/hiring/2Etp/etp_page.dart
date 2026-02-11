@@ -22,7 +22,7 @@ import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_cubit.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_state.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 // Seções (versões baseadas em EtpData, igual DFD)
@@ -50,7 +50,7 @@ class EtpPage extends StatefulWidget {
 }
 
 class _EtpPageState extends State<EtpPage>
-    with FormValidationMixin, AutomaticKeepAliveClientMixin {
+    with SipGedValidation, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 

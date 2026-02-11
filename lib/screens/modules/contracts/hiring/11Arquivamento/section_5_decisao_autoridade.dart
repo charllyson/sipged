@@ -8,6 +8,7 @@ import 'package:siged/_blocs/system/user/user_data.dart';
 
 // ===== Dados / Inputs
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 import 'package:siged/_widgets/input/custom_auto_complete.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
@@ -17,8 +18,6 @@ import 'package:siged/_widgets/input/drop_down_botton_change.dart'
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-
 import 'package:siged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
 
 class SectionDecisaoAutoridadeTA extends StatefulWidget {
@@ -67,14 +66,14 @@ class _SectionDecisaoAutoridadeTAState
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_decisaoCtrl, d.taDecisao);
-      _sync(_dataDecisaoCtrl, d.taDataDecisao);
-      _sync(_observacoesCtrl, d.taObservacoesDecisao);
+      sync(_decisaoCtrl, d.taDecisao);
+      sync(_dataDecisaoCtrl, d.taDataDecisao);
+      sync(_observacoesCtrl, d.taObservacoesDecisao);
 
       _autoridadeUserId = d.taAutoridadeUserId;
     }
@@ -161,7 +160,7 @@ class _SectionDecisaoAutoridadeTAState
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                             LengthLimitingTextInputFormatter(8),
-                            TextInputMask(mask: '99/99/9999'),
+                            SipGedMasks.dateDDMMYYYY,
                           ],
                           onChanged: (_) => _emitChange(),
                         ),

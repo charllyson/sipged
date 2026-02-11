@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/colors/colors_system_change.dart';
+import 'package:siged/_utils/theme/sipged_theme.dart';
 
 /// Barra inferior genérica e responsiva para etapas do processo de contratação.
 ///
@@ -42,14 +42,14 @@ class StageProgress extends StatelessWidget {
     final textWidget = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: ColorsSystemChange.primaryColor),
+        Icon(icon, color: SipGedTheme.primaryColor),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
             title,
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              color: ColorsSystemChange.primaryColor,
+              color: SipGedTheme.primaryColor,
             ),
           ),
         ),
@@ -60,20 +60,20 @@ class StageProgress extends StatelessWidget {
       OutlinedButton.icon(
         style: ButtonStyle(
           foregroundColor:
-          MaterialStatePropertyAll(ColorsSystemChange.primaryColor),
+          MaterialStatePropertyAll(SipGedTheme.primaryColor),
         ),
         onPressed: busy ? null : onSave,
         icon: const Icon(Icons.save_outlined),
         label: Text(
           'Salvar',
-          style: TextStyle(color: ColorsSystemChange.primaryColor),
+          style: TextStyle(color: SipGedTheme.primaryColor),
         ),
       ),
       const SizedBox(width: 8, height: 8),
       FilledButton.icon(
         style: ButtonStyle(
           backgroundColor:
-          MaterialStatePropertyAll(ColorsSystemChange.primaryColor),
+          MaterialStatePropertyAll(SipGedTheme.primaryColor),
         ),
         onPressed: busy
             ? null

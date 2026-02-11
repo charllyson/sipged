@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_widgets/overlays/loading_progress.dart';
@@ -59,8 +58,8 @@ class ApostilleTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.apostilleOrder ?? '-'}',
                         (a) => a.apostilleNumberProcess ?? '-',
-                        (a) => dateTimeToDDMMYYYY(a.apostilleData ?? DateTime.now()),
-                        (a) => priceToString(a.apostilleValue),
+                        (a) => SipGedFormatDates.dateToDdMMyyyy(a.apostilleData ?? DateTime.now()),
+                        (a) => SipGedFormatMoney.doubleToText(a.apostilleValue),
                   ],
                   onTapItem: onTapItem,
                   onDelete: (item) => onDelete(item),

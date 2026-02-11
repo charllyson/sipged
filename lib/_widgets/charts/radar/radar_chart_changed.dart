@@ -2,8 +2,8 @@
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
-import 'package:siged/_utils/converters/converters_utils.dart';
 import 'package:siged/_widgets/charts/radar/radar_chart_shimmer.dart';
 import 'package:siged/_widgets/charts/radar/radar_series_data.dart';
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
@@ -84,8 +84,8 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
       ],
     );
 
-    final hasMismatch = widget.datasets
-        .any((s) => s.values.length != widget.labels.length);
+    final hasMismatch =
+    widget.datasets.any((s) => s.values.length != widget.labels.length);
 
     final bool showShimmer =
         widget.labels.isEmpty || widget.datasets.isEmpty || hasMismatch;
@@ -108,8 +108,7 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
               isDark: isDark,
               altura: 275,
               largura: widget.larguraGrafico,
-              legendItems:
-              widget.useExternalLegend ? widget.datasets.length : 0,
+              legendItems: widget.useExternalLegend ? widget.datasets.length : 0,
               axes: 10,
               rings: 10,
             ),
@@ -134,34 +133,26 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final maxW = widget.larguraGrafico ?? constraints.maxWidth;
-            final maxH = constraints.maxHeight.isFinite
-                ? constraints.maxHeight
-                : 300.0; // fallback
+            final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : 300.0;
 
             // ====== LEGENDA (medição real aproximada) ======
             final legendItemMinWidth = 120.0;
-            final legendCols =
-            math.max(1, (maxW / legendItemMinWidth).floor());
-            final legendRows = widget.useExternalLegend
-                ? (widget.datasets.length / legendCols).ceil()
-                : 0;
+            final legendCols = math.max(1, (maxW / legendItemMinWidth).floor());
+            final legendRows =
+            widget.useExternalLegend ? (widget.datasets.length / legendCols).ceil() : 0;
             final legendRowHeight = 24.0;
             final legendReservedHeight = widget.useExternalLegend
-                ? (legendRows * legendRowHeight) +
-                (legendRows > 0 ? 8.0 : 0.0)
+                ? (legendRows * legendRowHeight) + (legendRows > 0 ? 8.0 : 0.0)
                 : 0.0;
 
             // ====== ÁREA ÚTIL DO GRÁFICO ======
-            final usableH =
-            (maxH - legendReservedHeight).clamp(120.0, maxH);
-            final side = math.min(maxW, usableH); // quadrado centralizado
+            final usableH = (maxH - legendReservedHeight).clamp(120.0, maxH);
+            final side = math.min(maxW, usableH);
 
             // ====== FONT & OFFSET ======
             final labelCount = widget.labels.length.clamp(3, 24);
             final baseFont = (side / 30).clamp(9, 14).toDouble();
-            final fontSize = (baseFont - (labelCount > 10 ? 1.0 : 0.0))
-                .clamp(8, 14)
-                .toDouble();
+            final fontSize = (baseFont - (labelCount > 10 ? 1.0 : 0.0)).clamp(8, 14).toDouble();
 
             final titleOffset = side >= 420
                 ? 0.20
@@ -169,24 +160,32 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                 ? 0.18
                 : 0.16;
 
-            Widget buildLegend() {
-              if (!widget.useExternalLegend) {
-                return const SizedBox.shrink();
+            Color seriesColor(int i) {
+              final custom = widget.coresPersonalizadas;
+              if (custom != null && custom.isNotEmpty) {
+                return custom[i % custom.length];
               }
+              return widget.datasets[i].color;
+            }
+
+            Widget buildLegend() {
+              if (!widget.useExternalLegend) return const SizedBox.shrink();
+
               return Wrap(
                 spacing: 12,
                 runSpacing: 8,
                 children: List.generate(widget.datasets.length, (i) {
                   final s = widget.datasets[i];
-                  final isOn =
-                      _hoverSeries == null || _hoverSeries == i;
+                  final c = seriesColor(i);
+                  final isOn = _hoverSeries == null || _hoverSeries == i;
+
                   return Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
                         width: 12,
                         height: 12,
-                        color: s.color.withOpacity(isOn ? 1 : .4),
+                        color: c.withOpacity(isOn ? 1 : .4),
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -194,12 +193,8 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                         style: TextStyle(
                           fontSize: 12,
                           color: isOn
-                              ? (isDark
-                              ? Colors.white
-                              : Colors.black)
-                              : (isDark
-                              ? Colors.white.withOpacity(.5)
-                              : Colors.black.withOpacity(.5)),
+                              ? (isDark ? Colors.white : Colors.black)
+                              : (isDark ? Colors.white.withOpacity(.5) : Colors.black.withOpacity(.5)),
                         ),
                       ),
                     ],
@@ -213,24 +208,15 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                 radarShape: RadarShape.polygon,
                 tickCount: widget.tickCount,
                 titlePositionPercentageOffset: titleOffset,
-                getTitle: (index, angle) {
-                  return RadarChartTitle(
-                    text: widget.labels[index],
-                  );
-                },
-                titleTextStyle: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(fontSize: fontSize),
+                getTitle: (index, angle) => RadarChartTitle(text: widget.labels[index]),
+                titleTextStyle: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: fontSize),
                 radarBackgroundColor: Colors.transparent,
                 radarBorderData: BorderSide(
                   color: Theme.of(context).dividerColor,
                   width: 1.2,
                 ),
                 gridBorderData: BorderSide(
-                  color: Theme.of(context)
-                      .dividerColor
-                      .withOpacity(0.7),
+                  color: Theme.of(context).dividerColor.withOpacity(0.7),
                   width: 1,
                 ),
                 ticksTextStyle: const TextStyle(
@@ -239,20 +225,16 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                   height: 0,
                 ),
                 tickBorderData: BorderSide(
-                  color: Theme.of(context)
-                      .dividerColor
-                      .withOpacity(0.35),
+                  color: Theme.of(context).dividerColor.withOpacity(0.35),
                   width: 0.8,
                 ),
                 dataSets: [
                   for (int i = 0; i < widget.datasets.length; i++)
                     RadarDataSet(
-                      fillColor:
-                      widget.datasets[i].color.withOpacity(0.18),
-                      borderColor: widget.datasets[i].color,
+                      fillColor: seriesColor(i).withOpacity(0.18),
+                      borderColor: seriesColor(i),
                       borderWidth: (_hoverSeries == i) ? 3.2 : 2.0,
-                      entryRadius:
-                      (_hoverSeries == i) ? 3.6 : 2.4,
+                      entryRadius: (_hoverSeries == i) ? 3.6 : 2.4,
                       dataEntries: widget.datasets[i].values
                           .map((v) => RadarEntry(value: v.toDouble()))
                           .toList(),
@@ -266,12 +248,14 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                       _clearHover();
                       return;
                     }
+
                     Offset? lp;
                     try {
                       lp = (event as dynamic).localPosition as Offset?;
                     } catch (_) {
                       lp = null;
                     }
+
                     setState(() {
                       _hoverSeries = spot.touchedDataSetIndex;
                       _hoverAxis = spot.touchedRadarEntryIndex;
@@ -280,10 +264,8 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                     });
 
                     if (widget.onEntryTap != null) {
-                      final isTap = event.runtimeType
-                          .toString()
-                          .contains('FlTap');
-                      if (isTap) {
+                      final isTap = event.runtimeType.toString().contains('FlTap');
+                      if (isTap && _hoverAxis != null && _hoverSeries != null && _hoverValue != null) {
                         widget.onEntryTap!(
                           axisIndex: _hoverAxis!,
                           seriesIndex: _hoverSeries!,
@@ -296,9 +278,7 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
               ),
             );
 
-            final tooltip = (_hoverSeries != null &&
-                _hoverAxis != null &&
-                _hoverPos != null)
+            final tooltip = (_hoverSeries != null && _hoverAxis != null && _hoverPos != null)
                 ? Positioned(
               left: _hoverPos!.dx + 12,
               top: _hoverPos!.dy + 12,
@@ -306,32 +286,23 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                 elevation: 2,
                 color: Colors.transparent,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.black87,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: DefaultTextStyle(
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                     child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget
-                              .datasets[_hoverSeries!].name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          widget.datasets[_hoverSeries!].name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         Text(widget.labels[_hoverAxis!]),
-                        Text(formatNumber(_hoverValue ?? 0)),
+                        // ✅ novo: compacto padronizado
+                        Text(SipGedFormatMoney.brlCompact(_hoverValue ?? 0)),
                       ],
                     ),
                   ),
@@ -343,7 +314,6 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Área do gráfico fica QUADRADA e CENTRALIZADA
                 Expanded(
                   child: Center(
                     child: SizedBox(
@@ -362,8 +332,7 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                     ),
                   ),
                 ),
-                if (widget.useExternalLegend)
-                  const SizedBox(height: 8),
+                if (widget.useExternalLegend) const SizedBox(height: 8),
                 if (widget.useExternalLegend)
                   SizedBox(
                     height: legendReservedHeight,

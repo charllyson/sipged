@@ -125,39 +125,39 @@ class _AccidentsFormSectionState extends State<AccidentsFormSection> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final value = v ?? '';
         if (c.text != value) c.text = value;
       }
 
-      _sync(_orderCtrl, (d.order != null && d.order != 0) ? d.order.toString() : '');
+      sync(_orderCtrl, (d.order != null && d.order != 0) ? d.order.toString() : '');
       _selectedDate = d.date;
-      _sync(_dateCtrl, _formatDate(d.date));
+      sync(_dateCtrl, _formatDate(d.date));
 
-      _sync(_highwayCtrl, d.highway);
-      _sync(_cityDescCtrl, d.city);
-      _sync(_typeOfAccidentCtrl, d.typeOfAccident);
-      _sync(_deathCtrl, d.death != null ? d.death.toString() : '');
-      _sync(_scoresVictimsCtrl,
+      sync(_highwayCtrl, d.highway);
+      sync(_cityDescCtrl, d.city);
+      sync(_typeOfAccidentCtrl, d.typeOfAccident);
+      sync(_deathCtrl, d.death != null ? d.death.toString() : '');
+      sync(_scoresVictimsCtrl,
           d.scoresVictims != null ? d.scoresVictims.toString() : '');
-      _sync(_transportInvolvedCtrl, d.transportInvolved);
+      sync(_transportInvolvedCtrl, d.transportInvolved);
 
-      _sync(
+      sync(
         _latitudeCtrl,
         d.latLng != null ? d.latLng!.latitude.toStringAsFixed(6) : '',
       );
-      _sync(
+      sync(
         _longitudeCtrl,
         d.latLng != null ? d.latLng!.longitude.toStringAsFixed(6) : '',
       );
 
-      _sync(_postalCodeCtrl, d.postalCode);
-      _sync(_streetCtrl, d.street);
-      _sync(_cityAddressCtrl, d.locality);
-      _sync(_subLocalityCtrl, d.subLocality);
-      _sync(_administrativeAreaCtrl, d.administrativeArea);
-      _sync(_countryCtrl, d.country);
-      _sync(_isoCountryCodeCtrl, d.isoCountryCode);
+      sync(_postalCodeCtrl, d.postalCode);
+      sync(_streetCtrl, d.street);
+      sync(_cityAddressCtrl, d.locality);
+      sync(_subLocalityCtrl, d.subLocality);
+      sync(_administrativeAreaCtrl, d.administrativeArea);
+      sync(_countryCtrl, d.country);
+      sync(_isoCountryCodeCtrl, d.isoCountryCode);
     }
   }
 
@@ -266,7 +266,7 @@ class _AccidentsFormSectionState extends State<AccidentsFormSection> {
   void _emitChange() {
     final base = widget.data;
 
-    int? _parseInt(String text) {
+    int? parseInt(String text) {
       final t = text.trim();
       if (t.isEmpty) return null;
       return int.tryParse(t);
@@ -291,15 +291,15 @@ class _AccidentsFormSectionState extends State<AccidentsFormSection> {
       recordPath: base.recordPath,
 
       // Campos principais
-      order: _parseInt(_orderCtrl.text) ?? base.order,
+      order: parseInt(_orderCtrl.text) ?? base.order,
       date: _selectedDate ?? base.date,
       highway: _highwayCtrl.text.trim(),
       typeOfAccident: _typeOfAccidentCtrl.text.trim().isEmpty
           ? base.typeOfAccident
           : _typeOfAccidentCtrl.text.trim(),
-      death: _parseInt(_deathCtrl.text) ?? base.death,
+      death: parseInt(_deathCtrl.text) ?? base.death,
       scoresVictims:
-      _parseInt(_scoresVictimsCtrl.text) ?? base.scoresVictims,
+      parseInt(_scoresVictimsCtrl.text) ?? base.scoresVictims,
       transportInvolved: _transportInvolvedCtrl.text.trim(),
       location: base.location,
       referencePoint: base.referencePoint,

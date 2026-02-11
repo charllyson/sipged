@@ -48,16 +48,16 @@ class _SectionCronogramaIndicadoresState
       covariant SectionCronogramaIndicadores oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final s = v ?? '';
         if (c.text != s) c.text = s;
       }
 
       final d = widget.data;
-      _sync(_vigenciaMesesCtrl, d.tempoVigenciaMeses);
-      _sync(_prazoDiasCtrl, d.prazoExecucaoDias);
-      _sync(_criteriosAceiteCtrl, d.criteriosAceite);
-      _sync(_indicadoresCtrl, d.indicadoresDesempenho);
+      sync(_vigenciaMesesCtrl, d.tempoVigenciaMeses);
+      sync(_prazoDiasCtrl, d.prazoExecucaoDias);
+      sync(_criteriosAceiteCtrl, d.criteriosAceite);
+      sync(_indicadoresCtrl, d.indicadoresDesempenho);
     }
   }
 

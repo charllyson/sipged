@@ -50,16 +50,16 @@ class _SectionMercadoEstimativaState
       covariant SectionMercadoEstimativa oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final s = v ?? '';
         if (c.text != s) c.text = s;
       }
 
       final d = widget.data;
-      _sync(_metodoCtrl, d.metodoEstimativa);
-      _sync(_estimativaValorCtrl, d.estimativaValor);
-      _sync(_analiseMercadoCtrl, d.analiseMercado);
-      _sync(_beneficiosCtrl, d.beneficiosEsperados);
+      sync(_metodoCtrl, d.metodoEstimativa);
+      sync(_estimativaValorCtrl, d.estimativaValor);
+      sync(_analiseMercadoCtrl, d.analiseMercado);
+      sync(_beneficiosCtrl, d.beneficiosEsperados);
     }
   }
 

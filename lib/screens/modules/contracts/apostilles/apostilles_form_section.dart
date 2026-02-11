@@ -1,19 +1,19 @@
+// lib/screens/modules/contracts/apostilles/apostilles_form_section.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-
 import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 
-import '../../../../_widgets/list/files/side_list_box.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:siged/_widgets/list/files/side_list_box.dart';
 
 class ApostilleFormSection extends StatelessWidget {
   final bool isEditable;
@@ -36,7 +36,16 @@ class ApostilleFormSection extends StatelessWidget {
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
-  final void Function(int index)? onEditLabelSideItem;
+
+  /// ✅ persistência do rename (retorna true se ok)
+  final Future<bool> Function({
+  required int index,
+  required Attachment oldItem,
+  required Attachment newItem,
+  })? onRenamePersist;
+
+  /// ✅ notifica pai com lista atual (renomeada/deletada etc.)
+  final void Function(List<dynamic> newItems)? onItemsChanged;
 
   final List<String> orderNumberOptions;
   final Set<String> greyOrderItems;
@@ -61,7 +70,8 @@ class ApostilleFormSection extends StatelessWidget {
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
-    this.onEditLabelSideItem,
+    this.onRenamePersist,
+    this.onItemsChanged,
     required this.orderNumberOptions,
     required this.greyOrderItems,
     required this.onChangedOrderNumber,
@@ -85,11 +95,12 @@ class ApostilleFormSection extends StatelessWidget {
         controller: ctrl,
         enabled: enabled && isEditable,
         labelText: label,
-        keyboardType:
-        date ? TextInputType.datetime : (money ? TextInputType.number : null),
+        keyboardType: date
+            ? TextInputType.datetime
+            : (money ? TextInputType.number : null),
         inputFormatters: [
           if (date) FilteringTextInputFormatter.digitsOnly,
-          if (date) TextInputMask(mask: '99/99/9999'),
+          if (date) SipGedMasks.dateDDMMYYYY,
           if (money)
             CurrencyInputFormatter(
               leadingSymbol: r'R$ ',
@@ -125,6 +136,9 @@ class ApostilleFormSection extends StatelessWidget {
 
         final double minCardHeight = isSmallScreen ? 260.0 : 170.0;
 
+        // ✅ regra única (igual AdditiveFormSection)
+        final bool canEditSide = isEditable && selectedApostille != null;
+
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -142,7 +156,7 @@ class ApostilleFormSection extends StatelessWidget {
               inputsWidth,
               processController,
               'Nº do processo',
-              mask: processoMaskFormatter,
+              mask: SipGedMasks.processo,
               isEditable: isEditable,
             ),
             CustomDateField(
@@ -194,10 +208,24 @@ class ApostilleFormSection extends StatelessWidget {
           title: 'Arquivos do Apostilamento',
           items: sideItems,
           selectedIndex: selectedSideIndex,
-          onAddPressed: (selectedApostille != null && isEditable) ? onAddSideItem : null,
-          onTap: onTapSideItem,
-          onDelete: isEditable ? onDeleteSideItem : null,
-          onEditLabel: isEditable ? onEditLabelSideItem : null,
+
+          // ✅ mesma lógica do AdditiveFormSection
+          onAddPressed: canEditSide ? onAddSideItem : null,
+
+          onTap: onTapSideItem == null ? null : (i) => onTapSideItem!(i),
+
+          onDelete: (canEditSide && onDeleteSideItem != null)
+              ? (i) => onDeleteSideItem!(i)
+              : null,
+
+          // ✅ rename só quando pode editar + callback existe
+          enableRename: canEditSide,
+          onRenamePersist: (canEditSide && onRenamePersist != null)
+              ? onRenamePersist
+              : null,
+
+          onItemsChanged: onItemsChanged,
+
           width: sideWidth,
         );
 

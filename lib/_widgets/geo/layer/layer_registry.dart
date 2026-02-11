@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 
 /// Centraliza a configuração de "conectar/importar" por layerId.
 ///

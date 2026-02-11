@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 import 'package:siged/_widgets/charts/lines/line_chart_changed.dart';
-import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
 class MeasurementContractSection extends StatelessWidget {
@@ -23,7 +23,7 @@ class MeasurementContractSection extends StatelessWidget {
         margin: const EdgeInsets.only(left: 12),
         child: LineChartChanged(
           alturaGrafico: 300,
-          labels: filteredMeasurements.map((m) => dayAndMonthToString(m.date!)).toList(),
+          labels: filteredMeasurements.map((m) => SipGedFormatDates.timeToHHmm(m.date!)).toList(),
           values: filteredMeasurements.map((m) => m.value ?? 0.0).toList(),
           selectedIndex: selectedIndex,
           onPointTap: (index) {

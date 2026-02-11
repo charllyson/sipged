@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/table/virtualized/virtualized_table_changed.dart';
 
 class ActiveOaesRecordsTableSection extends StatelessWidget {
@@ -73,10 +73,10 @@ class ActiveOaesRecordsTableSection extends StatelessWidget {
                 (a) => _fmtNum(a.area),
                 (a) => a.estructureType ?? '-',
                 (a) => a.relatedContracts ?? '-',
-                (a) => priceToString(a.valueIntervention),
-                (a) => priceToString(a.linearCostMedia),
-                (a) => priceToString(a.costEstimate),
-                (a) => dateTimeToDDMMYYYY(a.lastDateIntervention),
+                (a) => SipGedFormatMoney.doubleToText(a.valueIntervention),
+                (a) => SipGedFormatMoney.doubleToText(a.linearCostMedia),
+                (a) => SipGedFormatMoney.doubleToText(a.costEstimate),
+                (a) => SipGedFormatDates.dateToDdMMyyyy(a.lastDateIntervention),
                 (a) => a.companyBuild ?? '-',
                 (a) => _fmtNum(a.latitude, maxDecimals: 6),
                 (a) => _fmtNum(a.longitude, maxDecimals: 6),

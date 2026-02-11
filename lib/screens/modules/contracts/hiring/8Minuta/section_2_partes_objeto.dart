@@ -1,13 +1,12 @@
 // lib/screens/modules/contracts/hiring/8Minuta/section_2_partes_objeto.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_data.dart';
 
 class SectionPartesObjeto extends StatefulWidget {
@@ -27,7 +26,7 @@ class SectionPartesObjeto extends StatefulWidget {
 }
 
 class _SectionPartesObjetoState extends State<SectionPartesObjeto>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _contratanteCtrl;
   late final TextEditingController _contratadaRazaoCtrl;
   late final TextEditingController _contratadaCnpjCtrl;
@@ -50,15 +49,15 @@ class _SectionPartesObjetoState extends State<SectionPartesObjeto>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_contratanteCtrl, d.contratante);
-      _sync(_contratadaRazaoCtrl, d.contratadaRazao);
-      _sync(_contratadaCnpjCtrl, d.contratadaCnpj);
-      _sync(_objetoResumoCtrl, d.objetoResumo);
+      sync(_contratanteCtrl, d.contratante);
+      sync(_contratadaRazaoCtrl, d.contratadaRazao);
+      sync(_contratadaCnpjCtrl, d.contratadaCnpj);
+      sync(_objetoResumoCtrl, d.objetoResumo);
     }
   }
 
@@ -125,7 +124,7 @@ class _SectionPartesObjetoState extends State<SectionPartesObjeto>
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(14),
-                      TextInputMask(mask: '99.999.999/9999-99'),
+                      SipGedMasks.cnpj,
                     ],
                     keyboardType: TextInputType.number,
                     validator: validateRequired,

@@ -6,14 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_state.dart';
-
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 class ValidityFormSection extends StatefulWidget {
   final ProcessData contractData;
@@ -36,8 +35,18 @@ class ValidityFormSection extends StatefulWidget {
   // ====== Callbacks de anexos ======
   final Future<void> Function()? onAddAttachment;
   final Future<void> Function(int index)? onDeleteAttachment;
-  final Future<void> Function(int index)? onRenameAttachment;
   final Future<void> Function(int index)? onTapAttachment;
+
+  /// ✅ NOVO: se quiser manter pai sincronizado / reagir a mudanças
+  final void Function(List<dynamic> newItems)? onAttachmentsChanged;
+
+  /// ✅ NOVO: persistência do rename (se quiser)
+  /// Retorne true se persistiu; false para o SideListBox reverter o rótulo.
+  final Future<bool> Function({
+  required int index,
+  required Attachment oldItem,
+  required Attachment newItem,
+  })? onRenamePersistAttachment;
 
   const ValidityFormSection({
     super.key,
@@ -52,8 +61,9 @@ class ValidityFormSection extends StatefulWidget {
     required this.onSaveOrUpdate,
     this.onAddAttachment,
     this.onDeleteAttachment,
-    this.onRenameAttachment,
     this.onTapAttachment,
+    this.onAttachmentsChanged,
+    this.onRenamePersistAttachment,
   });
 
   @override
@@ -99,7 +109,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
       _orderCtrl.text = v.orderNumber?.toString() ?? '';
       _orderTypeCtrl.text = v.ordertype ?? '';
       _orderDateCtrl.text =
-      v.orderdate != null ? dateTimeToDDMMYYYY(v.orderdate!) : '';
+      v.orderdate != null ? SipGedFormatDates.dateToDdMMyyyy(v.orderdate!) : '';
     }
 
     setState(() {
@@ -109,7 +119,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
 
   bool get _isFormValid {
     final hasType = _orderTypeCtrl.text.trim().isNotEmpty;
-    final dt = stringToDate(_orderDateCtrl.text);
+    final dt = SipGedFormatDates.ddMMyyyyToDate(_orderDateCtrl.text);
     return hasType && dt != null;
   }
 
@@ -119,6 +129,17 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
     _orderTypeCtrl.dispose();
     _orderDateCtrl.dispose();
     super.dispose();
+  }
+
+  void _ensureSelectedIndexValid(int len) {
+    if (_selectedSideIndex == null) return;
+    if (len <= 0) {
+      setState(() => _selectedSideIndex = null);
+      return;
+    }
+    if (_selectedSideIndex! >= len) {
+      setState(() => _selectedSideIndex = len - 1);
+    }
   }
 
   @override
@@ -161,8 +182,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               labelText: 'Tipo da ordem',
               items: state.availableOrderTypes,
               controller: _orderTypeCtrl,
-              enabled:
-              state.availableOrderTypes.isNotEmpty && widget.isEditable,
+              enabled: state.availableOrderTypes.isNotEmpty && widget.isEditable,
               onChanged: (value) {
                 _orderTypeCtrl.text = value ?? '';
                 widget.onChangedOrderType(value);
@@ -175,12 +195,12 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               labelText: 'Data da ordem',
               enabled: widget.isEditable,
               validator: (_) {
-                final d = stringToDate(_orderDateCtrl.text);
+                final d = SipGedFormatDates.ddMMyyyyToDate(_orderDateCtrl.text);
                 return d == null ? 'Data inválida' : null;
               },
               onChanged: (date) {
                 final text =
-                date != null ? dateTimeToDDMMYYYY(date) : '';
+                date != null ? SipGedFormatDates.dateToDdMMyyyy(date) : '';
                 _orderDateCtrl.text = text;
                 widget.onChangedOrderDate(text);
               },
@@ -195,24 +215,17 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               TextButton.icon(
                 icon: const Icon(Icons.restore),
                 label: const Text('Limpar'),
-                onPressed:
-                widget.isEditable && !widget.isSaving
-                    ? widget.onClear
-                    : null,
+                onPressed: widget.isEditable && !widget.isSaving ? widget.onClear : null,
               ),
             const SizedBox(width: 12),
             TextButton.icon(
-              onPressed: widget.isEditable &&
-                  !widget.isSaving &&
-                  _isFormValid
+              onPressed: widget.isEditable && !widget.isSaving && _isFormValid
                   ? () async {
                 await widget.onSaveOrUpdate();
               }
                   : null,
               icon: const Icon(Icons.save),
-              label: Text(
-                selectedValidity?.id != null ? 'Atualizar' : 'Salvar',
-              ),
+              label: Text(selectedValidity?.id != null ? 'Atualizar' : 'Salvar'),
             ),
           ],
         );
@@ -245,22 +258,24 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
               await widget.onTapAttachment!(index);
             }
           },
-          onDelete: (widget.isEditable &&
-              widget.onDeleteAttachment != null)
+          onDelete: (widget.isEditable && widget.onDeleteAttachment != null)
               ? (index) async {
             await widget.onDeleteAttachment!(index);
+            if (!mounted) return;
             setState(() {
               _selectedSideIndex = null;
             });
           }
               : null,
-          onEditLabel: (widget.isEditable &&
-              widget.onRenameAttachment != null)
-              ? (index) async {
-            await widget.onRenameAttachment!(index);
-          }
-              : null,
           width: sideWidth,
+
+          // ✅ rename embutido
+          enableRename: widget.isEditable,
+          onItemsChanged: (newItems) {
+            _ensureSelectedIndexValid(newItems.length);
+            widget.onAttachmentsChanged?.call(newItems);
+          },
+          onRenamePersist: widget.onRenamePersistAttachment,
         );
 
         final content = isSmall

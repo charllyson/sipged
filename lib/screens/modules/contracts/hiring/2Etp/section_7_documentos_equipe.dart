@@ -48,16 +48,16 @@ class _SectionDocumentosEquipeState extends State<SectionDocumentosEquipe> {
       covariant SectionDocumentosEquipe oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final s = v ?? '';
         if (c.text != s) c.text = s;
       }
 
       final d = widget.data;
-      _sync(_levantamentosCtrl, d.levantamentosCampo);
-      _sync(_projetoExistenteCtrl, d.projetoExistente);
-      _sync(_linksEvidenciasCtrl, d.linksEvidencias);
-      _sync(_equipeCtrl, d.equipeEnvolvida);
+      sync(_levantamentosCtrl, d.levantamentosCampo);
+      sync(_projetoExistenteCtrl, d.projetoExistente);
+      sync(_linksEvidenciasCtrl, d.linksEvidencias);
+      sync(_equipeCtrl, d.equipeEnvolvida);
     }
   }
 

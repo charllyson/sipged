@@ -9,12 +9,15 @@ import 'package:siged/_blocs/modules/contracts/additives/additives_cubit.dart';
 // Cubit / State / Repo
 import 'package:siged/_blocs/modules/contracts/additives/additives_state.dart';
 import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 // Widgets auxiliares
 import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+
+// ✅ Attachment para callback do rename
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 import 'additive_form_section.dart';
 import 'additive_graph_section.dart';
@@ -99,9 +102,10 @@ class _AdditivePageState extends State<AdditivePage> {
     _orderCtrl.text = (a.additiveOrder ?? '').toString();
     _processCtrl.text = a.additiveNumberProcess ?? '';
     _dateCtrl.text =
-    a.additiveDate != null ? dateTimeToDDMMYYYY(a.additiveDate!) : '';
+    a.additiveDate != null ? SipGedFormatDates.dateToDdMMyyyy(a.additiveDate!) : '';
     _typeCtrl.text = a.typeOfAdditive ?? '';
-    _valueCtrl.text = a.additiveValue != null ? priceToString(a.additiveValue) : '';
+    _valueCtrl.text =
+    a.additiveValue != null ? SipGedFormatMoney.doubleToText(a.additiveValue) : '';
     _addDaysExecCtrl.text = a.additiveValidityExecutionDays?.toString() ?? '';
     _addDaysContractCtrl.text = a.additiveValidityContractDays?.toString() ?? '';
 
@@ -176,6 +180,17 @@ class _AdditivePageState extends State<AdditivePage> {
     );
   }
 
+  void _ensureSelectedAttachmentIndexValid(int newLen) {
+    if (_selectedAttachmentIndex == null) return;
+    if (newLen <= 0) {
+      setState(() => _selectedAttachmentIndex = null);
+      return;
+    }
+    if (_selectedAttachmentIndex! >= newLen) {
+      setState(() => _selectedAttachmentIndex = newLen - 1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<AdditivesCubit>.value(
@@ -198,13 +213,9 @@ class _AdditivePageState extends State<AdditivePage> {
 
           final bool isLoading = state.status == AdditivesStatus.loading;
 
-          final labels = state.additives
-              .map((e) => (e.additiveOrder ?? '').toString())
-              .toList();
+          final labels = state.additives.map((e) => (e.additiveOrder ?? '').toString()).toList();
 
-          final values = state.additives
-              .map((e) => (e.additiveValue ?? 0.0).toDouble())
-              .toList();
+          final values = state.additives.map((e) => (e.additiveValue ?? 0.0).toDouble()).toList();
 
           return Stack(
             children: [
@@ -215,15 +226,11 @@ class _AdditivePageState extends State<AdditivePage> {
                       builder: (context, constraints) {
                         return SingleChildScrollView(
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight,
-                            ),
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const SectionTitle(
-                                  text: 'Cadastrar aditivos no sistema',
-                                ),
+                                const SectionTitle(text: 'Cadastrar aditivos no sistema'),
 
                                 // ======================
                                 // FORMULÁRIO
@@ -244,6 +251,8 @@ class _AdditivePageState extends State<AdditivePage> {
                                     valueController: _valueCtrl,
                                     additionalDaysExecutionController: _addDaysExecCtrl,
                                     additionalDaysContractController: _addDaysContractCtrl,
+                                    sideLoading: state.sideLoading,
+                                    uploadProgress: state.uploadProgress,
                                     onSave: _save,
                                     onClear: () {
                                       _cubit.createNewAdditive();
@@ -275,7 +284,6 @@ class _AdditivePageState extends State<AdditivePage> {
                                       _cubit.reloadAttachments();
 
                                       if (_cubit.state.selected == null) {
-                                        // não existe -> modo novo, limpa campos (mantém order)
                                         _clearForm(keepOrder: true);
                                       } else {
                                         _fillForm(_cubit.state.selected!);
@@ -302,38 +310,29 @@ class _AdditivePageState extends State<AdditivePage> {
                                     },
                                     onDeleteSideItem: (i) async {
                                       await _cubit.deleteAttachment(i);
+                                      if (!mounted) return;
                                       setState(() => _selectedAttachmentIndex = null);
                                     },
-                                    onEditLabelSideItem: (i) async {
-                                      final att = state.sideAttachments[i];
-                                      final controller = TextEditingController(text: att.label);
-                                      final newLabel = await showDialog<String>(
-                                        context: context,
-                                        builder: (ctx) {
-                                          return AlertDialog(
-                                            title: const Text('Renomear anexo'),
-                                            content: TextField(
-                                              controller: controller,
-                                              autofocus: true,
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(ctx),
-                                                child: const Text('Cancelar'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(ctx, controller.text),
-                                                child: const Text('Salvar'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      if (newLabel != null) {
+
+                                    // ✅ NOVO: apenas garante índice selecionado válido
+                                    onSideItemsChanged: (newItems) {
+                                      _ensureSelectedAttachmentIndexValid(newItems.length);
+                                    },
+
+                                    // ✅ NOVO: persist rename (SideListBox abre dialog; aqui só salva)
+                                    onRenamePersistSideItem: ({
+                                      required int index,
+                                      required Attachment oldItem,
+                                      required Attachment newItem,
+                                    }) async {
+                                      try {
                                         await _cubit.renameAttachment(
-                                          index: i,
-                                          newLabel: newLabel,
+                                          index: index,
+                                          newLabel: newItem.label,
                                         );
+                                        return true;
+                                      } catch (_) {
+                                        return false;
                                       }
                                     },
                                   ),
@@ -347,9 +346,7 @@ class _AdditivePageState extends State<AdditivePage> {
                                 if (!isLoading && state.additives.isEmpty)
                                   const Padding(
                                     padding: EdgeInsets.all(24),
-                                    child: Text(
-                                      'Nenhum aditivo cadastrado para exibir no gráfico.',
-                                    ),
+                                    child: Text('Nenhum aditivo cadastrado para exibir no gráfico.'),
                                   )
                                 else
                                   AdditiveGraphSection(
@@ -360,9 +357,7 @@ class _AdditivePageState extends State<AdditivePage> {
                                       if (index < 0) {
                                         _cubit.createNewAdditive();
                                         _clearForm();
-
-                                        _orderCtrl.text =
-                                            state.nextAvailableOrder.toString();
+                                        _orderCtrl.text = state.nextAvailableOrder.toString();
                                         return;
                                       }
 

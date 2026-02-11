@@ -49,15 +49,15 @@ class _SectionLocalPrazosCronogramaState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final nv = v ?? '';
         if (c.text != nv) c.text = nv;
       }
 
-      _sync(_localCtrl, d.localExecucao);
-      _sync(_prazoDiasCtrl, d.prazoExecucaoDias);
-      _sync(_vigenciaMesesCtrl, d.vigenciaMeses);
-      _sync(_cronogramaCtrl, d.cronogramaFisico);
+      sync(_localCtrl, d.localExecucao);
+      sync(_prazoDiasCtrl, d.prazoExecucaoDias);
+      sync(_vigenciaMesesCtrl, d.vigenciaMeses);
+      sync(_cronogramaCtrl, d.cronogramaFisico);
     }
   }
 

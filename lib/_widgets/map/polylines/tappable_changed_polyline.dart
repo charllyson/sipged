@@ -1,3 +1,4 @@
+// lib/_widgets/map/polylines/tappable_changed_polyline.dart
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -19,7 +20,7 @@ class TappableChangedPolyline {
     this.defaultColor,
     required this.strokeWidth,
     this.isDotted = false,
-    this.hitTestable = true, // default: clicável
+    this.hitTestable = true,
   });
 
   TappableChangedPolyline copyWith({
@@ -63,13 +64,17 @@ class TappableChangedPolyline {
     defaultColor,
     strokeWidth,
     hitTestable,
+    // hash estável dos pontos (custo O(n), mas só quando usar hash/Set/Map)
     Object.hashAll(points.map((p) => Object.hash(p.latitude, p.longitude))),
   );
 
   bool _listEquals(List<LatLng> a, List<LatLng> b) {
+    if (identical(a, b)) return true;
     if (a.length != b.length) return false;
     for (int i = 0; i < a.length; i++) {
-      if (a[i].latitude != b[i].latitude || a[i].longitude != b[i].longitude) {
+      final pa = a[i];
+      final pb = b[i];
+      if (pa.latitude != pb.latitude || pa.longitude != pb.longitude) {
         return false;
       }
     }

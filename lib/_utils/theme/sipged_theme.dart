@@ -1,0 +1,36 @@
+import 'package:flutter/material.dart';
+
+abstract final class SipGedTheme {
+  static Color primaryColor = const Color(0xFF1B2033);
+
+  // Neutros úteis (exemplos)
+  static const Color background = Colors.white;
+  static const Color surface = Color(0xFFF7F8FA);
+  static const Color border = Color(0xFFE2E5EA);
+
+  // Feedback (exemplos)
+  static const Color success = Color(0xFF2E7D32);
+  static const Color warning = Color(0xFFF9A825);
+  static const Color danger  = Color(0xFFC62828);
+  static const Color info    = Color(0xFF1565C0);
+  static const Color disabled = Color(0xFF999999);
+  static const Color text = Color(0xFF333333);
+
+
+  static String colorToHex(Color color, {bool includeAlpha = true}) {
+    final a = color.alpha.toRadixString(16).padLeft(2, '0');
+    final r = color.red.toRadixString(16).padLeft(2, '0');
+    final g = color.green.toRadixString(16).padLeft(2, '0');
+    final b = color.blue.toRadixString(16).padLeft(2, '0');
+    final hex = includeAlpha ? '$a$r$g$b' : '$r$g$b';
+    return '#${hex.toUpperCase()}';
+  }
+
+  static Color hexToColor(String hex) {
+    var s = hex.replaceAll('#', '');
+    if (s.length == 6) s = 'FF$s';
+    if (s.length != 8) throw FormatException('Hex inválido: $hex');
+    return Color(int.parse(s, radix: 16));
+  }
+
+}

@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
+
+// ✅ novo (substitui mask_class.dart)
 
 import 'package:siged/_blocs/modules/actives/railway/active_railway_data.dart';
 import 'package:siged/_blocs/modules/actives/railway/active_railways_cubit.dart';
@@ -24,19 +25,20 @@ class ActiveRailwaysForm extends StatefulWidget {
 }
 
 class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
-  // Campos de domínio mais comuns na sua ActiveRailwayData
-  final _codigoCtrl      = TextEditingController();   // Código
-  final _nomeCtrl        = TextEditingController();   // Nome
-  final _statusCtrl      = TextEditingController();   // Status (texto livre)
-  final _bitolaCtrl      = TextEditingController();   // Bitola
-  final _ufCtrl          = TextEditingController();   // UF
-  final _municipioCtrl   = TextEditingController();   // Município
-  final _extensaoCtrl    = TextEditingController();   // Extensão (km)
-  final _extensaoECtrl   = TextEditingController();   // Extensão E. (opcional)
-  final _extensaoCCtrl   = TextEditingController();   // Extensão C. (opcional)
-  final _codigoCoincCtrl = TextEditingController();   // Código Coincidente (opcional)
-  final _fidCtrl         = TextEditingController();   // fid (opcional)
-  final _nativeIdCtrl    = TextEditingController();   // id nativo (opcional)
+  final _codigoCtrl      = TextEditingController();
+  final _nomeCtrl        = TextEditingController();
+  final _statusCtrl      = TextEditingController();
+  final _bitolaCtrl      = TextEditingController();
+  final _ufCtrl          = TextEditingController();
+  final _municipioCtrl   = TextEditingController();
+  final _extensaoCtrl    = TextEditingController();
+  final _extensaoECtrl   = TextEditingController();
+  final _extensaoCCtrl   = TextEditingController();
+  final _codigoCoincCtrl = TextEditingController();
+  final _fidCtrl         = TextEditingController();
+  final _nativeIdCtrl    = TextEditingController();
+
+  bool _syncingUi = false;
 
   @override
   void dispose() {
@@ -68,7 +70,6 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
   @override
   void initState() {
     super.initState();
-    // primeira carga
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fillUiFromData(widget.editing);
     });
@@ -81,10 +82,15 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
 
   double? _parseNumberLoose(String s) {
     if (s.trim().isEmpty) return null;
-    final t = s.contains(',') && !s.contains('.')
-        ? s.replaceAll('.', '').replaceAll(',', '.')
-        : s;
-    return double.tryParse(t);
+
+    // aceita "1.234,56" ou "1234.56" ou "-12,3"
+    final cleaned = s
+        .trim()
+        .replaceAll(RegExp(r'[^\d,.\-]'), '')
+        .replaceAll('.', '')     // remove milhar
+        .replaceAll(',', '.');   // decimal BR -> US
+
+    return double.tryParse(cleaned);
   }
 
   int? _parseIntLoose(String s) {
@@ -102,6 +108,8 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
   }
 
   void _fillUiFromData(ActiveRailwayData? d) {
+    _syncingUi = true;
+
     _setIfDiff(_codigoCtrl,      d?.codigo ?? '');
     _setIfDiff(_nomeCtrl,        d?.nome ?? '');
     _setIfDiff(_statusCtrl,      d?.status ?? '');
@@ -112,8 +120,10 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
     _setIfDiff(_extensaoECtrl,   _fmtNum(d?.extensaoE));
     _setIfDiff(_extensaoCCtrl,   _fmtNum(d?.extensaoC));
     _setIfDiff(_codigoCoincCtrl, d?.codigoCoincidente ?? '');
-    _setIfDiff(_fidCtrl,         (d?.fid ?? '').toString());
-    _setIfDiff(_nativeIdCtrl,    (d?.nativeId ?? '').toString());
+    _setIfDiff(_fidCtrl,         d?.fid?.toString() ?? '');
+    _setIfDiff(_nativeIdCtrl,    d?.nativeId?.toString() ?? '');
+
+    _syncingUi = false;
   }
 
   ActiveRailwayData _buildData(ActiveRailwayData? base) {
@@ -130,8 +140,8 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
       extensaoC: _parseNumberLoose(_extensaoCCtrl.text),
       codigoCoincidente: _codigoCoincCtrl.text.trim().isEmpty ? null : _codigoCoincCtrl.text.trim(),
       fid: _parseIntLoose(_fidCtrl.text),
-      nativeId: double.tryParse(_nativeIdCtrl.text.trim()),
-      // geometry fica fora do form; é gerida pela importação/edição no mapa
+      nativeId: _parseNumberLoose(_nativeIdCtrl.text),
+      // geometry fora do form
     );
   }
 
@@ -149,22 +159,30 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
       builder: (context, st) {
         final cubit = context.read<ActiveRailwaysCubit>();
 
+        void onAnyChanged(String _) {
+          if (_syncingUi) return;
+          // se você quiser “realtime form”, aqui poderia dar patch no cubit
+          // cubit.patchForm(_buildData(widget.editing));
+        }
+
         final fields = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            _input(_codigoCtrl,     'CÓDIGO'),
-            _input(_nomeCtrl,       'NOME', width: 420),
-            _input(_statusCtrl,     'STATUS (ex.: Em Operação, Em Obras, Planejada)'),
-            _input(_bitolaCtrl,     'BITOLA'),
-            _input(_ufCtrl,         'UF', tooltip: true),
-            _input(_municipioCtrl,  'MUNICÍPIO', tooltip: true),
-            _input(_extensaoCtrl,   'EXTENSÃO (km)', number: true),
-            _input(_extensaoECtrl,  'EXTENSÃO E. (km)', number: true),
-            _input(_extensaoCCtrl,  'EXTENSÃO C. (km)', number: true),
-            _input(_codigoCoincCtrl,'CÓDIGO COINCIDENTE'),
-            _input(_fidCtrl,        'fid', number: true, digitsOnly: true, width: 140),
-            _input(_nativeIdCtrl,   'id nativo', number: true, width: 140),
+            _input(_codigoCtrl,      'CÓDIGO', onChanged: onAnyChanged),
+            _input(_nomeCtrl,        'NOME', width: 420, onChanged: onAnyChanged),
+            _input(_statusCtrl,      'STATUS (ex.: Em Operação, Em Obras, Planejada)', onChanged: onAnyChanged),
+            _input(_bitolaCtrl,      'BITOLA', onChanged: onAnyChanged),
+            _input(_ufCtrl,          'UF', tooltip: true, onChanged: onAnyChanged),
+            _input(_municipioCtrl,   'MUNICÍPIO', tooltip: true, onChanged: onAnyChanged),
+
+            _input(_extensaoCtrl,    'EXTENSÃO (km)', number: true, onChanged: onAnyChanged),
+            _input(_extensaoECtrl,   'EXTENSÃO E. (km)', number: true, onChanged: onAnyChanged),
+            _input(_extensaoCCtrl,   'EXTENSÃO C. (km)', number: true, onChanged: onAnyChanged),
+
+            _input(_codigoCoincCtrl, 'CÓDIGO COINCIDENTE', onChanged: onAnyChanged),
+            _input(_fidCtrl,         'fid', digitsOnly: true, width: 140, onChanged: onAnyChanged),
+            _input(_nativeIdCtrl,    'id nativo', number: true, width: 140, onChanged: onAnyChanged),
           ],
         );
 
@@ -190,8 +208,8 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
                     onPressed: canSave
                         ? () async {
                       final data = _buildData(widget.editing);
-                      // chama direto o Cubit
                       await cubit.upsert(data);
+
                       NotificationCenter.instance.show(
                         AppNotification(
                           title: const Text('Salvando ferrovia...'),
@@ -227,6 +245,7 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
         bool tooltip = false,
         int maxLines = 1,
         double width = 320,
+        void Function(String)? onChanged,
       }) {
     return Tooltip(
       message: tooltip ? 'Campo livre para preenchimento.' : '',
@@ -235,10 +254,13 @@ class _ActiveRailwaysFormState extends State<ActiveRailwaysForm> {
         controller: ctrl,
         labelText: label,
         maxLines: maxLines,
-        keyboardType: number ? TextInputType.number : null,
+        onChanged: onChanged,
+        keyboardType: number
+            ? const TextInputType.numberWithOptions(decimal: true, signed: true)
+            : TextInputType.text,
         inputFormatters: [
           if (digitsOnly) FilteringTextInputFormatter.digitsOnly,
-          if (!digitsOnly && number) TextInputMask(mask: '#########9[.99]'),
+          if (!digitsOnly && number) FilteringTextInputFormatter.allow(RegExp(r'[0-9\-\.,]')),
         ],
       ),
     );

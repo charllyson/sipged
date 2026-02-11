@@ -14,6 +14,9 @@ import 'package:siged/_widgets/list/files/side_list_box.dart';
 import 'package:siged/_blocs/modules/financial/budget/budget_cubit.dart';
 import 'package:siged/_blocs/modules/financial/budget/budget_state.dart';
 
+// ✅ para filtrar só Attachment no onItemsChanged (SideListBox aceita dynamic)
+import 'package:siged/_widgets/list/files/attachment.dart';
+
 class BudgetFormSection extends StatefulWidget {
   final NumberFormat currency;
 
@@ -220,7 +223,8 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                   DropDownButtonChange(
                     showSpecialAlways: true,
                     key: ValueKey(
-                        'budget-funding-$_companyNonce-${st.companyId ?? "none"}'),
+                      'budget-funding-$_companyNonce-${st.companyId ?? "none"}',
+                    ),
                     width: inputsWidth,
                     labelText: 'Fonte de recurso',
                     controller: _fonteCtrl,
@@ -252,7 +256,6 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                         (selected.genericId ?? selected.id).trim(),
                       );
                     },
-
                     onCreateNewItem: (companySelected && childrenLoadedForCompany)
                         ? (label) async {
                       final sysCubit = context.read<SetupCubit>();
@@ -282,8 +285,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       final target = _findByLabel(fundingSources, oldL);
                       if (target == null) return;
 
-                      final sourceId =
-                      (target.genericId ?? target.id).trim();
+                      final sourceId = (target.genericId ?? target.id).trim();
                       if (sourceId.isEmpty) return;
 
                       final updated =
@@ -311,12 +313,10 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       final target = _findByLabel(fundingSources, lab);
                       if (target == null) return;
 
-                      final sourceId =
-                      (target.genericId ?? target.id).trim();
+                      final sourceId = (target.genericId ?? target.id).trim();
                       if (sourceId.isEmpty) return;
 
-                      await setupCubit.deleteFundingSource(
-                          companyId, sourceId);
+                      await setupCubit.deleteFundingSource(companyId, sourceId);
 
                       if (_fonteCtrl.text.trim().toLowerCase() ==
                           lab.toLowerCase()) {
@@ -344,8 +344,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                     width: inputsWidth,
                     controller: _codeCtrl,
                     labelText: 'Código (opcional)',
-                    onChanged: (v) =>
-                        context.read<BudgetCubit>().setBudgetCode(v),
+                    onChanged: (v) => context.read<BudgetCubit>().setBudgetCode(v),
                   ),
 
                   // DESCRIÇÃO
@@ -353,8 +352,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                     width: inputsWidth,
                     controller: _descCtrl,
                     labelText: 'Descrição',
-                    onChanged: (v) =>
-                        context.read<BudgetCubit>().setDescription(v),
+                    onChanged: (v) => context.read<BudgetCubit>().setDescription(v),
                   ),
 
                   // VALOR
@@ -363,8 +361,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                     controller: _amountCtrl,
                     labelText: 'Valor orçado',
                     keyboardType: TextInputType.number,
-                    onChanged: (v) =>
-                        context.read<BudgetCubit>().setAmountText(v),
+                    onChanged: (v) => context.read<BudgetCubit>().setAmountText(v),
                   ),
                 ],
               );
@@ -394,9 +391,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
               final resumo = Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      'Valor: ${widget.currency.format(amountValue)}',
-                    ),
+                    child: Text('Valor: ${widget.currency.format(amountValue)}'),
                   ),
                 ],
               );
@@ -417,42 +412,16 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
               // =========================
               final side = SideListBox(
                 title: 'Arquivos do Orçamento',
-                items: st.attachments,
+                items: st.attachments, // List<Attachment>
                 selectedIndex: st.selectedSideIndex,
-                onAddPressed: null, // conecte quando tiver upload pronto
+                onAddPressed: null,
                 onTap: (i) => context.read<BudgetCubit>().selectSideIndex(i),
-                onDelete: (i) => context.read<BudgetCubit>().deleteAttachmentAt(i),
-                onEditLabel: (i) async {
-                  final att = st.attachments[i];
-                  final ctrl = TextEditingController(text: att.label);
-
-                  final newLabel = await showDialog<String>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Renomear arquivo'),
-                      content: TextField(
-                        controller: ctrl,
-                        decoration: const InputDecoration(labelText: 'Rótulo'),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancelar'),
-                        ),
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.pop(context, ctrl.text.trim()),
-                          child: const Text('Salvar'),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  final v = (newLabel ?? '').trim();
-                  if (v.isNotEmpty) {
-                    context.read<BudgetCubit>().editAttachmentLabel(i, v);
-                  }
+                onDelete: (i) => context.read<BudgetCubit>().deleteAttachmentAt(i), enableRename: true,
+                onItemsChanged: (newItems) {
+                  final list = newItems.whereType<Attachment>().toList();
+                  context.read<BudgetCubit>().setAttachments(list);
                 },
+                onRenamePersist: null,
                 width: sideWidth,
               );
 

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
 import 'package:siged/_blocs/modules/financial/payments/revision/payments_revisions_data.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 class PaymentRevisionFormSection extends StatelessWidget {
   // --- Controllers de formulário
@@ -39,13 +39,22 @@ class PaymentRevisionFormSection extends StatelessWidget {
   final Set<String> greyOrderItems;
   final void Function(String? value)? onChangedOrderNumber;
 
-  // --- SideListBox (agora dinâmico)
+  // --- SideListBox (dinâmico)
   final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
-  final void Function(int index)? onEditLabelSideItem;
+
+  /// ✅ novo: persistência do rename
+  final Future<bool> Function({
+  required int index,
+  required Attachment oldItem,
+  required Attachment newItem,
+  })? onRenamePersist;
+
+  /// ✅ novo: notifica pai com lista atual (já renomeada / deletada etc.)
+  final void Function(List<dynamic> newItems)? onSideItemsChanged;
 
   const PaymentRevisionFormSection({
     super.key,
@@ -78,7 +87,8 @@ class PaymentRevisionFormSection extends StatelessWidget {
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
-    this.onEditLabelSideItem,
+    this.onRenamePersist,
+    this.onSideItemsChanged,
   });
 
   double _inputsWidth(BuildContext context, {required double reserved}) {
@@ -116,29 +126,30 @@ class PaymentRevisionFormSection extends StatelessWidget {
     } else if (date) {
       formatters = [
         FilteringTextInputFormatter.digitsOnly,
-        TextInputMask(mask: '99/99/9999'),
+        SipGedMasks.dateDDMMYYYY,
       ];
     } else if (mask != null) {
       formatters = mask;
     }
 
-    final customTextField = CustomTextField(
+    final tf = CustomTextField(
       width: width,
       enabled: enabled,
       labelText: label,
       controller: controller,
-      keyboardType:
-      money ? TextInputType.number : (date ? TextInputType.datetime : TextInputType.text),
+      keyboardType: money
+          ? TextInputType.number
+          : (date ? TextInputType.datetime : TextInputType.text),
       inputFormatters: formatters,
     );
 
     if (tooltip) {
       return Tooltip(
         message: 'Este campo é calculado automaticamente.',
-        child: customTextField,
+        child: tf,
       );
     }
-    return customTextField;
+    return tf;
   }
 
   @override
@@ -163,31 +174,66 @@ class PaymentRevisionFormSection extends StatelessWidget {
             greyItems: greyOrderItems,
             onChanged: onChangedOrderNumber,
           ),
-          _input(w, processCtrl, 'Nº processo de pagamento da revisão',
-              enabled: isEditable, mask: [processoMaskFormatter]),
-          _input(w, valueCtrl, 'Valor do pagamento da revisão',
-              enabled: isEditable, money: true),
-          _input(w, stateCtrl, 'Estado do pagamento da revisão',
-              enabled: isEditable),
-          _input(w, observationCtrl, 'Observação do pagamento da revisão',
-              enabled: isEditable),
-          _input(w, bankCtrl, 'Nº do banco do pagamento da revisão',
-              enabled: isEditable),
-          _input(w, electronicTicketCtrl,
-              'Nº do boleto eletrônico do pagamento da revisão',
-              enabled: isEditable),
-          _input(w, fontCtrl, 'Fonte do pagamento da revisão',
-              enabled: isEditable),
+          _input(
+            w,
+            processCtrl,
+            'Nº processo de pagamento da revisão',
+            enabled: isEditable,
+            mask: [SipGedMasks.processo],
+          ),
+          _input(
+            w,
+            valueCtrl,
+            'Valor do pagamento da revisão',
+            enabled: isEditable,
+            money: true,
+          ),
+          _input(
+            w,
+            stateCtrl,
+            'Estado do pagamento da revisão',
+            enabled: isEditable,
+          ),
+          _input(
+            w,
+            observationCtrl,
+            'Observação do pagamento da revisão',
+            enabled: isEditable,
+          ),
+          _input(
+            w,
+            bankCtrl,
+            'Nº do banco do pagamento da revisão',
+            enabled: isEditable,
+          ),
+          _input(
+            w,
+            electronicTicketCtrl,
+            'Nº do boleto eletrônico do pagamento da revisão',
+            enabled: isEditable,
+          ),
+          _input(
+            w,
+            fontCtrl,
+            'Fonte do pagamento da revisão',
+            enabled: isEditable,
+          ),
           CustomDateField(
             width: w,
             enabled: isEditable,
             controller: dateCtrl,
             initialValue: selectedPaymentRevisionData?.datePaymentRevision,
             labelText: 'Data do pagamento da revisão do reajuste',
-            onChanged: (date) => selectedPaymentRevisionData?.datePaymentRevision = date,
+            onChanged: (date) =>
+            selectedPaymentRevisionData?.datePaymentRevision = date,
           ),
-          _input(w, taxCtrl, 'Imposto do pagamento da revisão',
-              enabled: isEditable, money: true),
+          _input(
+            w,
+            taxCtrl,
+            'Imposto do pagamento da revisão',
+            enabled: isEditable,
+            money: true,
+          ),
         ],
       );
 
@@ -196,8 +242,12 @@ class PaymentRevisionFormSection extends StatelessWidget {
         children: [
           TextButton.icon(
             icon: const Icon(Icons.save),
-            label: Text(currentPaymentRevisionId != null ? 'Atualizar' : 'Salvar'),
-            onPressed: formValidated && isEditable && !isSaving ? onSaveOrUpdate : null,
+            label: Text(
+              currentPaymentRevisionId != null ? 'Atualizar' : 'Salvar',
+            ),
+            onPressed: formValidated && isEditable && !isSaving
+                ? onSaveOrUpdate
+                : null,
           ),
           const SizedBox(width: 12),
           if (currentPaymentRevisionId != null)
@@ -222,11 +272,18 @@ class PaymentRevisionFormSection extends StatelessWidget {
         title: 'Arquivos da Revisão',
         items: sideItems,
         selectedIndex: selectedSideIndex,
-        onAddPressed: (selectedPaymentRevisionData != null && isEditable) ? onAddSideItem : null,
+        onAddPressed:
+        (selectedPaymentRevisionData != null && isEditable) ? onAddSideItem : null,
         onTap: onTapSideItem,
         onDelete: isEditable ? onDeleteSideItem : null,
-        onEditLabel: isEditable ? onEditLabelSideItem : null,
+
+        // ✅ novo contrato
+        enableRename: isEditable,
+        onRenamePersist: onRenamePersist,
+        onItemsChanged: onSideItemsChanged,
+
         width: sideWidth,
+        loading: isSaving,
       );
 
       return Container(

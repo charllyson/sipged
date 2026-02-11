@@ -1,4 +1,4 @@
-library flutter_map_tappable_polyline_v8;
+library;
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';

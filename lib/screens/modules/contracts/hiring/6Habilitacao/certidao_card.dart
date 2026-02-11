@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_style.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
 
 class CertidaoCard extends StatelessWidget {
   final String titulo;
@@ -89,7 +89,7 @@ class CertidaoCard extends StatelessWidget {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                             LengthLimitingTextInputFormatter(8),
-                            TextInputMask(mask: '99/99/9999'),
+                            SipGedMasks.dateDDMMYYYY,
                           ],
                           keyboardType: TextInputType.number,
                         ),

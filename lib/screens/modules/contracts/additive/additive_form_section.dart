@@ -1,18 +1,17 @@
-// lib/screens/contracts/additives/additive_form_section.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_utils/formats/input_formatters.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
 import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 class AdditiveFormSection extends StatefulWidget {
   final bool isEditable;
@@ -33,13 +32,27 @@ class AdditiveFormSection extends StatefulWidget {
   final VoidCallback onSave;
   final VoidCallback onClear;
 
-  // SideListBox
+  // SideListBox (compat: String OU Attachment)
   final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
-  final void Function(int index)? onEditLabelSideItem;
+
+  /// progress/loading do SideListBox (novo padrão)
+  final bool sideLoading;
+  final double? uploadProgress;
+
+  /// mantém o pai sincronizado com a lista interna do SideListBox
+  final void Function(List<dynamic> newItems)? onSideItemsChanged;
+
+  /// persistir rename (opcional)
+  /// Retorne true se persistiu; false para o SideListBox reverter.
+  final Future<bool> Function({
+  required int index,
+  required Attachment oldItem,
+  required Attachment newItem,
+  })? onRenamePersistSideItem;
 
   // Dropdown de ordem
   final List<String> orderOptions;
@@ -68,7 +81,10 @@ class AdditiveFormSection extends StatefulWidget {
     this.onAddSideItem,
     this.onTapSideItem,
     this.onDeleteSideItem,
-    this.onEditLabelSideItem,
+    required this.sideLoading,
+    required this.uploadProgress,
+    this.onSideItemsChanged,
+    this.onRenamePersistSideItem,
     required this.orderOptions,
     required this.greyOrderItems,
     required this.onChangedOrder,
@@ -85,7 +101,6 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
   void initState() {
     super.initState();
     _currentType = widget.typeOfAdditiveCtrl.text;
-
     widget.typeOfAdditiveCtrl.addListener(_syncTypeFromController);
   }
 
@@ -98,7 +113,6 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
       widget.typeOfAdditiveCtrl.addListener(_syncTypeFromController);
     }
 
-    // garante sync quando preencher formulário por seleção externa
     final t = widget.typeOfAdditiveCtrl.text;
     if (t != _currentType) {
       _currentType = t;
@@ -118,18 +132,17 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
   }
 
   bool _exibeValor() =>
-      ['VALOR', 'REEQUÍLIBRIO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
+      const ['VALOR', 'REEQUÍLIBRIO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
           .contains(_currentType.toUpperCase());
 
   bool _exibePrazo() =>
-      ['PRAZO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
+      const ['PRAZO', 'RATIFICAÇÃO', 'RENOVAÇÃO']
           .contains(_currentType.toUpperCase());
 
   void _onTypeChanged(String? value) {
     final v = (value ?? '').trim();
     widget.typeOfAdditiveCtrl.text = v;
 
-    // opcional: limpar campos que não serão usados
     if (!_exibeValor()) {
       widget.valueController.clear();
     }
@@ -138,7 +151,6 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
       widget.additionalDaysExecutionController.clear();
     }
 
-    // atualiza modelo em memória (se tiver selecionado)
     if (widget.selectedAdditive != null) {
       widget.selectedAdditive!.typeOfAdditive = v;
     }
@@ -166,12 +178,11 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
         controller: ctrl,
         enabled: enabled && isEditable,
         labelText: label,
-        keyboardType: date
-            ? TextInputType.datetime
-            : (money ? TextInputType.number : null),
+        keyboardType:
+        date ? TextInputType.datetime : (money ? TextInputType.number : null),
         inputFormatters: [
           if (date) FilteringTextInputFormatter.digitsOnly,
-          if (date) TextInputMask(mask: '99/99/9999'),
+          if (date) SipGedMasks.dateDDMMYYYY,
           if (money)
             CurrencyInputFormatter(
               leadingSymbol: r'R$ ',
@@ -207,11 +218,13 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
 
         final double minCardHeight = isSmallScreen ? 260.0 : 170.0;
 
+        // ✅ regra única para habilitar ações de anexos
+        final bool canEditSide = widget.isEditable && widget.selectedAdditive != null;
+
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            // Ordem com dropdown
             DropDownButtonChange(
               width: inputsWidth,
               enabled: true,
@@ -225,7 +238,7 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
               inputsWidth,
               widget.processController,
               'Processo do Aditivo',
-              mask: processoMaskFormatter,
+              mask: SipGedMasks.processo,
               isEditable: widget.isEditable,
             ),
             CustomDateField(
@@ -248,7 +261,6 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
               controller: widget.typeOfAdditiveCtrl,
               onChanged: _onTypeChanged,
             ),
-
             if (_exibeValor())
               _input(
                 inputsWidth,
@@ -257,7 +269,6 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
                 money: true,
                 isEditable: widget.isEditable,
               ),
-
             if (_exibePrazo())
               _input(
                 inputsWidth,
@@ -265,7 +276,6 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
                 'Dias adicionais ao prazo do contrato',
                 isEditable: widget.isEditable,
               ),
-
             if (_exibePrazo())
               _input(
                 inputsWidth,
@@ -282,8 +292,9 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
             TextButton.icon(
               icon: const Icon(Icons.save),
               label: Text(widget.editingMode ? 'Atualizar' : 'Salvar'),
-              onPressed:
-              widget.formValidated ? (widget.isEditable ? widget.onSave : null) : null,
+              onPressed: widget.formValidated
+                  ? (widget.isEditable ? widget.onSave : null)
+                  : null,
             ),
             const SizedBox(width: 12),
             if (widget.editingMode)
@@ -308,13 +319,28 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
           title: 'Arquivos do Aditivo',
           items: widget.sideItems,
           selectedIndex: widget.selectedSideIndex,
-          onAddPressed: (widget.selectedAdditive != null && widget.isEditable)
-              ? widget.onAddSideItem
-              : null,
+
+          // ✅ só habilita add quando há aditivo selecionado + editável
+          onAddPressed: canEditSide ? widget.onAddSideItem : null,
+
           onTap: widget.onTapSideItem == null ? null : (i) => widget.onTapSideItem!(i),
-          onDelete: widget.isEditable ? widget.onDeleteSideItem : null,
-          onEditLabel: widget.isEditable ? widget.onEditLabelSideItem : null,
+
+          // ✅ O DELETE APARECE quando onDelete != null
+          // Aqui garantimos que só passa != null quando pode editar + pai forneceu callback.
+          onDelete: (canEditSide && widget.onDeleteSideItem != null)
+              ? (i) => widget.onDeleteSideItem!(i)
+              : null,
+
           width: sideWidth,
+
+          // progress
+          loading: widget.sideLoading,
+          uploadProgress: widget.uploadProgress,
+
+          // rename
+          enableRename: canEditSide,
+          onItemsChanged: widget.onSideItemsChanged,
+          onRenamePersist: widget.onRenamePersistSideItem,
         );
 
         return BasicCard(

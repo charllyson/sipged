@@ -7,7 +7,9 @@ import 'package:siged/_widgets/input/custom_time_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
+
+// ✅ novo (remove mask_class.dart)
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
@@ -24,8 +26,7 @@ class SectionSessaoJulgamento extends StatefulWidget {
   });
 
   @override
-  State<SectionSessaoJulgamento> createState() =>
-      _SectionSessaoJulgamentoState();
+  State<SectionSessaoJulgamento> createState() => _SectionSessaoJulgamentoState();
 }
 
 class _SectionSessaoJulgamentoState extends State<SectionSessaoJulgamento> {
@@ -41,8 +42,7 @@ class _SectionSessaoJulgamentoState extends State<SectionSessaoJulgamento> {
     _dataSessaoCtrl = TextEditingController(text: d.dataSessao);
     _horaSessaoCtrl = TextEditingController(text: d.horaSessao);
     _responsavelCtrl = TextEditingController(text: d.responsavel);
-    _localPlataformaCtrl =
-        TextEditingController(text: d.localPlataforma);
+    _localPlataformaCtrl = TextEditingController(text: d.localPlataforma);
   }
 
   @override
@@ -51,23 +51,10 @@ class _SectionSessaoJulgamentoState extends State<SectionSessaoJulgamento> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      final dataSessao = d.dataSessao;
-      final horaSessao = d.horaSessao;
-      final responsavel = d.responsavel;
-      final localPlataforma = d.localPlataforma;
-
-      if (_dataSessaoCtrl.text != dataSessao) {
-        _dataSessaoCtrl.text = dataSessao;
-      }
-      if (_horaSessaoCtrl.text != horaSessao) {
-        _horaSessaoCtrl.text = horaSessao;
-      }
-      if (_responsavelCtrl.text != responsavel) {
-        _responsavelCtrl.text = responsavel;
-      }
-      if (_localPlataformaCtrl.text != localPlataforma) {
-        _localPlataformaCtrl.text = localPlataforma;
-      }
+      if (_dataSessaoCtrl.text != d.dataSessao) _dataSessaoCtrl.text = d.dataSessao;
+      if (_horaSessaoCtrl.text != d.horaSessao) _horaSessaoCtrl.text = d.horaSessao;
+      if (_responsavelCtrl.text != d.responsavel) _responsavelCtrl.text = d.responsavel;
+      if (_localPlataformaCtrl.text != d.localPlataforma) _localPlataformaCtrl.text = d.localPlataforma;
     }
   }
 
@@ -114,6 +101,7 @@ class _SectionSessaoJulgamentoState extends State<SectionSessaoJulgamento> {
                     enabled: isEditable,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     onChanged: (_) => _emitChange(),
                   ),
@@ -126,11 +114,8 @@ class _SectionSessaoJulgamentoState extends State<SectionSessaoJulgamento> {
                     enabled: isEditable,
                     textInputType: TextInputType.datetime,
                     inputFormat: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'[0-9:]'),
-                      ),
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
                       LengthLimitingTextInputFormatter(5),
-                      TextInputMask(mask: '99:99'),
                     ],
                     onChanged: (_) => _emitChange(),
                   ),

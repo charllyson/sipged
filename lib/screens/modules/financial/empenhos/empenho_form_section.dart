@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart'; // (mantive só pq você passa NumberFormat no widget)
 
 import 'package:siged/_blocs/system/setup/setup_cubit.dart';
 import 'package:siged/_blocs/system/setup/setup_data.dart';
@@ -17,11 +17,13 @@ import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 
 import 'package:siged/_widgets/list/files/side_list_box.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 import 'package:siged/_blocs/modules/financial/empenhos/empenho_cubit.dart';
 import 'package:siged/_blocs/modules/financial/empenhos/empenho_state.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 
 class EmpenhoFormSection extends StatefulWidget {
   final NumberFormat currency;
@@ -133,7 +135,9 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
 
   void _syncFromState(EmpenhoState s) {
     if (_companyCtrl.text != s.companyLabel) _companyCtrl.text = s.companyLabel;
-    if (_fonteCtrl.text != s.fundingSourceLabel) _fonteCtrl.text = s.fundingSourceLabel;
+    if (_fonteCtrl.text != s.fundingSourceLabel) {
+      _fonteCtrl.text = s.fundingSourceLabel;
+    }
     if (_numeroCtrl.text != s.numero) _numeroCtrl.text = s.numero;
 
     // demanda: usa o label novo
@@ -141,9 +145,8 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
 
     if (_totalCtrl.text != s.totalText) _totalCtrl.text = s.totalText;
 
-    final stDate = s.date;
-    final fmt = DateFormat('dd/MM/yyyy');
-    final desired = stDate == null ? '' : fmt.format(stDate);
+    final dt = s.date;
+    final desired = (dt == null) ? '' : SipGedFormatDates.dateToDdMMyyyy(dt);
     if (_dateCtrl.text != desired) _dateCtrl.text = desired;
   }
 
@@ -204,7 +207,8 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
           return LayoutBuilder(
             builder: (context, constraints) {
               final bool isSmallScreen = constraints.maxWidth < 700;
-              final double sideWidth = isSmallScreen ? constraints.maxWidth : 300.0;
+              final double sideWidth =
+              isSmallScreen ? constraints.maxWidth : 300.0;
 
               final double inputsWidth = responsiveInputWidth(
                 context: context,
@@ -301,7 +305,9 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
 
                   // FONTE DE RECURSO
                   DropDownButtonChange(
-                    key: ValueKey('funding-$_companyNonce-${st.companyId ?? "none"}'),
+                    key: ValueKey(
+                      'funding-$_companyNonce-${st.companyId ?? "none"}',
+                    ),
                     width: inputsWidth,
                     labelText: 'Fonte de recurso',
                     controller: _fonteCtrl,
@@ -339,12 +345,16 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                       final newLabel = _s(label);
                       if (newLabel.isEmpty) return;
 
-                      final created =
-                      await sysCubit.createFundingSource(companyId, newLabel);
+                      final created = await sysCubit.createFundingSource(
+                        companyId,
+                        newLabel,
+                      );
                       if (created == null) return;
 
                       empCubit.setFundingSourceLabel(created.label);
-                      empCubit.setFundingSourceId(created.genericId ?? created.id);
+                      empCubit.setFundingSourceId(
+                        created.genericId ?? created.id,
+                      );
                     }
                         : null,
                     onEditItem: (companySelected && childrenLoadedForCompany)
@@ -366,9 +376,12 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                       );
                       if (updated == null) return;
 
-                      if (_fonteCtrl.text.trim().toLowerCase() == oldL.toLowerCase()) {
+                      if (_fonteCtrl.text.trim().toLowerCase() ==
+                          oldL.toLowerCase()) {
                         _fonteCtrl.text = updated.label;
-                        context.read<EmpenhoCubit>().setFundingSourceLabel(updated.label);
+                        context
+                            .read<EmpenhoCubit>()
+                            .setFundingSourceLabel(updated.label);
                       }
                     }
                         : null,
@@ -385,7 +398,8 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
 
                       await setupCubit.deleteFundingSource(companyId, sourceId);
 
-                      if (_fonteCtrl.text.trim().toLowerCase() == lab.toLowerCase()) {
+                      if (_fonteCtrl.text.trim().toLowerCase() ==
+                          lab.toLowerCase()) {
                         _fonteCtrl.clear();
                         final cubit = context.read<EmpenhoCubit>();
                         cubit.setFundingSourceLabel('');
@@ -421,12 +435,9 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                     hint: _loadingDfds ? 'Carregando demandas…' : 'Digite para buscar',
                     enabled: !_loadingDfds && _dfds.isNotEmpty,
                     allList: _dfds,
-
-                    // ✅ garante que volta selecionado quando reabrir/selecionar item
                     initialId: (st.demandContractId ?? '').trim().isEmpty
                         ? null
                         : st.demandContractId!.trim(),
-
                     idOf: (d) => (d.contractId ?? '').trim(),
                     displayOf: (d) => (d.descricaoObjeto ?? '').trim(),
                     match: (d, qLower) {
@@ -470,7 +481,9 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                   TextButton.icon(
                     icon: const Icon(Icons.save),
                     label: Text(st.selected == null ? 'Salvar' : 'Atualizar'),
-                    onPressed: formOk ? () => context.read<EmpenhoCubit>().saveOrUpdate() : null,
+                    onPressed: formOk
+                        ? () => context.read<EmpenhoCubit>().saveOrUpdate()
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   if (st.selected != null)
@@ -485,7 +498,9 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
               final resumo = Row(
                 children: [
                   Expanded(
-                    child: Text('Soma das fatias: ${widget.currency.format(somaFatias)}'),
+                    child: Text(
+                      'Soma das fatias: ${widget.currency.format(somaFatias)}',
+                    ),
                   ),
                   Expanded(
                     child: Text(
@@ -508,43 +523,44 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
               );
 
               // =========================
-              // SIDE (Arquivos)
+              // SIDE (Arquivos) - NOVO SideListBox
               // =========================
               final side = SideListBox(
                 title: 'Arquivos do Empenho',
-                items: st.attachments,
+                items: st.attachments, // List<Attachment>
                 selectedIndex: st.selectedSideIndex,
-                onAddPressed: null, // você liga quando tiver fluxo de upload pronto
+
+                // quando você tiver o upload pronto, liga aqui:
+                onAddPressed: null,
+
                 onTap: (i) => context.read<EmpenhoCubit>().selectSideIndex(i),
                 onDelete: (i) => context.read<EmpenhoCubit>().deleteAttachmentAt(i),
-                onEditLabel: (i) async {
-                  final att = st.attachments[i];
-                  final ctrl = TextEditingController(text: att.label);
-                  final newLabel = await showDialog<String>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Renomear arquivo'),
-                      content: TextField(
-                        controller: ctrl,
-                        decoration: const InputDecoration(labelText: 'Rótulo'),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancelar'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-                          child: const Text('Salvar'),
-                        ),
-                      ],
-                    ),
-                  );
-                  final v = (newLabel ?? '').trim();
-                  if (v.isNotEmpty) {
-                    context.read<EmpenhoCubit>().editAttachmentLabel(i, v);
-                  }
+
+                // ✅ novo: lista muda (reorder/remoção local etc.)
+                onItemsChanged: (items) {
+                  // implemente no cubit
+                  // - normalize para List<Attachment>
+                  context.read<EmpenhoCubit>().setAttachmentsFromUi(items);
                 },
+
+                // ✅ novo: rename embutido (SideListBox chama e aguarda bool)
+                onRenamePersist: ({
+                  required int index,
+                  required dynamic oldItem,
+                  required dynamic newItem,
+                }) async {
+                  final oldAtt = oldItem is Attachment ? oldItem : null;
+                  final newAtt = newItem is Attachment ? newItem : null;
+                  if (oldAtt == null || newAtt == null) return false;
+
+                  // implemente no cubit (persistência em Firestore)
+                  return context.read<EmpenhoCubit>().persistRenameAttachment(
+                    index: index,
+                    oldItem: oldAtt,
+                    newItem: newAtt,
+                  );
+                },
+
                 width: sideWidth,
               );
 
@@ -566,8 +582,7 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                       : Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Card(),
-                      side,
+                      SizedBox(width: sideWidth, child: side),
                       const SizedBox(width: 12),
                       Expanded(child: corpo),
                     ],

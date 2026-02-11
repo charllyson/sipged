@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 import 'package:siged/_widgets/charts/lines/shimmer_line_chart.dart';
-import 'package:siged/_utils/formats/format_field.dart';
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
 
 class LineSeries {
@@ -36,16 +36,16 @@ class LineSeries {
   });
 
   LineSeries orderedCopy(List<int> order) {
-    List<T> _apply<T>(List<T> src) => [
+    List<T> apply<T>(List<T> src) => [
       for (final i in order)
         if (i >= 0 && i < src.length) src[i]
     ];
     return LineSeries(
       id: id,
       name: name,
-      values: _apply<double>(values),
-      labels: labels == null ? null : _apply<String>(labels!),
-      dateLabels: dateLabels == null ? null : _apply<DateTime>(dateLabels!),
+      values: apply<double>(values),
+      labels: labels == null ? null : apply<String>(labels!),
+      dateLabels: dateLabels == null ? null : apply<DateTime>(dateLabels!),
       color: color,
       showArea: showArea,
       strokeWidth: strokeWidth,
@@ -344,7 +344,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
         name = s.name ?? s.id;
       }
       final text =
-          widget.tooltipFormatter?.call(y) ?? priceToString(y);
+          widget.tooltipFormatter?.call(y) ?? SipGedFormatMoney.doubleToText(y);
       final label = name.isEmpty ? text : '$name: $text';
       items.add(
         LineTooltipItem(

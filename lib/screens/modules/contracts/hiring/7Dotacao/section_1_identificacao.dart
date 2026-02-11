@@ -7,7 +7,7 @@ import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 
 import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
@@ -30,7 +30,7 @@ class SectionIdentificacao extends StatefulWidget {
 }
 
 class _SectionIdentificacaoState extends State<SectionIdentificacao>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _exercicioCtrl;
   late final TextEditingController _processoSeiCtrl;
   late final TextEditingController _responsavelNomeCtrl;
@@ -55,14 +55,14 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_exercicioCtrl, d.exercicio);
-      _sync(_processoSeiCtrl, d.processoSei);
-      _sync(_responsavelNomeCtrl, d.responsavelOrcNome);
+      sync(_exercicioCtrl, d.exercicio);
+      sync(_processoSeiCtrl, d.processoSei);
+      sync(_responsavelNomeCtrl, d.responsavelOrcNome);
       _responsavelUserId = d.responsavelOrcUserId;
     }
   }

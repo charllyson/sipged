@@ -43,7 +43,7 @@ class GeneralDashboardList extends StatelessWidget {
     final String? contractId = selected.contractId;
     final int? order = selected.order;
 
-    double _readAdjustmentValue() {
+    double readAdjustmentValue() {
       if (contractId == null) return 0.0;
 
       AdjustmentMeasurementData? item = allAdjustments.firstWhere(
@@ -63,7 +63,7 @@ class GeneralDashboardList extends StatelessWidget {
       return item.value ?? 0.0;
     }
 
-    double _readRevisionValue() {
+    double readRevisionValue() {
       if (contractId == null) return 0.0;
 
       RevisionMeasurementData? item = allRevisions.firstWhere(
@@ -84,8 +84,8 @@ class GeneralDashboardList extends StatelessWidget {
     }
 
     final double valorReport = selected.value ?? 0.0;
-    final double valorAdjustment = _readAdjustmentValue();
-    final double valorRevision = _readRevisionValue();
+    final double valorAdjustment = readAdjustmentValue();
+    final double valorRevision = readRevisionValue();
 
     return Column(
       children: [

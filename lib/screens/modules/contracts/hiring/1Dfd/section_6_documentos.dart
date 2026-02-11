@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/hiring/1Dfd/section_6_documentos.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,13 +7,11 @@ import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_storage_bloc.dart';
 
-import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/list/files/side_list_box.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/input/drop_down_yes_no.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
 class SectionDocumentos extends StatefulWidget {
   final bool isEditable;
@@ -40,6 +37,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
 
   bool _busy = false;
   double? _uploadProgress;
+
   int? _selectedIndex;
   List<Attachment> _items = const [];
 
@@ -61,7 +59,6 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
 
       if (dfdId == null || docsId == null) return;
 
-      // ✅ só refresh quando mudou de verdade
       final changed = dfdId != _lastDfdId || docsId != _lastDocsId;
       if (!changed) return;
 
@@ -80,6 +77,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
 
   Future<void> _refreshDocs(String dfdId, String documentosId) async {
     if (!mounted) return;
+
     setState(() => _busy = true);
     try {
       final list = await _storage.listarDocsDfd(
@@ -87,13 +85,21 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
         dfdId: dfdId,
         documentosId: documentosId,
       );
-      if (mounted) setState(() => _items = list);
+
+      if (!mounted) return;
+
+      setState(() {
+        _items = list;
+
+        if (_selectedIndex != null && _selectedIndex! >= _items.length) {
+          _selectedIndex = _items.isEmpty ? null : _items.length - 1;
+        }
+      });
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Falha ao carregar anexos do DFD.')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Falha ao carregar anexos do DFD.')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -103,6 +109,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     final state = context.read<DfdCubit>().state;
     final dfdId = state.dfdId;
     final documentosId = state.sectionIds['documentos'];
+
     if (dfdId == null || documentosId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Aguarde: preparando área de documentos...')),
@@ -121,13 +128,18 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
         },
         allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg'],
       );
-      if (mounted) setState(() => _items = [..._items, a]);
+
+      if (!mounted) return;
+
+      setState(() {
+        _items = [..._items, a];
+        _selectedIndex = _items.length - 1;
+      });
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Falha no upload do anexo.')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Falha no upload do anexo.')),
+      );
     } finally {
       if (mounted) setState(() => _uploadProgress = null);
     }
@@ -142,6 +154,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
     if (dfdId == null || documentosId == null) return;
 
     final fileName = _items[i].label;
+
     final ok = await _storage.deleteFile(
       contractId: widget.contractId,
       dfdId: dfdId,
@@ -155,8 +168,15 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
       setState(() {
         final list = [..._items]..removeAt(i);
         _items = list;
-        if (_selectedIndex != null && _selectedIndex! >= _items.length) {
-          _selectedIndex = _items.isEmpty ? null : _items.length - 1;
+
+        if (_items.isEmpty) {
+          _selectedIndex = null;
+        } else if (_selectedIndex != null) {
+          if (_selectedIndex! == i) {
+            _selectedIndex = (i - 1).clamp(0, _items.length - 1);
+          } else if (_selectedIndex! > i) {
+            _selectedIndex = _selectedIndex! - 1;
+          }
         }
       });
     } else {
@@ -167,8 +187,10 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
   }
 
   void _updateEtp(String? v) => widget.onChanged(widget.data.copyWith(etpAnexo: v));
-  void _updateProjetoBasico(String? v) => widget.onChanged(widget.data.copyWith(projetoBasico: v));
-  void _updateTermoMatriz(String? v) => widget.onChanged(widget.data.copyWith(termoMatrizRiscos: v));
+  void _updateProjetoBasico(String? v) =>
+      widget.onChanged(widget.data.copyWith(projetoBasico: v));
+  void _updateTermoMatriz(String? v) =>
+      widget.onChanged(widget.data.copyWith(termoMatrizRiscos: v));
 
   @override
   Widget build(BuildContext context) {
@@ -233,73 +255,29 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
 
             final attachmentsPanel = SizedBox(
               width: panelWidth,
-              child: Column(
-                children: [
-                  if (_busy) const LinearProgressIndicator(),
-                  if (_uploadProgress != null) const SizedBox(height: 6),
-                  if (_uploadProgress != null) LinearProgressIndicator(value: _uploadProgress),
-                  const SizedBox(height: 5),
-                  SideListBox(
-                    title: 'Documentos do DFD',
-                    items: _items,
-                    width: panelWidth,
-                    selectedIndex: _selectedIndex,
-                    onTap: (i) => setState(() => _selectedIndex = i),
-                    onAddPressed: widget.isEditable ? _addDoc : null,
-                    onDelete: widget.isEditable ? _deleteAt : null,
-                    onEditLabel: widget.isEditable
-                        ? (i) async {
-                      final current = _items[i].label;
-                      final ctrl = TextEditingController(text: current);
+              child: SideListBox(
+                title: 'Documentos do DFD',
+                items: _items,
+                width: panelWidth,
+                selectedIndex: _selectedIndex,
+                onAddPressed: widget.isEditable ? _addDoc : null,
+                onDelete: widget.isEditable ? _deleteAt : null,
+                loading: _busy,
+                uploadProgress: _uploadProgress,
 
-                      final newLabel = await showWindowDialogMac<String>(
-                        context: context,
-                        title: 'Renomear anexo',
-                        width: 420,
-                        child: Builder(
-                          builder: (dialogCtx) {
-                            return Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  CustomTextField(
-                                    controller: ctrl,
-                                    labelText: 'Novo rótulo',
-                                    onSubmitted: (_) => Navigator.of(dialogCtx).pop(ctrl.text.trim()),
-                                  ),
-                                  const SizedBox(height: 18),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      FilledButton(
-                                        onPressed: () => Navigator.of(dialogCtx).pop(ctrl.text.trim()),
-                                        child: const Text('Salvar'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      );
+                // ✅ agora o SideListBox cuida do rename; só mantemos o pai sincronizado
+                enableRename: widget.isEditable,
+                onItemsChanged: (newItems) {
+                  final cast = newItems.whereType<Attachment>().toList();
+                  if (!mounted) return;
+                  setState(() => _items = cast);
+                },
 
-                      if (newLabel != null && newLabel.isNotEmpty && mounted) {
-                        setState(() {
-                          final cur = _items[i];
-                          _items = [
-                            ..._items.sublist(0, i),
-                            cur.copyWith(label: newLabel),
-                            ..._items.sublist(i + 1),
-                          ];
-                        });
-                      }
-                    }
-                        : null,
-                  ),
-                ],
+                // (opcional) se quiser persistir rename depois, pluga aqui
+                // onRenamePersist: ({required index, required oldItem, required newItem}) async {
+                //   // TODO: persistir (ex: salvar metadata/FireStore)
+                //   return true;
+                // },
               ),
             );
 
@@ -312,16 +290,16 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
                   rightInputs,
                 ],
               );
-            } else {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  attachmentsPanel,
-                  const SizedBox(width: 12),
-                  Expanded(child: rightInputs),
-                ],
-              );
             }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                attachmentsPanel,
+                const SizedBox(width: 12),
+                Expanded(child: rightInputs),
+              ],
+            );
           },
         ),
         const SizedBox(height: 16),

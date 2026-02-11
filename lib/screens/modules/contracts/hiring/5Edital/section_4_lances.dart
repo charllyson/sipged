@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
@@ -9,7 +10,8 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
-import 'package:siged/_utils/formats/mask_class.dart';
+// ✅ novo (remove mask_class.dart)
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
@@ -78,8 +80,7 @@ class _SectionLancesState extends State<SectionLances> {
 
       final companies = system.state.companies;
       if (companies.isNotEmpty) {
-        final parentCompanyId =
-            companies.first.companyId ?? companies.first.id;
+        final parentCompanyId = companies.first.companyId ?? companies.first.id;
         await system.ensureCompanySetupLoaded(parentCompanyId);
       }
     });
@@ -105,9 +106,7 @@ class _SectionLancesState extends State<SectionLances> {
     for (final r in _rows) {
       r.dispose();
     }
-    _rows = data.lancesItems
-        .map((m) => _LanceRowControllers.fromMap(m))
-        .toList();
+    _rows = data.lancesItems.map((m) => _LanceRowControllers.fromMap(m)).toList();
     setState(() {});
   }
 
@@ -155,7 +154,7 @@ class _SectionLancesState extends State<SectionLances> {
     }.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    SetupData? _findBodyByLabel(String label) {
+    SetupData? findBodyByLabel(String label) {
       final lower = label.trim().toLowerCase();
       try {
         return bodies.firstWhere(
@@ -215,7 +214,6 @@ class _SectionLancesState extends State<SectionLances> {
                       spacing: 12,
                       runSpacing: 12,
                       children: [
-                        // LICITANTE usando DropDownButtonChange com companiesBodies
                         SizedBox(
                           width: w3,
                           child: DropDownButtonChange(
@@ -229,37 +227,42 @@ class _SectionLancesState extends State<SectionLances> {
                               final val = label ?? '';
                               l.licitanteCtrl.text = val;
 
-                              // Aqui não temos CNPJ no lance,
-                              // então só propagamos o nome e emitimos mudança
-                              final _ = _findBodyByLabel(val);
+                              // (opcional) localizar se existe no cadastro
+                              final _ = findBodyByLabel(val);
+
                               _emitChange();
                             },
                             onAddNewItem: showCreateCompanyBodyDialog,
                           ),
                         ),
+
+                        // ✅ dinheiro pt-BR com vírgula e milhar
                         SizedBox(
                           width: w3,
                           child: CustomTextField(
                             controller: l.valorCtrl,
-                            labelText: 'Valor do lance (R\$)',
+                            labelText: 'Valor do lance',
                             enabled: isEditable,
                             keyboardType: TextInputType.number,
+                            hintText: 'Ex.: 1.234,56',
+                            prefixText: 'R\$ ',
                             inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
+                              SipGedMoneyFormatter(),
                             ],
                             onChanged: (_) => _emitChange(),
                           ),
                         ),
+
                         SizedBox(
                           width: w3,
                           child: CustomDateField(
                             controller: l.dataHoraCtrl,
                             labelText: 'Data/Hora',
                             enabled: isEditable,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(14),
-                              TextInputMask(mask: '99/99/9999 99:99'),
+                            inputFormatters:  [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9/: ]')),
+                              LengthLimitingTextInputFormatter(16), // dd/MM/yyyy HH:mm
+                              SipGedMasks.dateDDMMYYYY, // aplica "dd/MM/yyyy"
                             ],
                             onChanged: (_) => _emitChange(),
                           ),

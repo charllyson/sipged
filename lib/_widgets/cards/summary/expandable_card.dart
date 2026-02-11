@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/overlays/shimmer_w60_h14.dart';
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
 
@@ -42,8 +42,8 @@ class _ExpandableCardState extends State<ExpandableCard>
     final isDark = theme.brightness == Brightness.dark;
     final hasBreakdown = widget.valoresIndividuais.isNotEmpty;
 
-    Widget _totalText(double? v) => Text(
-      widget.formatAsCurrency ? priceToString(v ?? 0) : '${v ?? 0}',
+    Widget totalText(double? v) => Text(
+      widget.formatAsCurrency ? SipGedFormatMoney.doubleToText(v ?? 0) : '${v ?? 0}',
       maxLines: 1,
       softWrap: false,
       overflow: TextOverflow.visible,
@@ -53,11 +53,11 @@ class _ExpandableCardState extends State<ExpandableCard>
       ),
     );
 
-    Widget _totalWidget() {
+    Widget totalWidget() {
       if (widget.loading) return const ShimmerW60H14();
 
       if (widget.totalOverride != null) {
-        return _totalText(widget.totalOverride);
+        return totalText(widget.totalOverride);
       }
 
       if (widget.valorTotal != null) {
@@ -65,7 +65,7 @@ class _ExpandableCardState extends State<ExpandableCard>
           future: widget.valorTotal,
           builder: (_, snap) {
             if (!snap.hasData) return const ShimmerW60H14();
-            return _totalText(snap.data);
+            return totalText(snap.data);
           },
         );
       }
@@ -75,7 +75,7 @@ class _ExpandableCardState extends State<ExpandableCard>
             (acc, v) => acc + (v ?? 0),
       );
 
-      return _totalText(soma);
+      return totalText(soma);
     }
 
     return IntrinsicWidth(
@@ -132,7 +132,7 @@ class _ExpandableCardState extends State<ExpandableCard>
               children: [
                 const Text("Total:", style: TextStyle(fontSize: 14)),
                 const SizedBox(width: 4),
-                Flexible(child: _totalWidget()),
+                Flexible(child: totalWidget()),
               ],
             ),
 
@@ -177,7 +177,7 @@ class _ExpandableCardState extends State<ExpandableCard>
                 ),
               ),
               Text(
-                widget.formatAsCurrency ? priceToString(valor) : valor.toString(),
+                widget.formatAsCurrency ? SipGedFormatMoney.doubleToText(valor) : valor.toString(),
                 maxLines: 1,
                 softWrap: false,
                 overflow: TextOverflow.visible,

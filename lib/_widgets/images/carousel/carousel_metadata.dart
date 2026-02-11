@@ -109,18 +109,18 @@ class CarouselMetadata {
   };
 
   static CarouselMetadata fromMap(Map<String, dynamic> m) {
-    DateTime? _dt;
+    DateTime? dt;
     final t = m['takenAt'] ?? m['takenAtMs'];
-    if (t is int) _dt = DateTime.fromMillisecondsSinceEpoch(t);
-    if (t is num) _dt = DateTime.fromMillisecondsSinceEpoch(t.toInt());
+    if (t is int) dt = DateTime.fromMillisecondsSinceEpoch(t);
+    if (t is num) dt = DateTime.fromMillisecondsSinceEpoch(t.toInt());
 
-    double? _toDouble(x) {
+    double? toDouble(x) {
       if (x == null) return null;
       if (x is num) return x.toDouble();
       return double.tryParse(x.toString());
     }
 
-    int? _toInt(x) {
+    int? toInt(x) {
       if (x == null) return null;
       if (x is num) return x.toInt();
       return int.tryParse(x.toString());
@@ -129,13 +129,13 @@ class CarouselMetadata {
     return CarouselMetadata(
       url: m['url']?.toString(),
       name: m['name']?.toString(),
-      takenAt: _dt,
-      lat: _toDouble(m['lat']),
-      lng: _toDouble(m['lng']),
+      takenAt: dt,
+      lat: toDouble(m['lat']),
+      lng: toDouble(m['lng']),
       make: m['make']?.toString(),
       model: m['model']?.toString(),
-      orientation: _toInt(m['orientation']),
-      uploadedAtMs: _toInt(m['uploadedAtMs']),
+      orientation: toInt(m['orientation']),
+      uploadedAtMs: toInt(m['uploadedAtMs']),
       uploadedBy: m['uploadedBy']?.toString(),
     );
   }
@@ -190,7 +190,7 @@ Future<CarouselMetadata> extractPhotoMetadata(
 
     // ---------- Date ----------
     DateTime? takenAt;
-    String? _rawDate = [
+    String? rawDate = [
       'EXIF DateTimeOriginal',
       'EXIF DateTimeDigitized',
       'Image DateTime',
@@ -201,7 +201,7 @@ Future<CarouselMetadata> extractPhotoMetadata(
       orElse: () => null,
     );
 
-    DateTime? _parseExifDate(String s) {
+    DateTime? parseExifDate(String s) {
       var t = s.trim();
       if (RegExp(r'^\d{4}:\d{2}:\d{2}').hasMatch(t)) {
         final date = t.substring(0, 10).replaceAll(':', '-'); // YYYY-MM-DD
@@ -211,12 +211,12 @@ Future<CarouselMetadata> extractPhotoMetadata(
       return DateTime.tryParse(t) ?? DateTime.tryParse(t.replaceAll('Z', ''));
     }
 
-    if (_rawDate != null) {
-      takenAt = _parseExifDate(_rawDate);
+    if (rawDate != null) {
+      takenAt = parseExifDate(rawDate);
     }
 
     // ---------- GPS ----------
-    List<double>? _valuesFromTag(dynamic tag) {
+    List<double>? valuesFromTag(dynamic tag) {
       try {
         final v = tag?.values;
         if (v is List) {
@@ -255,8 +255,8 @@ Future<CarouselMetadata> extractPhotoMetadata(
       return null;
     }
 
-    double? _dmsToDec(dynamic tag, dynamic ref) {
-      final vals = _valuesFromTag(tag);
+    double? dmsToDec(dynamic tag, dynamic ref) {
+      final vals = valuesFromTag(tag);
       if (vals == null || vals.length < 3) return null;
       double dec = vals[0] + (vals[1] / 60.0) + (vals[2] / 3600.0);
       final r = (ref?.toString() ?? '').toUpperCase();
@@ -264,8 +264,8 @@ Future<CarouselMetadata> extractPhotoMetadata(
       return dec;
     }
 
-    final lat = _dmsToDec(tags['GPS GPSLatitude'], tags['GPS GPSLatitudeRef']);
-    final lng = _dmsToDec(tags['GPS GPSLongitude'], tags['GPS GPSLongitudeRef']);
+    final lat = dmsToDec(tags['GPS GPSLatitude'], tags['GPS GPSLatitudeRef']);
+    final lng = dmsToDec(tags['GPS GPSLongitude'], tags['GPS GPSLongitudeRef']);
 
     // ---------- Make/Model ----------
     final make = tags['Image Make']?.toString();

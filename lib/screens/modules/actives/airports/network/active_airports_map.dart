@@ -52,7 +52,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       );
     }).toList(growable: false);
 
-    TaggedChangedMarker<ActiveOaesData>? _findMarkerById(String id) {
+    TaggedChangedMarker<ActiveOaesData>? findMarkerById(String id) {
       for (final m in taggedMarkers) {
         if (m.data.id == id) return m;
       }
@@ -68,7 +68,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
         if (onOpenDetails == null) return;
         final idExtra = evt.idExtra;
         if (idExtra == null || idExtra.isEmpty) return;
-        final marker = _findMarkerById(idExtra);
+        final marker = findMarkerById(idExtra);
         if (marker != null) {
           onOpenDetails!(marker);
         }

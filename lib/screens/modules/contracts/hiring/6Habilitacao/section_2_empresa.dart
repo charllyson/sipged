@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 
@@ -26,7 +26,7 @@ class SectionEmpresa extends StatefulWidget {
 }
 
 class _SectionEmpresaState extends State<SectionEmpresa>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _razaoSocialCtrl;
   late final TextEditingController _cnpjCtrl;
   late final TextEditingController _sociosRepresentantesCtrl;
@@ -49,14 +49,14 @@ class _SectionEmpresaState extends State<SectionEmpresa>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_razaoSocialCtrl, d.razaoSocial);
-      _sync(_cnpjCtrl, d.cnpj);
-      _sync(_sociosRepresentantesCtrl, d.sociosRepresentantes);
+      sync(_razaoSocialCtrl, d.razaoSocial);
+      sync(_cnpjCtrl, d.cnpj);
+      sync(_sociosRepresentantesCtrl, d.sociosRepresentantes);
     }
   }
 
@@ -111,7 +111,7 @@ class _SectionEmpresaState extends State<SectionEmpresa>
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(14),
-                      TextInputMask(mask: '99.999.999/9999-99'),
+                      SipGedMasks.cnpj,
                     ],
                     keyboardType: TextInputType.number,
                     validator: validateRequired,

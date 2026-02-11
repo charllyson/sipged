@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
+import 'package:siged/_utils/input/sipged_sanitize.dart';
 
-import '../formats/format_field.dart';
-
-mixin FormValidationMixin {
+mixin SipGedValidation {
   final Map<TextEditingController, VoidCallback> _listeners = {};
 
   void setupValidation(
@@ -214,7 +213,7 @@ mixin FormValidationMixin {
       return 'Você deve informar o preço da consulta';
     }
     //O VALOR RETORNA UM VALOR INTEIRO
-    if (int.tryParse(getSanitizedText(text)) == null) {
+    if (int.tryParse(SipGedSanitize.onlyDigits(text)) == null) {
       return 'Utilize valores válidos';
     }
     return null;

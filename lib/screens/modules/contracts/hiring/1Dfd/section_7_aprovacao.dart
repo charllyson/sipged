@@ -4,14 +4,15 @@ import 'package:flutter/services.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_widgets/input/custom_auto_complete.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
+// ✅ novo (substitui mask_class.dart)
+import 'package:siged/_utils/mask/sipged_masks.dart';
+
+import 'package:siged/_widgets/input/custom_auto_complete.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-
 import 'package:siged/_widgets/input/custom_text_field.dart';
 
 class SectionAprovacao extends StatefulWidget {
@@ -33,7 +34,7 @@ class SectionAprovacao extends StatefulWidget {
 }
 
 class _SectionAprovacaoState extends State<SectionAprovacao>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _autoridadeCtrl;
   late final TextEditingController _cpfAutoridadeCtrl;
   late final TextEditingController _dataAprovacaoCtrl;
@@ -41,6 +42,8 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
 
   late List<UserData> _usersWithSelf;
   String? _autoridadeUserId;
+
+  bool _syncing = false;
 
   @override
   void initState() {
@@ -75,10 +78,12 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
       final data = _formatDate(d.dataAprovacao);
       final par = d.parecerResumo ?? '';
 
+      _syncing = true;
       if (_autoridadeCtrl.text != aut) _autoridadeCtrl.text = aut;
       if (_cpfAutoridadeCtrl.text != cpf) _cpfAutoridadeCtrl.text = cpf;
       if (_dataAprovacaoCtrl.text != data) _dataAprovacaoCtrl.text = data;
       if (_parecerResumoCtrl.text != par) _parecerResumoCtrl.text = par;
+      _syncing = false;
 
       _autoridadeUserId = d.autoridadeUserId;
     }
@@ -108,18 +113,20 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
   DateTime? _parseBrDate(String text) {
     final t = text.trim();
     if (t.isEmpty) return null;
-    try {
-      final parts = t.split('/');
-      if (parts.length == 3) {
-        final d = int.parse(parts[0]);
-        final m = int.parse(parts[1]);
-        final y = int.parse(parts[2]);
+
+    // dd/MM/yyyy
+    final parts = t.split('/');
+    if (parts.length == 3) {
+      final d = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      final y = int.tryParse(parts[2]);
+      if (d != null && m != null && y != null) {
         return DateTime(y, m, d);
       }
-      return DateTime.parse(t);
-    } catch (_) {
-      return null;
     }
+
+    // fallback
+    return DateTime.tryParse(t);
   }
 
   void _setupUsersWithSelf() {
@@ -169,20 +176,26 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
       );
 
       final label = self.name ?? self.email ?? currentUid;
+
+      _syncing = true;
       _autoridadeCtrl.text = label;
+      _syncing = false;
 
       _emitChange();
     }
   }
 
   void _emitChange() {
+    if (_syncing) return;
+
     final updated = widget.data.copyWith(
-      autoridadeAprovadora: _autoridadeCtrl.text,
+      autoridadeAprovadora: _autoridadeCtrl.text.trim().isEmpty ? null : _autoridadeCtrl.text.trim(),
       autoridadeUserId: _autoridadeUserId,
       autoridadeCpf: _cpfAutoridadeCtrl.text,
       dataAprovacao: _parseBrDate(_dataAprovacaoCtrl.text),
       parecerResumo: _parecerResumoCtrl.text,
     );
+
     widget.onChanged(updated);
   }
 
@@ -201,7 +214,6 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
               spacing: 12,
               runSpacing: 12,
               children: [
-                // Autoridade aprovadora
                 SizedBox(
                   width: w3,
                   child: CustomAutoComplete<UserData>(
@@ -222,7 +234,6 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
                   ),
                 ),
 
-                // CPF da autoridade
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
@@ -230,28 +241,29 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
                     enabled: widget.isEditable,
                     validator: null,
                     labelText: 'CPF da autoridade',
+                    keyboardType: TextInputType.number,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(11),
-                      TextInputMask(mask: '999.999.999-99'),
+                      SipGedMasks.cpf,
                     ],
-                    keyboardType: TextInputType.number,
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
 
-                // Data da aprovação
                 SizedBox(
                   width: w3,
                   child: CustomDateField(
                     controller: _dataAprovacaoCtrl,
                     enabled: widget.isEditable,
                     labelText: 'Data da aprovação',
+                    // Se seu CustomDateField já aplica máscara, ok.
+                    // Se ele for só textfield, garanta a máscara dentro dele:
+                    // inputFormatters: const [SipGedMasks.dateDDMMYYYY],
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
 
-                // Parecer/resumo
                 SizedBox(
                   width: w1,
                   child: CustomTextField(

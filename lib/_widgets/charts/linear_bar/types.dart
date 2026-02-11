@@ -1,5 +1,5 @@
-// lib/_widgets/charts/neuralbar/types.dart
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:siged/_utils/formats/sipged_format_numbers.dart';
 
 /// Tipo de valor exibido (usado para formatadores).
 enum ValueType {
@@ -37,21 +37,20 @@ String formatStackedValue(
     }) {
   switch (type) {
     case ValueType.money:
-      return priceToString(value);
+      return SipGedFormatMoney.doubleToText(value);
 
     case ValueType.percent:
-    // Aqui consideramos que o value já vem em 0–100 (como seus gráficos costumam).
-    // Se estiver em 0–1, ajuste no call site.
-      return convertDoubleToPercentageString(
-        value,
-        fractionDigits: fractionDigits,
-      );
-
-    case ValueType.unit:
-      final base = doubleToString(
+    // value já em 0–100
+      return SipGedFormatNumbers.percent(
         value,
         fractionDigits: fractionDigits,
         empty: '0',
+      );
+
+    case ValueType.unit:
+      final base = SipGedFormatNumbers.decimalPtBr(
+        value,
+        fractionDigits: fractionDigits,
       );
       return unitSuffix.trim().isEmpty ? base : '$base $unitSuffix';
 

@@ -1,8 +1,8 @@
 
 import 'package:flutter/material.dart';
 
-class info extends StatelessWidget {
-  const info({required this.text});
+class Info extends StatelessWidget {
+  const Info({required this.text});
   final String text;
   @override
   Widget build(BuildContext context) {

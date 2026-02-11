@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_widgets/input/custom_auto_complete.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
@@ -28,7 +28,7 @@ class SectionResponsavel extends StatefulWidget {
 }
 
 class _SectionResponsavelState extends State<SectionResponsavel>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _responsavelCtrl;
 
   // ✅ guardamos o ID localmente para validar por ID

@@ -14,7 +14,7 @@ import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
 
 class SectionMetadados extends StatefulWidget {
@@ -34,7 +34,7 @@ class SectionMetadados extends StatefulWidget {
 }
 
 class _SectionMetadadosState extends State<SectionMetadados>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _numeroCtrl;
   late final TextEditingController _dataAberturaCtrl;
   late final TextEditingController _dataEncerramentoCtrl;
@@ -63,16 +63,16 @@ class _SectionMetadadosState extends State<SectionMetadados>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_numeroCtrl, d.numero);
-      _sync(_dataAberturaCtrl, d.dataAbertura);
-      _sync(_dataEncerramentoCtrl, d.dataEncerramento);
-      _sync(_responsavelCtrl, d.responsavelNome);
-      _sync(_metodologiaCtrl, d.metodologia);
+      sync(_numeroCtrl, d.numero);
+      sync(_dataAberturaCtrl, d.dataAbertura);
+      sync(_dataEncerramentoCtrl, d.dataEncerramento);
+      sync(_responsavelCtrl, d.responsavelNome);
+      sync(_metodologiaCtrl, d.metodologia);
       _responsavelUserId = d.responsavelUserId;
     }
   }

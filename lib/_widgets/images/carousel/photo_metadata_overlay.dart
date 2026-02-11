@@ -21,9 +21,9 @@ class PhotoMetadataOverlay extends StatelessWidget {
         ? DateFormat('dd/MM/yyyy HH:mm').format(m!.takenAt!)
         : '—';
 
-    String _fmt(double? v) => v == null ? '—' : v.toStringAsFixed(6);
-    final lat = _fmt(m?.lat);
-    final lng = _fmt(m?.lng);
+    String fmt(double? v) => v == null ? '—' : v.toStringAsFixed(6);
+    final lat = fmt(m?.lat);
+    final lng = fmt(m?.lng);
 
     final device = [
       if ((m?.make ?? '').trim().isNotEmpty) m!.make!,

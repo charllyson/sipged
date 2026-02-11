@@ -29,7 +29,7 @@ import 'package:siged/screens/modules/contracts/hiring/11Arquivamento/section_5_
 import 'package:siged/screens/modules/contracts/hiring/11Arquivamento/section_6_reabertura.dart';
 
 // ===== Utils
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 // ===== Overlay leve
 import 'package:siged/_widgets/overlays/screen_lock.dart';
@@ -59,7 +59,7 @@ class TermoArquivamentoPage extends StatefulWidget {
 }
 
 class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
-    with FormValidationMixin, AutomaticKeepAliveClientMixin {
+    with SipGedValidation, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 

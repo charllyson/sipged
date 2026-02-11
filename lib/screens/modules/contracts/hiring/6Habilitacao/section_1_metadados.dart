@@ -5,14 +5,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 import 'package:siged/_widgets/input/custom_auto_complete.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
 
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 class SectionMetadados extends StatefulWidget {
   final HabilitacaoData data;
@@ -31,7 +31,7 @@ class SectionMetadados extends StatefulWidget {
 }
 
 class _SectionMetadadosState extends State<SectionMetadados>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _numeroDossieCtrl;
   late final TextEditingController _dataMontagemCtrl;
   late final TextEditingController _responsavelNomeCtrl;
@@ -57,15 +57,15 @@ class _SectionMetadadosState extends State<SectionMetadados>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_numeroDossieCtrl, d.numeroDossie);
-      _sync(_dataMontagemCtrl, d.dataMontagem);
-      _sync(_responsavelNomeCtrl, d.responsavelNome);
-      _sync(_linksPastaCtrl, d.linksPasta);
+      sync(_numeroDossieCtrl, d.numeroDossie);
+      sync(_dataMontagemCtrl, d.dataMontagem);
+      sync(_responsavelNomeCtrl, d.responsavelNome);
+      sync(_linksPastaCtrl, d.linksPasta);
       _responsavelUserId = d.responsavelUserId;
     }
   }
@@ -127,7 +127,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     keyboardType: TextInputType.number,
                     onChanged: (_) => _emitChange(),

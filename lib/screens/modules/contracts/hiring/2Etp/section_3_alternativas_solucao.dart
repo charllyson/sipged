@@ -6,11 +6,11 @@ import 'package:siged/_widgets/input/drop_down_botton_change.dart'
     show DropDownButtonChange;
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
 
 class SectionAlternativasSolucao extends StatefulWidget
-    with FormValidationMixin {
+    with SipGedValidation {
   final EtpData data;
   final bool isEditable;
   final void Function(EtpData updated) onChanged;
@@ -50,16 +50,16 @@ class _SectionAlternativasSolucaoState
       covariant SectionAlternativasSolucao oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final s = v ?? '';
         if (c.text != s) c.text = s;
       }
 
       final d = widget.data;
-      _sync(_solucaoCtrl, d.solucaoRecomendada);
-      _sync(_complexidadeCtrl, d.complexidade);
-      _sync(_nivelRiscoCtrl, d.nivelRisco);
-      _sync(_justificativaCtrl, d.justificativaSolucao);
+      sync(_solucaoCtrl, d.solucaoRecomendada);
+      sync(_complexidadeCtrl, d.complexidade);
+      sync(_nivelRiscoCtrl, d.nivelRisco);
+      sync(_justificativaCtrl, d.justificativaSolucao);
     }
   }
 

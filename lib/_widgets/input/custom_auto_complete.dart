@@ -60,42 +60,53 @@ class _CustomAutoCompleteState<T extends Object>
   // ✅ controla hover no dropdown
   int _hoverIndex = -1;
 
+  late final FocusNode _focusNode;
+
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode();
     _hydrateFromProps();
   }
 
   @override
   void didUpdateWidget(covariant CustomAutoComplete<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialId != widget.initialId ||
-        oldWidget.allList != widget.allList) {
+
+    final initialChanged = oldWidget.initialId != widget.initialId;
+    final listChanged = oldWidget.allList != widget.allList;
+
+    if (initialChanged || listChanged) {
       _hydrateFromProps();
     }
   }
 
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
   void _hydrateFromProps() {
-    _selectedId = (widget.initialId?.isNotEmpty ?? false)
+    final incoming = (widget.initialId?.isNotEmpty ?? false)
         ? widget.initialId
         : _guessIdFromText(widget.controller.text);
+
+    _selectedId = (incoming?.isNotEmpty ?? false) ? incoming : null;
 
     if (_selectedId != null && _selectedId!.isNotEmpty) {
       final item = _findById(_selectedId!);
       if (item != null) {
-        widget.controller.text = widget.displayOf(item);
-      } else {
-        // ID não existe mais na lista
-        if (widget.controller.text.isEmpty ||
-            widget.controller.text == _selectedId) {
-          widget.controller.text = '';
+        final wanted = widget.displayOf(item);
+        if (widget.controller.text != wanted) {
+          widget.controller.text = wanted;
         }
+      } else {
+        _selectedId = null;
       }
-    } else {
-      widget.controller.text = '';
     }
 
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   T? _findById(String id) {
@@ -117,16 +128,21 @@ class _CustomAutoCompleteState<T extends Object>
     final id = widget.idOf(item) ?? '';
     _selectedId = id.isNotEmpty ? id : null;
 
-    widget.controller.text = widget.displayOf(item);
+    final txt = widget.displayOf(item);
+    if (widget.controller.text != txt) {
+      widget.controller.text = txt;
+    }
 
-    setState(() {});
+    if (mounted) setState(() {});
     widget.onChanged?.call(id);
+
+    _focusNode.unfocus();
   }
 
   void _clearSelection() {
     _selectedId = null;
     widget.controller.clear();
-    setState(() {});
+    if (mounted) setState(() {});
     widget.onChanged?.call('');
   }
 
@@ -151,140 +167,162 @@ class _CustomAutoCompleteState<T extends Object>
       extraPadding: 24.0,
     );
 
-    if (_selectedId == null || _selectedId!.isEmpty) {
-      return Tooltip(
-        message: 'Busque pelo termo desejado',
-        child: Autocomplete<T>(
-          optionsBuilder: (TextEditingValue tev) {
-            final text = tev.text.trim();
-            if (text.isEmpty) return Iterable<T>.empty();
+    bool defaultMatcher(T it, String qLower) {
+      final a = widget.displayOf(it).toLowerCase();
+      final b = (widget.subtitleOf?.call(it) ?? '').toLowerCase();
+      return a.contains(qLower) || b.contains(qLower);
+    }
 
-            final q = text.toLowerCase();
+    final matcher = widget.match ?? defaultMatcher;
 
-            final matcher = widget.match ??
-                    (T it, String qLower) {
-                  final a = widget.displayOf(it).toLowerCase();
-                  final b = (widget.subtitleOf?.call(it) ?? '').toLowerCase();
-                  return a.contains(qLower) || b.contains(qLower);
-                };
+    // ✅ Quando já selecionado: campo readOnly com avatar + limpar
+    if (selected != null) {
+      final display = widget.displayOf(selected);
+      final photoUrl = widget.photoUrlOf?.call(selected);
 
-            return widget.allList.where((it) => matcher(it, q));
-          },
-          displayStringForOption: (it) => widget.displayOf(it),
-          fieldViewBuilder: (context, textCtrl, focusNode, _) {
-            return CustomTextField(
-              validator: _validateById,
-              enabled: widget.enabled,
-              controller: textCtrl,
-              focusNode: focusNode,
-              labelText: widget.label,
-              hintText: widget.hint,
-              width: width,
-              readOnly: !widget.enabled,
-            );
-          },
-          optionsViewBuilder: (context, onSelected, options) {
-            return Align(
-              alignment: Alignment.topLeft,
-              child: Material(
-                elevation: 6,
-                color: Colors.white, // ✅ fundo branco do dropdown
-                child: SizedBox(
-                  width: width,
-                  child: ListView.builder(
-                    padding: EdgeInsets.zero,
-                    shrinkWrap: true,
-                    itemCount: options.length,
-                    itemBuilder: (context, i) {
-                      final it = options.elementAt(i);
-                      final photoUrl = widget.photoUrlOf?.call(it);
-                      final subtitle = widget.subtitleOf?.call(it);
+      // garante texto coerente sem setState no build
+      if (widget.controller.text != display) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (widget.controller.text != display) {
+            widget.controller.text = display;
+          }
+        });
+      }
 
-                      final bool hovering = _hoverIndex == i;
+      return CustomTextField(
+        validator: _validateById,
+        enabled: widget.enabled,
+        controller: widget.controller,
+        labelText: widget.label,
+        width: width,
+        readOnly: true,
 
-                      return MouseRegion(
-                        onEnter: (_) => setState(() => _hoverIndex = i),
-                        onExit: (_) => setState(() => _hoverIndex = -1),
-                        cursor: SystemMouseCursors.click,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 120),
-                          curve: Curves.easeOut,
-                          color: hovering
-                              ? Colors.grey.withOpacity(0.10) // ✅ hover suave
-                              : Colors.white, // ✅ fundo branco por item
-                          child: ListTile(
-                            hoverColor: Colors
-                                .transparent, // evita conflito com hover padrão
-                            onTap: () => onSelected(it),
-                            leading: (widget.photoUrlOf == null)
-                                ? null
-                                : CircleAvatar(
-                              backgroundColor: Colors.grey.shade200,
-                              backgroundImage: (photoUrl?.isNotEmpty ?? false)
-                                  ? NetworkImage(photoUrl!)
-                                  : null,
-                              child: (photoUrl?.isEmpty ?? true)
-                                  ? const Icon(Icons.person,
-                                  color: Colors.grey)
-                                  : null,
-                            ),
-                            title: Text(widget.displayOf(it)),
-                            subtitle: (subtitle == null || subtitle.isEmpty)
-                                ? null
-                                : Text(subtitle),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            );
-          },
-          onSelected: (it) => _selectItem(it),
+        // ✅ use prefixIcon em vez de prefix
+        prefixIcon: (widget.photoUrlOf == null)
+            ? null
+            : Padding(
+          padding: const EdgeInsets.only(left: 8, right: 6),
+          child: CircleAvatar(
+            radius: 18,
+            backgroundColor: Colors.white,
+            backgroundImage: (photoUrl?.isNotEmpty ?? false)
+                ? NetworkImage(photoUrl!)
+                : null,
+            child: (photoUrl?.isEmpty ?? true)
+                ? const Icon(Icons.person, color: Colors.grey)
+                : null,
+          ),
         ),
+
+        // ✅ garante área do prefixIcon consistente (centraliza melhor)
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 48,
+          minHeight: 48,
+        ),
+
+        suffix: widget.enabled
+            ? IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: _clearSelection,
+          tooltip: 'Limpar',
+        )
+            : null,
+
+        // opcional: ajuste fino de padding
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       );
     }
 
-    final display =
-    selected != null ? widget.displayOf(selected) : widget.controller.text;
-    final photoUrl =
-    selected != null ? widget.photoUrlOf?.call(selected) : null;
+    // ✅ Não selecionado: RawAutocomplete com controller real
+    return Tooltip(
+      message: 'Busque pelo termo desejado',
+      child: RawAutocomplete<T>(
+        textEditingController: widget.controller,
+        focusNode: _focusNode,
+        displayStringForOption: (it) => widget.displayOf(it),
+        optionsBuilder: (TextEditingValue tev) {
+          if (!widget.enabled) return Iterable<T>.empty();
 
-    if (widget.controller.text != display) {
-      widget.controller.text = display;
-    }
+          final text = tev.text.trim();
+          if (text.isEmpty) return Iterable<T>.empty();
 
-    return CustomTextField(
-      validator: _validateById,
-      enabled: widget.enabled,
-      controller: widget.controller,
-      labelText: widget.label,
-      width: width,
-      readOnly: true,
-      prefix: (widget.photoUrlOf == null)
-          ? null
-          : Padding(
-        padding: const EdgeInsets.only(left: 8, right: 4),
-        child: CircleAvatar(
-          radius: 18,
-          backgroundColor: Colors.white,
-          backgroundImage: (photoUrl?.isNotEmpty ?? false)
-              ? NetworkImage(photoUrl!)
-              : null,
-          child: (photoUrl?.isEmpty ?? true)
-              ? const Icon(Icons.person, color: Colors.grey)
-              : null,
-        ),
+          final q = text.toLowerCase();
+          final filtered = widget.allList.where((it) => matcher(it, q));
+
+          return filtered.take(80);
+        },
+        onSelected: _selectItem,
+        fieldViewBuilder: (context, textCtrl, focusNode, onFieldSubmitted) {
+          return CustomTextField(
+            validator: _validateById,
+            enabled: widget.enabled,
+            controller: textCtrl,
+            focusNode: focusNode,
+            labelText: widget.label,
+            hintText: widget.hint,
+            width: width,
+            readOnly: !widget.enabled,
+          );
+        },
+        optionsViewBuilder: (context, onSelected, options) {
+          if (_hoverIndex >= options.length) _hoverIndex = -1;
+
+          return Align(
+            alignment: Alignment.topLeft,
+            child: Material(
+              elevation: 6,
+              color: Colors.white,
+              child: SizedBox(
+                width: width,
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, i) {
+                    final it = options.elementAt(i);
+                    final photoUrl = widget.photoUrlOf?.call(it);
+                    final subtitle = widget.subtitleOf?.call(it);
+                    final hovering = _hoverIndex == i;
+
+                    return MouseRegion(
+                      onEnter: (_) => setState(() => _hoverIndex = i),
+                      onExit: (_) => setState(() => _hoverIndex = -1),
+                      cursor: SystemMouseCursors.click,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        curve: Curves.easeOut,
+                        color: hovering
+                            ? Colors.grey.withOpacity(0.10)
+                            : Colors.white,
+                        child: ListTile(
+                          hoverColor: Colors.transparent,
+                          onTap: () => onSelected(it),
+                          leading: (widget.photoUrlOf == null)
+                              ? null
+                              : CircleAvatar(
+                            backgroundColor: Colors.grey.shade200,
+                            backgroundImage: (photoUrl?.isNotEmpty ?? false)
+                                ? NetworkImage(photoUrl!)
+                                : null,
+                            child: (photoUrl?.isEmpty ?? true)
+                                ? const Icon(Icons.person, color: Colors.grey)
+                                : null,
+                          ),
+                          title: Text(widget.displayOf(it)),
+                          subtitle: (subtitle == null || subtitle.isEmpty)
+                              ? null
+                              : Text(subtitle),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        },
       ),
-      suffix: widget.enabled
-          ? IconButton(
-        icon: const Icon(Icons.clear),
-        onPressed: _clearSelection,
-        tooltip: 'Limpar',
-      )
-          : null,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     );
   }
 }

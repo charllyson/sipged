@@ -1,13 +1,15 @@
-// lib/_widgets/dialogs/company_body_dialog.dart
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-import 'package:siged/_blocs/system/setup/setup_cubit.dart';
 import 'package:siged/_widgets/windows/window_dialog.dart';
+import 'package:siged/_blocs/system/setup/setup_cubit.dart';
+
+// ✅ novos utils (ajuste o path conforme sua estrutura)
+import 'package:siged/_utils/mask/sipged_masks.dart';
+// se você não tiver SipGedMasks.cnpj pronto, pode usar o formatter genérico:
 
 Future<String?> showCreateCompanyBodyDialog(
     BuildContext context, {
@@ -19,14 +21,14 @@ Future<String?> showCreateCompanyBodyDialog(
   final cnpjCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
 
-  String? _validateNome(String? value) {
+  String? validateNome(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Informe o nome da empresa';
     }
     return null;
   }
 
-  String? _validateCnpj(String? value) {
+  String? validateCnpj(String? value) {
     final text = value ?? '';
     final raw = text.replaceAll(RegExp(r'[^0-9]'), '');
     if (raw.isEmpty) return 'Você deve informar um CNPJ';
@@ -35,21 +37,27 @@ Future<String?> showCreateCompanyBodyDialog(
     return null;
   }
 
-  bool _canSave() {
-    return _validateNome(nomeCtrl.text) == null &&
-        _validateCnpj(cnpjCtrl.text) == null;
+  bool canSave() {
+    return validateNome(nomeCtrl.text) == null &&
+        validateCnpj(cnpjCtrl.text) == null;
   }
 
   final ok = await showDialog<bool>(
     context: context,
-    barrierDismissible: true, // clicar fora fecha
+    barrierDismissible: true,
     builder: (_) => StatefulBuilder(
       builder: (ctx, setState) {
-        final canSave = _canSave();
+        final enabledSave = canSave();
+
+        void revalidate() {
+          setState(() {
+            formKey.currentState?.validate();
+          });
+        }
 
         return WindowDialog(
           title: dialogTitle,
-          onClose: () => Navigator.pop(ctx, false), // X fecha
+          onClose: () => Navigator.pop(ctx, false),
           child: Form(
             key: formKey,
             child: Column(
@@ -58,12 +66,8 @@ Future<String?> showCreateCompanyBodyDialog(
                 CustomTextField(
                   controller: nomeCtrl,
                   labelText: nameFieldLabel,
-                  validator: _validateNome,
-                  onChanged: (_) {
-                    setState(() {
-                      formKey.currentState?.validate();
-                    });
-                  },
+                  validator: validateNome,
+                  onChanged: (_) => revalidate(),
                 ),
                 const SizedBox(height: 8),
                 CustomTextField(
@@ -73,21 +77,17 @@ Future<String?> showCreateCompanyBodyDialog(
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
                     LengthLimitingTextInputFormatter(14),
-                    TextInputMask(mask: '99.999.999/9999-99'),
+                    SipGedMasks.cnpj,
                   ],
-                  validator: _validateCnpj,
-                  onChanged: (_) {
-                    setState(() {
-                      formKey.currentState?.validate();
-                    });
-                  },
+                  validator: validateCnpj,
+                  onChanged: (_) => revalidate(),
                 ),
                 const SizedBox(height: 14),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     FilledButton(
-                      onPressed: canSave
+                      onPressed: enabledSave
                           ? () {
                         if (formKey.currentState?.validate() ?? false) {
                           Navigator.pop(ctx, true);
@@ -114,20 +114,18 @@ Future<String?> showCreateCompanyBodyDialog(
 
   final system = context.read<SetupCubit>();
 
-  // 🔧 Ajuste: não existe mais `loadingCompanies`
+  // garante companies carregadas (se o state vier vazio)
   if (system.state.companies.isEmpty) {
     await system.loadCompanies();
   }
 
   final companies = system.state.companies;
   if (companies.isEmpty) {
-    // Sem nenhuma company cadastrada: só devolve o nome para preencher o campo.
+    // sem company cadastrada ainda: devolve só o nome (seu fluxo atual)
     return nome;
   }
 
-  // Para garantir, usa companyId se existir, senão cai no id do doc.
-  final parentCompanyId =
-      companies.first.companyId ?? companies.first.id;
+  final parentCompanyId = companies.first.companyId ?? companies.first.id;
 
   final created = await system.createCompanyBody(
     parentCompanyId,

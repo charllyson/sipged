@@ -43,13 +43,13 @@ class _SectionVencedoraState extends State<SectionVencedora> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_empresaLiderCtrl, d.empresaLider);
-      _sync(_consorcioCtrl, d.consorcioEnvolvidas);
+      sync(_empresaLiderCtrl, d.empresaLider);
+      sync(_consorcioCtrl, d.consorcioEnvolvidas);
     }
   }
 

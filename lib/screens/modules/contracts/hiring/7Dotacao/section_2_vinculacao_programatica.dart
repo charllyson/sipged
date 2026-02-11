@@ -59,18 +59,18 @@ class _SectionVinculacaoProgramaticaState
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_fonteRecursoCtrl, d.fonteRecurso);
-      _sync(_uoCtrl, d.uo);
-      _sync(_ugCtrl, d.ug);
-      _sync(_programaCtrl, d.programa);
-      _sync(_acaoCtrl, d.acao);
-      _sync(_ptresCtrl, d.ptres);
-      _sync(_planoOrcCtrl, d.planoOrc);
+      sync(_fonteRecursoCtrl, d.fonteRecurso);
+      sync(_uoCtrl, d.uo);
+      sync(_ugCtrl, d.ug);
+      sync(_programaCtrl, d.programa);
+      sync(_acaoCtrl, d.acao);
+      sync(_ptresCtrl, d.ptres);
+      sync(_planoOrcCtrl, d.planoOrc);
     }
   }
 

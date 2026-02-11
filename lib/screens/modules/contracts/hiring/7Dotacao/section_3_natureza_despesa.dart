@@ -51,15 +51,15 @@ class _SectionNaturezaDespesaState extends State<SectionNaturezaDespesa> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_modalidadeAplicacaoCtrl, d.modalidadeAplicacao);
-      _sync(_elementoDespesaCtrl, d.elementoDespesa);
-      _sync(_subelementoCtrl, d.subelemento);
-      _sync(_descricaoNdCtrl, d.descricaoNd);
+      sync(_modalidadeAplicacaoCtrl, d.modalidadeAplicacao);
+      sync(_elementoDespesaCtrl, d.elementoDespesa);
+      sync(_subelementoCtrl, d.subelemento);
+      sync(_descricaoNdCtrl, d.descricaoNd);
     }
   }
 

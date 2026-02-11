@@ -5,7 +5,7 @@ import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_blocs/system/setup/setup_region_map.dart';
 import 'package:siged/_blocs/system/setup/setup_cubit.dart';
 import 'package:siged/_blocs/system/setup/setup_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
@@ -32,7 +32,7 @@ class SectionLocalizacao extends StatefulWidget {
 }
 
 class _SectionLocalizacaoState extends State<SectionLocalizacao>
-    with FormValidationMixin {
+    with SipGedValidation {
   // controllers
   late final TextEditingController _ufCtrl;
   late final TextEditingController _municipioCtrl;
@@ -309,7 +309,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       _emitChange();
                       setState(() {});
                     },
-                    onDetailsTap: (_ctx, label) async {
+                    onDetailsTap: (ctx, label) async {
                       if (_companyId == null) return;
 
                       final regionsList = systemCubit.getRegionsForCompany(_companyId);

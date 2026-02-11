@@ -47,14 +47,14 @@ class _SectionMedicaoAceiteIndicadoresState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final nv = v ?? '';
         if (c.text != nv) c.text = nv;
       }
 
-      _sync(_criteriosMedicaoCtrl, d.criteriosMedicao);
-      _sync(_criteriosAceiteCtrl, d.criteriosAceite);
-      _sync(_indicadoresCtrl, d.indicadoresDesempenho);
+      sync(_criteriosMedicaoCtrl, d.criteriosMedicao);
+      sync(_criteriosAceiteCtrl, d.criteriosAceite);
+      sync(_indicadoresCtrl, d.indicadoresDesempenho);
     }
   }
 

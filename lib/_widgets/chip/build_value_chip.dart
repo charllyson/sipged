@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 class BuildValueChip extends StatelessWidget {
   final String title;
@@ -17,7 +17,7 @@ class BuildValueChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Chip(
       avatar: Icon(icon, size: 18),
-      label: Text('$title: ${priceToString(value)}'),
+      label: Text('$title: ${SipGedFormatMoney.doubleToText(value)}'),
       backgroundColor: Colors.grey.shade100,
     );
   }

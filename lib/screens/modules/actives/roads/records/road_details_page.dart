@@ -4,8 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
-
 import 'package:siged/_blocs/modules/actives/roads/active_roads_data.dart';
 import 'package:siged/_blocs/modules/actives/roads/active_roads_state.dart';
 import 'package:siged/_blocs/modules/actives/roads/active_roads_cubit.dart';
@@ -380,8 +378,7 @@ class _RoadDetailsPageState extends State<RoadDetailsPage> {
         keyboardType: number ? TextInputType.number : null,
         inputFormatters: [
           if (digitsOnly) FilteringTextInputFormatter.digitsOnly,
-          if (!digitsOnly && number)
-            TextInputMask(mask: '#########9[.99]'),
+          if (!digitsOnly && number) FilteringTextInputFormatter.allow(RegExp(r'[0-9\-\.,]')),
         ],
       ),
     );

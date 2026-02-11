@@ -47,14 +47,14 @@ class _SectionRiscosPenalidadesCondicoesState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final nv = v ?? '';
         if (c.text != nv) c.text = nv;
       }
 
-      _sync(_matrizRiscosCtrl, d.matrizRiscos);
-      _sync(_penalidadesCtrl, d.penalidades);
-      _sync(_demaisCondicoesCtrl, d.demaisCondicoes);
+      sync(_matrizRiscosCtrl, d.matrizRiscos);
+      sync(_penalidadesCtrl, d.penalidades);
+      sync(_demaisCondicoesCtrl, d.demaisCondicoes);
     }
   }
 

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/charts/cost_ruler/cost_ruler.dart';
 import 'package:siged/_widgets/charts/legend/chart_legend.dart';
 import 'package:siged/_widgets/charts/linear_bar/types.dart';
@@ -101,7 +101,7 @@ class SpecificDashboardMetrics extends StatelessWidget {
               benchmarks: benchmarks,
               min: 0.0,
               max: maxNice,
-              formatter: (v) => priceToString(v),
+              formatter: (v) => SipGedFormatMoney.doubleToText(v),
             ),
           );
         }

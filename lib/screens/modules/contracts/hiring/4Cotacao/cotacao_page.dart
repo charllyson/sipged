@@ -30,7 +30,7 @@ import 'package:siged/screens/modules/contracts/hiring/4Cotacao/section_6_consol
 import 'package:siged/screens/modules/contracts/hiring/4Cotacao/section_7_anexos.dart';
 
 // ===== Utils
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 // ===== Overlay leve
 import 'package:siged/_widgets/overlays/screen_lock.dart';
@@ -60,7 +60,7 @@ class CotacaoPage extends StatefulWidget {
 }
 
 class _CotacaoPageState extends State<CotacaoPage>
-    with FormValidationMixin, AutomaticKeepAliveClientMixin {
+    with SipGedValidation, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 

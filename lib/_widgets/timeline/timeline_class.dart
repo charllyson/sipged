@@ -4,10 +4,9 @@ import 'package:siged/_blocs/modules/contracts/validity/validity_cubit.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:siged/_blocs/modules/contracts/validity/validity_state.dart';
 
-import 'package:siged/_utils/converters/converters_utils.dart';
-
 import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 import 'package:siged/_widgets/timeline/time_line_item.dart';
 import 'package:siged/_widgets/timeline/timeline_shimmer.dart';
 
@@ -152,7 +151,7 @@ class TimelineClass extends StatelessWidget {
             children: List.generate(items.length, (index) {
               final item = items[index];
               final (color, icon) = _getIconAndColor(item);
-              final dateStr = dateTimeToDDMMYYYY(item.date!);
+              final dateStr = SipGedFormatDates.dateToDdMMyyyy(item.date!);
 
               return Row(
                 children: [

@@ -50,15 +50,15 @@ class _SectionPrecosPagamentoReajusteState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final nv = v ?? '';
         if (c.text != nv) c.text = nv;
       }
 
-      _sync(_estimativaValorCtrl, d.estimativaValor);
-      _sync(_reajusteIndiceCtrl, d.reajusteIndice);
-      _sync(_condicoesPagamentoCtrl, d.condicoesPagamento);
-      _sync(_garantiaCtrl, d.garantia);
+      sync(_estimativaValorCtrl, d.estimativaValor);
+      sync(_reajusteIndiceCtrl, d.reajusteIndice);
+      sync(_condicoesPagamentoCtrl, d.condicoesPagamento);
+      sync(_garantiaCtrl, d.garantia);
     }
   }
 

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/cards/basic/basic_card.dart';
 import 'package:siged/_widgets/charts/gauges/gauge_circular_percent_shimmer.dart';
 
@@ -107,7 +107,7 @@ class GaugeCircularPercent extends StatelessWidget {
 
     final String tooltipText =
     (financial == true || footerM == GaugeTextMode.money)
-        ? priceToString(valuesSum)
+        ? SipGedFormatMoney.doubleToText(valuesSum)
         : '$valuesSum';
 
     return BasicCard(
@@ -174,7 +174,7 @@ class GaugeCircularPercent extends StatelessWidget {
       case GaugeTextMode.number:
         return sum.toStringAsFixed(0);
       case GaugeTextMode.money:
-        return priceToString(sum);
+        return SipGedFormatMoney.doubleToText(sum);
     }
   }
 

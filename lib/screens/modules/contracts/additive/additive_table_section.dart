@@ -1,8 +1,7 @@
 // lib/screens/contracts/additives/additive_table_section.dart
 import 'package:flutter/material.dart';
-
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:siged/_widgets/overlays/loading_progress.dart';
 import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
@@ -60,10 +59,10 @@ class AdditiveTableSection extends StatelessWidget {
                   columnGetters: [
                         (a) => '${a.additiveOrder ?? '-'}',
                         (a) => a.additiveNumberProcess ?? '-',
-                        (a) => dateTimeToDDMMYYYY(
+                        (a) => SipGedFormatDates.dateToDdMMyyyy(
                       a.additiveDate ?? DateTime.now(),
                     ),
-                        (a) => priceToString(a.additiveValue),
+                        (a) => SipGedFormatMoney.doubleToText(a.additiveValue),
                         (a) => '${a.additiveValidityContractDays ?? '-'}',
                         (a) => '${a.additiveValidityExecutionDays ?? '-'}',
                   ],

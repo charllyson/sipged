@@ -55,7 +55,7 @@ class SettingsTopicSistemaPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const info(
+                  const Info(
                     text:
                     'Aqui você pode adicionar outras ferramentas específicas do sistema '
                         '(auditoria, logs, preferências, temas, dicionário de dados, etc.).',

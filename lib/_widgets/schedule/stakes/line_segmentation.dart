@@ -185,7 +185,7 @@ SegmentedAxis splitAxisByFixedStep({
   var segStart = curr;
   var axisIdx = 1;
 
-  void _advanceUntil(LatLng target) {
+  void advanceUntil(LatLng target) {
     final currTarget = target;
     final currSeg = <LatLng>[];
     currSeg.add(segStart);
@@ -221,7 +221,7 @@ SegmentedAxis splitAxisByFixedStep({
   }
 
   for (var i = 1; i < stakePositions.length; i++) {
-    _advanceUntil(stakePositions[i]);
+    advanceUntil(stakePositions[i]);
   }
 
   // rabicho final
@@ -251,14 +251,14 @@ List<TappableChangedPolyline> buildSegmentPolylines({
   final out = <TappableChangedPolyline>[];
   final segs = segmented.segments;
 
-  Color _defaultColor(int i) =>
+  Color defaultColor(int i) =>
       (i % 2 == 0) ? const Color(0xFF1565C0) : const Color(0xFF42A5F5);
 
   for (var i = 0; i < segs.length; i++) {
     final seg = segs[i];
     if (seg.length < 2) continue;
 
-    final baseColor = (colorForIndex ?? _defaultColor).call(i);
+    final baseColor = (colorForIndex ?? defaultColor).call(i);
 
     out.add(TappableChangedPolyline(
       points: seg,
@@ -316,13 +316,13 @@ List<TappableChangedPolyline> buildParallelSegmentPolylines({
   final out = <TappableChangedPolyline>[];
   final segs = segmented.segments;
 
-  Color _defaultColor(int i) =>
+  Color defaultColor(int i) =>
       (i % 2 == 0) ? const Color(0xFF1565C0) : const Color(0xFF42A5F5);
 
   for (var i = 0; i < segs.length; i++) {
     final seg = segs[i];
     if (seg.length < 2) continue;
-    final baseColor = (colorForIndex ?? _defaultColor).call(i);
+    final baseColor = (colorForIndex ?? defaultColor).call(i);
 
     if (buildRight) {
       final rPts = _offsetPolylineByNormal(seg, offsetMeters, right: true);

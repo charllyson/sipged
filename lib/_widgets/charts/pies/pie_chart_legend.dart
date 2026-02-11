@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 import 'pie_chart_changed.dart'; // para usar o enum ValueFormatType
 
 class PieChartLegend extends StatelessWidget {
@@ -25,7 +25,7 @@ class PieChartLegend extends StatelessWidget {
   String _formatValue(double value) {
     switch (valueFormatType) {
       case ValueFormatType.monetary:
-        return priceToString(value);
+        return SipGedFormatMoney.doubleToText(value);
       case ValueFormatType.decimal:
         return value.toStringAsFixed(2);
       case ValueFormatType.integer:

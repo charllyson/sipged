@@ -2,11 +2,10 @@
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 
 import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/formats/format_field.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/formats/sipged_format_numbers.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 
@@ -32,20 +31,19 @@ class SignUp extends StatefulWidget {
 
 final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-class _SignUpState extends State<SignUp> with FormValidationMixin {
+class _SignUpState extends State<SignUp> with SipGedValidation {
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
   final _surnameController = TextEditingController();
   final _passController = TextEditingController();
   final _repeatPassController = TextEditingController();
 
-  late LoginBloc _loginBloc; // ⚠️ será obtido do Provider
+  late LoginBloc _loginBloc;
   final ValueNotifier<bool> _loading = ValueNotifier<bool>(false);
 
   @override
   void initState() {
     super.initState();
-    // ✅ NÃO instancie LoginBloc(); pegue do contexto (já com tenant)
     _loginBloc = context.read<LoginBloc>();
   }
 
@@ -57,7 +55,6 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
     _passController.dispose();
     _repeatPassController.dispose();
     _loading.dispose();
-    // ❌ não dispose _loginBloc aqui (é gerenciado pelo Provider)
     super.dispose();
   }
 
@@ -70,9 +67,7 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
       AppNotification(
         type: type,
         title: Text(title),
-        subtitle: (subtitle != null && subtitle.isNotEmpty)
-            ? Text(subtitle)
-            : null,
+        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
       ),
     );
   }
@@ -84,7 +79,6 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
       _repeatPassController.clear();
       if (!mounted) return;
 
-      // 🪟 Erro de senha com WindowDialog
       await showWindowDialogMac<void>(
         context: context,
         title: 'Erro na senha',
@@ -98,16 +92,14 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    'As senhas digitadas não coincidem. '
-                        'Por favor, digite novamente.',
+                    'As senhas digitadas não coincidem. Por favor, digite novamente.',
                   ),
                   const SizedBox(height: 18),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       FilledButton(
-                        onPressed: () =>
-                            Navigator.of(dialogCtx).pop(), // fecha a janela
+                        onPressed: () => Navigator.of(dialogCtx).pop(),
                         child: const Text('OK'),
                       ),
                     ],
@@ -128,14 +120,13 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
 
     _loading.value = true;
     try {
-      // 2) monta UserData (sem usar FirebaseAuth.instance direto)
       final repo = context.read<UserRepository>();
+
       final newUser = widget.userData
         ..email = _emailController.text.trim()
         ..name = _nameController.text.trim()
         ..surname = _surnameController.text.trim();
 
-      // 3) Cria via LoginBloc (usa o tenant certo e já grava no Firestore)
       final ok = await _loginBloc.signUp(
         userData: newUser,
         pass: _passController.text,
@@ -151,10 +142,9 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
         return;
       }
 
-      // 4) Atualiza caches do UserBloc (opcional mas recomendado)
       final uid = _loginBloc.firebaseUser?.uid;
       if (uid != null) {
-        await repo.save(newUser..uid = uid); // id garantido
+        await repo.save(newUser..uid = uid);
         final bloc = context.read<UserBloc>();
         bloc
           ..add(UserFetchByIdRequested(uid))
@@ -162,11 +152,8 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
       }
 
       if (!mounted) return;
-      _notify(
-        'Cadastro realizado com sucesso!',
-        type: AppNotificationType.success,
-      );
-      Navigator.of(context).pop(); // fecha a tela de cadastro
+      _notify('Cadastro realizado com sucesso!', type: AppNotificationType.success);
+      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       _notify(
@@ -181,6 +168,9 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
 
   @override
   Widget build(BuildContext context) {
+    final cpfDigits = (widget.userData.cpf ?? '').replaceAll(RegExp(r'\D'), '');
+    final cpfFormatted = cpfDigits.isEmpty ? '' : SipGedFormatNumbers.formatCPF(cpfDigits);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: GestureDetector(
@@ -217,7 +207,6 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
                                 prefix: const Icon(Icons.account_circle),
                                 validator: validateSurname,
                               ),
-                              // ⚠️ Usa stream/validação do LoginBloc provido
                               CustomTextField(
                                 controller: _emailController,
                                 stream: _loginBloc.outEmail,
@@ -229,10 +218,10 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
                                 enabled: true,
                                 validator: validateEmailLogin,
                               ),
+
+                              // ✅ CPF apenas exibido, já formatado (sem helper antigo)
                               CustomTextField(
-                                initialValue: addFormatCpf(
-                                  widget.userData.cpf ?? '',
-                                ),
+                                initialValue: cpfFormatted,
                                 labelText: 'CPF',
                                 enabled: false,
                                 prefix: const Icon(Icons.account_box),
@@ -243,10 +232,10 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [CpfInputFormatter()],
                               ),
+
                               CustomDateField(
                                 validator: validateDateToBirthday,
-                                onSaved: (v) =>
-                                widget.userData.dateToBirthday = v,
+                                onSaved: (v) => widget.userData.dateToBirthday = v,
                                 labelText: 'Data de nascimento',
                                 prefix: const Icon(Icons.cake),
                               ),
@@ -272,8 +261,7 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
                                     style: TextButton.styleFrom(
                                       backgroundColor: Colors.blue,
                                       shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                        BorderRadius.circular(32),
+                                        borderRadius: BorderRadius.circular(32),
                                       ),
                                     ),
                                     onPressed: loading ? null : _submit,
@@ -288,8 +276,7 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
                                     )
                                         : const Text(
                                       'Cadastrar',
-                                      style:
-                                      TextStyle(color: Colors.white),
+                                      style: TextStyle(color: Colors.white),
                                     ),
                                   );
                                 },
@@ -304,7 +291,6 @@ class _SignUpState extends State<SignUp> with FormValidationMixin {
               ],
             ),
 
-            // 🔒 Bloqueio visual opcional durante o carregamento
             ValueListenableBuilder<bool>(
               valueListenable: _loading,
               builder: (_, loading, __) {
@@ -336,8 +322,7 @@ class _BlockingOverlay extends StatelessWidget {
         Positioned.fill(
           child: Center(
             child: Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E1E),
                 borderRadius: BorderRadius.circular(10),

@@ -63,9 +63,9 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
             st.loadStatus == ActiveOaesLoadStatus.loading) {
           return const Scaffold(
             appBar: PreferredSize(
-              preferredSize: const Size.fromHeight(72),
+              preferredSize: Size.fromHeight(72),
               child: UpBar(
-                leading: const Padding(
+                leading: Padding(
                   padding: EdgeInsets.only(left: 12.0),
                   child: BackCircleButton(),
                 ),
@@ -83,7 +83,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
         }
         final oaes = st.all;
 
-        void _onTapOae(ActiveOaesData item) {
+        void onTapOae(ActiveOaesData item) {
           final idx = st.all.indexWhere((e) => e.id == item.id);
           if (idx != -1) {
             cubit.selectByIndex(idx);
@@ -102,7 +102,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
           );
         }
 
-        void _onDeleteOae(String id) {
+        void onDeleteOae(String id) {
           cubit.delete(id);
           NotificationCenter.instance.show(
             AppNotification(
@@ -115,7 +115,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
         }
 
         // 🔹 Novo: ação do botão flutuante "Adicionar OAE"
-        void _onAddOae() {
+        void onAddOae() {
           // limpa seleção e deixa o form em branco
           cubit.clearSelection();
 
@@ -145,8 +145,8 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
               SingleChildScrollView(
                 child: ListOaesPage(
                   oaes: oaes,
-                  onTapItem: _onTapOae,
-                  onDelete: _onDeleteOae,
+                  onTapItem: onTapOae,
+                  onDelete: onDeleteOae,
                 ),
               ),
             ],
@@ -154,7 +154,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
 
           // 🔹 Botão flutuante no canto inferior direito
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: _onAddOae,
+            onPressed: onAddOae,
             icon: const Icon(Icons.add, color: Colors.white),
             label: const Text('Adicionar OAE', style: TextStyle(color: Colors.white)),
             backgroundColor: Colors.blue.shade800,

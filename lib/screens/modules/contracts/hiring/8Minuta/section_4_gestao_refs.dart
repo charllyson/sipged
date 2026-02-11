@@ -60,16 +60,16 @@ class _SectionGestaoRefsState extends State<SectionGestaoRefs> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_gestorNomeCtrl, d.gestorNome);
-      _sync(_fiscalNomeCtrl, d.fiscalNome);
-      _sync(_regimeExecCtrl, d.regimeExecucaoRef);
-      _sync(_prazosRefCtrl, d.prazosRef);
-      _sync(_linksAnexosCtrl, d.linksAnexos);
+      sync(_gestorNomeCtrl, d.gestorNome);
+      sync(_fiscalNomeCtrl, d.fiscalNome);
+      sync(_regimeExecCtrl, d.regimeExecucaoRef);
+      sync(_prazosRefCtrl, d.prazosRef);
+      sync(_linksAnexosCtrl, d.linksAnexos);
 
       _gestorUserId = d.gestorUserId;
       _fiscalUserId = d.fiscalUserId;

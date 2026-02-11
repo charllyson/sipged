@@ -52,15 +52,15 @@ class _SectionJuridicaTecnicaState extends State<SectionJuridicaTecnica> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_contratoSocialCtrl, d.contratoSocialLink);
-      _sync(_cartaoCnpjCtrl, d.cartaoCnpjLink);
-      _sync(_atestadosStatusCtrl, d.atestadosStatus);
-      _sync(_atestadosLinksCtrl, d.atestadosLinks);
+      sync(_contratoSocialCtrl, d.contratoSocialLink);
+      sync(_cartaoCnpjCtrl, d.cartaoCnpjLink);
+      sync(_atestadosStatusCtrl, d.atestadosStatus);
+      sync(_atestadosLinksCtrl, d.atestadosLinks);
     }
   }
 

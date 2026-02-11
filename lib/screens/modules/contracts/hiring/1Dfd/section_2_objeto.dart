@@ -7,78 +7,13 @@ import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 import 'package:siged/_blocs/system/setup/setup_cubit.dart';
 import 'package:siged/_blocs/system/setup/setup_data.dart';
 
-import 'package:siged/_utils/formats/money_formatter.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:siged/_utils/formats/sipged_format_numbers.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
-
-class PtBrThousandsIntFormatter extends TextInputFormatter {
-  const PtBrThousandsIntFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.text.isEmpty) {
-      return const TextEditingValue(text: '', selection: TextSelection.collapsed(offset: 0));
-    }
-
-    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) {
-      return const TextEditingValue(text: '', selection: TextSelection.collapsed(offset: 0));
-    }
-
-    final formatted = _formatDigitsWithDots(digits);
-    final digitsBeforeCursor = _countDigitsBefore(newValue.text, newValue.selection.extentOffset);
-    final newCursorPos = _cursorPosForDigitsCount(formatted, digitsBeforeCursor);
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: newCursorPos),
-      composing: TextRange.empty,
-    );
-  }
-
-  static String _formatDigitsWithDots(String digits) {
-    final normalized = digits.replaceFirst(RegExp(r'^0+(?=\d)'), '');
-    final s = normalized.isEmpty ? '0' : normalized;
-
-    final buf = StringBuffer();
-    int count = 0;
-    for (int i = s.length - 1; i >= 0; i--) {
-      buf.write(s[i]);
-      count++;
-      if (count == 3 && i != 0) {
-        buf.write('.');
-        count = 0;
-      }
-    }
-    return buf.toString().split('').reversed.join();
-  }
-
-  static int _countDigitsBefore(String text, int cursor) {
-    final safeCursor = cursor.clamp(0, text.length);
-    int count = 0;
-    for (int i = 0; i < safeCursor; i++) {
-      final ch = text[i];
-      if (ch.codeUnitAt(0) >= 48 && ch.codeUnitAt(0) <= 57) count++;
-    }
-    return count;
-  }
-
-  static int _cursorPosForDigitsCount(String formatted, int digitsCount) {
-    if (digitsCount <= 0) return 0;
-    int seen = 0;
-    for (int i = 0; i < formatted.length; i++) {
-      final ch = formatted[i];
-      if (ch.codeUnitAt(0) >= 48 && ch.codeUnitAt(0) <= 57) {
-        seen++;
-        if (seen == digitsCount) return i + 1;
-      }
-    }
-    return formatted.length;
-  }
-}
 
 class SectionObjeto extends StatefulWidget {
   final bool isEditable;
@@ -96,7 +31,7 @@ class SectionObjeto extends StatefulWidget {
   State<SectionObjeto> createState() => _SectionObjetoState();
 }
 
-class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin {
+class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
   late final TextEditingController _tipoContratacaoCtrl;
   late final TextEditingController _tipoObraCtrl;
   late final TextEditingController _descricaoObjetoCtrl;
@@ -130,11 +65,11 @@ class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin 
     _rodoviaCtrl = TextEditingController(text: d.rodovia ?? '');
 
     _extensaoMetrosCtrl = TextEditingController(
-      text: d.extensaoKm != null ? _formatMetersFromKm(d.extensaoKm!) : '',
+      text: d.extensaoKm != null ? _kmToMetersText(d.extensaoKm!) : '',
     );
 
     _valorDemandaCtrl = TextEditingController(
-      text: d.valorDemanda != null ? _formatMoneyPtBr(d.valorDemanda!) : '',
+      text: d.valorDemanda != null ? SipGedFormatMoney.brlNoSymbol(d.valorDemanda!) : '',
     );
 
     _extensaoFocus = FocusNode();
@@ -161,8 +96,8 @@ class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin 
           _extensaoMetrosCtrl.selection = TextSelection.collapsed(offset: len);
         });
       } else {
-        final meters = _parseMetersInt(_extensaoMetrosCtrl.text);
-        _syncControllerText(_extensaoMetrosCtrl, meters == null ? '' : _formatMetersInt(meters));
+        final meters = SipGedFormatNumbers.toInt(_extensaoMetrosCtrl.text);
+        _syncControllerText(_extensaoMetrosCtrl, meters == null ? '' : _metersToText(meters));
       }
     });
 
@@ -176,8 +111,8 @@ class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin 
           _valorDemandaCtrl.selection = TextSelection.collapsed(offset: len);
         });
       } else {
-        final parsed = _parsePtBrNumber(_valorDemandaCtrl.text);
-        _syncControllerText(_valorDemandaCtrl, parsed == null ? '' : _formatMoneyPtBr(parsed));
+        final parsed = SipGedFormatNumbers.toDouble(_valorDemandaCtrl.text);
+        _syncControllerText(_valorDemandaCtrl, parsed == null ? '' : SipGedFormatMoney.brlNoSymbol(parsed));
       }
     });
   }
@@ -212,15 +147,14 @@ class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin 
       _syncControllerText(_rodoviaCtrl, newData.rodovia ?? '');
     }
 
-    // ✅ hidratação com milhar (sem atrapalhar se estiver digitando)
-    final newMetersText = newData.extensaoKm != null ? _formatMetersFromKm(newData.extensaoKm!) : '';
-    final oldMetersText = oldData.extensaoKm != null ? _formatMetersFromKm(oldData.extensaoKm!) : '';
+    final newMetersText = newData.extensaoKm != null ? _kmToMetersText(newData.extensaoKm!) : '';
+    final oldMetersText = oldData.extensaoKm != null ? _kmToMetersText(oldData.extensaoKm!) : '';
     if (newMetersText != oldMetersText && !_extensaoFocus.hasFocus) {
       _syncControllerText(_extensaoMetrosCtrl, newMetersText);
     }
 
-    final newValorText = newData.valorDemanda != null ? _formatMoneyPtBr(newData.valorDemanda!) : '';
-    final oldValorText = oldData.valorDemanda != null ? _formatMoneyPtBr(oldData.valorDemanda!) : '';
+    final newValorText = newData.valorDemanda != null ? SipGedFormatMoney.brlNoSymbol(newData.valorDemanda!) : '';
+    final oldValorText = oldData.valorDemanda != null ? SipGedFormatMoney.brlNoSymbol(oldData.valorDemanda!) : '';
     if (newValorText != oldValorText && !_valorFocus.hasFocus) {
       _syncControllerText(_valorDemandaCtrl, newValorText);
     }
@@ -291,63 +225,26 @@ class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin 
     _emitChange();
   }
 
-  // -------------------------
-  // Extensão em METROS
-  // -------------------------
-  String _formatMetersFromKm(double km) {
+  // ===== somente “adaptações” de exibição (sem parse/formatter local) =====
+  String _metersToText(int meters) => SipGedFormatNumbers.formatDigitsWithDots(meters.toString());
+
+  String _kmToMetersText(double km) {
     final meters = (km * 1000.0).round();
-    return _formatMetersInt(meters);
-  }
-
-  String _formatMetersInt(int meters) {
-    return PtBrThousandsIntFormatter._formatDigitsWithDots(meters.toString());
-  }
-
-  int? _parseMetersInt(String raw) {
-    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) return null;
-    return int.tryParse(digits);
-  }
-
-  // -------------------------
-  // Dinheiro pt-BR (milhar + vírgula)
-  // -------------------------
-  String _formatMoneyPtBr(double value) {
-    final cents = (value * 100).round();
-    final rawDigits = cents.toString().padLeft(3, '0');
-
-    final intPartDigits = rawDigits.substring(0, rawDigits.length - 2);
-    final decDigits = rawDigits.substring(rawDigits.length - 2);
-
-    final intWithThousands = PtBrThousandsIntFormatter._formatDigitsWithDots(intPartDigits);
-    return '$intWithThousands,$decDigits';
-  }
-
-  double? _parsePtBrNumber(String raw) {
-    final s = raw.trim();
-    if (s.isEmpty) return null;
-    final cleaned = s.replaceAll('.', '').replaceAll(',', '.');
-    return double.tryParse(cleaned);
+    return _metersToText(meters);
   }
 
   void _emitChange() {
-    final meters = _parseMetersInt(_extensaoMetrosCtrl.text);
+    final meters = SipGedFormatNumbers.toInt(_extensaoMetrosCtrl.text);
     final km = meters == null ? null : (meters / 1000.0);
 
     final updated = widget.data.copyWith(
-      tipoContratacao: _tipoContratacaoCtrl.text.trim().isEmpty
-          ? null
-          : _tipoContratacaoCtrl.text.trim(),
-      tipoObra: _tipoObraCtrl.text.trim().isEmpty
-          ? null
-          : _tipoObraCtrl.text.trim(),
+      tipoContratacao: _tipoContratacaoCtrl.text.trim().isEmpty ? null : _tipoContratacaoCtrl.text.trim(),
+      tipoObra: _tipoObraCtrl.text.trim().isEmpty ? null : _tipoObraCtrl.text.trim(),
       descricaoObjeto: _descricaoObjetoCtrl.text,
       justificativa: _justificativaCtrl.text,
       rodovia: _rodoviaCtrl.text,
-
       extensaoKm: km,
-      valorDemanda: _parsePtBrNumber(_valorDemandaCtrl.text),
-
+      valorDemanda: SipGedFormatNumbers.toDouble(_valorDemandaCtrl.text),
       companyId: _companyId,
     );
 
@@ -406,9 +303,7 @@ class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin 
                     key: ValueKey('roads-$_roadsNonce-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Rodovia',
-                    tooltipMessage: _companyId == null
-                        ? 'Selecione o contratante na identificação'
-                        : null,
+                    tooltipMessage: _companyId == null ? 'Selecione o contratante na identificação' : null,
                     controller: _rodoviaCtrl,
                     items: roads.map((e) => e.label).toList(),
                     enabled: widget.isEditable && _companyId != null,
@@ -479,7 +374,7 @@ class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin 
                     enabled: widget.isEditable,
                     labelText: 'Extensão (metros)',
                     hintText: 'Ex.: 1.234',
-                    inputFormatters: const [PtBrThousandsIntFormatter()],
+                    inputFormatters: const [SipGedThousandsIntCursorFormatter()],
                     keyboardType: TextInputType.number,
                     validator: null,
                   ),
@@ -503,11 +398,8 @@ class _SectionObjetoState extends State<SectionObjeto> with FormValidationMixin 
                     enabled: widget.isEditable,
                     labelText: 'Valor da demanda',
                     hintText: 'Ex.: 1.234,56',
-
-                    // ✅ R$ alinhado e sem sobreposição
                     prefixText: 'R\$ ',
-
-                    inputFormatters: const [MoneyFormatter()],
+                    inputFormatters: const [SipGedMoneyFormatter()],
                     keyboardType: TextInputType.number,
                     validator: null,
                   ),

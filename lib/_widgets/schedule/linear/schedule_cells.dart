@@ -1,8 +1,7 @@
 // lib/_widgets/schedule/schedule_cells.dart
 import 'package:flutter/material.dart';
 import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
 
 class ScheduleCells extends StatelessWidget {
   final ScheduleRoadData scheduleData;
@@ -40,7 +39,8 @@ class ScheduleCells extends StatelessWidget {
 
   bool get _hasComment => (scheduleData.comentario?.trim().isNotEmpty ?? false);
   bool get _hasPhotos => scheduleData.fotos.any((u) => u.trim().isNotEmpty);
-  int  get _photosCount => scheduleData.fotos.where((u) => u.trim().isNotEmpty).length;
+  int get _photosCount =>
+      scheduleData.fotos.where((u) => u.trim().isNotEmpty).length;
 
   DateTime? _primaryDate() {
     if (scheduleData.takenAt != null) return scheduleData.takenAt;
@@ -48,6 +48,7 @@ class ScheduleCells extends StatelessWidget {
     DateTime? best;
     for (final m in scheduleData.fotosMeta) {
       DateTime? d;
+
       final rawTaken = m['takenAt'] ?? m['takenAtMs'];
       if (rawTaken is int) {
         d = DateTime.fromMillisecondsSinceEpoch(rawTaken);
@@ -56,11 +57,14 @@ class ScheduleCells extends StatelessWidget {
         if (asInt != null) {
           d = DateTime.fromMillisecondsSinceEpoch(asInt);
         } else {
-          try { d = DateTime.parse(rawTaken); } catch (_) {}
+          try {
+            d = DateTime.parse(rawTaken);
+          } catch (_) {}
         }
       } else if (rawTaken is DateTime) {
         d = rawTaken;
       }
+
       if (d == null) {
         final up = m['uploadedAtMs'];
         if (up is int) d = DateTime.fromMillisecondsSinceEpoch(up);
@@ -69,8 +73,10 @@ class ScheduleCells extends StatelessWidget {
           if (asInt != null) d = DateTime.fromMillisecondsSinceEpoch(asInt);
         }
       }
+
       if (d != null && (best == null || d.isAfter(best))) best = d;
     }
+
     return best ?? scheduleData.updatedAt ?? scheduleData.createdAt;
   }
 
@@ -79,22 +85,17 @@ class ScheduleCells extends StatelessWidget {
     final uid = (scheduleData.updatedBy?.isNotEmpty ?? false)
         ? scheduleData.updatedBy
         : scheduleData.createdBy;
+
     final usuario = userLabelResolver?.call(uid) ?? '—';
     final comentario = scheduleData.comentario?.trim();
 
     String data = '—', hour = '—';
     final dt = _primaryDate();
     if (dt != null) {
-      try {
-        data = dateTimeToDDMMYYYY(dt);
-        hour = convertTimestampHHMM(dt);
-      } catch (_) {
-        data = '${dt.day.toString().padLeft(2, '0')}/'
-            '${dt.month.toString().padLeft(2, '0')}/'
-            '${dt.year}';
-        hour = '${dt.hour.toString().padLeft(2, '0')}:'
-            '${dt.minute.toString().padLeft(2, '0')}';
-      }
+      // Data centralizada no SipGedConverterDates
+      data = SipGedFormatDates.dateToDdMMyyyy(dt);
+      // Hora sem intl
+      hour = SipGedFormatDates.timeToHHmm(dt);
     }
 
     final buf = StringBuffer()
@@ -106,24 +107,24 @@ class ScheduleCells extends StatelessWidget {
     if ((comentario ?? '').isNotEmpty) buf.writeln('Comentário: $comentario');
 
     final msg = buf.toString().trim();
-    return msg.isEmpty ? 'A iniciar' : msg; // fallback
+    return msg.isEmpty ? 'A iniciar' : msg;
   }
 
   @override
   Widget build(BuildContext context) {
     // 3 cenários de mensagem
     final String tooltipMessage = !enabled
-        ? 'Não necessário nestas estacas' // 1) bloqueada
+        ? 'Não necessário nestas estacas'
         : (scheduleData.statusCanonical == 'a_iniciar'
-        ? 'A iniciar'               // 2) desbloqueada e ainda não executada
-        : _richTooltipText());       // 3) desbloqueada com dados
+        ? 'A iniciar'
+        : _richTooltipText());
 
     // Regra de exibição dos ícones:
     // - só comentário -> ícone de info
     // - só foto       -> ícone de câmera
     // - ambos         -> apenas câmera
     final bool showCommentIcon = enabled && _hasComment && !_hasPhotos;
-    final bool showPhotoIcon   = enabled && _hasPhotos;
+    final bool showPhotoIcon = enabled && _hasPhotos;
 
     final core = GestureDetector(
       onTap: enabled ? onTap : null,
@@ -167,16 +168,13 @@ class ScheduleCells extends StatelessWidget {
 
     // Evita custo de Tooltip quando não há nada relevante
     final bool shouldShowTooltip = enabled &&
-        (scheduleData.statusCanonical != 'a_iniciar' ||
-            _hasComment || _hasPhotos);
+        (scheduleData.statusCanonical != 'a_iniciar' || _hasComment || _hasPhotos);
 
-    // Passa qual ícone exibir via InheritedWidget simples
     return _IconScope(
       showCommentIcon: showCommentIcon,
       showPhotoIcon: showPhotoIcon,
       child: shouldShowTooltip
           ? Tooltip(
-        // sem triggerMode → hover (web/desktop) e long-press (mobile)
         message: tooltipMessage,
         waitDuration: waitDuration,
         showDuration: showDuration,
@@ -224,7 +222,7 @@ class _IconScope extends InheritedWidget {
   @override
   bool updateShouldNotify(covariant _IconScope oldWidget) {
     return oldWidget.showCommentIcon != showCommentIcon ||
-        oldWidget.showPhotoIcon   != showPhotoIcon;
+        oldWidget.showPhotoIcon != showPhotoIcon;
   }
 }
 
@@ -236,6 +234,7 @@ class _DiagonalStripesPainter extends CustomPainter {
 
     final stripe = Paint()..color = Colors.white.withOpacity(0.35);
     const double w = 8.0;
+
     for (double x = -size.height; x < size.width + size.height; x += w * 2) {
       final path = Path()
         ..moveTo(x, 0)

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 class FooterResumo {
   final String label;
@@ -51,7 +51,7 @@ class FooterRowsGeneric extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.all(8.0),
           child: Text(
-            priceToString(linha.value),
+            SipGedFormatMoney.doubleToText(linha.value),
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: linha.fontWeight ?? FontWeight.bold),
           ),

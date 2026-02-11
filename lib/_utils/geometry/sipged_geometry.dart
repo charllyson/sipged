@@ -1,22 +1,20 @@
-// lib/_services/geometry/geometry_utils.dart
+// lib/_services/geometry/sipged_geometry.dart
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:archive/archive.dart';
-import 'package:flutter_map/flutter_map.dart' show MapCamera;
 import 'package:latlong2/latlong.dart';
 
 /// ---------------- modelos ----------------
-enum GeometryType { line, polygon }
+enum SipGedGeometry { line, polygon }
 
 class Geom {
-  final GeometryType type;
+  final SipGedGeometry type;
   final List<LatLng> points;
   const Geom._(this.type, this.points);
-  factory Geom.line(List<LatLng> pts) => Geom._(GeometryType.line, pts);
-  factory Geom.polygon(List<LatLng> pts) => Geom._(GeometryType.polygon, pts);
+  factory Geom.line(List<LatLng> pts) => Geom._(SipGedGeometry.line, pts);
+  factory Geom.polygon(List<LatLng> pts) => Geom._(SipGedGeometry.polygon, pts);
 }
 
 /// Cell usado no algoritmo de polylabel
@@ -397,30 +395,4 @@ LatLng labelPointForPolygon(
     p = Polylabel.compute(_closeRing(ring), precision: polylabelPrecision);
   }
   return p;
-}
-
-/// -------------------- Web Mercator: LatLng -> Offset de tela --------------------
-class MapMath {
-  static ({double x, double y}) mercatorProject(LatLng ll, double zoom) {
-    const double tileSize = 256.0;
-    final double scale = tileSize * math.pow(2.0, zoom).toDouble();
-    final double x = (ll.longitude + 180.0) / 360.0 * scale;
-    final double sinLat = math.sin(ll.latitude * math.pi / 180.0);
-    final double y =
-        (0.5 - math.log((1 + sinLat) / (1 - sinLat)) / (4 * math.pi)) * scale;
-    return (x: x, y: y);
-  }
-
-  static Offset latLngToScreen(MapCamera cam, LatLng target) {
-    final size = cam.nonRotatedSize;
-    final zoom = cam.zoom;
-    final center = cam.center;
-    final c = mercatorProject(center, zoom);
-    final p = mercatorProject(target, zoom);
-    final originX = c.x - size.width / 2.0;
-    final originY = c.y - size.height / 2.0;
-    final screenX = p.x - originX;
-    final screenY = p.y - originY;
-    return Offset(screenX, screenY);
-  }
 }

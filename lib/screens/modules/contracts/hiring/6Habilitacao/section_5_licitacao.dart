@@ -4,12 +4,12 @@ import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 
-class SectionLicitacao extends StatefulWidget with FormValidationMixin {
+class SectionLicitacao extends StatefulWidget with SipGedValidation {
   final HabilitacaoData data;
   final bool isEditable;
   final void Function(HabilitacaoData updated) onChanged;
@@ -57,17 +57,17 @@ class _SectionLicitacaoState extends State<SectionLicitacao> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_modalidadeCtrl, d.modalidade);
-      _sync(_numeroProcessoCtrl, d.numeroProcesso);
-      _sync(_ataSessaoCtrl, d.ataSessaoLink);
-      _sync(_ataAdjudicacaoCtrl, d.ataAdjudicacaoLink);
-      _sync(_editalCtrl, d.editalLink);
-      _sync(_oficiosCtrl, d.oficiosLinks);
+      sync(_modalidadeCtrl, d.modalidade);
+      sync(_numeroProcessoCtrl, d.numeroProcesso);
+      sync(_ataSessaoCtrl, d.ataSessaoLink);
+      sync(_ataAdjudicacaoCtrl, d.ataAdjudicacaoLink);
+      sync(_editalCtrl, d.editalLink);
+      sync(_oficiosCtrl, d.oficiosLinks);
     }
   }
 

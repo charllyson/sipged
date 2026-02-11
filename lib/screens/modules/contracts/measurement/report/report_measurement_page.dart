@@ -1,9 +1,7 @@
-// lib/screens/modules/contracts/measurement/report/report_measurement.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Cubit + Estado + Repo
+// Cubit + Estado
 import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_state.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
@@ -12,7 +10,7 @@ import 'package:siged/_blocs/modules/contracts/measurement/report/report_measure
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
-// Aditivos (novo padrão: usar Repository, não mais Bloc)
+// Aditivos (Repository)
 import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
 
 // Contrato
@@ -25,7 +23,6 @@ import 'package:siged/_widgets/notification/notification_center.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_widgets/pdf/pdf_preview.dart';
 
 // Seções da página
 import '../create/create_detailed_reports_page.dart';
@@ -51,8 +48,6 @@ class ReportMeasurement extends StatelessWidget {
     }
 
     return BlocProvider(
-      // Se o ReportMeasurementCubit já segue o padrão novo com repo/contract,
-      // você pode ajustar o construtor aqui depois.
       create: (_) => ReportMeasurementCubit()..loadByContract(contractId),
       child: _ReportMeasurementView(contractData: contractData),
     );
@@ -61,7 +56,6 @@ class ReportMeasurement extends StatelessWidget {
 
 class _ReportMeasurementView extends StatefulWidget {
   const _ReportMeasurementView({required this.contractData});
-
   final ProcessData contractData;
 
   @override
@@ -121,21 +115,25 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     // ============================
     // Valor Demanda (DFD)
     // ============================
+    DfdCubit? dfdCubit;
     try {
-      final dfdCubit = DfdCubit();
+      dfdCubit = DfdCubit();
       final DfdData? dfd = await dfdCubit.getDataForContract(cid);
       _valorDemanda = dfd?.valorDemanda ?? 0.0;
     } catch (_) {
       _valorDemanda = 0.0;
+    } finally {
+      try {
+        await dfdCubit?.close();
+      } catch (_) {}
     }
 
     // ============================
-    // Total de Aditivos (novo padrão: Repository)
+    // Total de Aditivos (Repository)
     // ============================
     try {
       final additivesRepo = AdditivesRepository();
       final list = await additivesRepo.ensureForContract(cid);
-
       _totalAditivos = list.fold<double>(
         0.0,
             (prev, item) => prev + (item.additiveValue ?? 0.0),
@@ -144,9 +142,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       _totalAditivos = 0.0;
     }
 
-    if (mounted) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   void _validateForm() {
@@ -177,12 +173,17 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     final m = int.tryParse(parts[1]);
     final y = int.tryParse(parts[2]);
     if (d == null || m == null || y == null) return null;
+
+    if (m < 1 || m > 12) return null;
+    if (d < 1 || d > 31) return null;
+
     return DateTime(y, m, d);
   }
 
   int _nextAvailableOrder(List<ReportMeasurementData> list) {
     final existing = list.map((e) => e.order ?? 0).where((e) => e > 0).toSet();
     if (existing.isEmpty) return 1;
+
     for (int i = 1; i <= existing.length + 1; i++) {
       if (!existing.contains(i)) return i;
     }
@@ -204,43 +205,106 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       processCtrl.clear();
       valueCtrl.clear();
       dateCtrl.clear();
-      _sideItems = <Attachment>[];
-      _selectedSideIndex = null;
-    } else {
-      orderCtrl.text = (m.order ?? '').toString();
-      processCtrl.text = m.numberprocess ?? '';
-      valueCtrl.text = (m.value ?? 0.0).toStringAsFixed(2);
-      if (m.date != null) {
-        final d = m.date!;
-        dateCtrl.text =
-        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-      } else {
-        dateCtrl.clear();
-      }
 
-      final atts = m.attachments ?? <Attachment>[];
+      setState(() {
+        _sideItems = <Attachment>[];
+        _selectedSideIndex = null;
+      });
+
+      _validateForm();
+      return;
+    }
+
+    orderCtrl.text = (m.order ?? '').toString();
+    processCtrl.text = m.numberprocess ?? '';
+    valueCtrl.text = (m.value ?? 0.0).toStringAsFixed(2);
+
+    if (m.date != null) {
+      final d = m.date!;
+      dateCtrl.text =
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } else {
+      dateCtrl.clear();
+    }
+
+    final atts = m.attachments ?? <Attachment>[];
+    setState(() {
       _sideItems = List<Attachment>.from(atts);
       _selectedSideIndex = atts.isNotEmpty ? 0 : null;
-    }
+    });
 
     _validateForm();
   }
 
-  Future<void> _openAttachment(BuildContext context, int index) async {
+  /// ✅ chamada pelo SideListBox via onItemsChanged
+  void _applySideItemsFromWidget(List<dynamic> newItems) {
+    final onlyAtt = newItems.whereType<Attachment>().toList();
+
+    setState(() {
+      _sideItems = List<Attachment>.from(onlyAtt);
+
+      if (_sideItems.isEmpty) {
+        _selectedSideIndex = null;
+      } else {
+        final i = _selectedSideIndex ?? 0;
+        _selectedSideIndex = i.clamp(0, _sideItems.length - 1);
+      }
+
+      if (_selectedMeasurement != null) {
+        _selectedMeasurement!.attachments =
+        _sideItems.isEmpty ? null : List<Attachment>.from(_sideItems);
+      }
+    });
+  }
+
+  Future<void> _removeAttachmentAt(int index) async {
     if (index < 0 || index >= _sideItems.length) return;
+
+    final ok = await confirmDialog(context, 'Remover este arquivo?');
+    if (!ok) return;
+
+    final m = _selectedMeasurement;
+    if (m == null || (m.id == null || m.id!.isEmpty)) return;
+
+    final cubit = context.read<ReportMeasurementCubit>();
     final att = _sideItems[index];
-    if (att.url.isEmpty) return;
 
-    setState(() => _selectedSideIndex = index);
+    try {
+      await cubit.deleteAttachment(
+        contractId: widget.contractData.id!,
+        measurementId: m.id!,
+        attachment: att,
+      );
 
-    await showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.white,
-        insetPadding: const EdgeInsets.all(16),
-        child: PdfPreview(pdfUrl: att.url),
-      ),
-    );
+      setState(() {
+        _sideItems.removeAt(index);
+
+        if (_sideItems.isEmpty) {
+          _selectedSideIndex = null;
+        } else {
+          _selectedSideIndex = index.clamp(0, _sideItems.length - 1);
+        }
+
+        _selectedMeasurement!.attachments =
+        _sideItems.isEmpty ? null : List<Attachment>.from(_sideItems);
+      });
+
+      NotificationCenter.instance.show(
+        AppNotification(
+          type: AppNotificationType.warning,
+          title: const Text('Arquivo removido'),
+          subtitle: Text(att.label),
+        ),
+      );
+    } catch (e) {
+      NotificationCenter.instance.show(
+        AppNotification(
+          type: AppNotificationType.error,
+          title: const Text('Erro ao remover arquivo'),
+          subtitle: Text('$e'),
+        ),
+      );
+    }
   }
 
   @override
@@ -251,11 +315,11 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       listener: (context, state) {
         if (state.status == ReportMeasurementStatus.success) {
           final list = state.measurements;
+
           if (_selectedMeasurement == null) {
             _fillFieldsFromMeasurement(list, null, null);
           } else {
-            final idx =
-            list.indexWhere((e) => e.id == _selectedMeasurement!.id);
+            final idx = list.indexWhere((e) => e.id == _selectedMeasurement!.id);
             if (idx >= 0) {
               _fillFieldsFromMeasurement(list, list[idx], idx);
             } else {
@@ -268,8 +332,10 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         final measurements = state.measurements;
         final cubit = context.read<ReportMeasurementCubit>();
 
-        final labels =
-        measurements.map((m) => (m.order ?? 0).toString()).toList();
+        final uploading = state.uploading;
+        final uploadProgress = state.uploadProgress;
+
+        final labels = measurements.map((m) => (m.order ?? 0).toString()).toList();
         final values = measurements.map((m) => m.value ?? 0.0).toList();
 
         final totalMedicoes = cubit.sum(measurements);
@@ -300,53 +366,92 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 _selectedIndex = null;
                                 _selectedMeasurement = null;
                               });
-                              _fillFieldsFromMeasurement(
-                                measurements,
-                                null,
-                                null,
-                              );
-                            } else {
-                              final m = measurements[i];
-                              setState(() {
-                                _selectedIndex = i;
-                                _selectedMeasurement = m;
-                              });
-                              _fillFieldsFromMeasurement(
-                                measurements,
-                                m,
-                                i,
-                              );
+                              _fillFieldsFromMeasurement(measurements, null, null);
+                              return;
                             }
+
+                            final m = measurements[i];
+                            setState(() {
+                              _selectedIndex = i;
+                              _selectedMeasurement = m;
+                            });
+                            _fillFieldsFromMeasurement(measurements, m, i);
                           },
                         ),
-                        const SectionTitle(
-                          text: 'Cadastrar medições no sistema',
-                        ),
+                        const SectionTitle(text: 'Cadastrar medições no sistema'),
                         Padding(
-                          padding:
-                          const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: ReportMeasurementFormSection(
                             isEditable: true,
                             formValidated: formValidated,
                             selectedReportMeasurement: _selectedMeasurement,
-                            currentReportMeasurementId:
-                            _selectedMeasurement?.id,
+                            currentReportMeasurementId: _selectedMeasurement?.id,
                             contractData: widget.contractData,
                             orderController: orderCtrl,
                             processNumberController: processCtrl,
                             dateController: dateCtrl,
                             valueController: valueCtrl,
+
+                            // ✅ overlay do SideListBox
+                            sideLoading: uploading,
+                            sideUploadProgress: uploadProgress,
+
                             onClear: () {
                               setState(() {
                                 _selectedIndex = null;
                                 _selectedMeasurement = null;
                               });
-                              _fillFieldsFromMeasurement(
-                                measurements,
-                                null,
-                                null,
-                              );
+                              _fillFieldsFromMeasurement(measurements, null, null);
                             },
+
+                            // ✅ + real (pick -> upload -> firestore -> listar)
+                            onAddSideItem: () async {
+                              final m = _selectedMeasurement;
+
+                              if (m == null || (m.id == null || m.id!.isEmpty)) {
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.info,
+                                    title: const Text('Salve a medição primeiro'),
+                                    subtitle: const Text(
+                                      'Depois você poderá anexar arquivos.',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              try {
+                                final att = await cubit.pickAndUploadAttachment(
+                                  contractId: contractId,
+                                  measurementId: m.id!,
+                                );
+
+                                setState(() {
+                                  _sideItems = [..._sideItems, att];
+                                  _selectedSideIndex = _sideItems.length - 1;
+                                  _selectedMeasurement!.attachments =
+                                  List<Attachment>.from(_sideItems);
+                                });
+
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.success,
+                                    title: const Text('Arquivo anexado'),
+                                    subtitle: Text(att.label),
+                                  ),
+                                );
+                              } catch (e) {
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.error,
+                                    title: const Text('Falha ao anexar arquivo'),
+                                    subtitle: Text('$e'),
+                                  ),
+                                );
+                              }
+                            },
+
                             onSave: () async {
                               final ok = await confirmDialog(
                                 context,
@@ -359,12 +464,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     type: AppNotificationType.error,
-                                    title: const Text(
-                                      'Data da medição inválida',
-                                    ),
-                                    subtitle: const Text(
-                                      'Use o formato dd/MM/aaaa.',
-                                    ),
+                                    title: const Text('Data da medição inválida'),
+                                    subtitle: const Text('Use o formato dd/MM/aaaa.'),
                                   ),
                                 );
                                 return;
@@ -372,8 +473,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
 
                               setState(() => _isSaving = true);
 
-                              final isNew =
-                                  _selectedMeasurement?.id == null;
+                              final isNew = _selectedMeasurement?.id == null;
 
                               final data = ReportMeasurementData(
                                 id: _selectedMeasurement?.id,
@@ -382,8 +482,9 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 numberprocess: processCtrl.text,
                                 value: _parseCurrency(valueCtrl.text),
                                 date: date,
-                                attachments:
-                                _selectedMeasurement?.attachments,
+                                attachments: _sideItems.isEmpty
+                                    ? null
+                                    : List<Attachment>.from(_sideItems),
                               );
 
                               try {
@@ -392,9 +493,9 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     type: AppNotificationType.success,
-                                    title: Text(isNew
-                                        ? 'Medição criada'
-                                        : 'Medição atualizada'),
+                                    title: Text(
+                                      isNew ? 'Medição criada' : 'Medição atualizada',
+                                    ),
                                     subtitle: Text(
                                       'Boletim ${data.order ?? '-'} salvo com sucesso.',
                                     ),
@@ -404,29 +505,28 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     type: AppNotificationType.error,
-                                    title: const Text(
-                                      'Erro ao salvar medição',
-                                    ),
+                                    title: const Text('Erro ao salvar medição'),
                                     subtitle: Text('$e'),
                                   ),
                                 );
                               } finally {
-                                if (mounted) {
-                                  setState(() => _isSaving = false);
-                                }
+                                if (mounted) setState(() => _isSaving = false);
                               }
                             },
+
                             onOpenMemoDeCalculo: null,
+
                             onOpenBoletimDeMedicao: () async {
                               final m = _selectedMeasurement;
 
-                              // precisa existir uma medição selecionada e salva (com id)
                               if (m == null || (m.id == null || m.id!.isEmpty)) {
                                 NotificationCenter.instance.show(
                                   AppNotification(
                                     type: AppNotificationType.info,
                                     title: const Text('Selecione uma medição'),
-                                    subtitle: const Text('Selecione (ou salve) uma medição para abrir o boletim.'),
+                                    subtitle: const Text(
+                                      'Selecione (ou salve) uma medição para abrir o boletim.',
+                                    ),
                                   ),
                                 );
                                 return;
@@ -443,32 +543,70 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               );
                             },
 
+                            // -------------------------
+                            // SIDE LIST
+                            // -------------------------
                             sideItems: _sideItems,
                             selectedSideIndex: _selectedSideIndex,
-                            onAddSideItem: null,
-                            onTapSideItem: (i) =>
-                                _openAttachment(context, i),
-                            onDeleteSideItem: null,
-                            onEditLabelSideItem: null,
+                            onTapSideItem: (i) => setState(() => _selectedSideIndex = i),
+
+                            // ✅ delete real
+                            onDeleteSideItem: (i) => _removeAttachmentAt(i),
+
+                            // ✅ já sincroniza listagem local quando SideListBox altera
+                            onSideItemsChanged: _applySideItemsFromWidget,
+
+                            // ✅ rename persistido no Firestore
+                            onRenamePersist: ({
+                              required int index,
+                              required Attachment oldItem,
+                              required Attachment newItem,
+                            }) async {
+                              final m = _selectedMeasurement;
+                              if (m == null || (m.id == null || m.id!.isEmpty)) {
+                                return false;
+                              }
+
+                              try {
+                                await cubit.renameAttachmentLabel(
+                                  contractId: contractId,
+                                  measurementId: m.id!,
+                                  oldItem: oldItem,
+                                  newItem: newItem,
+                                );
+
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.success,
+                                    title: const Text('Anexo renomeado'),
+                                    subtitle: Text(newItem.label),
+                                  ),
+                                );
+                                return true;
+                              } catch (e) {
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.error,
+                                    title: const Text('Falha ao renomear anexo'),
+                                    subtitle: Text('$e'),
+                                  ),
+                                );
+                                return false;
+                              }
+                            },
                           ),
                         ),
-                        const SectionTitle(
-                          text: 'Medições cadastradas no sistema',
-                        ),
+
+                        const SectionTitle(text: 'Medições cadastradas no sistema'),
                         ReportMeasurementTableSection(
                           onTapItem: (ReportMeasurementData data) {
-                            final idx = measurements
-                                .indexWhere((e) => e.id == data.id);
+                            final idx = measurements.indexWhere((e) => e.id == data.id);
                             if (idx >= 0) {
                               setState(() {
                                 _selectedIndex = idx;
                                 _selectedMeasurement = data;
                               });
-                              _fillFieldsFromMeasurement(
-                                measurements,
-                                data,
-                                idx,
-                              );
+                              _fillFieldsFromMeasurement(measurements, data, idx);
                             }
                           },
                           onDelete: (id) async {
@@ -489,27 +627,20 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               NotificationCenter.instance.show(
                                 AppNotification(
                                   type: AppNotificationType.warning,
-                                  title:
-                                  const Text('Medição apagada'),
-                                  subtitle: Text(
-                                    'O boletim foi removido com sucesso.',
-                                  ),
+                                  title: const Text('Medição apagada'),
+                                  subtitle: const Text('O boletim foi removido com sucesso.'),
                                 ),
                               );
                             } catch (e) {
                               NotificationCenter.instance.show(
                                 AppNotification(
                                   type: AppNotificationType.error,
-                                  title: const Text(
-                                    'Erro ao apagar medição',
-                                  ),
+                                  title: const Text('Erro ao apagar medição'),
                                   subtitle: Text('$e'),
                                 ),
                               );
                             } finally {
-                              if (mounted) {
-                                setState(() => _isSaving = false);
-                              }
+                              if (mounted) setState(() => _isSaving = false);
                             }
 
                             if (_selectedMeasurement?.id == id) {
@@ -517,11 +648,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 _selectedIndex = null;
                                 _selectedMeasurement = null;
                               });
-                              _fillFieldsFromMeasurement(
-                                measurements,
-                                null,
-                                null,
-                              );
+                              _fillFieldsFromMeasurement(measurements, null, null);
                             }
                           },
                           measurementsData: measurements,
@@ -540,10 +667,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                 const FootBar(),
               ],
             ),
-
-            // --------------------------
-            //  🔥 LOADING OVERLAY GLOBAL
-            // --------------------------
             if (_isSaving)
               Stack(
                 children: [
@@ -551,9 +674,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                     dismissible: false,
                     color: Colors.black.withOpacity(0.4),
                   ),
-                  const Center(
-                    child: CircularProgressIndicator(),
-                  ),
+                  const Center(child: CircularProgressIndicator()),
                 ],
               ),
           ],

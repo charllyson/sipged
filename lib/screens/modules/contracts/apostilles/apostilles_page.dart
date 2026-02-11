@@ -7,12 +7,13 @@ import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_cubit.dart';
 import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_state.dart';
 import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
+import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:siged/_utils/formats/sipged_format_money.dart';
 
 import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 
-import 'package:siged/_utils/converters/converters_utils.dart';
-import 'package:siged/_utils/formats/format_field.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
 import 'apostilles_form_section.dart';
 import 'apostilles_graph_section.dart';
@@ -85,10 +86,12 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
     _orderCtrl.text = (a.apostilleOrder ?? '').toString();
     _processCtrl.text = a.apostilleNumberProcess ?? '';
-    _dateCtrl.text =
-    a.apostilleData != null ? dateTimeToDDMMYYYY(a.apostilleData!) : '';
-    _valueCtrl.text =
-    a.apostilleValue != null ? priceToString(a.apostilleValue) : '';
+    _dateCtrl.text = a.apostilleData != null
+        ? SipGedFormatDates.dateToDdMMyyyy(a.apostilleData!)
+        : '';
+    _valueCtrl.text = a.apostilleValue != null
+        ? SipGedFormatMoney.doubleToText(a.apostilleValue)
+        : '';
 
     _cubit.updateFormValidity(
       orderText: _orderCtrl.text,
@@ -128,25 +131,16 @@ class _ApostillesPageState extends State<ApostillesPage> {
   void _applyInitialNextOrderOnce(ApostillesState state) {
     if (_initialNextOrderApplied) return;
 
-    // só aplica após carregar a lista
     if (state.status != ApostillesStatus.loaded) return;
-
-    // não sobrescreve se já existe seleção (edição)
     if (state.selected != null) return;
-
-    // não sobrescreve se o usuário já digitou algo
     if (_orderCtrl.text.trim().isNotEmpty) return;
-
-    // aplica o próximo order disponível
     if (state.nextAvailableOrder <= 0) return;
 
     _initialNextOrderApplied = true;
     _orderCtrl.text = state.nextAvailableOrder.toString();
 
-    // garante modo "novo"
     _cubit.createNewApostille();
 
-    // revalida
     _cubit.updateFormValidity(
       orderText: _orderCtrl.text,
       dateText: _dateCtrl.text,
@@ -155,21 +149,35 @@ class _ApostillesPageState extends State<ApostillesPage> {
     );
   }
 
+  /// ✅ SideListBox renomeia e pede para persistir aqui
+  Future<bool> _persistRenameAttachment({
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
+    try {
+      await _cubit.renameAttachment(
+        index: index,
+        newLabel: newItem.label,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ApostillesCubit>.value(
       value: _cubit,
       child: BlocBuilder<ApostillesCubit, ApostillesState>(
         builder: (context, state) {
-          // ✅ aplica o próximo order ao iniciar (uma única vez)
           _applyInitialNextOrderOnce(state);
 
-          // Deseleção -> limpa form (mantém order se já está no dropdown)
           if (state.selected == null && _lastFilledId != null) {
             _clearForm(keepOrder: true);
           }
 
-          // Preenche ao selecionar novo
           if (state.selected != null && state.selected!.id != _lastFilledId) {
             _fillForm(state.selected!);
             _cubit.reloadAttachments();
@@ -180,6 +188,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
           final labels = state.apostilles
               .map((e) => (e.apostilleOrder ?? '').toString())
               .toList();
+
           final values = state.apostilles
               .map((e) => (e.apostilleValue ?? 0.0).toDouble())
               .toList();
@@ -193,9 +202,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                       builder: (context, constraints) {
                         return SingleChildScrollView(
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight,
-                            ),
+                            constraints: BoxConstraints(minHeight: constraints.maxHeight),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -207,9 +214,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                 // FORMULÁRIO
                                 // ======================
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
                                   child: ApostilleFormSection(
                                     isEditable: state.isEditable,
                                     editingMode: state.editingMode,
@@ -226,9 +231,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       _cubit.createNewApostille();
                                       _clearForm();
 
-                                      // ✅ após limpar, sempre volta para o próximo order disponível
-                                      _orderCtrl.text =
-                                          state.nextAvailableOrder.toString();
+                                      _orderCtrl.text = state.nextAvailableOrder.toString();
 
                                       _cubit.updateFormValidity(
                                         orderText: _orderCtrl.text,
@@ -239,8 +242,6 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                     },
                                     orderNumberOptions: state.orderOptions,
                                     greyOrderItems: state.greyOrderItems,
-
-                                    // mudar ordem seleciona registro existente e sincroniza tudo
                                     onChangedOrderNumber: (v) {
                                       if (v == null) return;
 
@@ -248,11 +249,9 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
                                       final ord = int.tryParse(v.trim()) ?? 0;
 
-                                      // Seleciona por ordem (se existir)
                                       _cubit.selectApostilleByOrder(ord);
                                       _cubit.reloadAttachments();
 
-                                      // Se não existe, fica "novo" e limpa os demais campos
                                       if (_cubit.state.selected == null) {
                                         _clearForm(keepOrder: true);
                                       } else {
@@ -268,59 +267,30 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       );
                                     },
 
+                                    // ===== SideListBox =====
                                     sideItems: state.sideAttachments,
                                     selectedSideIndex: _selectedAttachmentIndex,
                                     onAddSideItem: state.canAddFile
-                                        ? () => _cubit.addAttachmentWithPicker(
-                                      context,
-                                    )
+                                        ? () => _cubit.addAttachmentWithPicker(context)
                                         : null,
                                     onTapSideItem: (i) {
-                                      setState(
-                                              () => _selectedAttachmentIndex = i);
+                                      setState(() => _selectedAttachmentIndex = i);
                                     },
                                     onDeleteSideItem: (i) async {
                                       await _cubit.deleteAttachment(i);
-                                      setState(() =>
-                                      _selectedAttachmentIndex = null);
+                                      if (!mounted) return;
+                                      setState(() => _selectedAttachmentIndex = null);
                                     },
-                                    onEditLabelSideItem: (i) async {
-                                      final att = state.sideAttachments[i];
-                                      final controller =
-                                      TextEditingController(text: att.label);
 
-                                      final newLabel = await showDialog<String>(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title:
-                                          const Text('Renomear anexo'),
-                                          content: TextField(
-                                            controller: controller,
-                                            autofocus: true,
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(ctx),
-                                              child:
-                                              const Text('Cancelar'),
-                                            ),
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(
-                                                ctx,
-                                                controller.text,
-                                              ),
-                                              child: const Text('Salvar'),
-                                            ),
-                                          ],
-                                        ),
-                                      );
+                                    // ✅ rename persist (o próprio FormSection vai decidir se habilita)
+                                    onRenamePersist: _persistRenameAttachment,
 
-                                      if (newLabel != null) {
-                                        await _cubit.renameAttachment(
-                                          index: i,
-                                          newLabel: newLabel,
-                                        );
+                                    // mantém seleção válida
+                                    onItemsChanged: (newItems) {
+                                      final len = newItems.length;
+                                      if (_selectedAttachmentIndex != null &&
+                                          (_selectedAttachmentIndex! >= len)) {
+                                        setState(() => _selectedAttachmentIndex = null);
                                       }
                                     },
                                   ),
@@ -329,9 +299,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                 // ======================
                                 // GRÁFICO
                                 // ======================
-                                const SectionTitle(
-                                  text: 'Gráfico dos apostilamentos',
-                                ),
+                                const SectionTitle(text: 'Gráfico dos apostilamentos'),
 
                                 if (!isLoading && state.apostilles.isEmpty)
                                   const Padding(
@@ -349,8 +317,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       if (index < 0) {
                                         _cubit.createNewApostille();
                                         _clearForm();
-                                        _orderCtrl.text = state.nextAvailableOrder
-                                            .toString();
+                                        _orderCtrl.text = state.nextAvailableOrder.toString();
                                         return;
                                       }
 
@@ -359,8 +326,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
 
                                       final sel = _cubit.state.selected;
                                       if (sel?.apostilleOrder != null) {
-                                        _orderCtrl.text =
-                                            sel!.apostilleOrder.toString();
+                                        _orderCtrl.text = sel!.apostilleOrder.toString();
                                       }
                                     },
                                   ),
@@ -369,14 +335,11 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                 // TABELA
                                 // ======================
                                 const SectionTitle(
-                                  text:
-                                  'Apostilamentos cadastrados no sistema',
+                                  text: 'Apostilamentos cadastrados no sistema',
                                 ),
 
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
                                   child: ApostilleTableSection(
                                     apostilles: state.apostilles,
                                     isLoading: isLoading,
@@ -386,8 +349,7 @@ class _ApostillesPageState extends State<ApostillesPage> {
                                       _cubit.reloadAttachments();
 
                                       if (a.apostilleOrder != null) {
-                                        _orderCtrl.text =
-                                            a.apostilleOrder.toString();
+                                        _orderCtrl.text = a.apostilleOrder.toString();
                                       }
                                     },
                                     onDelete: (a) async {

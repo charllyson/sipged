@@ -16,6 +16,9 @@ import 'package:siged/_widgets/timeline/timeline_class.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 import 'package:siged/_widgets/pdf/pdf_preview.dart';
 
+// ✅ novo: para callback do rename persist
+import 'package:siged/_widgets/list/files/attachment.dart';
+
 import 'validity_form_section.dart';
 import 'validity_table_section.dart';
 
@@ -65,12 +68,10 @@ class ValidityPage extends StatelessWidget {
             try {
               // Usamos um repo temporário apenas para pegar os bytes
               final tempRepo = ValidityRepository();
-              final (bytes, originalName) =
-              await tempRepo.pickFileBytes();
+              final (bytes, originalName) = await tempRepo.pickFileBytes();
 
               final suggestion = _suggestLabelFromName(v, originalName);
-              final label =
-              await askLabelDialog(context, suggestion);
+              final label = await askLabelDialog(context, suggestion);
               if (label == null) return;
 
               await cubit.addAttachmentFromBytes(
@@ -103,27 +104,6 @@ class ValidityPage extends StatelessWidget {
             await cubit.deleteAttachmentAt(index);
           }
 
-          Future<void> handleRenameAttachment(
-              int index,
-              ) async {
-            if (index < 0 || index >= state.attachments.length) return;
-            final att = state.attachments[index];
-
-            final currentLabel = att.label.isNotEmpty
-                ? att.label
-                : _suggestLabelFromName(
-              state.selectedValidity ??
-                  ValidityData(orderNumber: 0),
-              att.id,
-            );
-
-            final newLabel =
-            await askLabelDialog(context, currentLabel);
-            if (newLabel == null) return;
-
-            await cubit.renameAttachment(index, newLabel);
-          }
-
           return Stack(
             children: [
               Column(
@@ -136,7 +116,7 @@ class ValidityPage extends StatelessWidget {
                           // =========================
                           // TIMELINE (usa Cubit internamente)
                           // =========================
-                          SizedBox(height: 12),
+                          const SizedBox(height: 12),
                           const TimelineClass(),
                           const SectionTitle(
                             text: 'Cadastrar validades no sistema',
@@ -146,12 +126,12 @@ class ValidityPage extends StatelessWidget {
                             state: state,
                             isEditable: isEditable,
                             isSaving: state.isSaving,
-                            onChangedOrderNumber:
-                                (value) => cubit.selectOrderNumber(value),
-                            onChangedOrderType:
-                                (value) => cubit.updateOrderType(value),
-                            onChangedOrderDate:
-                                (value) => cubit.updateOrderDate(value),
+                            onChangedOrderNumber: (value) =>
+                                cubit.selectOrderNumber(value),
+                            onChangedOrderType: (value) =>
+                                cubit.updateOrderType(value),
+                            onChangedOrderDate: (value) =>
+                                cubit.updateOrderDate(value),
                             onClear: () => cubit.createNewValidity(),
                             onSaveOrUpdate: () async {
                               final ok = await confirmDialog(
@@ -164,21 +144,31 @@ class ValidityPage extends StatelessWidget {
                             },
                             onAddAttachment: handleAddAttachment,
                             onDeleteAttachment: handleDeleteAttachment,
-                            onRenameAttachment: (index) =>
-                                handleRenameAttachment(index),
                             onTapAttachment: handleOpenAttachment,
+
+                            // ✅ NOVO: rename embutido no SideListBox; aqui só persiste
+                            onRenamePersistAttachment: ({
+                              required int index,
+                              required Attachment oldItem,
+                              required Attachment newItem,
+                            }) async {
+                              try {
+                                await cubit.renameAttachment(index, newItem.label);
+                                return true;
+                              } catch (_) {
+                                return false;
+                              }
+                            },
                           ),
 
                           const SectionTitle(
-                            text:
-                            'Validades cadastradas no sistema',
+                            text: 'Validades cadastradas no sistema',
                           ),
 
                           ValidityTableSection(
                             validities: state.validities,
                             selectedItem: state.selectedValidity,
-                            onTapItem: (v) =>
-                                cubit.selectValidity(v),
+                            onTapItem: (v) => cubit.selectValidity(v),
                             onDelete: (id) async {
                               final ok = await confirmDialog(
                                 context,

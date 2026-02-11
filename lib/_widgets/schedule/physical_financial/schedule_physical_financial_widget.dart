@@ -315,7 +315,7 @@ class _SchedulePhysicalFinancialWidgetState
 
     final List<String?> termSubLabels = <String?>[
       '',
-      ...orderedAdds.map((a) => _titleCase(a.typeOfAdditive ?? '')).toList(),
+      ...orderedAdds.map((a) => _titleCase(a.typeOfAdditive ?? '')),
     ];
 
     return Scaffold(

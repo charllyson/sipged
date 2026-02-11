@@ -1,23 +1,23 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:siged/_widgets/notification/app_notification.dart';
 import 'package:siged/_widgets/notification/notification_center.dart';
-
-// Widgets genéricos
 import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 import 'package:siged/_widgets/windows/show_window_dialog.dart';
 
-// Dados do processo / contrato
 import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:siged/_widgets/list/files/attachment.dart';
 
-// Cubit novo de revisões
 import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_cubit.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_state.dart';
 import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
+import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
 
-// Seções da página
 import 'revision_measurement_form_section.dart';
 import 'revision_measurement_graph_section.dart';
 import 'revision_measurement_table_section.dart';
@@ -28,9 +28,15 @@ class RevisionMeasurement extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final contractId = contractData.id?.toString();
+    if (contractId == null || contractId.isEmpty) {
+      return const Center(child: Text('Contrato inválido para revisões.'));
+    }
+
     return BlocProvider(
-      create: (_) =>
-      RevisionMeasurementCubit()..loadByContract(contractData.id ?? ''),
+      create: (_) => RevisionMeasurementCubit(
+        repository: RevisionMeasurementRepository(),
+      )..loadByContract(contractId),
       child: _RevisionMeasurementView(contractData: contractData),
     );
   }
@@ -41,445 +47,431 @@ class _RevisionMeasurementView extends StatefulWidget {
   final ProcessData contractData;
 
   @override
-  State<_RevisionMeasurementView> createState() =>
-      _RevisionMeasurementViewState();
+  State<_RevisionMeasurementView> createState() => _RevisionMeasurementViewState();
 }
 
 class _RevisionMeasurementViewState extends State<_RevisionMeasurementView> {
-  final _formKey = GlobalKey<FormState>();
+  final orderCtrl = TextEditingController();
+  final processCtrl = TextEditingController();
+  final valueCtrl = TextEditingController();
+  final dateCtrl = TextEditingController();
 
-  final TextEditingController _orderCtrl = TextEditingController();
-  final TextEditingController _processCtrl = TextEditingController();
-  final TextEditingController _dateCtrl = TextEditingController();
-  final TextEditingController _valueCtrl = TextEditingController();
+  bool formValidated = false;
 
-  bool _isSaving = false;
-
-  /// `true` quando TODOS os campos obrigatórios estão preenchidos
-  bool _formValidated = false;
-
-  bool _isEditable = true;
-
-  RevisionMeasurementData? _selectedRevision;
-  String? _currentRevisionId;
-
-  int? _selectedIndexGraph;
-
-  // ---------------------------------------------------------------------------
-  // Ciclo de vida
-  // ---------------------------------------------------------------------------
+  // ✅ seleção do SideListBox fica local
+  int? _selectedSideIndex;
 
   @override
   void initState() {
     super.initState();
-    _orderCtrl.addListener(_validateForm);
-    _processCtrl.addListener(_validateForm);
-    _dateCtrl.addListener(_validateForm);
-    _valueCtrl.addListener(_validateForm);
+    orderCtrl.addListener(_validateForm);
+    processCtrl.addListener(_validateForm);
+    valueCtrl.addListener(_validateForm);
+    dateCtrl.addListener(_validateForm);
   }
 
   @override
   void dispose() {
-    _orderCtrl
+    orderCtrl
       ..removeListener(_validateForm)
       ..dispose();
-    _processCtrl
+    processCtrl
       ..removeListener(_validateForm)
       ..dispose();
-    _dateCtrl
+    valueCtrl
       ..removeListener(_validateForm)
       ..dispose();
-    _valueCtrl
+    dateCtrl
       ..removeListener(_validateForm)
       ..dispose();
     super.dispose();
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers de formulário
-  // ---------------------------------------------------------------------------
-
   void _validateForm() {
-    final ok = _orderCtrl.text.trim().isNotEmpty &&
-        _processCtrl.text.trim().isNotEmpty &&
-        _dateCtrl.text.trim().isNotEmpty &&
-        _valueCtrl.text.trim().isNotEmpty;
+    final ok = orderCtrl.text.trim().isNotEmpty &&
+        processCtrl.text.trim().isNotEmpty &&
+        valueCtrl.text.trim().isNotEmpty &&
+        dateCtrl.text.trim().isNotEmpty;
 
-    if (_formValidated != ok) {
-      setState(() => _formValidated = ok);
+    if (formValidated != ok) {
+      setState(() => formValidated = ok);
     }
   }
 
-  void _fillForm(RevisionMeasurementData data) {
-    _selectedRevision = data;
-    _currentRevisionId = data.id;
-
-    _orderCtrl.text = (data.order ?? '').toString();
-    _processCtrl.text = data.numberprocess ?? '';
-    _dateCtrl.text = data.date != null ? _formatDate(data.date!) : '';
-    _valueCtrl.text =
-    data.value != null ? data.value!.toStringAsFixed(2) : '';
-
-    // ao carregar de um registro já existente, forçamos recalcular
-    _validateForm();
+  int _computeNextOrder(RevisionMeasurementState state) {
+    if (state.revisions.isEmpty) return 1;
+    final maxOrder = state.revisions
+        .map((e) => e.order ?? 0)
+        .fold<int>(0, (prev, curr) => math.max(prev, curr));
+    return maxOrder + 1;
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year.toString()}';
-  }
+  void _fillFieldsFromSelected(RevisionMeasurementState state) {
+    final sel = state.selected;
 
-  DateTime? _parseDate(String text) {
-    if (text.trim().isEmpty) return null;
-    try {
-      final parts = text.split('/');
-      if (parts.length == 3) {
-        final d = int.parse(parts[0]);
-        final m = int.parse(parts[1]);
-        final y = int.parse(parts[2]);
-        return DateTime(y, m, d);
-      }
-      return DateTime.tryParse(text);
-    } catch (_) {
-      return null;
+    // ao trocar seleção, reseta seleção do side
+    _selectedSideIndex = null;
+
+    if (sel == null) {
+      orderCtrl.text = _computeNextOrder(state).toString();
+      processCtrl.clear();
+      valueCtrl.clear();
+      dateCtrl.clear();
+      return;
+    }
+
+    orderCtrl.text = (sel.order ?? '').toString();
+    processCtrl.text = sel.numberprocess ?? '';
+    valueCtrl.text = (sel.value ?? 0.0).toStringAsFixed(2);
+
+    if (sel.date != null) {
+      final d = sel.date!;
+      dateCtrl.text =
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } else {
+      dateCtrl.clear();
     }
   }
 
-  double? _parseCurrency(String text) {
-    if (text.trim().isEmpty) return null;
+  int? _parseInt(String text) => int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), ''));
+
+  double _parseCurrency(String text) {
     final cleaned = text
         .replaceAll('R\$', '')
         .replaceAll('.', '')
         .replaceAll(' ', '')
         .replaceAll(',', '.')
         .trim();
-    return double.tryParse(cleaned);
+    return double.tryParse(cleaned) ?? 0.0;
   }
 
-  int _nextAvailableOrder(List<RevisionMeasurementData> list) {
-    final existing = list.map((e) => e.order ?? 0).where((e) => e > 0).toSet();
-    if (existing.isEmpty) return 1;
-    for (int i = 1; i <= existing.length + 1; i++) {
-      if (!existing.contains(i)) return i;
-    }
-    final max = existing.reduce((a, b) => a > b ? a : b);
-    return max + 1;
+  DateTime? _parseDate(String text) {
+    final parts = text.split('/');
+    if (parts.length != 3) return null;
+    final d = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final y = int.tryParse(parts[2]);
+    if (d == null || m == null || y == null) return null;
+    return DateTime(y, m, d);
   }
 
-  void _clearForm() {
-    _selectedRevision = null;
-    _currentRevisionId = null;
-    _selectedIndexGraph = null;
+  // =============================================================================
+  // SideListBox helpers
+  // =============================================================================
 
-    _orderCtrl.clear();
-    _processCtrl.clear();
-    _dateCtrl.clear();
-    _valueCtrl.clear();
-
-    _formValidated = false;
-    setState(() {});
+  List<Attachment> _onlyAttachments(List<dynamic> items) {
+    return items.whereType<Attachment>().toList();
   }
 
-  // ---------------------------------------------------------------------------
-  // Ações
-  // ---------------------------------------------------------------------------
-
-  Future<void> _handleSave(BuildContext context) async {
-    final cubit = context.read<RevisionMeasurementCubit>();
-    final state = cubit.state;
-
-    // não tem validators nos campos, então o que manda é `_formValidated`
-    if (!_formValidated) return;
-
-    final date = _parseDate(_dateCtrl.text);
-    final value = _parseCurrency(_valueCtrl.text) ?? 0.0;
-    final parsedOrder = int.tryParse(_orderCtrl.text);
-    final order = (parsedOrder == null || parsedOrder <= 0)
-        ? _nextAvailableOrder(state.revisions)
-        : parsedOrder;
-
-    final base = _selectedRevision ?? RevisionMeasurementData();
-
-    final id = _currentRevisionId ??
-        base.id ??
-        DateTime.now().millisecondsSinceEpoch.toString();
-
-    final data = base.copyWith(
-      id: id,
-      order: order,
-      numberprocess:
-      _processCtrl.text.trim().isEmpty ? null : _processCtrl.text.trim(),
-      date: date,
-      value: value,
-      contractId: widget.contractData.id,
-    );
-
-    final ok = await confirmDialog(
-      context,
-      'Deseja salvar esta medição de revisão?',
-    );
-
-    if (!ok) return;
-
-    if (date == null) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          type: AppNotificationType.error,
-          title: const Text('Data da revisão inválida'),
-          subtitle: const Text('Use o formato dd/MM/aaaa.'),
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    final isNew = _currentRevisionId == null;
-
+  Future<bool> _persistRename({
+    required RevisionMeasurementCubit cubit,
+    required List<Attachment> current,
+    required int index,
+    required Attachment oldItem,
+    required Attachment newItem,
+  }) async {
     try {
-      await cubit.saveOrUpdate(
-        contractId: widget.contractData.id ?? '',
-        revisionMeasurementId: id,
-        data: data,
-      );
-      _currentRevisionId = id;
+      if (index < 0 || index >= current.length) return false;
+      final next = List<Attachment>.from(current);
+      next[index] = newItem;
 
-      NotificationCenter.instance.show(
-        AppNotification(
-          type: AppNotificationType.success,
-          title: Text(isNew ? 'Revisão criada' : 'Revisão atualizada'),
-          subtitle: Text(
-            'Revisão da medição ${data.order} salva com sucesso.',
-          ),
-        ),
-      );
-    } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          type: AppNotificationType.error,
-          title: const Text('Erro ao salvar revisão'),
-          subtitle: Text('$e'),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      await cubit.updateAttachments(next);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
-
-  Future<void> _handleDelete(BuildContext context, String id) async {
-    final cubit = context.read<RevisionMeasurementCubit>();
-
-    final ok = await confirmDialog(
-      context,
-      'Deseja realmente apagar esta medição de revisão?',
-    );
-    if (!ok) return;
-
-    setState(() => _isSaving = true);
-
-    try {
-      await cubit.delete(
-        contractId: widget.contractData.id ?? '',
-        revisionId: id,
-      );
-
-      if (_currentRevisionId == id) {
-        _clearForm();
-      }
-
-      NotificationCenter.instance.show(
-        AppNotification(
-          type: AppNotificationType.warning,
-          title: const Text('Revisão apagada'),
-          subtitle: const Text(
-            'A revisão de medição foi removida com sucesso.',
-          ),
-        ),
-      );
-    } catch (e) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          type: AppNotificationType.error,
-          title: const Text('Erro ao apagar revisão'),
-          subtitle: Text('$e'),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Build
-  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Column(
+    final cubit = context.read<RevisionMeasurementCubit>();
+    final contractId = widget.contractData.id?.toString();
+
+    return BlocConsumer<RevisionMeasurementCubit, RevisionMeasurementState>(
+      listener: (context, state) {
+        _fillFieldsFromSelected(state);
+      },
+      builder: (context, state) {
+        if (state.status == RevisionMeasurementStatus.loading && state.revisions.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (state.status == RevisionMeasurementStatus.error) {
+          return Center(
+            child: Text(
+              state.errorMessage ?? 'Erro ao carregar revisões',
+              style: const TextStyle(color: Colors.red),
+            ),
+          );
+        }
+
+        final revisions = state.revisions;
+
+        final labels = revisions.map((m) => (m.order ?? 0).toString()).toList();
+        final values = revisions.map((m) => m.value ?? 0.0).toList();
+
+        final total = cubit.sum(revisions);
+
+        final double totalApostilles = 0.0;
+        final double totalAdditives = 0.0;
+        final double valorTotalDisponivel = totalApostilles + totalAdditives;
+        final double saldo = valorTotalDisponivel - total;
+
+        final selectedIndex = state.selectedIndex;
+
+        final nextOrder = _computeNextOrder(state);
+        final usedOrders = revisions.map((m) => m.order).whereType<int>().toSet().toList()..sort();
+
+        final orderOptions = <String>[
+          ...usedOrders.map((o) => o.toString()),
+          if (!usedOrders.contains(nextOrder)) nextOrder.toString(),
+        ];
+        final Set<String> greyOrderItems = usedOrders.map((o) => o.toString()).toSet();
+
+        final attachments = state.attachments;
+
+        return Stack(
           children: [
-            Expanded(
-              child: BlocBuilder<RevisionMeasurementCubit,
-                  RevisionMeasurementState>(
-                builder: (context, state) {
-                  final revisions = state.revisions;
+            Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SectionTitle(text: 'Gráfico das revisões de medição'),
+                        RevisionMeasurementGraphSection(
+                          labels: labels,
+                          values: values,
+                          valorTotal: valorTotalDisponivel,
+                          totalMedicoes: total,
+                          selectedIndex: selectedIndex,
+                          onSelectIndex: (i) => cubit.selectByIndex(i),
+                        ),
+                        const DividerText(text: 'Cadastrar revisões de medição'),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          child: RevisionMeasurementFormSection(
+                            isEditable: true,
+                            formValidated: formValidated,
+                            selectedRevisionMeasurement: state.selected,
+                            currentRevisionMeasurementId: state.selected?.id,
+                            contractData: widget.contractData,
+                            orderRevisionController: orderCtrl,
+                            processNumberRevisionController: processCtrl,
+                            dateRevisionController: dateCtrl,
+                            valueRevisionController: valueCtrl,
+                            onSave: () async {
+                              final ok = await confirmDialog(
+                                context,
+                                'Deseja salvar esta medição de revisão?',
+                              );
+                              if (!ok) return;
 
-                  // se for novo e a ordem estiver vazia, sugere a próxima
-                  if (_currentRevisionId == null &&
-                      _orderCtrl.text.trim().isEmpty) {
-                    final next = _nextAvailableOrder(revisions);
-                    _orderCtrl.text = next.toString();
-                  }
+                              final parsedOrder = _parseInt(orderCtrl.text);
+                              final effectiveOrder =
+                              (parsedOrder == null || parsedOrder <= 0) ? _computeNextOrder(state) : parsedOrder;
 
-                  final labels = revisions
-                      .map((r) => (r.order ?? '-').toString())
-                      .toList();
-                  final values =
-                  revisions.map((r) => r.value ?? 0.0).toList();
+                              final value = _parseCurrency(valueCtrl.text);
+                              final date = _parseDate(dateCtrl.text);
 
-                  final totalMedicoes =
-                  context.read<RevisionMeasurementCubit>().sum(revisions);
+                              if (date == null) {
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.error,
+                                    title: const Text('Data da revisão inválida'),
+                                    subtitle: const Text('Use o formato dd/MM/aaaa.'),
+                                  ),
+                                );
+                                return;
+                              }
 
-                  // aqui você pode plugar valor inicial / aditivos se quiser
-                  final valorInicialContrato = 0.0;
-                  final valorAditivos = 0.0;
-                  final valorTotalDisponivel =
-                      valorInicialContrato + valorAditivos;
-                  final saldo = valorTotalDisponivel - totalMedicoes;
+                              if (contractId == null || contractId.isEmpty) return;
 
-                  if (state.status == RevisionMeasurementStatus.loading &&
-                      revisions.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+                              final isNew = state.selected?.id == null;
+                              final base = state.selected ?? RevisionMeasurementData();
 
-                  if (state.status == RevisionMeasurementStatus.failure) {
-                    return Center(
-                      child: Text(
-                        state.error ?? 'Erro ao carregar revisões',
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    );
-                  }
+                              final id = base.id ?? DateTime.now().millisecondsSinceEpoch.toString();
 
-                  // opções para dropdown de ordem
-                  final usedOrders = revisions
-                      .map((r) => r.order)
-                      .whereType<int>()
-                      .toSet()
-                      .toList()
-                    ..sort();
-                  final nextOrder = _nextAvailableOrder(revisions);
+                              final data = base.copyWith(
+                                id: id,
+                                contractId: contractId,
+                                order: effectiveOrder,
+                                numberprocess: processCtrl.text.trim(),
+                                value: value,
+                                date: date,
+                                attachments: (state.selected?.attachments),
+                                pdfUrl: state.selected?.pdfUrl,
+                              );
 
-                  final orderOptions = <String>[
-                    ...usedOrders.map((o) => o.toString()),
-                    if (!usedOrders.contains(nextOrder)) nextOrder.toString(),
-                  ];
-                  final greyOrderItems =
-                  usedOrders.map((o) => o.toString()).toSet();
+                              try {
+                                await cubit.saveOrUpdate(
+                                  contractId: contractId,
+                                  revisionMeasurementId: id,
+                                  data: data,
+                                );
 
-                  return SingleChildScrollView(
-                    child: Form(
-                      key: _formKey,
-                      // por enquanto não há validators; mantemos para futuro
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SectionTitle(
-                            text: 'Gráfico das revisões de medição',
-                          ),
-                          RevisionMeasurementGraphSection(
-                            labels: labels,
-                            values: values,
-                            valorTotal: valorTotalDisponivel,
-                            totalMedicoes: totalMedicoes,
-                            selectedIndex: _selectedIndexGraph,
-                            onSelectIndex: (index) {
-                              setState(() {
-                                _selectedIndexGraph = index;
-                              });
-                              if (index >= 0 &&
-                                  index < revisions.length) {
-                                _fillForm(revisions[index]);
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.success,
+                                    title: Text(isNew ? 'Revisão criada' : 'Revisão atualizada'),
+                                    subtitle: Text('Revisão da medição ${data.order} salva com sucesso.'),
+                                  ),
+                                );
+                              } catch (e) {
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.error,
+                                    title: const Text('Erro ao salvar revisão'),
+                                    subtitle: Text('$e'),
+                                  ),
+                                );
+                              }
+                            },
+                            onClear: () {
+                              cubit.clearSelection();
+                              setState(() => _selectedSideIndex = null);
+                            },
+
+                            // ==========================
+                            // ✅ SideListBox (multi-anexos)
+                            // ==========================
+                            sideItems: attachments,
+                            selectedSideIndex: _selectedSideIndex,
+                            onAddSideItem: (state.selected != null)
+                                ? () async {
+                              try {
+                                await cubit.addAttachmentWithPicker(
+                                  contract: widget.contractData,
+                                );
+                              } catch (e) {
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.error,
+                                    title: const Text('Erro ao anexar arquivo'),
+                                    subtitle: Text('$e'),
+                                  ),
+                                );
+                              }
+                            }
+                                : null,
+                            onTapSideItem: (i) {
+                              setState(() => _selectedSideIndex = i);
+                              // Se você já tem um padrão para abrir URL/arquivo (web/desktop/mobile),
+                              // plugue aqui. Ex.: abrir o attachments[i].url em um viewer do seu app.
+                            },
+                            onDeleteSideItem: (i) async {
+                              try {
+                                await cubit.deleteAttachmentAt(i);
+                                setState(() => _selectedSideIndex = null);
+                              } catch (e) {
+                                NotificationCenter.instance.show(
+                                  AppNotification(
+                                    type: AppNotificationType.error,
+                                    title: const Text('Erro ao remover anexo'),
+                                    subtitle: Text('$e'),
+                                  ),
+                                );
+                              }
+                            },
+
+                            onRenamePersist: ({
+                              required int index,
+                              required Attachment oldItem,
+                              required Attachment newItem,
+                            }) async {
+                              return _persistRename(
+                                cubit: cubit,
+                                current: List<Attachment>.from(attachments),
+                                index: index,
+                                oldItem: oldItem,
+                                newItem: newItem,
+                              );
+                            },
+
+                            onSideItemsChanged: (newItems) async {
+                              final next = _onlyAttachments(newItems);
+                              await cubit.updateAttachments(next);
+                            },
+
+                            // dropdown
+                            orderOptions: orderOptions,
+                            greyOrderItems: greyOrderItems,
+                            onChangedOrder: (value) {
+                              final picked = int.tryParse(value ?? '');
+                              if (picked == null || picked <= 0) return;
+
+                              final idx = revisions.indexWhere((m) => (m.order ?? -1) == picked);
+
+                              if (idx >= 0) {
+                                cubit.selectByIndex(idx);
+                              } else {
+                                cubit.clearSelection();
+                                orderCtrl.text = picked.toString();
                               }
                             },
                           ),
-                          const DividerText(
-                            text: 'Cadastrar revisões de medição',
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12.0),
-                            child: RevisionMeasurementFormSection(
-                              isEditable: _isEditable,
-                              formValidated: _formValidated,
-                              selectedRevisionMeasurement: _selectedRevision,
-                              currentRevisionMeasurementId:
-                              _currentRevisionId,
-                              contractData: widget.contractData,
-                              orderRevisionController: _orderCtrl,
-                              processNumberRevisionController: _processCtrl,
-                              dateRevisionController: _dateCtrl,
-                              valueRevisionController: _valueCtrl,
-                              onSave: () => _handleSave(context),
-                              onClear: _clearForm,
-                              sideItems: const [],
-                              selectedSideIndex: null,
-                              onAddSideItem: null,
-                              onTapSideItem: null,
-                              onDeleteSideItem: null,
-                              onEditLabelSideItem: null,
-                              onUploadSaveToFirestore: null,
-                              orderOptions: orderOptions,
-                              greyOrderItems: greyOrderItems,
-                              onChangedOrder: (value) {
-                                _orderCtrl.text = value?.toString() ?? '';
-                              },
-                            ),
-                          ),
-                          const SectionTitle(
-                            text: 'Revisões cadastradas no sistema',
-                          ),
-                          RevisionMeasurementTableSection(
-                            onTapItem: (rev) {
-                              _fillForm(rev);
-                            },
-                            onDelete: (id) => _handleDelete(context, id),
-                            measurementsData: revisions,
-                            valorInicial: valorInicialContrato,
-                            valorAditivos: valorAditivos,
-                            valorTotal: valorTotalDisponivel,
-                            saldo: saldo,
-                            contractData: widget.contractData,
-                            selectedMeasurement: _selectedRevision,
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                      ),
+                        ),
+                        const SectionTitle(text: 'Revisões cadastradas no sistema'),
+                        RevisionMeasurementTableSection(
+                          onTapItem: (RevisionMeasurementData data) {
+                            final idx = revisions.indexWhere((e) => e.id == data.id);
+                            if (idx >= 0) cubit.selectByIndex(idx);
+                          },
+                          onDelete: (id) async {
+                            final ok = await confirmDialog(
+                              context,
+                              'Deseja realmente apagar esta medição de revisão?',
+                            );
+                            if (!ok) return;
+                            if (contractId == null || contractId.isEmpty) return;
+
+                            try {
+                              await cubit.delete(contractId: contractId, revisionId: id);
+
+                              NotificationCenter.instance.show(
+                                AppNotification(
+                                  type: AppNotificationType.warning,
+                                  title: const Text('Revisão apagada'),
+                                  subtitle: const Text('A revisão foi removida com sucesso.'),
+                                ),
+                              );
+                            } catch (e) {
+                              NotificationCenter.instance.show(
+                                AppNotification(
+                                  type: AppNotificationType.error,
+                                  title: const Text('Erro ao apagar revisão'),
+                                  subtitle: Text('$e'),
+                                ),
+                              );
+                            }
+                          },
+                          measurementsData: revisions,
+                          valorInicial: 0.0,
+                          valorAditivos: 0.0,
+                          valorTotal: valorTotalDisponivel,
+                          saldo: saldo,
+                          contractData: widget.contractData,
+                          selectedMeasurement: state.selected,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+                const FootBar(),
+              ],
             ),
-            const FootBar(),
-          ],
-        ),
-        if (_isSaving)
-          Stack(
-            children: [
-              ModalBarrier(
-                dismissible: false,
-                color: Colors.black.withOpacity(0.4),
+            if (state.isSaving)
+              Stack(
+                children: [
+                  ModalBarrier(dismissible: false, color: Colors.black.withOpacity(0.4)),
+                  const Center(child: CircularProgressIndicator()),
+                ],
               ),
-              const Center(child: CircularProgressIndicator()),
-            ],
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

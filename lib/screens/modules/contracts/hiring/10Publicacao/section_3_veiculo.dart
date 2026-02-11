@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_widgets/input/custom_date_field.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart'
@@ -31,7 +31,7 @@ class SectionVeiculoPublicacao extends StatefulWidget {
 }
 
 class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _veiculoCtrl;
   late final TextEditingController _edicaoNumeroCtrl;
   late final TextEditingController _dataEnvioCtrl;
@@ -178,7 +178,7 @@ class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     onChanged: (_) => _emitChange(),
                   ),
@@ -192,7 +192,7 @@ class _SectionVeiculoPublicacaoState extends State<SectionVeiculoPublicacao>
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     onChanged: (_) => _emitChange(),
                   ),

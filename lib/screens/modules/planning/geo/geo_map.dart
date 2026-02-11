@@ -9,7 +9,7 @@ import 'package:latlong2/latlong.dart';
 
 // SIGMINE
 import 'package:siged/_blocs/modules/planning/geo/sig_miner/sigmine_data.dart';
-import 'package:siged/_utils/geometry/geometry_utils.dart';
+import 'package:siged/_utils/geometry/sipged_geo_math.dart';
 
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
 import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
@@ -228,7 +228,7 @@ class _GeoMapState extends State<GeoMap> {
   void _recomputeTooltipScreenPos(MapController? mapController) {
     if (_tooltipAnchor == null || mapController == null) return;
     final cam = mapController.camera;
-    final pos = MapMath.latLngToScreen(cam, _tooltipAnchor!);
+    final pos = SipGedGeoMath.latLngToScreen(cam, _tooltipAnchor!);
     setState(() => _tooltipScreenPos = pos);
   }
 
@@ -438,8 +438,8 @@ class _GeoMapState extends State<GeoMap> {
 
     if (hasStats) {
       for (final v in widget.ibgeStatsValues.values) {
-        minVal = (minVal == null) ? v : math.min(minVal!, v);
-        maxVal = (maxVal == null) ? v : math.max(maxVal!, v);
+        minVal = (minVal == null) ? v : math.min(minVal, v);
+        maxVal = (maxVal == null) ? v : math.max(maxVal, v);
       }
     }
 
@@ -462,9 +462,9 @@ class _GeoMapState extends State<GeoMap> {
             widget.ibgeStatsValues.containsKey(idIbge) &&
             minVal != null &&
             maxVal != null &&
-            maxVal! > minVal!) {
+            maxVal > minVal) {
           final v = widget.ibgeStatsValues[idIbge]!;
-          final t = ((v - minVal!) / (maxVal! - minVal!)).clamp(0.0, 1.0);
+          final t = ((v - minVal) / (maxVal - minVal)).clamp(0.0, 1.0);
 
           base = Color.lerp(
             Colors.yellow.shade200,

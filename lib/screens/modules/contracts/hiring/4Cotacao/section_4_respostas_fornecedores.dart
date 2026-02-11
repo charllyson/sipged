@@ -134,28 +134,28 @@ class _SectionRespostasFornecedoresState
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_f1NomeCtrl, d.f1Nome);
-      _sync(_f1CnpjCtrl, d.f1Cnpj);
-      _sync(_f1ValorCtrl, d.f1Valor);
-      _sync(_f1DataCtrl, d.f1DataRecebimento);
-      _sync(_f1LinkCtrl, d.f1LinkProposta);
+      sync(_f1NomeCtrl, d.f1Nome);
+      sync(_f1CnpjCtrl, d.f1Cnpj);
+      sync(_f1ValorCtrl, d.f1Valor);
+      sync(_f1DataCtrl, d.f1DataRecebimento);
+      sync(_f1LinkCtrl, d.f1LinkProposta);
 
-      _sync(_f2NomeCtrl, d.f2Nome);
-      _sync(_f2CnpjCtrl, d.f2Cnpj);
-      _sync(_f2ValorCtrl, d.f2Valor);
-      _sync(_f2DataCtrl, d.f2DataRecebimento);
-      _sync(_f2LinkCtrl, d.f2LinkProposta);
+      sync(_f2NomeCtrl, d.f2Nome);
+      sync(_f2CnpjCtrl, d.f2Cnpj);
+      sync(_f2ValorCtrl, d.f2Valor);
+      sync(_f2DataCtrl, d.f2DataRecebimento);
+      sync(_f2LinkCtrl, d.f2LinkProposta);
 
-      _sync(_f3NomeCtrl, d.f3Nome);
-      _sync(_f3CnpjCtrl, d.f3Cnpj);
-      _sync(_f3ValorCtrl, d.f3Valor);
-      _sync(_f3DataCtrl, d.f3DataRecebimento);
-      _sync(_f3LinkCtrl, d.f3LinkProposta);
+      sync(_f3NomeCtrl, d.f3Nome);
+      sync(_f3CnpjCtrl, d.f3Cnpj);
+      sync(_f3ValorCtrl, d.f3Valor);
+      sync(_f3DataCtrl, d.f3DataRecebimento);
+      sync(_f3LinkCtrl, d.f3LinkProposta);
     }
   }
 
@@ -235,7 +235,7 @@ class _SectionRespostasFornecedoresState
     }.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    SetupData? _findBodyByLabel(String label) {
+    SetupData? findBodyByLabel(String label) {
       final lower = label.trim().toLowerCase();
       try {
         return bodies.firstWhere(
@@ -271,7 +271,7 @@ class _SectionRespostasFornecedoresState
                 final val = label ?? '';
                 nomes[i].text = val;
 
-                final body = _findBodyByLabel(val);
+                final body = findBodyByLabel(val);
                 if (body?.cnpjCompanyContracted != null &&
                     body!.cnpjCompanyContracted!.trim().isNotEmpty) {
                   cnpjs[i].text = body.cnpjCompanyContracted!;

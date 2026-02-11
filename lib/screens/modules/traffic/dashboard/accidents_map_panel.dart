@@ -25,7 +25,7 @@ class AccidentsMapPanel extends StatelessWidget {
 
   Future<List<AccidentsData>> _fetchCityAccidentsFromState(
       String cityName) async {
-    String _normalizeCity(String? nome) {
+    String normalizeCity(String? nome) {
       if (nome == null) return '';
       final noAccent = removeDiacritics(nome);
       final noMultipleSpace =
@@ -33,9 +33,9 @@ class AccidentsMapPanel extends StatelessWidget {
       return noMultipleSpace.trim().toUpperCase();
     }
 
-    final key = _normalizeCity(cityName);
+    final key = normalizeCity(cityName);
     return state.view
-        .where((a) => _normalizeCity(a.city) == key)
+        .where((a) => normalizeCity(a.city) == key)
         .toList();
   }
 

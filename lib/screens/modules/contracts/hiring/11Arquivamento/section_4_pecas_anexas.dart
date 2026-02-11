@@ -42,13 +42,13 @@ class _SectionPecasAnexasTAState extends State<SectionPecasAnexasTA> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_pecasCtrl, d.taPecasAnexas);
-      _sync(_linksCtrl, d.taLinks);
+      sync(_pecasCtrl, d.taPecasAnexas);
+      sync(_linksCtrl, d.taLinks);
     }
   }
 

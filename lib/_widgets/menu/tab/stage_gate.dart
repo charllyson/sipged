@@ -1,7 +1,7 @@
 // lib/_widgets/gates/stage_gate.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_utils/colors/colors_system_change.dart';
+import 'package:siged/_utils/theme/sipged_theme.dart';
 import 'package:siged/_widgets/background/background_cleaner.dart';
 import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
@@ -37,7 +37,7 @@ class StageGate extends StatelessWidget {
         margin: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: ColorsSystemChange.primaryColor, width: 2),
+          border: Border.all(color: SipGedTheme.primaryColor, width: 2),
           color: Colors.white,
           boxShadow: [
             BoxShadow(
@@ -52,14 +52,14 @@ class StageGate extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.lock_outline, size: 44, color: ColorsSystemChange.primaryColor),
+              Icon(Icons.lock_outline, size: 44, color: SipGedTheme.primaryColor),
               const SizedBox(height: 12),
               Text(
                 'Etapa bloqueada',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: ColorsSystemChange.primaryColor,
+                  color: SipGedTheme.primaryColor,
                 ),
               ),
               const SizedBox(height: 8),
@@ -70,7 +70,7 @@ class StageGate extends StatelessWidget {
               const SizedBox(height: 16),
               FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: ColorsSystemChange.primaryColor,
+                  backgroundColor: SipGedTheme.primaryColor,
                   foregroundColor: Colors.white,
                 ),
                 onPressed: () {

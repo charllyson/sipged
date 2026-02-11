@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 import 'package:siged/_widgets/layout/responsive_utils.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
 import 'package:siged/_widgets/texts/section_text_name.dart';
 
 import 'package:siged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_data.dart';
@@ -52,15 +52,15 @@ class _SectionEmpenhoState extends State<SectionEmpenho> {
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_empenhoModalidadeCtrl, d.empenhoModalidade);
-      _sync(_empenhoNumeroCtrl, d.empenhoNumero);
-      _sync(_empenhoDataCtrl, d.empenhoData);
-      _sync(_empenhoValorCtrl, d.empenhoValor);
+      sync(_empenhoModalidadeCtrl, d.empenhoModalidade);
+      sync(_empenhoNumeroCtrl, d.empenhoNumero);
+      sync(_empenhoDataCtrl, d.empenhoData);
+      sync(_empenhoValorCtrl, d.empenhoValor);
     }
   }
 
@@ -131,7 +131,7 @@ class _SectionEmpenhoState extends State<SectionEmpenho> {
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     keyboardType: TextInputType.number,
                     onChanged: (_) => _emitChange(),

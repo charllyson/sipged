@@ -28,7 +28,7 @@ import 'package:siged/screens/modules/contracts/hiring/10Publicacao/section_4_st
 import 'package:siged/screens/modules/contracts/hiring/10Publicacao/section_5_responsavel.dart';
 
 // ===== Utils =====
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 
 // ===== Overlay leve =====
 import 'package:siged/_widgets/overlays/screen_lock.dart';
@@ -58,7 +58,7 @@ class PublicacaoExtratoPage extends StatefulWidget {
 }
 
 class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
-    with FormValidationMixin, AutomaticKeepAliveClientMixin {
+    with SipGedValidation, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 

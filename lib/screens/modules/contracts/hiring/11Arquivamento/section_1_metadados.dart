@@ -5,10 +5,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 // ===== Users
 import 'package:siged/_blocs/system/user/user_bloc.dart';
 import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:siged/_utils/mask/sipged_masks.dart';
 
 // ===== Inputs / Layout
-import 'package:siged/_utils/validates/form_validation_mixin.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
+import 'package:siged/_utils/validates/sipged_validation.dart';
 import 'package:siged/_widgets/input/custom_auto_complete.dart';
 import 'package:siged/_widgets/input/custom_text_field.dart';
 import 'package:siged/_widgets/layout/responsive_utils.dart';
@@ -34,7 +34,7 @@ class SectionMetadadosTA extends StatefulWidget {
 }
 
 class _SectionMetadadosTAState extends State<SectionMetadadosTA>
-    with FormValidationMixin {
+    with SipGedValidation {
   late final TextEditingController _numeroCtrl;
   late final TextEditingController _dataCtrl;
   late final TextEditingController _processoCtrl;
@@ -62,14 +62,14 @@ class _SectionMetadadosTAState extends State<SectionMetadadosTA>
     if (oldWidget.data != widget.data) {
       final d = widget.data;
 
-      void _sync(TextEditingController c, String? v) {
+      void sync(TextEditingController c, String? v) {
         final text = v ?? '';
         if (c.text != text) c.text = text;
       }
 
-      _sync(_numeroCtrl, d.taNumero);
-      _sync(_dataCtrl, d.taData);
-      _sync(_processoCtrl, d.taProcesso);
+      sync(_numeroCtrl, d.taNumero);
+      sync(_dataCtrl, d.taData);
+      sync(_processoCtrl, d.taProcesso);
 
       _responsavelUserId = d.taResponsavelUserId;
     }
@@ -131,7 +131,7 @@ class _SectionMetadadosTAState extends State<SectionMetadadosTA>
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(8),
-                      TextInputMask(mask: '99/99/9999'),
+                      SipGedMasks.dateDDMMYYYY,
                     ],
                     keyboardType: TextInputType.number,
                     onChanged: (_) => _emitChange(),

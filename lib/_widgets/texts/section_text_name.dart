@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/colors/colors_system_change.dart';
+import 'package:siged/_utils/theme/sipged_theme.dart';
 
 class SectionTitle extends StatelessWidget {
   final String? text;
@@ -14,7 +14,7 @@ class SectionTitle extends StatelessWidget {
         style: TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 14,
-          color: ColorsSystemChange.primaryColor,
+          color: SipGedTheme.primaryColor,
         ),
       ),
     );
