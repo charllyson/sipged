@@ -6,6 +6,8 @@ import 'package:sipged/_utils/formats/sipged_format_money.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/charts/cost_ruler/ruler_painter.dart';
 
+typedef MarkerTap = void Function(int index);
+
 class CostRuler extends StatefulWidget {
   /// Valor “numerador” (ex: custo total, energia total, volume total).
   final double value;
@@ -41,17 +43,21 @@ class CostRuler extends StatefulWidget {
   final double? width;
 
   /// Formatter do valor final (ticks, tooltip e label do marcador).
-  /// Por padrão usa moeda BR `priceToString`.
   final String Function(double v) formatter;
 
   /// Formatter compacto para os ticks do eixo.
-  /// Se null, usa abreviação (k, M, B).
   final String Function(double v)? tickFormatter;
 
   /// Config de cores (opcional).
   final Color accentColor;
   final Color trackColorStart;
   final Color trackColorEnd;
+
+  /// ✅ Seleção externa (0=Atual, 1=Média, 2=Teto)
+  final int? selectedIndex;
+
+  /// ✅ Clique em marcador (0=Atual, 1=Média, 2=Teto)
+  final MarkerTap? onMarkerTap;
 
   const CostRuler({
     super.key,
@@ -71,6 +77,8 @@ class CostRuler extends StatefulWidget {
     this.accentColor = const Color(0xFF4C6BFF),
     this.trackColorStart = const Color(0xFFEFF2FF),
     this.trackColorEnd = const Color(0xFFDDE5FF),
+    this.selectedIndex,
+    this.onMarkerTap,
   });
 
   static String _defaultMoneyFormatter(double v) => SipGedFormatMoney.doubleToText(v);
@@ -84,15 +92,11 @@ class _CostRulerState extends State<CostRuler> {
   bool _hoverMedia = false;
   bool _hoverTeto = false;
 
-  bool _activeValue = false;
-  bool _activeMedia = false;
-  bool _activeTeto = false;
-
-  Future<void> _ping(VoidCallback toggleFlag) async {
-    toggleFlag();
+  Future<void> _ping(VoidCallback fn) async {
+    fn();
     setState(() {});
-    await Future.delayed(const Duration(milliseconds: 180));
-    toggleFlag();
+    await Future.delayed(const Duration(milliseconds: 160));
+    fn();
     setState(() {});
   }
 
@@ -114,20 +118,22 @@ class _CostRulerState extends State<CostRuler> {
 
     if (minV >= maxV) maxV = minV + 1;
 
-    final (double? media, double? teto) =
-    RulerPainter.pickThresholds(widget.benchmarks);
+    final (double? media, double? teto) = RulerPainter.pickThresholds(widget.benchmarks);
 
     final unitTxt = (widget.unitLabel ?? '').trim();
     final unitSuffix = unitTxt.isEmpty ? '' : ' / $unitTxt';
+
+    // seleção externa
+    final bool selValue = widget.selectedIndex == 0;
+    final bool selMedia = widget.selectedIndex == 1;
+    final bool selTeto = widget.selectedIndex == 2;
 
     return LayoutBuilder(
       builder: (context, c) {
         final double effectiveWidth = widget.width ?? math.max(0, c.maxWidth);
 
         return SizedBox(
-          width: (effectiveWidth.isFinite && effectiveWidth > 0)
-              ? effectiveWidth
-              : null,
+          width: (effectiveWidth.isFinite && effectiveWidth > 0) ? effectiveWidth : null,
           child: BasicCard(
             isDark: isDark,
             padding: const EdgeInsets.only(left: 12, right: 12, top: 10, bottom: 12),
@@ -193,9 +199,13 @@ class _CostRulerState extends State<CostRuler> {
                           final parts = <String>[
                             'Valor: $tooltipValue',
                             if (tooltipMedia != null) tooltipMedia,
-                            ?tooltipTeto,
+                            if (tooltipTeto != null) tooltipTeto,
                           ];
                           return parts.join('\n');
+                        }
+
+                        void emitTap(int idx) {
+                          widget.onMarkerTap?.call(idx);
                         }
 
                         return Stack(
@@ -211,9 +221,12 @@ class _CostRulerState extends State<CostRuler> {
                                 formatter: widget.formatter,
                                 tickFormatter: widget.tickFormatter,
                                 textStyle: Theme.of(context).textTheme.bodySmall,
-                                highlightValue: _hoverValue || _activeValue,
-                                highlightMedia: _hoverMedia || _activeMedia,
-                                highlightTeto: _hoverTeto || _activeTeto,
+
+                                // ✅ agora destaca por hover OU seleção externa
+                                highlightValue: _hoverValue || selValue,
+                                highlightMedia: _hoverMedia || selMedia,
+                                highlightTeto: _hoverTeto || selTeto,
+
                                 accentColor: widget.accentColor,
                                 trackColorStart: widget.trackColorStart,
                                 trackColorEnd: widget.trackColorEnd,
@@ -221,7 +234,7 @@ class _CostRulerState extends State<CostRuler> {
                               size: Size(inner.maxWidth, widget.height),
                             ),
 
-                            // VALUE (principal)
+                            // ATUAL (principal)
                             Positioned(
                               left: valueX - hitW / 2,
                               top: 0,
@@ -231,7 +244,7 @@ class _CostRulerState extends State<CostRuler> {
                                 onEnter: (_) => setState(() => _hoverValue = true),
                                 onExit: (_) => setState(() => _hoverValue = false),
                                 child: GestureDetector(
-                                  onTap: () => _ping(() => _activeValue = !_activeValue),
+                                  onTap: () => _ping(() => emitTap(0)),
                                   child: Tooltip(
                                     message: tooltipContractFull(),
                                     waitDuration: const Duration(milliseconds: 200),
@@ -252,7 +265,7 @@ class _CostRulerState extends State<CostRuler> {
                                   onEnter: (_) => setState(() => _hoverMedia = true),
                                   onExit: (_) => setState(() => _hoverMedia = false),
                                   child: GestureDetector(
-                                    onTap: () => _ping(() => _activeMedia = !_activeMedia),
+                                    onTap: () => _ping(() => emitTap(1)),
                                     child: Tooltip(
                                       message: tooltipMedia!,
                                       waitDuration: const Duration(milliseconds: 200),
@@ -273,7 +286,7 @@ class _CostRulerState extends State<CostRuler> {
                                   onEnter: (_) => setState(() => _hoverTeto = true),
                                   onExit: (_) => setState(() => _hoverTeto = false),
                                   child: GestureDetector(
-                                    onTap: () => _ping(() => _activeTeto = !_activeTeto),
+                                    onTap: () => _ping(() => emitTap(2)),
                                     child: Tooltip(
                                       message: tooltipTeto!,
                                       waitDuration: const Duration(milliseconds: 200),

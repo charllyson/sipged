@@ -52,9 +52,6 @@ class ActionCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          const Icon(Icons.arrow_forward_ios_rounded,
-              size: 16, color: Colors.black38),
         ],
       ),
     );

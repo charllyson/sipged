@@ -11,21 +11,22 @@ class SpecificDashboardState {
   // =========================
   // DFD (dados necessários para métricas)
   // =========================
-  /// Extensão do contrato (km) vinda do DFD
   final double dfdExtensaoKm;
-
-  /// ✅ Natureza da intervenção (DFD.localizacao.naturezaIntervencao)
   final String? dfdNaturezaIntervencao;
+
+  // =========================
+  // BENCHMARKS (CUSTO/KM)
+  // =========================
+  /// Média ponderada por km (mesma natureza)
+  final double benchmarkMediaCostPerKm;
+
+  /// ✅ NOVO: Teto dinâmico = MAIOR custo/km entre contratos da mesma natureza
+  final double benchmarkTetoCostPerKm;
 
   // =========================
   // RESUMOS (SEPARADOS)
   // =========================
-  /// Contrato + Aditivos (4 valores):
-  /// [valorContratado, valorAditivos, totalMedicoes, saldoContrato]
   final List<double> contractValues;
-
-  /// Apostilamentos (3 valores):
-  /// [totalApostilamentos, totalReajustesRevisoes, saldoApostilamentos]
   final List<double> apostillesValues;
 
   // =========================
@@ -34,17 +35,12 @@ class SpecificDashboardState {
   final int? selectedContractSliceIndex;
   final int? selectedApostillesSliceIndex;
 
-  /// Acompanhamento físico: linha selecionada (0=GERAL, 1..N=serviços)
   final int? selectedScheduleRowIndex;
-
-  /// Acompanhamento físico: slice selecionado (0..2)
   final int? selectedScheduleSliceIndex;
 
   // =========================
-  // LEGADO (para não quebrar outros widgets antigos que ainda usem)
+  // LEGADO
   // =========================
-  /// 7 valores:
-  /// [valorContratado, aditivos, medicoes, saldoContrato, apostilamentos, reajustes+revisoes, saldoApostilamentos]
   final List<double> resumeValues;
   final int? selectedResumeRowIndex;
   final int? selectedResumeSliceIndex;
@@ -53,14 +49,19 @@ class SpecificDashboardState {
     this.resumeLoading = false,
     this.resumeError,
     this.dfdExtensaoKm = 0.0,
-    this.dfdNaturezaIntervencao, // ✅
+    this.dfdNaturezaIntervencao,
+
+    this.benchmarkMediaCostPerKm = 0.0,
+    this.benchmarkTetoCostPerKm = 0.0, // ✅ novo
+
     this.contractValues = const <double>[0, 0, 0, 0],
     this.apostillesValues = const <double>[0, 0, 0],
+
     this.selectedContractSliceIndex,
     this.selectedApostillesSliceIndex,
     this.selectedScheduleRowIndex,
     this.selectedScheduleSliceIndex,
-    // legado
+
     this.resumeValues = const <double>[0, 0, 0, 0, 0, 0, 0],
     this.selectedResumeRowIndex,
     this.selectedResumeSliceIndex,
@@ -73,6 +74,9 @@ class SpecificDashboardState {
     double? dfdExtensaoKm,
     String? dfdNaturezaIntervencao,
 
+    double? benchmarkMediaCostPerKm,
+    double? benchmarkTetoCostPerKm, // ✅ novo
+
     List<double>? contractValues,
     List<double>? apostillesValues,
 
@@ -82,7 +86,6 @@ class SpecificDashboardState {
     int? selectedScheduleRowIndex,
     int? selectedScheduleSliceIndex,
 
-    // legado
     List<double>? resumeValues,
     int? selectedResumeRowIndex,
     int? selectedResumeSliceIndex,
@@ -99,7 +102,12 @@ class SpecificDashboardState {
 
       dfdExtensaoKm: dfdExtensaoKm ?? this.dfdExtensaoKm,
       dfdNaturezaIntervencao:
-      dfdNaturezaIntervencao ?? this.dfdNaturezaIntervencao, // ✅
+      dfdNaturezaIntervencao ?? this.dfdNaturezaIntervencao,
+
+      benchmarkMediaCostPerKm:
+      benchmarkMediaCostPerKm ?? this.benchmarkMediaCostPerKm,
+      benchmarkTetoCostPerKm:
+      benchmarkTetoCostPerKm ?? this.benchmarkTetoCostPerKm, // ✅
 
       contractValues: contractValues ?? this.contractValues,
       apostillesValues: apostillesValues ?? this.apostillesValues,
@@ -120,7 +128,6 @@ class SpecificDashboardState {
           ? null
           : (selectedScheduleSliceIndex ?? this.selectedScheduleSliceIndex),
 
-      // legado
       resumeValues: resumeValues ?? this.resumeValues,
       selectedResumeRowIndex: clearLegacyResumeSelection
           ? null

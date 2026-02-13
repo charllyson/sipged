@@ -108,8 +108,9 @@ class RulerPainter extends CustomPainter {
       );
     }
 
-    // Benchmarks
-    final bmStyle =
+    // ===== Benchmarks: MESMO SÍMBOLO (triângulo + bolinha)
+    // Média/Teto: triângulo embaixo apontando p/ bolinha acima
+    final bmTextStyle =
     (textStyle ?? const TextStyle()).copyWith(color: accentColor.withValues(alpha: 0.90));
 
     benchmarks?.forEach((label, v) {
@@ -119,62 +120,58 @@ class RulerPainter extends CustomPainter {
 
       final active = (isMedia && highlightMedia) || (isTeto && highlightTeto);
 
+      // mantém semântica de cor
       final baseColor = isTeto ? Colors.red : accentColor;
 
-      if (active) {
-        final outline = Paint()
-          ..color = Colors.black.withValues(alpha: 0.25)
-          ..strokeWidth = 4.5
-          ..style = PaintingStyle.stroke;
-        canvas.drawLine(
-          Offset(x, trackTop - 10),
-          Offset(x, trackTop + trackHeight + 2),
-          outline,
+      // ✅ Média e Teto: triângulo embaixo
+      final placeBelow = isMedia || isTeto;
+
+      // --- desenha o marcador ---
+      _drawBenchmarkMarker(
+        canvas: canvas,
+        x: x,
+        trackTop: trackTop,
+        trackHeight: trackHeight,
+        baseColor: baseColor,
+        emphasize: active,
+        placeBelow: placeBelow,
+      );
+
+      // --- POSICIONAMENTO DO LABEL ---
+      if (placeBelow) {
+        // Precisamos calcular a baseY igual ao marcador (pra colocar o texto na base do triângulo)
+        final scale = active ? 1.10 : 0.95;
+        final circleY = trackTop + trackHeight / 2;
+        final circleR = 3.8 * scale;
+
+        final h = 14.0 * scale;
+
+        final tipY = circleY + circleR + 3; // ponta logo abaixo da bolinha
+        final baseY = tipY + h;            // base mais embaixo
+
+        // ✅ Texto CENTRALIZADO na base do triângulo (logo abaixo)
+        TextPainterChanged(style: bmTextStyle).paint(
+          canvas,
+          label,
+          Offset(x - 50, baseY + 4),
+          maxWidth: 100,
+          align: TextAlign.center,
         );
-
-        final inner = Paint()
-          ..color = baseColor
-          ..strokeWidth = 3
-          ..style = PaintingStyle.stroke;
-        canvas.drawLine(
-          Offset(x, trackTop - 10),
-          Offset(x, trackTop + trackHeight + 2),
-          inner,
-        );
-
-        final cy = trackTop + trackHeight / 2;
-        const r = 5.0;
-        final capFill = Paint()..color = baseColor;
-        final capStroke = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color = Colors.black.withValues(alpha: 0.25);
-
-        canvas.drawCircle(Offset(x, cy), r, capFill);
-        canvas.drawCircle(Offset(x, cy), r, capStroke);
       } else {
-        final bmPaint = Paint()
-          ..color = baseColor
-          ..strokeWidth = 2
-          ..style = PaintingStyle.stroke;
-        canvas.drawLine(
-          Offset(x, trackTop - 10),
-          Offset(x, trackTop + trackHeight + 2),
-          bmPaint,
+        // comportamento antigo (acima)
+        TextPainterChanged(style: bmTextStyle).paint(
+          canvas,
+          label,
+          Offset(x + 6, trackTop - 22),
+          maxWidth: 140,
         );
       }
-
-      TextPainterChanged(style: bmStyle).paint(
-        canvas,
-        label,
-        Offset(x + 4, trackTop - 22),
-        maxWidth: 140,
-      );
     });
 
-    // Marker principal
+    // Marker principal (Atual)
     final (double? media, double? teto) = pickThresholds(benchmarks);
     final markerX = toX(value);
+
     _drawValueMarker(
       canvas: canvas,
       x: markerX,
@@ -184,6 +181,68 @@ class RulerPainter extends CustomPainter {
       label: valueLabel,
       emphasize: highlightValue,
     );
+  }
+
+  /// ✅ marcador benchmark no MESMO formato do "Atual" (triângulo + bolinha),
+  /// mas para Média/Teto: triângulo embaixo apontando para a bolinha acima.
+  void _drawBenchmarkMarker({
+    required Canvas canvas,
+    required double x,
+    required double trackTop,
+    required double trackHeight,
+    required Color baseColor,
+    required bool emphasize,
+    required bool placeBelow,
+  }) {
+    final scale = emphasize ? 1.10 : 0.95;
+
+    final circleY = trackTop + trackHeight / 2;
+    final circleR = 3.8 * scale;
+
+    // bolinha (sempre “acima” do triângulo)
+    canvas.drawCircle(
+      Offset(x, circleY),
+      circleR,
+      Paint()..color = baseColor,
+    );
+
+    // triângulo
+    final h = 14.0 * scale;
+    final w = 7.0 * scale;
+
+    Path markerPath;
+
+    if (placeBelow) {
+      // 🔻 Triângulo EMBAIXO apontando PRA CIMA (ponta mira a bolinha)
+      final tipY = circleY + circleR + 3; // ponta logo abaixo da bolinha
+      final baseY = tipY + h;            // base mais embaixo
+
+      markerPath = Path()
+        ..moveTo(x, tipY)                // ponta (em cima)
+        ..lineTo(x - w, baseY)           // base esquerda (embaixo)
+        ..lineTo(x + w, baseY)           // base direita (embaixo)
+        ..close();
+    } else {
+      // 🔺 Triângulo EM CIMA apontando PRA BAIXO (como o “Atual”)
+      markerPath = Path()
+        ..moveTo(x - w, trackTop - h)
+        ..lineTo(x + w, trackTop - h)
+        ..lineTo(x, trackTop - 2)
+        ..close();
+    }
+
+    final fill = Paint()..color = baseColor;
+    canvas.drawPath(markerPath, fill);
+
+    if (emphasize) {
+      final stroke = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..color = Colors.black.withValues(alpha: 0.22);
+
+      canvas.drawCircle(Offset(x, circleY), circleR, stroke);
+      canvas.drawPath(markerPath, stroke);
+    }
   }
 
   void _drawValueMarker({
@@ -200,9 +259,9 @@ class RulerPainter extends CustomPainter {
     final w = 8.0 * scale;
 
     final markerPath = Path()
-      ..moveTo(x, trackTop - h)
-      ..lineTo(x - w, trackTop - 2)
-      ..lineTo(x + w, trackTop - 2)
+      ..moveTo(x - w, trackTop - h)
+      ..lineTo(x + w, trackTop - h)
+      ..lineTo(x, trackTop - 2)
       ..close();
 
     final fill = Paint()..color = baseColor;
@@ -269,7 +328,7 @@ class RulerPainter extends CustomPainter {
 
   static double _niceStep(double span) {
     if (span <= 0) return 1;
-    final exp = (math.log(span) / math.ln10).floor();
+    final exp = (math.log(span) / (math.ln10)).floor();
     final base = math.pow(10.0, exp).toDouble();
     final units = span / base;
 
