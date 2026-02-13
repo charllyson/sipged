@@ -1,132 +1,141 @@
-name: siged
+name: sipged
 description: "Your new database center for roads!"
 publish_to: 'none'
-
 version: 1.0.1
 
 environment:
-  sdk: ">=3.10.0 <4.0.0"   # ou o range que você estiver usando
+  sdk: ">=3.10.0 <4.0.0"
 
 dependencies:
+  # =========================
+  # Flutter (base + i18n)
+  # =========================
   flutter:
     sdk: flutter
-  flutter_localizations:   # ⬅️ AQUI dentro de dependencies
-    sdk: flutter
+  flutter_localizations:
+    sdk: flutter # Localização oficial (pt_BR, datas, moedas etc.)
+  cupertino_icons: ^1.0.8 # Ícones estilo iOS
 
-  cupertino_icons: ^1.0.8
+  # =========================
+  # Estado / Injeção / Arquitetura
+  # =========================
+  flutter_bloc: ^9.1.1 # BLoC/Cubit (state management)
+  rxdart: ^0.28.0 # Streams avançadas (BehaviorSubject, combineLatest etc.)
+  provider: ^6.1.5 # Injeção simples / ChangeNotifier
+  bloc_pattern: ^3.0.1 # Padrão legado (evitar novos usos, mas mantém compat)
 
-  # FIREBASE
-  firebase_core: ^4.0.0
-  firebase_storage: ^13.0.0
-  firebase_auth: ^6.0.0
-  cloud_firestore: ^6.0.0
+  # =========================
+  # Firebase (core, auth, db, storage)
+  # =========================
+  firebase_core: ^4.0.0 # Bootstrap do Firebase
+  firebase_auth: ^6.0.0 # Autenticação (email, providers etc.)
+  cloud_firestore: ^6.0.0 # Banco NoSQL (Firestore)
+  firebase_storage: ^13.0.0 # Upload/Download de arquivos (PDF, imagens)
 
-  # LOCAL
-  shared_preferences: ^2.5.3
+  # =========================
+  # Persistência local / Preferências
+  # =========================
+  shared_preferences: ^2.5.3 # Chave/valor local (configs, flags)
 
-  # CONECTORES
-  bloc_pattern: ^3.0.1
-  flutter_bloc: ^9.1.1
-  rxdart: ^0.28.0
-  scoped_model: ^2.0.0
-  intl: ^0.20.2
-  provider: ^6.1.5
-  dio: ^5.9.0
+  # =========================
+  # Rede / APIs / Parsing
+  # =========================
+  dio: ^5.9.0 # HTTP client (interceptors, timeout, upload)
 
-  xml: ^6.5.0
-  archive: ^3.4.0
-  
-  # COORDENADAS
-  geolocator: ^14.0.2
-  latlong2: ^0.9.1
-  geocoding: ^4.0.0
+  # =========================
+  # Datas / Internacionalização
+  # =========================
+  intl: ^0.20.2 # Formatação de data/número/moeda
 
-  # MAPAS
-  flutter_map: ^8.2.1
-  flutter_map_marker_cluster_plus: ^1.4.2
-  weather: ^3.2.1
-  webview_flutter: ^4.13.0
-  flutter_dotenv: ^5.1.0
-  pointer_interceptor: ^0.10.1+2
+  # =========================
+  # Geolocalização / Coordenadas
+  # =========================
+  geolocator: ^14.0.2 # GPS/permissões/localização do dispositivo
+  geocoding: ^4.0.0 # Endereço <-> coordenadas (reverse/forward geocode)
+  latlong2: ^0.9.1 # Modelo LatLng (útil p/ mapas)
 
-  # GRÁFICOS
-  fl_chart: ^1.0.0
-  percent_indicator: ^4.2.3
+  # =========================
+  # Mapas / WebView / Interações
+  # =========================
+  flutter_map: ^8.2.1 # Mapas (Leaflet no Flutter)
+  flutter_map_marker_cluster_plus: ^1.4.2 # Clustering de markers no flutter_map
+  webview_flutter: ^4.13.0 # WebView nativa (ex.: painéis, portais)
+  pointer_interceptor: ^0.10.1+2 # Intercepta pointer (web/overlays em mapas)
+  flutter_dotenv: ^6.0.0 #^5.1.0 # Variáveis de ambiente (.env)
+  weather: ^3.2.1 # Cliente de clima (se estiver usando API)
 
-  # PDF
-  syncfusion_flutter_pdfviewer: ^28.2.7
-  pdfx: ^2.6.0                                # Exibe arquivos PDF
-  pdf: ^3.11.0                                # Gera relatórios em PDF
-  printing: ^5.13.4                           # Imprime relatórios em PDF
+  # =========================
+  # Gráficos / Indicadores
+  # =========================
+  fl_chart: ^1.0.0 # Gráficos (linha, barra, pizza)
+  percent_indicator: ^4.2.3 # Barras/círculos de progresso (%)
 
+  # =========================
+  # PDF (visualização + geração + impressão)
+  # =========================
+  syncfusion_flutter_pdfviewer: ^32.2.4 #^28.2.7 # Viewer PDF robusto (zoom, scroll etc.)
+  pdfx: ^2.6.0 # Viewer PDF alternativo (leve)
+  pdf: ^3.11.0 # Geração de PDF (relatórios)
+  printing: ^5.13.4 # Impressão/compartilhamento de PDF
 
-  # IMAGENS
-  file_picker: ^10.2.0
-  exif: ^3.3.0
-  native_exif: ^0.6.0
-  flutter_image_compress: ^2.4.0
-  image_picker: ^1.2.0
-  extended_image: ^10.0.1
-  image: ^4.3.0                                 # caminho Dart (opcional, mas útil)
-  image_editor: ^1.5.1                          # caminho nativo (mais rápido)
-  camera: ^0.10.5+9                             # compatível com Flutter 3.x
+  # =========================
+  # Arquivos / Imagens / Câmera / EXIF
+  # =========================
+  file_picker: ^10.2.0 # Selecionar arquivos (web/desktop/mobile)
+  image_picker: ^1.2.0 # Selecionar imagem/câmera (mobile)
+  camera: ^0.11.3+1 #^0.10.5+9 # Controle avançado de câmera
+  exif: ^3.3.0 # Ler EXIF (metadados) em Dart
+  native_exif: ^0.7.0 #^0.6.0 # Ler/editar EXIF via nativo (mais recursos)
+  flutter_image_compress: ^2.4.0 # Compressão de imagem (mobile)
+  extended_image: ^10.0.1 # Imagem avançada (cache/gestos/crop)
+  image: ^4.3.0 # Processamento de imagem puro Dart (resize, encode)
+  image_editor: ^1.5.1 # Edição nativa (mais rápida p/ operações pesadas)
 
+  # =========================
+  # UI / Animações
+  # =========================
+  shimmer: ^3.0.0 # Efeito skeleton loading
 
-  # ANIMAÇÕES
-  shimmer: ^3.0.0
+  # =========================
+  # Input / Máscaras / Validações BR
+  # =========================
+  flutter_multi_formatter: ^2.9.0 # Máscaras e formatters diversos
+  mask_text_input_formatter: ^2.4.0 # Máscaras custom (CEP/CPF/etc.)
+  cpf_cnpj_validator: ^2.0.0 # Validação CPF/CNPJ
+  brasil_fields: ^1.18.0 # Formatadores BR (CPF, CEP, moeda etc.)
+  diacritic: ^0.1.3 # Remove acentos (normalização)
 
-  # MÁSCARAS
-  flutter_multi_formatter: ^2.9.0
-  cpf_cnpj_validator: ^2.0.0
-  brasil_fields: ^1.18.0
-  mask_text_input_formatter: ^2.4.0
-  diacritic: ^0.1.3
+  # =========================
+  # Date input (legado)
+  # =========================
+  datetime_picker_formfield: 2.0.1 # Date picker formfield (antigo)
 
-  # DATE INPUT
-  datetime_picker_formfield: 2.0.1
-
-  # CONECTORES
-  excel: ^4.0.6
-  url_launcher: ^6.3.2
-  flutter_launcher_icons: ^0.14.1
-
-  flutter_blue_plus: ^1.32.5        # Android/iOS
-  flutter_web_bluetooth: ^1.1.0    # Web Bluetooth (Chrome / Edge)
-  web: ^1.1.1
-  qr: ^3.0.1
-  qr_flutter: ^4.1.0
+  # =========================
+  # Utilidades / Integrações
+  # =========================
+  excel: ^4.0.6 # Ler/gerar Excel (XLSX)
+  url_launcher: ^6.3.2 # Abrir links/telefone/email no sistema
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
-  flutter_launcher_icons: ^0.14.1
+  flutter_lints: ^6.0.0 # Regras de lint
+  flutter_launcher_icons: ^0.14.1 # Gera ícones do app (build step)
 
-flutter_icons:
-  android: true
-  ios: true        # se quiser já gerar pra iOS
-  image_path: assets/app_icon.png   # 1024x1024 recomendado (sem bordas)
-  adaptive_icon_background: "#FFFFFF"     # ou "assets/icon_bg.png"
-  adaptive_icon_foreground: assets/icon_fg.png
-
-flutter:
-  uses-material-design: true
-
-  fonts:
-    - family: Halter
-      fonts:
-        - asset: assets/fonts/halter.ttf
-
-  assets:
-    - assets/logos/deral/logo-deral.png
-    - assets/images/default_avatar.png
-    - assets/logos/siged/siged.png
-    - assets/icons/pdf-file-format.png
-    - assets/icons/wait-to-up-file.png
-    - .env
-
+# =========================
+# Configuração do flutter_launcher_icons
+# =========================
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icon/app_icon.png"
   min_sdk_android: 21
+
+# (opcional) você tinha um bloco duplicado "flutter_icons:" — removi para evitar conflito
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/default_avatar.png
+    - assets/logos/sipged/sipged.png
+    - .env
