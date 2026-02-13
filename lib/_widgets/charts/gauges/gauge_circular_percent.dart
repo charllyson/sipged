@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 
-import 'package:siged/_utils/formats/sipged_format_money.dart';
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
-import 'package:siged/_widgets/charts/gauges/gauge_circular_percent_shimmer.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent_shimmer.dart';
 
 enum GaugeTextMode { explicit, percent, number, money }
 

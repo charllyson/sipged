@@ -2,9 +2,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import 'package:siged/_utils/formats/sipged_format_money.dart';
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
-import 'package:siged/_widgets/charts/cost_ruler/ruler_painter.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/charts/cost_ruler/ruler_painter.dart';
 
 class CostRuler extends StatefulWidget {
   /// Valor “numerador” (ex: custo total, energia total, volume total).
@@ -193,7 +193,7 @@ class _CostRulerState extends State<CostRuler> {
                           final parts = <String>[
                             'Valor: $tooltipValue',
                             if (tooltipMedia != null) tooltipMedia,
-                            if (tooltipTeto != null) tooltipTeto,
+                            ?tooltipTeto,
                           ];
                           return parts.join('\n');
                         }

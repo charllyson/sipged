@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
+import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
 import 'oac_details_page.dart';
 import 'oac_inspections_page.dart';

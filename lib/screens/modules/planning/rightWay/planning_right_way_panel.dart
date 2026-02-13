@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
 
 // contrato
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // página de imóveis (tabs)
-import 'package:siged/screens/modules/planning/rightWay/lane_regularization_tabs.dart';
+import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_tabs.dart';
 
 import '../../../../_blocs/modules/planning/highway_domain/planning_highway_domain_bloc.dart';
 import '../../../../_blocs/modules/planning/highway_domain/planning_highway_domain_event.dart';
 
 // ✅ notificações ricas
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class PlanningRightWayPropertyPanel extends StatelessWidget {
   final ProcessData contractData;

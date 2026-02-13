@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/flyout_list.dart';
-import 'package:siged/_widgets/toolBox/panel_shell.dart';
-import 'package:siged/_widgets/toolBox/tool_button.dart';
-import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
-import 'package:siged/_widgets/toolBox/tool_slot.dart';
+import 'package:sipged/_widgets/toolBox/flyout_list.dart';
+import 'package:sipged/_widgets/toolBox/panel_shell.dart';
+import 'package:sipged/_widgets/toolBox/tool_button.dart';
+import 'package:sipged/_widgets/toolBox/tool_widget_controller.dart';
+import 'package:sipged/_widgets/toolBox/tool_slot.dart';
 
 enum AIDockSide { left, right }
 

@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_cubit.dart';
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_state.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_cubit.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_state.dart';
 
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'empenho_form_section.dart';
 import 'empenho_table_section.dart';

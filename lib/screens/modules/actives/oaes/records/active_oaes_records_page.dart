@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/screens/modules/actives/oaes/records/list_oaes_page.dart';
-import 'package:siged/screens/modules/actives/oaes/records/tab_bar_oaes_page.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/screens/modules/actives/oaes/records/list_oaes_page.dart';
+import 'package:sipged/screens/modules/actives/oaes/records/tab_bar_oaes_page.dart';
 
 // BLoC de usuário
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_event.dart';
 
 // Cubit de OAEs
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_state.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 // notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ActiveOaesRecordsPage extends StatefulWidget {
   const ActiveOaesRecordsPage({super.key});

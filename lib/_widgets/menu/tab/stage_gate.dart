@@ -1,9 +1,9 @@
 // lib/_widgets/gates/stage_gate.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_utils/theme/sipged_theme.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_utils/theme/sipged_theme.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 class StageGate extends StatelessWidget {
   final String stageKey;
@@ -41,7 +41,7 @@ class StageGate extends StatelessWidget {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),

@@ -3,11 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // ⬇️ NOVO: dialogo estilo macOS
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class FirebaseUtils {
   static Future<void> deleteCollectionCompletamente({

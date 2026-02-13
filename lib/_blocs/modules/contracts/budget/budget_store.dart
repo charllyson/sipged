@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:siged/_blocs/modules/contracts/budget/budget_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/contracts/budget/budget_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/budget/budget_data.dart';
 
 class BudgetStore extends ChangeNotifier {
   BudgetStore({BudgetBloc? bloc}) : _bloc = bloc ?? BudgetBloc();

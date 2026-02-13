@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'list_oaes_table.dart';
 
 typedef OaeTapCallback = void Function(ActiveOaesData oae);
@@ -85,7 +85,7 @@ class _ListOaesStatusState extends State<ListOaesStatus> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: widget.color.withOpacity(0.12),
+              color: widget.color.withValues(alpha: 0.12),
             ),
             child: Text(
               '$total',

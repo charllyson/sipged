@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_blocs/system/module/module_data.dart';
 
 class ActionItem {
   final IconData icon;

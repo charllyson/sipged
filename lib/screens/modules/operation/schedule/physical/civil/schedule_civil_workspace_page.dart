@@ -4,34 +4,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_services/files/dxf/dxf_enums.dart';
-import 'package:siged/_services/files/dxf/map_overlay_cubit.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_services/files/dxf/dxf_enums.dart';
+import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
 
 // UpBar / FootBar / BG
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
 
 // Toolbox de desenho
-import 'package:siged/_widgets/toolBox/tool_widget.dart';
-import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
+import 'package:sipged/_widgets/toolBox/tool_widget.dart';
+import 'package:sipged/_widgets/toolBox/tool_widget_controller.dart';
 
 // Civil
-import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
-import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
-import 'package:siged/_widgets/schedule/civil/schedule_civil_widget.dart';
+import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
+import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
+import 'package:sipged/_widgets/schedule/civil/schedule_civil_widget.dart';
 
 // ✅ Split responsivo (lado a lado vs empilhado)
-import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
 // Painel lateral civil
 import 'schedule_civil_panel.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ScheduleCivilWorkspacePage extends StatefulWidget {
   const ScheduleCivilWorkspacePage({

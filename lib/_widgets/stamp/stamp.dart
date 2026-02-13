@@ -158,8 +158,8 @@ class _StampChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fgColor = approved
-        ? Colors.green.shade900.withOpacity(iconTextOpacity)
-        : Colors.grey.shade800.withOpacity(iconTextOpacity);
+        ? Colors.green.shade900.withValues(alpha: iconTextOpacity)
+        : Colors.grey.shade800.withValues(alpha: iconTextOpacity);
 
     // Paddings e tamanhos mais baixos quando "dense"
     final vPad = verticalPadding ?? (dense ? 4.0 : 8.0);
@@ -174,12 +174,12 @@ class _StampChip extends StatelessWidget {
       constraints: BoxConstraints(minHeight: dense ? 28 : 34), // <- trava altura mínima
       padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
       decoration: BoxDecoration(
-        color: baseTint.withOpacity(bgOpacity),
+        color: baseTint.withValues(alpha: bgOpacity),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: baseTint.withOpacity(borderOpacity), width: 1.2),
+        border: Border.all(color: baseTint.withValues(alpha: borderOpacity), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: baseTint.withOpacity(0.12),
+            color: baseTint.withValues(alpha: 0.12),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

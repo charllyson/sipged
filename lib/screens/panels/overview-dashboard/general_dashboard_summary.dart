@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
-import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
-import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 
-import 'package:siged/_widgets/cards/summary/expandable_card.dart';
-import 'package:siged/_widgets/layout/responsive_section/responsive_section_row.dart';
+import 'package:sipged/_widgets/cards/summary/expandable_card.dart';
+import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class GeneralDashboardSummary extends StatelessWidget {
   const GeneralDashboardSummary({super.key});

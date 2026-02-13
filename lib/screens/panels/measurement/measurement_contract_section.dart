@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_widgets/charts/lines/line_chart_changed.dart';
-import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_widgets/charts/lines/line_chart_changed.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
 class MeasurementContractSection extends StatelessWidget {
   final List<ReportMeasurementData> filteredMeasurements;

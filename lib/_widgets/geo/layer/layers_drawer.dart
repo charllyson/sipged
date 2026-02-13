@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/screens/modules/planning/geo/layer/layers_geo.dart';
+import 'package:sipged/screens/modules/planning/geo/layer/layers_geo.dart';
 
 /// Drawer lateral direito com a lista de camadas.
 ///

@@ -2,13 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/transit/accidents/accidents_cubit.dart';
-import 'package:siged/_blocs/modules/transit/accidents/accidents_state.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/screens/modules/traffic/accidents/accidents_selector_dates_section.dart';
-import 'package:siged/screens/modules/traffic/dashboard/accidents_charts_section.dart';
-import 'package:siged/screens/modules/traffic/dashboard/accidents_summary_section.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/screens/modules/traffic/accidents/accidents_selector_dates_section.dart';
+import 'package:sipged/screens/modules/traffic/dashboard/accidents_charts_section.dart';
+import 'package:sipged/screens/modules/traffic/dashboard/accidents_summary_section.dart';
 
 // ===================== Painel de Analytics (cards + gráficos + filtro) =====================
 class AccidentsAnalyticsPanel extends StatefulWidget {

@@ -2,8 +2,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_widgets/bluetooth/bitmap/ble_client.dart';
-import 'package:siged/_services/print/label_bitmap.dart';
+import 'package:sipged/_widgets/bluetooth/bitmap/ble_client.dart';
+import 'package:sipged/_services/print/label_bitmap.dart';
 
 import '../../_widgets/bluetooth/bitmap/ble_client_iface.dart';
 

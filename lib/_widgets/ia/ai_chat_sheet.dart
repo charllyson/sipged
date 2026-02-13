@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_services/ia/ai_service.dart';
-import 'package:siged/_widgets/ia/chat_message.dart';
-import 'package:siged/_widgets/sheets/draggable_sheet/draggable_sheet.dart';
+import 'package:sipged/_services/ia/ai_service.dart';
+import 'package:sipged/_widgets/ia/chat_message.dart';
+import 'package:sipged/_widgets/sheets/draggable_sheet/draggable_sheet.dart';
 
 class AiChatSheet extends StatefulWidget {
   const AiChatSheet({super.key});

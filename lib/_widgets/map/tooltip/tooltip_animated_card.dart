@@ -108,9 +108,9 @@ class _TooltipAnimatedCardState extends State<TooltipAnimatedCard>
                                 borderRadius: BorderRadius.circular(12),
                                 mouseCursor: SystemMouseCursors.click,
                                 splashColor:
-                                Colors.white.withOpacity(0.28),
+                                Colors.white.withValues(alpha: 0.28),
                                 hoverColor:
-                                Colors.white.withOpacity(0.12),
+                                Colors.white.withValues(alpha: 0.12),
                                 child: const Padding(
                                   padding: EdgeInsets.all(8),
                                   child: Text(
@@ -136,8 +136,8 @@ class _TooltipAnimatedCardState extends State<TooltipAnimatedCard>
                       radius: 18,
                       borderRadius: BorderRadius.circular(20),
                       mouseCursor: SystemMouseCursors.click,
-                      splashColor: Colors.white.withOpacity(0.28),
-                      hoverColor: Colors.white.withOpacity(0.12),
+                      splashColor: Colors.white.withValues(alpha: 0.28),
+                      hoverColor: Colors.white.withValues(alpha: 0.12),
                       child: const Padding(
                         padding: EdgeInsets.all(8),
                         child: Icon(Icons.close,

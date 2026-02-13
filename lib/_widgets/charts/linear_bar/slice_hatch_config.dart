@@ -23,7 +23,7 @@ class SliceHatchStyle {
     this.spacing = 10.0,
   });
 
-  Color backgroundColor() => lineColor.withOpacity(backgroundOpacity);
+  Color backgroundColor() => lineColor.withValues(alpha: backgroundOpacity);
 }
 
 /// Resolver hatch por fatia (por índice e/ou label).

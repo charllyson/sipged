@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_services/map/cesium/cesium_data.dart';
-import 'package:siged/_services/map/cesium/cesium_map_config.dart';
-import 'package:siged/_services/map/cesium/cesium_controller.dart';
-import 'package:siged/_services/map/cesium/cesium_3d_view.dart';
-import 'package:siged/_services/map/cesium/cesium_web_message_bus.dart';
-import 'package:siged/_services/map/cesium/cesium_key_service.dart';
+import 'package:sipged/_services/map/cesium/cesium_data.dart';
+import 'package:sipged/_services/map/cesium/cesium_map_config.dart';
+import 'package:sipged/_services/map/cesium/cesium_controller.dart';
+import 'package:sipged/_services/map/cesium/cesium_3d_view.dart';
+import 'package:sipged/_services/map/cesium/cesium_web_message_bus.dart';
+import 'package:sipged/_services/map/cesium/cesium_key_service.dart';
 
 class CesiumBoxChanged extends StatefulWidget {
   const CesiumBoxChanged({

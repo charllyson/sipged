@@ -61,10 +61,10 @@ class BaseDraggableSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bgColor = backgroundColor ?? Colors.grey[900]!;
-    final bColor = borderColor ?? Colors.blueAccent.withOpacity(0.4);
+    final bColor = borderColor ?? Colors.blueAccent.withValues(alpha: 0.4);
     final iconColor = headerIconColor ?? Colors.lightBlueAccent;
     final tColor = titleColor ?? Colors.white;
-    final footerColor = footerBackgroundColor ?? Colors.black.withOpacity(0.7);
+    final footerColor = footerBackgroundColor ?? Colors.black.withValues(alpha: 0.7);
 
     // Decide o conteúdo scrollável conforme o modo
     final Widget scrollChild;
@@ -92,7 +92,7 @@ class BaseDraggableSheet extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -127,7 +127,7 @@ class BaseDraggableSheet extends StatelessWidget {
                 IconButton(
                   icon: Icon(
                     Icons.close,
-                    color: tColor.withOpacity(0.7),
+                    color: tColor.withValues(alpha: 0.7),
                     size: 18,
                   ),
                   onPressed: onClose,

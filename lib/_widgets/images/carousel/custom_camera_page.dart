@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart' as cam;
 
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 /// Câmera full-screen baseada no pacote `camera` (iOS/Android).
 /// Retorna bytes (JPEG) via Navigator.pop.
@@ -163,7 +163,7 @@ class _CustomCameraPageState extends State<CustomCameraPage>
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
+                      color: Colors.black.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

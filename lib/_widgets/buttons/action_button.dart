@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/buttons/button_flutuante_hover.dart';
+import 'package:sipged/_widgets/buttons/button_flutuante_hover.dart';
 
 /// Botão de ação com o mesmo “look & feel” do ScheduleMenuButtons
 class ActionButton extends StatelessWidget {
@@ -32,7 +32,7 @@ class ActionButton extends StatelessWidget {
           border: Border.all(color: borderColor, width: 1.4),
           boxShadow: [
             BoxShadow(
-              color: highlightColor.withOpacity(0.20),
+              color: highlightColor.withValues(alpha: 0.20),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),

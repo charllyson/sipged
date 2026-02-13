@@ -4,20 +4,20 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 // Additivos / Modelo + Repo
-import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 
-import 'package:siged/_blocs/modules/operation/phys_fin/physics_finance_data.dart';
+import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_data.dart';
 // ✅ Store dedicado de cronograma
-import 'package:siged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
+import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
 
 // SIGED deps
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // Cubit de cronograma rodoviário
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
 // Widgets locais/módulos
 import 'banner_tip.dart';

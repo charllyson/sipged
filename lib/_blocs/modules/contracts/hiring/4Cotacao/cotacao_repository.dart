@@ -1,8 +1,8 @@
 // lib/_blocs/modules/contracts/hiring/3Cotacao/cotacao_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_sections.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_sections.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 class CotacaoRepository {
   final FirebaseFirestore _db;

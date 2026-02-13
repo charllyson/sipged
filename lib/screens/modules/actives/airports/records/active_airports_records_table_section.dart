@@ -1,10 +1,10 @@
 // lib/screens/modules/actives/oaes/active_oaes_records_table_section.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
-import 'package:siged/_widgets/table/virtualized/virtualized_table_changed.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_widgets/table/virtualized/virtualized_table_changed.dart';
 
 class ActiveOaesRecordsTableSection extends StatelessWidget {
   final void Function(ActiveOaesData) onTapItem;

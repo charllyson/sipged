@@ -2,35 +2,35 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'lane_regularization_data.dart';
 import 'lane_regularization_store.dart';
 import 'lane_regularization_storage_bloc.dart';
 
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // ✅ NOVO: sem intl
-import 'package:siged/_utils/formats/sipged_format_numbers.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // ✅ helpers papel
-import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 
 // ✅ Attachment (mesmo usado em Medições)
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 // ✅ Preview interno de PDF (abre no Dialog)
-import 'package:siged/_widgets/pdf/pdf_preview.dart';
+import 'package:sipged/_widgets/pdf/pdf_preview.dart';
 
 // 🔔 Notificações centralizadas
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class LaneRegularizationController extends ChangeNotifier with SipGedValidation {
   final ProcessData contract;

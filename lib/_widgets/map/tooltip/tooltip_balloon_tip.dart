@@ -69,7 +69,7 @@ class _BalloonTipPainter extends CustomPainter {
     }
 
     if (shadow) {
-      canvas.drawShadow(path, Colors.black.withOpacity(0.25), 2, true);
+      canvas.drawShadow(path, Colors.black.withValues(alpha: 0.25), 2, true);
     }
 
     final fill = Paint()..color = color;

@@ -4,18 +4,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 
-import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
 
 // ✅ novo (substitui mask_class.dart)
-import 'package:siged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_utils/mask/sipged_masks.dart';
 
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_state.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ActiveOaesForm extends StatefulWidget {
   const ActiveOaesForm({super.key});
@@ -325,7 +325,7 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
               mantissaLength: 2,
             ),
           if (number) FilteringTextInputFormatter.allow(RegExp(r'[0-9\-\.,]')),
-          if (mask != null) mask,
+          ?mask,
         ],
       ),
     );

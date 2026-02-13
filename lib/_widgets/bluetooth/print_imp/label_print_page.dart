@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 // - default: stub
 // - web:     implementação Web Bluetooth
 // - io:      implementação nativa (Android/iOS)
-import 'package:siged/_widgets/bluetooth/print_imp/label_print_impl_stub.dart'
-if (dart.library.html) 'package:siged/_widgets/bluetooth/print_imp/label_print_impl_web.dart'
-if (dart.library.io)   'package:siged/_widgets/bluetooth/print_imp/label_print_impl_native.dart';
+import 'package:sipged/_widgets/bluetooth/print_imp/label_print_impl_stub.dart'
+if (dart.library.html) 'package:sipged/_widgets/bluetooth/print_imp/label_print_impl_web.dart'
+if (dart.library.io)   'package:sipged/_widgets/bluetooth/print_imp/label_print_impl_native.dart';
 
 // ATENÇÃO: as 3 implementações acima DEVEM expor um top-level:
 // Widget buildLabelPrintPage({ String? initialText, String? initialQr, Size? initialSizeMm });

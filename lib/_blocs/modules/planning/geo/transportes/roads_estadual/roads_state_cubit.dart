@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
 import 'roads_state_repository.dart';
 import 'roads_state_state.dart';

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_services/firestore/migrate/migration_service.dart';
+import 'package:sipged/_services/firestore/migrate/migration_service.dart';
 
 // ✅ notificações ricas
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class MigrationCollections extends StatelessWidget {
   const MigrationCollections({super.key});

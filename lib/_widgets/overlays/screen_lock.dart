@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/overlays/overlay_screen.dart';
+import 'package:sipged/_widgets/overlays/overlay_screen.dart';
 
 /// Bloqueia interações da tela inteira enquanto [locked] for true,
 /// com visual leve: blur suave, glass card translúcido e animações discretas.

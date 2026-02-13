@@ -1,8 +1,8 @@
 // lib/_utils/geometry/sipged_poly_simplify.dart
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_utils/geometry/sipged_geo_math.dart';
-import 'package:siged/_utils/geometry/sipged_lru_cache.dart';
+import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
+import 'package:sipged/_utils/geometry/sipged_lru_cache.dart';
 
 typedef MetersPerPixelFn = double Function(double latitude, double zoom);
 

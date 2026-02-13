@@ -9,11 +9,11 @@ import 'excel_utils.dart';
 import 'progress_import_dialog.dart';
 
 // ✅ notificações ricas
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // ✅ janela estilo macOS
-import 'package:siged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/_widgets/windows/window_dialog.dart';
 
 class ExcelPreviewDialog extends StatefulWidget {
   final List<Map<String, dynamic>> jsonData;

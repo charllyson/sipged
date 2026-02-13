@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_data.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
 class TotalsAll {
   final double empenhado;

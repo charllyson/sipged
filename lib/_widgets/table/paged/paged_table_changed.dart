@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 /// ===== Especificação de coluna =====
 class PagedColumnSpec<T> {
@@ -236,7 +236,7 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
                         dataRowColor: MaterialStateProperty.resolveWith(
                               (states) {
                             if (states.contains(MaterialState.hovered)) {
-                              return Colors.blue.withOpacity(0.05);
+                              return Colors.blue.withValues(alpha: 0.05);
                             }
                             if (states.contains(MaterialState.selected)) {
                               return const Color(0xFFE1F5FE);

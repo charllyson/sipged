@@ -1,11 +1,11 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:siged/_blocs/modules/financial/budget/budget_data.dart';
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_data.dart';
+import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
 // ✅ novos
-import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 
 enum FinancialDashboardStatus { initial, loading, success, failure }
 

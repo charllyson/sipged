@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/tiles/tile_widget.dart';
-import 'package:siged/admPanel/system/manager_permissions_users_page.dart';
-import 'package:siged/_widgets/info/info_widget.dart';
+import 'package:sipged/_widgets/tiles/tile_widget.dart';
+import 'package:sipged/admPanel/system/manager_permissions_users_page.dart';
+import 'package:sipged/_widgets/info/info_widget.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';
 import '../../_widgets/menu/upBar/up_bar.dart';

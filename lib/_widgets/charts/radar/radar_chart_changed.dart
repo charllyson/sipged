@@ -2,11 +2,11 @@
 import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
-import 'package:siged/_widgets/charts/radar/radar_chart_shimmer.dart';
-import 'package:siged/_widgets/charts/radar/radar_series_data.dart';
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/charts/radar/radar_chart_shimmer.dart';
+import 'package:sipged/_widgets/charts/radar/radar_series_data.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 class RadarChartChanged extends StatefulWidget {
   final List<String> labels;
@@ -185,7 +185,7 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                       Container(
                         width: 12,
                         height: 12,
-                        color: c.withOpacity(isOn ? 1 : .4),
+                        color: c.withValues(alpha: isOn ? 1 : .4),
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -194,7 +194,7 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                           fontSize: 12,
                           color: isOn
                               ? (isDark ? Colors.white : Colors.black)
-                              : (isDark ? Colors.white.withOpacity(.5) : Colors.black.withOpacity(.5)),
+                              : (isDark ? Colors.white.withValues(alpha:.5) : Colors.black.withValues(alpha:.5)),
                         ),
                       ),
                     ],
@@ -216,7 +216,7 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                   width: 1.2,
                 ),
                 gridBorderData: BorderSide(
-                  color: Theme.of(context).dividerColor.withOpacity(0.7),
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.7),
                   width: 1,
                 ),
                 ticksTextStyle: const TextStyle(
@@ -225,13 +225,13 @@ class _RadarChartChangedState extends State<RadarChartChanged> {
                   height: 0,
                 ),
                 tickBorderData: BorderSide(
-                  color: Theme.of(context).dividerColor.withOpacity(0.35),
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.35),
                   width: 0.8,
                 ),
                 dataSets: [
                   for (int i = 0; i < widget.datasets.length; i++)
                     RadarDataSet(
-                      fillColor: seriesColor(i).withOpacity(0.18),
+                      fillColor: seriesColor(i).withValues(alpha: 0.18),
                       borderColor: seriesColor(i),
                       borderWidth: (_hoverSeries == i) ? 3.2 : 2.0,
                       entryRadius: (_hoverSeries == i) ? 3.6 : 2.4,

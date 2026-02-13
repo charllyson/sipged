@@ -4,8 +4,8 @@ import 'dart:convert';
 
 import 'package:extended_image/extended_image.dart' as http;
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_services/map/map_box/service/nominatim_data.dart';
-import 'package:siged/_services/map/map_box/service/nominatim_service.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_data.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_service.dart';
 
 class NominatimRepository implements NominatimService {
   final String baseUrl;

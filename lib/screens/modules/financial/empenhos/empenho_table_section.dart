@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_data.dart';
-import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
+import 'package:sipged/_widgets/table/simple/simple_table_changed.dart';
 
 class EmpenhoTableSection extends StatelessWidget {
   final List<EmpenhoData> items;

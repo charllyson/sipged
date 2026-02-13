@@ -4,8 +4,8 @@ import 'package:flutter/animation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_widgets/map/markers/tagged_marker.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ActiveOaesData {
   String? id;

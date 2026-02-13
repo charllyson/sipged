@@ -1,7 +1,7 @@
 // lib/_blocs/modules/contracts/hiring/2Etp/etp_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 import 'etp_data.dart';
 import 'etp_repository.dart';
 import 'etp_state.dart';

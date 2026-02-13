@@ -4,10 +4,10 @@ import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:siged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 /// Estados de login/perfil
 enum LoginState {

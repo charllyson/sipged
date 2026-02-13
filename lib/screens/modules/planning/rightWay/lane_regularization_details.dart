@@ -1,24 +1,24 @@
 // lib/screens/modules/planning/rightWay/property/lane_regularization_details_panel.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_data.dart';
-import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_storage_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_data.dart';
+import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_storage_bloc.dart';
 
 // ✅ NOVO: sem intl
-import 'package:siged/_utils/formats/sipged_format_numbers.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
 // Attachment igual ao usado nas Medições/SideListBox
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class LaneRegularizationDetailsPanel extends StatefulWidget {
   final ProcessData contract;

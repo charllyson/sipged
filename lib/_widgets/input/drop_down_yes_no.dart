@@ -1,7 +1,7 @@
 // lib/screens/operation/hiring/1Dfd/dfd_sections/drop_down_yes_no.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/validates/sipged_validation.dart';
-import 'package:siged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 
 class YesNoDrop extends StatelessWidget with SipGedValidation {
 

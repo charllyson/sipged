@@ -2,8 +2,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 /// Abre uma tela nativa de pré-visualização do PDF (com opções de imprimir/compartilhar)
 Future<void> launchPdfPreview(

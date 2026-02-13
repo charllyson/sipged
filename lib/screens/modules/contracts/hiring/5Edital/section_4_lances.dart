@@ -2,23 +2,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
-import 'package:siged/_widgets/input/custom_date_field.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 
 // ✅ novo (remove mask_class.dart)
-import 'package:siged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_utils/mask/sipged_masks.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 // System
-import 'package:siged/_blocs/system/setup/setup_cubit.dart';
-import 'package:siged/_blocs/system/setup/setup_data.dart';
-import 'package:siged/_widgets/windows/company_body_dialog.dart';
+import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
+import 'package:sipged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_widgets/windows/company_body_dialog.dart';
 
 class SectionLances extends StatefulWidget {
   final bool isEditable;

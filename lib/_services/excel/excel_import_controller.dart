@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'excel_preview_dialog.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ImportExcelController {
   static Future<void> importar({

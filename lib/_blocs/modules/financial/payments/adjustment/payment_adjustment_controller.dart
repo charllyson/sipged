@@ -3,27 +3,27 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 
-import 'package:siged/_blocs/modules/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
-import 'package:siged/_blocs/modules/financial/payments/adjustment/payment_adjustment_bloc.dart';
-import 'package:siged/_blocs/modules/financial/payments/adjustment/payments_adjustments_data.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_blocs/modules/financial/payments/adjustment/payment_adjustment_storage_bloc.dart';
+import 'package:sipged/_blocs/modules/financial/payments/adjustment/payment_adjustment_bloc.dart';
+import 'package:sipged/_blocs/modules/financial/payments/adjustment/payments_adjustments_data.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
-import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_widgets/pdf/pdf_preview.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/pdf/pdf_preview.dart';
 
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_state.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
-import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class PaymentsAdjustmentController extends ChangeNotifier
     with SipGedValidation {

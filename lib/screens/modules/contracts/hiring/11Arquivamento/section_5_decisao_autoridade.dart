@@ -3,22 +3,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ===== Users
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
 // ===== Dados / Inputs
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:siged/_utils/mask/sipged_masks.dart';
-import 'package:siged/_widgets/input/custom_auto_complete.dart';
-import 'package:siged/_widgets/input/custom_date_field.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/input/drop_down_botton_change.dart'
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:sipged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/drop_down_botton_change.dart'
     show DropDownButtonChange;
 
 
-import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
 
 class SectionDecisaoAutoridadeTA extends StatefulWidget {
   final TermoArquivamentoData data;

@@ -1,6 +1,6 @@
 // lib/screens/modules/actives/oaes/network/details_panel_body.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
 
 /// Painel de detalhes com campos somente leitura.
 class DetailsPanelBody extends StatelessWidget {

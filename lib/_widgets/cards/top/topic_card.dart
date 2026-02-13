@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 
 class TopicCard extends StatelessWidget {
-  const TopicCard({
+  const TopicCard({super.key,
     required this.title,
     required this.subtitle,
     required this.icon,
@@ -24,7 +24,7 @@ class TopicCard extends StatelessWidget {
       onTap: onTap,
       child: Ink(
         decoration: BoxDecoration(
-          color: color.withOpacity(0.25),
+          color: color.withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white12),
         ),

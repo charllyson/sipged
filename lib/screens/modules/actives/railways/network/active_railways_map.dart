@@ -5,15 +5,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_blocs/modules/actives/railway/active_railway_data.dart';
-import 'package:siged/_blocs/modules/actives/railway/active_railways_cubit.dart';
-import 'package:siged/_blocs/modules/actives/railway/active_railways_state.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
 
-import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:sipged/_widgets/map/shimmer/map_loading_shimmer.dart';
 
 // NOVO helper de overlay ancorado
-import 'package:siged/_widgets/map/tooltip/map_tap_overlay.dart';
+import 'package:sipged/_widgets/map/tooltip/map_tap_overlay.dart';
 
 import 'active_railways_details.dart';
 

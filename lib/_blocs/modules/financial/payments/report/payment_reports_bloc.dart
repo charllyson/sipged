@@ -2,8 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:siged/_blocs/modules/financial/payments/report/payments_reports_data.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/modules/financial/payments/report/payments_reports_data.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 /// Firestore-only para Relatórios de Pagamento.
 /// (Upload/Storage ficou no PaymentsReportStorageBloc.)
@@ -96,19 +96,16 @@ class PaymentReportBloc extends BlocBase {
     required String paymentId,
     required String url,
   }) async {
-    try {
-      await _db
-          .collection('operation')
-          .doc(contractId)
-          .collection('reportPayments')
-          .doc(paymentId)
-          .update({
-        'pdfUrl': url,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-      });
-    } catch (e) {
-    }
+    await _db
+        .collection('operation')
+        .doc(contractId)
+        .collection('reportPayments')
+        .doc(paymentId)
+        .update({
+      'pdfUrl': url,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+    });
   }
 
   // ---------------------------------------------------------------------------

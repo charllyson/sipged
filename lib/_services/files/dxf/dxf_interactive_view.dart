@@ -1,19 +1,19 @@
 // lib/_widgets/schedule/civil/dxf_interactive_view.dart
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:siged/_services/files/dxf/dxf_selection_overlay.dart';
+import 'package:sipged/_services/files/dxf/dxf_selection_overlay.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 // enums do seu projeto (mantive o import como estava)
-import 'package:siged/_services/files/dxf/dxf_enums.dart';
+import 'package:sipged/_services/files/dxf/dxf_enums.dart';
 
 // util de fit
-import 'package:siged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
+import 'package:sipged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
 
 // DXF controller + overlay (camada modularizada)
-import 'package:siged/_services/files/dxf/dxf_controller.dart';
-import 'package:siged/_services/files/dxf/dxf_hit_tester.dart';
-import 'package:siged/_services/files/dxf/dxf_model.dart';
+import 'package:sipged/_services/files/dxf/dxf_controller.dart';
+import 'package:sipged/_services/files/dxf/dxf_hit_tester.dart';
+import 'package:sipged/_services/files/dxf/dxf_model.dart';
 
 /// View interativa para DXF baseada no DxfController.
 /// - Panning/zoom com InteractiveViewer (opcional)

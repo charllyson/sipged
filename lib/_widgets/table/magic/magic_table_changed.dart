@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/table/magic/bands_header.dart';
-import 'package:siged/_widgets/table/magic/grid_body.dart';
-import 'package:siged/_widgets/table/magic/gutter_column.dart';
-import 'package:siged/_widgets/table/magic/gutter_header.dart';
-import 'package:siged/_widgets/table/magic/leading_column.dart';
-import 'package:siged/_widgets/table/magic/bands_footer.dart';
+import 'package:sipged/_widgets/table/magic/bands_header.dart';
+import 'package:sipged/_widgets/table/magic/grid_body.dart';
+import 'package:sipged/_widgets/table/magic/gutter_column.dart';
+import 'package:sipged/_widgets/table/magic/gutter_header.dart';
+import 'package:sipged/_widgets/table/magic/leading_column.dart';
+import 'package:sipged/_widgets/table/magic/bands_footer.dart';
 
 import 'magic_table_controller.dart' as bc;
 import 'header_row.dart';

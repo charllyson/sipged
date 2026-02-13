@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class BadgeTypeButton extends StatelessWidget {
   const BadgeTypeButton({

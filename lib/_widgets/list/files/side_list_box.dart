@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/theme/sipged_theme.dart';
+import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_widgets/list/files/auto_icon.dart';
-import 'package:siged/_widgets/pdf/pdf_preview.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/auto_icon.dart';
+import 'package:sipged/_widgets/pdf/pdf_preview.dart';
 
 // ✅ dialog mac
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 // ✅ input usado no rename
-import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
 
 class SideListBox extends StatefulWidget {
   final String title;
@@ -269,7 +269,7 @@ class _SideListBoxState extends State<SideListBox> {
             border: Border(bottom: BorderSide(color: divider)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.06),
+                color: Colors.black.withValues(alpha: 0.06),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -423,7 +423,7 @@ class _SideListBoxState extends State<SideListBox> {
                           }
 
                           return Material(
-                            color: selected ? cs.primary.withOpacity(0.08) : Colors.transparent,
+                            color: selected ? cs.primary.withValues(alpha: 0.08) : Colors.transparent,
                             child: ListTile(
                               dense: true,
                               visualDensity: const VisualDensity(vertical: -2),

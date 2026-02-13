@@ -39,7 +39,7 @@ class SiGedLogo extends StatelessWidget {
                 height: heightLogo,
                 width: widthLogo,
                 child: const Image(
-                  image: AssetImage('assets/logos/siged/siged.png'),
+                  image: AssetImage('assets/logos/sipged/sipged.png'),
                 ),
               ),
             ],

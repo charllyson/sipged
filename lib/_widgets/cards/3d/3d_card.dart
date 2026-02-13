@@ -4,9 +4,9 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
-import 'package:siged/screens/modules/actives/oaes/active_oaes_ifc_viewer_page.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/screens/modules/actives/oaes/active_oaes_ifc_viewer_page.dart';
 
 class OaeModel3DCard extends StatefulWidget {
   final ActiveOaesData data;

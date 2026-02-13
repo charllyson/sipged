@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/theme/sipged_theme.dart';
+import 'package:sipged/_utils/theme/sipged_theme.dart';
 
 /// Barra inferior genérica e responsiva para etapas do processo de contratação.
 ///

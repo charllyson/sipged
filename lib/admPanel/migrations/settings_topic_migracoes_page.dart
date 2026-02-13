@@ -1,23 +1,23 @@
 // lib/screens/settings/settings_topic_migracoes_page.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
-import 'package:siged/_services/firestore/cleanup/selective_delete_tile.dart';
-import 'package:siged/_services/firestore/migrate/migrateDocForSubCollection.dart';
-import 'package:siged/_services/firestore/migrate/migration.dart';
-import 'package:siged/_services/firestore/firebase_utils.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/tiles/tile_widget.dart';
-import 'package:siged/admPanel/migrations/firebase_migration_toolkit_page.dart';
+import 'package:sipged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
+import 'package:sipged/_services/firestore/cleanup/selective_delete_tile.dart';
+import 'package:sipged/_services/firestore/migrate/migrateDocForSubCollection.dart';
+import 'package:sipged/_services/firestore/migrate/migration.dart';
+import 'package:sipged/_services/firestore/firebase_utils.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/tiles/tile_widget.dart';
+import 'package:sipged/admPanel/migrations/firebase_migration_toolkit_page.dart';
 
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // 🪟 WindowDialog
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 
 class SettingsTopicMigracoesPage extends StatefulWidget {

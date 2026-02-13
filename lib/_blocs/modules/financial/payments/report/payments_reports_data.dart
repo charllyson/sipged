@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 
 // ⬇️ mesmo Attachment usado nos outros módulos
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class PaymentsReportData extends ChangeNotifier {
   String? contractId;

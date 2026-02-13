@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/validates/sipged_validation.dart';
-import 'package:siged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_widgets/input/custom_auto_complete.dart';
 
-import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 class SectionResponsavel extends StatefulWidget {
   final PublicacaoExtratoData data;

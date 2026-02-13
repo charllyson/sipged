@@ -6,46 +6,46 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ===== Progress (etapas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 
 // ===== DFD
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // ===== Usuários
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
 // ===== Widgets / UI
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 // ===== Utils
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // ===== Overlay leve
-import 'package:siged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
 // ===== Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // ===== Pipeline (habilitação dinâmica das abas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 // ===== Sections
-import 'package:siged/screens/modules/contracts/hiring/1Dfd/section_1_identificacao.dart';
-import 'package:siged/screens/modules/contracts/hiring/1Dfd/section_2_objeto.dart';
-import 'package:siged/screens/modules/contracts/hiring/1Dfd/section_3_localizacao.dart';
-import 'package:siged/screens/modules/contracts/hiring/1Dfd/section_4_estimativa.dart';
-import 'package:siged/screens/modules/contracts/hiring/1Dfd/section_5_riscos.dart';
-import 'package:siged/screens/modules/contracts/hiring/1Dfd/section_6_documentos.dart';
-import 'package:siged/screens/modules/contracts/hiring/1Dfd/section_7_aprovacao.dart';
-import 'package:siged/screens/modules/contracts/hiring/1Dfd/section_8_observacoes.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_1_identificacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_2_objeto.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_3_localizacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_4_estimativa.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_5_riscos.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_6_documentos.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_7_aprovacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_8_observacoes.dart';
 
 class DfdPage extends StatefulWidget {
   final String contractId; // pode vir vazio para novo contrato

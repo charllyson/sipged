@@ -1,5 +1,5 @@
 // lib/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_state.dart
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 import 'publicacao_extrato_sections.dart';
 
 class PublicacaoExtratoState {

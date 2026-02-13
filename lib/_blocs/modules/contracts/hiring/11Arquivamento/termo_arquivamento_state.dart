@@ -1,6 +1,6 @@
 // lib/_blocs/modules/contracts/hiring/10Arquivamento/termo_arquivamento_state.dart
 
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 class TermoArquivamentoState {
   final bool loading;

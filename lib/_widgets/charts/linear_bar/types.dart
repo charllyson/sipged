@@ -1,5 +1,5 @@
-import 'package:siged/_utils/formats/sipged_format_money.dart';
-import 'package:siged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
 
 /// Tipo de valor exibido (usado para formatadores).
 enum ValueType {

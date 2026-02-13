@@ -5,48 +5,48 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_services/files/dxf/dxf_selection_overlay.dart';
-import 'package:siged/_widgets/input/in_line_text_box.dart';
+import 'package:sipged/_services/files/dxf/dxf_selection_overlay.dart';
+import 'package:sipged/_widgets/input/in_line_text_box.dart';
 
 // Base/UI
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/schedule/modal/type.dart';
-import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/schedule/modal/type.dart';
+import 'package:sipged/_widgets/toolBox/tool_widget_controller.dart';
 
 // Modal unificado + tipos
-import 'package:siged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
 
 // Civil (render e UI)
-import 'package:siged/_services/files/dxf/dxf_empty_hint.dart';
-import 'package:siged/_widgets/schedule/civil/schedule_civil_board.dart';
-import 'package:siged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
-import 'package:siged/_services/files/dxf/dxf_enums.dart';
-import 'package:siged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon_painter.dart';
-import 'package:siged/_widgets/toolBox/menuDrawerPolygon/snap_utils.dart';
-import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
+import 'package:sipged/_services/files/dxf/dxf_empty_hint.dart';
+import 'package:sipged/_widgets/schedule/civil/schedule_civil_board.dart';
+import 'package:sipged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
+import 'package:sipged/_services/files/dxf/dxf_enums.dart';
+import 'package:sipged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon_painter.dart';
+import 'package:sipged/_widgets/toolBox/menuDrawerPolygon/snap_utils.dart';
+import 'package:sipged/_widgets/toolBox/menuText/menu_text_enums.dart';
 
 // Domínio
-import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 // BLoC/Auth
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
-import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
-import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_state.dart';
+import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
+import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
+import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_state.dart';
 
 // Storage
 import 'package:firebase_storage/firebase_storage.dart';
 
 // DXF modular
-import 'package:siged/_services/files/dxf/dxf_controller.dart';
-import 'package:siged/_services/files/dxf/dxf_to_geo.dart';
+import 'package:sipged/_services/files/dxf/dxf_controller.dart';
+import 'package:sipged/_services/files/dxf/dxf_to_geo.dart';
 
 // ✅ notificações ricas
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ScheduleCivilWidget extends StatefulWidget {
   const ScheduleCivilWidget({
@@ -162,7 +162,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       ScheduleStatus.emAndamento => 0.32,
       ScheduleStatus.aIniciar => 0.22,
     };
-    return base.withOpacity(alpha);
+    return base.withValues(alpha: alpha);
   }
 
   Color _randomStrokeColor(int index, {double s = 0.85, double v = 0.95}) {
@@ -301,7 +301,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       });
 
       await _renderDxf();
-    } catch (e) {
     } finally {
       _setBlocking(false);
     }

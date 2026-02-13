@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_web_bluetooth/flutter_web_bluetooth.dart' as fwb;
 
 import 'package:flutter_web_bluetooth/js_web_bluetooth.dart' as fwb;
-import 'package:siged/_widgets/bluetooth/print_imp/tspl_builder.dart';
+import 'package:sipged/_widgets/bluetooth/print_imp/tspl_builder.dart';
 
 // ===== TOP-LEVEL EXIGIDO PELO IMPORT CONDICIONAL =====
 Widget buildLabelPrintPage({

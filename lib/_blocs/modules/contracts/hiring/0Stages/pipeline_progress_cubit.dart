@@ -5,9 +5,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:meta/meta.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 import 'pipeline_progress.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 
 @immutable
 class PipelineProgressState {

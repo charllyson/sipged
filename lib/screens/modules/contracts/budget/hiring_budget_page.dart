@@ -2,24 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/table/magic/magic_adapter.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // 🔁 NOVO PADRÃO
-import 'package:siged/_blocs/modules/contracts/budget/budget_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
 
-import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
-import 'package:siged/_widgets/table/magic/magic_table_changed.dart';
+import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
+import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 class HiringBudgetPage extends StatefulWidget {
   const HiringBudgetPage({super.key, required this.contractData});

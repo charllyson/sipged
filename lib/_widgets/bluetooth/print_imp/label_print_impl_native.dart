@@ -5,7 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
-import 'package:siged/_widgets/bluetooth/print_imp/tspl_builder.dart';
+import 'package:sipged/_widgets/bluetooth/print_imp/tspl_builder.dart';
 
 // ===== TOP-LEVEL EXIGIDO PELO IMPORT CONDICIONAL =====
 Widget buildLabelPrintPage({

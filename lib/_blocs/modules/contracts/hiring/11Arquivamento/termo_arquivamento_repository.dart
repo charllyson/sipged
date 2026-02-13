@@ -2,7 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 import 'termo_arquivamento_sections.dart';
 import 'termo_arquivamento_data.dart'; // 🆕 para readDataForContract

@@ -2,7 +2,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 class PhotoUtils {
   static String sanitizeName(String name) =>

@@ -1,7 +1,7 @@
 // lib/_services/map/map_box/mapbox_key_service.dart
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:siged/_blocs/system/setup/env.dart';
+import 'package:sipged/_blocs/system/setup/env.dart';
 
 class MapboxKeyService {
   static String get accessToken {

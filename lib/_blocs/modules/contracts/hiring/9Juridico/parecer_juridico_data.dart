@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_sections.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_sections.dart';
 
 class ParecerJuridicoData extends Equatable {
   // 1) Metadados

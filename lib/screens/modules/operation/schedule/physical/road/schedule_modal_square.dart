@@ -6,24 +6,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
-import 'package:siged/_widgets/schedule/modal/actions_row.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
+import 'package:sipged/_widgets/schedule/modal/actions_row.dart';
 
 // Partes da UI do modal
-import 'package:siged/_widgets/schedule/modal/comment_field.dart';
-import 'package:siged/_widgets/schedule/modal/date_row.dart';
-import 'package:siged/_widgets/schedule/modal/header.dart';
-import 'package:siged/_widgets/schedule/modal/photo_section.dart';
-import 'package:siged/_widgets/schedule/modal/status_row.dart';
+import 'package:sipged/_widgets/schedule/modal/comment_field.dart';
+import 'package:sipged/_widgets/schedule/modal/date_row.dart';
+import 'package:sipged/_widgets/schedule/modal/header.dart';
+import 'package:sipged/_widgets/schedule/modal/photo_section.dart';
+import 'package:sipged/_widgets/schedule/modal/status_row.dart';
 
 // Tipos
-import 'package:siged/_widgets/schedule/modal/type.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
+import 'package:sipged/_widgets/schedule/modal/type.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
 
 // Base genérico da “folha” draggável
-import 'package:siged/_widgets/sheets/draggable_sheet/draggable_sheet.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/sheets/draggable_sheet/draggable_sheet.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 class ScheduleModalSquare extends StatefulWidget {
   final String currentUserId;
@@ -397,7 +397,7 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
 
                 // personaliza pra ficar “claro” como o modal antigo
                 backgroundColor: Colors.white,
-                borderColor: Colors.grey.withOpacity(0.2),
+                borderColor: Colors.grey.withValues(alpha: 0.2),
                 headerIconColor: Colors.blueGrey,
                 titleColor: Colors.black87,
                 footerBackgroundColor: Colors.grey.shade50,

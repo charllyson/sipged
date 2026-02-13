@@ -21,7 +21,7 @@ class AiFuturisticButton extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.blueAccent.withOpacity(0.4),
+              color: Colors.blueAccent.withValues(alpha: 0.4),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),

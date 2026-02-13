@@ -1,6 +1,6 @@
 // lib/_blocs/system/permitions/user_permission.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
 enum UserProfile {
   ADMINISTRADOR,

@@ -4,29 +4,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/screens/modules/contracts/measurement/create/launcher_pdf.dart';
+import 'package:sipged/screens/modules/contracts/measurement/create/launcher_pdf.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 // Domain / Budget
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
-import 'package:siged/_widgets/table/magic/magic_adapter.dart';
+import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 
 // ✅ NOVO PADRÃO (Budget)
-import 'package:siged/_blocs/modules/contracts/budget/budget_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/contracts/budget/budget_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/budget/budget_data.dart';
 
 // MagicTable
-import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
-import 'package:siged/_widgets/table/magic/magic_table_changed.dart';
-import 'package:siged/screens/modules/contracts/measurement/create/measurement_report_header.dart';
+import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
+import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
+import 'package:sipged/screens/modules/contracts/measurement/create/measurement_report_header.dart';
 
-import 'package:siged/_widgets/pdf/pdf_preview_launcher_stub.dart'
-if (dart.library.html) 'package:siged/_widgets/pdf/pdf_preview_launcher_web.dart';
+import 'package:sipged/_widgets/pdf/pdf_preview_launcher_stub.dart'
+if (dart.library.html) 'package:sipged/_widgets/pdf/pdf_preview_launcher_web.dart';
 
 class CreateDetailedReportPage extends StatefulWidget {
   const CreateDetailedReportPage({

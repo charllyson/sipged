@@ -3,18 +3,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/planning/geo/sig_miner/sigmine_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/sig_miner/sigmine_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_state.dart';
 
 // IBGE – Localidades
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
 
 // Detalhes e painel
-import 'package:siged/screens/modules/planning/geo/ibge_localidade/municipio_details.dart';
-import 'package:siged/screens/modules/planning/geo/ores_sigmine/ores_details.dart';
-import 'package:siged/screens/modules/planning/geo/ores_sigmine/ores_panel.dart';
+import 'package:sipged/screens/modules/planning/geo/ibge_localidade/municipio_details.dart';
+import 'package:sipged/screens/modules/planning/geo/ores_sigmine/ores_details.dart';
+import 'package:sipged/screens/modules/planning/geo/ores_sigmine/ores_panel.dart';
 
 class GeoRightPane extends StatelessWidget {
   const GeoRightPane({

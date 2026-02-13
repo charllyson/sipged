@@ -1,9 +1,9 @@
 // lib/_widgets/charts/linear_bar/horizontal_bar_chart_bars.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/charts/linear_bar/horizontal_bar_chart.dart';
+import 'package:sipged/_widgets/charts/linear_bar/horizontal_bar_chart.dart';
 
-import 'package:siged/_widgets/charts/linear_bar/range_overlay_config.dart';
-import 'package:siged/_widgets/charts/linear_bar/slice_hatch_config.dart';
+import 'package:sipged/_widgets/charts/linear_bar/range_overlay_config.dart';
+import 'package:sipged/_widgets/charts/linear_bar/slice_hatch_config.dart';
 
 import 'types.dart';
 

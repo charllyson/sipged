@@ -6,24 +6,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart'; // (mantive só pq você passa NumberFormat no widget)
 
-import 'package:siged/_blocs/system/setup/setup_cubit.dart';
-import 'package:siged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
+import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
-import 'package:siged/_widgets/input/custom_auto_complete.dart';
-import 'package:siged/_widgets/input/custom_date_field.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
-import 'package:siged/_widgets/list/files/side_list_box.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_cubit.dart';
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_state.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_cubit.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_state.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 
 class EmpenhoFormSection extends StatefulWidget {
   final NumberFormat currency;

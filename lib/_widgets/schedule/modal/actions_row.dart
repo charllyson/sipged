@@ -1,8 +1,8 @@
 // lib/_widgets/schedule/modal/schedule_actions_row.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/schedule/modal/type.dart'; // ⬅️ ScheduleType
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/schedule/modal/type.dart'; // ⬅️ ScheduleType
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 /// Linha de ações do modal de cronograma.
 ///

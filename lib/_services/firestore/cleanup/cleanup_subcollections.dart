@@ -86,11 +86,8 @@ class CleanupOldMeasurementSubcollections {
 
     for (final c in contractsSnap.docs) {
       final cid = c.id;
-      try {
-        final res = await deleteForContract(cid, dryRun: dryRun);
-        overall[cid] = res;
-      } catch (e) {
-      }
+      final res = await deleteForContract(cid, dryRun: dryRun);
+      overall[cid] = res;
       // pequeno intervalo entre contratos
       await Future.delayed(const Duration(milliseconds: 20));
     }

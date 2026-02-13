@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/images/carousel/photo_carousel.dart';
-import 'package:siged/_widgets/images/carousel/carousel_photo_theme.dart';
-import 'package:siged/_widgets/images/carousel/photo_picker_square.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
-import 'package:siged/_widgets/images/carousel/carousel_photo.dart';
+import 'package:sipged/_widgets/images/carousel/photo_carousel.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
+import 'package:sipged/_widgets/images/carousel/photo_picker_square.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/carousel_photo.dart';
 
 class SchedulePhotoSection extends StatelessWidget {
   final bool isMulti;
@@ -17,7 +17,6 @@ class SchedulePhotoSection extends StatelessWidget {
   /// URLs já salvas
   final List<String> existingUrls;
 
-  /// Metadados crus vindos do Firestore (Map<String, dynamic>)
   final Map<String, Map<String, dynamic>> existingMetaByUrl;
 
   /// Fotos novas em memória (bytes)

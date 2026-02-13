@@ -4,12 +4,12 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_storage_bloc.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_widgets/registers/register_class.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_storage_bloc.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/registers/register_class.dart';
 
 class ValidityRepository {
   final FirebaseFirestore _db;

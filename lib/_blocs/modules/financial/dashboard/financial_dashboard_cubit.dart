@@ -2,20 +2,20 @@ import 'dart:math';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/financial/budget/budget_repository.dart';
+import 'package:sipged/_blocs/modules/financial/budget/budget_repository.dart';
 
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_repository.dart';
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_data.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_repository.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
 // ✅ DFD (valorDemanda)
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 // ✅ Aditivos / Apostilas
-import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
-import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 
 import 'financial_dashboard_state.dart';
 

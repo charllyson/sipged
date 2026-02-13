@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class SimpleTableVirtualized<T> extends StatelessWidget {
   const SimpleTableVirtualized({

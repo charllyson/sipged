@@ -3,12 +3,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:siged/_blocs/modules/financial/budget/budget_data.dart';
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_data.dart';
+import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
-import 'package:siged/_widgets/charts/legend/chart_legend.dart';
-import 'package:siged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
-import 'package:siged/_widgets/charts/linear_bar/types.dart';
+import 'package:sipged/_widgets/charts/legend/chart_legend.dart';
+import 'package:sipged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
+import 'package:sipged/_widgets/charts/linear_bar/types.dart';
 
 class EmpenhoSlicesRow extends StatefulWidget {
   final NumberFormat currency;

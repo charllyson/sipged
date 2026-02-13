@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/custom_date_field.dart';
 
-import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/side_list_box.dart';
 
-import 'package:siged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
-import 'package:siged/_blocs/modules/actives/oacs/active_oacs_state.dart';
-import 'package:siged/_blocs/modules/actives/oacs/active_oacs_data.dart';
-import 'package:siged/_blocs/modules/actives/oacs/active_oacs_repository.dart';
+import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_state.dart';
+import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_data.dart';
+import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_repository.dart';
 
 class OacInspectionsPage extends StatefulWidget {
   const OacInspectionsPage({super.key});

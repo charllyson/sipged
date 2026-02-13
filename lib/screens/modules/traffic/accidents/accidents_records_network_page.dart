@@ -9,20 +9,20 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
 // Cubit
-import 'package:siged/_blocs/modules/transit/accidents/accidents_cubit.dart';
-import 'package:siged/_blocs/modules/transit/accidents/accidents_state.dart';
-import 'package:siged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
 
 // Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 // SEÇÕES
 import 'accidents_form_section.dart';
@@ -510,7 +510,7 @@ class _AccidentsRecordsNetworkPageState
                   children: [
                     ModalBarrier(
                       dismissible: false,
-                      color: Colors.black.withOpacity(0.25),
+                      color: Colors.black.withValues(alpha: 0.25),
                     ),
                     const Center(child: CircularProgressIndicator()),
                   ],

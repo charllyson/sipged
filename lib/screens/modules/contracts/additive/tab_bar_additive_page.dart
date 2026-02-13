@@ -2,17 +2,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
 
-import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
-import 'package:siged/_widgets/schedule/physical_financial/schedule_physical_financial_widget.dart';
+import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
+import 'package:sipged/_widgets/schedule/physical_financial/schedule_physical_financial_widget.dart';
 
 // 👉 usar a AdditivePage do módulo contracts/additives
-import 'package:siged/screens/modules/contracts/additive/additive_page.dart';
+import 'package:sipged/screens/modules/contracts/additive/additive_page.dart';
 
 class TabBarAdditivePage extends StatelessWidget {
   final ProcessData? contractData;

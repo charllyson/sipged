@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
-import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
-import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
+import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/texts/divider_text.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 class OresPanel extends StatelessWidget {
   const OresPanel({

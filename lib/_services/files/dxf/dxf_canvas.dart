@@ -1,6 +1,6 @@
 // lib/_widgets/files/dxf/widgets/dxf_canvas.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_services/files/dxf/dxf_controller.dart';
+import 'package:sipged/_services/files/dxf/dxf_controller.dart';
 import 'dxf_selection_overlay.dart';
 
 class DxfCanvas extends StatefulWidget {

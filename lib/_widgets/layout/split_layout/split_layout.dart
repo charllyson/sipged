@@ -1,7 +1,7 @@
 // lib/_widgets/layout/split_layout.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/layout/split_layout/horizontal_drag_divider.dart';
-import 'package:siged/_widgets/layout/split_layout/vertical_drag_divider.dart';
+import 'package:sipged/_widgets/layout/split_layout/horizontal_drag_divider.dart';
+import 'package:sipged/_widgets/layout/split_layout/vertical_drag_divider.dart';
 
 class SplitLayout extends StatefulWidget {
   const SplitLayout({

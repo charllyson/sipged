@@ -5,43 +5,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ===== Progress (etapas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 
 // ===== Habilitação
-import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // ===== Widgets / UI
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 // ===== Seções
-import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/section_1_metadados.dart';
-import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/section_2_empresa.dart';
-import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/section_3_certidoes.dart';
-import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/section_4_juridica_tecnica.dart';
-import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/section_5_licitacao.dart';
-import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/section_6_consolidacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/6Habilitacao/section_1_metadados.dart';
+import 'package:sipged/screens/modules/contracts/hiring/6Habilitacao/section_2_empresa.dart';
+import 'package:sipged/screens/modules/contracts/hiring/6Habilitacao/section_3_certidoes.dart';
+import 'package:sipged/screens/modules/contracts/hiring/6Habilitacao/section_4_juridica_tecnica.dart';
+import 'package:sipged/screens/modules/contracts/hiring/6Habilitacao/section_5_licitacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/6Habilitacao/section_6_consolidacao.dart';
 
 // ===== Utils
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // ===== Overlay leve
-import 'package:siged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
 // ===== Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // ===== Pipeline (habilitação dinâmica das abas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 // ===== Stage Gate (habilitação por etapa)
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 class HabilitacaoPage extends StatefulWidget {
   final String contractId;

@@ -157,7 +157,7 @@ class _LineSkeletonPainter extends CustomPainter {
     area.close();
 
     final areaPaint = Paint()
-      ..color = baseColor.withOpacity(0.5)
+      ..color = baseColor.withValues(alpha: 0.5)
       ..style = PaintingStyle.fill;
     canvas.drawPath(area, areaPaint);
 

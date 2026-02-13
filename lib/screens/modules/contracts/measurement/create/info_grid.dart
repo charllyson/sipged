@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:siged/screens/modules/contracts/measurement/create/info_cell_padding.dart';
-import 'package:siged/screens/modules/contracts/measurement/create/label_value.dart';
+import 'package:sipged/screens/modules/contracts/measurement/create/info_cell_padding.dart';
+import 'package:sipged/screens/modules/contracts/measurement/create/label_value.dart';
 
 class InfoGrid extends StatelessWidget {
   const InfoGrid({super.key,

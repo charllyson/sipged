@@ -4,14 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 
-import 'package:siged/_widgets/images/carousel/photo_preview_page.dart';
+import 'package:sipged/_widgets/images/carousel/photo_preview_page.dart';
 
 // Só serão usados fora do Web:
 import 'dart:io' show Platform;
-import 'package:siged/_widgets/images/carousel/custom_camera_page.dart';
+import 'package:sipged/_widgets/images/carousel/custom_camera_page.dart';
 
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class PhotoPickerSquare extends StatelessWidget {
   final bool enabled;

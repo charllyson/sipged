@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 import 'pie_chart_changed.dart'; // para usar o enum ValueFormatType
 
 class PieChartLegend extends StatelessWidget {
@@ -47,8 +47,8 @@ class PieChartLegend extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              color: (touchedIndex == i) ? cores[i].withOpacity(0.12) : null,
-              border: Border.all(color: cores[i].withOpacity(0.35)),
+              color: (touchedIndex == i) ? cores[i].withValues(alpha: 0.12) : null,
+              border: Border.all(color: cores[i].withValues(alpha: 0.35)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

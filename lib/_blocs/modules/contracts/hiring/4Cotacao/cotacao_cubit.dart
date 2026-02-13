@@ -1,9 +1,9 @@
 // lib/_blocs/modules/contracts/hiring/3Cotacao/cotacao_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 class CotacaoCubit extends Cubit<CotacaoState> {
   final CotacaoRepository repo;

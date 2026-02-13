@@ -1,5 +1,5 @@
 // lib/_blocs/modules/contracts/hiring/2Tr/tr_state.dart
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 class TrState {
   final bool loading;

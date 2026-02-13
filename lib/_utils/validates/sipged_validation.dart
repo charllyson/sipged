@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/input/sipged_sanitize.dart';
+import 'package:sipged/_utils/input/sipged_sanitize.dart';
 
 mixin SipGedValidation {
   final Map<TextEditingController, VoidCallback> _listeners = {};

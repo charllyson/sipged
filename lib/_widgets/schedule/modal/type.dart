@@ -1,5 +1,5 @@
 // lib/_widgets/modals/type.dart
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 enum ScheduleType {
   rodoviario,

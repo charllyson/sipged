@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/table/paged/paged_table_changed.dart';
+import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 import '../../../../_blocs/modules/transit/infractions/infractions_data.dart';
 
 class InfractionsTableSection extends StatelessWidget {

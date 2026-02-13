@@ -2,7 +2,7 @@
 // lib/_blocs/modules/contracts/budget/budget_bloc.dart
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/modules/contracts/budget/budget_data.dart'; // <- seu domínio tipado
+import 'package:sipged/_blocs/modules/contracts/budget/budget_data.dart'; // <- seu domínio tipado
 // Repo interno nesta mesma classe (para manter o nome "Bloc" que você já usa)
 
 class BudgetBloc {

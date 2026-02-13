@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 import 'parecer_juridico_repository.dart';
 import 'parecer_juridico_state.dart';
 import 'parecer_juridico_data.dart'; // 🆕 modelo equivalente a DfdData/HabilitacaoData

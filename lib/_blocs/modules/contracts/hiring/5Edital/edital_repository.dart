@@ -1,6 +1,6 @@
 // lib/_blocs/modules/contracts/hiring/5Edital/edital_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 import 'edital_sections.dart';
 import 'edital_data.dart'; // 👈 modelo tipado do Edital

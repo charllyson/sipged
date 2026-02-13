@@ -5,37 +5,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Users / Utils
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // Layout / Inputs / Widgets
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // Pipeline / Progress
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // Parecer Jurídico (Cubit + Data)
-import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
 
 // Seções (já no padrão Data)
-import 'package:siged/screens/modules/contracts/hiring/9Juridico/section_1_metadados.dart';
-import 'package:siged/screens/modules/contracts/hiring/9Juridico/section_2_documentos.dart';
-import 'package:siged/screens/modules/contracts/hiring/9Juridico/section_3_checklist.dart';
-import 'package:siged/screens/modules/contracts/hiring/9Juridico/section_4_conclusao.dart';
-import 'package:siged/screens/modules/contracts/hiring/9Juridico/section_5_pendencias.dart';
-import 'package:siged/screens/modules/contracts/hiring/9Juridico/section_6_assinaturas.dart';
+import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_1_metadados.dart';
+import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_2_documentos.dart';
+import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_3_checklist.dart';
+import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_4_conclusao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_5_pendencias.dart';
+import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_6_assinaturas.dart';
 
 class ParecerJuridicoPage extends StatefulWidget {
   final String contractId;

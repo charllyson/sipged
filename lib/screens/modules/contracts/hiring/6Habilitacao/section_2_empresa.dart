@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:siged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_utils/mask/sipged_masks.dart';
 
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 
 class SectionEmpresa extends StatefulWidget {
   final HabilitacaoData data;

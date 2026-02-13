@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/windows/window_dialog.dart';
-import 'package:siged/_blocs/system/setup/setup_cubit.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 
 // ✅ novos utils (ajuste o path conforme sua estrutura)
-import 'package:siged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_utils/mask/sipged_masks.dart';
 // se você não tiver SipGedMasks.cnpj pronto, pode usar o formatter genérico:
 
 Future<String?> showCreateCompanyBodyDialog(

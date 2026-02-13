@@ -1,8 +1,8 @@
 // lib/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
-import 'package:siged/_utils/formats/sipged_format_firestore.dart';
-import 'package:siged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_utils/formats/sipged_format_firestore.dart';
+import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
 import 'publicacao_extrato_sections.dart';
 
 class PublicacaoExtratoData extends Equatable {

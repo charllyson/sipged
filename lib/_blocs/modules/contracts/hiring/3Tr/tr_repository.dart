@@ -1,8 +1,8 @@
 // lib/_blocs/modules/contracts/hiring/2Tr/tr_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_sections.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_sections.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 class TrRepository {
   final FirebaseFirestore _db;

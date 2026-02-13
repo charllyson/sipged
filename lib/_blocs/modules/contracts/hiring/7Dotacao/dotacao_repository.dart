@@ -1,6 +1,6 @@
 // lib/_blocs/modules/contracts/hiring/7Dotacao/dotacao_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 import 'dotacao_sections.dart';
 
 class DotacaoRepository {

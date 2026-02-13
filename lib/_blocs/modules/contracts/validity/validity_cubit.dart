@@ -3,11 +3,11 @@ import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_repository.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_state.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ValidityCubit extends Cubit<ValidityState> {
   final ValidityRepository _repository;

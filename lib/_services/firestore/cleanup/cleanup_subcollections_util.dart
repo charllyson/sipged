@@ -105,15 +105,12 @@ class SubcollectionCleaner {
     final docs = await colRef.get();
 
     for (final d in docs.docs) {
-      try {
-        final res = await deleteForDocument(
-          docRef: d.reference,
-          subcollections: subcollections,
-          dryRun: dryRun,
-        );
-        overall[d.reference.path] = res;
-      } catch (e) {
-      }
+      final res = await deleteForDocument(
+        docRef: d.reference,
+        subcollections: subcollections,
+        dryRun: dryRun,
+      );
+      overall[d.reference.path] = res;
       await Future.delayed(const Duration(milliseconds: 20));
     }
 

@@ -2,9 +2,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_repository.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
 
 class IBGELocationCubit extends Cubit<IBGELocationState> {
   final IBGELocationRepository _repo;

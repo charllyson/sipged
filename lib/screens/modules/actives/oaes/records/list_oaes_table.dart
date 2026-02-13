@@ -1,8 +1,8 @@
 // lib/screens/modules/actives/oaes/list_oaes_table.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_widgets/table/simple/simple_table_changed.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 
 import 'list_oaes_page.dart' show OaeScoreHelper;
 
@@ -71,9 +71,9 @@ class _ListOaesTableState extends State<ListOaesTable> {
             padding:
             const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: color.withOpacity(0.4)),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
             ),
             child: Text(
               normalized >= 0 ? label : label,

@@ -1,8 +1,8 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/cards/glass/glass_card.dart';
-import 'package:siged/_widgets/overlays/animated_scale_fade.dart';
+import 'package:sipged/_widgets/cards/glass/glass_card.dart';
+import 'package:sipged/_widgets/overlays/animated_scale_fade.dart';
 
 class OverlayScreen extends StatelessWidget {
   final String? message;
@@ -33,12 +33,12 @@ class OverlayScreen extends StatelessWidget {
 
     // Tons adaptativos (claro/escuro)
     final isDark = theme.brightness == Brightness.dark;
-    final glassFill = (isDark ? Colors.white : Colors.black).withOpacity(0.06);
-    final glassBorder = (isDark ? Colors.white : Colors.black).withOpacity(0.10);
-    final barrier = barrierColor.withOpacity(0.12); // bem leve
+    final glassFill = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06);
+    final glassBorder = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.10);
+    final barrier = barrierColor.withValues(alpha: 0.12); // bem leve
     final cardShadow = [
       BoxShadow(
-        color: Colors.black.withOpacity(isDark ? 0.25 : 0.10),
+        color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.10),
         blurRadius: 16,
         offset: const Offset(0, 8),
       ),

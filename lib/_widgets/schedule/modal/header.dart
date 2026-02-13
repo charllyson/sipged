@@ -1,7 +1,7 @@
 // lib/_widgets/modals/header.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/schedule/modal/type.dart';
+import 'package:sipged/_widgets/schedule/modal/type.dart';
 // ScheduleApplyTarget normalmente vem do mesmo arquivo de tipos
 // (ajuste o import se estiver em outro lugar)
 

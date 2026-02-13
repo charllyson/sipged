@@ -4,37 +4,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Users / Utils
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // Layout / Inputs / Widgets
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // Pipeline / Progress
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // Dotação
-import 'package:siged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_state.dart';
 
 // Seções
-import 'package:siged/screens/modules/contracts/hiring/7Dotacao/section_1_identificacao.dart';
-import 'package:siged/screens/modules/contracts/hiring/7Dotacao/section_2_vinculacao_programatica.dart';
-import 'package:siged/screens/modules/contracts/hiring/7Dotacao/section_3_natureza_despesa.dart';
-import 'package:siged/screens/modules/contracts/hiring/7Dotacao/section_4_reserva.dart';
-import 'package:siged/screens/modules/contracts/hiring/7Dotacao/section_5_empenho.dart';
-import 'package:siged/screens/modules/contracts/hiring/7Dotacao/section_6_cronograma.dart';
-import 'package:siged/screens/modules/contracts/hiring/7Dotacao/section_7_documentos_links.dart';
+import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_1_identificacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_2_vinculacao_programatica.dart';
+import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_3_natureza_despesa.dart';
+import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_4_reserva.dart';
+import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_5_empenho.dart';
+import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_6_cronograma.dart';
+import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_7_documentos_links.dart';
 
 class DotacaoPage extends StatefulWidget {
   final String contractId;

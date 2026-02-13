@@ -2,22 +2,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 
 // ✅ Split responsivo
-import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/screens/modules/planning/rightWay/lane_regularization_details.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_details.dart';
 
 // MAPA e PAINEL
-import 'package:siged/screens/modules/planning/rightWay/planning_right_way_map.dart';
-import 'package:siged/screens/modules/planning/rightWay/planning_right_way_panel.dart';
+import 'package:sipged/screens/modules/planning/rightWay/planning_right_way_map.dart';
+import 'package:sipged/screens/modules/planning/rightWay/planning_right_way_panel.dart';
 
 // Bloc do domínio
-import 'package:siged/_blocs/modules/planning/highway_domain/planning_highway_domain_bloc.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/planning_highway_domain_bloc.dart';
 
 class PlanningRightWayWorkspacePage extends StatefulWidget {
   final ProcessData contractData;

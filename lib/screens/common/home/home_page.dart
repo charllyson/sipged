@@ -2,14 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
 
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
-import 'package:siged/_blocs/system/module/module_data.dart'; // MenuItem + PagesData
-import 'package:siged/screens/common/home/hero_header.dart';
-import 'package:siged/_widgets/draw/soft_bubbles.dart';
-import 'package:siged/screens/common/home/themed_actions_grid.dart'; // tipos do drawer
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_state.dart';
+import 'package:sipged/_blocs/system/module/module_data.dart'; // MenuItem + PagesData
+import 'package:sipged/screens/common/home/hero_header.dart';
+import 'package:sipged/_widgets/draw/soft_bubbles.dart';
+import 'package:sipged/screens/common/home/themed_actions_grid.dart'; // tipos do drawer
 
 class HomeBody extends StatelessWidget {
   const HomeBody({super.key, this.onSelect});

@@ -6,15 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:brasil_fields/brasil_fields.dart';
-import 'package:siged/_blocs/system/setup/setup_region_map.dart';
+import 'package:sipged/_blocs/system/setup/setup_region_map.dart';
 
-import 'package:siged/_widgets/windows/window_dialog.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_utils/formats/mask_class.dart';
+import 'package:sipged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_utils/formats/mask_class.dart';
 
-import 'package:siged/_blocs/system/setup/setup_cubit.dart';
-import 'package:siged/_blocs/system/setup/setup_state.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
+import 'package:sipged/_blocs/system/setup/setup_state.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
 class InitialSetupPage extends StatefulWidget {
   final UserData user;

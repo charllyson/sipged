@@ -4,20 +4,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_repository.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_state.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
 
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/timeline/timeline_class.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
-import 'package:siged/_widgets/pdf/pdf_preview.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/timeline/timeline_class.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/pdf/pdf_preview.dart';
 
 // ✅ novo: para callback do rename persist
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'validity_form_section.dart';
 import 'validity_table_section.dart';

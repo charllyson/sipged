@@ -29,7 +29,7 @@ class StakesUpRight extends StatelessWidget {
         foreground: Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeW
-          ..color = const Color(0xFFFFFFFF).withOpacity(0.95),
+          ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.95),
       ),
     );
 

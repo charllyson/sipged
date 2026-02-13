@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/financial/budget/budget_cubit.dart';
-import 'package:siged/_blocs/modules/financial/budget/budget_state.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
+import 'package:sipged/_blocs/modules/financial/budget/budget_state.dart';
 
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/screens/modules/financial/budget/budget_form_section.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/screens/modules/financial/budget/budget_form_section.dart';
 
 import 'budget_table_section.dart';
 

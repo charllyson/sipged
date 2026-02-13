@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/screens/modules/contracts/measurement/create/label_value.dart';
+import 'package:sipged/screens/modules/contracts/measurement/create/label_value.dart';
 
 class InfoCellPadding extends StatelessWidget {
   const InfoCellPadding({super.key});

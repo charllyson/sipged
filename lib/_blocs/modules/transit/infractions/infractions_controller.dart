@@ -7,8 +7,8 @@ import 'infractions_bloc.dart';
 import 'infractions_data.dart';
 
 // 🔔 Notificações centralizadas
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class InfractionsController extends ChangeNotifier {
   InfractionsController({required InfractionsBloc bloc}) : _bloc = bloc;

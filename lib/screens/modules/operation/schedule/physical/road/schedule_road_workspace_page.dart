@@ -2,35 +2,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_header.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_header.dart';
 
-import 'package:siged/_widgets/schedule/linear/schedule_menu_buttons.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_menu_buttons.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // ✅ Cubit do cronograma rodoviário
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
-import 'package:siged/screens/modules/operation/schedule/physical/road/schedule_road_map.dart';
-import 'package:siged/screens/modules/operation/schedule/physical/road/schedule_road_panel.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_road_map.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_road_panel.dart';
 
 // Board
-import 'package:siged/_widgets/schedule/linear/schedule_road_board.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_road_board.dart';
 
 // Layout unificado (lado a lado vs empilhado)
-import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
 // 🔒 Overlay de bloqueio de tela
-import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/screens/modules/operation/schedule/physical/road/schedule_status_legend_item.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_status_legend_item.dart';
 
 class ScheduleRoadWorkspacePage extends StatefulWidget {
   final ProcessData contractData;

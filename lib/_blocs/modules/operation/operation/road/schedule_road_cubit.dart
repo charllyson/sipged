@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
-import 'package:siged/_widgets/schedule/stakes/line_segmentation.dart'; // splitAxisByFixedStep
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
+import 'package:sipged/_widgets/schedule/stakes/line_segmentation.dart'; // splitAxisByFixedStep
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 /// Cubit principal do Schedule de rodovia.
 ///
@@ -53,7 +53,6 @@ class ScheduleRoadCubit extends Cubit<ScheduleRoadState> {
     return m;
   }
 
-  /// Converte GRID (Map<nome, ...>) -> (Map<idx, ...>)
   Map<String, List<double>> _gridNameToIndex(
       Map<String, List<double>> byName,
       List<ScheduleRoadData> services,
@@ -67,7 +66,6 @@ class ScheduleRoadCubit extends Cubit<ScheduleRoadState> {
     return out;
   }
 
-  /// Converte GRID (Map<idx, ...>) -> (Map<nome, ...>)
   Map<String, List<double>> _gridIndexToName(
       Map<String, List<double>> byIndex,
       List<ScheduleRoadData> services,

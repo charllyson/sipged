@@ -1,6 +1,6 @@
 // lib/_blocs/modules/contracts/hiring/2Etp/etp_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 import 'etp_sections.dart';
 import 'etp_data.dart';

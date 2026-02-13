@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
+import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
 import 'gutter_column.dart';
 import 'leading_column.dart';
 import 'grid_body.dart';

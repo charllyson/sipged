@@ -1,7 +1,7 @@
 // lib/screens/modules/traffic/dashboard/accidents_summary_section.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/cards/summary/expandable_card.dart';
-import 'package:siged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_widgets/cards/summary/expandable_card.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
 
 class AccidentsSummarySection extends StatelessWidget {
   /// Mapa vindo do Bloc/Repository, com chaves **canônicas** (ex.: 'COLISÃO FRONTAL').

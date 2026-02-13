@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/tool_dock.dart';
+import 'package:sipged/_widgets/toolBox/tool_dock.dart';
 
 class PanelShell extends StatelessWidget {
   const PanelShell({

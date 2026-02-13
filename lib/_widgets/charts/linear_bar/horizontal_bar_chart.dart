@@ -1,10 +1,10 @@
 // lib/_widgets/charts/linear_bar/horizontal_bar_chart_row.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/charts/linear_bar/hatched_fill_light.dart';
-import 'package:siged/_widgets/charts/linear_bar/range_overlay.dart';
-import 'package:siged/_widgets/charts/linear_bar/range_overlay_config.dart';
-import 'package:siged/_widgets/charts/linear_bar/slice_hatch_config.dart';
+import 'package:sipged/_widgets/charts/linear_bar/hatched_fill_light.dart';
+import 'package:sipged/_widgets/charts/linear_bar/range_overlay.dart';
+import 'package:sipged/_widgets/charts/linear_bar/range_overlay_config.dart';
+import 'package:sipged/_widgets/charts/linear_bar/slice_hatch_config.dart';
 
 import 'types.dart';
 
@@ -188,10 +188,10 @@ class HorizontalChartBar extends StatelessWidget {
                                 end: Alignment.centerRight,
                                 colors: [
                                   isDark
-                                      ? Colors.white.withOpacity(0.06)
+                                      ? Colors.white.withValues(alpha: 0.06)
                                       : Colors.grey.shade100,
                                   isDark
-                                      ? Colors.white.withOpacity(0.03)
+                                      ? Colors.white.withValues(alpha: 0.03)
                                       : Colors.grey.shade200,
                                 ],
                               ),
@@ -230,11 +230,11 @@ class HorizontalChartBar extends StatelessWidget {
 
                                 Color resolveBaseColor() {
                                   if (sliceValue <= 0) {
-                                    return baseColor.withOpacity(0.20);
+                                    return baseColor.withValues(alpha: 0.20);
                                   }
                                   if (isSelectedSlice) return Colors.orange;
                                   if (rowHasSelection) {
-                                    return baseColor.withOpacity(0.10);
+                                    return baseColor.withValues(alpha: 0.10);
                                   }
                                   return baseColor;
                                 }
@@ -276,8 +276,8 @@ class HorizontalChartBar extends StatelessWidget {
 
                                 final double alpha = sliceColor.opacity;
                                 final Color start =
-                                sliceColor.withOpacity(alpha);
-                                final Color end = sliceColor.withOpacity(
+                                sliceColor.withValues(alpha: alpha);
+                                final Color end = sliceColor.withValues(alpha: 
                                   (alpha * 0.9).clamp(0.0, 1.0),
                                 );
 
@@ -337,8 +337,8 @@ class HorizontalChartBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         color: (selectedRowIndex != null && selectedRowIndex == rowIndex)
             ? (isDark
-            ? Colors.white.withOpacity(0.03)
-            : Colors.blueGrey.withOpacity(0.03))
+            ? Colors.white.withValues(alpha: 0.03)
+            : Colors.blueGrey.withValues(alpha: 0.03))
             : Colors.transparent,
       ),
       child: Padding(

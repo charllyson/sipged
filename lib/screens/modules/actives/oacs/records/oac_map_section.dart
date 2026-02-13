@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
 
 class OacMapSection extends StatelessWidget {
   final void Function(MapController controller)? onControllerReady;

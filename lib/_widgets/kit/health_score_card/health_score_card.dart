@@ -63,7 +63,7 @@ class HealthScoreCard extends StatelessWidget {
     return Container(
       width: 56, height: 56,
       decoration: BoxDecoration(
-        color: color.withOpacity(.1),
+        color: color.withValues(alpha: .1),
         border: Border.all(color: color, width: 2),
         shape: BoxShape.circle,
       ),

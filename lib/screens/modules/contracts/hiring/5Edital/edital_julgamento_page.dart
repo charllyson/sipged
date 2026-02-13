@@ -6,32 +6,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Layout / Overlays / Notificações
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 // Pipeline / Progress
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // Edital (Cubit + Data + State)
-import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_state.dart';
 
 // Seções
-import 'package:siged/screens/modules/contracts/hiring/5Edital/section_1_divulgacao_recebimento.dart';
-import 'package:siged/screens/modules/contracts/hiring/5Edital/section_2_sessao_julgamento.dart';
-import 'package:siged/screens/modules/contracts/hiring/5Edital/section_3_propostas.dart';
-import 'package:siged/screens/modules/contracts/hiring/5Edital/section_4_lances.dart';
-import 'package:siged/screens/modules/contracts/hiring/5Edital/section_5_parecer_recursos.dart';
-import 'package:siged/screens/modules/contracts/hiring/5Edital/section_6_resultado.dart';
+import 'package:sipged/screens/modules/contracts/hiring/5Edital/section_1_divulgacao_recebimento.dart';
+import 'package:sipged/screens/modules/contracts/hiring/5Edital/section_2_sessao_julgamento.dart';
+import 'package:sipged/screens/modules/contracts/hiring/5Edital/section_3_propostas.dart';
+import 'package:sipged/screens/modules/contracts/hiring/5Edital/section_4_lances.dart';
+import 'package:sipged/screens/modules/contracts/hiring/5Edital/section_5_parecer_recursos.dart';
+import 'package:sipged/screens/modules/contracts/hiring/5Edital/section_6_resultado.dart';
 
 class EditalJulgamentoPage extends StatefulWidget {
   final String contractId;

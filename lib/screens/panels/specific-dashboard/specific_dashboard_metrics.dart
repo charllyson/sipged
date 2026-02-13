@@ -2,13 +2,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_utils/formats/sipged_format_money.dart';
-import 'package:siged/_widgets/charts/cost_ruler/cost_ruler.dart';
-import 'package:siged/_widgets/charts/legend/chart_legend.dart';
-import 'package:siged/_widgets/charts/linear_bar/types.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_widgets/charts/cost_ruler/cost_ruler.dart';
+import 'package:sipged/_widgets/charts/legend/chart_legend.dart';
+import 'package:sipged/_widgets/charts/linear_bar/types.dart';
 
-import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
-import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_state.dart';
+import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
+import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_state.dart';
 
 class SpecificDashboardMetrics extends StatelessWidget {
   const SpecificDashboardMetrics({super.key});

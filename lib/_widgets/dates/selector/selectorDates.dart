@@ -1,7 +1,7 @@
 // lib/_widgets/dates/selector/selectorDates.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 class SelectorDates<T> extends StatefulWidget {
   final List<T> items;
@@ -517,7 +517,7 @@ class _SelectorDatesState<T> extends State<SelectorDates<T>> {
             borderRadius: 8,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             borderColor: selected
-                ? (isDark ? Colors.blueAccent.withOpacity(0.6) : Colors.blue)
+                ? (isDark ? Colors.blueAccent.withValues(alpha: 0.6) : Colors.blue)
                 : null,
             enableShadow: false,
             child: Center(
@@ -560,7 +560,7 @@ class _SelectorDatesState<T> extends State<SelectorDates<T>> {
             borderRadius: 8,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             borderColor: selected
-                ? (isDark ? Colors.blueAccent.withOpacity(0.6) : Colors.blue)
+                ? (isDark ? Colors.blueAccent.withValues(alpha: 0.6) : Colors.blue)
                 : null,
             enableShadow: false,
             child: Center(

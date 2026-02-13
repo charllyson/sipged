@@ -1,6 +1,6 @@
 // lib/_widgets/modals/status_chip.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
 
 class StatusChip extends StatelessWidget {
   final ScheduleStatus selected;

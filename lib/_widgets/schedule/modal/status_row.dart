@@ -1,8 +1,8 @@
 // lib/_widgets/modals/parts/status_row.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/schedule/modal/status_chip.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
+import 'package:sipged/_widgets/schedule/modal/status_chip.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
 
 class ScheduleStatusRow extends StatelessWidget {
   final bool showSlider; // default true

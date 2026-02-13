@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/charts/treemap/treemap_class.dart';
+import 'package:sipged/_widgets/charts/treemap/treemap_class.dart';
 
 class TreemapPainter extends CustomPainter {
   final List<TreemapItem> items;
@@ -33,11 +33,11 @@ class TreemapPainter extends CustomPainter {
       final paintGlow = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 7
-        ..color = Colors.black.withOpacity(0.25);
+        ..color = Colors.black.withValues(alpha: 0.25);
       final paint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
-        ..color = Colors.white.withOpacity(0.9);
+        ..color = Colors.white.withValues(alpha: 0.9);
       canvas.drawRect(r.inflate(1.5), paintGlow);
       canvas.drawRect(r, paint);
     }
@@ -66,7 +66,7 @@ class TreemapPainter extends CustomPainter {
       final alphaFactor = minAlpha + (maxAlpha - minAlpha) * factor;
 
       final paint = Paint()
-        ..color = item.color.withOpacity(alphaFactor);
+        ..color = item.color.withValues(alpha: alphaFactor);
 
       // bloco folha (sem arredondamento)
       canvas.drawRect(rect, paint);

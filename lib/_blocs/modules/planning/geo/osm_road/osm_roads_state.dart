@@ -1,6 +1,6 @@
 /*
 import 'package:equatable/equatable.dart';
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
 import 'osm_road_data.dart';
 

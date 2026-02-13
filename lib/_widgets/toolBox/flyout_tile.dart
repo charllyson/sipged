@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/tool_dock.dart';
+import 'package:sipged/_widgets/toolBox/tool_dock.dart';
 
 class FlyoutTile extends StatefulWidget {
-  const FlyoutTile({
+  const FlyoutTile({super.key,
     required this.icon,
     required this.label,
     required this.hasSide,
@@ -60,8 +60,8 @@ class _FlyoutTileState extends State<FlyoutTile> {
           child: InkWell(
             onHighlightChanged: (v) => setState(() => _pressed = v),
             onTap: widget.onTap,
-            splashColor: Colors.white.withOpacity(0.10),
-            highlightColor: Colors.white.withOpacity(0.06),
+            splashColor: Colors.white.withValues(alpha: 0.10),
+            highlightColor: Colors.white.withValues(alpha: 0.06),
             hoverColor: Colors.transparent, // usamos nosso bg animado
             child: ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 180),

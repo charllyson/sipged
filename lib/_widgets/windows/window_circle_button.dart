@@ -19,7 +19,7 @@ class WindowCircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const size = 16.0;
-    final effectiveColor = disabled ? color.withOpacity(0.5) : color;
+    final effectiveColor = disabled ? color.withValues(alpha: 0.5) : color;
 
     Widget circle = Container(
       width: size,
@@ -31,7 +31,7 @@ class WindowCircleButton extends StatelessWidget {
           BoxShadow(
             blurRadius: 2,
             offset: const Offset(0, 0.5),
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withValues(alpha: 0.25),
           ),
         ],
       ),

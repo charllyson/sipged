@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 
-import 'package:siged/_widgets/menu/tab/tab_blocked.dart';
-import 'package:siged/_widgets/menu/tab/tab_banner.dart';
+import 'package:sipged/_widgets/menu/tab/tab_blocked.dart';
+import 'package:sipged/_widgets/menu/tab/tab_banner.dart';
 
 /// Descriptor de cada aba (rótulo + builder da página)
 class ContractTabDescriptor {

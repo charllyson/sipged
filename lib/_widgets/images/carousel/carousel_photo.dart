@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart';
 
 class CarouselPhoto {
   final String name;

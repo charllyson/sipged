@@ -1,21 +1,21 @@
 // lib/screens/modules/actives/oaes/active_oaes_network_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
-import 'package:siged/screens/modules/actives/airports/network/active_airports_panel.dart';
-import 'package:siged/screens/modules/actives/oaes/network/active_oaes_details.dart';
-import 'package:siged/screens/modules/actives/oaes/network/maps/active_oaes_map_mapbox.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/screens/modules/actives/airports/network/active_airports_panel.dart';
+import 'package:sipged/screens/modules/actives/oaes/network/active_oaes_details.dart';
+import 'package:sipged/screens/modules/actives/oaes/network/maps/active_oaes_map_mapbox.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_state.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:siged/_widgets/map/markers/tagged_marker.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 enum _RightPanelMode { none, analytics, details }
 

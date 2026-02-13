@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/windows/company_body_dialog.dart';
+import 'package:sipged/_widgets/windows/company_body_dialog.dart';
 
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
-import 'package:siged/screens/modules/contracts/hiring/4Cotacao/fornecedor_card.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
+import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/fornecedor_card.dart';
 
 // System / Companies
-import 'package:siged/_blocs/system/setup/setup_cubit.dart';
-import 'package:siged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
+import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 class SectionRespostasFornecedores extends StatefulWidget {
   final CotacaoData data;

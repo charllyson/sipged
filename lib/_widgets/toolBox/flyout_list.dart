@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/flyout_tile.dart';
-import 'package:siged/_widgets/toolBox/tool_action.dart';
+import 'package:sipged/_widgets/toolBox/flyout_tile.dart';
+import 'package:sipged/_widgets/toolBox/tool_action.dart';
 
 class FlyoutList extends StatelessWidget {
   const FlyoutList({

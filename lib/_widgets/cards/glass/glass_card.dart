@@ -74,7 +74,7 @@ class GlassCard extends StatelessWidget {
                   details!,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.85),
+                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
                   ),
                 ),
               ],

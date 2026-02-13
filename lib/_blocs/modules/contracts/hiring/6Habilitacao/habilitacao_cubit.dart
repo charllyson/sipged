@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 import 'habilitacao_data.dart';       // 🆕 igual ao dfd_data.dart
 import 'habilitacao_repository.dart';

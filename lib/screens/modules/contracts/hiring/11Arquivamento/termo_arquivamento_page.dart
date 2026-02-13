@@ -6,43 +6,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ===== Progress (etapas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 
 // ===== Termo de Arquivamento
-import 'package:siged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // ===== Widgets / UI
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 // ===== Seções
-import 'package:siged/screens/modules/contracts/hiring/11Arquivamento/section_1_metadados.dart';
-import 'package:siged/screens/modules/contracts/hiring/11Arquivamento/section_2_motivo_abrangencia.dart';
-import 'package:siged/screens/modules/contracts/hiring/11Arquivamento/section_3_fundamentacao.dart';
-import 'package:siged/screens/modules/contracts/hiring/11Arquivamento/section_4_pecas_anexas.dart';
-import 'package:siged/screens/modules/contracts/hiring/11Arquivamento/section_5_decisao_autoridade.dart';
-import 'package:siged/screens/modules/contracts/hiring/11Arquivamento/section_6_reabertura.dart';
+import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_1_metadados.dart';
+import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_2_motivo_abrangencia.dart';
+import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_3_fundamentacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_4_pecas_anexas.dart';
+import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_5_decisao_autoridade.dart';
+import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/section_6_reabertura.dart';
 
 // ===== Utils
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // ===== Overlay leve
-import 'package:siged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
 // ===== Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // ===== Pipeline (habilitação dinâmica das abas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 // ===== Stage Gate (habilitação por etapa)
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 class TermoArquivamentoPage extends StatefulWidget {
   final String contractId;

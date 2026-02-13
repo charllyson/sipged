@@ -1,10 +1,10 @@
 /*
 
 // CIVIL
-import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
-import 'package:siged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_bloc.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_event.dart';
+import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
+import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_bloc.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_event.dart';
 
 /// Adaptador para reutilizar o ScheduleModalSquare no fluxo CIVIL.
 /// Não registra handlers; intercepta `add` e faz forward para o CivilScheduleBloc.

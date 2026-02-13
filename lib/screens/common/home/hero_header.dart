@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 
 
 class HeroHeader extends StatelessWidget {
@@ -22,7 +22,7 @@ class HeroHeader extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.asset(
-                'assets/logos/siged/siged.png',
+                'assets/logos/sipged/sipged.png',
                 height: 88,
                 width: 88,
                 fit: BoxFit.contain,
@@ -43,7 +43,7 @@ class HeroHeader extends StatelessWidget {
                 Text(
                   'Sistema Integrado de Planejamento e Gestão de Dados',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: accent.withOpacity(.85),
+                    color: accent.withValues(alpha: .85),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -62,12 +62,12 @@ class HeroHeader extends StatelessWidget {
                 padding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.6),
+                  color: Colors.white.withValues(alpha: .6),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.black.withOpacity(.06)),
+                  border: Border.all(color: Colors.black.withValues(alpha: .06)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(.04),
+                      color: Colors.black.withValues(alpha: .04),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     )

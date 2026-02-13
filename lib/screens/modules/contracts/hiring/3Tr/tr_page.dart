@@ -6,41 +6,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Overlay / layout
-import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 // Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // Progress (etapas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 
 // Pipeline (habilitação dinâmica das abas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 // TR Cubit/State/Data
-import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
 
 // Seções
-import 'package:siged/screens/modules/contracts/hiring/3Tr/section_1_objeto_fundamentacao.dart';
-import 'package:siged/screens/modules/contracts/hiring/3Tr/section_2_escopo_requisitos.dart';
-import 'package:siged/screens/modules/contracts/hiring/3Tr/section_3_local_prazos_cronograma.dart';
-import 'package:siged/screens/modules/contracts/hiring/3Tr/section_4_medicao_aceite_indicadores.dart';
-import 'package:siged/screens/modules/contracts/hiring/3Tr/section_5_obrigacoes_equipe_gestao.dart';
-import 'package:siged/screens/modules/contracts/hiring/3Tr/section_6_licenciamento_seguranca_sustentabilidade.dart';
-import 'package:siged/screens/modules/contracts/hiring/3Tr/section_7_precos_pagamento_reajuste.dart';
-import 'package:siged/screens/modules/contracts/hiring/3Tr/section_8_riscos_penalidades_condicoes.dart';
-import 'package:siged/screens/modules/contracts/hiring/3Tr/section_9_documentos_referencias.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_1_objeto_fundamentacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_2_escopo_requisitos.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_3_local_prazos_cronograma.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_4_medicao_aceite_indicadores.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_5_obrigacoes_equipe_gestao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_6_licenciamento_seguranca_sustentabilidade.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_7_precos_pagamento_reajuste.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_8_riscos_penalidades_condicoes.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/section_9_documentos_referencias.dart';
 
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 class TermoReferenciaPage extends StatefulWidget {
   final String contractId;

@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'empenho_data.dart';
 
 enum EmpenhoStatus { initial, loading, success, failure }

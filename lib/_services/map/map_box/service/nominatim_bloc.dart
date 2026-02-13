@@ -14,41 +14,37 @@ class NominatimBloc extends BlocBase {
   final String _docId = 'info'; // ID fixo do documento
 
   Future<Placemark?> getPlaceMarkAdapted(LatLng coords) async {
-    try {
-      if (kIsWeb) {
-        final url = Uri.parse(
-          'https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR',
-        );
-        final response = await http.get(url);
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final address = data['suggestions'];
+    if (kIsWeb) {
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=pt-BR',
+      );
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final address = data['suggestions'];
 
-          return Placemark(
-            street: address['road'] ?? '',
-            subLocality: address['suburb'] ?? '',
-            locality: address['city'] ?? address['town'] ?? address['village'] ?? '',
-            postalCode: address['postcode'] ?? '',
-            administrativeArea: address['state'] ?? '',
-            country: address['country'] ?? '',
-            isoCountryCode: (address['country_code'] ?? '').toUpperCase(),
-            subAdministrativeArea: address['county'] ?? '',
-            thoroughfare: address['neighbourhood'] ?? '',
-            subThoroughfare: '',
-            name: data['name'] ?? '',
-          );
-        } else {
-        }
+        return Placemark(
+          street: address['road'] ?? '',
+          subLocality: address['suburb'] ?? '',
+          locality: address['city'] ?? address['town'] ?? address['village'] ?? '',
+          postalCode: address['postcode'] ?? '',
+          administrativeArea: address['state'] ?? '',
+          country: address['country'] ?? '',
+          isoCountryCode: (address['country_code'] ?? '').toUpperCase(),
+          subAdministrativeArea: address['county'] ?? '',
+          thoroughfare: address['neighbourhood'] ?? '',
+          subThoroughfare: '',
+          name: data['name'] ?? '',
+        );
       } else {
-        final placeMarks = await placemarkFromCoordinates(
-          coords.latitude,
-          coords.longitude,
-        );
-        return placeMarks.isNotEmpty ? placeMarks.first : null;
       }
-    } catch (e) {
+    } else {
+      final placeMarks = await placemarkFromCoordinates(
+        coords.latitude,
+        coords.longitude,
+      );
+      return placeMarks.isNotEmpty ? placeMarks.first : null;
     }
-
     return null;
   }
 

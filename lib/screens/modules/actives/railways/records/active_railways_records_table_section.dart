@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/overlays/loading_progress.dart';
-import 'package:siged/_widgets/table/virtualized/virtualized_table_changed.dart';
-import 'package:siged/_blocs/modules/actives/railway/active_railway_data.dart';
+import 'package:sipged/_widgets/overlays/loading_progress.dart';
+import 'package:sipged/_widgets/table/virtualized/virtualized_table_changed.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
 
 class ActiveRailwaysRecordsTableSection extends StatelessWidget {
   final Future<List<ActiveRailwayData>> futureRailways;

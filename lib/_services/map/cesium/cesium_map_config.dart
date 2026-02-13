@@ -1,4 +1,4 @@
-import 'package:siged/_services/map/cesium/cesium_data.dart';
+import 'package:sipged/_services/map/cesium/cesium_data.dart';
 
 class CesiumMapConfig {
   final String accessToken;

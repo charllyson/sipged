@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/menu/bars/top_menu_button.dart';
+import 'package:sipged/_widgets/menu/bars/top_menu_button.dart';
 import 'menu_bar_item.dart';
 
 class HorizontalMenuBar extends StatefulWidget {
@@ -172,7 +172,7 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
       final itemStyle = widget.itemTextStyle ??
           TextStyle(
             fontSize: 12,
-            color: isDark ? Colors.white.withOpacity(0.9) : Colors.black87,
+            color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
           );
 
       // Profundidade a exibir: se já entrou em algum submenu,
@@ -198,7 +198,7 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
     final itemStyle = widget.itemTextStyle ??
         TextStyle(
           fontSize: 12,
-          color: isDark ? Colors.white.withOpacity(0.9) : Colors.black87,
+          color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
         );
 
     final List<Widget> panels = [];
@@ -267,11 +267,11 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
     final isDark = theme.brightness == Brightness.dark;
 
     final base = isDark ? Colors.white : Colors.black;
-    final glassFill = Colors.white.withOpacity(0.25);
-    final glassBorder = base.withOpacity(0.18);
+    final glassFill = Colors.white.withValues(alpha: 0.25);
+    final glassBorder = base.withValues(alpha: 0.18);
     final shadows = [
       BoxShadow(
-        color: Colors.black.withOpacity(isDark ? 0.35 : 0.18),
+        color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18),
         blurRadius: 20,
         offset: const Offset(0, 12),
       ),
@@ -353,7 +353,7 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
                     textColor = Colors.white;
                     iconColor = Colors.white;
                   } else if (isPathParent) {
-                    bgColor = Colors.white.withOpacity(isDark ? 0.20 : 0.45);
+                    bgColor = Colors.white.withValues(alpha: isDark ? 0.20 : 0.45);
                     textColor = isDark ? Colors.white : Colors.black87;
                     iconColor = isDark ? Colors.white70 : Colors.black54;
                   } else {
@@ -455,11 +455,11 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
 
     // Glass dos PAINÉIS (submenu) – ORIGINAL
     final base = isDark ? Colors.white : Colors.black;
-    final glassFill = Colors.white.withOpacity(0.25);
-    final glassBorder = base.withOpacity(0.18);
+    final glassFill = Colors.white.withValues(alpha: 0.25);
+    final glassBorder = base.withValues(alpha: 0.18);
     final shadows = [
       BoxShadow(
-        color: Colors.black.withOpacity(isDark ? 0.35 : 0.18),
+        color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.18),
         blurRadius: 20,
         offset: const Offset(0, 12),
       ),
@@ -509,7 +509,7 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
                     iconColor = Colors.white;
                   } else if (isPathParent) {
                     // 2ª prioridade: pai de submenu aberto
-                    bgColor = Colors.white.withOpacity(isDark ? 0.20 : 0.45);
+                    bgColor = Colors.white.withValues(alpha: isDark ? 0.20 : 0.45);
                     textColor = isDark ? Colors.white : Colors.black87;
                     iconColor = isDark ? Colors.white70 : Colors.black54;
                   } else {
@@ -624,16 +624,16 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
 
     // ---------- Barra (barGlass) harmonizada com a UpBar ----------
     final barTopFill =
-    _barBase.withOpacity(isDark ? 0.82 : 0.90); // parte de cima da barra
+    _barBase.withValues(alpha: isDark ? 0.82 : 0.90); // parte de cima da barra
     final barBottomFill =
-    _barBase.withOpacity(isDark ? 0.96 : 0.98); // parte de baixo
+    _barBase.withValues(alpha: isDark ? 0.96 : 0.98); // parte de baixo
     final barBorder =
-    Colors.white.withOpacity(isDark ? 0.12 : 0.10); // linha de separação
+    Colors.white.withValues(alpha: isDark ? 0.12 : 0.10); // linha de separação
 
     final baseMenuTextStyle = widget.menuTextStyle ??
         TextStyle(
           fontSize: 12,
-          color: Colors.white.withOpacity(0.90),
+          color: Colors.white.withValues(alpha: 0.90),
           fontWeight: FontWeight.w500,
         );
 
@@ -677,8 +677,8 @@ class _HorizontalMenuBarState extends State<HorizontalMenuBar> {
                           decoration: BoxDecoration(
                             color:
                             (_hoveredMenuIndex == i || _openMenuIndex == i)
-                                ? Colors.white.withOpacity(
-                              isDark ? 0.18 : 0.35,
+                                ? Colors.white.withValues(alpha:
+                            isDark ? 0.18 : 0.35,
                             )
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(4),

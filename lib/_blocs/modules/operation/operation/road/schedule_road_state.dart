@@ -2,9 +2,9 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
 
 class ScheduleRoadState extends Equatable {
   final bool initialized;

@@ -1,10 +1,10 @@
 // lib/_blocs/modules/contracts/contracts/validity/validity_state.dart
 import 'package:equatable/equatable.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ValidityState extends Equatable {
   final bool isLoading;

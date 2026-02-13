@@ -4,22 +4,22 @@ import 'dart:math' as math;
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_repository.dart';
 
 // Infra UI
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/screens/modules/traffic/dashboard/accidents_analytics_panel.dart';
-import 'package:siged/screens/modules/traffic/dashboard/accidents_map_panel.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/screens/modules/traffic/dashboard/accidents_analytics_panel.dart';
+import 'package:sipged/screens/modules/traffic/dashboard/accidents_map_panel.dart';
 
 // Split responsivo
-import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
 // Mapa (reuso)
-import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
 
 // Cubit
-import 'package:siged/_blocs/modules/transit/accidents/accidents_cubit.dart';
-import 'package:siged/_blocs/modules/transit/accidents/accidents_state.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
 
 enum RightPanelMode { none, map }
 

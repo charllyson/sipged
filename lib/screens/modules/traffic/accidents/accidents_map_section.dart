@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
 
 /// Widget responsável apenas pelo MAPA da tela de acidentes.
 class AccidentsMapSection extends StatelessWidget {

@@ -6,35 +6,35 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/buttons/contract_add_button.dart';
-import 'package:siged/_widgets/search/search_widget.dart';
-import 'package:siged/_widgets/user/user_greeting.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/buttons/contract_add_button.dart';
+import 'package:sipged/_widgets/search/search_widget.dart';
+import 'package:sipged/_widgets/user/user_greeting.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_store.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
 import 'list_demand_status.dart';
 
 // 🆕 DFD
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 // 🆕 EDITAL
-import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 // 🆕 PUBLICAÇÃO EXTRATO
-import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 // 🔐 ACL de contratos (novo)
-import 'package:siged/_blocs/system/permitions/contract_permission.dart';
+import 'package:sipged/_blocs/system/permitions/contract_permission.dart';
 
 typedef DemandNavigationCallback = void Function(
     BuildContext context,

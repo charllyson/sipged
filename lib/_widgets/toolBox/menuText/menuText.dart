@@ -1,8 +1,8 @@
 // lib/_widgets/toolBox/menuText/menu_text.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
-import 'package:siged/_widgets/toolBox/tool_action.dart';
-import 'package:siged/_widgets/toolBox/tool_slot.dart';
+import 'package:sipged/_widgets/toolBox/menuText/menu_text_enums.dart';
+import 'package:sipged/_widgets/toolBox/tool_action.dart';
+import 'package:sipged/_widgets/toolBox/tool_slot.dart';
 
 class MenuText {
   final void Function(TextTool tool) activateTextMode; // avisa o host

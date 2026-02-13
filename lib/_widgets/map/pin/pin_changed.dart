@@ -138,7 +138,7 @@ class _PinPainter extends CustomPainter {
         ..close();
 
       if (showShadow) {
-        canvas.drawShadow(path, Colors.black.withOpacity(0.28), 3, true);
+        canvas.drawShadow(path, Colors.black.withValues(alpha: 0.28), 3, true);
       }
       if (halo && haloOpacity > 0) {
         canvas.drawCircle(
@@ -146,7 +146,7 @@ class _PinPainter extends CustomPainter {
           r * haloScale,
           Paint()
             ..isAntiAlias = true
-            ..color = Colors.black.withOpacity(haloOpacity),
+            ..color = Colors.black.withValues(alpha: haloOpacity),
         );
       }
       canvas.drawPath(path, Paint()..isAntiAlias = true..color = color);
@@ -202,7 +202,7 @@ class _PinPainter extends CustomPainter {
       ..close();
 
     if (showShadow) {
-      canvas.drawShadow(path, Colors.black.withOpacity(0.28), 3, true);
+      canvas.drawShadow(path, Colors.black.withValues(alpha: 0.28), 3, true);
     }
 
     // halo (auréola translúcida) — fica atrás de tudo
@@ -212,7 +212,7 @@ class _PinPainter extends CustomPainter {
         r * haloScale,
         Paint()
           ..isAntiAlias = true
-          ..color = Colors.black.withOpacity(haloOpacity),
+          ..color = Colors.black.withValues(alpha: haloOpacity),
       );
     }
 

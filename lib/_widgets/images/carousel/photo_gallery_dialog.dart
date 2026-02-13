@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/images/carousel/photo_item.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/photo_item.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 // Adapter condicional
-import 'package:siged/_utils/images/image_adapter_loader.dart';
+import 'package:sipged/_utils/images/image_adapter_loader.dart';
 
 enum _FitMode { cover, contain }
 
@@ -66,7 +66,7 @@ Future<void> showPhotoGalleryDialog(
 
   await showDialog(
     context: context,
-    barrierColor: Colors.black.withOpacity(0.8),
+    barrierColor: Colors.black.withValues(alpha: 0.8),
     builder: (_) {
       return StatefulBuilder(
         builder: (context, setState) {
@@ -138,7 +138,7 @@ Future<void> showPhotoGalleryDialog(
                               )
                                   : null,
                               icon: const Icon(Icons.chevron_left, size: 42),
-                              color: Colors.white.withOpacity(idx > 0 ? 0.9 : 0.3),
+                              color: Colors.white.withValues(alpha: idx > 0 ? 0.9 : 0.3),
                             ),
                           ),
                         ),
@@ -155,7 +155,7 @@ Future<void> showPhotoGalleryDialog(
                               )
                                   : null,
                               icon: const Icon(Icons.chevron_right, size: 42),
-                              color: Colors.white.withOpacity(idx < items.length - 1 ? 0.9 : 0.3),
+                              color: Colors.white.withValues(alpha: idx < items.length - 1 ? 0.9 : 0.3),
                             ),
                           ),
                         ),

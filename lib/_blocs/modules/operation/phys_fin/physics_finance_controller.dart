@@ -3,12 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
-import 'package:siged/_widgets/schedule/physical_financial/measure_text.dart';
-import 'package:siged/_widgets/schedule/physical_financial/percent_dialog.dart';
-import 'package:siged/_widgets/schedule/physical_financial/physfin_models.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/schedule/physical_financial/measure_text.dart';
+import 'package:sipged/_widgets/schedule/physical_financial/percent_dialog.dart';
+import 'package:sipged/_widgets/schedule/physical_financial/physfin_models.dart';
 
 class PhysicsFinanceController {
   /// Constrói a lista de dias a partir do contrato: múltiplos de 30 até o limite.

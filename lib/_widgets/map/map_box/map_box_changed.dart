@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
-import 'package:siged/_services/map/map_box/mapbox_3d.dart';
-import 'package:siged/_widgets/map/map_box/mapbox_3d_panel.dart';
-import 'package:siged/_services/map/map_box/mapbox_data.dart';
-import 'package:siged/_services/map/map_box/mapbox_key_service.dart';
+import 'package:sipged/_services/map/map_box/mapbox_3d.dart';
+import 'package:sipged/_widgets/map/map_box/mapbox_3d_panel.dart';
+import 'package:sipged/_services/map/map_box/mapbox_data.dart';
+import 'package:sipged/_services/map/map_box/mapbox_key_service.dart';
 
 class MapBoxChanged extends StatefulWidget {
   const MapBoxChanged({

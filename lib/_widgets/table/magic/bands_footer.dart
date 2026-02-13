@@ -1,6 +1,6 @@
 // lib/_widgets/table/magic/magic_bands_footer_totals_grouped.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/table/magic/magic_table_controller.dart' as bc;
+import 'package:sipged/_widgets/table/magic/magic_table_controller.dart' as bc;
 
 class BandsFooter extends StatelessWidget {
   const BandsFooter({

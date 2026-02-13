@@ -5,7 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Novo padrão: usando Cubit em vez de Bloc/Event
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 
 class ZoomListener extends StatefulWidget {
   final MapController mapController;

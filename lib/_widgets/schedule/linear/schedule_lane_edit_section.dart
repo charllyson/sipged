@@ -1,9 +1,9 @@
 // lib/screens/modules/operation/schedule/schedule_lane_edit_section.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_lane_row_data.dart';
-import 'package:siged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_lane_row_data.dart';
+import 'package:sipged/_widgets/windows/window_dialog.dart';
 
 import 'schedule_lane_row.dart';
 

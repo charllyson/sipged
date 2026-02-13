@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
-import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
-import 'package:siged/_widgets/layout/responsive_section/responsive_section_row.dart';
+import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class AdditiveGraphSection extends StatelessWidget {
   final List<String> labels;

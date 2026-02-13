@@ -1,6 +1,6 @@
 // lib/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_state.dart
 
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 import 'parecer_juridico_sections.dart';
 
 class ParecerState {

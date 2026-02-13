@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/cards/action/action_item.dart';
+import 'package:sipged/_widgets/cards/action/action_item.dart';
 
 import '../glass_card.dart';
 
@@ -18,7 +18,7 @@ class ActionCard extends StatelessWidget {
             height: 56,
             width: 56,
             decoration: BoxDecoration(
-              color: item.color.withOpacity(.12),
+              color: item.color.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(item.icon, size: 28, color: item.color),

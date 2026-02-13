@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_state.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
 
-import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_widgets/timeline/time_line_item.dart';
-import 'package:siged/_widgets/timeline/timeline_shimmer.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_widgets/timeline/time_line_item.dart';
+import 'package:sipged/_widgets/timeline/timeline_shimmer.dart';
 
 class TimelineClass extends StatelessWidget {
   /// Status do DFD do contrato exibido (ex.: "EM ANDAMENTO", "A INICIAR"...)

@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
-import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
-import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/list/resume/list_resumed.dart';
-import 'package:siged/_widgets/cards/summary/expandable_card.dart';
-import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/list/resume/list_resumed.dart';
+import 'package:sipged/_widgets/cards/summary/expandable_card.dart';
+import 'package:sipged/_widgets/texts/divider_text.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-import 'package:siged/screens/panels/measurement/measurement_contract_section.dart';
-import 'package:siged/screens/panels/measurement/measurement_selector_dates_section.dart';
+import 'package:sipged/screens/panels/measurement/measurement_contract_section.dart';
+import 'package:sipged/screens/panels/measurement/measurement_selector_dates_section.dart';
 
 import 'general_dashboard_type.dart';
 import 'general_dashboard_status_services_region.dart';

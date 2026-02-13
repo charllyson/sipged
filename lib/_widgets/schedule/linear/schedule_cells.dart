@@ -1,7 +1,7 @@
 // lib/_widgets/schedule/schedule_cells.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 
 class ScheduleCells extends StatelessWidget {
   final ScheduleRoadData scheduleData;
@@ -232,7 +232,7 @@ class _DiagonalStripesPainter extends CustomPainter {
     final bg = Paint()..color = Colors.grey.shade200;
     canvas.drawRect(Offset.zero & size, bg);
 
-    final stripe = Paint()..color = Colors.white.withOpacity(0.35);
+    final stripe = Paint()..color = Colors.white.withValues(alpha: 0.35);
     const double w = 8.0;
 
     for (double x = -size.height; x < size.width + size.height; x += w * 2) {

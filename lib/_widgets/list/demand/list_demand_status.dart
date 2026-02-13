@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'list_demand_table.dart';
 
 // DFD / Edital / Publicação (apenas os DATA)
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 typedef DemandNavigationCallback = void Function(
     BuildContext context,
@@ -83,7 +83,7 @@ class ListDemandStatus extends StatelessWidget {
               const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: Colors.blue.withOpacity(0.10),
+                color: Colors.blue.withValues(alpha: 0.10),
               ),
               child: Text('$total'),
             ),

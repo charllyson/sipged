@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'pie_chart_shimmer_widget.dart';
 import 'pie_chart_legend.dart';
 
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 enum ValueFormatType { monetary, decimal, integer }
 
@@ -328,13 +328,13 @@ class _PieChartChangedState extends State<PieChartChanged> {
 
             Color color;
             if (value == 0) {
-              color = baseColor.withOpacity(0.15);
+              color = baseColor.withValues(alpha: 0.15);
             } else if (isHighlighted) {
               color = baseColor;
             } else if (hasSomeFilter && !isInFilter) {
-              color = baseColor.withOpacity(0.30);
+              color = baseColor.withValues(alpha: 0.30);
             } else if (hasSomeFilter && isInFilter) {
-              color = baseColor.withOpacity(0.85);
+              color = baseColor.withValues(alpha: 0.85);
             } else {
               color = baseColor;
             }

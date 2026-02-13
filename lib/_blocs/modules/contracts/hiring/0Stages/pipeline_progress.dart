@@ -1,7 +1,7 @@
 // lib/_blocs/modules/contracts/hiring/0Stages/pipeline_progress.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 class PipelineProgressService {
   final FirebaseFirestore db;

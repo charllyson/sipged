@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/menu/bars/horizontal_menu_bar.dart';
-import 'package:siged/_widgets/menu/bars/menu_bar_item.dart';
+import 'package:sipged/_widgets/menu/bars/horizontal_menu_bar.dart';
+import 'package:sipged/_widgets/menu/bars/menu_bar_item.dart';
 
 class AccidentsMenu extends StatelessWidget {
 

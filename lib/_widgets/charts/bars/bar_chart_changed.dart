@@ -2,8 +2,8 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import 'package:siged/_utils/formats/sipged_format_money.dart';
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 import 'bar_chart_shimmer_widget.dart';
 
@@ -499,13 +499,13 @@ class _BarChartChangedState extends State<BarChartChanged> {
 
                           Color color;
                           if (toY == 0) {
-                            color = baseColor.withOpacity(0.20);
+                            color = baseColor.withValues(alpha:0.20);
                           } else if (isSelected) {
                             color = Colors.orange;
                           } else if (hasSomeFilter && !isInFilter) {
-                            color = baseColor.withOpacity(0.20);
+                            color = baseColor.withValues(alpha:0.20);
                           } else if (hasSelection) {
-                            color = baseColor.withOpacity(0.1);
+                            color = baseColor.withValues(alpha:0.1);
                           } else if (isHighlighted) {
                             color = baseColor;
                           } else {

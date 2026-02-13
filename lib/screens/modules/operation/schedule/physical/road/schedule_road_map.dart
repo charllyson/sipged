@@ -10,34 +10,34 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_widgets/schedule/modal/type.dart';
-import 'package:siged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/schedule/modal/type.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 // Notificações centralizadas
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // ✅ Cubit/State do cronograma rodoviário
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
-import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
 
-import 'package:siged/_widgets/schedule/stakes/line_segmentation.dart';
-import 'package:siged/_widgets/schedule/stakes/zoom_listener.dart';
+import 'package:sipged/_widgets/schedule/stakes/line_segmentation.dart';
+import 'package:sipged/_widgets/schedule/stakes/zoom_listener.dart';
 
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:siged/_widgets/map/shimmer/map_loading_shimmer.dart';
-import 'package:siged/_widgets/map/markers/tagged_marker.dart';
-import 'package:siged/_widgets/schedule/stakes/stakes_up_right.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:sipged/_widgets/map/shimmer/map_loading_shimmer.dart';
+import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/schedule/stakes/stakes_up_right.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 
 // ✅ Toolbox flutuante (mesmo da página do Civil/Board)
-import 'package:siged/_widgets/toolBox/tool_widget.dart';
+import 'package:sipged/_widgets/toolBox/tool_widget.dart';
 
 // ✅ Janela macOS-like
 
@@ -173,7 +173,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       helpers.add(
         _copyKeepingFlags(
           p,
-          color: Colors.black.withOpacity(0.01), // invisível mas clicável
+          color: Colors.black.withValues(alpha: 0.01), // invisível mas clicável
           strokeWidth: math.max(p.strokeWidth, kHitStrokeMin),
         ),
       );

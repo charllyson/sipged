@@ -164,7 +164,7 @@ class _FakeTreemapGrid extends StatelessWidget {
 
   Color _base(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? Colors.white.withOpacity(.10)
+          ? Colors.white.withValues(alpha: .10)
           : Colors.grey.shade300;
 }
 
@@ -267,9 +267,9 @@ class _ShimmerState extends State<_Shimmer>
           end: Alignment(1 + 2 * _ctrl.value, 0),
           colors: isDark
               ? [
-            Colors.white.withOpacity(.10),
-            Colors.white.withOpacity(.24),
-            Colors.white.withOpacity(.10),
+            Colors.white.withValues(alpha:.10),
+            Colors.white.withValues(alpha: .24),
+            Colors.white.withValues(alpha: .10),
           ]
               : [
             Colors.grey.shade300,
@@ -298,7 +298,7 @@ class _LegendWrap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white.withOpacity(.14)
+        ? Colors.white.withValues(alpha: .14)
         : Colors.grey.shade300;
 
     return Wrap(
@@ -339,7 +339,7 @@ class _LegendColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = Theme.of(context).brightness == Brightness.dark
-        ? Colors.white.withOpacity(.14)
+        ? Colors.white.withValues(alpha: .14)
         : Colors.grey.shade300;
 
     return Column(

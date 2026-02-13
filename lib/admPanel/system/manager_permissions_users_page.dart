@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/system/module/module_data.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_widgets/images/photo_circle/photo_circle.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 // Bloc de usuário
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_event.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_state.dart';
 
 // ✅ helpers centralizados
-import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/system/permitions/module_permission.dart' as pp;
+import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:sipged/_blocs/system/permitions/module_permission.dart' as pp;
 
 class ManagerPermissionsUsersPage extends StatefulWidget {
   const ManagerPermissionsUsersPage({super.key});

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/cards/top/topic_card.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/_widgets/cards/hub/hub_card.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/cards/top/topic_card.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/cards/hub/hub_card.dart';
 
 // Páginas por tópico
-import 'package:siged/admPanel/system/settings_topic_sistema_page.dart';
+import 'package:sipged/admPanel/system/settings_topic_sistema_page.dart';
 import 'firebase/settings_topic_firebase_page.dart';
 import 'migrations/settings_topic_migracoes_page.dart';
 

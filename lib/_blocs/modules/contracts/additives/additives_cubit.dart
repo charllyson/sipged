@@ -5,21 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 
 // usuário/permissões
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_utils/formats/sipged_format_numbers.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 // notificações locais
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'additives_state.dart';
 
 class AdditivesCubit extends Cubit<AdditivesState> {
@@ -607,7 +607,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-    } catch (e, st) {
+    } catch (e) {
       // ignore: avoid_print
       NotificationCenter.instance.show(
         AppNotification(
@@ -696,7 +696,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-    } catch (e, st) {
+    } catch (e) {
       // ignore: avoid_print
       NotificationCenter.instance.show(
         AppNotification(
@@ -772,7 +772,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
           details: Text('${_userName()} • ${_stamp()}', style: const TextStyle(fontSize: 11)),
         ),
       );
-    } catch (e, st) {
+    } catch (e) {
       // ignore: avoid_print
       NotificationCenter.instance.show(
         AppNotification(

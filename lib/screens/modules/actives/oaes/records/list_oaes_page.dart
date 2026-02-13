@@ -4,7 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'list_oaes_status.dart';
 
 /// Callback para clique em uma OAE.

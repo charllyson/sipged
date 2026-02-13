@@ -58,13 +58,13 @@ class GeneralDashboardStyle {
   ];
 
   static Map<String, Color> regionsColors = {
-    'SERTÃO': Colors.red.withOpacity(0.2),
-    'AGRESTE': Colors.blue.withOpacity(0.2),
-    'NORTE': Colors.purple.withOpacity(0.2),
-    'SUL': Colors.teal.withOpacity(0.2),
-    'VALE DO MUNDAÚ': Colors.orange.withOpacity(0.2),
-    'VALE DO PARAÍBA': Colors.brown.withOpacity(0.2),
-    'METROPOLITANA': Colors.pink.withOpacity(0.2),
+    'SERTÃO': Colors.red.withValues(alpha: 0.2),
+    'AGRESTE': Colors.blue.withValues(alpha: 0.2),
+    'NORTE': Colors.purple.withValues(alpha: 0.2),
+    'SUL': Colors.teal.withValues(alpha: 0.2),
+    'VALE DO MUNDAÚ': Colors.orange.withValues(alpha: 0.2),
+    'VALE DO PARAÍBA': Colors.brown.withValues(alpha: 0.2),
+    'METROPOLITANA': Colors.pink.withValues(alpha: 0.2),
   };
 
   static Map<String, Color> statusColors = {

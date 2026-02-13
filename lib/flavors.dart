@@ -1,6 +1,6 @@
 // lib/flavors.dart
 
-import 'package:siged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 class Flavor {
   /// 1) Tenta pegar do --dart-define=FLAVOR

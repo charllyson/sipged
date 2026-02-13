@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/attributes_table/attributes_table_data.dart';
-import 'package:siged/_blocs/modules/planning/geo/attributes_table/attributes_table_state.dart';
-import 'package:siged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_state.dart';
+import 'package:sipged/_widgets/windows/window_dialog.dart';
 
 enum AttributesTableMode { importFile, firestore }
 
@@ -645,7 +645,7 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 340),
           child: Card(
-            color: Colors.black.withOpacity(0.8),
+            color: Colors.black.withValues(alpha: 0.8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

@@ -2,8 +2,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/charts/linear_bar/dashed_vertical_lines_painter.dart';
-import 'package:siged/_widgets/charts/linear_bar/range_overlay_config.dart';
+import 'package:sipged/_widgets/charts/linear_bar/dashed_vertical_lines_painter.dart';
+import 'package:sipged/_widgets/charts/linear_bar/range_overlay_config.dart';
 
 /// ✅ Overlay: faixa translúcida entre start/end + linhas verticais tracejadas + labels.
 class RangeOverlay extends StatelessWidget {
@@ -40,7 +40,7 @@ class RangeOverlay extends StatelessWidget {
             TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Colors.black.withOpacity(0.95),
+              color: Colors.black.withValues(alpha: 0.95),
               shadows: const [
                 Shadow(
                   blurRadius: 6,
@@ -87,7 +87,7 @@ class RangeOverlay extends StatelessWidget {
                       maxWidth: (right - left - 4).clamp(0.0, c.maxWidth),
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                     ),
                     child: Text(
                       config.format(config.startValue),

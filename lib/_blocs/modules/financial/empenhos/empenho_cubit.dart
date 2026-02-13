@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/screens/modules/financial/finance_utils.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/screens/modules/financial/finance_utils.dart';
 
 import 'empenho_data.dart';
 import 'empenho_repository.dart';

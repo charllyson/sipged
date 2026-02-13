@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
-import 'package:siged/_services/firestore/cleanup/selective_delete_tile.dart';
-import 'package:siged/_services/firestore/explorer/firestore_explorer_page.dart';
-import 'package:siged/_services/firestore/migrate/migrateDocForSubCollection.dart';
-import 'package:siged/_services/firestore/migrate/migration.dart';
+import 'package:sipged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
+import 'package:sipged/_services/firestore/cleanup/selective_delete_tile.dart';
+import 'package:sipged/_services/firestore/explorer/firestore_explorer_page.dart';
+import 'package:sipged/_services/firestore/migrate/migrateDocForSubCollection.dart';
+import 'package:sipged/_services/firestore/migrate/migration.dart';
 
 // Importando suas páginas/tiles já existentes
-import 'package:siged/_services/firestore/firebase_utils.dart';
-import 'package:siged/_services/excel/excel_import_controller.dart';
-import 'package:siged/_widgets/info/section_header.dart';
-import 'package:siged/_widgets/info/tip_box.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/tiles/tile_widget.dart';
+import 'package:sipged/_services/firestore/firebase_utils.dart';
+import 'package:sipged/_services/excel/excel_import_controller.dart';
+import 'package:sipged/_widgets/info/section_header.dart';
+import 'package:sipged/_widgets/info/tip_box.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/tiles/tile_widget.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';
 import '../../_widgets/menu/upBar/up_bar.dart';
 
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class SettingsTopicFirebasePage extends StatelessWidget {
   const SettingsTopicFirebasePage({super.key});

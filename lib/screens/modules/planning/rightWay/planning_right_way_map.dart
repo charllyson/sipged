@@ -8,18 +8,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:siged/_utils/geometry/sipged_geometry.dart';
+import 'package:sipged/_utils/geometry/sipged_geometry.dart';
 
 // === SIGED widgets ===
-import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:siged/_widgets/map/markers/tagged_marker.dart';
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // cluster animado
-import 'package:siged/_widgets/map/clusters/cluster_animated_marker_widget.dart';
+import 'package:sipged/_widgets/map/clusters/cluster_animated_marker_widget.dart';
 // pin com bico alinhado no bottom-center
-import 'package:siged/_widgets/map/pin/pin_changed.dart';
+import 'package:sipged/_widgets/map/pin/pin_changed.dart';
 
 // tooltip visual
 
@@ -197,7 +197,7 @@ class _PlanningRightWayPropertyMapState
           Polygon<String>(
             points: g.points,
             hitValue: propertyId,
-            color: Colors.orange.withOpacity(0.35),
+            color: Colors.orange.withValues(alpha: 0.35),
             borderColor: Colors.orange,
             borderStrokeWidth: 1.2,
           ),

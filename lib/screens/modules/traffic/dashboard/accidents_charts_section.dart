@@ -1,6 +1,6 @@
 // lib/screens/modules/traffic/dashboard/accidents_charts_section.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
+import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
 import '../../../../_widgets/charts/bars/bar_chart_changed.dart';
 import '../../../../_widgets/charts/pies/pie_chart_changed.dart';
 

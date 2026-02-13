@@ -1,4 +1,4 @@
-library lite_rolling_switch;
+library;
 
 import 'dart:math';
 import 'dart:ui';

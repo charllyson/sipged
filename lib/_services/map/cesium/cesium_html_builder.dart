@@ -1,7 +1,7 @@
 // lib/_services/map/cesium/cesium_html_builder.dart
 import 'dart:convert';
 
-import 'package:siged/_services/map/cesium/cesium_map_config.dart';
+import 'package:sipged/_services/map/cesium/cesium_map_config.dart';
 
 /// Gera o HTML completo para o CesiumJS.
 String buildCesiumHtml(

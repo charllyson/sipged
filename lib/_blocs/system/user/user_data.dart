@@ -3,8 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/screens/menus/menu_drawer.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/screens/menus/menu_drawer.dart';
 
 /// Modelo de usuário SEM responsabilidades de permissão.
 ///

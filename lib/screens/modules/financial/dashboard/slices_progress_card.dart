@@ -2,9 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_data.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 class SlicesProgressCard extends StatelessWidget {
   final NumberFormat currency;
@@ -127,7 +127,7 @@ class _SliceProgressRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.6)),
+        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.6)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_repository.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
-import 'package:siged/_utils/geometry/sipged_geo_math.dart';
-import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
-import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_widgets/map/tooltip/map_tap_overlay.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
+import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/map/tooltip/map_tap_overlay.dart';
 
 /// Abre um dialog com mapa IBGE para selecionar múltiplos municípios.
 /// [initialSelected] = municípios já vinculados a ESTA região.
@@ -435,17 +435,17 @@ class _RegionMunicipiosSelectorBodyState
 
     if (isSelected) {
       // ✅ Selecionado nesta região -> destaque (roxo)
-      fill = const Color(0xFF5E35B1).withOpacity(0.40);
+      fill = const Color(0xFF5E35B1).withValues(alpha: 0.40);
       border = const Color(0xFF311B92);
       stroke = 2.2;
     } else if (isLocked) {
       // 🔒 Bloqueado (pertence a OUTRA região) -> CINZA bem visível
-      fill = Colors.grey.withOpacity(0.55);
+      fill = Colors.grey.withValues(alpha: 0.55);
       border = Colors.grey.shade900;
       stroke = 2.0;
     } else {
       // 🌐 Disponível -> cinza clarinho
-      fill = Colors.grey.withOpacity(0.18);
+      fill = Colors.grey.withValues(alpha: 0.18);
       border = Colors.grey.shade400;
       stroke = 1.0;
     }

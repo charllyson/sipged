@@ -1,8 +1,8 @@
 // lib/_widgets/files/dxf/widgets/dxf_selection_overlay.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:siged/_services/files/dxf/dxf_hit_tester.dart';
-import 'package:siged/_services/files/dxf/dxf_model.dart';
+import 'package:sipged/_services/files/dxf/dxf_hit_tester.dart';
+import 'package:sipged/_services/files/dxf/dxf_model.dart';
 
 class DxfSelectionOverlay extends StatelessWidget {
   final DxfModel? model;

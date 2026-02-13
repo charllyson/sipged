@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
 class UserState extends Equatable {
   final bool initialized;

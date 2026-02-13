@@ -1,6 +1,6 @@
 // lib/_widgets/windows/window_dialog.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/windows/window_circle_button.dart';
+import 'package:sipged/_widgets/windows/window_circle_button.dart';
 
 class WindowDialog extends StatefulWidget {
   final Widget child;
@@ -73,12 +73,12 @@ class _WindowDialogState extends State<WindowDialog> {
                   decoration: BoxDecoration(
                     color: backgroundColor,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: cs.outline.withOpacity(0.3)),
+                    border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
                     boxShadow: [
                       BoxShadow(
                         blurRadius: 18,
                         offset: const Offset(0, 8),
-                        color: Colors.black.withOpacity(0.20),
+                        color: Colors.black.withValues(alpha: 0.20),
                       ),
                     ],
                   ),
@@ -106,8 +106,8 @@ class _WindowDialogState extends State<WindowDialog> {
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  cs.surfaceVariant.withOpacity(0.90),
-                                  cs.surfaceVariant.withOpacity(0.80),
+                                  cs.surfaceVariant.withValues(alpha: 0.90),
+                                  cs.surfaceVariant.withValues(alpha: 0.80),
                                 ],
                               ),
                             ),
@@ -176,7 +176,7 @@ class _WindowDialogState extends State<WindowDialog> {
                         Divider(
                           height: 1,
                           thickness: 1,
-                          color: cs.outlineVariant.withOpacity(0.4),
+                          color: cs.outlineVariant.withValues(alpha: 0.4),
                         ),
 
                         // CONTEÚDO

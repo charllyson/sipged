@@ -1,6 +1,6 @@
 // lib/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_state.dart
 
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 import 'minuta_contrato_sections.dart';
 
 class MinutaState {

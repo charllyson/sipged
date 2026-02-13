@@ -1,7 +1,7 @@
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_services/map/map_box/service/nominatim_data.dart';
-import 'package:siged/_services/map/map_box/service/nominatim_repository.dart';
-import 'package:siged/_services/map/map_box/service/nominatim_geocoder.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_data.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_repository.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_geocoder.dart';
 
 typedef ForwardGeocodeFn = Future<LatLng?> Function(String query);
 

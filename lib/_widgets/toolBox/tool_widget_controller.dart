@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'dart:ui' show Offset, Path, Size;
 
 import 'package:flutter/material.dart';
-import 'package:siged/_services/files/dxf/dxf_enums.dart';
-import 'package:siged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon_feature.dart';
-import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
-import 'package:siged/_widgets/toolBox/tool_dock.dart';
+import 'package:sipged/_services/files/dxf/dxf_enums.dart';
+import 'package:sipged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon_feature.dart';
+import 'package:sipged/_widgets/toolBox/menuText/menu_text_enums.dart';
+import 'package:sipged/_widgets/toolBox/tool_dock.dart';
 
 /// Controller do dock/menus (como solicitado)
 class ToolWidgetController {

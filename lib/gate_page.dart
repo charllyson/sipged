@@ -5,9 +5,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/notification/notification_center.dart';
-import 'package:siged/_widgets/login/sign_in.dart';
-import 'package:siged/screens/menus/menu_list_page.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/screens/common/login/sign_in.dart';
+import 'package:sipged/screens/menus/menu_list_page.dart';
 
 import '_blocs/system/login/login_bloc.dart';
 import '_blocs/system/user/user_repository.dart';

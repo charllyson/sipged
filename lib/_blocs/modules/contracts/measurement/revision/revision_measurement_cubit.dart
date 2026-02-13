@@ -1,10 +1,10 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'revision_measurement_data.dart';
 import 'revision_measurement_repository.dart';
 import 'revision_measurement_state.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
   final RevisionMeasurementRepository _repo;
@@ -292,7 +292,7 @@ class RevisionMeasurementCubit extends Cubit<RevisionMeasurementState> {
 
       // tenta remover no storage (se tiver path)
       final storagePath = removed.path;
-      if (storagePath != null && storagePath.trim().isNotEmpty) {
+      if (storagePath.trim().isNotEmpty) {
         await _repo.deleteStorageByPath(storagePath);
       }
 

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
-import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_state.dart';
+import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
+import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_state.dart';
 
-import 'package:siged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
-import 'package:siged/_widgets/charts/legend/chart_legend.dart';
-import 'package:siged/_widgets/charts/linear_bar/types.dart';
-import 'package:siged/_widgets/charts/linear_bar/range_overlay_config.dart';
+import 'package:sipged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
+import 'package:sipged/_widgets/charts/legend/chart_legend.dart';
+import 'package:sipged/_widgets/charts/linear_bar/types.dart';
+import 'package:sipged/_widgets/charts/linear_bar/range_overlay_config.dart';
 
 class SpecificDashboardContractSummary extends StatelessWidget {
   final bool isLoading;
@@ -96,8 +96,8 @@ class SpecificDashboardContractSummary extends StatelessWidget {
           startValue: 0,
           endValue: totalMedicoes.clamp(0.0, contratoAtualMax),
           maxValue: contratoAtualMax,
-          fillColor: kMedicoesColor.withOpacity(0.28),
-          dashedLineColor: kMedicoesColor.withOpacity(0.85),
+          fillColor: kMedicoesColor.withValues(alpha: 0.28),
+          dashedLineColor: kMedicoesColor.withValues(alpha: 0.85),
           overlayOverflow: 8,
           dashedStrokeWidth: 2,
           dashWidth: 6.0,

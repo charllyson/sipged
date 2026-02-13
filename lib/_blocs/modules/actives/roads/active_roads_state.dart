@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_blocs/modules/actives/roads/active_roads_data.dart';
-import 'package:siged/_blocs/modules/actives/roads/active_road_style.dart';
-import 'package:siged/_widgets/map/markers/tagged_marker.dart';
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_widgets/map/roads/road_label_circle.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_road_style.dart';
+import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/roads/road_label_circle.dart';
 
 import '../../../../_widgets/map/roads/gauge_vm.dart';
 
@@ -443,7 +443,7 @@ class ActiveRoadsState extends Equatable {
       final displayColor = isSelected ? Colors.orangeAccent : baseColor;
 
       final bool drawHalo = isSelected;
-      final Color haloColor = Colors.white.withOpacity(0.95);
+      final Color haloColor = Colors.white.withValues(alpha: 0.95);
       final double haloExtra = 3.0;
 
       final w = isSelected ? (lanePx + 2) : lanePx;

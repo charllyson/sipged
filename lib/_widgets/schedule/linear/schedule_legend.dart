@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
 import 'schedule_grid.dart';
 
 class ScheduleLegend extends StatelessWidget {

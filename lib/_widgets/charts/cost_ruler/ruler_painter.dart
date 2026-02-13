@@ -1,7 +1,7 @@
 // lib/_widgets/kit/rule/ruler_painter.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/charts/cost_ruler/text_painter_changed.dart';
+import 'package:sipged/_widgets/charts/cost_ruler/text_painter_changed.dart';
 
 class RulerPainter extends CustomPainter {
   final double min;
@@ -70,7 +70,7 @@ class RulerPainter extends CustomPainter {
     final border = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..color = accentColor.withOpacity(0.20);
+      ..color = accentColor.withValues(alpha: 0.20);
     canvas.drawRRect(trackRect, border);
 
     double clamp(double v) => v < min ? min : (v > max ? max : v);
@@ -110,7 +110,7 @@ class RulerPainter extends CustomPainter {
 
     // Benchmarks
     final bmStyle =
-    (textStyle ?? const TextStyle()).copyWith(color: accentColor.withOpacity(0.90));
+    (textStyle ?? const TextStyle()).copyWith(color: accentColor.withValues(alpha: 0.90));
 
     benchmarks?.forEach((label, v) {
       final x = toX(v);
@@ -123,7 +123,7 @@ class RulerPainter extends CustomPainter {
 
       if (active) {
         final outline = Paint()
-          ..color = Colors.black.withOpacity(0.25)
+          ..color = Colors.black.withValues(alpha: 0.25)
           ..strokeWidth = 4.5
           ..style = PaintingStyle.stroke;
         canvas.drawLine(
@@ -148,7 +148,7 @@ class RulerPainter extends CustomPainter {
         final capStroke = Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2
-          ..color = Colors.black.withOpacity(0.25);
+          ..color = Colors.black.withValues(alpha: 0.25);
 
         canvas.drawCircle(Offset(x, cy), r, capFill);
         canvas.drawCircle(Offset(x, cy), r, capStroke);
@@ -218,7 +218,7 @@ class RulerPainter extends CustomPainter {
       final stroke = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.0
-        ..color = Colors.black.withOpacity(0.25);
+        ..color = Colors.black.withValues(alpha: 0.25);
       canvas.drawPath(markerPath, stroke);
       canvas.drawCircle(
         Offset(x, trackTop + trackHeight / 2),

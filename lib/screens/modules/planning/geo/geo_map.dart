@@ -8,18 +8,18 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 // SIGMINE
-import 'package:siged/_blocs/modules/planning/geo/sig_miner/sigmine_data.dart';
-import 'package:siged/_utils/geometry/sipged_geo_math.dart';
+import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_data.dart';
+import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
 
-import 'package:siged/_widgets/input/drop_down_botton_change.dart';
-import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
-import 'package:siged/_widgets/map/tooltip/tooltip_animated_card.dart';
-import 'package:siged/_widgets/map/tooltip/tooltip_balloon_tip.dart';
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/map/tooltip/tooltip_animated_card.dart';
+import 'package:sipged/_widgets/map/tooltip/tooltip_balloon_tip.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
 // ✅ ENERGY
-import 'package:siged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_state.dart';
 
 class GeoMap extends StatefulWidget {
   const GeoMap({
@@ -399,10 +399,10 @@ class _GeoMapState extends State<GeoMap> {
       return PolygonChanged(
         title: f.processo,
         polygon: Polygon(points: f.polygon.points),
-        normalFillColor: base.withOpacity(0.45),
-        normalBorderColor: base.withOpacity(0.95),
+        normalFillColor: base.withValues(alpha: 0.45),
+        normalBorderColor: base.withValues(alpha: 0.95),
         normalBorderWidth: 0.8,
-        selectedFillColor: base.withOpacity(0.75),
+        selectedFillColor: base.withValues(alpha: 0.75),
         selectedBorderColor: Colors.black,
         selectedBorderWidth: 2.0,
         properties: [
@@ -470,8 +470,7 @@ class _GeoMapState extends State<GeoMap> {
             Colors.yellow.shade200,
             Colors.red.shade800,
             t,
-          )!
-              .withOpacity(0.80);
+          )!.withValues(alpha: 0.80);
         }
       }
 
@@ -495,7 +494,7 @@ class _GeoMapState extends State<GeoMap> {
         normalFillColor: baseColor,
         normalBorderColor: Colors.grey.shade300,
         normalBorderWidth: 2.0,
-        selectedFillColor: Colors.red.withOpacity(0.25),
+        selectedFillColor: Colors.red.withValues(alpha: 0.25),
         selectedBorderColor: Colors.red,
         selectedBorderWidth: 3.0,
         properties: p.properties,

@@ -1,5 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 import 'publicacao_extrato_data.dart';
 import 'publicacao_extrato_repository.dart';
@@ -21,7 +21,6 @@ class PublicacaoExtratoCubit extends Cubit<PublicacaoExtratoState> {
   ///
   /// Uso:
   ///   final pub = await context
-  ///       .read<PublicacaoExtratoCubit>()
   ///       .getDataForContract(contractId);
   ///
   Future<PublicacaoExtratoData?> getDataForContract(String contractId) {

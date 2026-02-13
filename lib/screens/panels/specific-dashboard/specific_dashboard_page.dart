@@ -3,38 +3,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ===== SIGED: Models / Stores / Blocs / Cubits =====
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // Cubit específico do dashboard detalhado
-import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
-import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_repository.dart';
-import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_repository.dart';
-import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
+import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustments_measurement_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_repository.dart';
 
 // Validity
-import 'package:siged/_blocs/modules/contracts/validity/validity_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dart';
 
 // DFD Repo (usado pelo SpecificDashboardCubit)
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
 // ===== Widgets / Seções auxiliares =====
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_apostilles.dart';
-import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_contract.dart';
-import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_metrics.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_apostilles.dart';
+import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_contract.dart';
+import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_metrics.dart';
 
 // Linha de charts de acompanhamento físico
-import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_schedules.dart';
+import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_schedules.dart';
 
 // Timeline
-import 'package:siged/_widgets/timeline/timeline_class.dart';
+import 'package:sipged/_widgets/timeline/timeline_class.dart';
 
 class SpecificDashboardPage extends StatefulWidget {
   const SpecificDashboardPage({

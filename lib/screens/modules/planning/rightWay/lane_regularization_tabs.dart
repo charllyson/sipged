@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-import 'package:siged/_widgets/menu/tab/tab_split.dart';
-import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
-import 'package:siged/screens/modules/planning/rightWay/lane_regularization_assessment_form.dart';
-import 'package:siged/screens/modules/planning/rightWay/lane_regularization_notification_form.dart';
-import 'package:siged/screens/modules/planning/rightWay/lane_regularization_owner_form.dart';
-import 'package:siged/screens/modules/planning/rightWay/lane_regularization_payment_form.dart';
-import 'package:siged/screens/modules/planning/rightWay/lane_regularization_property_form.dart';
+import 'package:sipged/_widgets/menu/tab/tab_split.dart';
+import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
+import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_assessment_form.dart';
+import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_notification_form.dart';
+import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_owner_form.dart';
+import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_payment_form.dart';
+import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_property_form.dart';
 
-import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
-import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_store.dart';
-import 'package:siged/screens/modules/planning/rightWay/lane_regularization_table.dart';
+import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
+import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_store.dart';
+import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_table.dart';
 
 class TabLaneRegularizationPage extends StatefulWidget {
   final ProcessData? contractData;

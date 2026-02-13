@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
-import 'package:siged/_widgets/charts/lines/shimmer_line_chart.dart';
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/charts/lines/shimmer_line_chart.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 class LineSeries {
   final String id;
@@ -260,7 +260,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
           belowBarData: BarAreaData(
             show: true,
             gradient: LinearGradient(
-              colors: [color.withOpacity(0.5), color.withOpacity(0.3)],
+              colors: [color.withValues(alpha: 0.5), color.withValues(alpha: 0.3)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -304,7 +304,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
           belowBarData: BarAreaData(
             show: s.showArea,
             gradient: LinearGradient(
-              colors: [color.withOpacity(0.35), color.withOpacity(0.15)],
+              colors: [color.withValues(alpha: 0.35), color.withValues(alpha: 0.15)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),

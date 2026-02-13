@@ -3,10 +3,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:siged/_blocs/modules/financial/budget/budget_data.dart';
-import 'package:siged/_blocs/modules/financial/empenhos/empenho_data.dart';
+import 'package:sipged/_blocs/modules/financial/budget/budget_data.dart';
+import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
 
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 import 'summary_section.dart';
 import 'extract_timeline.dart';

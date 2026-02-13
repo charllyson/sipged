@@ -6,44 +6,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ===== Progress (etapas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 
 // ===== Cotação
-import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // ===== Widgets / UI
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 // ===== Seções
-import 'package:siged/screens/modules/contracts/hiring/4Cotacao/section_1_metadados.dart';
-import 'package:siged/screens/modules/contracts/hiring/4Cotacao/section_2_objeto_itens.dart';
-import 'package:siged/screens/modules/contracts/hiring/4Cotacao/section_3_convite_divulgacao.dart';
-import 'package:siged/screens/modules/contracts/hiring/4Cotacao/section_4_respostas_fornecedores.dart';
-import 'package:siged/screens/modules/contracts/hiring/4Cotacao/section_5_vencedora.dart';
-import 'package:siged/screens/modules/contracts/hiring/4Cotacao/section_6_consolidacao_resultado.dart';
-import 'package:siged/screens/modules/contracts/hiring/4Cotacao/section_7_anexos.dart';
+import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_1_metadados.dart';
+import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_2_objeto_itens.dart';
+import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_3_convite_divulgacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_4_respostas_fornecedores.dart';
+import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_5_vencedora.dart';
+import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_6_consolidacao_resultado.dart';
+import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_7_anexos.dart';
 
 // ===== Utils
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // ===== Overlay leve
-import 'package:siged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
 // ===== Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // ===== Pipeline (habilitação dinâmica das abas)
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 // ===== Stage Gate (habilitação por etapa)
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 class CotacaoPage extends StatefulWidget {
   final String contractId;

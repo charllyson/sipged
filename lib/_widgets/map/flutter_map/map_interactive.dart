@@ -9,29 +9,29 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:siged/_services/map/map_box/service/nominatim_bloc.dart';
-import 'package:siged/_services/map/map_box/service/nominatim_service.dart';
-import 'package:siged/_widgets/buttons/mini_circle_button.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
+import 'package:sipged/_services/map/map_box/service/nominatim_service.dart';
+import 'package:sipged/_widgets/buttons/mini_circle_button.dart';
 
 // 🔎 UI de busca
 import '../../search/search_widget.dart';
 import '../suggestions/suggestion_models.dart';
 import '../legend/map_legend_widget.dart';
-import 'package:siged/_widgets/search/search_overlay.dart';
+import 'package:sipged/_widgets/search/search_overlay.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // ✅ PIN custom
-import 'package:siged/_widgets/map/pin/pin_changed.dart';
+import 'package:sipged/_widgets/map/pin/pin_changed.dart';
 
 // ===== Map base / geometry layers
-import 'package:siged/_widgets/map/base/map_base_layer.dart';
-import 'package:siged/_widgets/map/markers/tagged_marker.dart';
-import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline_layer.dart';
+import 'package:sipged/_widgets/map/base/map_base_layer.dart';
+import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline_layer.dart';
 
 class MapInteractivePage<T> extends StatefulWidget {
   // ===== Mapa
@@ -882,7 +882,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                     child: Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.blue.withOpacity(0.25),
+                        color: Colors.blue.withValues(alpha: 0.25),
                         border: Border.all(color: Colors.blueAccent, width: 2),
                       ),
                       child: const Center(

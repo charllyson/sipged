@@ -4,10 +4,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/financial/payments/adjustment/payments_adjustments_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/financial/payments/adjustment/payments_adjustments_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 /// Storage-only para PDFs e anexos de Ajustes de Pagamento.
 class PaymentAdjustmentStorageBloc extends BlocBase {
@@ -196,9 +196,7 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
 
   /// Deleta um arquivo pelo caminho completo (path salvo no Attachment).
   Future<void> deleteStorageByPath(String fullPath) async {
-    try {
-      await _storage.ref(fullPath).delete();
-    } catch (e) {}
+    await _storage.ref(fullPath).delete();
   }
 
   // ---------- Compat (mantém API antiga da UI) ----------

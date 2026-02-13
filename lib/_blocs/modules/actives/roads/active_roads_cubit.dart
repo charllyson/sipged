@@ -6,12 +6,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_utils/geometry/sipged_tile_math.dart';
+import 'package:sipged/_utils/geometry/sipged_tile_math.dart';
 
 import 'active_roads_data.dart';
 import 'active_roads_repository.dart';
 import 'active_roads_state.dart';
-import 'package:siged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
   final ActiveRoadsRepository _repo;
@@ -77,7 +77,7 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     _lastBounds = bounds;
     _lastZoom = zoom;
 
-    final bucket = bucketForZoom(zoom);
+    final _ = bucketForZoom(zoom);
 
     _cameraDebounce?.cancel();
     _cameraDebounce = Timer(_cameraDebounceDuration, () async {

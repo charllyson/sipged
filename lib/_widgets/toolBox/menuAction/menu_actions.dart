@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/tool_action.dart';
-import 'package:siged/_widgets/toolBox/tool_slot.dart';
+import 'package:sipged/_widgets/toolBox/tool_action.dart';
+import 'package:sipged/_widgets/toolBox/tool_slot.dart';
 
 /// Argumentos do menu Ações (desfazer/limpar)
 class MenuActions {

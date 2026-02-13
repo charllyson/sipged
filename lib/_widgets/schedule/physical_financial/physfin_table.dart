@@ -1,8 +1,8 @@
 // lib/screens/_pages/physical_financial/physfin_table.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:siged/_widgets/schedule/physical_financial/physfin_models.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_widgets/schedule/physical_financial/physfin_models.dart';
 
 import 'percent_bar.dart';
 
@@ -399,7 +399,7 @@ class PhysFinTable extends StatelessWidget {
       final extraDays = add.additiveValidityExecutionDays ?? 0;
       if (ord <= 0 || extraDays <= 0) continue;
 
-      final color = AdditivesData.colorForOrder(ord).withOpacity(0.25);
+      final color = AdditivesData.colorForOrder(ord).withValues(alpha: 0.25);
 
       final start = paintedUntil + 1;
       final end = paintedUntil + extraDays;
@@ -691,7 +691,7 @@ class PhysFinTable extends StatelessWidget {
           children: [
             itemCell,
             descCell,
-            if (chronoCell != null) chronoCell,
+            ?chronoCell,
             ...periodCells,
             valueCell,
           ],

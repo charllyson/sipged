@@ -18,8 +18,8 @@ import 'dart:io' show File, Platform;
 import 'package:path_provider/path_provider.dart';
 import 'package:native_exif/native_exif.dart';
 
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 /// Tela de preview/edição (crop, rotate, flip, zoom).
 /// Retorna os bytes recortados via `Navigator.pop<Uint8List>(bytes)`.

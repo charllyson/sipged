@@ -3,9 +3,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import 'package:printing/printing.dart' show PdfGoogleFonts;
-import 'package:siged/_widgets/table/magic/magic_table_controller.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_widgets/table/magic/magic_table_controller.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
 Future<Uint8List> buildPdfBytes({
   required MagicTableController ctrl,

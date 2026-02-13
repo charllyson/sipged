@@ -1,4 +1,3 @@
-import 'dart:collection';
 
 class SipGedLruCache<K, V> {
   SipGedLruCache({required this.maxEntries});

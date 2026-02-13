@@ -1,7 +1,7 @@
 // lib/screens/modules/traffic/dashboard/show_city_details.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/transit/accidents/accidents_data.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
 
 class ShowCityDetails extends StatelessWidget {
   const ShowCityDetails({
@@ -138,7 +138,7 @@ class ShowCityDetails extends StatelessWidget {
                             _InfoChip(
                               label: 'Mortes',
                               value: '$_totalMortes',
-                              color: Colors.red.withOpacity(.14),
+                              color: Colors.red.withValues(alpha: .14),
                               textColor: Colors.red.shade700,
                               icon: Icons.heart_broken_rounded,
                             ),
@@ -147,7 +147,7 @@ class ShowCityDetails extends StatelessWidget {
                               label: 'Feridos',
                               value: '$_totalFeridos',
                               color:
-                              Colors.orange.withOpacity(.16),
+                              Colors.orange.withValues(alpha: .16),
                               textColor:
                               Colors.orange.shade800,
                               icon: Icons
@@ -252,7 +252,7 @@ class _InfoChip extends StatelessWidget {
           Text(
             '$label: ',
             style: TextStyle(
-              color: textColor.withOpacity(0.9),
+              color: textColor.withValues(alpha: 0.9),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -309,10 +309,10 @@ class _AccidentCard extends StatelessWidget {
                   width: 46,
                   height: 46,
                   decoration: BoxDecoration(
-                    color: colorType.withOpacity(.16),
+                    color: colorType.withValues(alpha: .16),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: colorType.withOpacity(.35),
+                      color: colorType.withValues(alpha: .35),
                       width: 1,
                     ),
                   ),
@@ -416,7 +416,7 @@ class _MiniTag extends StatelessWidget {
         color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: cs.outlineVariant.withOpacity(.5),
+          color: cs.outlineVariant.withValues(alpha: .5),
         ),
       ),
       child: Row(

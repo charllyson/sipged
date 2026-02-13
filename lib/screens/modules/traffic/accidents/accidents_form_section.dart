@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import '../../../../_widgets/layout/responsive_utils.dart';
 import '../../../../_widgets/input/custom_date_field.dart';

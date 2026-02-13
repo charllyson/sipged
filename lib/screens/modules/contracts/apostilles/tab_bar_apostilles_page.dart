@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
 // ✅ usar a ApostillesPage do módulo contracts/apostilles
-import 'package:siged/screens/modules/contracts/apostilles/apostilles_page.dart';
+import 'package:sipged/screens/modules/contracts/apostilles/apostilles_page.dart';
 
 class TabBarApostillesPage extends StatelessWidget {
   final ProcessData? contractData;

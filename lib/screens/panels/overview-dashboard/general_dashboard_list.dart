@@ -2,16 +2,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_store.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-import 'package:siged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
-import 'package:siged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
-import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 
-import 'package:siged/_widgets/chip/build_value_chip.dart';
-import 'package:siged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
+import 'package:sipged/_widgets/chip/build_value_chip.dart';
+import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 class GeneralDashboardList extends StatelessWidget {
   final List<ReportMeasurementData> currentFiltered;

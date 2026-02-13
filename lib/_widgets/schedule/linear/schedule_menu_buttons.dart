@@ -1,7 +1,7 @@
 // lib/_widgets/schedule/schedule_menu_buttons.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
-import 'package:siged/_widgets/buttons/button_flutuante_hover.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_widgets/buttons/button_flutuante_hover.dart';
 
 class ScheduleMenuButtons extends StatefulWidget {
   const ScheduleMenuButtons({
@@ -45,7 +45,7 @@ class _ScheduleMenuButtonsState extends State<ScheduleMenuButtons>
   Widget build(BuildContext context) {
     final childrenExpanded = widget.options.map((o) {
       final isSelected = o.key == widget.current;
-      final bg = isSelected ? o.color : o.color.withOpacity(0.18);
+      final bg = isSelected ? o.color : o.color.withValues(alpha: 0.18);
       return _ServiceButton(
         option: o,
         isSelected: isSelected,
@@ -138,7 +138,7 @@ class _ServiceButton extends StatelessWidget {
           boxShadow: [
             if (isSelected)
               BoxShadow(
-                color: option.color.withOpacity(0.25),
+                color: option.color.withValues(alpha: 0.25),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -165,7 +165,7 @@ class _ToggleButton extends StatelessWidget {
     return BotaoFlutuanteHover(
       icon: expanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
       label: expanded ? 'Recolher' : 'Serviços',
-      color: Colors.black.withOpacity(0.12),
+      color: Colors.black.withValues(alpha: 0.12),
       onPressed: onTap,
     );
   }

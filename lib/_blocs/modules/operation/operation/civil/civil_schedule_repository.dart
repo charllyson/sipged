@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 class CivilScheduleRepository {
   CivilScheduleRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
@@ -69,7 +69,7 @@ class CivilScheduleRepository {
     await _docMetaBoard(contractId).set({
       if (pageCount != null) 'page_count': pageCount,
       if (dxfBounds != null) 'dxf_bounds': dxfBounds,
-      if (pdfInfo != null) 'pdf_info': pdfInfo,
+      'pdf_info': ?pdfInfo,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
     }, SetOptions(merge: true));
@@ -353,7 +353,7 @@ class CivilScheduleRepository {
     await doc.update({
       'fotos': ordered,
       'fotos_meta': metasAll,
-      if (takenAtMs != null) 'takenAtMs': takenAtMs,
+      'takenAtMs': ?takenAtMs,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
     });

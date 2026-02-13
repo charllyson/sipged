@@ -1,9 +1,9 @@
 // lib/_widgets/map/map_box/mapbox_3d_panel.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_services/map/map_box/mapbox_data.dart';
-import 'package:siged/_widgets/map/map_box/mapbox_cube_widget.dart';
-import 'package:siged/_services/map/map_box/mapbox_3d.dart';
+import 'package:sipged/_services/map/map_box/mapbox_data.dart';
+import 'package:sipged/_widgets/map/map_box/mapbox_cube_widget.dart';
+import 'package:sipged/_services/map/map_box/mapbox_3d.dart';
 
 class Mapbox3DPanel extends StatefulWidget {
   final Mapbox3DController controller;
@@ -41,7 +41,7 @@ class _Mapbox3DPanelState extends State<Mapbox3DPanel> {
     return Material(
       elevation: 8,
       borderRadius: BorderRadius.circular(12),
-      color: (isDark ? Colors.grey[900] : Colors.white)!.withOpacity(0.95),
+      color: (isDark ? Colors.grey[900] : Colors.white)!.withValues(alpha: 0.95),
       child: Container(
         width: 140,
         padding: const EdgeInsets.all(8),
@@ -116,7 +116,7 @@ class _Mapbox3DPanelState extends State<Mapbox3DPanel> {
                       border: Border.all(
                         color: active
                             ? Colors.blue.shade700
-                            : Colors.grey.withOpacity(0.5),
+                            : Colors.grey.withValues(alpha: 0.5),
                       ),
                     ),
                     child: Text(

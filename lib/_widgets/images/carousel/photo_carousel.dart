@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/images/carousel/photo_gallery_dialog.dart';
-import 'package:siged/_widgets/images/carousel/photo_item.dart';
-import 'package:siged/_widgets/images/carousel/photo_thumb.dart';
-import 'package:siged/_widgets/images/carousel/carousel_photo_theme.dart';
+import 'package:sipged/_widgets/images/carousel/photo_gallery_dialog.dart';
+import 'package:sipged/_widgets/images/carousel/photo_item.dart';
+import 'package:sipged/_widgets/images/carousel/photo_thumb.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
 import 'carousel_metadata.dart' as pm;
 import 'carousel_photo.dart';
 

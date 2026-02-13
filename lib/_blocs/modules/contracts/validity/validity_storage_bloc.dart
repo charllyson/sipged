@@ -9,10 +9,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/validity/validity_data.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 /// Storage (upload/getUrl/exists/delete) de **validades**.
 /// Agora com suporte a múltiplos anexos com rótulo (mantém compat com pdfUrl legado).
@@ -243,19 +243,16 @@ class ValidityStorageBloc extends BlocBase {
     required String validadeId,
     required String url,
   }) async {
-    try {
-      await _db
-          .collection('contracts')
-          .doc(contractId)
-          .collection('orders')
-          .doc(validadeId)
-          .update({
-        'pdfUrl': url,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
-      });
-    } catch (e) {}
-  }
+    await _db
+        .collection('contracts')
+        .doc(contractId)
+        .collection('orders')
+        .doc(validadeId)
+        .update({
+      'pdfUrl': url,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': FirebaseAuth.instance.currentUser?.uid ?? '',
+    });}
 
   // ---------- Helpers de compatibilidade ----------
   Future<bool> verificarSePdfDeValidadeExiste({

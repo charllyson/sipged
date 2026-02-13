@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
-import 'package:siged/screens/modules/contracts/measurement/report/report_measurement_page.dart';
-import 'package:siged/screens/modules/contracts/measurement/adjustment/adjustment_measurement_page.dart';
-import 'package:siged/screens/modules/contracts/measurement/revision/revision_measurement_page.dart';
+import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
+import 'package:sipged/screens/modules/contracts/measurement/report/report_measurement_page.dart';
+import 'package:sipged/screens/modules/contracts/measurement/adjustment/adjustment_measurement_page.dart';
+import 'package:sipged/screens/modules/contracts/measurement/revision/revision_measurement_page.dart';
 
 class TabBarMeasurementPage extends StatelessWidget {
   final ProcessData? contractData;

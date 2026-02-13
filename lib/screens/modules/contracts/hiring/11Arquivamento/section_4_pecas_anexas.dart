@@ -1,11 +1,11 @@
 // lib/screens/modules/contracts/hiring/11Arquivamento/section_4_pecas_anexas.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/11Arquivamento/termo_arquivamento_data.dart';
 
 class SectionPecasAnexasTA extends StatefulWidget {
   final TermoArquivamentoData data;

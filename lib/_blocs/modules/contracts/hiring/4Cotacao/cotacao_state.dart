@@ -1,5 +1,5 @@
 // lib/_blocs/modules/contracts/hiring/3Cotacao/cotacao_state.dart
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 class CotacaoState {
   final bool loading;

@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_widgets/list/search/inline_autocomplete.dart';
-import 'package:siged/_widgets/list/search/participant_tile.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/list/search/inline_autocomplete.dart';
+import 'package:sipged/_widgets/list/search/participant_tile.dart';
 
 /// ======================================================================
 /// SearchUserPermissionWidget

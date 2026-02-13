@@ -1,7 +1,7 @@
 // lib/_blocs/modules/contracts/additives/additives_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 /// 🧩 Modelo de aditivo (somente dados, sem lógica de UI)
 class AdditivesData {
@@ -61,10 +61,10 @@ class AdditivesData {
 
   /// Variedades convenientes da cor do termo para fundos/tintas.
   static Color tintForOrder(int order, {double opacity = .06}) =>
-      colorForOrder(order).withOpacity(opacity);
+      colorForOrder(order).withValues(alpha: opacity);
 
   static Color strongTintForOrder(int order, {double opacity = .10}) =>
-      colorForOrder(order).withOpacity(opacity);
+      colorForOrder(order).withValues(alpha: opacity);
 
   /// Cores para a barra de percentual na tabela.
   /// - `order == null` => usado na **seção de aditivos** para “Contratado” bloqueado (cinza).

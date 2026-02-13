@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/schedule/physical_financial/schedule_physical_financial_widget.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/schedule/physical_financial/schedule_physical_financial_widget.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 class HiringSchedulePage extends StatelessWidget {
   final ProcessData contract;

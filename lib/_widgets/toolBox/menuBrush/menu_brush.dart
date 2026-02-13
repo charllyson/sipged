@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/tool_action.dart';
-import 'package:siged/_widgets/toolBox/tool_sub_menus.dart';
-import 'package:siged/_widgets/toolBox/tool_slot.dart';
+import 'package:sipged/_widgets/toolBox/tool_action.dart';
+import 'package:sipged/_widgets/toolBox/tool_sub_menus.dart';
+import 'package:sipged/_widgets/toolBox/tool_slot.dart';
 
 /// Argumentos do menu Pincel
 class MenuBrush {

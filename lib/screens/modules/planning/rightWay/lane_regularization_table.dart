@@ -1,17 +1,17 @@
 // lib/screens/modules/planning/rightWay/property/lane_regularization_table.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 
-import 'package:siged/_widgets/overlays/loading_progress.dart';
-import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
+import 'package:sipged/_widgets/overlays/loading_progress.dart';
+import 'package:sipged/_widgets/table/simple/simple_table_changed.dart';
 
 // ✅ NOVO: sem intl
-import 'package:siged/_utils/formats/sipged_format_numbers.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
-import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
-import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_data.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
+import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_data.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 class LaneRegularizationTable extends StatelessWidget {
   const LaneRegularizationTable({

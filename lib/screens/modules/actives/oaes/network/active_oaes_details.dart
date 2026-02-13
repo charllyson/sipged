@@ -4,28 +4,28 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
-import 'package:siged/_widgets/cards/3d/3d_card.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/list/files/side_list_box.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
+import 'package:sipged/_widgets/cards/3d/3d_card.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
 
-import 'package:siged/_widgets/dates/selector/selectorDates.dart';
+import 'package:sipged/_widgets/dates/selector/selectorDates.dart';
 
 // 📷 componentes de fotos
-import 'package:siged/_widgets/images/carousel/photo_item.dart';
-import 'package:siged/_widgets/images/carousel/photo_gallery_dialog.dart';
-import 'package:siged/_widgets/images/carousel/photo_thumb.dart';
-import 'package:siged/_widgets/images/carousel/carousel_photo_theme.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/photo_item.dart';
+import 'package:sipged/_widgets/images/carousel/photo_gallery_dialog.dart';
+import 'package:sipged/_widgets/images/carousel/photo_thumb.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 // ⬇️ Botão quadrado de câmera/galeria + preview
-import 'package:siged/_widgets/images/carousel/photo_picker_square.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/screens/modules/actives/oaes/network/details_panel_body.dart';
-import 'package:siged/screens/modules/actives/oaes/network/panel_header.dart';
+import 'package:sipged/_widgets/images/carousel/photo_picker_square.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/screens/modules/actives/oaes/network/details_panel_body.dart';
+import 'package:sipged/screens/modules/actives/oaes/network/panel_header.dart';
 
 class ActiveOaesDetails extends StatefulWidget {
   const ActiveOaesDetails({
@@ -459,7 +459,7 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
           if (_busy) ...[
             Positioned.fill(
               child: ModalBarrier(
-                color: Colors.black.withOpacity(0.20),
+                color: Colors.black.withValues(alpha: 0.20),
                 dismissible: false,
               ),
             ),

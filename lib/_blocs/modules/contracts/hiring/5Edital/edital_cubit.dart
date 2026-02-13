@@ -6,7 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'edital_repository.dart';
 import 'edital_data.dart';
 import 'edital_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 class EditalCubit extends Cubit<EditalState> {
   final EditalRepository repo;
@@ -17,9 +17,6 @@ class EditalCubit extends Cubit<EditalState> {
   // HELPER PÚBLICO: obter EditalData pelo contractId
   // ===========================================================
   ///
-  /// Uso:
-  ///   final edital = await context.read<EditalCubit>()
-  ///                               .getDataForContract(contractId);
   ///
   Future<EditalData?> getDataForContract(String contractId) {
     return repo.readDataForContract(contractId);

@@ -1,6 +1,6 @@
 // lib/screens/modules/planning/environment/municipios/municipio_details.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
 
 class MunicipioDetails extends StatelessWidget {
   final IBGELocationDetailData detail;

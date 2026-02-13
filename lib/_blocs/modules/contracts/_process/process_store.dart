@@ -2,11 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import 'process_data.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
 // 🔹 Regras de permissão centralizadas
-import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
 
 /// Store central de contratos (ProcessData).
 /// Mantém um cache em memória e avisa listeners via ChangeNotifier.
@@ -42,10 +42,7 @@ class ProcessStore extends ChangeNotifier {
       final List<ProcessData> loaded = [];
 
       for (final doc in snapshot.docs) {
-        try {
-          loaded.add(ProcessData.fromDocument(snapshot: doc));
-        } catch (e) {
-        }
+        loaded.add(ProcessData.fromDocument(snapshot: doc));
       }
 
       // 🔹 Aplica ACL usando a MESMA regra do sistema (userCanOnContract)
@@ -54,7 +51,6 @@ class ProcessStore extends ChangeNotifier {
       _all
         ..clear()
         ..addAll(filtered);
-    } catch (e) {
     } finally {
       loading = false;
       notifyListeners();
@@ -96,11 +92,7 @@ class ProcessStore extends ChangeNotifier {
 
   /// Remove um contrato do Firestore e do cache local.
   Future<void> delete(String id) async {
-    try {
-      await _db.collection('contracts').doc(id).delete();
-    } catch (e) {
-    }
-
+    await _db.collection('contracts').doc(id).delete();
     _all.removeWhere((p) => p.id == id);
     if (_selected?.id == id) {
       _selected = null;

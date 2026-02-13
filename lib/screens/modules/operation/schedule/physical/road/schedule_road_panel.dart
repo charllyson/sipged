@@ -2,27 +2,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // ✅ Cubit do cronograma (novo)
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
 
 // Pie
-import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
 
 // Editor de faixas
-import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_lane_edit_section.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_lane_edit_section.dart';
 
 // Header/SubHeader
-import 'package:siged/_widgets/schedule/linear/schedule_header.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_header.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadPanel extends StatefulWidget {
   final ProcessData contract;

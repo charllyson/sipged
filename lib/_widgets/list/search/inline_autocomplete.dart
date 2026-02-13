@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
 
 /// ===== Autocomplete inline =====
 class InlineAutocomplete extends StatelessWidget {

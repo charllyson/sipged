@@ -14,11 +14,11 @@ import 'package:image/image.dart' as im;
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
 
-import 'package:siged/_widgets/images/carousel/photo_editor_page.dart';
+import 'package:sipged/_widgets/images/carousel/photo_editor_page.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class PhotoPreviewPage extends StatefulWidget {
   final Uint8List originalBytes;

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/tool_dock.dart';
-import 'package:siged/_widgets/toolBox/tool_slot.dart';
+import 'package:sipged/_widgets/toolBox/tool_dock.dart';
+import 'package:sipged/_widgets/toolBox/tool_slot.dart';
 
 class ToolButton extends StatefulWidget {
   const ToolButton({
@@ -144,7 +144,7 @@ class _ToolButtonState extends State<ToolButton> {
                       child: Icon(
                         Icons.arrow_right,
                         size: 11,
-                        color: widget.iconColor.withOpacity(0.9),
+                        color: widget.iconColor.withValues(alpha: 0.9),
                       ),
                     ),
                 ],

@@ -1,7 +1,7 @@
 // lib/screens/modules/traffic/accidents/accidents_table_section.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/transit/accidents/accidents_data.dart';
-import 'package:siged/_widgets/table/paged/paged_table_changed.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 
 class AccidentsTableSection extends StatelessWidget {
   final List<AccidentsData> listData;

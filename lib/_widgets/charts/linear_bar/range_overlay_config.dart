@@ -1,6 +1,6 @@
 // lib/_widgets/charts/linear_bar/range_overlay_config.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/charts/linear_bar/types.dart';
+import 'package:sipged/_widgets/charts/linear_bar/types.dart';
 
 /// ============================================================
 /// ✅ Overlay de faixa com start/end + linhas tracejadas

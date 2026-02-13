@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/custom_auto_complete.dart';
 
-import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
 
 class SectionAssinaturas extends StatefulWidget {
   final ParecerJuridicoData data;

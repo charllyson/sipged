@@ -5,8 +5,8 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'package:siged/_services/map/cesium/cesium_controller.dart';
-import 'package:siged/_services/map/cesium/cesium_map_config.dart';
+import 'package:sipged/_services/map/cesium/cesium_controller.dart';
+import 'package:sipged/_services/map/cesium/cesium_map_config.dart';
 
 class Cesium3DView extends StatelessWidget {
   final CesiumMapConfig config;

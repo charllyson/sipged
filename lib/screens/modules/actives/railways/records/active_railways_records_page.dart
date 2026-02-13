@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
-import 'package:siged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_state.dart';
+import 'package:sipged/_blocs/system/user/user_event.dart';
 
-import 'package:siged/_blocs/modules/actives/railway/active_railways_cubit.dart';
-import 'package:siged/_blocs/modules/actives/railway/active_railways_state.dart';
-import 'package:siged/_blocs/modules/actives/railway/active_railway_data.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'active_railways_form.dart';
 import 'active_railways_records_table_section.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ActiveRailwaysRecordsPage extends StatefulWidget {
   const ActiveRailwaysRecordsPage({super.key});
@@ -157,7 +157,7 @@ class _ActiveRailwaysRecordsPageState
                     children: [
                       ModalBarrier(
                         dismissible: false,
-                        color: Colors.black.withOpacity(0.35),
+                        color: Colors.black.withValues(alpha: 0.35),
                       ),
                       const Center(child: CircularProgressIndicator()),
                     ],

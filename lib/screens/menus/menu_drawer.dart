@@ -1,21 +1,21 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_widgets/menu/drawer/menu_drawer_item.dart';
+import 'package:sipged/_widgets/menu/drawer/menu_drawer_item.dart';
 
-import 'package:siged/_widgets/texts/divider_text.dart';
-import 'package:siged/_widgets/menu/drawer/menu_drawer_sub_item.dart';
-import 'package:siged/_blocs/system/module/module_data.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_widgets/images/logos/sisgeo_logo.dart';
+import 'package:sipged/_widgets/texts/divider_text.dart';
+import 'package:sipged/_widgets/menu/drawer/menu_drawer_sub_item.dart';
+import 'package:sipged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/images/logos/sisgeo_logo.dart';
 
 // BLoC
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_event.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_state.dart';
 
 // Permissões centralizadas
-import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
 
 /// =======================================================
 /// DrawerMenu dinâmico (muda cor conforme o perfil do usuário)

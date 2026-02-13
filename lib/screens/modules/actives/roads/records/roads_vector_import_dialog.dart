@@ -1,6 +1,6 @@
 // lib/_widgets/vector_import/roads_vector_import_dialog.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/geo/attributes_table/attributes_table_dialog.dart';
+import 'package:sipged/_widgets/geo/attributes_table/attributes_table_dialog.dart';
 
 /// Dialog específico para importar RODOVIAS em `actives_roads`,
 /// usando o VectorPreviewDialog genérico.

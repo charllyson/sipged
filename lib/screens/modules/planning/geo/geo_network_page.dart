@@ -3,63 +3,63 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
-import 'package:siged/screens/modules/planning/geo/layer/layer_db_status_cubit.dart';
+import 'package:sipged/screens/modules/planning/geo/layer/layer_db_status_cubit.dart';
 
-import 'package:siged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_repository.dart';
-import 'package:siged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_state.dart';
 
-import 'package:siged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_repository.dart';
-import 'package:siged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_state.dart';
 
-import 'package:siged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_repository.dart';
-import 'package:siged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_state.dart';
 
 // ✅ RAILWAYS
-import 'package:siged/_blocs/modules/planning/geo/transportes/railways/railways_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/transportes/railways/railways_repository.dart';
-import 'package:siged/_blocs/modules/planning/geo/transportes/railways/railways_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/railways/railways_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/railways/railways_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/transportes/railways/railways_state.dart';
 
-import 'package:siged/_widgets/geo/attributes_table/attributes_table_dialog.dart';
+import 'package:sipged/_widgets/geo/attributes_table/attributes_table_dialog.dart';
 
 // SIGMINE
-import 'package:siged/_blocs/modules/planning/geo/sig_miner/sigmine_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/sig_miner/sigmine_state.dart';
-import 'package:siged/_blocs/modules/planning/geo/sig_miner/sigmine_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_repository.dart';
 
 // IBGE
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
 
 // ✅ ENERGY PLANTS
-import 'package:siged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_cubit.dart';
-import 'package:siged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_repository.dart';
-import 'package:siged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_state.dart';
 
 // SETUP
-import 'package:siged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 // UI
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/geo/layer/layers_drawer.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:siged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/geo/layer/layers_drawer.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
 
 // Layers & Map
-import 'package:siged/screens/modules/planning/geo/layer/layers_geo.dart';
-import 'package:siged/screens/modules/planning/geo/geo_map.dart';
-import 'package:siged/screens/modules/planning/geo/layer/layers_controller.dart';
-import 'package:siged/screens/modules/planning/geo/geo_right_pane.dart';
+import 'package:sipged/screens/modules/planning/geo/layer/layers_geo.dart';
+import 'package:sipged/screens/modules/planning/geo/geo_map.dart';
+import 'package:sipged/screens/modules/planning/geo/layer/layers_controller.dart';
+import 'package:sipged/screens/modules/planning/geo/geo_right_pane.dart';
 
 // Import vetorial
-import 'package:siged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
 
 // ✅ Polyline type
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
 class GeoNetworkPage extends StatelessWidget {
   const GeoNetworkPage({super.key});

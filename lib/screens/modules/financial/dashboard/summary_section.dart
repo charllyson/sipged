@@ -2,8 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/cards/summary/expandable_card.dart';
-import 'package:siged/_widgets/layout/responsive_section/responsive_section_row.dart';
+import 'package:sipged/_widgets/cards/summary/expandable_card.dart';
+import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class SummarySection extends StatelessWidget {
   final double totalsOrcamento;

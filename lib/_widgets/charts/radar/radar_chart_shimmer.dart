@@ -111,7 +111,7 @@ class _RadarSkeletonPainter extends CustomPainter {
       path.close();
       canvas.drawPath(
         path,
-        gridPaint..color = color.withOpacity(ringOpacity),
+        gridPaint..color = color.withValues(alpha: ringOpacity),
       );
     }
 
@@ -123,7 +123,7 @@ class _RadarSkeletonPainter extends CustomPainter {
       canvas.drawLine(
         center,
         Offset(px, py),
-        gridPaint..color = color.withOpacity(axisOpacity),
+        gridPaint..color = color.withValues(alpha: axisOpacity),
       );
     }
 
@@ -131,7 +131,7 @@ class _RadarSkeletonPainter extends CustomPainter {
     final framePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = (frameColor ?? color.withOpacity(0.9));
+      ..color = (frameColor ?? color.withValues(alpha: 0.9));
 
     final framePath = Path();
     for (var i = 0; i < axes; i++) {

@@ -17,9 +17,9 @@ class TimelineShimmer extends StatelessWidget {
     final theme = Theme.of(context);
 
     final baseColor =
-    theme.colorScheme.surfaceVariant.withOpacity(0.4);
+    theme.colorScheme.surfaceVariant.withValues(alpha: 0.4);
     final highlightColor =
-    theme.colorScheme.surfaceVariant.withOpacity(0.8);
+    theme.colorScheme.surfaceVariant.withValues(alpha: 0.8);
 
     return SizedBox(
       height: height,

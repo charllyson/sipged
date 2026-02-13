@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
 
 /// Caixa com sombra/borda
 class SearchBox extends StatelessWidget {

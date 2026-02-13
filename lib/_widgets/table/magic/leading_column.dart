@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/table/magic/magic_table_changed.dart';
+import 'package:sipged/_widgets/table/magic/magic_table_changed.dart';
 
 class LeadingColumn extends StatelessWidget {
   const LeadingColumn({

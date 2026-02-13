@@ -2,13 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
-import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_state.dart';
+import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
+import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_state.dart';
 
-import 'package:siged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
-import 'package:siged/_widgets/charts/legend/chart_legend.dart';
-import 'package:siged/_widgets/charts/linear_bar/types.dart';
-import 'package:siged/_widgets/charts/linear_bar/range_overlay_config.dart';
+import 'package:sipged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
+import 'package:sipged/_widgets/charts/legend/chart_legend.dart';
+import 'package:sipged/_widgets/charts/linear_bar/types.dart';
+import 'package:sipged/_widgets/charts/linear_bar/range_overlay_config.dart';
 
 class SpecificDashboardApostillesSummary extends StatelessWidget {
   final bool isLoading;
@@ -111,8 +111,8 @@ class SpecificDashboardApostillesSummary extends StatelessWidget {
           startValue: 0,
           endValue: totalReajustesRevisoes.clamp(0.0, barMax),
           maxValue: barMax,
-          fillColor: kReajustesColor.withOpacity(0.28),
-          dashedLineColor: kReajustesColor.withOpacity(0.85),
+          fillColor: kReajustesColor.withValues(alpha: 0.28),
+          dashedLineColor: kReajustesColor.withValues(alpha: 0.85),
           overlayOverflow: 8,
           dashedStrokeWidth: 2,
           dashWidth: 6.0,

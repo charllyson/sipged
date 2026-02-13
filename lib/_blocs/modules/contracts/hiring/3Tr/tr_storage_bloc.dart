@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 /// Caminho de arquivos do TR:
 /// contracts/{contractId}/tr/{trId}/documentosReferencias/{documentosId}/files/{file}

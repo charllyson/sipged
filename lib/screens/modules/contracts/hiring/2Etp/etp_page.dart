@@ -5,35 +5,35 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
 
-import 'package:siged/_utils/validates/sipged_validation.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 
 // Seções (versões baseadas em EtpData, igual DFD)
-import 'package:siged/screens/modules/contracts/hiring/2Etp/section_1_identificacao_etp.dart';
-import 'package:siged/screens/modules/contracts/hiring/2Etp/section_2_motivacao_obj_requisitos.dart';
-import 'package:siged/screens/modules/contracts/hiring/2Etp/section_3_alternativas_solucao.dart';
-import 'package:siged/screens/modules/contracts/hiring/2Etp/section_4_mercado_estimativa.dart';
-import 'package:siged/screens/modules/contracts/hiring/2Etp/section_5_cronograma_indicadores.dart';
-import 'package:siged/screens/modules/contracts/hiring/2Etp/section_6_premissas_restricoes_licenciamento.dart';
-import 'package:siged/screens/modules/contracts/hiring/2Etp/section_7_documentos_equipe.dart';
-import 'package:siged/screens/modules/contracts/hiring/2Etp/section_8_conclusao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_1_identificacao_etp.dart';
+import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_2_motivacao_obj_requisitos.dart';
+import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_3_alternativas_solucao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_4_mercado_estimativa.dart';
+import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_5_cronograma_indicadores.dart';
+import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_6_premissas_restricoes_licenciamento.dart';
+import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_7_documentos_equipe.dart';
+import 'package:sipged/screens/modules/contracts/hiring/2Etp/section_8_conclusao.dart';
 
 class EtpPage extends StatefulWidget {
   final String contractId;

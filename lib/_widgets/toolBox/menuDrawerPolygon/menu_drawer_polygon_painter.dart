@@ -1,7 +1,7 @@
 // lib/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon_painter.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon_feature.dart';
+import 'package:sipged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon_feature.dart';
 
 class MenuDrawerPolygonPainter extends CustomPainter {
   MenuDrawerPolygonPainter({
@@ -56,7 +56,7 @@ class MenuDrawerPolygonPainter extends CustomPainter {
         final glow = Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 6.5
-          ..color = Colors.black.withOpacity(0.12)
+          ..color = Colors.black.withValues(alpha: 0.12)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
         canvas.drawPath(path, glow);
       }
@@ -78,7 +78,7 @@ class MenuDrawerPolygonPainter extends CustomPainter {
       final dash = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.8
-        ..color = preview.withOpacity(0.9);
+        ..color = preview.withValues(alpha: 0.9);
 
       final path = Path()..moveTo(current.first.dx, current.first.dy);
       for (int i = 1; i < current.length; i++) {
@@ -97,7 +97,7 @@ class MenuDrawerPolygonPainter extends CustomPainter {
       }
       canvas.drawPath(dashed, dash);
 
-      final dot = Paint()..color = preview.withOpacity(0.95);
+      final dot = Paint()..color = preview.withValues(alpha: 0.95);
       for (final p in current) {
         canvas.drawCircle(p, 3.5, dot);
       }
@@ -107,7 +107,7 @@ class MenuDrawerPolygonPainter extends CustomPainter {
     if (hoverSnap != null) {
       final p = hoverSnap!;
       final shadow = Paint()
-        ..color = Colors.black.withOpacity(0.25)
+        ..color = Colors.black.withValues(alpha: 0.25)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
       canvas.drawCircle(p.translate(0, 0.5), 8, shadow);
 
@@ -223,7 +223,7 @@ class MenuDrawerPolygonPainter extends CustomPainter {
       const Radius.circular(8),
     );
     final bg = Paint()
-      ..color = Colors.white.withOpacity(0.85)
+      ..color = Colors.white.withValues(alpha: 0.85)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawRRect(bgRect, bg);
 

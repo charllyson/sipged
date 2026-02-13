@@ -1,12 +1,12 @@
 // lib/screens/modules/contracts/hiring/4Cotacao/fornecedor_card.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:siged/_utils/mask/sipged_masks.dart';
-import 'package:siged/_widgets/input/custom_date_field.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_utils/mask/sipged_masks.dart';
+import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 
 class FornecedorCard extends StatelessWidget {
   final String title;

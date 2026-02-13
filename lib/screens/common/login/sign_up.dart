@@ -3,23 +3,23 @@ import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_utils/formats/sipged_format_numbers.dart';
-import 'package:siged/_utils/validates/sipged_validation.dart';
-import 'package:siged/_widgets/input/custom_date_field.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
 
-import 'package:siged/_blocs/system/login/login_bloc.dart';
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_event.dart';
-import 'package:siged/_blocs/system/user/user_repository.dart';
+import 'package:sipged/_blocs/system/login/login_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_repository.dart';
 
 // 🔔 Notificações centralizadas
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // 🪟 WindowDialog
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key, required this.userData});

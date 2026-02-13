@@ -2,25 +2,25 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_widgets/images/mini_avatars/mini_avatars.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/images/mini_avatars/mini_avatars.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_store.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
 
-import 'package:siged/_widgets/list/search/search_user_permission_widget.dart';
+import 'package:sipged/_widgets/list/search/search_user_permission_widget.dart';
 
 // RBAC (módulo)
-import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
 // perfis
-import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 // ✅ ACL do contrato
-import 'package:siged/_blocs/system/permitions/contract_permission.dart' as acl;
+import 'package:sipged/_blocs/system/permitions/contract_permission.dart' as acl;
 
-import 'package:siged/_widgets/stamp/stamp.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/stamp/stamp.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class TabBanner extends StatefulWidget {
   const TabBanner({

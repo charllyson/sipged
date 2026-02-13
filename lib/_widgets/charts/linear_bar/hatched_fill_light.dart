@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/charts/linear_bar/hatch_painter_light.dart';
+import 'package:sipged/_widgets/charts/linear_bar/hatch_painter_light.dart';
 
 /// ✅ Hachura inclinada LEVE
 class HatchedFillLight extends StatelessWidget {

@@ -1,8 +1,8 @@
 // lib/_widgets/map/tooltip/map_tap_overlay.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/map/tooltip/tooltip_animated_card.dart';
-import 'package:siged/_widgets/map/tooltip/tooltip_balloon_tip.dart';
+import 'package:sipged/_widgets/map/tooltip/tooltip_animated_card.dart';
+import 'package:sipged/_widgets/map/tooltip/tooltip_balloon_tip.dart';
 
 /// Overlay de tooltip ancorado num ponto na tela (Offset global).
 /// Use para polylines/markers quando quiser um overlay fora do FlutterMap.

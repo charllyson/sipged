@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
-import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/certidao_card.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
+import 'package:sipged/screens/modules/contracts/hiring/6Habilitacao/certidao_card.dart';
 
 class SectionCertidoes extends StatefulWidget {
   final HabilitacaoData data;

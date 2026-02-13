@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'package:siged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/input/custom_date_field.dart';
-import 'package:siged/_widgets/layout/responsive_utils.dart';
-import 'package:siged/_widgets/list/files/side_list_box.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/layout/responsive_utils.dart';
+import 'package:sipged/_widgets/list/files/side_list_box.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class LaneRegularizationNotificationForm extends StatefulWidget {
   const LaneRegularizationNotificationForm({super.key, required this.controller});

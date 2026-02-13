@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/system/module/module_data.dart';
-import 'package:siged/_blocs/system/permitions/module_permission.dart' as perms;
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_widgets/menu/drawer/menu_drawer_item.dart';
-import 'package:siged/_widgets/cards/action/action_item.dart';
-import 'package:siged/screens/common/home/section_spec.dart';
+import 'package:sipged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/menu/drawer/menu_drawer_item.dart';
+import 'package:sipged/_widgets/cards/action/action_item.dart';
+import 'package:sipged/screens/common/home/section_spec.dart';
 
 import '../../../_widgets/cards/glass_card.dart';
 

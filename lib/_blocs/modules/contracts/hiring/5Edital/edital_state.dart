@@ -1,6 +1,6 @@
 // lib/_blocs/modules/contracts/hiring/5Edital/edital_state.dart
 
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 import 'edital_sections.dart';
 
 class EditalState {

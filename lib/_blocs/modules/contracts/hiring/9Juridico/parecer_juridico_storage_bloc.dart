@@ -3,7 +3,7 @@ import 'dart:io' show File;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 /// contracts/{contractId}/parecer/{parecerId}/documentos/{docId}/files/{file}
 class ParecerJuridicoStorageBloc {

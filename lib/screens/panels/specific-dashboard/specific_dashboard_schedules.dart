@@ -3,18 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Dados do contrato
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // Schedule rodoviário
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 
 // Widget que renderiza GERAL + serviços
-import 'package:siged/screens/panels/specific-dashboard/specific_dashboard_schedules_details.dart';
+import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_schedules_details.dart';
 
 // ✅ Novo layout
-import 'package:siged/_widgets/layout/responsive_section/responsive_section_row.dart';
+import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class SpecificDashboardSchedules extends StatefulWidget {
   final ProcessData contract;

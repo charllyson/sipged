@@ -8,15 +8,15 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
-import 'package:siged/_blocs/system/user/user_bloc.dart';
-import 'package:siged/_blocs/system/user/user_event.dart';
-import 'package:siged/_blocs/system/user/user_state.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_state.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/buttons/back_circle_button.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -93,11 +93,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
   Widget _glassCard(Widget child) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.86),
+        color: Colors.white.withValues(alpha: .86),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withOpacity(.06)),
+        border: Border.all(color: Colors.black.withValues(alpha: .06)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 18, offset: const Offset(0, 8)),
+          BoxShadow(color: Colors.black.withValues(alpha: .06), blurRadius: 18, offset: const Offset(0, 8)),
         ],
       ),
       child: child,
@@ -410,7 +410,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
       decoration: BoxDecoration(
         color: const Color(0xFFF2F6FF),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(.06)),
+        border: Border.all(color: Colors.black.withValues(alpha: .06)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -428,7 +428,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
       height: 1,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.black.withOpacity(.06), Colors.transparent],
+          colors: [Colors.black.withValues(alpha: .06), Colors.transparent],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
@@ -483,7 +483,7 @@ class _AvatarEditable extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.blue.shade600,
                   borderRadius: BorderRadius.circular(22),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(.18), blurRadius: 10, offset: const Offset(0, 3))],
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .18), blurRadius: 10, offset: const Offset(0, 3))],
                 ),
                 child: const Icon(Icons.edit, size: 18, color: Colors.white),
               ),

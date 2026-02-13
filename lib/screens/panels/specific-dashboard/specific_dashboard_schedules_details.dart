@@ -2,14 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
-import 'package:siged/_widgets/charts/legend/chart_legend.dart';
-import 'package:siged/_widgets/charts/linear_bar/slice_hatch_config.dart';
-import 'package:siged/_widgets/charts/linear_bar/types.dart';
+import 'package:sipged/_widgets/charts/linear_bar/horizontal_bar_chart_changed.dart';
+import 'package:sipged/_widgets/charts/legend/chart_legend.dart';
+import 'package:sipged/_widgets/charts/linear_bar/slice_hatch_config.dart';
+import 'package:sipged/_widgets/charts/linear_bar/types.dart';
 
 // Cubit/State específicos do dashboard de acompanhamento físico
-import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
-import 'package:siged/_blocs/panels/specific_dashboard/specific_dashboard_state.dart';
+import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_cubit.dart';
+import 'package:sipged/_blocs/panels/specific_dashboard/specific_dashboard_state.dart';
 
 class ServiceStatusRow {
   final String label;

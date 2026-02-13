@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 Future<double?> showPhysFinPercentDialog({
   required BuildContext context,

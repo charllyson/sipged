@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'sigmine_state.dart';
 import 'sigmine_data.dart';
 import 'sigmine_repository.dart';
-import 'package:siged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 class SigMineCubit extends Cubit<SigMineState> {
   final SigMineRepository _repo;

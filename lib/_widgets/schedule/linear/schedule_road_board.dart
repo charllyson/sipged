@@ -4,27 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Domínio / dados
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 
 // Widgets do Schedule
-import 'package:siged/_widgets/schedule/linear/schedule_grid.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_status.dart';
-import 'package:siged/_widgets/schedule/modal/type.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_grid.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
+import 'package:sipged/_widgets/schedule/modal/type.dart';
 
 // Modal unificado
-import 'package:siged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
+import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
 
 // Cubit (novo padrão)
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
 // Metadados por URL pro carrossel
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 // 🔔 Notificações centralizadas
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadBoard extends StatefulWidget {
   final ProcessData? contractData;

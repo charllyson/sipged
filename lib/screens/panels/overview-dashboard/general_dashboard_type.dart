@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
-import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_state.dart';
 
 class GeneralDashboardTypeFiltered extends StatelessWidget {
   const GeneralDashboardTypeFiltered({super.key});

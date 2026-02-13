@@ -2,12 +2,12 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/images/carousel/photo_item.dart';
-import 'package:siged/_widgets/images/carousel/carousel_photo_theme.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/photo_item.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 // IMPORTE o loader condicional (ele puxa web/io certo):
-import 'package:siged/_utils/images/image_adapter_loader.dart';
+import 'package:sipged/_utils/images/image_adapter_loader.dart';
 
 class PhotoThumb extends StatelessWidget {
   final PhotoItem item;

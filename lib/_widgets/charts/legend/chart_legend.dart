@@ -1,7 +1,7 @@
 // lib/_widgets/charts/linear_bar/chart_legend.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
-import 'package:siged/_widgets/charts/linear_bar/types.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/charts/linear_bar/types.dart';
 
 class ChartLegend extends StatelessWidget {
   final List<String> labels;
@@ -211,8 +211,8 @@ class ChartLegend extends StatelessWidget {
 
       final Color lineBg = isSelectedSliceHere
           ? (isDark
-          ? Colors.orange.withOpacity(0.18)
-          : Colors.orange.withOpacity(0.4))
+          ? Colors.orange.withValues(alpha: 0.18)
+          : Colors.orange.withValues(alpha: 0.4))
           : Colors.transparent;
 
       children.add(
@@ -256,7 +256,7 @@ class ChartLegend extends StatelessWidget {
                       fontSize: compact ? 11 : 12,
                       fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
                       color: isDark
-                          ? Colors.white.withOpacity(0.9)
+                          ? Colors.white.withValues(alpha: 0.9)
                           : Colors.grey.shade900,
                     ),
                   ),
@@ -331,8 +331,8 @@ class ChartLegend extends StatelessWidget {
 
           final Color chipBg = isSelectedSliceHere
               ? (isDark
-              ? Colors.orange.withOpacity(0.18)
-              : Colors.orange.withOpacity(0.3))
+              ? Colors.orange.withValues(alpha: 0.18)
+              : Colors.orange.withValues(alpha: 0.3))
               : Colors.transparent;
 
           return GestureDetector(
@@ -375,7 +375,7 @@ class ChartLegend extends StatelessWidget {
                       fontSize: compact ? 11 : 12,
                       fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
                       color: isDark
-                          ? Colors.white.withOpacity(0.9)
+                          ? Colors.white.withValues(alpha: 0.9)
                           : Colors.grey.shade900,
                     ),
                   ),

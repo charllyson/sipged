@@ -1,6 +1,6 @@
 // lib/screens/modules/traffic/dashboard/accident_map_section.dart
 import 'package:flutter/material.dart';
-import 'package:siged/screens/modules/traffic/dashboard/show_city_details.dart';
+import 'package:sipged/screens/modules/traffic/dashboard/show_city_details.dart';
 import '../../../../_widgets/map/flutter_map/map_interactive.dart';
 import '../../../../_widgets/map/polygon/polygon_changed.dart';
 import '../../../../_blocs/modules/transit/accidents/accidents_data.dart';

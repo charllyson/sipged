@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/map/polylines/active_road_class.dart';
+import 'package:sipged/_widgets/map/polylines/active_road_class.dart';
 
 /// ---------------------------------------------------------------------------
 /// ESTILOS DAS RODOVIAS (PERFORMANCE OTIMIZADA)

@@ -4,12 +4,12 @@ import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
 
 // 🔔 Notificações
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 // 🪟 Janela estilo macOS
 

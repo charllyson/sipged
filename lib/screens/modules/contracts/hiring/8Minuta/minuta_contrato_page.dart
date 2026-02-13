@@ -5,34 +5,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Users / Utils
-import 'package:siged/_utils/validates/sipged_validation.dart';
+import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // Layout / Inputs / Widgets
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/overlays/screen_lock.dart';
-import 'package:siged/_widgets/menu/tab/stage_progress.dart';
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 // Pipeline / Progress
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // Minuta
-import 'package:siged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_state.dart';
 
 // Seções
-import 'package:siged/screens/modules/contracts/hiring/8Minuta/section_1_identificacao.dart';
-import 'package:siged/screens/modules/contracts/hiring/8Minuta/section_2_partes_objeto.dart';
-import 'package:siged/screens/modules/contracts/hiring/8Minuta/section_3_valor.dart';
-import 'package:siged/screens/modules/contracts/hiring/8Minuta/section_4_gestao_refs.dart';
+import 'package:sipged/screens/modules/contracts/hiring/8Minuta/section_1_identificacao.dart';
+import 'package:sipged/screens/modules/contracts/hiring/8Minuta/section_2_partes_objeto.dart';
+import 'package:sipged/screens/modules/contracts/hiring/8Minuta/section_3_valor.dart';
+import 'package:sipged/screens/modules/contracts/hiring/8Minuta/section_4_gestao_refs.dart';
 
 class MinutaContratoPage extends StatefulWidget {
   final String contractId;

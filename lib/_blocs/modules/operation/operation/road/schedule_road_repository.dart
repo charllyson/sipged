@@ -8,10 +8,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
-import 'package:siged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
-import 'package:siged/_widgets/schedule/linear/schedule_lane_class.dart';
-import 'package:siged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
+import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
+import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 class ScheduleRoadRepository {
   ScheduleRoadRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
@@ -485,7 +485,7 @@ class ScheduleRoadRepository {
       'status': norm,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      if (takenMs != null) 'takenAtMs': takenMs,
+      'takenAtMs': ?takenMs,
     };
 
     DocumentReference<Map<String, dynamic>>? docRef;
@@ -880,8 +880,7 @@ class ScheduleRoadRepository {
 
     final base = <String, dynamic>{
       'contractId': contractId,
-      if (summarySubjectContract != null)
-        'summarySubjectContract': summarySubjectContract,
+      'summarySubjectContract': ?summarySubjectContract,
       if (data.geometryType != null) 'geometryType': data.geometryType,
       if (data.multiLine != null) 'multiLine': _toMultiList(data.multiLine),
       if (data.points != null) 'points': _toPoints(data.points),

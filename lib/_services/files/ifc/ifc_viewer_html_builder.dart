@@ -1,7 +1,7 @@
 // lib/_services/ifc/ifc_viewer_html_builder.dart
 import 'dart:convert';
 
-import 'package:siged/_services/files/ifc/ifc_viewer_data.dart';
+import 'package:sipged/_services/files/ifc/ifc_viewer_data.dart';
 
 /// Gera o HTML que será injetado no iframe (Web) ou carregado no WebView (mobile)
 /// para visualizar o modelo IFC usando o bundle ifc_bundle.js (web-ifc-viewer).

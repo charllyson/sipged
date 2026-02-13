@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/charts/gauges/gauge_circular_percent.dart';
-import 'package:siged/_widgets/charts/pies/pie_chart_changed.dart';
-import 'package:siged/_widgets/charts/bars/bar_chart_changed.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
+import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
 
-import 'package:siged/_blocs/modules/actives/roads/active_roads_cubit.dart';
-import 'package:siged/_blocs/modules/actives/roads/active_roads_state.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
 
 class ActiveRoadsPanel extends StatelessWidget {
   const ActiveRoadsPanel({super.key, this.onClose});

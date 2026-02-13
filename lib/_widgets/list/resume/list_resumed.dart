@@ -2,24 +2,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
+import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
-import 'package:siged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 // DFD
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 // Edital
-import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 // Publicação
-import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 class ListResumed extends StatefulWidget {
   final List<ProcessData> contract;

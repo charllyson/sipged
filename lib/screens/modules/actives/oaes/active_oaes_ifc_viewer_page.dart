@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import 'package:siged/_services/files/ifc/ifc_viewer_data.dart';
-import 'package:siged/_services/files/ifc/ifc_viewer_html_builder.dart';
-import 'package:siged/_widgets/ifc/ifc_3d_view.dart';
+import 'package:sipged/_services/files/ifc/ifc_viewer_data.dart';
+import 'package:sipged/_services/files/ifc/ifc_viewer_html_builder.dart';
+import 'package:sipged/_widgets/ifc/ifc_3d_view.dart';
 
 class ActiveOaesIfcViewerPage extends StatefulWidget {
   final String fileName;

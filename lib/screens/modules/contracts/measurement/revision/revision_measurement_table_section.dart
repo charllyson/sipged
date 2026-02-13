@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
-import 'package:siged/_widgets/table/simple/simple_table_changed.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_widgets/table/totalTableRows/footer_rows_generic.dart';
+import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_widgets/table/simple/simple_table_changed.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_widgets/table/totalTableRows/footer_rows_generic.dart';
 
 class RevisionMeasurementTableSection extends StatelessWidget {
   final void Function(RevisionMeasurementData) onTapItem;

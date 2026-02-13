@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_services/files/dxf/dxf_enums.dart';
-import 'package:siged/_widgets/toolBox/tool_action.dart';
-import 'package:siged/_widgets/toolBox/tool_slot.dart';
+import 'package:sipged/_services/files/dxf/dxf_enums.dart';
+import 'package:sipged/_widgets/toolBox/tool_action.dart';
+import 'package:sipged/_widgets/toolBox/tool_slot.dart';
 
 class MenuSelect {
   final SelectionMode current;

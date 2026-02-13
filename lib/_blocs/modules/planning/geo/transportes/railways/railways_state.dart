@@ -1,5 +1,5 @@
 // lib/_blocs/modules/planning/geo/transportes/railways/railways_state.dart
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
 class RailwaysState {
   final bool isLoading;

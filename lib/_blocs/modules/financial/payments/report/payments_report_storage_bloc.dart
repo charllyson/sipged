@@ -4,10 +4,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/financial/payments/report/payments_reports_data.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/financial/payments/report/payments_reports_data.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
 /// Storage-only para arquivos de **Relatórios de Pagamento**.
 class PaymentsReportStorageBloc extends BlocBase {
@@ -116,9 +116,7 @@ class PaymentsReportStorageBloc extends BlocBase {
 
   /// Exclui um arquivo diretamente pelo caminho completo do Storage.
   Future<void> deleteStorageByPath(String fullPath) async {
-    try {
-      await _storage.ref(fullPath).delete();
-    } catch (e) {}
+    await _storage.ref(fullPath).delete();
   }
 
   // ---------- Métodos antigos (compatibilidade) ----------

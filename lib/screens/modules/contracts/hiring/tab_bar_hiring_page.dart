@@ -1,34 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
 // === Pipeline (habilitação de etapas) ===
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 
 // === Componentes ===
-import 'package:siged/_widgets/menu/tab/stage_gate.dart';
-import 'package:siged/_widgets/menu/tab/tab_changed_widget.dart';
+import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
+import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
-import 'package:siged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // === BLOCs e Controllers globais ===
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
 
-import 'package:siged/screens/modules/contracts/hiring/1Dfd/dfd_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/2Etp/etp_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/3Tr/tr_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/4Cotacao/cotacao_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/5Edital/edital_julgamento_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/6Habilitacao/habilitacao_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/7Dotacao/dotacao_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/8Minuta/minuta_contrato_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/9Juridico/parecer_juridico_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/10Publicacao/publicacao_extrato_page.dart';
-import 'package:siged/screens/modules/contracts/hiring/11Arquivamento/termo_arquivamento_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/dfd_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/2Etp/etp_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/3Tr/tr_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/cotacao_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/5Edital/edital_julgamento_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/6Habilitacao/habilitacao_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/dotacao_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/8Minuta/minuta_contrato_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/9Juridico/parecer_juridico_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/10Publicacao/publicacao_extrato_page.dart';
+import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/termo_arquivamento_page.dart';
 
 class TabBarHiringPage extends StatefulWidget {
   final ProcessData? contractData;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/system/module/module_data.dart';
-import 'package:siged/_widgets/cards/action/action_card.dart';
-import 'package:siged/_widgets/cards/action/action_item.dart';
+import 'package:sipged/_blocs/system/module/module_data.dart';
+import 'package:sipged/_widgets/cards/action/action_card.dart';
+import 'package:sipged/_widgets/cards/action/action_item.dart';
 
 class SectionSpec {
   final String title;

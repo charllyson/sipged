@@ -59,7 +59,7 @@ class PhysicsFinanceData {
       'periods': periods,
       'grid': grid,
       'updatedAt': FieldValue.serverTimestamp(),
-      if (updatedByOverride != null) 'updatedBy': updatedByOverride,
+      'updatedBy': ?updatedByOverride,
     };
   }
 }

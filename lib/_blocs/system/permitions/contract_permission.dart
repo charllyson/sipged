@@ -1,7 +1,7 @@
 // lib/_blocs/system/permitions/contract_permission.dart
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_blocs/system/permitions/user_permission.dart' as roles;
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import '../module/module_data.dart';
 import 'module_permission.dart' as mp;
@@ -27,7 +27,6 @@ class ContractPermissions {
   static String _uid(UserData user) => (user.uid ?? '').trim();
 
   /// Converte a permissão do contrato em `ModulePermissions` (objeto forte).
-  /// Null-safe e tolerante a legado (Map<dynamic,dynamic> etc).
   static mp.ModulePermissions docPermsOf(ProcessData contract, String uid) {
     final raw = contract.permissionContractId[uid];
 

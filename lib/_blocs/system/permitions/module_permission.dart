@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_blocs/system/user/user_data.dart';
-import 'package:siged/_blocs/system/permitions/user_permission.dart' as up;
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_blocs/system/permitions/user_permission.dart' as up;
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import '../module/module_data.dart';
 

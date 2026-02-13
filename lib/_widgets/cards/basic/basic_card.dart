@@ -47,13 +47,13 @@ class BasicCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color effectiveBorder = borderColor ??
         (isDark
-            ? Colors.white.withOpacity(0.06)
-            : Colors.black.withOpacity(0.05));
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.05));
 
     final List<BoxShadow> shadows = enableShadow
         ? [
       BoxShadow(
-        color: Colors.black.withOpacity(isDark ? 0.4 : 0.08),
+        color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
         blurRadius: 18,
         offset: const Offset(0, 10),
       ),

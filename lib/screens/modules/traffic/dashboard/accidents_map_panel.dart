@@ -1,11 +1,11 @@
 // lib/screens/modules/traffic/dashboard/accidents_map_panel.dart
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
-import 'package:siged/_blocs/modules/transit/accidents/accidents_data.dart';
-import 'package:siged/_blocs/modules/transit/accidents/accidents_state.dart';
-import 'package:siged/_widgets/background/background_cleaner.dart';
-import 'package:siged/_widgets/map/polygon/polygon_changed.dart';
-import 'package:siged/screens/modules/traffic/dashboard/accident_map_section.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/screens/modules/traffic/dashboard/accident_map_section.dart';
 
 // ===================== Painel do Mapa (lateral) =====================
 class AccidentsMapPanel extends StatelessWidget {

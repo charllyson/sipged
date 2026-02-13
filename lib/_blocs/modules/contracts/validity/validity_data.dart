@@ -1,6 +1,6 @@
 // lib/_blocs/modules/contracts/contracts/validity/validity_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ValidityData {
   String? id;

@@ -10,19 +10,19 @@ class SoftBubbles extends StatelessWidget {
           Positioned(
               top: -60,
               left: -40,
-              child: _bubble(const Color(0xFF60A5FA).withOpacity(.18), 220)),
+              child: _bubble(const Color(0xFF60A5FA).withValues(alpha: .18), 220)),
           Positioned(
               bottom: -50,
               right: -30,
-              child: _bubble(const Color(0xFF34D399).withOpacity(.16), 200)),
+              child: _bubble(const Color(0xFF34D399).withValues(alpha: .16), 200)),
           Positioned(
               top: 220,
               right: -60,
-              child: _bubble(const Color(0xFFFBBF24).withOpacity(.14), 160)),
+              child: _bubble(const Color(0xFFFBBF24).withValues(alpha: .14), 160)),
           Positioned(
               bottom: 180,
               left: -50,
-              child: _bubble(const Color(0xFFF472B6).withOpacity(.14), 140)),
+              child: _bubble(const Color(0xFFF472B6).withValues(alpha: .14), 140)),
         ],
       ),
     );
@@ -37,7 +37,7 @@ class SoftBubbles extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-              color: color.withOpacity(.5), blurRadius: 60, spreadRadius: 10)
+              color: color.withValues(alpha: .5), blurRadius: 60, spreadRadius: 10)
         ],
       ),
     );

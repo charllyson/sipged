@@ -1,12 +1,12 @@
 // lib/screens/algum_lugar/selective_delete_subcollection_tile.dart
 import 'package:flutter/material.dart';
-import 'package:siged/_widgets/input/custom_text_field.dart';
-import 'package:siged/_widgets/tiles/tile_widget.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/tiles/tile_widget.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'selective_delete_util.dart';
 
-import 'package:siged/_widgets/notification/app_notification.dart';
-import 'package:siged/_widgets/notification/notification_center.dart';
+import 'package:sipged/_widgets/notification/app_notification.dart';
+import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class SelectiveDeleteSubcollectionTile extends StatelessWidget {
   const SelectiveDeleteSubcollectionTile({super.key});

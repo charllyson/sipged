@@ -6,7 +6,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'osm_road_service.dart';
 import 'osm_road_data.dart';
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
 class OSMRoadsRepository {
   final OSMRoadService _service = const OSMRoadService();

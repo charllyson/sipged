@@ -26,9 +26,9 @@ enum ModuleItem {
   trafficInfractionsDashboard,
   trafficInfractionsRecords,
 
-  financialPaymentsDashboard,
-  financialPaymentsRecords,
-  financialCommitmentDashboard,
+  financialDashboard,
+  financialBudget,
+  financialEmpenhos,
   financialCommitmentRecords,
 
   activeRoadRegistration,
@@ -351,7 +351,7 @@ class ModuleData {
       subItems: [
         MenuDrawerSubItem(
           label: 'PAINEL',
-          menuItem: ModuleItem.financialPaymentsDashboard,
+          menuItem: ModuleItem.financialDashboard,
           permissionModule: modFinancialPaymentsDashboard,
           homeIcon: Icons.stacked_line_chart,
           homeSubtitle: 'Pagamentos e empreendimentos',
@@ -359,7 +359,7 @@ class ModuleData {
         ),
         MenuDrawerSubItem(
           label: 'ORÇAMENTO DO ÓRGÃO',
-          menuItem: ModuleItem.financialPaymentsRecords,
+          menuItem: ModuleItem.financialBudget,
           permissionModule: modFinancialPaymentsRecords,
           homeIcon: Icons.payments,
           homeSubtitle: 'Pagamentos e empreendimentos',
@@ -367,7 +367,7 @@ class ModuleData {
         ),
         MenuDrawerSubItem(
           label: 'EMPENHOS',
-          menuItem: ModuleItem.financialCommitmentDashboard,
+          menuItem: ModuleItem.financialEmpenhos,
           permissionModule: modFinancialCommitmentDashboard,
           homeIcon: Icons.auto_graph,
           homeSubtitle: 'Pagamentos e empreendimentos',

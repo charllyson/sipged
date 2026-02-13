@@ -1,12 +1,12 @@
 // lib/_widgets/charts/treemap/treemap_chart_changed.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
-import 'package:siged/_widgets/charts/treemap/treemap_class.dart';
-import 'package:siged/_widgets/charts/treemap/treemap_painter.dart';
-import 'package:siged/_widgets/charts/treemap/treemap_shimmer.dart';
-import 'package:siged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/charts/treemap/treemap_class.dart';
+import 'package:sipged/_widgets/charts/treemap/treemap_painter.dart';
+import 'package:sipged/_widgets/charts/treemap/treemap_shimmer.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 class TreemapChartChanged extends StatefulWidget {
   /// Itens do Treemap – o **value** de cada item representa o VALOR TOTAL (FULL)

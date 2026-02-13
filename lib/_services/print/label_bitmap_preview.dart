@@ -2,7 +2,7 @@
 // lib/_widgets/bluetooth/label_bitmap_preview.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:siged/_services/print/label_bitmap.dart';
+import 'package:sipged/_services/print/label_bitmap.dart';
 
 class LabelBitmapPreview extends StatefulWidget {
   const LabelBitmapPreview({

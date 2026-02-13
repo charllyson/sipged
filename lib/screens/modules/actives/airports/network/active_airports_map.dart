@@ -1,12 +1,12 @@
 // lib/screens/modules/actives/oaes/active_oaes_map_cesium.dart
 import 'package:flutter/material.dart';
 
-import 'package:siged/_widgets/map/map_box/map_box_changed.dart';
-import 'package:siged/_services/map/map_box/mapbox_data.dart';
-import 'package:siged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/map_box/map_box_changed.dart';
+import 'package:sipged/_services/map/map_box/mapbox_data.dart';
+import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
 
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_state.dart';
-import 'package:siged/_blocs/modules/actives/oaes/active_oaes_data.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
+import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 
 class ActiveOaesMapMapbox extends StatelessWidget {
   const ActiveOaesMapMapbox({

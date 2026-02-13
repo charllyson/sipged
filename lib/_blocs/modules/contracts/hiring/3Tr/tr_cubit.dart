@@ -1,9 +1,9 @@
 // lib/_blocs/modules/contracts/hiring/2Tr/tr_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/3Tr/tr_state.dart';
-import 'package:siged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_repository.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_state.dart';
+import 'package:sipged/_blocs/modules/contracts/hiring/_shared/sections_types.dart';
 
 class TrCubit extends Cubit<TrState> {
   final TrRepository repo;

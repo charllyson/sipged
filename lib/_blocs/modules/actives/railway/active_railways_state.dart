@@ -5,11 +5,11 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_blocs/modules/actives/railway/active_railway_data.dart';
-import 'package:siged/_blocs/modules/actives/railway/active_railways_style.dart';
-import 'package:siged/_utils/geometry/sipged_poly_simplify.dart';
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:siged/screens/modules/actives/railways/network/railway_ties.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
+import 'package:sipged/_blocs/modules/actives/railway/active_railways_style.dart';
+import 'package:sipged/_utils/geometry/sipged_poly_simplify.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/screens/modules/actives/railways/network/railway_ties.dart';
 
 enum ActiveRailwaysLoadStatus { idle, loading, success, failure }
 
@@ -260,7 +260,7 @@ class ActiveRailwaysState extends Equatable {
               TappableChangedPolyline(
                 isDotted: false,
                 points: ptsMain,
-                color: Colors.white.withOpacity(0.95),
+                color: Colors.white.withValues(alpha: 0.95),
                 defaultColor: Colors.white,
                 strokeWidth: (isSelected ? camada.width + 2 : camada.width) +
                     m.outlinePx * 2,

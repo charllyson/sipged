@@ -4,8 +4,8 @@ import 'package:flutter/material.dart'; // Color
 import 'package:flutter/widgets.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:siged/_widgets/map/markers/tagged_marker.dart';
-import 'package:siged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
 final Distance _distTool = const Distance();
 const double _earthRadius = 6378137.0; // WebMercator

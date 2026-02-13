@@ -16,7 +16,6 @@ class PolygonChanged {
 
   /// Propriedades extras (idIbge, processo, minério, etc.).
   ///
-  /// Mantido como List<dynamic> para máxima compatibilidade com
   /// chamadas existentes (IBGE, SIGMINE, etc.).
   final List<dynamic>? properties;
 

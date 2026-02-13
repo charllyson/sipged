@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 
-import 'package:siged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 enum ApostillesStatus { initial, loading, loaded, error }
 

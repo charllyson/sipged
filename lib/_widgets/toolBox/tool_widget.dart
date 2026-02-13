@@ -6,22 +6,22 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:siged/_services/files/dxf/dxf_enums.dart';
+import 'package:sipged/_services/files/dxf/dxf_enums.dart';
 
-import 'package:siged/_widgets/toolBox/menuAction/menu_actions.dart';
-import 'package:siged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon.dart';
-import 'package:siged/_widgets/toolBox/menuBrush/menu_brush.dart';
-import 'package:siged/_widgets/toolBox/menuExport/menu_export.dart';
-import 'package:siged/_widgets/toolBox/menuSelect/menu_select.dart';
-import 'package:siged/_widgets/toolBox/menuText/menuText.dart';
-import 'package:siged/_widgets/toolBox/menuText/menu_text_enums.dart';
-import 'package:siged/_widgets/toolBox/menuZoom/menu_zoom.dart';
+import 'package:sipged/_widgets/toolBox/menuAction/menu_actions.dart';
+import 'package:sipged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon.dart';
+import 'package:sipged/_widgets/toolBox/menuBrush/menu_brush.dart';
+import 'package:sipged/_widgets/toolBox/menuExport/menu_export.dart';
+import 'package:sipged/_widgets/toolBox/menuSelect/menu_select.dart';
+import 'package:sipged/_widgets/toolBox/menuText/menuText.dart';
+import 'package:sipged/_widgets/toolBox/menuText/menu_text_enums.dart';
+import 'package:sipged/_widgets/toolBox/menuZoom/menu_zoom.dart';
 import 'menuLock/menu_lock.dart';
 
-import 'package:siged/_widgets/toolBox/tool_dock.dart';
-import 'package:siged/_widgets/toolBox/tool_widget_controller.dart';
-import 'package:siged/_widgets/toolBox/tool_slot.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart'; // ✅ usando WindowDialog
+import 'package:sipged/_widgets/toolBox/tool_dock.dart';
+import 'package:sipged/_widgets/toolBox/tool_widget_controller.dart';
+import 'package:sipged/_widgets/toolBox/tool_slot.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart'; // ✅ usando WindowDialog
 
 typedef ValueSetterInt = void Function(int delta);
 
@@ -533,7 +533,7 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
                       color: const Color(0xFF1E1E1E),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: Colors.black.withOpacity(0.35),
+                        color: Colors.black.withValues(alpha: 0.35),
                       ),
                     ),
                     child: Padding(

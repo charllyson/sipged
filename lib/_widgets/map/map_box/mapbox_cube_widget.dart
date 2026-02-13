@@ -148,7 +148,7 @@ class _MapboxCubeWidgetState extends State<MapboxCubeWidget> {
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: color.withOpacity(text == 'TOP' ? 0.95 : 0.9),
+          color: color.withValues(alpha: text == 'TOP' ? 0.95 : 0.9),
           border: Border.all(color: Colors.black12),
           boxShadow: const [
             BoxShadow(

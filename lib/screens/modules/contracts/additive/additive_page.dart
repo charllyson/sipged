@@ -2,22 +2,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:siged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_data.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_cubit.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_cubit.dart';
 
 // Cubit / State / Repo
-import 'package:siged/_blocs/modules/contracts/additives/additives_state.dart';
-import 'package:siged/_blocs/modules/contracts/additives/additives_repository.dart';
-import 'package:siged/_utils/formats/sipged_format_dates.dart';
-import 'package:siged/_utils/formats/sipged_format_money.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_state.dart';
+import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
+import 'package:sipged/_utils/formats/sipged_format_dates.dart';
+import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
 // Widgets auxiliares
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 // ✅ Attachment para callback do rename
-import 'package:siged/_widgets/list/files/attachment.dart';
+import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'additive_form_section.dart';
 import 'additive_graph_section.dart';
@@ -412,7 +412,7 @@ class _AdditivePageState extends State<AdditivePage> {
                   children: [
                     ModalBarrier(
                       dismissible: false,
-                      color: Colors.black.withOpacity(0.4),
+                      color: Colors.black.withValues(alpha: 0.4),
                     ),
                     const Center(child: CircularProgressIndicator()),
                   ],

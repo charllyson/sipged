@@ -95,8 +95,8 @@ class PieChartLegendShimmerWidget extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            color: baseColor.withOpacity(isDark ? 0.25 : 1.0),
-            border: Border.all(color: baseColor.withOpacity(0.35)),
+            color: baseColor.withValues(alpha:isDark ? 0.25 : 1.0),
+            border: Border.all(color: baseColor.withValues(alpha:0.35)),
           ),
           child: Row(
             children: [

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:siged/_widgets/menu/footBar/foot_bar.dart';
-import 'package:siged/_widgets/texts/section_text_name.dart';
-import 'package:siged/_widgets/toolBox/tool_widget.dart';
-import 'package:siged/_widgets/menu/upBar/up_bar.dart';
-import 'package:siged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
+import 'package:sipged/_widgets/texts/section_text_name.dart';
+import 'package:sipged/_widgets/toolBox/tool_widget.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 import '../../../../_blocs/modules/transit/infractions/infractions_bloc.dart';
 import '../../../../_widgets/background/background_cleaner.dart';
@@ -16,7 +16,7 @@ import 'infractions_selector_dates_section.dart';
 import 'infractions_table_section.dart';
 
 // MAPA + OVERLAY (mesmo padrão usado em Acidentes)
-import 'package:siged/_widgets/map/flutter_map/map_interactive.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
 
 class InfractionsRecordsPage extends StatefulWidget {
   const InfractionsRecordsPage({super.key});
@@ -254,7 +254,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
               builder: (_, ctrl, _) => ctrl.isSaving
                   ? Stack(
                 children: [
-                  ModalBarrier(dismissible: false, color: Colors.black.withOpacity(0.4)),
+                  ModalBarrier(dismissible: false, color: Colors.black.withValues(alpha: 0.4)),
                   const Center(child: CircularProgressIndicator()),
                 ],
               )
