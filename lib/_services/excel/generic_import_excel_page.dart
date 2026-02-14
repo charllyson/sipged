@@ -222,7 +222,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
   }
 
   void _mostrarSelecaoDeCampos() {
-    showWindowDialogMac<void>(
+    showWindowDialog<void>(
       context: context,
       title: 'Selecionar campos para atualizar',
       width: 720,
@@ -358,7 +358,7 @@ class _GenericImportExcelPageState extends State<GenericImportExcelPage> {
       ),
     );
 
-    showWindowDialogMac<void>(
+    showWindowDialog<void>(
       context: context,
       title: 'Pré-visualização do primeiro registro',
       width: 640,

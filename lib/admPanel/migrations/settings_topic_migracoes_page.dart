@@ -206,7 +206,7 @@ Widget _section(String text) => Padding(
 Future<String?> _askPath(BuildContext context) async {
   final controller = TextEditingController();
 
-  return showWindowDialogMac<String>(
+  return showWindowDialog<String>(
     context: context,
     title: 'Informe o caminho da coleção',
     width: 520,

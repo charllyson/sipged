@@ -227,7 +227,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
 
   // ---------- Escolha do modo ----------
   Future<_Mode?> _askMode(BuildContext context) async {
-    return showWindowDialogMac<_Mode>(
+    return showWindowDialog<_Mode>(
       context: context,
       title: 'Modo de deleção',
       width: 480,
@@ -282,7 +282,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
     final subCtrl = TextEditingController(text: 'reportsMeasurement');
     final idsCtrl = TextEditingController();
 
-    return showWindowDialogMac<_ByIdsParams>(
+    return showWindowDialog<_ByIdsParams>(
       context: context,
       title: 'Apagar por IDs',
       width: 520,
@@ -360,7 +360,7 @@ class SelectiveDeleteSubcollectionTile extends StatelessWidget {
     WhereOp op = WhereOp.eq;
     bool useParents = true;
 
-    return showWindowDialogMac<_ByFilterParams>(
+    return showWindowDialog<_ByFilterParams>(
       context: context,
       title: 'Apagar por Filtro',
       width: 520,

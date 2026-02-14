@@ -79,7 +79,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
       _repeatPassController.clear();
       if (!mounted) return;
 
-      await showWindowDialogMac<void>(
+      await showWindowDialog<void>(
         context: context,
         title: 'Erro na senha',
         width: 420,

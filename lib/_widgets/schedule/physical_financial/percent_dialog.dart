@@ -53,7 +53,7 @@ Future<double?> showPhysFinPercentDialog({
   final restantePct = maxAllowed;
   final restanteReais = serviceTotalReais * (restantePct / 100.0);
 
-  return showWindowDialogMac<double>(
+  return showWindowDialog<double>(
     context: context,
     title: 'Informe o percentual (%)',
     width: 520,

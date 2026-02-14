@@ -505,7 +505,7 @@ class _ToolBoxWidgetState extends State<ToolBoxWidget> {
     if (builder == null) return;
     final json = builder(normalized);
 
-    showWindowDialogMac<void>(
+    showWindowDialog<void>(
       context: context,
       title: 'GeoJSON (${normalized ? "normalizado" : "px absolutos"})',
       width: 720,

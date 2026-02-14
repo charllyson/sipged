@@ -1,8 +1,11 @@
+// lib/_widgets/windows/show_window_dialog.dart
 import 'package:flutter/material.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
+
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 import 'package:sipged/_widgets/windows/window_dialog.dart';
 
-Future<T?> showWindowDialogMac<T>({
+Future<T?> showWindowDialog<T>({
   required BuildContext context,
   required Widget child,
   String? title,
@@ -11,27 +14,35 @@ Future<T?> showWindowDialogMac<T>({
 
   /// NOVO: permite controlar o padding interno do WindowDialog
   EdgeInsets contentPadding = const EdgeInsets.fromLTRB(12, 0, 12, 0),
+
+  /// ✅ CRÍTICO no Flutter Web com Mapbox (JS): impede o JS de “roubar” scroll/click
+  bool usePointerInterceptor = true,
 }) {
   return showDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     builder: (ctx) {
-      return WindowDialog(
+      final dialog = WindowDialog(
         title: title,
         width: width,
         contentPadding: contentPadding,
         onClose: () => Navigator.of(ctx).pop(),
         child: child,
       );
+
+      // ✅ Intercepta TODOS os ponteiros no overlay do dialog
+      // (wheel / drag / click) para não vazar pro Mapbox atrás.
+      return usePointerInterceptor ? PointerInterceptor(child: dialog) : dialog;
     },
   );
 }
 
 Future<bool> confirmDialog(BuildContext context, String msg) async {
-  final result = await showWindowDialogMac<bool>(
+  final result = await showWindowDialog<bool>(
     context: context,
     title: 'Confirmação',
     width: 420,
+    usePointerInterceptor: true,
     child: Builder(
       builder: (dialogCtx) {
         return Padding(
@@ -67,10 +78,11 @@ Future<bool> confirmDialog(BuildContext context, String msg) async {
 Future<String?> askLabelDialog(BuildContext ctx, String suggestion) async {
   final ctrl = TextEditingController(text: suggestion);
 
-  return showWindowDialogMac<String>(
+  return showWindowDialog<String>(
     context: ctx,
     title: 'Rótulo do arquivo',
     width: 480,
+    usePointerInterceptor: true,
     child: Builder(
       builder: (dialogCtx) {
         return Padding(
@@ -82,18 +94,14 @@ Future<String?> askLabelDialog(BuildContext ctx, String suggestion) async {
               CustomTextField(
                 controller: ctrl,
                 labelText: 'Rótulo do arquivo',
-                onSubmitted: (v) =>
-                    Navigator.of(dialogCtx).pop(v.trim()),
+                onSubmitted: (v) => Navigator.of(dialogCtx).pop(v.trim()),
               ),
               const SizedBox(height: 18),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   FilledButton(
-                    onPressed: () =>
-                        Navigator.of(dialogCtx).pop(
-                          ctrl.text.trim(),
-                        ),
+                    onPressed: () => Navigator.of(dialogCtx).pop(ctrl.text.trim()),
                     child: const Text('Salvar'),
                   ),
                 ],
@@ -111,11 +119,12 @@ Future<void> confirmarExclusao<T>({
   required T item,
   required void Function(T item) onDelete,
 }) async {
-  final result = await showWindowDialogMac<bool>(
+  final result = await showWindowDialog<bool>(
     context: context,
     title: 'Confirmar exclusão',
     width: 420,
     barrierDismissible: true,
+    usePointerInterceptor: true,
     child: Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Column(

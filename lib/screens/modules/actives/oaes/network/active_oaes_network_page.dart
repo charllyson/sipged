@@ -129,7 +129,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
 
     final titulo = att.label.isNotEmpty ? att.label : 'Documento PDF';
 
-    await showWindowDialogMac<void>(
+    await showWindowDialog<void>(
       context: context,
       title: titulo,
       width: 1100,
@@ -184,7 +184,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     final items = _currentAttachments();
     if (index < 0 || index >= items.length) return;
 
-    final confirmed = await showWindowDialogMac<bool>(
+    final confirmed = await showWindowDialog<bool>(
       context: context,
       title: 'Excluir anexo',
       width: 420,

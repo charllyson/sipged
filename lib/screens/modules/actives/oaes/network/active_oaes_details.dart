@@ -284,12 +284,11 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                     title: widget.titleSideList,
                     items: widget.sideItems,
                     selectedIndex: widget.selectedSideIndex,
+                    openOnTap: false,
                     onAddPressed: widget.isEditable && !_busy
                         ? () => _wrapBusy(widget.onAddSideItem)
                         : null,
-                    onTap: !_busy
-                        ? (i) => _wrapBusyIndex(widget.onTapSideItem, i)
-                        : null,
+                    onTap: !_busy ? (i) => _wrapBusyIndex(widget.onTapSideItem, i) : null,
                     onDelete: widget.isEditable && !_busy
                         ? (i) => _wrapBusyIndex(widget.onDeleteSideItem, i)
                         : null,
@@ -361,7 +360,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                             item: item,
                             theme: carouselTheme,
                             onTap: () async {
-                              final items = _filtered.map((a) => a.toPhotoItem()).toList();
+                              final items =
+                              _filtered.map((a) => a.toPhotoItem()).toList();
                               final start = index - offset;
                               await showPhotoGalleryDialog(
                                 context,
@@ -431,7 +431,8 @@ class _ActiveOaesDetailsState extends State<ActiveOaesDetails> {
                           side,
                           const SectionTitle(text: 'Informações gerais da OAE'),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                            padding:
+                            const EdgeInsets.symmetric(horizontal: 12.0),
                             child: details,
                           ),
                         ],

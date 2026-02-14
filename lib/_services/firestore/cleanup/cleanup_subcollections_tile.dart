@@ -28,7 +28,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
         final subs = params.$2;
 
         // 1) Confirmação inicial (WindowDialog)
-        final ok = await showWindowDialogMac<bool>(
+        final ok = await showWindowDialog<bool>(
           context: context,
           title: 'Confirmar limpeza',
           width: 520,
@@ -167,7 +167,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
     final colCtrl = TextEditingController();
     final subCtrl = TextEditingController();
 
-    final ok = await showWindowDialogMac<bool>(
+    final ok = await showWindowDialog<bool>(
       context: context,
       title: 'Limpeza de subcoleções',
       width: 520,
@@ -236,7 +236,7 @@ class CleanUpSubcollectionsTile extends StatelessWidget {
       return '$path\n$subsStr';
     }).join('\n\n');
 
-    await showWindowDialogMac<void>(
+    await showWindowDialog<void>(
       context: context,
       title: title,
       width: 520,

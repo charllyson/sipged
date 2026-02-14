@@ -1,4 +1,6 @@
+// lib/_widgets/list/files/side_list_box.dart
 import 'package:flutter/material.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -31,6 +33,10 @@ class SideListBox extends StatefulWidget {
   /// - true: abre preview interno
   /// - false: NÃO abre preview interno (pai faz)
   final bool openOnTap;
+
+  /// ✅ em páginas com Mapbox/JS (Flutter Web), o JS costuma “roubar” o scroll/click.
+  /// Este flag envolve o preview com PointerInterceptor para garantir interação.
+  final bool usePointerInterceptor;
 
   /// ✅ opcional: persistir rename (ex: salvar em Firestore/Storage)
   /// Retorne `true` se persistiu ok; `false` se falhou (widget reverte).
@@ -67,6 +73,9 @@ class SideListBox extends StatefulWidget {
     this.uploadProgress,
     this.enableRename = true,
     this.openOnTap = true,
+
+    // ✅ por padrão ligado: evita o “mapbox roubar toque/scroll”
+    this.usePointerInterceptor = true,
   });
 
   @override
@@ -122,7 +131,7 @@ class _SideListBoxState extends State<SideListBox> {
     final ext = _normExt(a.ext);
     if (ext == 'pdf') return true;
     final url = a.url.toLowerCase();
-    return url.endsWith('.pdf');
+    return url.endsWith('.pdf') || url.contains('.pdf?');
   }
 
   Future<void> _openUrlExternal(String url) async {
@@ -134,22 +143,29 @@ class _SideListBoxState extends State<SideListBox> {
   }
 
   Future<void> _openPdfInMacDialog(BuildContext context, Attachment a) async {
-    await showWindowDialogMac<void>(
+    final content = SizedBox(
+      height: 740,
+      child: PdfPreview(pdfUrl: a.url),
+    );
+
+    // ✅ CRÍTICO: intercepta ponteiros para não “vazar” pro Mapbox/JS no fundo
+    final safeContent = widget.usePointerInterceptor
+        ? PointerInterceptor(child: content)
+        : content;
+
+    await showWindowDialog<void>(
       context: context,
       title: a.label.isNotEmpty ? a.label : 'Visualizar PDF',
       width: 980,
       contentPadding: EdgeInsets.zero,
-      child: SizedBox(
-        height: 740,
-        child: PdfPreview(pdfUrl: a.url),
-      ),
+      child: safeContent,
     );
   }
 
   Future<String?> _askNewLabel(BuildContext context, String current) async {
     final ctrl = TextEditingController(text: current);
 
-    final newLabel = await showWindowDialogMac<String>(
+    final newLabel = await showWindowDialog<String>(
       context: context,
       title: 'Renomear anexo',
       width: 420,
@@ -411,7 +427,7 @@ class _SideListBoxState extends State<SideListBox> {
                             // 2) se NÃO quer abrir preview interno, para aqui
                             if (!widget.openOnTap) return;
 
-                            // 3) abre preview interno (Mac dialog / external)
+                            // 3) abre preview interno
                             if (!isAttachment) return;
                             final a = raw;
 
@@ -423,7 +439,9 @@ class _SideListBoxState extends State<SideListBox> {
                           }
 
                           return Material(
-                            color: selected ? cs.primary.withValues(alpha: 0.08) : Colors.transparent,
+                            color: selected
+                                ? cs.primary.withValues(alpha: 0.08)
+                                : Colors.transparent,
                             child: ListTile(
                               dense: true,
                               visualDensity: const VisualDensity(vertical: -2),

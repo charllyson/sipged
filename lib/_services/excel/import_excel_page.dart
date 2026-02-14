@@ -149,7 +149,7 @@ class _ImportExcelPageState extends State<ImportExcelPage> {
       _tiposPorCampo[col] = _detectarTipo(_jsonData, col);
     }
 
-    showWindowDialogMac<void>(
+    showWindowDialog<void>(
       context: context,
       title: 'Pré-visualização (${_jsonData.length} registros)',
       width: 960,

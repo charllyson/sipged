@@ -110,7 +110,7 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
   }
 
   Future<void> _confirmarExclusao(BuildContext context, T item) async {
-    final shouldDelete = await showWindowDialogMac<bool>(
+    final shouldDelete = await showWindowDialog<bool>(
       context: context,
       title: 'Confirmar exclusão',
       width: 420,

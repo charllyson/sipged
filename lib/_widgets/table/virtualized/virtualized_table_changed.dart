@@ -363,7 +363,7 @@ class SimpleTableVirtualized<T> extends StatelessWidget {
   }
 
   Future<void> _confirmarExclusao(BuildContext context, T item) async {
-    final confirmed = await showWindowDialogMac<bool>(
+    final confirmed = await showWindowDialog<bool>(
       context: context,
       title: 'Confirmar exclusão',
       width: 420,

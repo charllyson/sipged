@@ -34,7 +34,7 @@ class _WindowDialogState extends State<WindowDialog> {
   void _toggleFullscreen() {
     setState(() {
       _isFullscreen = !_isFullscreen;
-      _offset = Offset.zero; // evita ficar arrastado para fora da tela
+      _offset = Offset.zero;
     });
 
     widget.onToggleFullscreen?.call();
@@ -45,14 +45,15 @@ class _WindowDialogState extends State<WindowDialog> {
     final cs = Theme.of(context).colorScheme;
     final size = MediaQuery.of(context).size;
 
-    // Medidas no modo normal vs fullscreen
     final maxWidth = _isFullscreen ? size.width - 16 : (widget.width ?? 520);
     final usableHeight = _isFullscreen ? size.height - 16 : null;
-    final outerPadding =
-    _isFullscreen ? const EdgeInsets.all(8) : EdgeInsets.zero;
+    final outerPadding = _isFullscreen ? const EdgeInsets.all(8) : EdgeInsets.zero;
 
-    // Fundo cinza bem clarinho, quase branco
+    // Fundo do dialog
     const backgroundColor = Color(0xFFF7F7FA);
+
+    // ✅ NOVO: cor da barra superior (cinza macOS clean)
+    const titleBarColor = Color(0xFFE6E6EA);
 
     return Align(
       alignment: Alignment.center,
@@ -85,11 +86,7 @@ class _WindowDialogState extends State<WindowDialog> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: Column(
-                      // em fullscreen queremos ocupar toda a altura disponível,
-                      // fora do fullscreen deixamos "min" para altura se ajustar ao conteúdo
-                      mainAxisSize: _isFullscreen
-                          ? MainAxisSize.max
-                          : MainAxisSize.min,
+                      mainAxisSize: _isFullscreen ? MainAxisSize.max : MainAxisSize.min,
                       children: [
                         // barra de título ARRÁSTAVEL
                         GestureDetector(
@@ -101,13 +98,13 @@ class _WindowDialogState extends State<WindowDialog> {
                           },
                           child: Container(
                             height: 34,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  cs.surfaceVariant.withValues(alpha: 0.90),
-                                  cs.surfaceVariant.withValues(alpha: 0.80),
+                                  Color(0xFFEDEDEF),
+                                  Color(0xFFE2E2E6),
                                 ],
                               ),
                             ),
@@ -160,10 +157,7 @@ class _WindowDialogState extends State<WindowDialog> {
                                       widget.title!,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall
-                                          ?.copyWith(
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -181,7 +175,6 @@ class _WindowDialogState extends State<WindowDialog> {
 
                         // CONTEÚDO
                         if (_isFullscreen)
-                        // em fullscreen o conteúdo ocupa todo o espaço disponível
                           Expanded(
                             child: Padding(
                               padding: widget.contentPadding,
@@ -189,7 +182,6 @@ class _WindowDialogState extends State<WindowDialog> {
                             ),
                           )
                         else
-                        // no modo normal o conteúdo usa apenas a altura necessária
                           Padding(
                             padding: widget.contentPadding,
                             child: widget.child,

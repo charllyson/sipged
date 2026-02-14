@@ -24,7 +24,7 @@ Future<List<String>?> setupRegionMap(
       List<String> lockedMunicipios = const [],
       int initialUfCode = 27,
     }) async {
-  return showWindowDialogMac<List<String>>(
+  return showWindowDialog<List<String>>(
     context: context,
     title: title,
     width: 960,

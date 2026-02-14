@@ -112,7 +112,7 @@ class _TabBannerState extends State<TabBanner> {
     final screenW = MediaQuery.of(context).size.width;
     final dialogW = math.min(screenW - 64, 760.0);
 
-    await showWindowDialogMac<void>(
+    await showWindowDialog<void>(
       context: context,
       title: 'Participantes do contrato',
       width: dialogW,
