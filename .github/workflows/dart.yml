@@ -17,8 +17,12 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'      # ajuste para a versão que você usa
+          flutter-version: '3.41.1'
           channel: 'stable'
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
 
       - name: Flutter pub get
         run: flutter pub get
@@ -26,10 +30,5 @@ jobs:
       - name: Analyze project source
         run: flutter analyze
 
-      # Se ainda não tiver testes configurados, pode comentar este bloco
       - name: Run tests
         run: flutter test
-
-      # Opcional: build web (se você quiser garantir que o build funciona)
-      # - name: Build Flutter web
-      #   run: flutter build web --release
