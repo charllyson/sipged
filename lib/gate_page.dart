@@ -1,24 +1,22 @@
-// lib/gate_page.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/notification/notification_center.dart';
-import 'package:sipged/screens/common/login/sign_in.dart';
+import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
 import 'package:sipged/screens/menus/menu_list_page.dart';
 
-import '_blocs/system/login/login_bloc.dart';
-import '_blocs/system/user/user_repository.dart';
-import '_blocs/system/user/user_data.dart';
-import '_blocs/system/setup/setup_cubit.dart';
-import '_blocs/system/setup/setup_state.dart';
+import 'package:sipged/_blocs/system/login/login_cubit.dart';
+import 'package:sipged/_blocs/system/login/login_state.dart';
+
+import 'package:sipged/_blocs/system/user/user_repository.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+
+import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
+import 'package:sipged/_blocs/system/setup/setup_state.dart';
 
 /// 🔧 FLAG TEMPORÁRIA
-/// enquanto estiver personalizando a InitialSetupPage, deixe como `true`.
-/// Depois, coloque `false` para que a tela só apareça quando não houver
-/// nenhuma empresa cadastrada.
 const bool kForceInitialSetupOverlay = false;
 
 class GatePage extends StatelessWidget {
@@ -26,11 +24,10 @@ class GatePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final loginBloc = context.read<LoginBloc>();
-    final userRepo  = context.read<UserRepository>();
+    final userRepo = context.read<UserRepository>();
 
     return MaterialApp(
-      title: 'SIGED',
+      title: 'SIPGED',
       debugShowCheckedModeBanner: false,
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [
@@ -45,21 +42,18 @@ class GatePage extends StatelessWidget {
       builder: (context, child) => Scaffold(
         body: NotificationCenterHost(child: child ?? const SizedBox()),
       ),
-      home: StreamBuilder<LoginState>(
-        stream: loginBloc.outState,
-        initialData: LoginState.loading,
-        builder: (context, snapshot) {
-          final state = snapshot.data;
+      home: BlocBuilder<LoginCubit, LoginState>(
+        builder: (context, loginState) {
           final firebaseUser = FirebaseAuth.instance.currentUser;
 
-          if (state == LoginState.loading) {
+          if (loginState.status == LoginStatus.loading) {
             return const Scaffold(
               backgroundColor: Colors.white,
               body: Center(child: Text('Verificando os dados...')),
             );
           }
 
-          if (state == LoginState.fail || firebaseUser == null) {
+          if (firebaseUser == null || loginState.status == LoginStatus.unauthenticated || loginState.status == LoginStatus.failure) {
             return const SignIn();
           }
 
@@ -78,16 +72,13 @@ class GatePage extends StatelessWidget {
                 return const SignIn();
               }
 
-              // 👉 Sistema + overlay de setup
               return BlocBuilder<SetupCubit, SetupState>(
                 builder: (context, setupState) {
                   final base = MenuListPage();
-                  final bool needsSetup = kForceInitialSetupOverlay ||
-                      setupState.companies.isEmpty;
+                  final bool needsSetup = kForceInitialSetupOverlay || setupState.companies.isEmpty;
 
-                  if (!needsSetup) {
-                    return base;
-                  }
+                  if (!needsSetup) return base;
+
                   return Stack(
                     children: [
                       base,

@@ -1,4 +1,3 @@
-// lib/screens/menus/sign_up.dart
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,7 +8,7 @@ import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_widgets/input/custom_date_field.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 
-import 'package:sipged/_blocs/system/login/login_bloc.dart';
+import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_event.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
@@ -38,13 +37,13 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
   final _passController = TextEditingController();
   final _repeatPassController = TextEditingController();
 
-  late LoginBloc _loginBloc;
+  late LoginCubit _loginCubit;
   final ValueNotifier<bool> _loading = ValueNotifier<bool>(false);
 
   @override
   void initState() {
     super.initState();
-    _loginBloc = context.read<LoginBloc>();
+    _loginCubit = context.read<LoginCubit>();
   }
 
   @override
@@ -122,12 +121,16 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
     try {
       final repo = context.read<UserRepository>();
 
+      // ✅ padroniza email no cadastro (recomendado)
+      final email = _emailController.text.trim();
+      final emailLower = email.toLowerCase();
+
       final newUser = widget.userData
-        ..email = _emailController.text.trim()
+        ..email = emailLower
         ..name = _nameController.text.trim()
         ..surname = _surnameController.text.trim();
 
-      final ok = await _loginBloc.signUp(
+      final ok = await _loginCubit.signUp(
         userData: newUser,
         pass: _passController.text,
       );
@@ -136,15 +139,21 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
         if (!mounted) return;
         _notify(
           'Erro ao cadastrar',
-          subtitle: 'Verifique os dados e tente novamente.',
+          subtitle: _loginCubit.state.errorMessage ?? 'Verifique os dados e tente novamente.',
           type: AppNotificationType.error,
         );
         return;
       }
 
-      final uid = _loginBloc.firebaseUser?.uid;
+      final uid = _loginCubit.state.firebaseUser?.uid;
       if (uid != null) {
-        await repo.save(newUser..uid = uid);
+        // garante UID no modelo antes de salvar
+        newUser.uid = uid;
+
+        // 🔥 salva no Firestore via repository
+        await repo.save(newUser);
+
+        // atualiza UserBloc (bind user atual)
         final bloc = context.read<UserBloc>();
         bloc
           ..add(UserFetchByIdRequested(uid))
@@ -209,26 +218,21 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                               ),
                               CustomTextField(
                                 controller: _emailController,
-                                stream: _loginBloc.outEmail,
-                                onSaved: (v) => widget.userData.email = v,
+                                onSaved: (v) => widget.userData.email = v?.trim().toLowerCase(),
                                 labelText: 'E-mail',
                                 prefix: const Icon(Icons.account_circle),
                                 keyboardType: TextInputType.emailAddress,
-                                onChanged: _loginBloc.changeEmail,
                                 enabled: true,
                                 validator: validateEmailLogin,
                               ),
 
-                              // ✅ CPF apenas exibido, já formatado (sem helper antigo)
+                              // ✅ CPF apenas exibido, já formatado
                               CustomTextField(
                                 initialValue: cpfFormatted,
                                 labelText: 'CPF',
                                 enabled: false,
                                 prefix: const Icon(Icons.account_box),
-                                suffix: const Icon(
-                                  Icons.check_circle,
-                                  color: Colors.green,
-                                ),
+                                suffix: const Icon(Icons.check_circle, color: Colors.green),
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [CpfInputFormatter()],
                               ),
@@ -330,16 +334,16 @@ class _BlockingOverlay extends StatelessWidget {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
-                  SizedBox(
+                children: [
+                  const SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2.6),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Text(
-                    'Criando conta…',
-                    style: TextStyle(
+                    message,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                     ),

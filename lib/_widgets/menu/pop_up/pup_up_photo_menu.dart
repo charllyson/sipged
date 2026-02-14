@@ -1,9 +1,7 @@
-// lib/_widgets/appbar/pop_up_photo_menu.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 
-import 'package:sipged/_blocs/system/login/login_bloc.dart';
+import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
@@ -35,14 +33,14 @@ class PopUpPhotoMenu extends StatelessWidget {
 
     // ✅ Usa o novo modelo para checar papel global
     final base = roles.roleForUser(userData); // BaseRole
-    final isAdmin = base == roles.UserProfile.ADMINISTRADOR || base == roles.UserProfile.DESENVOLVEDOR;
+    final isAdmin =
+        base == roles.UserProfile.ADMINISTRADOR || base == roles.UserProfile.DESENVOLVEDOR;
 
     return PopupMenuButton<String>(
       color: Colors.white,
       onSelected: (value) async {
         switch (value) {
           case 'perfil':
-          // navega para a página de perfil
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const UserProfilePage()),
             );
@@ -55,8 +53,8 @@ class PopUpPhotoMenu extends StatelessWidget {
             break;
 
           case 'sair':
-          // ❌ NÃO crie LoginBloc(); ✅ use o provido no contexto
-            await context.read<LoginBloc>().signOut();
+          // ✅ Login agora é Cubit (não criar instância manual)
+            await context.read<LoginCubit>().signOut();
             break;
         }
       },

@@ -14,6 +14,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
+import 'package:sipged/_blocs/system/login/login_cubit.dart';
+import 'package:sipged/_blocs/system/login/login_repository.dart';
 
 import '_blocs/modules/contracts/budget/budget_cubit.dart';
 import '_blocs/modules/contracts/budget/budget_repository.dart';
@@ -69,7 +71,6 @@ import 'package:sipged/_blocs/modules/transit/infractions/infractions_bloc.dart'
 import 'package:sipged/_blocs/modules/transit/infractions/infractions_controller.dart';
 
 // ===== Sistema / Usuário / Login =====
-import 'package:sipged/_blocs/system/login/login_bloc.dart';
 import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
@@ -169,11 +170,17 @@ Future<void> bootstrapAndRunApp() async {
             create: (_) => SetupCubit()..loadCompanies(),
           ),
 
-          // --------- BLoCs / services básicos ---------
-          Provider<LoginBloc>(
-            create: (_) => LoginBloc(),
-            dispose: (_, b) => b.dispose(),
+          // ✅ Login agora é Cubit + Repository
+          RepositoryProvider<LoginRepository>(
+            create: (_) => LoginRepository(),
           ),
+          BlocProvider<LoginCubit>(
+            create: (ctx) => LoginCubit(
+              repository: ctx.read<LoginRepository>(),
+            ),
+          ),
+
+          // --------- BLoCs / services básicos ---------
           Provider<NominatimBloc>(
             create: (_) => NominatimBloc(),
             dispose: (_, b) => b.dispose(),
