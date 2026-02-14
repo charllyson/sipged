@@ -215,7 +215,6 @@ class _PinPainter extends CustomPainter {
           ..color = Colors.black.withValues(alpha: haloOpacity),
       );
     }
-
     // corpo
     canvas.drawPath(path, Paint()..isAntiAlias = true..color = color);
 
