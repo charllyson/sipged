@@ -5,11 +5,11 @@ import 'package:flutter/services.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
-import '../../../../_widgets/layout/responsive_utils.dart';
-import '../../../../_widgets/input/custom_date_field.dart';
-import '../../../../_widgets/input/custom_text_field.dart';
-import '../../../../_widgets/input/drop_down_botton_change.dart';
-import '../../../../_blocs/modules/transit/accidents/accidents_data.dart';
+import '../../../../../_widgets/layout/responsive_utils.dart';
+import '../../../../../_widgets/input/custom_date_field.dart';
+import '../../../../../_widgets/input/custom_text_field.dart';
+import '../../../../../_widgets/input/drop_down_botton_change.dart';
+import '../../../../../_blocs/modules/transit/accidents/accidents_data.dart';
 
 class AccidentsFormSection extends StatefulWidget {
   final bool isEditable;

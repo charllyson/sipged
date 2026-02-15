@@ -697,6 +697,14 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
               onToggleLayer: _toggleLayer,
               hasDbByLayer: hasDbByLayer,
               onConnectLayer: (rawId) async {
+                // ✅ Capturas antes de qualquer await
+                final layerDbCubit = context.read<LayerDbStatusCubit>();
+                final roadsFederalCubit = context.read<RoadsFederalCubit>();
+                final roadsStateCubit = context.read<RoadsStateCubit>();
+                final roadsMunicipalCubit = context.read<RoadsMunicipalCubit>();
+                final railwaysCubit = context.read<RailwaysCubit>();
+                final energyCubit = context.read<EnergyPlantsCubit>();
+
                 // -----------------------------------------------------------------------
                 // ✅ 1) Normaliza o ID (mantém compatibilidade com possíveis aliases)
                 // -----------------------------------------------------------------------
@@ -719,31 +727,25 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                 final id = normalizeLayerId(rawId);
 
                 // -----------------------------------------------------------------------
-                // ✅ 2) hasDb precisa ser consultado com o ID normalizado
+                // ✅ 2) hasDb consultado com ID normalizado (usa snapshot do state atual)
                 // -----------------------------------------------------------------------
+                final hasDbByLayer = layerDbCubit.state.hasDbByLayer;
                 final hasDb = hasDbByLayer[id] == true;
 
                 // -----------------------------------------------------------------------
-                // ✅ 3) Map de paths (AGORA inclui units_energy e airport)
+                // ✅ 3) Mapa de paths
                 // -----------------------------------------------------------------------
                 final collectionByLayer = <String, String>{
                   'federal_road': 'geo/transportes/rodovias_federais',
                   'state_road': 'geo/transportes/rodovias_estaduais',
                   'municipal_road': 'geo/transportes/rodovias_municipais',
                   'railways': 'geo/transportes/ferrovias',
-
-                  // ✅ Energy (ID REAL)
                   'units_energy': 'geo/unidades_produtivas/usinas_de_energia',
-
-                  // ✅ Airport
                   'airport': 'geo/transportes/aeroportos',
                 };
 
                 final path = collectionByLayer[id];
-
-                if (path == null) {
-                  return;
-                }
+                if (path == null) return;
 
                 // -----------------------------------------------------------------------
                 // ✅ 4) Se tem dados → abre tabela Firestore
@@ -753,6 +755,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                     collectionPath: path,
                     title: 'Tabela de atributos',
                   );
+
+                  if (!mounted) return;
                   return;
                 }
 
@@ -761,56 +765,64 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                 // -----------------------------------------------------------------------
                 if (id == 'federal_road') {
                   await _openImportForFederalRoads();
-                  context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
+                  if (!mounted) return;
+
+                  layerDbCubit.refreshAll(uf: _currentUF);
 
                   final onNow = _layersController.activeLayerIds.contains('federal_road');
                   if (onNow) {
                     _loadedOnce.add('federal_road');
                     final zoom = _controller?.camera.zoom ?? 8.5;
                     final bucket = RoadsFederalCubit.bucketForZoom(zoom);
-                    context.read<RoadsFederalCubit>().loadByUF(_currentUF, bucket: bucket);
+                    roadsFederalCubit.loadByUF(_currentUF, bucket: bucket);
                   }
                   return;
                 }
 
                 if (id == 'state_road') {
                   await _openImportForStateRoads();
-                  context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
+                  if (!mounted) return;
+
+                  layerDbCubit.refreshAll(uf: _currentUF);
 
                   final onNow = _layersController.activeLayerIds.contains('state_road');
                   if (onNow) {
                     _loadedOnce.add('state_road');
                     final zoom = _controller?.camera.zoom ?? 8.5;
                     final bucket = RoadsStateCubit.bucketForZoom(zoom);
-                    context.read<RoadsStateCubit>().loadByUF(_currentUF, bucket: bucket);
+                    roadsStateCubit.loadByUF(_currentUF, bucket: bucket);
                   }
                   return;
                 }
 
                 if (id == 'municipal_road') {
                   await _openImportForMunicipalRoads();
-                  context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
+                  if (!mounted) return;
+
+                  layerDbCubit.refreshAll(uf: _currentUF);
 
                   final onNow = _layersController.activeLayerIds.contains('municipal_road');
                   if (onNow) {
                     _loadedOnce.add('municipal_road');
                     final zoom = _controller?.camera.zoom ?? 8.5;
                     final bucket = RoadsMunicipalCubit.bucketForZoom(zoom);
-                    context.read<RoadsMunicipalCubit>().loadByUF(_currentUF, bucket: bucket);
+                    roadsMunicipalCubit.loadByUF(_currentUF, bucket: bucket);
                   }
                   return;
                 }
 
                 if (id == 'railways') {
                   await _openImportForRailways();
-                  context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
+                  if (!mounted) return;
+
+                  layerDbCubit.refreshAll(uf: _currentUF);
 
                   final onNow = _layersController.activeLayerIds.contains('railways');
                   if (onNow) {
                     _loadedOnce.add('railways');
                     final zoom = _controller?.camera.zoom ?? 8.5;
                     final bucket = RailwaysCubit.bucketForZoom(zoom);
-                    context.read<RailwaysCubit>().loadByUF(
+                    railwaysCubit.loadByUF(
                       _currentUF,
                       zoom: zoom,
                       bucket: bucket,
@@ -819,28 +831,25 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                   return;
                 }
 
-                // ✅ ENERGY (AGORA FUNCIONA)
                 if (id == 'units_energy') {
                   await _openImportForUnitsEnergy();
-                  context.read<LayerDbStatusCubit>().refreshAll(uf: _currentUF);
+                  if (!mounted) return;
+
+                  layerDbCubit.refreshAll(uf: _currentUF);
 
                   final onNow = _layersController.activeLayerIds.contains('units_energy');
                   if (onNow) {
                     _loadedOnce.add('units_energy');
-                    context.read<EnergyPlantsCubit>().loadByUF(_currentUF);
+                    energyCubit.loadByUF(_currentUF);
                   }
                   return;
                 }
 
-                // ✅ AIRPORT (AGORA FUNCIONA)
                 if (id == 'airport') {
                   await _openImportForAirports();
-                  // (opcional) você pode criar airportHasData no LayerDbStatusCubit futuramente
+                  if (!mounted) return;
                   return;
                 }
-
-                // fallback (não esperado): abre import genérico
-                await _openImportForAirports();
               },
             ),
             body: ScreenLock(

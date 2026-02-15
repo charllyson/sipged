@@ -76,18 +76,23 @@ class MapInteractivePage<T> extends StatefulWidget {
   // ===== Polígonos regionais
   final List<PolygonChanged>? polygonsChanged;
 
-  /// Mapa opcional de cores para legenda (não altera o estilo dos polígonos).
+  /// ✅ Mapa de cores para heatmap e legenda.
+  /// Agora também é usado para pintar os polígonos (fill).
+  /// A chave esperada é o NOME normalizado do polígono (ex.: município).
   final Map<String, Color>? polygonChangeColors;
 
   /// Lista de chaves (títulos) de polígonos com preenchimento mais forte
-  /// (ex.: municípios com contratos). Hoje está aqui só por compatibilidade:
-  /// o “forte ou fraco” deve ser definido no próprio PolygonChanged.
   final List<String>? strongPolygonNames;
 
   // ===== Seleção de regiões
   final bool allowMultiSelect;
   final List<String>? selectedRegionNames;
   final Function(String? region)? onRegionTap;
+
+  /// ✅ NOVO:
+  /// Se você quiser que o onRegionTap envie um campo específico das properties
+  /// (ex.: "processo"), informe aqui. Se null, envia reg.title.
+  final String? regionTapPropertyKey;
 
   // ===== Busca
   final bool showSearch;
@@ -137,6 +142,7 @@ class MapInteractivePage<T> extends StatefulWidget {
     this.allowMultiSelect = false,
     this.selectedRegionNames,
     this.onRegionTap,
+    this.regionTapPropertyKey,
     this.showSearch = false,
     this.showChangeMapType = false,
     this.showMyLocation = false,
@@ -210,7 +216,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   CurvedAnimation(parent: _pulseController, curve: Curves.easeOut)
       .drive(Tween(begin: 0.6, end: 1.3));
 
-  // Debounce de eventos de câmera (reduz “tempestade” de callbacks)
   Timer? _cameraDebounce;
   static const Duration _kCameraDebounce = Duration(milliseconds: 220);
 
@@ -248,12 +253,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   bool get _isOsmPublic =>
       MapBaseLayer.mapBase[_indexSelectedMap].url.contains('tile.openstreetmap.org');
 
-  // Cache de bbox por polígono (acelera hit-test)
   final Map<String, _BBox> _bboxByRegionNorm = <String, _BBox>{};
-
-  // ======================================================
-  // HELPERS PARA CENTRALIZAR O MAPA COM BASE NAS GEOMETRIAS
-  // ======================================================
 
   List<LatLng> _collectAllGeometryPointsFor(MapInteractivePage<T> w) {
     if (w.initialGeometryPoints != null && w.initialGeometryPoints!.isNotEmpty) {
@@ -262,13 +262,11 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
     final pts = <LatLng>[];
 
-    // 1) Polígonos regionais (PolygonChanged)
     final regs = w.polygonsChanged ?? const <PolygonChanged>[];
     for (final reg in regs) {
       pts.addAll(reg.polygon.points);
     }
 
-    // 2) Polígonos genéricos
     final polys = w.polygon;
     if (polys != null && polys.isNotEmpty) {
       for (final poly in polys) {
@@ -276,7 +274,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    // 3) Polylines
     final lines = w.tappablePolylines;
     if (lines != null && lines.isNotEmpty) {
       for (final line in lines) {
@@ -284,7 +281,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    // 4) Marcadores com tag
     final tagged = w.taggedMarkers;
     if (tagged != null && tagged.isNotEmpty) {
       for (final m in tagged) {
@@ -292,7 +288,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    // 5) Marcadores extras
     final extras = w.extraMarkers;
     if (extras != null && extras.isNotEmpty) {
       for (final m in extras) {
@@ -334,7 +329,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   void _rebuildBBoxesIfNeeded({List<PolygonChanged>? oldRegs}) {
     final regs = _regionalPolys;
 
-    // Heurística simples: se a instância da lista mudou ou o tamanho mudou, refaz bbox.
     final shouldRebuild = oldRegs == null ||
         !identical(oldRegs, regs) ||
         (oldRegs.length != regs.length);
@@ -395,13 +389,10 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         widget.selectedBaseIndex != _indexSelectedMap) {
       final idx = widget.selectedBaseIndex!;
       if (idx >= 0 && idx < MapBaseLayer.mapBase.length) {
-        setState(() {
-          _indexSelectedMap = idx;
-        });
+        setState(() => _indexSelectedMap = idx);
       }
     }
 
-    // Rebuild bbox se mudou a lista de polígonos regionais
     _rebuildBBoxesIfNeeded(oldRegs: oldWidget.polygonsChanged ?? const []);
 
     final hadOld = _hasAnyGeometryFor(oldWidget);
@@ -426,10 +417,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     _selectedRegionsVN.dispose();
     super.dispose();
   }
-
-  // ======================================================
-  // HANDLERS / FUNÇÕES
-  // ======================================================
 
   Future<void> _handleMyLocationTap() async {
     final loc = await _systemBloc.getUserCurrentLocation();
@@ -458,10 +445,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   }
 
   void _handleMapSwitchTap() {
-    setState(
-          () => _indexSelectedMap = (_indexSelectedMap + 1) % MapBaseLayer.mapBase.length,
-    );
-    // força repaint mantendo camera (evita “pulo”)
+    setState(() => _indexSelectedMap = (_indexSelectedMap + 1) % MapBaseLayer.mapBase.length);
     Future.microtask(() {
       try {
         final c = _mapController.camera.center;
@@ -483,7 +467,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       ) async {
     if (tapped.isEmpty) return;
 
-    // Segurança extra: se alguma entrou por engano
     final tappedPolyline = tapped.firstWhere(
           (p) => p.hitTestable,
       orElse: () => tapped.first,
@@ -512,7 +495,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   }
 
   bool _pointInPolygon(LatLng p, List<LatLng> pts) {
-    // ray casting (latitude como x, longitude como y)
     bool inside = false;
     for (int i = 0, j = pts.length - 1; i < pts.length; j = i++) {
       final xi = pts[i].latitude, yi = pts[i].longitude;
@@ -526,18 +508,18 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     return inside;
   }
 
-  void _toggleRegion(String regionKey) {
+  void _toggleRegion(String regionKeyNorm) {
     final next = Set<String>.from(_selectedRegionsVN.value);
     if (widget.allowMultiSelect) {
-      if (next.contains(regionKey)) {
-        next.remove(regionKey);
+      if (next.contains(regionKeyNorm)) {
+        next.remove(regionKeyNorm);
       } else {
-        next.add(regionKey);
+        next.add(regionKeyNorm);
       }
     } else {
       next
         ..clear()
-        ..add(regionKey);
+        ..add(regionKeyNorm);
     }
     _selectedRegionsVN.value = next;
   }
@@ -558,14 +540,10 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   }
 
   Future<void> _onTapMap(TapPosition _, LatLng point) async {
-    if (widget.dropPinOnTap) {
-      _searchHitVN.value = point;
-    }
+    if (widget.dropPinOnTap) _searchHitVN.value = point;
 
-    // callback externo de clique no mapa (sempre)
     widget.onMapTap?.call(point.latitude, point.longitude);
 
-    // Hit-test de regiões (com bbox antes do point-in-polygon)
     final regs = _regionalPolys;
     bool hit = false;
 
@@ -573,22 +551,17 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       final regionKeyNorm = _norm(reg.title);
 
       final bbox = _bboxByRegionNorm[regionKeyNorm];
-      if (bbox != null && !bbox.contains(point)) {
-        continue; // corta 90% do custo
-      }
+      if (bbox != null && !bbox.contains(point)) continue;
 
       final pts = reg.polygon.points;
       if (pts.isEmpty) continue;
 
       if (_pointInPolygon(point, pts)) {
-        // 👉 Se NÃO for multi-select e esse já for o único selecionado,
-        //    então o clique atual serve para DESSELECIONAR.
         final isAlreadySelectedSingle = !widget.allowMultiSelect &&
             _selectedRegionsVN.value.length == 1 &&
             _selectedRegionsVN.value.contains(regionKeyNorm);
 
         if (isAlreadySelectedSingle) {
-          // 2º clique no mesmo polígono → limpa seleção
           _selectedRegionsVN.value = {};
 
           if (widget.clearMarkerSelectionOnMapTap) {
@@ -600,8 +573,14 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         } else {
           _toggleRegion(regionKeyNorm);
 
-          final processo = _getProp(reg, 'processo') ?? reg.title;
-          widget.onRegionTap?.call(processo);
+          // ✅ agora: por padrão manda o título (município).
+          // se quiser mandar outro campo, use widget.regionTapPropertyKey.
+          final propKey = widget.regionTapPropertyKey;
+          final label = (propKey != null && propKey.trim().isNotEmpty)
+              ? (_getProp(reg, propKey) ?? reg.title)
+              : reg.title;
+
+          widget.onRegionTap?.call(label);
         }
 
         hit = true;
@@ -609,7 +588,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    // Clique em área sem polígono → limpa seleção
     if (!hit) {
       _selectedRegionsVN.value = {};
 
@@ -621,8 +599,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       widget.onRegionTap?.call(null);
     }
   }
-
-  // ======== AUTOCOMPLETE / BUSCA ========
 
   Future<List<SearchSuggestion>> _fetchAddressSuggestions(String q) async {
     if (q.trim().length < 3) return const [];
@@ -685,8 +661,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   }
 
   LatLng? _parseLatLng(String s) {
-    final reA =
-    RegExp(r'(-?\d{1,3}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)');
+    final reA = RegExp(r'(-?\d{1,3}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)');
     final mA = reA.firstMatch(s);
     if (mA != null) {
       final lat = double.tryParse(mA.group(1)!);
@@ -743,11 +718,34 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     });
   }
 
-  // ---------- LAYERS DO FLUTTER_MAP ----------
+  /// ✅ Resolve cor do polígono:
+  /// - se polygonChangeColors tiver chave, usa como base;
+  /// - caso contrário, usa colors do próprio PolygonChanged.
+  /// Também ajusta alpha para ficar “heatmap” legível.
+  Color _resolveFillColor({
+    required PolygonChanged entry,
+    required bool isSelected,
+    required String titleNorm,
+  }) {
+    final colorMap = widget.polygonChangeColors;
+    final base = (colorMap != null && colorMap.isNotEmpty)
+        ? (colorMap[titleNorm] ?? entry.normalFillColor)
+        : entry.normalFillColor;
+
+    // alpha diferente para selected/normal
+    final alpha = isSelected ? 0.72 : 0.48;
+
+    // se o entry já veio com alpha próprio e NÃO tem colorMap, respeita mais o que veio dele
+    if ((colorMap == null || colorMap.isEmpty)) {
+      return isSelected ? entry.selectedFillColor : entry.normalFillColor;
+    }
+
+    return base.withValues(alpha: alpha);
+  }
+
   List<Widget> _buildMapLayers() {
     final layers = <Widget>[];
 
-    // Base
     if (widget.activeMap) {
       if (widget.baseTileLayerBuilder != null) {
         layers.add(widget.baseTileLayerBuilder!());
@@ -758,7 +756,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
             urlTemplate: MapBaseLayer.mapBase[_indexSelectedMap].url,
             subdomains: const ['a', 'b', 'c'],
             userAgentPackageName: 'br.gov.al.siged',
-            keepBuffer: 2, // ↓ leve redução (antes 3)
+            keepBuffer: 2,
             maxNativeZoom: 19,
             minNativeZoom: 0,
           ),
@@ -766,26 +764,35 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    // ===== Polígonos regionais (PolygonChanged) =====
     final regional = _regionalPolys;
     if (regional.isNotEmpty) {
       layers.add(
         ValueListenableBuilder<Set<String>>(
           valueListenable: _selectedRegionsVN,
-          builder: (_, selected, _) {
+          builder: (_, selected, __) {
             return PolygonLayer(
               polygons: regional.map((entry) {
                 final poly = entry.polygon;
                 final titleNorm = _norm(entry.title);
                 final isSelected = selected.contains(titleNorm);
 
+                final fill = _resolveFillColor(
+                  entry: entry,
+                  isSelected: isSelected,
+                  titleNorm: titleNorm,
+                );
+
+                final borderColor =
+                isSelected ? entry.selectedBorderColor : entry.normalBorderColor;
+
+                final borderWidth =
+                isSelected ? entry.selectedBorderWidth : entry.normalBorderWidth;
+
                 return Polygon(
                   points: poly.points,
-                  color: isSelected ? entry.selectedFillColor : entry.normalFillColor,
-                  borderColor:
-                  isSelected ? entry.selectedBorderColor : entry.normalBorderColor,
-                  borderStrokeWidth:
-                  isSelected ? entry.selectedBorderWidth : entry.normalBorderWidth,
+                  color: fill,
+                  borderColor: borderColor,
+                  borderStrokeWidth: borderWidth,
                 );
               }).toList(),
             );
@@ -799,13 +806,11 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    // Polylines (tappable + não tappable)
     final lines = widget.tappablePolylines;
     if (lines != null && lines.isNotEmpty) {
       final tappable = lines.where((p) => p.hitTestable).toList(growable: false);
       final nonTappable = lines.where((p) => !p.hitTestable).toList(growable: false);
 
-      // Renderiza linhas não-clicáveis de forma leve
       if (nonTappable.isNotEmpty) {
         layers.add(
           PolylineLayer(
@@ -822,19 +827,17 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         );
       }
 
-      // Layer clicável (com culling ligado!)
       if (tappable.isNotEmpty) {
         layers.add(
           MapTappablePolylineLayer(
             polylines: tappable,
             onTap: _handlePolylineTap,
-            polylineCulling: true, // ✅ MUITO importante para performance
+            polylineCulling: true,
           ),
         );
       }
     }
 
-    // Clusters / Tagged Markers
     final tagged = widget.taggedMarkers;
     final clusterBuilder = widget.clusterWidgetBuilder;
     if (tagged != null && tagged.isNotEmpty && clusterBuilder != null) {
@@ -850,7 +853,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-    // Marcadores extras
     final extras = widget.extraMarkers;
     if (extras != null && extras.isNotEmpty) {
       layers.add(
@@ -861,11 +863,10 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-    // Minha localização (pulsante)
     layers.add(
       ValueListenableBuilder<LatLng?>(
         valueListenable: _userLocationVN,
-        builder: (_, pos, _) {
+        builder: (_, pos, __) {
           if (pos == null) return const SizedBox.shrink();
           return MarkerLayer(
             markers: [
@@ -907,12 +908,11 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       ),
     );
 
-    // Pin da busca/toque
     if (widget.showSearchMarker) {
       layers.add(
         ValueListenableBuilder<LatLng?>(
           valueListenable: _searchHitVN,
-          builder: (_, pos, _) {
+          builder: (_, pos, __) {
             if (pos == null) return const SizedBox.shrink();
             const double pinH = 56.0;
             const double pinW = 44.0;
@@ -939,7 +939,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-    // Attribution OSM
     if (_isOsmPublic) {
       layers.add(
         RichAttributionWidget(
@@ -1001,17 +1000,13 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                           InteractiveFlag.scrollWheelZoom,
                         ),
                         onMapEvent: (event) {
-                          // Atualiza sempre o “último estado” local
                           _lastCenter = _mapController.camera.center;
                           _lastZoom = _mapController.camera.zoom;
-
-                          // ✅ Debounce para não martelar callbacks / cubits
                           _scheduleCameraCallbacks();
                         },
                       ),
                       children: _buildMapLayers(),
                     ),
-
                     if (widget.overlayBuilder != null)
                       Positioned.fill(
                         child: widget.overlayBuilder!(
@@ -1019,7 +1014,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                           _captureKey,
                         ),
                       ),
-
                     if (hasLegend) const SizedBox.shrink(),
                   ],
                 ),
@@ -1027,7 +1021,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
             ),
           ],
         ),
-
         if (hasLegend)
           Positioned(
             left: 8,
@@ -1036,7 +1029,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
               regionColors: widget.polygonChangeColors!,
             ),
           ),
-
         Positioned(
           top: 10,
           left: 10,
@@ -1049,9 +1041,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
               }
 
               if (widget.showMyLocation) {
-                if (children.isNotEmpty) {
-                  children.add(const SizedBox(width: 8));
-                }
+                if (children.isNotEmpty) children.add(const SizedBox(width: 8));
                 children.add(
                   InkWell(
                     onTap: _handleMyLocationTap,
@@ -1064,9 +1054,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
               }
 
               if (widget.showChangeMapType) {
-                if (children.isNotEmpty) {
-                  children.add(const SizedBox(width: 8));
-                }
+                if (children.isNotEmpty) children.add(const SizedBox(width: 8));
                 children.add(
                   InkWell(
                     onTap: _handleMapSwitchTap,

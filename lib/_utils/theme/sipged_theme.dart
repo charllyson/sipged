@@ -33,4 +33,29 @@ abstract final class SipGedTheme {
     return Color(int.parse(s, radix: 16));
   }
 
+  static Color chartPaletteColors(int i) {
+    const colors = [
+      Color(0xFF6E7BFF),
+      Color(0xFFB66DFF),
+      Color(0xFF2DD4BF),
+      Color(0xFFFFB703),
+      Color(0xFFFF4D6D),
+      Color(0xFF60A5FA),
+      Color(0xFFA3E635),
+      Color(0xFFF472B6),
+    ];
+    return colors[i % colors.length];
+  }
+
+  static Color severityColor(String s) {
+    switch (s) {
+      case 'GRAVE':
+        return const Color(0xFFFF4D6D);
+      case 'MODERADO':
+        return const Color(0xFFFFB703);
+      default:
+        return const Color(0xFF2DD4BF);
+    }
+  }
+
 }

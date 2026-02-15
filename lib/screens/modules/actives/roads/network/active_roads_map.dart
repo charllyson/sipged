@@ -7,9 +7,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
+import 'package:sipged/_blocs/modules/actives/roads/roads/road_label_circle.dart';
 
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/roads/road_label_circle.dart';
 import 'package:sipged/_widgets/map/shimmer/map_loading_shimmer.dart';
 import 'package:sipged/_widgets/map/tooltip/map_tap_overlay.dart';
 

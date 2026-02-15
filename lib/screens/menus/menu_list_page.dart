@@ -33,6 +33,7 @@ import 'package:sipged/screens/modules/financial/empenhos/empenho_network_page.d
 
 // ===== Páginas =====
 import 'package:sipged/screens/modules/operation/schedule/financial/hiring_schedule_page.dart';
+import 'package:sipged/screens/modules/traffic/accidents/dashboard/accident_dashboard_page.dart';
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_page.dart';
 
 import 'package:sipged/screens/modules/contracts/additive/tab_bar_additive_page.dart';
@@ -56,7 +57,6 @@ import 'package:sipged/screens/modules/actives/oaes/records/active_oaes_records_
 import 'package:sipged/screens/modules/actives/roads/network/active_roads_network_page.dart';
 import 'package:sipged/screens/modules/actives/roads/records/active_roads_records_page.dart';
 
-
 import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_road_workspace_page.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_page.dart';
 import 'package:sipged/screens/menus/menu_drawer.dart';
@@ -66,10 +66,9 @@ import 'package:sipged/_widgets/buttons/float_button_menu.dart';
 
 import 'package:sipged/screens/modules/planning/rightWay/planning_right_way_workspace_page.dart';
 
-import 'package:sipged/screens/modules/traffic/accidents/accidents_records_network_page.dart';
-import 'package:sipged/screens/modules/traffic/dashboard/accidents_dashboard_network_page.dart';
-import 'package:sipged/screens/modules/traffic/infractions-dashboard/infractions_dashboard_page.dart';
-import 'package:sipged/screens/modules/traffic/infrations-records/infractions_records_page.dart';
+import 'package:sipged/screens/modules/traffic/accidents/records/accidents_records_network_page.dart';
+import 'package:sipged/screens/modules/traffic/infractions/infractions_dashboard_page.dart';
+import 'package:sipged/screens/modules/traffic/infractions/infractions_records_page.dart';
 
 // ===== Sistema / Usuários =====
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
@@ -128,25 +127,19 @@ class _MenuListPageState extends State<MenuListPage> {
       try {
         final dfdBloc = context.read<DfdCubit>();
         dfd = await dfdBloc.getDataForContract(contractId);
-      } catch (e) {
-        // ignore
-      }
+      } catch (_) {}
     }
 
     PublicacaoExtratoData? publicacao;
     try {
       final pubBloc = context.read<PublicacaoExtratoCubit>();
       publicacao = await pubBloc.getDataForContract(contractId);
-    } catch (e) {
-      // ignore
-    }
+    } catch (_) {}
 
     final numero = (publicacao?.numeroContrato ?? '').trim();
     final descricao = (dfd?.descricaoObjeto ?? '').trim();
 
-    if (numero.isNotEmpty && descricao.isNotEmpty) {
-      return '$numero - $descricao';
-    }
+    if (numero.isNotEmpty && descricao.isNotEmpty) return '$numero - $descricao';
     if (numero.isNotEmpty) return numero;
     if (descricao.isNotEmpty) return descricao;
 
@@ -157,6 +150,9 @@ class _MenuListPageState extends State<MenuListPage> {
       BuildContext context,
       ProcessData contract,
       ) async {
+    // ✅ captura Navigator ANTES de qualquer await (evita lint)
+    final navigator = Navigator.of(context);
+
     final contractId = contract.id ?? '';
     if (contractId.isEmpty) {
       NotificationCenter.instance.show(
@@ -169,19 +165,23 @@ class _MenuListPageState extends State<MenuListPage> {
       return;
     }
 
+    // ----- async gap 1 -----
     final dfdBloc = context.read<DfdCubit>();
     final DfdData? dfd = await dfdBloc.getDataForContract(contractId);
+    if (!context.mounted) return;
 
     final tipoObra = (dfd?.tipoObra ?? '').trim().toUpperCase();
+
+    // ----- async gap 2 -----
     final resumoContrato =
     await _buildContractLabel(context, contractId, dfdData: dfd);
+    if (!context.mounted) return;
+
     if (tipoObra.isEmpty) {
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Tipo de obra não definido no DFD'),
-          subtitle: Text(
-            'Cadastre o tipo no DFD para: $resumoContrato',
-          ),
+          subtitle: Text('Cadastre o tipo no DFD para: $resumoContrato'),
           type: AppNotificationType.error,
         ),
       );
@@ -193,7 +193,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
     // ====== RODOVIÁRIO -> ScheduleRoadWorkspacePage (agora com Cubit) ======
     if (tipoObra.contains('RODOV')) {
-      Navigator.of(context).push(
+      navigator.push(
         MaterialPageRoute(
           builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
             create: (_) => ScheduleRoadRepository(),
@@ -219,7 +219,8 @@ class _MenuListPageState extends State<MenuListPage> {
     // ====== CIVIL (cronograma residencial) - mantém BLoC antigo ======
     if (tipoObra.contains('CONSTRU')) {
       final scheduleCtrl = ScheduleCivilController();
-      Navigator.of(context).push(
+
+      navigator.push(
         MaterialPageRoute(
           builder: (_) => MultiBlocProvider(
             providers: [
@@ -248,8 +249,7 @@ class _MenuListPageState extends State<MenuListPage> {
     if (tipoObra.contains('OAE') || tipoObra.contains('ARTES ESPECIAIS')) {
       NotificationCenter.instance.show(
         AppNotification(
-          title:
-          const Text('Cronograma para OAEs ainda não disponível.'),
+          title: const Text('Cronograma para OAEs ainda não disponível.'),
           type: AppNotificationType.warning,
         ),
       );
@@ -278,24 +278,32 @@ class _MenuListPageState extends State<MenuListPage> {
   Widget _getPage(ModuleItem item, UserData currentUser) {
     switch (item) {
       case ModuleItem.overviewDashboard:
-      // Cubit DemandsDashboardCubit já é injetado globalmente no bootstrap.
         return const GeneralDashboardPage();
 
       case ModuleItem.specificDashboard:
         return _buildContractsListPage((context, contract) async {
-          context.read<ProcessStore>().select(contract);
-
+          // ✅ captura antes do await
+          final navigator = Navigator.of(context);
+          final store = context.read<ProcessStore>();
           final dfdBloc = context.read<DfdCubit>();
-          final DfdData? dfd =
-          await dfdBloc.getDataForContract(contract.id ?? '');
+
+          store.select(contract);
+
+          // ----- async gap 1 -----
+          final DfdData? dfd = await dfdBloc.getDataForContract(contract.id ?? '');
+          if (!context.mounted) return;
+
           final km = dfd?.extensaoKm ?? 0.0;
           final totalEstacas = ((km * 1000) / 20).ceil();
 
           final contractId = contract.id ?? '';
+
+          // ----- async gap 2 -----
           final resumoContrato =
           await _buildContractLabel(context, contractId, dfdData: dfd);
+          if (!context.mounted) return;
 
-          Navigator.of(context).push(
+          navigator.push(
             MaterialPageRoute(
               builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
                 create: (_) => ScheduleRoadRepository(),
@@ -308,9 +316,7 @@ class _MenuListPageState extends State<MenuListPage> {
                     initialServiceKey: 'geral',
                     summarySubjectContract: resumoContrato,
                   ),
-                  child: SpecificDashboardPage(
-                    contractData: contract,
-                  ),
+                  child: SpecificDashboardPage(contractData: contract),
                 ),
               ),
             ),
@@ -320,14 +326,11 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleItem.processHiringRecords:
         return _buildContractsListPage((context, contract) {
           final storesCtx = context;
-
           Navigator.of(context)
-              .push(
-            MaterialPageRoute(
-              builder: (_) => TabBarHiringPage(contractData: contract)
-            ),
-          )
+              .push(MaterialPageRoute(builder: (_) => TabBarHiringPage(contractData: contract)))
               .then((_) async {
+            // ✅ evita usar context desmontado
+            if (!storesCtx.mounted) return;
             await storesCtx.read<ProcessStore>().refresh();
           });
         }, pageTitle: 'Contratação');
@@ -336,9 +339,7 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ValidityTabBarPage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => ValidityTabBarPage(contractData: contract)),
           );
         }, pageTitle: 'Ordens e Vigência');
 
@@ -346,9 +347,7 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => TabBarAdditivePage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => TabBarAdditivePage(contractData: contract)),
           );
         }, pageTitle: 'Aditivos');
 
@@ -356,10 +355,7 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  TabBarApostillesPage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => TabBarApostillesPage(contractData: contract)),
           );
         }, pageTitle: 'Apostilamentos');
 
@@ -367,39 +363,44 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => HiringBudgetPage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => HiringBudgetPage(contractData: contract)),
           );
         }, pageTitle: 'Orçamento');
 
       case ModuleItem.processHiringSchedule:
         return _buildContractsListPage((context, contract) async {
-          context.read<ProcessStore>().select(contract);
+          // ✅ captura antes do await
+          final navigator = Navigator.of(context);
+          final store = context.read<ProcessStore>();
+          final dfdBloc = context.read<DfdCubit>();
+
+          store.select(contract);
 
           final contractId = contract.id ?? '';
           if (contractId.isEmpty) {
             NotificationCenter.instance.show(
               AppNotification(
                 title: const Text('Contrato sem ID'),
-                subtitle:
-                const Text('Não foi possível abrir o cronograma.'),
+                subtitle: const Text('Não foi possível abrir o cronograma.'),
                 type: AppNotificationType.error,
               ),
             );
             return;
           }
 
-          final dfdBloc = context.read<DfdCubit>();
-          final DfdData? dfd =
-          await dfdBloc.getDataForContract(contractId);
+          // ----- async gap 1 -----
+          final DfdData? dfd = await dfdBloc.getDataForContract(contractId);
+          if (!context.mounted) return;
+
           final km = dfd?.extensaoKm ?? 0.0;
           final totalEstacas = ((km * 1000) / 20).ceil();
 
+          // ----- async gap 2 -----
           final resumoContrato =
           await _buildContractLabel(context, contractId, dfdData: dfd);
+          if (!context.mounted) return;
 
-          Navigator.of(context).push(
+          navigator.push(
             MaterialPageRoute(
               builder: (_) => RepositoryProvider<ScheduleRoadRepository>(
                 create: (_) => ScheduleRoadRepository(),
@@ -423,10 +424,7 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  TabBarMeasurementPage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => TabBarMeasurementPage(contractData: contract)),
           );
         }, pageTitle: 'Medições');
 
@@ -434,6 +432,7 @@ class _MenuListPageState extends State<MenuListPage> {
         return _buildContractsListPage((context, contract) async {
           context.read<ProcessStore>().select(contract);
           await _navigateByWorkType(context, contract);
+          // aqui não usamos context depois do await -> ok
         }, pageTitle: 'Diário de Obra');
 
       case ModuleItem.planningProjectRegistration:
@@ -444,8 +443,7 @@ class _MenuListPageState extends State<MenuListPage> {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) =>
-                  PlanningRightWayWorkspacePage(contractData: contract),
+              builder: (_) => PlanningRightWayWorkspacePage(contractData: contract),
             ),
           );
         }, pageTitle: 'Desapropriações');
@@ -454,7 +452,7 @@ class _MenuListPageState extends State<MenuListPage> {
         return const GeoNetworkPage();
 
       case ModuleItem.trafficAccidentsDashboard:
-        return const AccidentsDashboardNetworkPage();
+        return const AccidentDashboardPage();
 
       case ModuleItem.trafficAccidentsRecords:
         return const AccidentsRecordsNetworkPage();
@@ -466,27 +464,21 @@ class _MenuListPageState extends State<MenuListPage> {
         return const InfractionsRecordsPage();
 
       case ModuleItem.financialDashboard:
-      // Dashboard geral (sem contrato)
         return const FinancialDashboardNetworkPage();
 
       case ModuleItem.financialBudget:
-      // Orçamento por contrato
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => BudgetNetworkPage(contractData: contract),
-            ),
+            MaterialPageRoute(builder: (_) => BudgetNetworkPage(contractData: contract)),
           );
         }, pageTitle: 'Orçamento (por contrato)');
 
       case ModuleItem.financialEmpenhos:
-      // Empenhos geral (sem contrato)
         return const EmpenhoNetworkPage();
 
       case ModuleItem.financialCommitmentRecords:
-      // Se aqui ainda for “fluxo financeiro por contrato”, mantém por contrato.
-      // Se quiser ser geral, troque para const FinancialDashboardNetworkPage();
+      // Se aqui for “fluxo financeiro por contrato”
         return _buildContractsListPage((context, contract) {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
@@ -495,17 +487,6 @@ class _MenuListPageState extends State<MenuListPage> {
             ),
           );
         }, pageTitle: 'Financeiro (por contrato)');
-
-
-      case ModuleItem.financialCommitmentRecords:
-        return _buildContractsListPage((context, contract) {
-          context.read<ProcessStore>().select(contract);
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => Container(),
-            ),
-          );
-        }, pageTitle: 'Pagamentos de medições');
 
       case ModuleItem.activeRoadNetwork:
         return const ActiveRoadsNetworkPage();
@@ -536,7 +517,6 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleItem.activeRegistrationPorts:
         return const ActiveRoadsRecordsPage();
-
     }
   }
 
@@ -557,8 +537,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
     return BlocBuilder<UserBloc, UserState>(
       buildWhen: (prev, curr) =>
-      prev.current != curr.current ||
-          prev.isLoadingUsers != curr.isLoadingUsers,
+      prev.current != curr.current || prev.isLoadingUsers != curr.isLoadingUsers,
       builder: (context, userState) {
         final currentUser = userState.current;
 

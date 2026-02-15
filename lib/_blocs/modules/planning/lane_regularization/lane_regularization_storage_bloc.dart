@@ -99,9 +99,14 @@ class LaneRegularizationStorageBloc extends BlocBase {
     final lower = safe.toLowerCase();
 
     String ext = '';
-    if (lower.endsWith('.kml')) ext = '.kml';
-    else if (lower.endsWith('.kmz')) ext = '.kmz';
-    else if (lower.endsWith('.geojson') || lower.endsWith('.json')) ext = '.geojson';
+    if (lower.endsWith('.kml')) {
+      ext = '.kml';
+    } else if (lower.endsWith('.kmz')) {
+      ext = '.kmz';
+    }
+    else if (lower.endsWith('.geojson') || lower.endsWith('.json')) {
+      ext = '.geojson';
+    }
 
     final baseName = ext.isEmpty ? safe : safe.substring(0, safe.length - ext.length);
     final ts = DateTime.now().millisecondsSinceEpoch;

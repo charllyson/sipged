@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
 import 'package:sipged/_widgets/charts/lines/line_chart_changed.dart';
-import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
 
 class RevisionMeasurementGraphSection extends StatelessWidget {
   final List<String> labels;
@@ -45,7 +45,7 @@ class RevisionMeasurementGraphSection extends StatelessWidget {
             values: totalMedicoes.isNaN ? null : [totalMedicoes],
           ),
           const SizedBox(width: 12),
-          PieChartChanged(
+          DonutChartChanged(
             labels: safeLabels,
             values: safeValues,
             selectedIndex: safeSelectedIndex,

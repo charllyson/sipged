@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
 import 'package:sipged/_widgets/charts/lines/line_chart_changed.dart';
-import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
 
 class ReportMeasurementGraphSection extends StatelessWidget {
   final List<String> labels;
@@ -28,12 +28,11 @@ class ReportMeasurementGraphSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasData = values.isNotEmpty && labels.isNotEmpty;
 
-    // fallback para evitar index error no PieChartChanged e LineChartChanged
+    // fallback seguro
     final safeLabels = hasData ? labels : const ['—'];
     final safeValues = hasData ? values : const [0.0];
     final safeSelectedIndex = hasData ? selectedIndex : null;
 
-    // largura mínima do gráfico de linha, usando double
     final double availableWidth = math
         .max(
       MediaQuery.of(context).size.width - 300 - 52,
@@ -44,8 +43,11 @@ class ReportMeasurementGraphSection extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(width: 12),
+
+          // 🔷 Gauge
           GaugeCircularPercent(
             centerTitle:
             valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
@@ -54,8 +56,11 @@ class ReportMeasurementGraphSection extends StatelessWidget {
             larguraGrafico: 200,
             values: totalMedicoes.isNaN ? null : [totalMedicoes],
           ),
+
           const SizedBox(width: 12),
-          PieChartChanged(
+
+          // 🔷 Pizza
+          DonutChartChanged(
             labels: safeLabels,
             values: safeValues,
             selectedIndex: safeSelectedIndex,
@@ -70,13 +75,20 @@ class ReportMeasurementGraphSection extends StatelessWidget {
               }
             },
           ),
+
           const SizedBox(width: 12),
+
+          // 🔷 Linha (agora com SectionTitle embutido)
           LineChartChanged(
+            headerTitle: 'Evolução das Medições',
+            headerSubtitle: 'Distribuição por período',
+            headerIcon: Icons.show_chart_rounded,
+
             labels: safeLabels,
             values: safeValues,
             selectedIndex: safeSelectedIndex,
             larguraGrafico: availableWidth,
-            alturaGrafico: 260,
+            alturaGrafico: 294,
             onPointTap: (index) {
               if (index >= 0 &&
                   index < safeValues.length &&
@@ -85,6 +97,8 @@ class ReportMeasurementGraphSection extends StatelessWidget {
               }
             },
           ),
+
+          const SizedBox(width: 12),
         ],
       ),
     );

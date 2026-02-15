@@ -67,8 +67,8 @@ class CivilScheduleRepository {
     required String currentUserId,
   }) async {
     await _docMetaBoard(contractId).set({
-      if (pageCount != null) 'page_count': pageCount,
-      if (dxfBounds != null) 'dxf_bounds': dxfBounds,
+      'page_count': ?pageCount,
+      'dxf_bounds': ?dxfBounds,
       'pdf_info': ?pdfInfo,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
@@ -109,7 +109,7 @@ class CivilScheduleRepository {
       'area_m2': areaM2,
       'perimeter_m': perimeterM,
       'points': points.map((p) => {'x': p['x'], 'y': p['y']}).toList(),
-      if (takenAtMs != null) 'takenAtMs': takenAtMs,
+      'takenAtMs': ?takenAtMs,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
     };
@@ -161,7 +161,7 @@ class CivilScheduleRepository {
       return (page != null) ? q.where('page', isEqualTo: page) : q;
     }
 
-    Future<QuerySnapshot<Map<String, dynamic>>?> _try(
+    Future<QuerySnapshot<Map<String, dynamic>>?> test(
         Query<Map<String, dynamic>> Function() builder,
         ) async {
       try {
@@ -174,19 +174,19 @@ class CivilScheduleRepository {
 
     final attempts = <Future<QuerySnapshot<Map<String, dynamic>>?> Function()>[
       // page + createdAt + name
-          () => _try(() => withPage(col).orderBy('createdAt').orderBy('name')),
+          () => test(() => withPage(col).orderBy('createdAt').orderBy('name')),
       // page + createdAt
-          () => _try(() => withPage(col).orderBy('createdAt')),
+          () => test(() => withPage(col).orderBy('createdAt')),
       // page + updatedAt + name
-          () => _try(() => withPage(col).orderBy('updatedAt').orderBy('name')),
+          () => test(() => withPage(col).orderBy('updatedAt').orderBy('name')),
       // page + updatedAt
-          () => _try(() => withPage(col).orderBy('updatedAt')),
+          () => test(() => withPage(col).orderBy('updatedAt')),
       // page + name
-          () => _try(() => withPage(col).orderBy('name')),
+          () => test(() => withPage(col).orderBy('name')),
       // só page (sem order)
-          () => _try(() => withPage(col)),
+          () => test(() => withPage(col)),
       // sem filtros (último recurso)
-          () => _try(() => col),
+          () => test(() => col),
     ];
 
     QuerySnapshot<Map<String, dynamic>>? snap;
@@ -254,7 +254,7 @@ class CivilScheduleRepository {
     await doc.set({
       'status': _canonStatus(status),
       'comentario': (comentario?.trim().isNotEmpty ?? false) ? comentario!.trim() : FieldValue.delete(),
-      if (takenAtMs != null) 'takenAtMs': takenAtMs,
+      'takenAtMs': ?takenAtMs,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
     }, SetOptions(merge: true));
@@ -296,7 +296,7 @@ class CivilScheduleRepository {
       await doc.update({
         if (uploadedUrls.isNotEmpty) 'fotos': FieldValue.arrayUnion(uploadedUrls),
         if (uploadedMetas.isNotEmpty) 'fotos_meta': FieldValue.arrayUnion(uploadedMetas),
-        if (takenAtMs != null) 'takenAtMs': takenAtMs,
+        'takenAtMs': ?takenAtMs,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
       });
@@ -318,7 +318,7 @@ class CivilScheduleRepository {
       await doc.update({
         'fotos': FieldValue.arrayRemove(removed),
         if (metasToRemove.isNotEmpty) 'fotos_meta': FieldValue.arrayRemove(metasToRemove),
-        if (takenAtMs != null) 'takenAtMs': takenAtMs,
+        'takenAtMs': ?takenAtMs,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
       });
@@ -329,7 +329,7 @@ class CivilScheduleRepository {
       await doc.update({
         'fotos': FieldValue.delete(),
         'fotos_meta': FieldValue.delete(),
-        if (takenAtMs != null) 'takenAtMs': takenAtMs,
+        'takenAtMs': ?takenAtMs,
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
       });

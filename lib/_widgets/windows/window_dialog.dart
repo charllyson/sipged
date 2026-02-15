@@ -51,10 +51,6 @@ class _WindowDialogState extends State<WindowDialog> {
 
     // Fundo do dialog
     const backgroundColor = Color(0xFFF7F7FA);
-
-    // ✅ NOVO: cor da barra superior (cinza macOS clean)
-    const titleBarColor = Color(0xFFE6E6EA);
-
     return Align(
       alignment: Alignment.center,
       child: Material(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
-import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
 import 'package:sipged/_widgets/texts/divider_text.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -114,7 +114,7 @@ class OresPanel extends StatelessWidget {
                           return Padding(
                             padding:
                             const EdgeInsets.only(right: 12.0, top: 12),
-                            child: PieChartChanged(
+                            child: DonutChartChanged(
                               valueFormatType: ValueFormatType.integer,
                               colorCard: Colors.white,
                               labels: minerios,

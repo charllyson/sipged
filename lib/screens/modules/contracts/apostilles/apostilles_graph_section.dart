@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
-import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
 import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class ApostilleGraphSection extends StatelessWidget {
@@ -42,7 +42,7 @@ class ApostilleGraphSection extends StatelessWidget {
         : null;
 
     Widget pieChart({required double cardWidth}) {
-      return PieChartChanged(
+      return DonutChartChanged(
         labels: labels,
         values: values,
         filteredValues: filteredPieValues,

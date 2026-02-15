@@ -1,14 +1,15 @@
+// lib/_widgets/charts/donut/donut_chart_shimmer.dart
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-class PieChartShimmerWidget extends StatelessWidget {
+class DonutChartShimmer extends StatelessWidget {
   final double largura;
   final double altura;
 
   /// Tema atual
   final bool isDark;
 
-  const PieChartShimmerWidget({
+  const DonutChartShimmer({
     super.key,
     required this.isDark,
     this.largura = 260,
@@ -44,7 +45,6 @@ class PieChartShimmerWidget extends StatelessWidget {
                 ),
               ),
             ),
-            // Furo central
             Center(
               child: Container(
                 width: hole,
@@ -95,8 +95,8 @@ class PieChartLegendShimmerWidget extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            color: baseColor.withValues(alpha:isDark ? 0.25 : 1.0),
-            border: Border.all(color: baseColor.withValues(alpha:0.35)),
+            color: baseColor.withValues(alpha: isDark ? 0.25 : 1.0),
+            border: Border.all(color: baseColor.withValues(alpha: 0.35)),
           ),
           child: Row(
             children: [
@@ -142,10 +142,88 @@ class PieChartLegendShimmerWidget extends StatelessWidget {
 
     return Row(
       children: List.generate(itemCount, (i) {
-        // pequena variação para parecer mais “natural”
         final w = itemMinWidth + (i % 3) * 18.0;
         return chip(width: w);
       }),
+    );
+  }
+}
+
+/// ✅ Shimmer em LISTA (boa para lateral/right) — combina com scroll vertical.
+class PieChartLegendShimmerListWidget extends StatelessWidget {
+  final bool isDark;
+  final int itemCount;
+  final double height;
+  final double itemWidth;
+  final double spacing;
+
+  const PieChartLegendShimmerListWidget({
+    super.key,
+    required this.isDark,
+    this.itemCount = 8,
+    this.height = 44,
+    this.itemWidth = 190,
+    this.spacing = 10,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = isDark ? Colors.white24 : Colors.grey.shade300;
+    final highlightColor = isDark ? Colors.white10 : Colors.grey.shade100;
+
+    Widget rowItem(int i) {
+      final w = itemWidth + (i % 2) * 10.0;
+
+      return Shimmer.fromColors(
+        baseColor: baseColor,
+        highlightColor: highlightColor,
+        child: Container(
+          width: w,
+          height: height,
+          margin: EdgeInsets.only(bottom: spacing),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: baseColor.withValues(alpha: isDark ? 0.25 : 1.0),
+            border: Border.all(color: baseColor.withValues(alpha: 0.35)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: baseColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: baseColor,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 36,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: baseColor,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: List.generate(itemCount, rowItem),
     );
   }
 }

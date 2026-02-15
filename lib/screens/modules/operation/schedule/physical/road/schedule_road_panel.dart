@@ -11,7 +11,7 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_sta
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 
 // Pie
-import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
 
 // Editor de faixas
 import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
@@ -112,7 +112,7 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                   const SizedBox(height: 8),
 
                   // ===================== Pie de Status =====================
-                  PieChartChanged(
+                  DonutChartChanged(
                     colorCard: Colors.white,
                     valueFormatType: ValueFormatType.decimal,
                     labels: labels,

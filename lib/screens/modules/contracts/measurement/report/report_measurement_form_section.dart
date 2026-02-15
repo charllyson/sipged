@@ -112,7 +112,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
             thousandSeparator: ThousandSeparator.Period,
             mantissaLength: 2,
           ),
-        if (mask != null) mask,
+        ?mask,
       ],
     );
 

@@ -1,7 +1,7 @@
 // lib/screens/modules/traffic/accidents/accidents_selector_dates_section.dart
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/dates/selector/selectorDates.dart';
-import '../../../../_blocs/modules/transit/accidents/accidents_data.dart';
+import '../../../../../_blocs/modules/transit/accidents/accidents_data.dart';
 
 class AccidentsSelectorDatesSection extends StatelessWidget {
   final List<AccidentsData> allAccidents;

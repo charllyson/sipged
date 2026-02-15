@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
-import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
@@ -104,7 +104,7 @@ class ActiveOaesPanel extends StatelessWidget {
                                       padding:
                                       const EdgeInsets.only(
                                           right: 12.0, top: 12),
-                                      child: PieChartChanged(
+                                      child: DonutChartChanged(
                                         colorCard: Colors.white,
                                         valueFormatType:
                                         ValueFormatType.integer,

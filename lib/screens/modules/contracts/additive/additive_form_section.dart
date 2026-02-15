@@ -190,7 +190,7 @@ class _AdditiveFormSectionState extends State<AdditiveFormSection> {
               thousandSeparator: ThousandSeparator.Period,
               mantissaLength: 2,
             ),
-          if (mask != null) mask,
+          ?mask,
         ],
       ),
     );

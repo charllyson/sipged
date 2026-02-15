@@ -198,8 +198,8 @@ class _CostRulerState extends State<CostRuler> {
                         String tooltipContractFull() {
                           final parts = <String>[
                             'Valor: $tooltipValue',
-                            if (tooltipMedia != null) tooltipMedia,
-                            if (tooltipTeto != null) tooltipTeto,
+                            ?tooltipMedia,
+                            ?tooltipTeto,
                           ];
                           return parts.join('\n');
                         }
@@ -315,10 +315,18 @@ class _CostRulerState extends State<CostRuler> {
     final base = math.pow(10.0, exp).toDouble();
     final scaled = v / base;
     double nice;
-    if (scaled <= 1) nice = 1;
-    else if (scaled <= 2) nice = 2;
-    else if (scaled <= 5) nice = 5;
-    else nice = 10;
+    if (scaled <= 1) {
+      nice = 1;
+    }
+    else if (scaled <= 2) {
+      nice = 2;
+    }
+    else if (scaled <= 5) {
+      nice = 5;
+    }
+    else {
+      nice = 10;
+    }
     return nice * base;
   }
 }

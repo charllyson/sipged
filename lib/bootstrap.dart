@@ -179,7 +179,6 @@ Future<void> bootstrapAndRunApp() async {
               repository: ctx.read<LoginRepository>(),
             ),
           ),
-
           // --------- BLoCs / services básicos ---------
           Provider<NominatimBloc>(
             create: (_) => NominatimBloc(),

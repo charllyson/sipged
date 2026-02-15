@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart
 
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
-import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
 
 class ActiveRailwaysPanel extends StatelessWidget {
@@ -130,7 +130,7 @@ class ActiveRailwaysPanel extends StatelessWidget {
                                     (baseSlice * 0.58)
                                         .clamp(18.0, baseSlice - 10.0);
 
-                                    return PieChartChanged(
+                                    return DonutChartChanged(
                                       colorCard: Colors.white,
                                       valueFormatType:
                                       ValueFormatType.decimal,

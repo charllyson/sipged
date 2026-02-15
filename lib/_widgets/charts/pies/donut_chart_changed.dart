@@ -1,23 +1,32 @@
-import 'dart:math';
+// lib/_widgets/charts/donut/donut_chart_changed.dart
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import 'pie_chart_shimmer_widget.dart';
-import 'pie_chart_legend.dart';
+import 'donut_chart_shimmer.dart';
+import 'donut_chart_legend.dart';
 
+import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 enum ValueFormatType { monetary, decimal, integer }
 
-class PieChartChanged extends StatefulWidget {
+/// ✅ Novo: posição da legenda
+enum DonutLegendPosition { bottom, right, hidden }
+
+class DonutChartChanged extends StatefulWidget {
   final void Function(int?)? onTouch;
   final int? selectedIndex;
+
   final double? larguraGrafico;
   final double? larguraCard;
   final double? alturaCard;
+
   final bool showPercentageOutside;
   final double minPercentForLabel;
-  final bool useExternalLegend;
+
+  /// ✅ Agora controlado por enum
+  final DonutLegendPosition legendPosition;
+
   final List<Color>? coresPersonalizadas;
   final void Function(String? label)? onTapLabel;
   final String? selectedLabel;
@@ -52,7 +61,10 @@ class PieChartChanged extends StatefulWidget {
   /// Offset quando o título é desenhado fora (>= 1). Default: 1.6.
   final double? titleOutsideOffset;
 
-  const PieChartChanged({
+  /// ✅ Largura da legenda quando estiver na lateral (right).
+  final double legendRightWidth;
+
+  const DonutChartChanged({
     super.key,
     this.onTouch,
     this.selectedIndex,
@@ -63,7 +75,10 @@ class PieChartChanged extends StatefulWidget {
     this.alturaCard,
     this.showPercentageOutside = false,
     this.minPercentForLabel = 6.0,
-    this.useExternalLegend = true,
+
+    /// ✅ default = bottom
+    this.legendPosition = DonutLegendPosition.bottom,
+
     this.coresPersonalizadas,
     this.valueFormatType = ValueFormatType.monetary,
     required this.labels,
@@ -76,13 +91,16 @@ class PieChartChanged extends StatefulWidget {
     this.centerSpaceRadius,
     this.sectionsSpace,
     this.titleOutsideOffset,
+
+    /// ✅ bom padrão para lateral
+    this.legendRightWidth = 210,
   });
 
   @override
-  State<PieChartChanged> createState() => _PieChartChangedState();
+  State<DonutChartChanged> createState() => _DonutChartChangedState();
 }
 
-class _PieChartChangedState extends State<PieChartChanged> {
+class _DonutChartChangedState extends State<DonutChartChanged> {
   late List<Color> cores;
   int? touchedIndex;
 
@@ -96,6 +114,8 @@ class _PieChartChangedState extends State<PieChartChanged> {
   double get _titleOutsideOffset => widget.titleOutsideOffset ?? 1.6;
   double get _chartHeight => widget.chartHeight ?? 200.0;
 
+  bool get _useLegend => widget.legendPosition != DonutLegendPosition.hidden;
+
   @override
   void initState() {
     super.initState();
@@ -103,7 +123,7 @@ class _PieChartChangedState extends State<PieChartChanged> {
   }
 
   @override
-  void didUpdateWidget(covariant PieChartChanged oldWidget) {
+  void didUpdateWidget(covariant DonutChartChanged oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.values.length != oldWidget.values.length ||
         (widget.coresPersonalizadas?.length ?? 0) !=
@@ -115,26 +135,21 @@ class _PieChartChangedState extends State<PieChartChanged> {
     }
   }
 
+  /// ✅ Cores agora seguem SipGedTheme.chartPaletteColors(i)
+  /// e mantém compatibilidade com coresPersonalizadas.
   void _ensureColors(int length) {
     if (length <= 0) {
       cores = const [];
       return;
     }
+
     if (widget.coresPersonalizadas != null &&
         widget.coresPersonalizadas!.length >= length) {
       cores = widget.coresPersonalizadas!;
       return;
     }
-    final rnd = Random();
-    cores = List.generate(
-      length,
-          (_) => Color.fromARGB(
-        255,
-        rnd.nextInt(200) + 30,
-        rnd.nextInt(200) + 30,
-        rnd.nextInt(200) + 30,
-      ),
-    );
+
+    cores = List.generate(length, (i) => SipGedTheme.chartPaletteColors(i));
   }
 
   @override
@@ -147,18 +162,12 @@ class _PieChartChangedState extends State<PieChartChanged> {
         ? const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [
-        Color(0xFF101018),
-        Color(0xFF171924),
-      ],
+      colors: [Color(0xFF101018), Color(0xFF171924)],
     )
         : const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [
-        Colors.white,
-        Color(0xFFF5F7FB),
-      ],
+      colors: [Colors.white, Color(0xFFF5F7FB)],
     );
 
     final bool hasBasicsInvalid = widget.labels.isEmpty ||
@@ -167,7 +176,6 @@ class _PieChartChangedState extends State<PieChartChanged> {
 
     final total = widget.values.fold<double>(0, (sum, e) => sum + e);
     final bool totalZero = total == 0;
-
     final bool showShimmer = hasBasicsInvalid || totalZero;
 
     // ==========
@@ -176,17 +184,17 @@ class _PieChartChangedState extends State<PieChartChanged> {
     if (showShimmer) {
       final chartWidth = widget.larguraGrafico ?? 260;
 
-      final Widget legendShimmer = widget.useExternalLegend
+      final Widget legendShimmerBottom =
+      _useLegend && widget.legendPosition == DonutLegendPosition.bottom
           ? SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: [
-            const SizedBox(width: 8),
+          children: const [
+            SizedBox(width: 8),
             PieChartLegendShimmerWidget(
-              isDark: isDark,
+              isDark: false,
               itemCount: 5,
               height: 44,
-              // largura aproximada dos “chips” da legenda
               itemMinWidth: 130,
               spacing: 10,
             ),
@@ -194,6 +202,59 @@ class _PieChartChangedState extends State<PieChartChanged> {
         ),
       )
           : const SizedBox.shrink();
+
+      final Widget legendShimmerRight =
+      _useLegend && widget.legendPosition == DonutLegendPosition.right
+          ? SizedBox(
+        width: widget.legendRightWidth,
+        height: _chartHeight, // ✅ trava na altura do donut
+        child: Scrollbar(
+          thumbVisibility: false,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: PieChartLegendShimmerListWidget(
+                isDark: false,
+                itemCount: 8,
+                height: 44,
+                itemWidth: 190,
+                spacing: 10,
+              ),
+            ),
+          ),
+        ),
+      )
+          : const SizedBox.shrink();
+
+      final chartShimmer = Center(
+        child: DonutChartShimmer(
+          isDark: isDark,
+          largura: chartWidth,
+          altura: _chartHeight,
+        ),
+      );
+
+      Widget content;
+      if (widget.legendPosition == DonutLegendPosition.right) {
+        content = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: chartShimmer),
+            if (_useLegend) const SizedBox(width: 10),
+            if (_useLegend) legendShimmerRight,
+          ],
+        );
+      } else {
+        content = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            chartShimmer,
+            const SizedBox(height: 12),
+            if (_useLegend) legendShimmerBottom,
+          ],
+        );
+      }
 
       return SizedBox(
         width: widget.larguraCard,
@@ -204,20 +265,7 @@ class _PieChartChangedState extends State<PieChartChanged> {
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           gradient: gradient,
           enableShadow: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Center(
-                child: PieChartShimmerWidget(
-                  isDark: isDark,
-                  largura: chartWidth,
-                  altura: _chartHeight, // IMPORTANT: igual ao chart real
-                ),
-              ),
-              const SizedBox(height: 12), // IMPORTANT: igual ao layout real
-              if (widget.useExternalLegend) legendShimmer,
-            ],
-          ),
+          child: content,
         ),
       );
     }
@@ -268,6 +316,7 @@ class _PieChartChangedState extends State<PieChartChanged> {
           pieTouchData: PieTouchData(
             touchCallback: (event, response) {
               if (event is! FlTapUpEvent) return;
+
               final touched = response?.touchedSection;
               if (touched == null) {
                 setState(() => touchedIndex = null);
@@ -275,8 +324,10 @@ class _PieChartChangedState extends State<PieChartChanged> {
                 widget.onTapLabel?.call(null);
                 return;
               }
+
               final index = touched.touchedSectionIndex;
               if (index < 0 || index >= widget.labels.length) return;
+
               final label = widget.labels[index];
               setState(() {
                 if (touchedIndex == index) {
@@ -344,8 +395,9 @@ class _PieChartChangedState extends State<PieChartChanged> {
               value: value,
               title: titleText,
               radius: isHighlighted ? hiSlice : baseSlice,
-              titlePositionPercentageOffset:
-              widget.showPercentageOutside ? _titleOutsideOffset : 0.65,
+              titlePositionPercentageOffset: widget.showPercentageOutside
+                  ? _titleOutsideOffset
+                  : 0.65,
               titleStyle: TextStyle(
                 color: Colors.grey.shade800,
                 fontWeight: FontWeight.w600,
@@ -358,34 +410,98 @@ class _PieChartChangedState extends State<PieChartChanged> {
       ),
     );
 
-    final Widget legendWidget = widget.useExternalLegend
-        ? SingleChildScrollView(
+    final legend = DonutChartLegend(
+      labels: widget.labels,
+      values: widget.values,
+      total: total,
+      cores: cores,
+      touchedIndex: touchedIndex,
+      valueFormatType: widget.valueFormatType,
+      onLegendTap: (index) {
+        setState(() => touchedIndex = index);
+        if (index == null) {
+          widget.onTouch?.call(null);
+          widget.onTapLabel?.call(null);
+        } else {
+          widget.onTouch?.call(index);
+          widget.onTapLabel?.call(widget.labels[index]);
+        }
+      },
+    );
+
+    final Widget legendBottom = !_useLegend
+        ? const SizedBox.shrink()
+        : SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
           const SizedBox(width: 8),
-          PieChartLegend(
-            labels: widget.labels,
-            values: widget.values,
-            total: total,
-            cores: cores,
-            touchedIndex: touchedIndex,
-            valueFormatType: widget.valueFormatType,
-            onLegendTap: (index) {
-              setState(() => touchedIndex = index);
-              if (index == null) {
-                widget.onTouch?.call(null);
-                widget.onTapLabel?.call(null);
-              } else {
-                widget.onTouch?.call(index);
-                widget.onTapLabel?.call(widget.labels[index]);
-              }
-            },
-          ),
+          legend,
         ],
       ),
-    )
-        : const SizedBox.shrink();
+    );
+
+    // ✅ RIGHT: altura compatível com donut + scroll vertical
+    final Widget legendRight = !_useLegend
+        ? const SizedBox.shrink()
+        : SizedBox(
+      width: widget.legendRightWidth,
+      height: _chartHeight, // ✅ trava na altura do donut
+      child: Scrollbar(
+        thumbVisibility: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Column(
+              children: [
+                const SizedBox(height: 2),
+                DonutChartLegendList(
+                  labels: widget.labels,
+                  values: widget.values,
+                  total: total,
+                  cores: cores,
+                  touchedIndex: touchedIndex,
+                  valueFormatType: widget.valueFormatType,
+                  onLegendTap: (index) {
+                    setState(() => touchedIndex = index);
+                    if (index == null) {
+                      widget.onTouch?.call(null);
+                      widget.onTapLabel?.call(null);
+                    } else {
+                      widget.onTouch?.call(index);
+                      widget.onTapLabel?.call(widget.labels[index]);
+                    }
+                  },
+                ),
+                const SizedBox(height: 6),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Widget content;
+    if (widget.legendPosition == DonutLegendPosition.right) {
+      content = Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: chart),
+          if (_useLegend) const SizedBox(width: 10),
+          if (_useLegend) legendRight,
+        ],
+      );
+    } else {
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          chart,
+          const SizedBox(height: 12),
+          if (_useLegend) legendBottom,
+        ],
+      );
+    }
 
     return SizedBox(
       width: widget.larguraCard,
@@ -396,14 +512,7 @@ class _PieChartChangedState extends State<PieChartChanged> {
         padding: const EdgeInsets.symmetric(vertical: 16.0),
         gradient: gradient,
         enableShadow: true,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            chart,
-            const SizedBox(height: 12),
-            if (widget.useExternalLegend) legendWidget,
-          ],
-        ),
+        child: content,
       ),
     );
   }

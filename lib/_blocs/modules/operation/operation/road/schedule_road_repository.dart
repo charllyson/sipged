@@ -582,7 +582,7 @@ class ScheduleRoadRepository {
           'fotos_meta': FieldValue.arrayUnion(uploadedMetas),
           'updatedAt': FieldValue.serverTimestamp(),
           'updatedBy': currentUserId,
-          if (takenMs != null) 'takenAtMs': takenMs,
+          'takenAtMs': ?takenMs,
         });
       }
     }
@@ -623,7 +623,7 @@ class ScheduleRoadRepository {
           'fotos_meta': FieldValue.arrayRemove(metasToRemove),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        if (takenMs != null) 'takenAtMs': takenMs,
+        'takenAtMs': ?takenMs,
       };
       await docRef.update(updates);
     }
@@ -635,7 +635,7 @@ class ScheduleRoadRepository {
         'fotos_meta': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        if (takenMs != null) 'takenAtMs': takenMs,
+        'takenAtMs': ?takenMs,
       });
       clearContractCache(contractId);
       return uploadedUrls;
@@ -679,7 +679,7 @@ class ScheduleRoadRepository {
       'fotos_meta': metasAll,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      if (takenMs != null) 'takenAtMs': takenMs,
+      'takenAtMs': ?takenMs,
     });
 
     clearContractCache(contractId);
@@ -990,8 +990,7 @@ class ScheduleRoadRepository {
     final docRef = _planningProjects.doc(contractId);
     final base = <String, dynamic>{
       'contractId': contractId,
-      if (summarySubjectContract != null)
-        'summarySubjectContract': summarySubjectContract,
+      'summarySubjectContract': ?summarySubjectContract,
       if (meta.geometryType != null) 'geometryType': meta.geometryType,
       if (meta.multiLine != null) 'multiLine': _toMultiList(meta.multiLine),
       if (meta.points != null) 'points': _toPoints(meta.points),

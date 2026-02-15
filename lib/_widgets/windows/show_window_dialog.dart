@@ -12,15 +12,22 @@ Future<T?> showWindowDialog<T>({
   double? width,
   bool barrierDismissible = true,
 
-  /// NOVO: permite controlar o padding interno do WindowDialog
+  /// controla padding interno do WindowDialog
   EdgeInsets contentPadding = const EdgeInsets.fromLTRB(12, 0, 12, 0),
 
-  /// ✅ CRÍTICO no Flutter Web com Mapbox (JS): impede o JS de “roubar” scroll/click
+  /// impede vazamento de ponteiros (Flutter Web + Mapbox)
   bool usePointerInterceptor = true,
+
+  /// 🔥 NOVO: controla SafeArea do showDialog
+  bool useSafeArea = false,
 }) {
   return showDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
+
+    // 🔥 AQUI ESTÁ O SEGREDO
+    useSafeArea: useSafeArea,
+
     builder: (ctx) {
       final dialog = WindowDialog(
         title: title,
@@ -30,12 +37,13 @@ Future<T?> showWindowDialog<T>({
         child: child,
       );
 
-      // ✅ Intercepta TODOS os ponteiros no overlay do dialog
-      // (wheel / drag / click) para não vazar pro Mapbox atrás.
-      return usePointerInterceptor ? PointerInterceptor(child: dialog) : dialog;
+      return usePointerInterceptor
+          ? PointerInterceptor(child: dialog)
+          : dialog;
     },
   );
 }
+
 
 Future<bool> confirmDialog(BuildContext context, String msg) async {
   final result = await showWindowDialog<bool>(

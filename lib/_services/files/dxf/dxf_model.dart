@@ -35,7 +35,9 @@ class DxfModel {
     }
 
     for (final pl in polylines) {
-      for (final p in pl.points) addPt(p);
+      for (final p in pl.points) {
+        addPt(p);
+      }
     }
 
     // círculos: amostra 64 pontos
@@ -218,8 +220,12 @@ class DxfArc {
   double get endRadians => end * math.pi / 180.0;
   double get sweepRadians {
     double s = (end - start) * math.pi / 180.0;
-    while (s > math.pi * 2) s -= math.pi * 2;
-    while (s < -math.pi * 2) s += math.pi * 2;
+    while (s > math.pi * 2) {
+      s -= math.pi * 2;
+    }
+    while (s < -math.pi * 2) {
+      s += math.pi * 2;
+    }
     return s;
   }
 }

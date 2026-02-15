@@ -55,7 +55,7 @@ class LoginCubit extends Cubit<LoginState> {
     if (has) {
       emit(
         state.copyWith(
-          data: state.data.copyWith(email: email!.trim()),
+          data: state.data.copyWith(email: email.trim()),
           hasSavedEmail: true,
         ),
       );

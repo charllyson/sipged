@@ -5,7 +5,7 @@ import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.d
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
-import 'package:sipged/_widgets/charts/pies/pie_chart_changed.dart';
+import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/radar/radar_chart_changed.dart';
 import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
@@ -51,9 +51,9 @@ class GeneralDashboardStatusServicesRegion extends StatelessWidget {
           final double cardW =
           m.isSmall ? m.availableWidth : (m.currentItemWidth ?? kPieWidth);
 
-          return PieChartChanged(
+          return DonutChartChanged(
+            legendPosition: DonutLegendPosition.bottom,
             sliceRadius: 50,
-            useExternalLegend: true,
             coresPersonalizadas: cubit.labelsStatusGeneralContracts
                 .map(GeneralDashboardStyle.getColorByStatus)
                 .toList(),

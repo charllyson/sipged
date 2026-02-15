@@ -1,4 +1,3 @@
-// lib/_blocs/modules/transit/accidents/accidents_state.dart
 import 'package:equatable/equatable.dart';
 
 import 'accidents_data.dart';
@@ -13,6 +12,8 @@ class AccidentsState extends Equatable {
   final int? year;
   final int? month;
   final String? city;
+  final String? type;      // ✅ novo
+  final String? severity;  // ✅ novo
 
   // Universo / visões
   final List<AccidentsData> universe;
@@ -46,6 +47,8 @@ class AccidentsState extends Equatable {
     this.year,
     this.month,
     this.city,
+    this.type,      // ✅
+    this.severity,  // ✅
     this.universe = const [],
     this.all = const [],
     this.view = const [],
@@ -77,6 +80,10 @@ class AccidentsState extends Equatable {
     int? month,
     bool setCityNull = false,
     String? city,
+    bool setTypeNull = false,      // ✅
+    String? type,                  // ✅
+    bool setSeverityNull = false,  // ✅
+    String? severity,              // ✅
 
     // Listas
     List<AccidentsData>? universe,
@@ -109,26 +116,32 @@ class AccidentsState extends Equatable {
       initialized: initialized ?? this.initialized,
       loading: loading ?? this.loading,
       saving: saving ?? this.saving,
+
       year: setYearNull ? null : (year ?? this.year),
       month: setMonthNull ? null : (month ?? this.month),
       city: setCityNull ? null : (city ?? this.city),
+      type: setTypeNull ? null : (type ?? this.type),               // ✅
+      severity: setSeverityNull ? null : (severity ?? this.severity), // ✅
+
       universe: universe ?? this.universe,
       all: all ?? this.all,
       view: view ?? this.view,
       pageItems: pageItems ?? this.pageItems,
+
       currentPage: currentPage ?? this.currentPage,
       totalPages: totalPages ?? this.totalPages,
       limitPerPage: limitPerPage ?? this.limitPerPage,
+
       totalsByCity: totalsByCity ?? this.totalsByCity,
       totalsByType: totalsByType ?? this.totalsByType,
       resumeByType: resumeByType ?? this.resumeByType,
+
       error: error,
       success: success,
+
       gettingLocation: gettingLocation ?? this.gettingLocation,
-      locationSuggestion:
-      clearLocationSuggestion ? null : (locationSuggestion ?? this.locationSuggestion),
-      locationError:
-      clearLocationError ? null : (locationError ?? this.locationError),
+      locationSuggestion: clearLocationSuggestion ? null : (locationSuggestion ?? this.locationSuggestion),
+      locationError: clearLocationError ? null : (locationError ?? this.locationError),
     );
   }
 
@@ -140,6 +153,8 @@ class AccidentsState extends Equatable {
     year,
     month,
     city,
+    type,      // ✅
+    severity,  // ✅
     universe,
     all,
     view,
