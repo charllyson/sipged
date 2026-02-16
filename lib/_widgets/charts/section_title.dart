@@ -14,7 +14,7 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final subColor = theme.textTheme.bodyMedium?.color?.withOpacity(0.70);
+    final subColor = theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.70);
 
     return Row(
       children: [
@@ -24,8 +24,8 @@ class SectionTitle extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             color: theme.brightness == Brightness.dark
-                ? Colors.white.withOpacity(0.06)
-                : Colors.black.withOpacity(0.04),
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.04),
           ),
           child: Icon(icon, size: 18),
         ),

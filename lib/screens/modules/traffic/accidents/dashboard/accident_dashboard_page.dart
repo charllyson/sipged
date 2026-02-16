@@ -133,11 +133,11 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
                           dividerBackgroundColor:
                           isDark ? const Color(0xFF0B0F17) : Colors.white,
                           dividerBorderColor: isDark
-                              ? Colors.white.withOpacity(0.08)
-                              : Colors.black.withOpacity(0.08),
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : Colors.black.withValues(alpha: 0.08),
                           gripColor: isDark
-                              ? Colors.white.withOpacity(0.35)
-                              : Colors.black.withOpacity(0.25),
+                              ? Colors.white.withValues(alpha: 0.35)
+                              : Colors.black.withValues(alpha: 0.25),
                           stackedRightOnTop: false,
                           left: _buildLeftMap(
                             theme: theme,
@@ -223,13 +223,13 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               color: theme.brightness == Brightness.dark
-                  ? Colors.black.withOpacity(0.40)
-                  : Colors.white.withOpacity(0.90),
+                  ? Colors.black.withValues(alpha: 0.40)
+                  : Colors.white.withValues(alpha: 0.90),
               border: Border.all(
                 color: (theme.brightness == Brightness.dark
                     ? Colors.white
                     : Colors.black)
-                    .withOpacity(0.12),
+                    .withValues(alpha: 0.12),
               ),
             ),
             child: Row(
@@ -269,13 +269,13 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: Colors.red.withOpacity(0.10),
-                border: Border.all(color: Colors.red.withOpacity(0.20)),
+                color: Colors.red.withValues(alpha: 0.10),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.20)),
               ),
               child: Text(
                 geoState.errorMessage!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.red.withOpacity(0.92),
+                  color: Colors.red.withValues(alpha: 0.92),
                   fontWeight: FontWeight.w900,
                 ),
               ),

@@ -151,10 +151,6 @@ class AccidentDashboardMap extends StatelessWidget {
   // ✅ Cores (noData / data / selected no modelo) + borda MAIS VIVA
   // ---------------------------------------------------------------------------
 
-  Color _vividBorder(Color base) {
-    // Leve mistura com branco -> aumenta contraste da borda sem ficar neon.
-    return Color.lerp(base, Colors.white, 0.18)!;
-  }
 
   List<PolygonChanged> _applyAccidentsStyle({
     required List<PolygonChanged> polys,
@@ -189,20 +185,20 @@ class AccidentDashboardMap extends StatelessWidget {
           const Color(0xFF5AA7FF);
 
       final fill = hasData
-          ? dataBase.withOpacity(dataAlpha)
-          : noDataBase.withOpacity(noDataAlpha);
+          ? dataBase.withValues(alpha: dataAlpha)
+          : noDataBase.withValues(alpha: noDataAlpha);
 
       // ✅ borda SEM transparência quando tem dado
       final border = hasData
           ? dataBase
-          : noDataBorderBase.withOpacity(noDataBorderAlpha);
+          : noDataBorderBase.withValues(alpha: noDataBorderAlpha);
 
       return p.copyWith(
         normalFillColor: fill,
         normalBorderColor: border,
         normalBorderWidth: hasData ? dataBorderWidth : noDataBorderWidth,
 
-        selectedFillColor: selectedFill.withOpacity(selectedAlpha),
+        selectedFillColor: selectedFill.withValues(alpha: selectedAlpha),
         selectedBorderColor: selectedBorder,
         selectedBorderWidth: hasData ? 2.6 : 2.4,
       );

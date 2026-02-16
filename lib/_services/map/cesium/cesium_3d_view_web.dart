@@ -13,7 +13,7 @@ class Cesium3DView extends StatelessWidget {
   final Cesium3DController controller;
   final String? viewId;
 
-  Cesium3DView({
+  const Cesium3DView({
     super.key,
     required this.config,
     required this.controller,

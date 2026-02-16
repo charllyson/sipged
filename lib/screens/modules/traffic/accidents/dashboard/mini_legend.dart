@@ -16,8 +16,8 @@ class MiniLegend extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        color: isDark ? Colors.black.withOpacity(0.35) : Colors.white.withOpacity(0.85),
-        border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.10)),
+        color: isDark ? Colors.black.withValues(alpha: 0.35) : Colors.white.withValues(alpha: 0.85),
+        border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

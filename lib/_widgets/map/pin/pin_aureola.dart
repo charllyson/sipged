@@ -18,7 +18,7 @@ class PinAureola extends StatelessWidget {
           height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: color.withOpacity(0.18),
+            color: color.withValues(alpha: 0.18),
           ),
         ),
         Container(
@@ -31,7 +31,7 @@ class PinAureola extends StatelessWidget {
               BoxShadow(
                 blurRadius: 18,
                 offset: const Offset(0, 8),
-                color: color.withOpacity(0.35),
+                color: color.withValues(alpha: 0.35),
               ),
             ],
           ),

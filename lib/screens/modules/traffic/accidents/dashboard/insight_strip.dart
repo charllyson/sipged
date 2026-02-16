@@ -23,7 +23,7 @@ class InsightStrip extends StatelessWidget {
               ? const [Color(0xFF1B2A5A), Color(0xFF3D1B5A)]
               : const [Color(0xFFEAF0FF), Color(0xFFF3E9FF)],
         ),
-        border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.08)),
+        border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -38,7 +38,7 @@ class InsightStrip extends StatelessWidget {
                 Text(
                   text,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.80),
+                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.80),
                   ),
                 ),
               ],

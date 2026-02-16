@@ -493,7 +493,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
           style: theme.textTheme.labelSmall?.copyWith(
             fontSize: 10,
             fontWeight: FontWeight.w700,
-            color: theme.textTheme.labelSmall?.color?.withOpacity(0.65),
+            color: theme.textTheme.labelSmall?.color?.withValues(alpha: 0.65),
           ),
           overflow: TextOverflow.ellipsis,
           softWrap: false,
@@ -511,7 +511,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
         style: theme.textTheme.labelSmall?.copyWith(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: theme.textTheme.labelSmall?.color?.withOpacity(0.65),
+          color: theme.textTheme.labelSmall?.color?.withValues(alpha: 0.65),
         ),
         overflow: TextOverflow.ellipsis,
         softWrap: false,
@@ -689,7 +689,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
                                     return Text(
                                       _formatAxisY(v),
                                       style: theme.textTheme.labelSmall?.copyWith(
-                                        color: theme.textTheme.labelSmall?.color?.withOpacity(0.60),
+                                        color: theme.textTheme.labelSmall?.color?.withValues(alpha: 0.60),
                                         fontWeight: FontWeight.w700,
                                       ),
                                     );
@@ -785,7 +785,7 @@ class _LegendDot extends StatelessWidget {
           label,
           style: theme.textTheme.labelSmall?.copyWith(
             fontWeight: FontWeight.w800,
-            color: theme.textTheme.labelSmall?.color?.withOpacity(0.75),
+            color: theme.textTheme.labelSmall?.color?.withValues(alpha: 0.75),
           ),
         ),
       ],
@@ -809,7 +809,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final subColor = theme.textTheme.bodyMedium?.color?.withOpacity(0.70);
+    final subColor = theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.70);
 
     return Row(
       children: [

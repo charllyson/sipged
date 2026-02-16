@@ -162,13 +162,13 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
 
       return p.copyWith(
         normalFillColor: (isStrong ? dataFill : noDataFill)
-            .withOpacity(isStrong ? dataAlpha : noDataAlpha),
+            .withValues(alpha: isStrong ? dataAlpha : noDataAlpha),
 
         // ✅ borda noData cinza clara e fina
-        normalBorderColor: isStrong ? dataBorder : noDataBorder.withOpacity(0.75),
+        normalBorderColor: isStrong ? dataBorder : noDataBorder.withValues(alpha: 0.75),
         normalBorderWidth: isStrong ? 1.0 : 0.35,   // ✅ mais fina
 
-        selectedFillColor: selectedFill.withOpacity(selectedAlpha),
+        selectedFillColor: selectedFill.withValues(alpha: selectedAlpha),
         selectedBorderColor: selectedBorder,
         selectedBorderWidth: isStrong ? 2.2 : 2.0,
       );

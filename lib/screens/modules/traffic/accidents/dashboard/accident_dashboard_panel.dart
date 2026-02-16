@@ -1,5 +1,4 @@
 // lib/screens/modules/traffic/accidents/dashboard/accident_dashboard_panel.dart
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -434,7 +433,7 @@ class _AccidentDashboardPanelState extends State<AccidentDashboardPanel> {
                         child: Text(
                           state.error!,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.red.withOpacity(0.85),
+                            color: Colors.red.withValues(alpha: 0.85),
                             fontWeight: FontWeight.w800,
                           ),
                         ),

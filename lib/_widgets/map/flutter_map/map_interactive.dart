@@ -787,8 +787,8 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                   final fillOpacity = isSelected ? 0.40 : 0.18;
                   final strokeOpacity = isSelected ? 0.98 : 0.75; // ✅ mais viva
 
-                  fillColor = base.withOpacity(fillOpacity);
-                  borderColor = base.withOpacity(strokeOpacity);
+                  fillColor = base.withValues(alpha: fillOpacity);
+                  borderColor = base.withValues(alpha: strokeOpacity);
 
                   borderWidth = (isSelected ? entry.selectedBorderWidth : entry.normalBorderWidth);
                 } else {
@@ -807,8 +807,8 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                 final outline = Polygon(
                   points: entry.polygon.points,
                   color: Colors.transparent, // não altera fill
-                  borderColor: outlineColor.withOpacity(
-                    isSelected ? outlineOpacitySelected : outlineOpacityNormal,
+                  borderColor: outlineColor.withValues(alpha:
+                  isSelected ? outlineOpacitySelected : outlineOpacityNormal,
                   ),
                   borderStrokeWidth: outlineWidth,
                 );

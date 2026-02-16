@@ -29,8 +29,8 @@ class KpiCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               color: isDark
-                  ? Colors.white.withOpacity(0.06)
-                  : Colors.black.withOpacity(0.04),
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.04),
             ),
             child: Icon(icon, size: 20),
           ),
@@ -50,7 +50,7 @@ class KpiCard extends StatelessWidget {
                 Text(
                   title,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withOpacity(0.70),
+                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.70),
                   ),
                 ),
               ],

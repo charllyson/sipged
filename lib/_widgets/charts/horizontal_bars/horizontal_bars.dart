@@ -19,7 +19,7 @@ class HorizontalBars extends StatelessWidget {
         child: Text(
           'Sem dados no recorte',
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+            color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
           ),
         ),
       );
@@ -44,10 +44,10 @@ class HorizontalBars extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               color: theme.brightness == Brightness.dark
-                  ? Colors.white.withOpacity(isHighlight ? 0.10 : 0.05)
-                  : Colors.black.withOpacity(isHighlight ? 0.06 : 0.03),
+                  ? Colors.white.withValues(alpha: isHighlight ? 0.10 : 0.05)
+                  : Colors.black.withValues(alpha: isHighlight ? 0.06 : 0.03),
               border: Border.all(
-                color: (theme.brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.07),
+                color: (theme.brightness == Brightness.dark ? Colors.white : Colors.black).withValues(alpha: 0.07),
               ),
             ),
             child: Row(
@@ -66,7 +66,7 @@ class HorizontalBars extends StatelessWidget {
                             children: [
                               Positioned.fill(
                                 child: Container(
-                                  color: (theme.brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.06),
+                                  color: (theme.brightness == Brightness.dark ? Colors.white : Colors.black).withValues(alpha: 0.06),
                                 ),
                               ),
                               FractionallySizedBox(
