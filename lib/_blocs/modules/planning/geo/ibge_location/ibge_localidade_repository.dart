@@ -1,4 +1,3 @@
-// lib/_blocs/modules/planning/geo/localidades/ibge_localidade_repository.dart
 import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_location_service.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
@@ -14,8 +13,8 @@ class IBGELocationRepository {
   static List<IBGELocationStateData>? _cacheStates;
 
   // Cache de DETALHES de município: idIbge -> detail
-  static final Map<String, IBGELocationDetailData>
-  _cacheMunicipioDetailById = {};
+  static final Map<String, IBGELocationDetailData> _cacheMunicipioDetailById =
+  {};
 
   Future<List<IBGELocationStateData>> getStates() async {
     if (_cacheStates != null && _cacheStates!.isNotEmpty) {
@@ -26,7 +25,6 @@ class IBGELocationRepository {
     return list;
   }
 
-  /// Verifica se já existem polígonos em cache para a UF.
   bool hasCachedPolygons(int ufCode) {
     final cached = _cachePolygonsByUf[ufCode];
     return cached != null && cached.isNotEmpty;
@@ -43,10 +41,7 @@ class IBGELocationRepository {
     return polys;
   }
 
-  /// Detalhes completos de um município, com cache por ID.
-  Future<IBGELocationDetailData> getMunicipioDetails(
-      String idIbge,
-      ) async {
+  Future<IBGELocationDetailData> getMunicipioDetails(String idIbge) async {
     final cached = _cacheMunicipioDetailById[idIbge];
     if (cached != null) return cached;
 
@@ -55,7 +50,6 @@ class IBGELocationRepository {
     return detail;
   }
 
-  /// Wrapper para a inferência de UF pela lista de municípios.
   Future<int?> inferUfFromMunicipios(List<String> municipiosAlvo) {
     return _service.inferUfFromMunicipios(municipiosAlvo);
   }

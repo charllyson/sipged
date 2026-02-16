@@ -16,7 +16,7 @@ class GeneralDashboardMap extends StatelessWidget {
   /// MUNICÍPIOS selecionados (para destaque mais forte)
   final List<String> selectedRegionNames;
 
-  /// Todos os municípios que possuem contratos (para opacidade "forte")
+  /// Todos os municípios que possuem contratos (para estilo "forte")
   final List<String> strongMunicipios;
 
   final void Function(String?) onRegionTap;
@@ -36,6 +36,7 @@ class GeneralDashboardMap extends StatelessWidget {
       create: (_) => IBGELocationCubit(repository: IBGELocationRepository())
         ..loadInitialAuto(
           municipioNames: strongMunicipios,
+          fallbackUfCode: 27,
         ),
       child: _OverviewDashboardMapBody(
         selectedRegionNames: selectedRegionNames,
@@ -90,7 +91,6 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
       cubit.loadInitialAuto(
         municipioNames: widget.strongMunicipios,
       );
-      // ao mudar a base de municípios, permitimos novo fit-to-bounds
       _hasFitToPolygonsOnce = false;
     }
   }
@@ -113,20 +113,74 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
 
       final cameraFit = CameraFit.bounds(
         bounds: bounds,
-        padding: const EdgeInsets.all(16), // margem interna no card
+        padding: const EdgeInsets.all(16),
       );
 
       _mapController!.fitCamera(cameraFit);
       _hasFitToPolygonsOnce = true;
     } catch (_) {
-      // se der algum erro estranho, só marca como feito para não ficar tentando
       _hasFitToPolygonsOnce = true;
     }
   }
 
+  /// ✅ Normaliza do mesmo jeito do MapInteractive (pra bater com strongMunicipios)
+  String _norm(String s) =>
+      s
+          .toUpperCase()
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+
+  Set<String> _normSet(List<String> xs) => xs.map(_norm).toSet();
+
+  /// ✅ Aplica “forte/fraco” diretamente no PolygonChanged.
+  /// Agora não existe mais strongPolygonNames no MapInteractive.
+  List<PolygonChanged> _applyStrengthStyle({
+    required List<PolygonChanged> polys,
+    required List<String> strongNames,
+  }) {
+    if (polys.isEmpty) return polys;
+
+    final strong = _normSet(strongNames);
+
+    // 🎨 noData mais “clean”
+    const noDataFill = Color(0xFF9CA3AF);      // cinza claro
+    const noDataBorder = Color(0xFFB0B7C3);    // ✅ cinza ainda mais claro (linha)
+    const noDataAlpha = 0.10;                 // bem transparente
+
+// (data/selected mantém como está)
+    const dataFill = Color(0xFF5AA7FF);
+    const dataBorder = Color(0xFF2E78D6);
+
+    const selectedFill = Color(0xFF1E6BFF);
+    const selectedBorder = Color(0xFF0B2F7A);
+
+    const dataAlpha = 0.42;
+    const selectedAlpha = 0.62;
+
+    return polys.map((p) {
+      final isStrong = strong.contains(_norm(p.title));
+
+      return p.copyWith(
+        normalFillColor: (isStrong ? dataFill : noDataFill)
+            .withOpacity(isStrong ? dataAlpha : noDataAlpha),
+
+        // ✅ borda noData cinza clara e fina
+        normalBorderColor: isStrong ? dataBorder : noDataBorder.withOpacity(0.75),
+        normalBorderWidth: isStrong ? 1.0 : 0.35,   // ✅ mais fina
+
+        selectedFillColor: selectedFill.withOpacity(selectedAlpha),
+        selectedBorderColor: selectedBorder,
+        selectedBorderWidth: isStrong ? 2.2 : 2.0,
+      );
+    }).toList(growable: false);
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
-    super.build(context); // necessário por causa do AutomaticKeepAlive
+    super.build(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: SizedBox(
@@ -157,11 +211,15 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
                 );
               }
 
-              // pontos para o MapInteractive centralizar / encaixar
-              final geomPoints =
-              _geometryPointsFromPolygons(state.cityPolygons);
+              // ✅ Polígonos com estilo forte/fraco aplicado no modelo
+              final styledPolys = _applyStrengthStyle(
+                polys: state.cityPolygons,
+                strongNames: widget.strongMunicipios,
+              );
 
-              // Assim que tivermos controller + polígonos, fazemos o fit.
+              // pontos para o MapInteractive centralizar / encaixar
+              final geomPoints = _geometryPointsFromPolygons(styledPolys);
+
               if (!_hasFitToPolygonsOnce &&
                   _mapController != null &&
                   geomPoints.isNotEmpty) {
@@ -171,33 +229,26 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
               }
 
               return MapInteractivePage<void>(
-                // Ainda passamos os pontos como hint de centralização inicial,
-                // mas quem manda mesmo é o fitToPolygons acima.
                 initialGeometryPoints: geomPoints,
-
                 initialZoom: 7.8,
                 minZoom: 4,
                 maxZoom: 14,
                 activeMap: true,
                 showLegend: false,
 
-                polygonsChanged: state.cityPolygons,
+                polygonsChanged: styledPolys,
                 allowMultiSelect: false,
                 showSearch: false,
 
-                // MUNICÍPIOS selecionados (mais forte)
+                // MUNICÍPIOS selecionados
                 selectedRegionNames: widget.selectedRegionNames,
 
-                // MUNICÍPIOS com contratos (opacidade 0.6)
-                strongPolygonNames: widget.strongMunicipios,
-
+                // Mantém cores (mesmo sem legenda, isso pinta o mapa no novo MapInteractive)
                 polygonChangeColors: GeneralDashboardStyle.regionsColors,
 
                 onControllerReady: (ctrl) {
                   _mapController = ctrl;
 
-                  // se os polígonos já estiverem carregados quando o controller
-                  // ficar pronto, encaixamos imediatamente.
                   if (!_hasFitToPolygonsOnce && geomPoints.isNotEmpty) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       _fitToPolygons(geomPoints);

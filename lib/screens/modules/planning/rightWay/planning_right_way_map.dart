@@ -353,7 +353,6 @@ class _PlanningRightWayPropertyMapState
         searchTargetZoom: 16,
         showSearchMarker: true,
 
-        polygon: _polygons,
         tappablePolylines: _lines,
 
         // pins dentro dos polígonos

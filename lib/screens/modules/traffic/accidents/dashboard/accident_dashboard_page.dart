@@ -142,9 +142,11 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
                           left: _buildLeftMap(
                             theme: theme,
                             accState: accState,
+                            geoState: geoState, // ✅ novo
                             polygons: polygons,
                             isMobile: w < _mobileBreakpoint,
                           ),
+
                           right: const AccidentDashboardPanel(),
                         );
                       },
@@ -162,10 +164,11 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
   Widget _buildLeftMap({
     required ThemeData theme,
     required AccidentsState accState,
+    required IBGELocationState geoState, // ✅ novo
     required List<PolygonChanged> polygons,
     required bool isMobile,
   }) {
-    final cubit = context.read<AccidentsCubit>();
+    final accidentsCubit = context.read<AccidentsCubit>();
 
     final selectedRegions =
     (accState.city != null && accState.city!.trim().isNotEmpty)
@@ -179,42 +182,31 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
           accidents: accState.view,
           polygonsChanged: polygons,
           selectedRegionNames: selectedRegions,
-
-          // ✅ Clique no polígono:
-          //  - toggle do filtro de cidade
-          //  - se estava desmarcado, abre detalhes (WindowDialog)
           onRegionTap: (region) async {
             final r = (region ?? '').trim();
             if (r.isEmpty) {
-              await cubit.toggleCity(null);
+              await accidentsCubit.toggleCity(null);
               return;
             }
 
             final alreadySelected = _equalsNorm(accState.city, r);
+            await accidentsCubit.toggleCity(r);
 
-            // toggle primeiro (sincroniza mapa/painel)
-            await cubit.toggleCity(r);
-
-            // abre detalhes somente quando está selecionando
             if (!alreadySelected) {
               final dadosCidade = _filterByCity(accState.universe, r);
               await _openCityDetails(region: r, dados: dadosCidade);
             }
           },
-
           onTapMarker: (acc) async {
-            // ✅ opcional: abrir detalhe ao clicar no marker
             final city = (acc.city ?? acc.locality ?? '').trim();
             if (city.isEmpty) {
               await _openCityDetails(region: 'Ocorrência', dados: [acc]);
               return;
             }
 
-            // se quiser: sincronizar filtro pela cidade do marker
             final alreadySelected = _equalsNorm(accState.city, city);
-            await cubit.toggleCity(city);
+            await accidentsCubit.toggleCity(city);
 
-            // abre detalhe só se estava desmarcado
             if (!alreadySelected) {
               final dadosCidade = _filterByCity(accState.universe, city);
               await _openCityDetails(region: city, dados: dadosCidade);
@@ -222,6 +214,75 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
           },
         ),
 
+        // ✅ DEBUG IBGE (sem acessar context)
+        Positioned(
+          left: 12,
+          bottom: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: theme.brightness == Brightness.dark
+                  ? Colors.black.withOpacity(0.40)
+                  : Colors.white.withOpacity(0.90),
+              border: Border.all(
+                color: (theme.brightness == Brightness.dark
+                    ? Colors.white
+                    : Colors.black)
+                    .withOpacity(0.12),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  geoState.isLoading ? Icons.autorenew : Icons.map_outlined,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text('${geoState.cityPolygons.length} polígonos encontrados',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (geoState.isLoading) ...[
+                  const SizedBox(width: 10),
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+
+        // ✅ ERRO IBGE
+        if (geoState.errorMessage != null &&
+            geoState.errorMessage!.trim().isNotEmpty)
+          Positioned(
+            left: 12,
+            right: 12,
+            top: 58,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.red.withOpacity(0.10),
+                border: Border.all(color: Colors.red.withOpacity(0.20)),
+              ),
+              child: Text(
+                geoState.errorMessage!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.red.withOpacity(0.92),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+
+        // ✅ sua MiniLegend continua
         Positioned(
           right: 12,
           bottom: 12,
@@ -233,61 +294,6 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
             ],
           ),
         ),
-
-        if (accState.loading)
-          Positioned(
-            left: 12,
-            bottom: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: theme.brightness == Brightness.dark
-                    ? Colors.black.withOpacity(0.35)
-                    : Colors.white.withOpacity(0.85),
-                border: Border.all(
-                  color: (theme.brightness == Brightness.dark
-                      ? Colors.white
-                      : Colors.black)
-                      .withOpacity(0.10),
-                ),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 8),
-                  Text('Carregando...'),
-                ],
-              ),
-            ),
-          ),
-
-        if (accState.error != null && accState.error!.trim().isNotEmpty)
-          Positioned(
-            left: 12,
-            bottom: 12,
-            right: 12,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.red.withOpacity(0.10),
-                border: Border.all(color: Colors.red.withOpacity(0.20)),
-              ),
-              child: Text(
-                accState.error!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: Colors.red.withOpacity(0.90),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }

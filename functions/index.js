@@ -17,6 +17,9 @@ const {
     pluviometricStationSeries,
 } = require('./src/http/pluviometric_station_series');
 const { derDotacoesOrcamentarias } = require('./src/http/al_der_dotacoes');
+// functions/index.js
+const { ibgeProxy } = require('./src/http/ibge_proxy');
+exports.ibgeProxy = ibgeProxy;
 
 exports.derDotacoesOrcamentarias = derDotacoesOrcamentarias;
 

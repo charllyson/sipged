@@ -1,4 +1,3 @@
-// lib/_services/ibge/ibge_localidade_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
@@ -12,7 +11,6 @@ class IBGELocationState extends Equatable {
 
   final List<PolygonChanged> cityPolygons;
 
-  // 🔎 Detalhe de município selecionado
   final IBGELocationDetailData? selectedMunicipioDetail;
   final bool isLoadingMunicipioDetail;
 

@@ -10,20 +10,45 @@ import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
 
-/// ============================================================================
-/// SERVICE PRINCIPAL (LOCALIDADES + MALHAS)
-/// ============================================================================
-///
-/// Core de localidades (UF, municípios, meso/micro, distritos) + malhas.
-/// Também incorpora helpers tipo "inferUfFromMunicipios", que antes ficavam
-/// em um serviço separado.
 class IBGELocationService {
   IBGELocationService();
 
-  // ---------------------------------------------------------------------------
-  // Cache interno simples (somente para helpers de localidades)
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
+  // ✅ BASE URL DO PROXY (Firebase Function)
+  // - Se você NÃO passar --dart-define, usa esse fixo (produção)
+  // - Se passar, ele sobrescreve (útil p/ emulator/local)
+  // ===========================================================================
+  static const String _proxyBase = String.fromEnvironment(
+    'IBGE_PROXY_BASE_URL',
+    defaultValue: 'https://ibgeproxy-tcje2gcwpa-uc.a.run.app',
+  );
 
+  Uri _proxyUri(String path) {
+    final base = Uri.parse(_proxyBase);
+    return base.replace(queryParameters: {'path': path});
+  }
+
+  Future<dynamic> _getJsonProxy(String path) async {
+    final resp = await http.get(_proxyUri(path)).timeout(const Duration(seconds: 25));
+
+    if (resp.statusCode != 200) {
+      throw Exception('Erro IBGE Proxy [$path]: ${resp.statusCode} | ${resp.body}');
+    }
+    return jsonDecode(resp.body);
+  }
+
+  Future<String> _getTextProxy(String path) async {
+    final resp = await http.get(_proxyUri(path)).timeout(const Duration(seconds: 25));
+
+    if (resp.statusCode != 200) {
+      throw Exception('Erro IBGE Proxy [$path]: ${resp.statusCode} | ${resp.body}');
+    }
+    return resp.body;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cache interno simples (helpers)
+  // ---------------------------------------------------------------------------
   bool _statesLoaded = false;
   List<IBGELocationStateData> _states = [];
   final Map<int, List<IBGELocationData>> _municipiosByUfId = {};
@@ -32,39 +57,21 @@ class IBGELocationService {
       removeDiacritics(s).replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
 
   // ---------------------------------------------------------------------------
-  // Helper genérico HTTP
+  // 1) LOCALIDADES
   // ---------------------------------------------------------------------------
 
-  Future<dynamic> _getJson(String url) async {
-    final resp = await http.get(Uri.parse(url));
-    if (resp.statusCode != 200) {
-      throw Exception('Erro IBGE [$url]: ${resp.statusCode}');
-    }
-    return jsonDecode(resp.body);
-  }
-
-  // ---------------------------------------------------------------------------
-  // 1) LOCALIDADES: UFs, Municípios, Distritos...
-  // ---------------------------------------------------------------------------
-
-  /// Lista de estados (ordenados por nome)
   Future<List<IBGELocationStateData>> fetchStates() async {
-    const url =
-        'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome';
+    final list = await _getJsonProxy('localidades/estados?orderBy=nome') as List<dynamic>;
 
-    final List<dynamic> list = await _getJson(url) as List<dynamic>;
     return list
         .map((j) => IBGELocationStateData.fromJson(j as Map<String, dynamic>))
         .toList();
   }
 
-  /// Lista de municípios de um estado (UF) pelo código (ex: 27 = AL)
-  Future<List<IBGELocationData>> fetchMunicipiosByUf(
-      int ufCode) async {
-    final url =
-        'https://servicodados.ibge.gov.br/api/v1/localidades/estados/$ufCode/municipios';
+  Future<List<IBGELocationData>> fetchMunicipiosByUf(int ufCode) async {
+    final list =
+    await _getJsonProxy('localidades/estados/$ufCode/municipios') as List<dynamic>;
 
-    final List<dynamic> list = await _getJson(url) as List<dynamic>;
     return list
         .map(
           (m) => IBGELocationData(
@@ -75,88 +82,48 @@ class IBGELocationService {
         .toList();
   }
 
-  /// Lista de distritos de um município específico
-  ///
-  /// Endpoint: /localidades/municipios/{id}/distritos
-  Future<List<Map<String, dynamic>>> fetchDistritosByMunicipio(
-      String municipioId,
-      ) async {
-    final url =
-        'https://servicodados.ibge.gov.br/api/v1/localidades/municipios/$municipioId/distritos';
-
-    final List<dynamic> list = await _getJson(url) as List<dynamic>;
+  Future<List<Map<String, dynamic>>> fetchDistritosByMunicipio(String municipioId) async {
+    final list =
+    await _getJsonProxy('localidades/municipios/$municipioId/distritos') as List<dynamic>;
     return list.cast<Map<String, dynamic>>();
   }
 
-  /// Lista de mesorregiões de uma UF
-  ///
-  /// Endpoint: /localidades/estados/{id}/mesorregioes
   Future<List<Map<String, dynamic>>> fetchMesorregioesByUf(int ufCode) async {
-    final url =
-        'https://servicodados.ibge.gov.br/api/v1/localidades/estados/$ufCode/mesorregioes';
-
-    final List<dynamic> list = await _getJson(url) as List<dynamic>;
+    final list =
+    await _getJsonProxy('localidades/estados/$ufCode/mesorregioes') as List<dynamic>;
     return list.cast<Map<String, dynamic>>();
   }
 
-  /// Lista de microrregiões de uma UF
-  ///
-  /// Endpoint: /localidades/estados/{id}/microrregioes
   Future<List<Map<String, dynamic>>> fetchMicrorregioesByUf(int ufCode) async {
-    final url =
-        'https://servicodados.ibge.gov.br/api/v1/localidades/estados/$ufCode/microrregioes';
-
-    final List<dynamic> list = await _getJson(url) as List<dynamic>;
+    final list =
+    await _getJsonProxy('localidades/estados/$ufCode/microrregioes') as List<dynamic>;
     return list.cast<Map<String, dynamic>>();
   }
 
-  /// Lista de regiões do Brasil (Norte, Nordeste, etc.)
   Future<List<Map<String, dynamic>>> fetchRegioes() async {
-    const url =
-        'https://servicodados.ibge.gov.br/api/v1/localidades/regioes';
-
-    final List<dynamic> list = await _getJson(url) as List<dynamic>;
+    final list = await _getJsonProxy('localidades/regioes') as List<dynamic>;
     return list.cast<Map<String, dynamic>>();
   }
 
   // ---------------------------------------------------------------------------
-  // 2) MALHAS (POLÍGONOS) – MUNICÍPIOS POR UF
+  // 2) MALHAS (POLÍGONOS)
   // ---------------------------------------------------------------------------
 
-  /// Malhas (polígonos) dos municípios de um estado em formato PolygonChanged
-  ///
-  /// Otimizações:
-  ///  - Requisições em paralelo (Future.wait)
-  ///  - Parsing pesado de GeoJSON em outro isolate (compute)
   Future<List<PolygonChanged>> fetchMunicipioPolygonsByUf(int ufCode) async {
     final municipios = await fetchMunicipiosByUf(ufCode);
-
     if (municipios.isEmpty) return const [];
 
-    final futures =
-    municipios.map((m) => _loadPolygonForMunicipio(m)).toList();
-
+    final futures = municipios.map((m) => _loadPolygonForMunicipio(m)).toList();
     final results = await Future.wait(futures);
 
     return results.whereType<PolygonChanged>().toList();
   }
 
-  /// 🔍 Detalhes completos de um município por ID IBGE
-  ///
-  /// Usa o endpoint /localidades/municipios/{id}
-  Future<IBGELocationDetailData> fetchMunicipioDetails(
-      String idIbge,
-      ) async {
-    final url =
-        'https://servicodados.ibge.gov.br/api/v1/localidades/municipios/$idIbge';
+  Future<IBGELocationDetailData> fetchMunicipioDetails(String idIbge) async {
+    final decoded = await _getJsonProxy('localidades/municipios/$idIbge');
 
-    final dynamic decoded = await _getJson(url);
-
-    // Por segurança, trata tanto objeto único quanto lista com 1 elemento
     if (decoded is List && decoded.isNotEmpty) {
-      return IBGELocationDetailData.fromJson(
-        decoded.first as Map<String, dynamic>,
-      );
+      return IBGELocationDetailData.fromJson(decoded.first as Map<String, dynamic>);
     } else if (decoded is Map<String, dynamic>) {
       return IBGELocationDetailData.fromJson(decoded);
     } else {
@@ -164,36 +131,17 @@ class IBGELocationService {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // 3) MALHA BRUTA COMO GEOJSON (para debug/download)
-  // ---------------------------------------------------------------------------
-
-  /// Retorna o GeoJSON bruto da malha de um município (string).
-  ///
-  /// Útil se você quiser salvar em arquivo ou fazer parsing customizado.
   Future<String> fetchMunicipioMalhaGeoJsonRaw(String idIbge) async {
-    final malhaUrl =
-        'https://servicodados.ibge.gov.br/api/v3/malhas/municipios/$idIbge'
-        '?formato=application/vnd.geo+json&qualidade=minima';
-
-    final resp = await http
-        .get(Uri.parse(malhaUrl))
-        .timeout(const Duration(seconds: 15));
-
-    if (resp.statusCode != 200) {
-      throw Exception(
-        'Erro ao buscar malha do município $idIbge: ${resp.statusCode}',
-      );
-    }
-    return resp.body;
+    return _getTextProxy(
+      'malhas/municipios/$idIbge?formato=application/vnd.geo+json&qualidade=minima',
+    );
   }
 
   // ---------------------------------------------------------------------------
-  // 4) Helpers públicos (UFs, inferência, etc.)
+  // 4) Helpers públicos
   // ---------------------------------------------------------------------------
 
-  List<String> get ufsSigla =>
-      _states.map((s) => s.sigla.toUpperCase()).toList();
+  List<String> get ufsSigla => _states.map((s) => s.sigla.toUpperCase()).toList();
 
   int? getUfIdBySigla(String sigla) {
     final s = sigla.trim().toUpperCase();
@@ -229,15 +177,12 @@ class IBGELocationService {
     return nomes;
   }
 
-  /// 🔍 Descobre automaticamente a UF com base nos nomes de municípios
-  /// (escolhe a UF com MAIOR número de matches).
   Future<int?> inferUfFromMunicipios(List<String> municipiosAlvo) async {
     if (municipiosAlvo.isEmpty) return null;
 
     await ensureStatesLoaded();
 
-    final alvoNorm =
-    municipiosAlvo.map(_norm).where((s) => s.isNotEmpty).toSet();
+    final alvoNorm = municipiosAlvo.map(_norm).where((s) => s.isNotEmpty).toSet();
     if (alvoNorm.isEmpty) return null;
 
     int? bestUfId;
@@ -260,57 +205,39 @@ class IBGELocationService {
       }
     }
 
-    // se não encontrou nenhum match, retorna null
     if (bestCount == 0) return null;
-
     return bestUfId;
   }
-}
 
-// ============================================================================
-// Helpers top-level para poderem ser usados com compute (Isolate)
-// ============================================================================
+  // ===========================================================================
+  // Helpers internos (malha -> PolygonChanged)
+  // ===========================================================================
+  Future<PolygonChanged?> _loadPolygonForMunicipio(IBGELocationData m) async {
+    final id = m.idIbge;
+    final nome = m.nome;
 
-Future<PolygonChanged?> _loadPolygonForMunicipio(
-    IBGELocationData m,
-    ) async {
-  final id = m.idIbge;
-  final nome = m.nome;
+    final path = 'malhas/municipios/$id?formato=application/vnd.geo+json&qualidade=minima';
 
-  final malhaUrl =
-      'https://servicodados.ibge.gov.br/api/v3/malhas/municipios/$id'
-      '?formato=application/vnd.geo+json&qualidade=minima';
+    try {
+      final body = await _getTextProxy(path);
 
-  try {
-    final malhaResp = await http
-        .get(Uri.parse(malhaUrl))
-        .timeout(const Duration(seconds: 15));
+      final polygonChanged = await compute<Map<String, dynamic>, PolygonChanged?>(
+        _parseGeoJsonToPolygonCompute,
+        {
+          'body': body,
+          'id': id,
+          'nome': nome,
+        },
+      );
 
-    if (malhaResp.statusCode != 200) {
+      return polygonChanged;
+    } catch (_) {
       return null;
     }
-
-    final polygonChanged =
-    await compute<Map<String, dynamic>, PolygonChanged?>(
-      _parseGeoJsonToPolygonCompute,
-      {
-        'body': malhaResp.body,
-        'id': id,
-        'nome': nome,
-      },
-    );
-
-    return polygonChanged;
-  } catch (_) {
-    return null;
   }
 }
 
-/// Função usada pelo compute.
-/// Recebe um map com body/id/nome e devolve PolygonChanged ou null.
-PolygonChanged? _parseGeoJsonToPolygonCompute(
-    Map<String, dynamic> data,
-    ) {
+PolygonChanged? _parseGeoJsonToPolygonCompute(Map<String, dynamic> data) {
   final body = data['body'] as String;
   final id = data['id'] as String;
   final nome = data['nome'] as String;
@@ -335,19 +262,13 @@ PolygonChanged? _parseGeoJsonToPolygonCompute(
     final polygon = Polygon(points: points);
 
     final props = <Map<String, dynamic>>[
-      {
-        'idIbge': id,
-        'nome': nome,
-      },
+      {'idIbge': id, 'nome': nome},
     ];
 
-    // 🔹 Normaliza o nome para casar com o que você usa no dashboard/mapa
-    // (se quiser remover acentos, pode usar diacritic aqui também)
     final titleNome = nome.trim().toUpperCase();
 
     return PolygonChanged(
       polygon: polygon,
-      // title agora é o NOME do município
       title: titleNome,
       properties: props,
     );
@@ -355,9 +276,6 @@ PolygonChanged? _parseGeoJsonToPolygonCompute(
     return null;
   }
 }
-
-
-// ---------- Helpers internos ----------
 
 List<LatLng> _geometryToLatLng(Map<String, dynamic> geometry) {
   final String? type = geometry['type']?.toString();

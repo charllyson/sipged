@@ -1,4 +1,3 @@
-// lib/_blocs/ibge/geo/ibge_localidade_cubit.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -17,9 +16,7 @@ class IBGELocationCubit extends Cubit<IBGELocationState> {
   // 1) MODO "ANTIGO" – compatibilidade
   // ===========================================================================
   Future<void> loadInitial({int? initialUfCode}) async {
-    await loadInitialAuto(
-      fallbackUfCode: initialUfCode,
-    );
+    await loadInitialAuto(fallbackUfCode: initialUfCode);
   }
 
   // ===========================================================================
@@ -34,6 +31,18 @@ class IBGELocationCubit extends Cubit<IBGELocationState> {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       final states = await _repo.getStates();
+      if (states.isEmpty) {
+        emit(
+          state.copyWith(
+            isLoading: false,
+            states: const [],
+            selectedState: null,
+            cityPolygons: const [],
+            errorMessage: 'Nenhum estado retornado pelo IBGE/Proxy.',
+          ),
+        );
+        return;
+      }
 
       IBGELocationStateData? selected;
 
@@ -55,7 +64,6 @@ class IBGELocationCubit extends Cubit<IBGELocationState> {
       // 3) Tenta inferir pela lista de municípios
       else if (municipioNames != null && municipioNames.isNotEmpty) {
         final ufId = await _repo.inferUfFromMunicipios(municipioNames);
-
         if (ufId != null) {
           selected = states.firstWhere(
                 (s) => s.id == ufId,
@@ -63,6 +71,9 @@ class IBGELocationCubit extends Cubit<IBGELocationState> {
           );
         }
       }
+
+      // fallback final
+      selected ??= states.first;
 
       emit(
         state.copyWith(
@@ -72,13 +83,7 @@ class IBGELocationCubit extends Cubit<IBGELocationState> {
         ),
       );
 
-      if (selected != null) {
-        await loadPolygonsForState(selected);
-      } else {
-        if (kDebugMode) {
-
-        }
-      }
+      await loadPolygonsForState(selected);
     } catch (e) {
       emit(
         state.copyWith(
@@ -95,24 +100,14 @@ class IBGELocationCubit extends Cubit<IBGELocationState> {
   Future<void> loadPolygonsForState(IBGELocationStateData stateData) async {
     final hasCache = _repo.hasCachedPolygons(stateData.id);
 
-    if (!hasCache) {
-      emit(
-        state.copyWith(
-          isLoading: true,
-          selectedState: stateData,
-          clearError: true,
-          clearMunicipioDetail: true,
-        ),
-      );
-    } else {
-      emit(
-        state.copyWith(
-          selectedState: stateData,
-          clearError: true,
-          clearMunicipioDetail: true,
-        ),
-      );
-    }
+    emit(
+      state.copyWith(
+        isLoading: !hasCache,
+        selectedState: stateData,
+        clearError: true,
+        clearMunicipioDetail: true,
+      ),
+    );
 
     try {
       final polys = await _repo.getMunicipioPolygonsByUf(stateData.id);
@@ -124,6 +119,10 @@ class IBGELocationCubit extends Cubit<IBGELocationState> {
         ),
       );
     } catch (e) {
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('[IBGELocationCubit] Erro loadPolygonsForState: $e');
+      }
       emit(
         state.copyWith(
           isLoading: false,
@@ -169,7 +168,6 @@ class IBGELocationCubit extends Cubit<IBGELocationState> {
   // 6) DETALHE DE MUNICÍPIO – para o painel tipo OresDetails
   // ===========================================================================
   Future<void> openMunicipioDetailsById(String idIbge) async {
-    // evita reload desnecessário se já estiver no mesmo município
     if (state.selectedMunicipioDetail?.idIbge == idIbge &&
         !state.isLoadingMunicipioDetail) {
       return;

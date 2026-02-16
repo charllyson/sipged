@@ -1,3 +1,4 @@
+// lib/screens/modules/traffic/accidents/dashboard/widgets/accident_dashboard_map.dart
 import 'dart:math' as math;
 
 import 'package:diacritic/diacritic.dart';
@@ -64,8 +65,8 @@ class AccidentDashboardMap extends StatelessWidget {
       }) {
     if (polys.isEmpty) return (null, false);
 
-    double minLat =  999.0, maxLat = -999.0;
-    double minLng =  999.0, maxLng = -999.0;
+    double minLat = 999.0, maxLat = -999.0;
+    double minLng = 999.0, maxLng = -999.0;
 
     bool any = false;
 
@@ -88,7 +89,10 @@ class AccidentDashboardMap extends StatelessWidget {
 
     if (!any) return (null, false);
 
-    return (_Bounds(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng), true);
+    return (
+    _Bounds(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng),
+    true
+    );
   }
 
   /// Expande bounds com padding em graus (proporcional ao span + mínimo)
@@ -108,7 +112,10 @@ class AccidentDashboardMap extends StatelessWidget {
   }
 
   LatLng _centerOfBounds(_Bounds b) {
-    return LatLng((b.minLat + b.maxLat) / 2.0, (b.minLng + b.maxLng) / 2.0);
+    return LatLng(
+      (b.minLat + b.maxLat) / 2.0,
+      (b.minLng + b.maxLng) / 2.0,
+    );
   }
 
   /// WebMercator helpers
@@ -129,64 +136,88 @@ class AccidentDashboardMap extends StatelessWidget {
     final height = math.max(1.0, mapHeightPx - paddingPx * 2);
 
     final lngSpan = (b.maxLng - b.minLng).abs().clamp(1e-6, 360.0);
-    final latRadSpan = (_latRad(b.maxLat) - _latRad(b.minLat)).abs().clamp(1e-6, math.pi);
+    final latRadSpan =
+    (_latRad(b.maxLat) - _latRad(b.minLat)).abs().clamp(1e-6, math.pi);
 
-    final zoomLng = math.log((width * 360.0) / (tileSize * lngSpan)) / math.ln2;
-    final zoomLat = math.log((height * math.pi) / (tileSize * latRadSpan)) / math.ln2;
+    final zoomLng =
+        math.log((width * 360.0) / (tileSize * lngSpan)) / math.ln2;
+    final zoomLat =
+        math.log((height * math.pi) / (tileSize * latRadSpan)) / math.ln2;
 
-    // pega o que “cabe” nos dois eixos
-    final z = math.min(zoomLng, zoomLat);
-
-    return z;
+    return math.min(zoomLng, zoomLat);
   }
 
   // ---------------------------------------------------------------------------
-  // ✅ Cores
+  // ✅ Cores (noData / data / selected no modelo) + borda MAIS VIVA
   // ---------------------------------------------------------------------------
 
-  Map<String, Color> _expandRegionColorKeys({
+  Color _vividBorder(Color base) {
+    // Leve mistura com branco -> aumenta contraste da borda sem ficar neon.
+    return Color.lerp(base, Colors.white, 0.18)!;
+  }
+
+  List<PolygonChanged> _applyAccidentsStyle({
+    required List<PolygonChanged> polys,
     required Map<String, Color> cityColorsNorm,
-    required List<PolygonChanged> polygons,
   }) {
-    final out = <String, Color>{};
+    if (polys.isEmpty) return polys;
 
-    for (final e in cityColorsNorm.entries) {
-      final k = e.key.trim();
-      if (k.isEmpty) continue;
-      out[k] = e.value;
-      out[k.toUpperCase()] = e.value;
-      out[_norm(k)] = e.value;
-    }
+    final citiesWithData = cityColorsNorm.keys.map(_norm).toSet();
 
-    const zero = Color(0xFF9E9E9E);
+    const noDataBase = Color(0xFF000000);
+    const noDataBorderBase = Color(0xFF000000);
 
-    for (final poly in polygons) {
-      final raw = poly.title.trim();
-      if (raw.isEmpty) continue;
+    const noDataAlpha = 0.05;        // fill noData bem fantasma
+    const noDataBorderAlpha = 0.12;  // borda noData leve
 
-      final rawUpper = raw.toUpperCase();
-      final norm = _norm(raw);
+    const dataAlpha = 0.55;          // fill com dado
 
-      final c = cityColorsNorm[norm] ??
-          cityColorsNorm[rawUpper] ??
-          cityColorsNorm[raw] ??
-          zero;
+    const dataBorderWidth = 1.7;
+    const noDataBorderWidth = 0.8;
 
-      out.putIfAbsent(raw, () => c);
-      out.putIfAbsent(rawUpper, () => c);
-      out.putIfAbsent(norm, () => c);
-    }
+    const selectedFill = Color(0xFF1E6BFF);
+    const selectedBorder = Color(0xFF0B2F7A);
+    const selectedAlpha = 0.78;
 
-    return out;
+    return polys.map((p) {
+      final nameNorm = _norm(p.title);
+      final hasData = citiesWithData.contains(nameNorm);
+
+      final dataBase = cityColorsNorm[nameNorm] ??
+          cityColorsNorm[p.title.trim()] ??
+          cityColorsNorm[p.title.trim().toUpperCase()] ??
+          const Color(0xFF5AA7FF);
+
+      final fill = hasData
+          ? dataBase.withOpacity(dataAlpha)
+          : noDataBase.withOpacity(noDataAlpha);
+
+      // ✅ borda SEM transparência quando tem dado
+      final border = hasData
+          ? dataBase
+          : noDataBorderBase.withOpacity(noDataBorderAlpha);
+
+      return p.copyWith(
+        normalFillColor: fill,
+        normalBorderColor: border,
+        normalBorderWidth: hasData ? dataBorderWidth : noDataBorderWidth,
+
+        selectedFillColor: selectedFill.withOpacity(selectedAlpha),
+        selectedBorderColor: selectedBorder,
+        selectedBorderWidth: hasData ? 2.6 : 2.4,
+      );
+    }).toList(growable: false);
   }
+
 
   @override
   Widget build(BuildContext context) {
+    // Map<cityName, Color> (intensidade)
     final cityColors = AccidentsData.calculateColorsFilteredCity(accidents);
 
-    final regionColorsForMap = _expandRegionColorKeys(
+    final styledPolys = _applyAccidentsStyle(
+      polys: polygonsChanged,
       cityColorsNorm: cityColors,
-      polygons: polygonsChanged,
     );
 
     final markers = accidents
@@ -212,16 +243,15 @@ class AccidentDashboardMap extends StatelessWidget {
     })
         .toList(growable: false);
 
-    // ✅ recalcula center/zoom de acordo com o tamanho REAL do painel (Split)
+    // ✅ recalcula center/zoom no tamanho real do painel
     return LayoutBuilder(
       builder: (context, c) {
         final size = c.biggest;
         final w = size.width.isFinite ? size.width : 1000.0;
         final h = size.height.isFinite ? size.height : 700.0;
 
-        final (rawBounds, any) = _boundsFromPolygons(polygonsChanged);
+        final (rawBounds, any) = _boundsFromPolygons(styledPolys);
 
-        // fallback
         LatLng effectiveCenter = center;
         double effectiveZoom = 10.5;
 
@@ -229,19 +259,18 @@ class AccidentDashboardMap extends StatelessWidget {
           final padded = _padBounds(rawBounds, factor: 0.12);
           effectiveCenter = _centerOfBounds(padded);
 
-          // padding em pixels para compensar overlays/controles e “não cortar”
           final z = _zoomForBounds(
             b: padded,
             mapWidthPx: w,
             mapHeightPx: h,
-            paddingPx: 56, // ajuste fino: 40–80
+            paddingPx: 56,
           );
 
           effectiveZoom = z.clamp(5.0, 19.0);
         }
 
         return MapInteractivePage<AccidentsData>(
-          key: ValueKey('transitMap_${polygonsChanged.length}'),
+          key: ValueKey('transitMap_${styledPolys.length}'),
           activeMap: true,
           showLegend: false,
           showSearch: false,
@@ -250,8 +279,13 @@ class AccidentDashboardMap extends StatelessWidget {
           initialZoom: effectiveZoom,
           minZoom: 5,
           maxZoom: 19,
-          polygonsChanged: polygonsChanged,
-          polygonChangeColors: regionColorsForMap,
+
+          // ✅ modelo já “carimbado”
+          polygonsChanged: styledPolys,
+
+          // ✅ respeitar 100% o modelo (sem opacidade padrão do MapInteractive)
+          polygonChangeColors: null,
+
           allowMultiSelect: false,
           selectedRegionNames: selectedRegionNames ?? const <String>[],
           onRegionTap: onRegionTap,
