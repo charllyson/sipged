@@ -1,5 +1,5 @@
-import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_location_service.dart';
+import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_location_service.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
 
 class IBGELocationRepository {

@@ -8,7 +8,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 // SIGMINE
-import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/natural_resources/sig_miner/sigmine_data.dart';
 import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
 
 import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
@@ -19,7 +19,7 @@ import 'package:sipged/_widgets/map/tooltip/tooltip_balloon_tip.dart';
 import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
 
 // ✅ ENERGY
-import 'package:sipged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_state.dart';
 
 class GeoMap extends StatefulWidget {
   const GeoMap({

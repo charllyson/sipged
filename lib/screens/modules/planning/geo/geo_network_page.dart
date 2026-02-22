@@ -25,18 +25,18 @@ import 'package:sipged/_blocs/modules/planning/geo/transportes/railways/railways
 import 'package:sipged/_widgets/geo/attributes_table/attributes_table_dialog.dart';
 
 // SIGMINE
-import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/natural_resources/sig_miner/sigmine_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/natural_resources/sig_miner/sigmine_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/natural_resources/sig_miner/sigmine_repository.dart';
 
 // IBGE
-import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_state.dart';
 
 // ✅ ENERGY PLANTS
-import 'package:sipged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_state.dart';
 
 // SETUP
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
@@ -363,7 +363,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
   // ✅ ENERGY PLANTS import (mesmo repository/cubit, mas path por layer)
   Future<void> _openImportForUnitsEnergy() async {
-    const collectionPath = 'geo/unidades_produtivas/usinas_de_energia';
+    const collectionPath = 'geo/productive_units/usinas_de_energia';
     const targetFields = ['uf', 'name', 'code', 'owner', 'point'];
 
     final importCubit = context.read<AttributesTableCubit>();
@@ -740,7 +740,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                   'state_road': 'geo/transportes/rodovias_estaduais',
                   'municipal_road': 'geo/transportes/rodovias_municipais',
                   'railways': 'geo/transportes/ferrovias',
-                  'units_energy': 'geo/unidades_produtivas/usinas_de_energia',
+                  'units_energy': 'geo/productive_units/usinas_de_energia',
                   'airport': 'geo/transportes/aeroportos',
                 };
 

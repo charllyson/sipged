@@ -1,4 +1,4 @@
-// lib/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_cubit.dart
+// lib/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_cubit.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'energy_plants_repository.dart';

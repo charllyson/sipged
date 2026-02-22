@@ -13,9 +13,9 @@ import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
 
 // ✅ IBGE polygons
-import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_repository.dart';
 
 import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
 import 'package:sipged/screens/modules/traffic/accidents/dashboard/accident_dashboard_map.dart';

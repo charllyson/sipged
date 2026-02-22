@@ -1,4 +1,4 @@
-// lib/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_repository.dart
+// lib/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_repository.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -11,7 +11,7 @@ class EnergyPlantsRepository {
   CollectionReference<Map<String, dynamic>> _col() {
     return _db
         .collection('geo')
-        .doc('unidades_produtivas')
+        .doc('productive_units')
         .collection('usinas_de_energia');
   }
 

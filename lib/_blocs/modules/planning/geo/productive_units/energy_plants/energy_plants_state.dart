@@ -1,4 +1,4 @@
-// lib/_blocs/modules/planning/geo/unidades_produtivas/energy_plants/energy_plants_state.dart
+// lib/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_state.dart
 import 'package:latlong2/latlong.dart';
 
 class EnergyPlantMarkerData {

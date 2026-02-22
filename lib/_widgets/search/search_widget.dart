@@ -1,3 +1,4 @@
+// lib/_widgets/search/search_widget.dart
 import 'package:flutter/material.dart';
 import '../map/suggestions/suggestion_models.dart';
 import 'search_overlay.dart';
@@ -5,10 +6,10 @@ import 'search_overlay.dart';
 class SearchAction extends StatefulWidget {
   // Callbacks
   final void Function(String)? onSearch;
-  final Future<List<SearchSuggestion>> Function(String)? fetchSuggestions;
-  final void Function(SearchSuggestion)? onSuggestionTap;
+  final Future<List<SearchSuggestion<dynamic>>> Function(String)? fetchSuggestions;
+  final void Function(SearchSuggestion<dynamic>)? onSuggestionTap;
 
-  // Aparência do botão circular (igual aos seus 48x48 pretinho translúcido)
+  // Aparência do botão circular
   final String tooltip;
   final Color backgroundColor;
   final Color iconColor;
@@ -20,7 +21,7 @@ class SearchAction extends StatefulWidget {
   final String hintText;
   final Color? hintColor;
 
-  // Para onde o campo expande (se o botão está no topo direito, use left)
+  // Para onde o campo expande
   final SearchExpandSide expandSide;
 
   const SearchAction({

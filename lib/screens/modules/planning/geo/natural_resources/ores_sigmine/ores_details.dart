@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/sig_miner/sigmine_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/natural_resources/sig_miner/sigmine_data.dart';
 
 class OresDetails extends StatelessWidget {
   final SigMineData feature;

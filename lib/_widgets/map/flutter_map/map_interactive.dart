@@ -7,31 +7,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:sipged/_widgets/map/base/map_base_tile_layer.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_controls_row.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_interactive_helpers.dart';
+import 'package:sipged/_widgets/map/flutter_map/map_user_location_layer.dart';
+import 'package:sipged/_widgets/map/markers/map_markers_layer.dart';
+import 'package:sipged/_widgets/map/pin/map_search_pin_layer.dart';
+import 'package:sipged/_widgets/map/polygon/map_polygons_layer.dart';
+import 'package:sipged/_widgets/map/polylines/map_polylines_layer.dart';
+import 'package:sipged/_widgets/search/search_overlay.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
 import 'package:sipged/_services/map/map_box/service/nominatim_service.dart';
-import 'package:sipged/_widgets/buttons/mini_circle_button.dart';
 
 // 🔎 UI de busca
 import '../../search/search_widget.dart';
 import '../suggestions/suggestion_models.dart';
 import '../legend/map_legend_widget.dart';
-import 'package:sipged/_widgets/search/search_overlay.dart';
 
 // 🔔 Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-
-// ✅ PIN custom
-import 'package:sipged/_widgets/map/pin/pin_changed.dart';
 
 // ===== Map base / geometry layers
 import 'package:sipged/_widgets/map/base/map_base_layer.dart';
 import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
 import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
-import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline_layer.dart';
 
 class MapInteractivePage<T> extends StatefulWidget {
   // ===== Mapa
@@ -147,44 +150,6 @@ class MapInteractivePage<T> extends StatefulWidget {
   State<MapInteractivePage<T>> createState() => _MapInteractivePageState<T>();
 }
 
-class _BBox {
-  final double minLat;
-  final double maxLat;
-  final double minLng;
-  final double maxLng;
-
-  const _BBox({
-    required this.minLat,
-    required this.maxLat,
-    required this.minLng,
-    required this.maxLng,
-  });
-
-  bool contains(LatLng p) =>
-      p.latitude >= minLat &&
-          p.latitude <= maxLat &&
-          p.longitude >= minLng &&
-          p.longitude <= maxLng;
-
-  static _BBox fromPoints(List<LatLng> pts) {
-    double minLat = pts.first.latitude;
-    double maxLat = pts.first.latitude;
-    double minLng = pts.first.longitude;
-    double maxLng = pts.first.longitude;
-
-    for (final p in pts) {
-      final lat = p.latitude;
-      final lng = p.longitude;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-    }
-
-    return _BBox(minLat: minLat, maxLat: maxLat, minLng: minLng, maxLng: maxLng);
-  }
-}
-
 class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     with TickerProviderStateMixin {
   final MapController _mapController = MapController();
@@ -192,18 +157,17 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
   int _indexSelectedMap = 0;
 
-  static const Duration _kPulseDuration = Duration(seconds: 2);
+  // Debounce de eventos de câmera
+  Timer? _cameraDebounce;
+  static const Duration _kCameraDebounce = Duration(milliseconds: 220);
 
+  static const Duration _kPulseDuration = Duration(seconds: 2);
   late final AnimationController _pulseController =
   AnimationController(vsync: this, duration: _kPulseDuration)..repeat(reverse: true);
 
   late final Animation<double> _pulseAnimation =
   CurvedAnimation(parent: _pulseController, curve: Curves.easeOut)
       .drive(Tween(begin: 0.6, end: 1.3));
-
-  // Debounce de eventos de câmera
-  Timer? _cameraDebounce;
-  static const Duration _kCameraDebounce = Duration(milliseconds: 220);
 
   late NominatimBloc _systemBloc;
   late final NominatimService _geocoder = NominatimService.nominatim(
@@ -217,6 +181,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
   LatLng? _selectedMarkerPosition;
 
+  // VN (mutáveis, leves)
   final ValueNotifier<LatLng?> _userLocationVN = ValueNotifier<LatLng?>(null);
   final ValueNotifier<LatLng?> _searchHitVN = ValueNotifier<LatLng?>(null);
   final ValueNotifier<Set<String>> _selectedRegionsVN = ValueNotifier<Set<String>>({});
@@ -227,110 +192,22 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   LatLng _lastCenter = const LatLng(-9.65, -36.7);
   double _lastZoom = 9.0;
 
+  // ===== Helpers (performance)
+  late final MapInteractiveHelpers _helpers = MapInteractiveHelpers(
+    norm: _norm,
+  );
+
   String _norm(String s) =>
       removeDiacritics(s).replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
-
-  Set<String> _toNormSet(List<String>? lst) =>
-      lst == null ? <String>{} : lst.map(_norm).toSet();
-
-  bool _sameSet(Set<String> a, Set<String> b) =>
-      a.length == b.length && a.containsAll(b);
 
   bool get _isOsmPublic =>
       MapBaseLayer.mapBase[_indexSelectedMap].url.contains('tile.openstreetmap.org');
 
-  List<PolygonChanged> get _regionalPolys =>
-      widget.polygonsChanged ?? const <PolygonChanged>[];
-
-  // Cache de bbox por polígono (acelera hit-test)
-  final Map<String, _BBox> _bboxByRegionNorm = <String, _BBox>{};
+  List<PolygonChanged> get _regionalPolys => widget.polygonsChanged ?? const <PolygonChanged>[];
 
   // ======================================================
-  // HELPERS PARA CENTRALIZAR O MAPA COM BASE NAS GEOMETRIAS
+  // LIFECYCLE
   // ======================================================
-
-  List<LatLng> _collectAllGeometryPointsFor(MapInteractivePage<T> w) {
-    if (w.initialGeometryPoints != null && w.initialGeometryPoints!.isNotEmpty) {
-      return List<LatLng>.from(w.initialGeometryPoints!);
-    }
-
-    final pts = <LatLng>[];
-
-    // 1) Polígonos regionais
-    final regs = w.polygonsChanged ?? const <PolygonChanged>[];
-    for (final reg in regs) {
-      pts.addAll(reg.polygon.points);
-    }
-
-    // 2) Polylines
-    final lines = w.tappablePolylines;
-    if (lines != null && lines.isNotEmpty) {
-      for (final line in lines) {
-        pts.addAll(line.points);
-      }
-    }
-
-    // 3) Marcadores com tag
-    final tagged = w.taggedMarkers;
-    if (tagged != null && tagged.isNotEmpty) {
-      for (final m in tagged) {
-        pts.add(m.point);
-      }
-    }
-
-    // 4) Marcadores extras
-    final extras = w.extraMarkers;
-    if (extras != null && extras.isNotEmpty) {
-      for (final m in extras) {
-        pts.add(m.point);
-      }
-    }
-
-    return pts;
-  }
-
-  bool _hasAnyGeometryFor(MapInteractivePage<T> w) =>
-      _collectAllGeometryPointsFor(w).isNotEmpty;
-
-  LatLng? _computeInitialCenterFromGeometriesFor(MapInteractivePage<T> w) {
-    final pts = _collectAllGeometryPointsFor(w);
-    if (pts.isEmpty) return null;
-
-    double minLat = pts.first.latitude;
-    double maxLat = pts.first.latitude;
-    double minLng = pts.first.longitude;
-    double maxLng = pts.first.longitude;
-
-    for (final p in pts) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLng) minLng = p.longitude;
-      if (p.longitude > maxLng) maxLng = p.longitude;
-    }
-
-    return LatLng((minLat + maxLat) / 2.0, (minLng + maxLng) / 2.0);
-  }
-
-  LatLng? _computeInitialCenterFromGeometries() =>
-      _computeInitialCenterFromGeometriesFor(widget);
-
-  void _rebuildBBoxesIfNeeded({List<PolygonChanged>? oldRegs}) {
-    final regs = _regionalPolys;
-
-    final shouldRebuild = oldRegs == null ||
-        !identical(oldRegs, regs) ||
-        (oldRegs.length != regs.length);
-
-    if (!shouldRebuild) return;
-
-    _bboxByRegionNorm.clear();
-    for (final reg in regs) {
-      final pts = reg.polygon.points;
-      if (pts.isEmpty) continue;
-      final keyNorm = _norm(reg.title);
-      _bboxByRegionNorm[keyNorm] = _BBox.fromPoints(pts);
-    }
-  }
 
   @override
   void initState() {
@@ -344,21 +221,28 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       _indexSelectedMap = widget.selectedBaseIndex!;
     }
 
-    final centerFromData = _computeInitialCenterFromGeometries();
-    _initCenter = centerFromData ?? const LatLng(-9.65, -36.7);
+    _initCenter = _helpers.computeInitialCenterFromGeometries(
+      initialGeometryPoints: widget.initialGeometryPoints,
+      polygons: widget.polygonsChanged,
+      polylines: widget.tappablePolylines,
+      taggedMarkers: widget.taggedMarkers,
+      extraMarkers: widget.extraMarkers,
+    ) ??
+        const LatLng(-9.65, -36.7);
 
     _lastCenter = _initCenter;
     _lastZoom = _initZoom;
 
-    _rebuildBBoxesIfNeeded(oldRegs: null);
+    _helpers.rebuildPolygonBBoxes(regionalPolys: _regionalPolys);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _systemBloc = context.read<NominatimBloc>();
+
     if (widget.selectedRegionNames != null) {
-      _selectedRegionsVN.value = _toNormSet(widget.selectedRegionNames);
+      _selectedRegionsVN.value = _helpers.toNormSet(widget.selectedRegionNames);
     }
   }
 
@@ -366,12 +250,14 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   void didUpdateWidget(covariant MapInteractivePage<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final next = _toNormSet(widget.selectedRegionNames);
-    final prev = _toNormSet(oldWidget.selectedRegionNames);
-    if (!_sameSet(next, prev) && !_sameSet(next, _selectedRegionsVN.value)) {
+    // Sync seleção externa -> VN
+    final next = _helpers.toNormSet(widget.selectedRegionNames);
+    final prev = _helpers.toNormSet(oldWidget.selectedRegionNames);
+    if (!_helpers.sameSet(next, prev) && !_helpers.sameSet(next, _selectedRegionsVN.value)) {
       _selectedRegionsVN.value = next;
     }
 
+    // Sync índice base externo
     if (widget.selectedBaseIndex != null &&
         widget.selectedBaseIndex != oldWidget.selectedBaseIndex &&
         widget.selectedBaseIndex != _indexSelectedMap) {
@@ -381,15 +267,40 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    _rebuildBBoxesIfNeeded(oldRegs: oldWidget.polygonsChanged ?? const []);
+    // Rebuild bboxes quando lista de polígonos mudar
+    _helpers.rebuildPolygonBBoxesIfNeeded(
+      oldPolys: oldWidget.polygonsChanged ?? const [],
+      newPolys: _regionalPolys,
+    );
 
-    final hadOld = _hasAnyGeometryFor(oldWidget);
-    final hasNow = _hasAnyGeometryFor(widget);
+    // Se antes não tinha geometria e agora tem, recentraliza
+    final hadOld = _helpers.hasAnyGeometry(
+      initialGeometryPoints: oldWidget.initialGeometryPoints,
+      polygons: oldWidget.polygonsChanged,
+      polylines: oldWidget.tappablePolylines,
+      taggedMarkers: oldWidget.taggedMarkers,
+      extraMarkers: oldWidget.extraMarkers,
+    );
+
+    final hasNow = _helpers.hasAnyGeometry(
+      initialGeometryPoints: widget.initialGeometryPoints,
+      polygons: widget.polygonsChanged,
+      polylines: widget.tappablePolylines,
+      taggedMarkers: widget.taggedMarkers,
+      extraMarkers: widget.extraMarkers,
+    );
 
     if (!hadOld && hasNow) {
-      final center = _computeInitialCenterFromGeometries();
+      final center = _helpers.computeInitialCenterFromGeometries(
+        initialGeometryPoints: widget.initialGeometryPoints,
+        polygons: widget.polygonsChanged,
+        polylines: widget.tappablePolylines,
+        taggedMarkers: widget.taggedMarkers,
+        extraMarkers: widget.extraMarkers,
+      );
+
       if (center != null) {
-        final zoom = _lastZoom == 0 ? (widget.initialZoom ?? 9.0) : _lastZoom;
+        final zoom = (_lastZoom == 0) ? (widget.initialZoom ?? 9.0) : _lastZoom;
         _mapController.move(center, zoom);
         _lastCenter = center;
       }
@@ -407,7 +318,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   }
 
   // ======================================================
-  // HANDLERS / FUNÇÕES
+  // HANDLERS
   // ======================================================
 
   Future<void> _handleMyLocationTap() async {
@@ -491,51 +402,24 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     }
   }
 
-  bool _pointInPolygon(LatLng p, List<LatLng> pts) {
-    bool inside = false;
-    for (int i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-      final xi = pts[i].latitude, yi = pts[i].longitude;
-      final xj = pts[j].latitude, yj = pts[j].longitude;
-
-      final intersect = ((yi > p.longitude) != (yj > p.longitude)) &&
-          (p.latitude < (xj - xi) * (p.longitude - yi) / (yj - yi + 0.0) + xi);
-
-      if (intersect) inside = !inside;
-    }
-    return inside;
-  }
-
-  void _toggleRegion(String regionKey) {
+  void _toggleRegion(String regionKeyNorm) {
     final next = Set<String>.from(_selectedRegionsVN.value);
     if (widget.allowMultiSelect) {
-      if (next.contains(regionKey)) {
-        next.remove(regionKey);
+      if (next.contains(regionKeyNorm)) {
+        next.remove(regionKeyNorm);
       } else {
-        next.add(regionKey);
+        next.add(regionKeyNorm);
       }
     } else {
       next
         ..clear()
-        ..add(regionKey);
+        ..add(regionKeyNorm);
     }
     _selectedRegionsVN.value = next;
   }
 
-  String? _getProp(PolygonChanged reg, String keyWanted) {
-    final wanted = _norm(keyWanted);
-    final props = reg.properties;
-    if (props is! List<Map<String, dynamic>>) return null;
-
-    for (final m in props) {
-      for (final e in m.entries) {
-        if (_norm(e.key) == wanted) {
-          final v = e.value;
-          if (v is String && v.trim().isNotEmpty) return v.trim();
-        }
-      }
-    }
-    return null;
-  }
+  String? _getProp(PolygonChanged reg, String keyWanted) =>
+      _helpers.getProp(reg, keyWanted);
 
   Future<void> _onTapMap(TapPosition _, LatLng point) async {
     if (widget.dropPinOnTap) {
@@ -550,15 +434,13 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     for (final reg in regs) {
       final regionKeyNorm = _norm(reg.title);
 
-      final bbox = _bboxByRegionNorm[regionKeyNorm];
-      if (bbox != null && !bbox.contains(point)) {
-        continue;
-      }
+      // bbox fast reject
+      if (!_helpers.containsInBBox(regionKeyNorm, point)) continue;
 
       final pts = reg.polygon.points;
       if (pts.isEmpty) continue;
 
-      if (_pointInPolygon(point, pts)) {
+      if (_helpers.pointInPolygon(point, pts)) {
         final isAlreadySelectedSingle = !widget.allowMultiSelect &&
             _selectedRegionsVN.value.length == 1 &&
             _selectedRegionsVN.value.contains(regionKeyNorm);
@@ -598,7 +480,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
   // ======== AUTOCOMPLETE / BUSCA ========
 
-  Future<List<SearchSuggestion>> _fetchAddressSuggestions(String q) async {
+  Future<List<SearchSuggestion<dynamic>>> _fetchAddressSuggestions(String q) async {
     if (q.trim().length < 3) return const [];
     final results = await _geocoder.search(q, limit: 8);
     return results
@@ -610,10 +492,10 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         point: r.point,
       ),
     )
-        .toList();
+        .toList(growable: false);
   }
 
-  void _onSuggestionTap(SearchSuggestion s, void Function(String) onSearch) {
+  void _onSuggestionTap(SearchSuggestion<dynamic> s, void Function(String) onSearch) {
     final data = s.data;
     if (data is LatLng) {
       onSearch('${data.latitude},${data.longitude}');
@@ -626,7 +508,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     final q = text.trim();
     if (q.isEmpty) return;
 
-    final parsed = _parseLatLng(q);
+    final parsed = _helpers.parseLatLng(q);
     if (parsed != null) {
       _goTo(parsed);
       widget.onMapTap?.call(parsed.latitude, parsed.longitude);
@@ -658,55 +540,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     _lastZoom = widget.searchTargetZoom;
   }
 
-  LatLng? _parseLatLng(String s) {
-    final reA =
-    RegExp(r'(-?\d{1,3}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)');
-    final mA = reA.firstMatch(s);
-    if (mA != null) {
-      final lat = double.tryParse(mA.group(1)!);
-      final lng = double.tryParse(mA.group(2)!);
-      if (lat != null && lng != null && _isValidLatLng(lat, lng)) {
-        return LatLng(lat, lng);
-      }
-    }
-
-    final reB = RegExp(
-      r'(?:(N|S)\s*)?(\d{1,3}(?:\.\d+)?)\D+(?:(E|W|L|O)\s*)?(\d{1,3}(?:\.\d+)?)',
-      caseSensitive: false,
-    );
-    final mB = reB.firstMatch(s);
-    if (mB != null) {
-      final ns = (mB.group(1) ?? '').toUpperCase();
-      final ew = (mB.group(3) ?? '').toUpperCase();
-      final latVal = double.tryParse(mB.group(2)!);
-      final lngVal = double.tryParse(mB.group(4)!);
-      if (latVal != null && lngVal != null) {
-        var lat = latVal;
-        var lng = lngVal;
-        if (ns == 'S') lat = -lat.abs();
-        if (ew == 'W' || ew == 'O' || ew == 'L') lng = -lng.abs();
-        if (_isValidLatLng(lat, lng)) return LatLng(lat, lng);
-      }
-    }
-
-    final reC = RegExp(
-      r'lat[:=]\s*(-?\d+(?:\.\d+)?)\D+lon[g]?[:=]\s*(-?\d+(?:\.\d+)?)',
-      caseSensitive: false,
-    );
-    final mC = reC.firstMatch(s);
-    if (mC != null) {
-      final lat = double.tryParse(mC.group(1)!);
-      final lng = double.tryParse(mC.group(2)!);
-      if (lat != null && lng != null && _isValidLatLng(lat, lng)) {
-        return LatLng(lat, lng);
-      }
-    }
-    return null;
-  }
-
-  bool _isValidLatLng(double lat, double lng) =>
-      lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-
   void _scheduleCameraCallbacks() {
     _cameraDebounce?.cancel();
     _cameraDebounce = Timer(_kCameraDebounce, () {
@@ -717,262 +550,85 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     });
   }
 
-  // ======== CORES (única fonte opcional) ========
+  // ======================================================
+  // BUILD
+  // ======================================================
 
-  Color _resolveRegionColor(PolygonChanged entry) {
-    final map = widget.polygonChangeColors;
-    if (map == null || map.isEmpty) return entry.normalFillColor;
-
-    final t = entry.title;
-    final kN = _norm(t);
-    return map[kN] ?? map[t] ?? map[t.toUpperCase()] ?? entry.normalFillColor;
-  }
-
-  // ---------- LAYERS DO FLUTTER_MAP ----------
-  List<Widget> _buildMapLayers() {
-    final layers = <Widget>[];
+  List<Widget> _buildMapChildren() {
+    final children = <Widget>[];
 
     // Base
     if (widget.activeMap) {
       if (widget.baseTileLayerBuilder != null) {
-        layers.add(widget.baseTileLayerBuilder!());
-      } else if (MapBaseLayer.mapBase[_indexSelectedMap].url.isNotEmpty) {
-        layers.add(
-          TileLayer(
+        children.add(widget.baseTileLayerBuilder!());
+      } else {
+        children.add(
+          MapBaseTileLayer(
             tileProvider: _tileProvider,
             urlTemplate: MapBaseLayer.mapBase[_indexSelectedMap].url,
-            subdomains: const ['a', 'b', 'c'],
-            userAgentPackageName: 'br.gov.al.siged',
-            keepBuffer: 2,
-            maxNativeZoom: 19,
-            minNativeZoom: 0,
           ),
         );
       }
     }
 
-    // ===== Polígonos regionais (PolygonChanged) =====
-    final regional = _regionalPolys;
-    if (regional.isNotEmpty) {
-      layers.add(
-        ValueListenableBuilder<Set<String>>(
-          valueListenable: _selectedRegionsVN,
-          builder: (_, selected, __) {
-            final map = widget.polygonChangeColors;
-            final hasExternalColors = map != null && map.isNotEmpty;
-
-            final z = _mapController.camera.zoom;
-            final zoomFactor = (z / 12.0).clamp(0.85, 1.9);
-
-            // ✅ OUTLINE escuro (fixo) para separar polígonos
-            const outlineColor = Color(0xFF9CA3AF); // quase preto (bem visível)
-            const outlineOpacityNormal = 0.85;
-            const outlineOpacitySelected = 0.95;
-
-            return PolygonLayer(
-              polygons: regional.expand((entry) {
-                final titleNorm = _norm(entry.title);
-                final isSelected = selected.contains(titleNorm);
-
-                // ----------------------------
-                // 1) Cores / stroke do "normal"
-                // ----------------------------
-                late final Color fillColor;
-                late final Color borderColor;
-                late final double borderWidth;
-
-                if (hasExternalColors) {
-                  final base = _resolveRegionColor(entry);
-
-                  final fillOpacity = isSelected ? 0.40 : 0.18;
-                  final strokeOpacity = isSelected ? 0.98 : 0.75; // ✅ mais viva
-
-                  fillColor = base.withValues(alpha: fillOpacity);
-                  borderColor = base.withValues(alpha: strokeOpacity);
-
-                  borderWidth = (isSelected ? entry.selectedBorderWidth : entry.normalBorderWidth);
-                } else {
-                  fillColor = isSelected ? entry.selectedFillColor : entry.normalFillColor;
-                  borderColor = isSelected ? entry.selectedBorderColor : entry.normalBorderColor;
-
-                  borderWidth = (isSelected ? entry.selectedBorderWidth : entry.normalBorderWidth);
-                }
-
-                // ----------------------------
-                // 2) OUTLINE por baixo
-                // ----------------------------
-                final outlineWidth = (borderWidth + 1) * zoomFactor; // << aumenta bem a “separação”
-                final realBorderWidth = borderWidth * zoomFactor;
-
-                final outline = Polygon(
-                  points: entry.polygon.points,
-                  color: Colors.transparent, // não altera fill
-                  borderColor: outlineColor.withValues(alpha:
-                  isSelected ? outlineOpacitySelected : outlineOpacityNormal,
-                  ),
-                  borderStrokeWidth: outlineWidth,
-                );
-
-                // ----------------------------
-                // 3) Polígono “real” por cima
-                // ----------------------------
-                final top = Polygon(
-                  points: entry.polygon.points,
-                  color: fillColor,
-                  borderColor: borderColor,
-                  borderStrokeWidth: realBorderWidth,
-                );
-
-                return [outline, top];
-              }).toList(growable: false),
-            );
-          },
+    // Polígonos
+    if (_regionalPolys.isNotEmpty) {
+      children.add(
+        MapPolygonsLayer(
+          mapController: _mapController,
+          polygons: _regionalPolys,
+          selectedRegionsVN: _selectedRegionsVN,
+          polygonChangeColors: widget.polygonChangeColors,
+          norm: _norm,
         ),
       );
     }
 
-
-    // Polylines (tappable + não tappable)
+    // Polylines
     final lines = widget.tappablePolylines;
     if (lines != null && lines.isNotEmpty) {
-      final tappable = lines.where((p) => p.hitTestable).toList(growable: false);
-      final nonTappable = lines.where((p) => !p.hitTestable).toList(growable: false);
-
-      if (nonTappable.isNotEmpty) {
-        layers.add(
-          PolylineLayer(
-            polylines: nonTappable
-                .map(
-                  (p) => Polyline(
-                points: p.points,
-                color: p.color,
-                strokeWidth: p.strokeWidth,
-              ),
-            )
-                .toList(growable: false),
-          ),
-        );
-      }
-
-      if (tappable.isNotEmpty) {
-        layers.add(
-          MapTappablePolylineLayer(
-            polylines: tappable,
-            onTap: _handlePolylineTap,
-            polylineCulling: true,
-          ),
-        );
-      }
-    }
-
-    // Clusters / Tagged Markers
-    final tagged = widget.taggedMarkers;
-    final clusterBuilder = widget.clusterWidgetBuilder;
-    if (tagged != null && tagged.isNotEmpty && clusterBuilder != null) {
-      layers.add(
-        clusterBuilder(
-          tagged,
-          _selectedMarkerPosition,
-              (m) {
-            _selectedMarkerPosition = m.point;
-            setState(() {});
-          },
+      children.add(
+        MapPolylinesLayer(
+          polylines: lines,
+          onTap: _handlePolylineTap,
         ),
       );
     }
 
-    // Marcadores extras
-    final extras = widget.extraMarkers;
-    if (extras != null && extras.isNotEmpty) {
-      layers.add(
-        IgnorePointer(
-          ignoring: true,
-          child: MarkerLayer(markers: extras),
-        ),
-      );
-    }
+    // Markers / clusters / extras
+    children.add(
+      MapMarkersLayer<T>(
+        taggedMarkers: widget.taggedMarkers,
+        clusterWidgetBuilder: widget.clusterWidgetBuilder,
+        selectedMarkerPosition: _selectedMarkerPosition,
+        onMarkerSelected: (m) {
+          _selectedMarkerPosition = m.point;
+          setState(() {});
+        },
+        extraMarkers: widget.extraMarkers,
+      ),
+    );
 
     // Minha localização (pulsante)
-    layers.add(
-      ValueListenableBuilder<LatLng?>(
-        valueListenable: _userLocationVN,
-        builder: (_, pos, __) {
-          if (pos == null) return const SizedBox.shrink();
-          return MarkerLayer(
-            markers: [
-              Marker(
-                point: pos,
-                width: 58,
-                height: 58,
-                alignment: Alignment.center,
-                child: SizedBox(
-                  width: 58,
-                  height: 58,
-                  child: ScaleTransition(
-                    scale: _pulseAnimation,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.blue.withValues(alpha: 0.25),
-                        border: Border.all(color: Colors.blueAccent, width: 2),
-                      ),
-                      child: const Center(
-                        child: SizedBox(
-                          width: 10,
-                          height: 10,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.blueAccent,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+    children.add(
+      MapUserLocationLayer(
+        userLocationVN: _userLocationVN,
+        pulseAnimation: _pulseAnimation,
       ),
     );
 
     // Pin da busca/toque
     if (widget.showSearchMarker) {
-      layers.add(
-        ValueListenableBuilder<LatLng?>(
-          valueListenable: _searchHitVN,
-          builder: (_, pos, __) {
-            if (pos == null) return const SizedBox.shrink();
-            const double pinH = 56.0;
-            const double pinW = 44.0;
-            return MarkerLayer(
-              markers: [
-                Marker(
-                  point: pos,
-                  width: pinW,
-                  height: pinH,
-                  alignment: Alignment.topCenter,
-                  child: const PinChanged(
-                    size: pinH,
-                    color: Color(0xFFE53935),
-                    halo: true,
-                    haloOpacity: 0.18,
-                    haloScale: 1.8,
-                    anchor: PinAnchor.tip,
-                  ),
-                ),
-              ],
-            );
-          },
+      children.add(
+        MapSearchPinLayer(
+          searchHitVN: _searchHitVN,
         ),
       );
     }
 
     // Attribution OSM
     if (_isOsmPublic) {
-      layers.add(
+      children.add(
         RichAttributionWidget(
           attributions: [
             TextSourceAttribution(
@@ -987,13 +643,12 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-    return layers;
+    return children;
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasLegend =
-        widget.showLegend && (widget.polygonChangeColors?.isNotEmpty ?? false);
+    final hasLegend = widget.showLegend && (widget.polygonChangeColors?.isNotEmpty ?? false);
 
     return Stack(
       children: [
@@ -1032,14 +687,15 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                           InteractiveFlag.doubleTapZoom |
                           InteractiveFlag.scrollWheelZoom,
                         ),
-                        onMapEvent: (event) {
+                        onMapEvent: (_) {
                           _lastCenter = _mapController.camera.center;
                           _lastZoom = _mapController.camera.zoom;
                           _scheduleCameraCallbacks();
                         },
                       ),
-                      children: _buildMapLayers(),
+                      children: _buildMapChildren(),
                     ),
+
                     if (widget.overlayBuilder != null)
                       Positioned.fill(
                         child: widget.overlayBuilder!(
@@ -1047,6 +703,8 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
                           _captureKey,
                         ),
                       ),
+
+                    // mantém o espaço do “if hasLegend”
                     if (hasLegend) const SizedBox.shrink(),
                   ],
                 ),
@@ -1054,6 +712,7 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
             ),
           ],
         ),
+
         if (hasLegend)
           Positioned(
             left: 8,
@@ -1062,45 +721,19 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
               regionColors: widget.polygonChangeColors!,
             ),
           ),
+
+        // Controles topo-esquerda (busca, loc, troca mapa)
         Positioned(
           top: 10,
           left: 10,
-          child: Row(
-            children: () {
-              final children = <Widget>[];
-
-              if (widget.showSearch) {
-                children.add(_buildSearchActionButton());
-              }
-
-              if (widget.showMyLocation) {
-                if (children.isNotEmpty) children.add(const SizedBox(width: 8));
-                children.add(
-                  InkWell(
-                    onTap: _handleMyLocationTap,
-                    child: const Tooltip(
-                      message: 'Minha localização',
-                      child: MiniCircleButton(icon: Icons.pin_drop),
-                    ),
-                  ),
-                );
-              }
-
-              if (widget.showChangeMapType) {
-                if (children.isNotEmpty) children.add(const SizedBox(width: 8));
-                children.add(
-                  InkWell(
-                    onTap: _handleMapSwitchTap,
-                    child: Tooltip(
-                      message: 'Mapa: ${MapBaseLayer.mapBase[_indexSelectedMap].nome}',
-                      child: const MiniCircleButton(icon: Icons.map),
-                    ),
-                  ),
-                );
-              }
-
-              return children;
-            }(),
+          child: MapControlsRow(
+            showSearch: widget.showSearch,
+            showMyLocation: widget.showMyLocation,
+            showChangeMapType: widget.showChangeMapType,
+            mapName: MapBaseLayer.mapBase[_indexSelectedMap].nome,
+            onMyLocationTap: _handleMyLocationTap,
+            onMapSwitchTap: _handleMapSwitchTap,
+            searchAction: _buildSearchActionButton(),
           ),
         ),
       ],

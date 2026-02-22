@@ -7,7 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/ibge_location/ibge_localidade_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_data.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
 
 class IBGELocationService {
