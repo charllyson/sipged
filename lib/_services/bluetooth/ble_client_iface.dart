@@ -1,4 +1,3 @@
-/*
 import 'dart:typed_data';
 
 abstract class LabelBleClient {
@@ -6,4 +5,3 @@ abstract class LabelBleClient {
   Future<void> writeAll(Uint8List data, {int chunk = 180});
   Future<void> disconnect();
 }
-*/

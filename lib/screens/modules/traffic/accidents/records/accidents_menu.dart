@@ -1,12 +1,10 @@
+/*
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/menu/bars/horizontal_menu_bar.dart';
 import 'package:sipged/_widgets/menu/bars/menu_bar_item.dart';
 
 class AccidentsMenu extends StatelessWidget {
-
-  const AccidentsMenu({
-    super.key,
-  });
+  const AccidentsMenu({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +17,8 @@ class AccidentsMenu extends StatelessWidget {
             children: [
               MenuBarItem(
                 label: 'Importar .xlsx',
-                onTap: (){
+                onTap: () {
+                  // TODO: abrir tela de importação
                 },
               ),
             ],
@@ -27,6 +26,7 @@ class AccidentsMenu extends StatelessWidget {
         ],
       ),
     ];
+
     return HorizontalMenuBar(menus: menus);
   }
-}
+}*/

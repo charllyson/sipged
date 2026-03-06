@@ -1,3 +1,4 @@
+// lib/_blocs/modules/transit/accidents/accidents_data.dart
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,7 +7,6 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:latlong2/latlong.dart';
-
 
 int? _parseInt(dynamic value) {
   if (value == null) return null;
@@ -114,9 +114,29 @@ class AccidentsData extends Equatable {
   final String? yearDocId;
   final String? cityNormalized;
 
+  // ✅ LINK PÚBLICO (QR externo)
+  // Obs: o token também é gravado em `publicAccidentReports/{token}` para leitura pública.
+  final bool? publicReportEnabled;
+  final String? publicReportToken;
+  final DateTime? publicReportCreatedAt;
+  final DateTime? publicReportExpiresAt;
+  final DateTime? publicReportRevokedAt;
+
   String? get yearMonthKey => (year != null && month != null)
       ? '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}'
       : null;
+
+  bool get publicReportIsRevoked => publicReportRevokedAt != null;
+
+  bool get publicReportIsExpired =>
+      publicReportExpiresAt != null &&
+          DateTime.now().isAfter(publicReportExpiresAt!);
+
+  bool get publicReportIsValid =>
+      (publicReportEnabled == true) &&
+          (publicReportToken != null && publicReportToken!.trim().isNotEmpty) &&
+          !publicReportIsRevoked &&
+          !publicReportIsExpired;
 
   const AccidentsData({
     this.id,
@@ -157,6 +177,11 @@ class AccidentsData extends Equatable {
     this.month,
     this.yearDocId,
     this.cityNormalized,
+    this.publicReportEnabled,
+    this.publicReportToken,
+    this.publicReportCreatedAt,
+    this.publicReportExpiresAt,
+    this.publicReportRevokedAt,
   });
 
   /// Construtor vazio, útil pra inicializar formulário
@@ -198,7 +223,12 @@ class AccidentsData extends Equatable {
         year = null,
         month = null,
         yearDocId = null,
-        cityNormalized = null;
+        cityNormalized = null,
+        publicReportEnabled = null,
+        publicReportToken = null,
+        publicReportCreatedAt = null,
+        publicReportExpiresAt = null,
+        publicReportRevokedAt = null;
 
   // ---------------------------------------------------------------------------
   // Helpers de string / tipo / ícones / cores
@@ -271,9 +301,8 @@ class AccidentsData extends Equatable {
     if (list.length < 2) return Colors.grey;
 
     final scaled = accidentsFactor * (list.length - 1);
-    final index =
-    scaled.floor().clamp(0, list.length - 2); // index base
-    final t = scaled - index; // fração entre index e index+1
+    final index = scaled.floor().clamp(0, list.length - 2);
+    final t = scaled - index;
 
     return Color.lerp(
       list[index],
@@ -505,6 +534,21 @@ class AccidentsData extends Equatable {
       'yearMonthKey': (y != null && m != null)
           ? '${y.toString().padLeft(4, '0')}-${m.toString().padLeft(2, '0')}'
           : null,
+
+      // ✅ Público (QR)
+      'publicReport': {
+        'enabled': publicReportEnabled,
+        'token': publicReportToken,
+        'createdAt': publicReportCreatedAt != null
+            ? Timestamp.fromDate(publicReportCreatedAt!)
+            : null,
+        'expiresAt': publicReportExpiresAt != null
+            ? Timestamp.fromDate(publicReportExpiresAt!)
+            : null,
+        'revokedAt': publicReportRevokedAt != null
+            ? Timestamp.fromDate(publicReportRevokedAt!)
+            : null,
+      },
     };
   }
 
@@ -523,8 +567,16 @@ class AccidentsData extends Equatable {
 
     final city = map['city']?.toString();
     final cityNormRaw = map['cityNormalized']?.toString();
-    final cityNorm =
-    cityNormRaw?.isNotEmpty == true ? cityNormRaw : (city != null ? normalizeString(city) : null);
+    final cityNorm = cityNormRaw?.isNotEmpty == true
+        ? cityNormRaw
+        : (city != null ? normalizeString(city) : null);
+
+    // ✅ publicReport (map)
+    final pr = (map['publicReport'] is Map)
+        ? (map['publicReport'] as Map).cast<String, dynamic>()
+        : <String, dynamic>{};
+
+    DateTime? _dt2(dynamic v) => _parseDate(v);
 
     return AccidentsData(
       id: map['id']?.toString(),
@@ -542,7 +594,6 @@ class AccidentsData extends Equatable {
       victimSex: map['victimSex']?.toString(),
       victimAge: _parseInt(map['victimAge']),
       latLng: latLng,
-      // placemark não vem do Firestore
       city: city,
       street: map['street']?.toString(),
       subLocality: map['subLocality']?.toString(),
@@ -565,6 +616,13 @@ class AccidentsData extends Equatable {
       month: mo,
       yearDocId: map['yearDocId']?.toString(),
       cityNormalized: cityNorm,
+
+      // ✅ público
+      publicReportEnabled: pr['enabled'] == true,
+      publicReportToken: pr['token']?.toString(),
+      publicReportCreatedAt: _dt2(pr['createdAt']),
+      publicReportExpiresAt: _dt2(pr['expiresAt']),
+      publicReportRevokedAt: _dt2(pr['revokedAt']),
     );
   }
 
@@ -580,9 +638,7 @@ class AccidentsData extends Equatable {
   }
 
   /// Converte lista de mapas em lista de AccidentsData
-  static List<AccidentsData> fromListOfMaps(
-      List<Map<String, dynamic>> dados,
-      ) {
+  static List<AccidentsData> fromListOfMaps(List<Map<String, dynamic>> dados) {
     return dados.map(AccidentsData.fromMap).toList();
   }
 
@@ -629,6 +685,13 @@ class AccidentsData extends Equatable {
     int? month,
     String? yearDocId,
     String? cityNormalized,
+
+    // ✅ público
+    bool? publicReportEnabled,
+    String? publicReportToken,
+    DateTime? publicReportCreatedAt,
+    DateTime? publicReportExpiresAt,
+    DateTime? publicReportRevokedAt,
   }) {
     return AccidentsData(
       id: id ?? this.id,
@@ -655,8 +718,7 @@ class AccidentsData extends Equatable {
       postalCode: postalCode ?? this.postalCode,
       country: country ?? this.country,
       isoCountryCode: isoCountryCode ?? this.isoCountryCode,
-      subAdministrativeArea:
-      subAdministrativeArea ?? this.subAdministrativeArea,
+      subAdministrativeArea: subAdministrativeArea ?? this.subAdministrativeArea,
       thoroughfare: thoroughfare ?? this.thoroughfare,
       subThoroughfare: subThoroughfare ?? this.subThoroughfare,
       nameArea: nameArea ?? this.nameArea,
@@ -670,7 +732,44 @@ class AccidentsData extends Equatable {
       month: month ?? this.month,
       yearDocId: yearDocId ?? this.yearDocId,
       cityNormalized: cityNormalized ?? this.cityNormalized,
+
+      // ✅ público
+      publicReportEnabled: publicReportEnabled ?? this.publicReportEnabled,
+      publicReportToken: publicReportToken ?? this.publicReportToken,
+      publicReportCreatedAt: publicReportCreatedAt ?? this.publicReportCreatedAt,
+      publicReportExpiresAt: publicReportExpiresAt ?? this.publicReportExpiresAt,
+      publicReportRevokedAt: publicReportRevokedAt ?? this.publicReportRevokedAt,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // ✅ Snapshot público (sanitizado) para coleção pública
+  // ---------------------------------------------------------------------------
+
+  Map<String, dynamic> toPublicReportMap() {
+    // Somente o que pode ser exposto sem login.
+    return {
+      'id': id,
+      'order': order,
+      'date': date != null ? Timestamp.fromDate(date!) : null,
+      'city': city,
+      'typeOfAccident': typeOfAccident,
+      'highway': highway,
+      'death': death,
+      'scoresVictims': scoresVictims,
+      'transportInvolved': transportInvolved,
+      'location': location,
+      'referencePoint': referencePoint,
+      'latLng': latLng != null
+          ? {'latitude': latLng!.latitude, 'longitude': latLng!.longitude}
+          : null,
+      // Se quiser expor endereço detalhado, inclua aqui (eu deixei de fora por privacidade)
+      // 'street': street,
+      // 'subLocality': subLocality,
+      // 'locality': locality,
+      // 'administrativeArea': administrativeArea,
+      // 'postalCode': postalCode,
+    };
   }
 
   @override
@@ -712,5 +811,12 @@ class AccidentsData extends Equatable {
     month,
     yearDocId,
     cityNormalized,
+
+    // ✅ público
+    publicReportEnabled,
+    publicReportToken,
+    publicReportCreatedAt,
+    publicReportExpiresAt,
+    publicReportRevokedAt,
   ];
 }

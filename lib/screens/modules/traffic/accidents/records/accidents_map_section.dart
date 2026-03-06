@@ -1,4 +1,3 @@
-// lib/screens/modules/traffic/accidents/accidents_map_section.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -26,6 +25,8 @@ class AccidentsMapSection extends StatelessWidget {
       activeMap: true,
       showLegend: true,
       showSearch: true,
+      showMyLocation: true,
+      showChangeMapType: true,
       onControllerReady: onControllerReady,
       onBindSetActivePoint: onBindSetActivePoint,
       onMapTap: (lat, lon) => onMapTap?.call(lat, lon),

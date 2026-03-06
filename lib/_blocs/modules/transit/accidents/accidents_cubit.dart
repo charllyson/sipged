@@ -46,7 +46,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     return out;
   }
 
-  /// Regra simples de gravidade (ajuste se você tiver campo real no Firestore)
   String _severityOf(AccidentsData a) {
     final deaths = (a.death ?? 0);
     if (deaths > 0) return 'GRAVE';
@@ -57,7 +56,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     return 'LEVE';
   }
 
-  // 🔥 FILTRO EM MEMÓRIA (year/month/city/type/severity)
   List<AccidentsData> _applyLocalFilter(
       List<AccidentsData> universe, {
         int? year,
@@ -91,13 +89,13 @@ class AccidentsCubit extends Cubit<AccidentsState> {
       final okType = normalizedType == null || canonical == normalizedType;
 
       final sev = _severityOf(a).toUpperCase();
-      final okSeverity = normalizedSeverity == null || sev == normalizedSeverity;
+      final okSeverity =
+          normalizedSeverity == null || sev == normalizedSeverity;
 
       return okYear && okMonth && okCity && okType && okSeverity;
     }).toList();
   }
 
-  // 🔥 RECOMPILA TUDO E EMITE O ESTADO
   Future<void> _recomputeAndEmit({
     int? page,
     List<AccidentsData>? allOverride,
@@ -114,7 +112,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
   }) async {
     final all = allOverride ?? state.all;
 
-    // view = lista filtrada ordenada desc
     final view = _sortDescByDate(all);
 
     final totalPages = _calcTotalPages(view.length, state.limitPerPage);
@@ -123,7 +120,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     final curPage = requestedPage.clamp(1, totalPages);
     final pageItems = _slice(view, curPage, state.limitPerPage);
 
-    // agregações SEM Firestore (tudo em memória)
     final totalsByCity = await repo.getValoresPorCidade(view);
     final totalsByType = await repo.getTotaisPorTipoAcidente(view);
     final resumeByType = _resumeMapByType(view);
@@ -131,7 +127,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     emit(
       state.copyWith(
         loading: false,
-
         year: year,
         setYearNull: setYearNull,
         month: month,
@@ -142,17 +137,14 @@ class AccidentsCubit extends Cubit<AccidentsState> {
         setTypeNull: setTypeNull,
         severity: severity,
         setSeverityNull: setSeverityNull,
-
         all: all,
         view: view,
         pageItems: pageItems,
         currentPage: curPage,
         totalPages: totalPages,
-
         totalsByCity: totalsByCity,
         totalsByType: totalsByType,
         resumeByType: resumeByType,
-
         error: null,
         success: null,
       ),
@@ -163,7 +155,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
   //                 API PÚBLICA (base)
   // ============================================================
 
-  /// 1️⃣ Carrega o UNIVERSO completo (sem filtros) e aplica filtro local inicial
   Future<void> warmup({
     int? initialYear,
     int? initialMonth,
@@ -178,23 +169,21 @@ class AccidentsCubit extends Cubit<AccidentsState> {
       state.copyWith(
         loading: true,
         initialized: false,
-
         year: initialYear,
         setYearNull: initialYear == null,
         month: initialMonth,
         setMonthNull: initialMonth == null,
         city: normalizedCity,
         setCityNull: normalizedCity == null,
-
         type: initialType,
         setTypeNull: initialType == null,
         severity: initialSeverity,
         setSeverityNull: initialSeverity == null,
-
         error: null,
         success: null,
         clearLocationSuggestion: true,
         clearLocationError: true,
+        clearLastPublicReportUrl: true,
       ),
     );
 
@@ -232,8 +221,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     }
   }
 
-  /// 2️⃣ Filtro em memória (sem Firestore)
-  /// Observação: aqui `null` significa "limpar filtro daquele campo".
   Future<void> changeFilter({
     int? year,
     int? month,
@@ -248,6 +235,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
         success: null,
         clearLocationSuggestion: true,
         clearLocationError: true,
+        clearLastPublicReportUrl: true,
       ),
     );
 
@@ -287,12 +275,10 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     }
   }
 
-  /// 3️⃣ Paginação
   Future<void> changePage(int page) async {
     await _recomputeAndEmit(page: page);
   }
 
-  /// 4️⃣ Salvar → recarrega universe + reaplica filtro atual
   Future<void> saveAccident(AccidentsData data) async {
     emit(
       state.copyWith(
@@ -300,6 +286,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
         error: null,
         success: null,
         clearLocationError: true,
+        clearLastPublicReportUrl: true,
       ),
     );
 
@@ -345,7 +332,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     }
   }
 
-  /// 5️⃣ Delete → recarrega universe + reaplica filtro + ajusta página
   Future<void> deleteAccident({
     required String id,
     int? yearHint,
@@ -356,6 +342,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
         error: null,
         success: null,
         clearLocationError: true,
+        clearLastPublicReportUrl: true,
       ),
     );
 
@@ -379,7 +366,8 @@ class AccidentsCubit extends Cubit<AccidentsState> {
           _slice(_sortDescByDate(filtered), state.currentPage, state.limitPerPage)
               .isEmpty;
 
-      final nextPage = shouldGoBackOnePage ? state.currentPage - 1 : state.currentPage;
+      final nextPage =
+      shouldGoBackOnePage ? state.currentPage - 1 : state.currentPage;
 
       await _recomputeAndEmit(
         page: nextPage,
@@ -408,7 +396,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     }
   }
 
-  /// 6️⃣ Refresh → sem Firestore, só reprocessa com filtro atual
   Future<void> refresh() async {
     emit(
       state.copyWith(
@@ -416,6 +403,7 @@ class AccidentsCubit extends Cubit<AccidentsState> {
         error: null,
         success: null,
         clearLocationError: true,
+        clearLastPublicReportUrl: true,
       ),
     );
 
@@ -449,13 +437,129 @@ class AccidentsCubit extends Cubit<AccidentsState> {
   }
 
   // ============================================================
-  //                 ✅ TOGGLES (INTERAÇÃO)
+  // ✅ LINK PÚBLICO (QR)
+  // ============================================================
+
+  Future<String> generatePublicReportLink(
+      AccidentsData accident, {
+        Duration expiresIn = const Duration(days: 30),
+      }) async {
+    emit(
+      state.copyWith(
+        saving: true,
+        error: null,
+        success: null,
+        clearLastPublicReportUrl: true,
+      ),
+    );
+
+    try {
+      final url = await repo.ensurePublicReportLink(
+        accident: accident,
+        expiresIn: expiresIn,
+      );
+
+      // Recarrega universo pra refletir o token no item
+      final universe = await repo.getAllAccidents();
+      emit(state.copyWith(universe: universe));
+
+      final filtered = _applyLocalFilter(
+        universe,
+        year: state.year,
+        month: state.month,
+        city: state.city,
+        type: state.type,
+        severity: state.severity,
+      );
+
+      await _recomputeAndEmit(
+        page: state.currentPage,
+        allOverride: filtered,
+        year: state.year,
+        month: state.month,
+        city: state.city,
+        type: state.type,
+        severity: state.severity,
+        setYearNull: state.year == null,
+        setMonthNull: state.month == null,
+        setCityNull: state.city == null,
+        setTypeNull: state.type == null,
+        setSeverityNull: state.severity == null,
+      );
+
+      emit(
+        state.copyWith(
+          saving: false,
+          success: 'Link público gerado!',
+          lastPublicReportUrl: url,
+        ),
+      );
+
+      return url;
+    } catch (err) {
+      emit(state.copyWith(saving: false, error: '$err'));
+      rethrow;
+    }
+  }
+
+  Future<void> revokePublicReportLink(AccidentsData accident) async {
+    emit(
+      state.copyWith(
+        saving: true,
+        error: null,
+        success: null,
+        clearLastPublicReportUrl: true,
+      ),
+    );
+
+    try {
+      await repo.revokePublicReportLink(accident: accident);
+
+      final universe = await repo.getAllAccidents();
+      emit(state.copyWith(universe: universe));
+
+      final filtered = _applyLocalFilter(
+        universe,
+        year: state.year,
+        month: state.month,
+        city: state.city,
+        type: state.type,
+        severity: state.severity,
+      );
+
+      await _recomputeAndEmit(
+        page: state.currentPage,
+        allOverride: filtered,
+        year: state.year,
+        month: state.month,
+        city: state.city,
+        type: state.type,
+        severity: state.severity,
+        setYearNull: state.year == null,
+        setMonthNull: state.month == null,
+        setCityNull: state.city == null,
+        setTypeNull: state.type == null,
+        setSeverityNull: state.severity == null,
+      );
+
+      emit(
+        state.copyWith(
+          saving: false,
+          success: 'Link público revogado.',
+        ),
+      );
+    } catch (err) {
+      emit(state.copyWith(saving: false, error: '$err'));
+    }
+  }
+
+  // ============================================================
+  // ✅ TOGGLES (INTERAÇÃO)
   // ============================================================
 
   bool _equalsNorm(String? a, String? b) =>
       (a ?? '').trim().toUpperCase() == (b ?? '').trim().toUpperCase();
 
-  /// Toggle de cidade (clique no polígono ou item do painel)
   Future<void> toggleCity(String? city) async {
     final incoming = (city?.trim().isNotEmpty == true) ? city!.trim() : null;
     final shouldClear = _equalsNorm(state.city, incoming);
@@ -468,7 +572,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     );
   }
 
-  /// Toggle de tipo (clique no Donut)
   Future<void> toggleType(String? type) async {
     final incoming = (type?.trim().isNotEmpty == true) ? type!.trim() : null;
     final shouldClear = _equalsNorm(state.type, incoming);
@@ -481,7 +584,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     );
   }
 
-  /// Toggle de gravidade (clique nas barras)
   Future<void> toggleSeverity(String? severity) async {
     final incoming =
     (severity?.trim().isNotEmpty == true) ? severity!.trim() : null;
@@ -495,7 +597,6 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     );
   }
 
-  /// (Opcional) Toggle de mês (se quiser clique em item “Mês” e desmarcar)
   Future<void> toggleMonth(int? month) async {
     final shouldClear = (state.month != null && state.month == month);
     await changeFilter(
@@ -552,7 +653,8 @@ class AccidentsCubit extends Cubit<AccidentsState> {
     );
 
     try {
-      final suggestion = await repo.reverseGeocode(lat: latitude, lon: longitude);
+      final suggestion =
+      await repo.reverseGeocode(lat: latitude, lon: longitude);
       emit(
         state.copyWith(
           gettingLocation: false,

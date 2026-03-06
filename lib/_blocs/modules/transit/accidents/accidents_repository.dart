@@ -1,5 +1,7 @@
 // lib/_blocs/modules/transit/accidents/accidents_repository.dart
 import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,10 +14,47 @@ import 'package:equatable/equatable.dart';
 import 'accidents_data.dart';
 
 class AccidentsRepository {
-  AccidentsRepository({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+  AccidentsRepository({
+    FirebaseFirestore? firestore,
+    String? publicReportBaseUrl,
+  })  : _db = firestore ?? FirebaseFirestore.instance,
+        _publicReportBaseUrl = _resolvePublicReportBaseUrl(publicReportBaseUrl);
 
   final FirebaseFirestore _db;
+
+  /// Exemplo final: https://deral.sipged.com.br/bo
+  /// O link PDF final será: {_publicReportBaseUrl}/{token}.pdf
+  final String _publicReportBaseUrl;
+
+  static String _resolvePublicReportBaseUrl(String? provided) {
+    final p = (provided ?? '').trim();
+    if (p.isNotEmpty) return _normalizeBase(p);
+
+    final env = const String.fromEnvironment(
+      'PUBLIC_REPORT_BASE_URL',
+      defaultValue: '',
+    ).trim();
+    if (env.isNotEmpty) return _normalizeBase(env);
+
+    // Runtime web
+    final uri = Uri.base;
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme == 'http' || scheme == 'https') {
+      final origin =
+          '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+      return _normalizeBase('$origin/bo');
+    }
+
+    return '';
+  }
+
+  static String _normalizeBase(String base) {
+    var b = base.trim();
+    while (b.endsWith('/')) {
+      b = b.substring(0, b.length - 1);
+    }
+    return b;
+  }
 
   int _yearFromDateTime(DateTime dt, {bool local = true}) =>
       local ? dt.toLocal().year : dt.toUtc().year;
@@ -61,7 +100,6 @@ class AccidentsRepository {
     }
   }
 
-  /// Salva ou atualiza um acidente, seguindo o padrão imutável de [AccidentsData].
   Future<void> saveOrUpdateAccident(AccidentsData data) async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -82,7 +120,6 @@ class AccidentsRepository {
     final String recordId = docRef.id;
     final String recordPath = docRef.path;
 
-    // Base vem do modelo (já calcula yearMonthKey a partir de date/year/month)
     final base = data.toFirestore();
 
     final json = <String, dynamic>{
@@ -133,8 +170,9 @@ class AccidentsRepository {
 
       if (month != null) {
         final start = DateTime(year, month, 1);
-        final end =
-        (month == 12) ? DateTime(year + 1, 1, 1) : DateTime(year, month + 1, 1);
+        final end = (month == 12)
+            ? DateTime(year + 1, 1, 1)
+            : DateTime(year, month + 1, 1);
 
         q = q
             .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
@@ -158,9 +196,7 @@ class AccidentsRepository {
     }
 
     final snap = await q.get();
-    return snap.docs
-        .map((d) => AccidentsData.fromDocument(d))
-        .toList();
+    return snap.docs.map((d) => AccidentsData.fromDocument(d)).toList();
   }
 
   // ===========================================================================
@@ -168,8 +204,7 @@ class AccidentsRepository {
   // ===========================================================================
 
   Future<Map<String, double>> getTotaisPorTipoAcidente(
-      List<AccidentsData> acidentes,
-      ) async {
+      List<AccidentsData> acidentes) async {
     final Map<String, double> totais = {};
     for (final a in acidentes) {
       final key = AccidentsData.canonicalType(a.typeOfAccident);
@@ -179,8 +214,7 @@ class AccidentsRepository {
   }
 
   Future<Map<String, double>> getValoresPorCidade(
-      List<AccidentsData> acidentes,
-      ) async {
+      List<AccidentsData> acidentes) async {
     final Map<String, double> totais = {};
     for (final a in acidentes) {
       final cidade = (a.city ?? '').trim();
@@ -188,6 +222,164 @@ class AccidentsRepository {
       totais[key] = (totais[key] ?? 0.0) + 1.0;
     }
     return totais;
+  }
+
+  // ===========================================================================
+  // ✅ LINK PÚBLICO (QR) -> PDF
+  // ===========================================================================
+
+  CollectionReference<Map<String, dynamic>> get _publicReports =>
+      _db.collection('publicAccidentReports');
+
+  String _makeToken({int bytes = 24}) {
+    final rnd = Random.secure();
+    final data =
+    Uint8List.fromList(List<int>.generate(bytes, (_) => rnd.nextInt(256)));
+    final sb = StringBuffer();
+    for (final b in data) {
+      sb.write(b.toRadixString(16).padLeft(2, '0'));
+    }
+    return sb.toString();
+  }
+
+  /// ✅ Agora devolve URL de PDF (direto no browser)
+  /// Ex: https://deral.sipged.com.br/bo/<token>.pdf
+  String buildPublicUrlFromToken(String token) {
+    final base = _publicReportBaseUrl.trim();
+    if (base.isEmpty) return token; // fallback (não recomendado)
+    final t = token.trim();
+    return '$base/$t.pdf';
+  }
+
+  Future<String> ensurePublicReportLink({
+    required AccidentsData accident,
+    Duration expiresIn = const Duration(days: 30),
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('Usuário não autenticado (necessário para gerar link).');
+    }
+
+    final recordPath = (accident.recordPath ?? '').trim();
+    final accidentId = (accident.id ?? '').trim();
+    if (recordPath.isEmpty || accidentId.isEmpty) {
+      throw Exception('Registro inválido: id/recordPath ausentes.');
+    }
+
+    final now = DateTime.now();
+    final expiresAt = now.add(expiresIn);
+
+    if (accident.publicReportIsValid) {
+      final token = accident.publicReportToken!.trim();
+      final publicDoc = _publicReports.doc(token);
+
+      await _db.runTransaction((tx) async {
+        tx.set(
+          publicDoc,
+          {
+            'token': token,
+            'accidentId': accidentId,
+            'recordPath': recordPath,
+            'createdAt': FieldValue.serverTimestamp(),
+            'expiresAt': Timestamp.fromDate(accident.publicReportExpiresAt ?? expiresAt),
+            'revokedAt': null,
+            'enabled': true,
+            'publicData': accident.toPublicReportMap(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      });
+
+      return buildPublicUrlFromToken(token);
+    }
+
+    String token = _makeToken();
+    DocumentReference<Map<String, dynamic>> publicDoc = _publicReports.doc(token);
+
+    for (int i = 0; i < 3; i++) {
+      final exists = (await publicDoc.get()).exists;
+      if (!exists) break;
+      token = _makeToken();
+      publicDoc = _publicReports.doc(token);
+    }
+
+    final accidentDoc = _db.doc(recordPath);
+
+    await _db.runTransaction((tx) async {
+      tx.set(
+        publicDoc,
+        {
+          'token': token,
+          'accidentId': accidentId,
+          'recordPath': recordPath,
+          'createdAt': FieldValue.serverTimestamp(),
+          'expiresAt': Timestamp.fromDate(expiresAt),
+          'revokedAt': null,
+          'enabled': true,
+          'publicData': accident.toPublicReportMap(),
+          'createdBy': user.uid,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': user.uid,
+        },
+        SetOptions(merge: true),
+      );
+
+      tx.set(
+        accidentDoc,
+        {
+          'publicReport': {
+            'enabled': true,
+            'token': token,
+            'createdAt': FieldValue.serverTimestamp(),
+            'expiresAt': Timestamp.fromDate(expiresAt),
+            'revokedAt': null,
+          },
+        },
+        SetOptions(merge: true),
+      );
+    });
+
+    return buildPublicUrlFromToken(token);
+  }
+
+  Future<void> revokePublicReportLink({
+    required AccidentsData accident,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('Usuário não autenticado.');
+
+    final token = (accident.publicReportToken ?? '').trim();
+    final recordPath = (accident.recordPath ?? '').trim();
+    if (token.isEmpty || recordPath.isEmpty) return;
+
+    final now = DateTime.now();
+    final publicDoc = _publicReports.doc(token);
+    final accidentDoc = _db.doc(recordPath);
+
+    await _db.runTransaction((tx) async {
+      tx.set(
+        publicDoc,
+        {
+          'enabled': false,
+          'revokedAt': Timestamp.fromDate(now),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': user.uid,
+        },
+        SetOptions(merge: true),
+      );
+
+      tx.set(
+        accidentDoc,
+        {
+          'publicReport': {
+            'enabled': false,
+            'revokedAt': Timestamp.fromDate(now),
+          },
+        },
+        SetOptions(merge: true),
+      );
+    });
   }
 
   // ===========================================================================
@@ -206,9 +398,7 @@ class AccidentsRepository {
         try {
           final parsed = formato.parseStrict(rawDate);
           await doc.reference.update({'date': Timestamp.fromDate(parsed)});
-        } catch (_) {
-          // ignora erro e segue
-        }
+        } catch (_) {}
       }
     }
   }
@@ -217,14 +407,12 @@ class AccidentsRepository {
   // GEOCODING / LOCALIZAÇÃO (ViaCEP + Nominatim, sem Google)
   // ===========================================================================
 
-  /// Geocodifica um CEP brasileiro (apenas dígitos) e retorna uma sugestão.
   Future<AddressSuggestion> geocodeCep(String cep) async {
     final digits = cep.replaceAll(RegExp(r'\D'), '');
     if (digits.length != 8) {
       throw Exception('CEP inválido: "$cep"');
     }
 
-    // 1) ViaCEP
     final viaCepUri = Uri.https('viacep.com.br', '/ws/$digits/json/');
     final viaResp = await http.get(
       viaCepUri,
@@ -246,7 +434,6 @@ class AccidentsRepository {
     final cidade = (via['localidade'] as String? ?? '').trim();
     final uf = (via['uf'] as String? ?? '').trim();
 
-    // 2) Nominatim
     LatLng? pos;
     try {
       final nomiUri = Uri.https(
@@ -284,7 +471,6 @@ class AccidentsRepository {
         }
       }
 
-      // fallback com "q"
       if (pos == null) {
         final qParts = [
           if (logradouro.isNotEmpty) logradouro,
@@ -328,9 +514,7 @@ class AccidentsRepository {
           }
         }
       }
-    } catch (_) {
-      // Mantém sem lat/lon, UI ainda aproveita o endereço
-    }
+    } catch (_) {}
 
     return AddressSuggestion(
       latitude: pos?.latitude,
@@ -345,13 +529,10 @@ class AccidentsRepository {
     );
   }
 
-  // ===================== LOCALIZAÇÃO (SEM GOOGLE) =====================
-
   Future<LocationPermission> _ensurePermission() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return LocationPermission.denied;
-    }
+    if (!serviceEnabled) return LocationPermission.denied;
+
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -443,7 +624,6 @@ class AccidentsRepository {
     );
   }
 
-  /// Pega posição atual + reverse geocoding (Nominatim).
   Future<AddressSuggestion> resolveCurrentLocation() async {
     final permission = await _ensurePermission();
     if (permission == LocationPermission.deniedForever) {
@@ -466,16 +646,12 @@ class AccidentsRepository {
       );
       return suggestion.latitude != null
           ? suggestion
-          : AddressSuggestion(
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-      );
+          : AddressSuggestion(latitude: pos.latitude, longitude: pos.longitude);
     } catch (_) {
       return AddressSuggestion(latitude: pos.latitude, longitude: pos.longitude);
     }
   }
 
-  /// Reverse geocoding a partir de coordenadas já conhecidas (ex.: do mapa).
   Future<AddressSuggestion> reverseGeocode({
     required double lat,
     required double lon,
@@ -493,7 +669,7 @@ class AccidentsRepository {
 }
 
 // ============================================================================
-// MODELO AUXILIAR: AddressSuggestion (padrão Equatable, igual demais modelos)
+// MODELO AUXILIAR: AddressSuggestion
 // ============================================================================
 
 class AddressSuggestion extends Equatable {

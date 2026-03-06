@@ -1,37 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layers_geo.dart';
 
-/// Drawer lateral direito com a lista de camadas.
-///
-/// - [layers]: lista de camadas/grupos em árvore.
-/// - [activeLayerIds]: IDs das camadas atualmente ativas (checkbox marcado).
-/// - [onToggleLayer]: callback chamado ao marcar/desmarcar um checkbox.
-/// - [onConnectLayer]: callback chamado ao clicar no ícone de conexão/tabela.
-/// - [hasDbByLayer]: mapa {layerId: true/false} indicando se existe dado no banco
-///   para pintar o ícone.
 class LayersDrawer extends StatefulWidget {
   final List<LayersGeo> layers;
   final Set<String> activeLayerIds;
   final void Function(String id, bool isActive) onToggleLayer;
 
-  /// Callback disparado ao clicar no botão de conexão (camada folha).
+  final void Function(String id)? onRenameSelected;
   final void Function(String id)? onConnectLayer;
-
-  /// Status vindo do Firestore: id -> tem dados
   final Map<String, bool> hasDbByLayer;
-
-  /// (Opcional) se quiser esconder o botão em layers que não suportam import.
-  /// Se null, mostra botão para todas as folhas quando onConnectLayer != null.
   final bool Function(String layerId)? supportsConnect;
+
+  final void Function(String id)? onMoveUp;
+  final void Function(String id)? onMoveDown;
+  final void Function(String id)? onCreateGroup;
+
+  /// draggedId, targetParentId, targetIndex
+  final void Function(String draggedId, String? targetParentId, int targetIndex)?
+  onDropItem;
 
   const LayersDrawer({
     super.key,
     required this.layers,
     required this.activeLayerIds,
     required this.onToggleLayer,
+    this.onRenameSelected,
     this.onConnectLayer,
     this.hasDbByLayer = const {},
     this.supportsConnect,
+    this.onMoveUp,
+    this.onMoveDown,
+    this.onCreateGroup,
+    this.onDropItem,
   });
 
   @override
@@ -39,19 +39,13 @@ class LayersDrawer extends StatefulWidget {
 }
 
 class _LayersDrawerState extends State<LayersDrawer> {
-  /// Grupos/pastas atualmente expandidos.
   late Set<String> _expandedGroupIds;
-
-  /// ID do item (camada ou pasta) selecionado visualmente.
   String? _selectedId;
-
-  /// Quando o usuário clica no ícone de conexão, suprime o onTap da linha.
   bool _suppressRowTapOnce = false;
 
   @override
   void initState() {
     super.initState();
-    // ✅ Expande TODOS os grupos (recursivo).
     _expandedGroupIds = _collectAllGroupIds(widget.layers);
   }
 
@@ -59,19 +53,18 @@ class _LayersDrawerState extends State<LayersDrawer> {
   void didUpdateWidget(covariant LayersDrawer oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Garante que seleção não aponte pra item removido
     if (_selectedId != null) {
       final stillExists = _existsLayerWithId(widget.layers, _selectedId!);
       if (!stillExists) _selectedId = null;
     }
 
-    // Se chegaram novos grupos na árvore, mantém a política: expandidos por padrão
     final newAllGroups = _collectAllGroupIds(widget.layers);
     _expandedGroupIds.addAll(newAllGroups);
   }
 
   Set<String> _collectAllGroupIds(List<LayersGeo> nodes) {
     final ids = <String>{};
+
     void walk(List<LayersGeo> list) {
       for (final n in list) {
         if (n.isGroup) {
@@ -111,7 +104,6 @@ class _LayersDrawerState extends State<LayersDrawer> {
     });
   }
 
-  /// Retorna true se **todas** as camadas-filhas (folhas) do grupo estiverem ativas.
   bool _areAllChildrenActive(LayersGeo node) {
     if (!node.isGroup) {
       return widget.activeLayerIds.contains(node.id);
@@ -123,7 +115,6 @@ class _LayersDrawerState extends State<LayersDrawer> {
     return true;
   }
 
-  /// Retorna true se **alguma** camada-filha (folha) do grupo estiver ativa.
   bool _hasAnyChildActive(LayersGeo node) {
     if (!node.isGroup) {
       return widget.activeLayerIds.contains(node.id);
@@ -135,7 +126,6 @@ class _LayersDrawerState extends State<LayersDrawer> {
     return false;
   }
 
-  /// Lista achatada com todas as camadas-folha de um grupo.
   List<LayersGeo> _flattenLeaves(LayersGeo node) {
     if (!node.isGroup) return [node];
     final list = <LayersGeo>[];
@@ -150,11 +140,10 @@ class _LayersDrawerState extends State<LayersDrawer> {
   bool _supportsConnect(String layerId) {
     if (widget.onConnectLayer == null) return false;
     if (widget.supportsConnect != null) return widget.supportsConnect!(layerId);
-    return true; // padrão: se tem callback, permite para qualquer folha
+    return true;
   }
 
   void _handleRowTapSelect(String id) {
-    // ✅ se o clique veio do ícone de conexão, não seleciona linha
     if (_suppressRowTapOnce) {
       _suppressRowTapOnce = false;
       return;
@@ -163,37 +152,41 @@ class _LayersDrawerState extends State<LayersDrawer> {
   }
 
   void _handleConnectTap(String layerId) {
-    // ✅ garante que o tap do ícone não dispare o tap da linha
     _suppressRowTapOnce = true;
-
     final cb = widget.onConnectLayer;
     if (cb == null) return;
-
     cb(layerId);
   }
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF3F3F3),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const ListTile(
-              leading: Icon(Icons.layers),
-              title: Text(
-                'Camadas do mapa',
-                style: TextStyle(fontWeight: FontWeight.w600),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(14, 12, 14, 6),
+              child: Text(
+                'Camadas',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
               ),
             ),
+            _buildTopToolbar(),
             const Divider(height: 1),
             Expanded(
               child: ListView(
-                children: _buildLayerList(
+                padding: EdgeInsets.zero,
+                children: _buildTreeArea(
                   context,
                   widget.layers,
                   depth: 0,
+                  parentId: null,
                 ),
               ),
             ),
@@ -203,37 +196,246 @@ class _LayersDrawerState extends State<LayersDrawer> {
     );
   }
 
-  List<Widget> _buildLayerList(
+  Widget _buildTopToolbar() {
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _toolbarIconButton(
+            icon: Icons.add,
+            tooltip: 'Criar camada',
+            onTap: () {},
+          ),
+          _toolbarIconButton(
+            icon: Icons.remove_circle,
+            tooltip: 'Remover camada',
+            onTap: () {},
+          ),
+          _toolbarIconButton(
+            icon: Icons.create_new_folder,
+            tooltip: 'Criar grupo',
+            onTap: () {
+              final id = _selectedId;
+              if (id == null) return;
+              widget.onCreateGroup?.call(id);
+            },
+          ),
+          _toolbarIconButton(
+            icon: Icons.drive_file_rename_outline,
+            tooltip: 'Renomear',
+            onTap: () {
+              final id = _selectedId;
+              if (id == null) return;
+              widget.onRenameSelected?.call(id);
+            },
+          ),
+          _toolbarIconButton(
+            icon: Icons.visibility_outlined,
+            tooltip: 'Visibilidade',
+            onTap: () {},
+          ),
+          _toolbarIconButton(
+            icon: Icons.arrow_downward_outlined,
+            tooltip: 'Mover para baixo',
+            onTap: () {
+              final id = _selectedId;
+              if (id == null) return;
+              widget.onMoveDown?.call(id);
+            },
+          ),
+          _toolbarIconButton(
+            icon: Icons.arrow_upward_outlined,
+            tooltip: 'Mover para cima',
+            onTap: () {
+              final id = _selectedId;
+              if (id == null) return;
+              widget.onMoveUp?.call(id);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toolbarIconButton({
+    required IconData icon,
+    required String tooltip,
+    VoidCallback? onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Icon(
+              icon,
+              size: 18,
+              color: Colors.grey.shade800,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildTreeArea(
       BuildContext context,
       List<LayersGeo> entries, {
         required int depth,
+        required String? parentId,
       }) {
     final widgets = <Widget>[];
 
-    for (final entry in entries) {
-      if (entry.isGroup) {
-        final isExpanded = _expandedGroupIds.contains(entry.id);
-        widgets.add(_buildGroupRow(context, entry, depth, isExpanded));
+    for (int i = 0; i <= entries.length; i++) {
+      widgets.add(
+        _buildInsertTarget(
+          parentId: parentId,
+          targetIndex: i,
+          depth: depth,
+        ),
+      );
 
-        if (isExpanded && entry.children.isNotEmpty) {
-          widgets.addAll(
-            _buildLayerList(context, entry.children, depth: depth + 1),
-          );
-        }
-      } else {
-        widgets.add(_buildLayerRow(context, entry, depth));
+      if (i == entries.length) continue;
+
+      final entry = entries[i];
+      widgets.add(_buildDraggableNode(context, entry, depth));
+
+      if (entry.isGroup && _expandedGroupIds.contains(entry.id)) {
+        widgets.addAll(
+          _buildTreeArea(
+            context,
+            entry.children,
+            depth: depth + 1,
+            parentId: entry.id,
+          ),
+        );
       }
     }
 
     return widgets;
   }
 
+  Widget _buildInsertTarget({
+    required String? parentId,
+    required int targetIndex,
+    required int depth,
+  }) {
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) => details.data.trim().isNotEmpty,
+      onAcceptWithDetails: (details) {
+        widget.onDropItem?.call(details.data, parentId, targetIndex);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: isHovering ? 8 : 4,
+          margin: EdgeInsets.only(
+            left: 22 + (depth * 16.0),
+            right: 12,
+          ),
+          decoration: BoxDecoration(
+            color: isHovering ? Colors.blue.withValues(alpha: 0.18) : Colors.transparent,
+            border: Border(
+              top: BorderSide(
+                color: isHovering ? Colors.blue : Colors.transparent,
+                width: isHovering ? 2 : 1,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDraggableNode(
+      BuildContext context,
+      LayersGeo entry,
+      int depth,
+      ) {
+    final row = _buildNodeRow(context, entry, depth);
+
+    return LongPressDraggable<String>(
+      data: entry.id,
+      onDragStarted: () => _selectItem(entry.id),
+      feedback: Material(
+        color: Colors.transparent,
+        elevation: 8,
+        child: Opacity(
+          opacity: 0.92,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.shade700,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                entry.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.35,
+        child: row,
+      ),
+      child: row,
+    );
+  }
+
+  Widget _buildNodeRow(
+      BuildContext context,
+      LayersGeo entry,
+      int depth,
+      ) {
+    if (entry.isGroup) {
+      return DragTarget<String>(
+        onWillAcceptWithDetails: (details) => details.data != entry.id,
+        onAcceptWithDetails: (details) {
+          widget.onDropItem?.call(
+            details.data,
+            entry.id,
+            entry.children.length,
+          );
+        },
+        builder: (context, candidateData, rejectedData) {
+          final hoveringInside = candidateData.isNotEmpty;
+          return _buildGroupRow(
+            context,
+            entry,
+            depth,
+            _expandedGroupIds.contains(entry.id),
+            hoveringInside: hoveringInside,
+          );
+        },
+      );
+    }
+
+    return _buildLayerRow(context, entry, depth);
+  }
+
   Widget _buildGroupRow(
       BuildContext context,
       LayersGeo group,
       int depth,
-      bool isExpanded,
-      ) {
+      bool isExpanded, {
+        bool hoveringInside = false,
+      }) {
     final isSelected = _selectedId == group.id;
 
     final allChildrenActive = _areAllChildrenActive(group);
@@ -242,10 +444,14 @@ class _LayersDrawerState extends State<LayersDrawer> {
     final bool? checkboxValue =
     allChildrenActive ? true : (anyChildActive ? null : false);
 
-    final bgColor = isSelected ? const Color(0xFF1976D2) : Colors.transparent;
+    final bgColor = hoveringInside
+        ? const Color(0xFFB3E5FC)
+        : isSelected
+        ? const Color(0xFF1976D2)
+        : Colors.transparent;
+
     final textColor = isSelected ? Colors.white : Colors.black87;
     final iconColor = isSelected ? Colors.white : Colors.grey.shade800;
-
     final primaryCheckboxColor = Theme.of(context).colorScheme.primary;
 
     return InkWell(
@@ -259,15 +465,19 @@ class _LayersDrawerState extends State<LayersDrawer> {
         ),
         child: Row(
           children: [
-            const SizedBox(width: 40),
-
+            const SizedBox(width: 14),
+            Icon(
+              isExpanded ? Icons.expand_more : Icons.chevron_right,
+              size: 18,
+              color: iconColor,
+            ),
             SizedBox(
               width: 24,
               height: 24,
               child: Checkbox(
                 value: checkboxValue,
                 tristate: true,
-                onChanged: (v) {
+                onChanged: (_) {
                   final shouldEnable = !allChildrenActive;
                   final leaves = _flattenLeaves(group);
                   for (final leaf in leaves) {
@@ -278,12 +488,9 @@ class _LayersDrawerState extends State<LayersDrawer> {
                 visualDensity: VisualDensity.compact,
               ),
             ),
-
             const SizedBox(width: 4),
-
             Icon(group.icon, size: 18, color: iconColor),
             const SizedBox(width: 8),
-
             Expanded(
               child: Text(
                 group.title,
@@ -293,14 +500,13 @@ class _LayersDrawerState extends State<LayersDrawer> {
                 ),
               ),
             ),
-
             IconButton(
               iconSize: 18,
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
               onPressed: () => _toggleGroupExpand(group.id),
               icon: Icon(
-                isExpanded ? Icons.expand_more : Icons.chevron_right,
+                isExpanded ? Icons.keyboard_arrow_down : Icons.chevron_right,
                 color: iconColor,
               ),
             ),
@@ -327,15 +533,13 @@ class _LayersDrawerState extends State<LayersDrawer> {
     final canConnect = _supportsConnect(layer.id);
     final hasDb = _hasDb(layer.id);
 
-    // ✅ cor do ícone de ação
     final actionIconColor =
     isSelected ? Colors.white : (hasDb ? Colors.blue : Colors.grey.shade300);
 
     final primaryCheckboxColor = Theme.of(context).colorScheme.primary;
-
-    // ✅ Ícone: tabela quando tem dados, corrente quando não tem
     final actionIcon = hasDb ? Icons.table_view : Icons.link;
-    final tooltip = hasDb ? 'Abrir tabela de atributos' : 'Conectar / Importar dados';
+    final tooltip =
+    hasDb ? 'Abrir tabela de atributos' : 'Conectar / Importar dados';
 
     return InkWell(
       onTap: () => _handleRowTapSelect(layer.id),
@@ -348,8 +552,8 @@ class _LayersDrawerState extends State<LayersDrawer> {
         ),
         child: Row(
           children: [
-            const SizedBox(width: 40),
-
+            const SizedBox(width: 14),
+            const SizedBox(width: 18),
             SizedBox(
               width: 24,
               height: 24,
@@ -360,19 +564,15 @@ class _LayersDrawerState extends State<LayersDrawer> {
                 visualDensity: VisualDensity.compact,
               ),
             ),
-
             const SizedBox(width: 4),
-
             Icon(layer.icon, size: 18, color: iconColor),
             const SizedBox(width: 8),
-
             Expanded(
               child: Text(
                 layer.title,
                 style: TextStyle(color: textColor),
               ),
             ),
-
             if (canConnect)
               Tooltip(
                 message: tooltip,

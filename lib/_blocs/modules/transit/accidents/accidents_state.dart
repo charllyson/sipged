@@ -1,7 +1,8 @@
+// lib/_blocs/modules/transit/accidents/accidents_state.dart
 import 'package:equatable/equatable.dart';
 
 import 'accidents_data.dart';
-import 'accidents_repository.dart'; // para AddressSuggestion
+import 'accidents_repository.dart'; // AddressSuggestion
 
 class AccidentsState extends Equatable {
   final bool initialized;
@@ -12,8 +13,8 @@ class AccidentsState extends Equatable {
   final int? year;
   final int? month;
   final String? city;
-  final String? type;      // ✅ novo
-  final String? severity;  // ✅ novo
+  final String? type;
+  final String? severity;
 
   // Universo / visões
   final List<AccidentsData> universe;
@@ -35,6 +36,9 @@ class AccidentsState extends Equatable {
   final String? error;
   final String? success;
 
+  // ✅ Link público (último gerado)
+  final String? lastPublicReportUrl;
+
   // Localização
   final bool gettingLocation;
   final AddressSuggestion? locationSuggestion;
@@ -47,8 +51,8 @@ class AccidentsState extends Equatable {
     this.year,
     this.month,
     this.city,
-    this.type,      // ✅
-    this.severity,  // ✅
+    this.type,
+    this.severity,
     this.universe = const [],
     this.all = const [],
     this.view = const [],
@@ -61,6 +65,7 @@ class AccidentsState extends Equatable {
     this.resumeByType = const {},
     this.error,
     this.success,
+    this.lastPublicReportUrl,
     this.gettingLocation = false,
     this.locationSuggestion,
     this.locationError,
@@ -80,10 +85,10 @@ class AccidentsState extends Equatable {
     int? month,
     bool setCityNull = false,
     String? city,
-    bool setTypeNull = false,      // ✅
-    String? type,                  // ✅
-    bool setSeverityNull = false,  // ✅
-    String? severity,              // ✅
+    bool setTypeNull = false,
+    String? type,
+    bool setSeverityNull = false,
+    String? severity,
 
     // Listas
     List<AccidentsData>? universe,
@@ -105,6 +110,10 @@ class AccidentsState extends Equatable {
     String? error,
     String? success,
 
+    // ✅ Link público
+    String? lastPublicReportUrl,
+    bool clearLastPublicReportUrl = false,
+
     // Localização
     bool? gettingLocation,
     AddressSuggestion? locationSuggestion,
@@ -120,8 +129,8 @@ class AccidentsState extends Equatable {
       year: setYearNull ? null : (year ?? this.year),
       month: setMonthNull ? null : (month ?? this.month),
       city: setCityNull ? null : (city ?? this.city),
-      type: setTypeNull ? null : (type ?? this.type),               // ✅
-      severity: setSeverityNull ? null : (severity ?? this.severity), // ✅
+      type: setTypeNull ? null : (type ?? this.type),
+      severity: setSeverityNull ? null : (severity ?? this.severity),
 
       universe: universe ?? this.universe,
       all: all ?? this.all,
@@ -139,9 +148,16 @@ class AccidentsState extends Equatable {
       error: error,
       success: success,
 
+      lastPublicReportUrl: clearLastPublicReportUrl
+          ? null
+          : (lastPublicReportUrl ?? this.lastPublicReportUrl),
+
       gettingLocation: gettingLocation ?? this.gettingLocation,
-      locationSuggestion: clearLocationSuggestion ? null : (locationSuggestion ?? this.locationSuggestion),
-      locationError: clearLocationError ? null : (locationError ?? this.locationError),
+      locationSuggestion: clearLocationSuggestion
+          ? null
+          : (locationSuggestion ?? this.locationSuggestion),
+      locationError:
+      clearLocationError ? null : (locationError ?? this.locationError),
     );
   }
 
@@ -153,8 +169,8 @@ class AccidentsState extends Equatable {
     year,
     month,
     city,
-    type,      // ✅
-    severity,  // ✅
+    type,
+    severity,
     universe,
     all,
     view,
@@ -167,6 +183,7 @@ class AccidentsState extends Equatable {
     resumeByType,
     error,
     success,
+    lastPublicReportUrl,
     gettingLocation,
     locationSuggestion,
     locationError,

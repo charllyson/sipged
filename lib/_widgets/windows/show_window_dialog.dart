@@ -88,7 +88,7 @@ Future<String?> askLabelDialog(BuildContext ctx, String suggestion) async {
 
   return showWindowDialog<String>(
     context: ctx,
-    title: 'Rótulo do arquivo',
+    title: 'Rótulo',
     width: 480,
     usePointerInterceptor: true,
     child: Builder(
@@ -101,7 +101,7 @@ Future<String?> askLabelDialog(BuildContext ctx, String suggestion) async {
             children: [
               CustomTextField(
                 controller: ctrl,
-                labelText: 'Rótulo do arquivo',
+                labelText: 'Rótulo',
                 onSubmitted: (v) => Navigator.of(dialogCtx).pop(v.trim()),
               ),
               const SizedBox(height: 18),
@@ -133,31 +133,35 @@ Future<void> confirmarExclusao<T>({
     width: 420,
     barrierDismissible: true,
     usePointerInterceptor: true,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Deseja realmente excluir este item?',
-            style: TextStyle(fontSize: 14),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+    child: Builder(
+      builder: (dialogCtx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                ),
-                child: const Text('Excluir'),
+              const Text(
+                'Deseja realmente excluir este item?',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FilledButton(
+                    onPressed: () => Navigator.of(dialogCtx).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                    ),
+                    child: const Text('Excluir'),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     ),
   );
 

@@ -1,4 +1,4 @@
-// lib/screens/modules/traffic/accidents/accidents_table_section.dart
+// lib/screens/modules/traffic/accidents/records/accidents_table_section.dart
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
@@ -8,7 +8,12 @@ class AccidentsTableSection extends StatelessWidget {
   final AccidentsData? selectedItem;
   final void Function(AccidentsData item) onTapItem;
   final void Function(String id) onDelete;
+
   final void Function(AccidentsData item) onPrint;
+
+  // ✅ novo: gerar/mostrar QR/link público
+  final void Function(AccidentsData item) onPublicLink;
+
   final int currentPage;
   final int totalPages;
   final Future<void> Function(int page) onPageChange;
@@ -23,6 +28,7 @@ class AccidentsTableSection extends StatelessWidget {
     required this.totalPages,
     required this.onPageChange,
     required this.onPrint,
+    required this.onPublicLink,
   });
 
   @override
@@ -42,10 +48,24 @@ class AccidentsTableSection extends StatelessWidget {
       onPageChange: onPageChange,
       columns: [
         PagedColumnSpec<AccidentsData>(
+          title: 'QR',
+          maxWidth: 56,
+          cellBuilder: (d) => IconButton(
+            tooltip: d.publicReportIsValid
+                ? 'Boletim público (válido)'
+                : 'Gerar/abrir boletim público',
+            icon: Icon(
+              Icons.qr_code,
+              color: d.publicReportIsValid ? Colors.green : Colors.blueGrey,
+            ),
+            onPressed: () => onPublicLink(d),
+          ),
+        ),
+        PagedColumnSpec<AccidentsData>(
           title: 'IMPR.',
           maxWidth: 72,
           cellBuilder: (d) => IconButton(
-            tooltip: 'Imprimir etiqueta',
+            tooltip: 'Imprimir print',
             icon: const Icon(Icons.confirmation_num),
             onPressed: () => onPrint(d),
           ),
