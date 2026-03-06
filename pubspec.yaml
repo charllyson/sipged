@@ -36,6 +36,9 @@ dependencies:
   # Persistência local / Preferências
   # =========================
   shared_preferences: ^2.5.3 # Chave/valor local (configs, flags)
+  flutter_blue_plus: ^1.31.16
+  flutter_web_bluetooth: ^1.1.0
+  qr_flutter: ^4.1.0
 
   # =========================
   # Rede / APIs / Parsing
@@ -138,4 +141,5 @@ flutter:
   assets:
     - assets/images/default_avatar.png
     - assets/logos/sipged/sipged.png
+    - assets/logos/sipged/sipged-mono.png
     - .env

@@ -9,18 +9,16 @@ const {
     telemetricFluviometricStations,
 } = require('./src/http/telemetric_stations');
 
-const {
-    telemetricStationSeries,
-} = require('./src/http/telemetric_station_series');
-
-const {
-    pluviometricStationSeries,
-} = require('./src/http/pluviometric_station_series');
+const { telemetricStationSeries } = require('./src/http/telemetric_station_series');
+const { pluviometricStationSeries } = require('./src/http/pluviometric_station_series');
 const { derDotacoesOrcamentarias } = require('./src/http/al_der_dotacoes');
-// functions/index.js
-const { ibgeProxy } = require('./src/http/ibge_proxy');
-exports.ibgeProxy = ibgeProxy;
 
+const { ibgeProxy } = require('./src/http/ibge_proxy');
+
+// ✅ NOVO: PDF público por token
+const { publicAccidentPdf } = require('./src/http/public_accident_pdf');
+
+exports.ibgeProxy = ibgeProxy;
 exports.derDotacoesOrcamentarias = derDotacoesOrcamentarias;
 
 exports.iaChat = iaChat;
@@ -29,6 +27,10 @@ exports.onContractCreate = onContractCreate;
 
 exports.telemetricStations = telemetricStations;
 exports.telemetricPluviometricStations = telemetricPluviometricStations;
-exports.telemetricFluviometricStations = telemetricFluviometricStations;
+exports.telemetricFluviometricStations = telemetricFluviometricFluviometricStations = telemetricFluviometricStations;
+
 exports.telemetricStationSeries = telemetricStationSeries;
 exports.pluviometricStationSeries = pluviometricStationSeries;
+
+// ✅ Export da função do PDF público
+exports.publicAccidentPdf = publicAccidentPdf;
