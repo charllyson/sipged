@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart' as archive;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:extended_image/extended_image.dart' as VectorImportFileReader;
+import 'package:extended_image/extended_image.dart' as vectorImportFileReader;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latlong2/latlong.dart';
@@ -20,63 +20,68 @@ class AttributesTableRepository {
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance;
 
-  // ===========================================================================
-  // PICK + PARSE (GeoJSON/KML/KMZ)
-  // ===========================================================================
   Future<List<Map<String, dynamic>>> pickAndParseRawFeatures() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['geojson', 'json', 'kml', 'kmz'],
-      withData: true, // ✅ essencial no Web
+      withData: true,
     );
 
     if (result == null) {
-      throw Exception('Importação cancelada pelo usuário');
+      throw Exception('Importação cancelada pelo usuário.');
     }
 
     final file = result.files.first;
     final ext = (file.extension ?? '').toLowerCase();
 
     final bytes = file.bytes ??
-        await VectorImportFileReader.readBytes(
+        await vectorImportFileReader.readBytes(
           Uri.file(file.path!),
         );
 
     if (ext == 'geojson' || ext == 'json') {
       return _featuresFromGeoJsonBytes(bytes);
-    } else if (ext == 'kml' || ext == 'kmz') {
-      return _featuresFromKmlOrKmzBytes(bytes, file.name);
-    } else {
-      throw Exception('Formato não suportado: .$ext');
     }
+
+    if (ext == 'kml' || ext == 'kmz') {
+      return _featuresFromKmlOrKmzBytes(bytes, file.name);
+    }
+
+    throw Exception('Formato não suportado: .$ext');
   }
 
-  // ===========================================================================
-  // RAW -> ImportedFeatureData + columns (modo arquivo)
-  // ===========================================================================
   (List<AttributesTableData>, List<ImportColumnMeta>) buildImportedFeatures(
       List<Map<String, dynamic>> rawFeatures,
       ) {
     if (rawFeatures.isEmpty) return (const [], const []);
 
-    // 1) Descobrir todas as colunas
     final keys = <String>{};
+    final inferredTypes = <String, TypeFieldGeoJson>{};
+
     for (final feat in rawFeatures) {
       final props = Map<String, dynamic>.from(feat['properties'] ?? {});
       keys.addAll(props.keys);
+
+      props.forEach((key, value) {
+        inferredTypes[key] = _mergeInferredType(
+          inferredTypes[key],
+          _inferFieldType(value),
+        );
+      });
     }
 
     final sortedKeys = keys.toList()..sort();
 
     final columns = sortedKeys
-        .map((name) => ImportColumnMeta(
-      name: name,
-      selected: true,
-      type: TypeFieldGeoJson.string,
-    ))
+        .map(
+          (name) => ImportColumnMeta(
+        name: name,
+        selected: true,
+        type: inferredTypes[name] ?? TypeFieldGeoJson.string,
+      ),
+    )
         .toList(growable: false);
 
-    // 2) Montar features com geometria (flatten + segmentos)
     final features = <AttributesTableData>[];
 
     for (final feat in rawFeatures) {
@@ -85,13 +90,9 @@ class AttributesTableRepository {
       final geometryType = (geometry['type'] ?? 'LineString').toString();
       final coords = geometry['coordinates'];
 
-      // ✅ Segmentos como List<List<LatLng>> (sempre)
       final partsLatLng = _convertToLatLngParts(geometryType, coords);
-
-      // Filtra segmentos inválidos
       final cleanPartsLatLng = partsLatLng.where((s) => s.length >= 2).toList(growable: false);
 
-      // Flatten
       final flatLatLng = <LatLng>[];
       for (final seg in cleanPartsLatLng) {
         flatLatLng.addAll(seg);
@@ -102,10 +103,16 @@ class AttributesTableRepository {
           .toList(growable: false);
 
       final geoParts = cleanPartsLatLng
-          .map((seg) => seg.map((p) => GeoPoint(p.latitude, p.longitude)).toList(growable: false))
+          .map(
+            (seg) => seg
+            .map((p) => GeoPoint(p.latitude, p.longitude))
+            .toList(growable: false),
+      )
           .toList(growable: false);
 
-      final colTypes = {for (final c in columns) c.name: c.type};
+      final colTypes = {
+        for (final c in columns) c.name: c.type,
+      };
 
       final edited = <String, dynamic>{};
       for (final k in sortedKeys) {
@@ -131,25 +138,23 @@ class AttributesTableRepository {
     return (features, columns);
   }
 
-  // ===========================================================================
-  // FIRESTORE -> ImportedFeatureData + columns (modo firestore)
-  // ===========================================================================
-  Future<(List<AttributesTableData>, List<ImportColumnMeta>)> loadFromFirestoreAsImportedFeatures({
+  Future<(List<AttributesTableData>, List<ImportColumnMeta>)>
+  loadFromFirestoreAsImportedFeatures({
     required String collectionPath,
     int limit = 2000,
     String geometryFieldName = 'points',
-    String partsFieldName = 'parts', // ✅ novo campo seguro (sem nested arrays)
+    String partsFieldName = 'parts',
     String orderByField = 'createdAt',
     bool orderDescending = true,
   }) async {
     Query<Map<String, dynamic>> q = _firestore.collection(collectionPath);
 
     Future<QuerySnapshot<Map<String, dynamic>>> tryGet(bool withOrder) async {
-      Query<Map<String, dynamic>> qq = q;
+      Query<Map<String, dynamic>> query = q;
       if (withOrder) {
-        qq = qq.orderBy(orderByField, descending: orderDescending);
+        query = query.orderBy(orderByField, descending: orderDescending);
       }
-      return qq.limit(limit).get();
+      return query.limit(limit).get();
     }
 
     QuerySnapshot<Map<String, dynamic>> snap;
@@ -164,43 +169,55 @@ class AttributesTableRepository {
       return (<AttributesTableData>[], <ImportColumnMeta>[]);
     }
 
-    // 1) Monta colunas (exceto geometria)
     final keys = <String>{};
+    final inferredTypes = <String, TypeFieldGeoJson>{};
     bool hasGeometry = false;
 
     for (final d in docs) {
       final data = d.data();
-      for (final k in data.keys) {
+
+      for (final entry in data.entries) {
+        final k = entry.key;
+        final v = entry.value;
+
         if (k == geometryFieldName || k == partsFieldName) {
-          // detecta presença de geometria
-          final v = data[k];
-          if (v is List && v.isNotEmpty) hasGeometry = true;
+          if (v is List && v.isNotEmpty) {
+            hasGeometry = true;
+          }
           continue;
         }
+
         keys.add(k);
+        inferredTypes[k] = _mergeInferredType(
+          inferredTypes[k],
+          _inferFieldType(v),
+        );
       }
     }
 
     final sortedKeys = keys.toList()..sort();
 
     final columns = sortedKeys
-        .map((name) => ImportColumnMeta(name: name, selected: true, type: TypeFieldGeoJson.string))
+        .map(
+          (name) => ImportColumnMeta(
+        name: name,
+        selected: true,
+        type: inferredTypes[name] ?? TypeFieldGeoJson.string,
+      ),
+    )
         .toList(growable: false);
 
-    // 2) Features
     final features = <AttributesTableData>[];
 
     for (final d in docs) {
       final data = Map<String, dynamic>.from(d.data());
       final docId = d.id;
 
-      // ✅ parts: List<Map>{ pts: List<GeoPoint> }
       final geoParts = <List<GeoPoint>>[];
       final rawParts = data[partsFieldName];
 
       if (rawParts is List) {
         for (final item in rawParts) {
-          // Novo formato: { pts: [...] }
           if (item is Map) {
             final ptsRaw = item['pts'];
             if (ptsRaw is List) {
@@ -213,7 +230,6 @@ class AttributesTableRepository {
             continue;
           }
 
-          // Fallback (caso algum dia venha como lista direta)
           if (item is List) {
             final pts = <GeoPoint>[];
             for (final p in item) {
@@ -224,7 +240,6 @@ class AttributesTableRepository {
         }
       }
 
-      // ✅ points flatten
       final geoPoints = <GeoPoint>[];
       final rawGeom = data[geometryFieldName];
       if (rawGeom is List) {
@@ -233,7 +248,6 @@ class AttributesTableRepository {
         }
       }
 
-      // Se points não existe/está vazio e parts existe, reconstrói flatten
       final geoPointsFlat = geoPoints.isNotEmpty
           ? geoPoints
           : <GeoPoint>[
@@ -247,7 +261,9 @@ class AttributesTableRepository {
         edited[k] = data[k];
       }
 
-      final colTypes = {for (final c in columns) c.name: c.type};
+      final colTypes = {
+        for (final c in columns) c.name: c.type,
+      };
 
       features.add(
         AttributesTableData(
@@ -268,20 +284,17 @@ class AttributesTableRepository {
     return (features, columns);
   }
 
-  // ===========================================================================
-  // SAVE (modo import)
-  // ===========================================================================
   Future<void> saveToCollection({
     required String collectionPath,
     required List<AttributesTableData> features,
     required void Function(double progress) onProgress,
     String geometryTypeField = 'geometryType',
-    String partsFieldName = 'parts', // ✅ novo campo seguro
+    String partsFieldName = 'parts',
   }) async {
     final uid = _auth.currentUser?.uid ?? '';
     final col = _firestore.collection(collectionPath);
 
-    final selecionadas = features.where((f) => f.selected == true).toList(growable: false);
+    final selecionadas = features.where((f) => f.selected).toList(growable: false);
     final total = selecionadas.length;
     if (total == 0) return;
 
@@ -307,12 +320,10 @@ class AttributesTableRepository {
         data['updatedBy'] = uid;
         data[geometryTypeField] = feat.geometryType;
 
-        // ✅ points flatten (permitido)
         if (feat.saveGeometry && feat.geometryPoints.isNotEmpty) {
           data[feat.geometryFieldName] = feat.geometryPoints;
         }
 
-        // ✅ parts sem nested arrays: List<Map>{pts: List<GeoPoint>}
         if (feat.saveGeometry && feat.geometryParts.isNotEmpty) {
           data[partsFieldName] = feat.geometryParts
               .where((seg) => seg.isNotEmpty)
@@ -326,15 +337,10 @@ class AttributesTableRepository {
       await batch.commit();
 
       written += chunk.length;
-
-      final p = written / total;
-      onProgress(p.clamp(0.0, 1.0));
+      onProgress((written / total).clamp(0.0, 1.0));
     }
   }
 
-  // ===========================================================================
-  // DELETE (modo firestore)
-  // ===========================================================================
   Future<void> deleteDocs({
     required String collectionPath,
     required List<String> docIds,
@@ -361,15 +367,10 @@ class AttributesTableRepository {
       await batch.commit();
 
       deleted += chunk.length;
-
-      final p = deleted / docIds.length;
-      onProgress(p.clamp(0.0, 1.0));
+      onProgress((deleted / docIds.length).clamp(0.0, 1.0));
     }
   }
 
-  // ===========================================================================
-  // Helpers privados (parsers)
-  // ===========================================================================
   List<Map<String, dynamic>> _featuresFromGeoJsonBytes(List<int> bytes) {
     final Map<String, dynamic> geoJson = json.decode(utf8.decode(bytes));
     final type = geoJson['type'];
@@ -378,9 +379,11 @@ class AttributesTableRepository {
       final feats = (geoJson['features'] as List?) ?? const [];
       return feats.whereType<Map<String, dynamic>>().toList();
     }
+
     if (type == 'Feature') {
       return [geoJson.cast<String, dynamic>()];
     }
+
     if (type == 'LineString' || type == 'MultiLineString') {
       return [
         {
@@ -390,6 +393,7 @@ class AttributesTableRepository {
         }
       ];
     }
+
     return const <Map<String, dynamic>>[];
   }
 
@@ -401,7 +405,7 @@ class AttributesTableRepository {
         final zip = archive.ZipDecoder().decodeBytes(bytes);
         final entry = zip.firstWhere(
               (e) => e.name.toLowerCase().endsWith('.kml'),
-          orElse: () => throw Exception('KMZ sem .kml interno.'),
+          orElse: () => throw Exception('KMZ sem arquivo .kml interno.'),
         );
         final data = entry.content as List<int>;
         kmlText = utf8.decode(data, allowMalformed: true);
@@ -417,7 +421,6 @@ class AttributesTableRepository {
 
   List<Map<String, dynamic>> _featuresFromKmlText(String kmlText) {
     final kmlDoc = xml.XmlDocument.parse(kmlText);
-
     final placemarks = kmlDoc.findAllElements('Placemark');
     final feats = <Map<String, dynamic>>[];
 
@@ -460,7 +463,7 @@ class AttributesTableRepository {
 
       if (lineStrings.isEmpty) continue;
 
-      final geometry = (lineStrings.length == 1)
+      final geometry = lineStrings.length == 1
           ? {'type': 'LineString', 'coordinates': lineStrings.first}
           : {'type': 'MultiLineString', 'coordinates': lineStrings};
 
@@ -493,38 +496,88 @@ class AttributesTableRepository {
     return coords;
   }
 
-  // ===========================================================================
-  // ✅ Geometria: converte coords em SEMPRE "parts" (segmentos)
-  // ===========================================================================
   List<List<LatLng>> _convertToLatLngParts(String type, dynamic coords) {
     final parts = <List<LatLng>>[];
 
     if (coords is! List || coords.isEmpty) return parts;
 
-    // MultiLineString: coords = [ [ [lon,lat], ... ], [ [lon,lat], ... ] ]
     if (type == 'MultiLineString') {
       for (final sub in coords) {
         if (sub is! List) continue;
+
         final seg = <LatLng>[];
         for (final p in sub) {
           if (p is List && p.length >= 2) {
-            seg.add(LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()));
+            seg.add(
+              LatLng(
+                (p[1] as num).toDouble(),
+                (p[0] as num).toDouble(),
+              ),
+            );
           }
         }
+
         if (seg.length >= 2) parts.add(seg);
       }
       return parts;
     }
 
-    // LineString: coords = [ [lon,lat], [lon,lat], ... ]
     final seg = <LatLng>[];
     for (final p in coords) {
       if (p is List && p.length >= 2) {
-        seg.add(LatLng((p[1] as num).toDouble(), (p[0] as num).toDouble()));
+        seg.add(
+          LatLng(
+            (p[1] as num).toDouble(),
+            (p[0] as num).toDouble(),
+          ),
+        );
       }
     }
-    if (seg.length >= 2) parts.add(seg);
 
+    if (seg.length >= 2) parts.add(seg);
     return parts;
+  }
+
+  TypeFieldGeoJson _inferFieldType(dynamic value) {
+    if (value == null) return TypeFieldGeoJson.string;
+    if (value is bool) return TypeFieldGeoJson.boolean;
+    if (value is int) return TypeFieldGeoJson.integer;
+    if (value is double || value is num) return TypeFieldGeoJson.double_;
+    if (value is DateTime || value is Timestamp) return TypeFieldGeoJson.datetime;
+
+    if (value is String) {
+      final v = value.trim();
+      if (v.isEmpty) return TypeFieldGeoJson.string;
+
+      final lower = v.toLowerCase();
+      if (lower == 'true' ||
+          lower == 'false' ||
+          lower == 'sim' ||
+          lower == 'não' ||
+          lower == 'nao') {
+        return TypeFieldGeoJson.boolean;
+      }
+
+      if (int.tryParse(v) != null) return TypeFieldGeoJson.integer;
+      if (double.tryParse(v.replaceAll(',', '.')) != null) return TypeFieldGeoJson.double_;
+      if (DateTime.tryParse(v) != null) return TypeFieldGeoJson.datetime;
+    }
+
+    return TypeFieldGeoJson.string;
+  }
+
+  TypeFieldGeoJson _mergeInferredType(
+      TypeFieldGeoJson? current,
+      TypeFieldGeoJson next,
+      ) {
+    if (current == null) return next;
+    if (current == next) return current;
+
+    if ((current == TypeFieldGeoJson.integer && next == TypeFieldGeoJson.double_) ||
+        (current == TypeFieldGeoJson.double_ && next == TypeFieldGeoJson.integer)) {
+      return TypeFieldGeoJson.double_;
+    }
+
+    return TypeFieldGeoJson.string;
   }
 }

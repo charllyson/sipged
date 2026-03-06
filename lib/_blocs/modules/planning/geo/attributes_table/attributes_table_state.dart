@@ -1,4 +1,3 @@
-// lib/_services/files/geoJson/attributes_table_state.dart
 import 'package:equatable/equatable.dart';
 import 'attributes_table_data.dart';
 
@@ -16,15 +15,10 @@ enum AttributesTableStatus {
 class VectorImportState extends Equatable {
   final AttributesTableStatus status;
   final String? error;
-
   final String? collectionPath;
-
   final List<AttributesTableData> features;
   final List<ImportColumnMeta> columns;
-
-  /// 0.0 .. 1.0
   final double progress;
-
   final Map<String, String> fieldMapping;
 
   const VectorImportState({
@@ -55,11 +49,11 @@ class VectorImportState extends Equatable {
     List<ImportColumnMeta>? columns,
     double? progress,
     Map<String, String>? fieldMapping,
+    bool clearError = false,
   }) {
     return VectorImportState(
       status: status ?? this.status,
-      // ✅ preserva erro anterior quando não informado
-      error: error ?? this.error,
+      error: clearError ? null : (error ?? this.error),
       collectionPath: collectionPath ?? this.collectionPath,
       features: features ?? this.features,
       columns: columns ?? this.columns,
@@ -74,7 +68,7 @@ class VectorImportState extends Equatable {
           status == AttributesTableStatus.saving ||
           status == AttributesTableStatus.deleting;
 
-  bool get hasAnySelected => features.any((f) => f.selected == true);
+  bool get hasAnySelected => features.any((f) => f.selected);
 
   @override
   List<Object?> get props => [

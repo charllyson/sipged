@@ -1,14 +1,9 @@
-// lib/screens/modules/planning/geo/layer/layer_db_status_cubit.dart
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class LayerDbStatusState {
-  /// layerId -> hasData
   final Map<String, bool> hasDbByLayer;
-
-  /// UF atual (opcional)
   final String? uf;
-
   final bool isLoading;
   final String? error;
 
@@ -39,32 +34,14 @@ typedef LayerHasDataFn = Future<bool> Function(String uf);
 
 class LayerDbStatusCubit extends Cubit<LayerDbStatusState> {
   LayerDbStatusCubit({
-    required this.roadsFederalHasData,
-    required this.roadsStateHasData,
-    required this.roadsMunicipalHasData,
-    required this.railwaysHasData,
-    required this.energyPlantsHasData, // ✅ NOVO
-  }) : super(const LayerDbStatusState());
+    required Map<String, LayerHasDataFn> resolvers,
+  })  : _resolvers = Map<String, LayerHasDataFn>.from(resolvers),
+        super(const LayerDbStatusState());
 
-  final LayerHasDataFn roadsFederalHasData;
-  final LayerHasDataFn roadsStateHasData;
-  final LayerHasDataFn roadsMunicipalHasData;
-  final LayerHasDataFn railwaysHasData;
-  final LayerHasDataFn energyPlantsHasData;
+  final Map<String, LayerHasDataFn> _resolvers;
 
-  /// Cache: uf -> (layerId -> hasData)
   final Map<String, Map<String, bool>> _cacheByUf = {};
-
-  /// Evita concorrência: uf -> Future em andamento
   final Map<String, Future<void>> _inFlightByUf = {};
-
-  static const String kFederal = 'federal_road';
-  static const String kState = 'state_road';
-  static const String kMunicipal = 'municipal_road';
-  static const String kRailways = 'railways';
-
-  /// ✅ IMPORTANTE: o ID REAL do seu layer no Drawer/Controller é 'units_energy'
-  static const String kEnergyPlants = 'units_energy';
 
   Future<void> refreshAll({
     required String uf,
@@ -89,80 +66,66 @@ class LayerDbStatusCubit extends Cubit<LayerDbStatusState> {
       return;
     }
 
-    emit(state.copyWith(isLoading: true, uf: ufNorm, clearError: true));
+    emit(state.copyWith(
+      uf: ufNorm,
+      isLoading: true,
+      clearError: true,
+    ));
 
-    final f = _doRefreshAll(ufNorm).whenComplete(() {
+    final future = _doRefreshAll(ufNorm).whenComplete(() {
       _inFlightByUf.remove(ufNorm);
     });
 
-    _inFlightByUf[ufNorm] = f;
-    await f;
+    _inFlightByUf[ufNorm] = future;
+    await future;
   }
 
   Future<void> _doRefreshAll(String uf) async {
     try {
-      final results = await Future.wait<bool>([
-        roadsFederalHasData(uf),
-        roadsStateHasData(uf),
-        roadsMunicipalHasData(uf),
-        railwaysHasData(uf),
-        energyPlantsHasData(uf),
-      ]);
+      final entries = _resolvers.entries.toList(growable: false);
 
-      final map = <String, bool>{
-        kFederal: results[0],
-        kState: results[1],
-        kMunicipal: results[2],
-        kRailways: results[3],
-        kEnergyPlants: results[4], // ✅ agora casa com o Drawer (units_energy)
-      };
+      final values = await Future.wait<bool>(
+        entries.map((e) => e.value(uf)),
+      );
 
-      _cacheByUf[uf] = Map<String, bool>.from(map);
+      final result = <String, bool>{};
+      for (int i = 0; i < entries.length; i++) {
+        result[entries[i].key] = values[i];
+      }
+
+      _cacheByUf[uf] = Map<String, bool>.from(result);
 
       emit(state.copyWith(
         uf: uf,
+        hasDbByLayer: result,
         isLoading: false,
-        hasDbByLayer: map,
+        clearError: true,
       ));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
+      emit(state.copyWith(
+        uf: uf,
+        isLoading: false,
+        error: e.toString(),
+      ));
     }
   }
 
   Future<void> refreshLayer({
     required String uf,
     required String layerId,
-    bool force = true,
   }) async {
     final ufNorm = uf.trim().toUpperCase();
+    final resolver = _resolvers[layerId];
+    if (resolver == null) return;
 
     try {
       final current = Map<String, bool>.from(
         _cacheByUf[ufNorm] ?? state.hasDbByLayer,
       );
 
-      bool value;
-      switch (layerId) {
-        case kFederal:
-          value = await roadsFederalHasData(ufNorm);
-          break;
-        case kState:
-          value = await roadsStateHasData(ufNorm);
-          break;
-        case kMunicipal:
-          value = await roadsMunicipalHasData(ufNorm);
-          break;
-        case kRailways:
-          value = await railwaysHasData(ufNorm);
-          break;
-        case kEnergyPlants:
-          value = await energyPlantsHasData(ufNorm);
-          break;
-        default:
-          return;
-      }
-
+      final value = await resolver(ufNorm);
       current[layerId] = value;
+
       _cacheByUf[ufNorm] = Map<String, bool>.from(current);
 
       emit(state.copyWith(
@@ -172,13 +135,26 @@ class LayerDbStatusCubit extends Cubit<LayerDbStatusState> {
         clearError: true,
       ));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
+      emit(state.copyWith(
+        uf: ufNorm,
+        isLoading: false,
+        error: e.toString(),
+      ));
     }
   }
 
   void setHasData(String layerId, bool value) {
     final next = Map<String, bool>.from(state.hasDbByLayer);
     next[layerId] = value;
-    emit(state.copyWith(hasDbByLayer: next));
+
+    final ufNorm = state.uf?.trim().toUpperCase();
+    if (ufNorm != null && ufNorm.isNotEmpty) {
+      _cacheByUf[ufNorm] = Map<String, bool>.from(next);
+    }
+
+    emit(state.copyWith(
+      hasDbByLayer: next,
+      clearError: true,
+    ));
   }
 }

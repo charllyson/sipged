@@ -4,19 +4,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_state.dart';
+import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'package:sipged/_widgets/windows/window_dialog.dart';
 
 enum AttributesTableMode { importFile, firestore }
 
 class AttributesTableDialog extends StatefulWidget {
   final String collectionPath;
-
-  /// Mantido por compatibilidade, mas no modo QGIS não é usado.
   final List<String> targetFields;
-
   final String? title;
   final String? description;
-
   final AttributesTableMode mode;
 
   const AttributesTableDialog({
@@ -34,12 +32,22 @@ class AttributesTableDialog extends StatefulWidget {
 
 class _AttributesTableDialogState extends State<AttributesTableDialog> {
   final TextEditingController _searchCtrl = TextEditingController();
+
   int _rowsPerPage = 25;
   int _pageIndex = 0;
 
   @override
   void initState() {
     super.initState();
+
+    _searchCtrl.addListener(() {
+      if (mounted) {
+        setState(() {
+          _pageIndex = 0;
+        });
+      }
+    });
+
     Future.microtask(() {
       final cubit = context.read<AttributesTableCubit>();
       if (widget.mode == AttributesTableMode.firestore) {
@@ -65,7 +73,6 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
 
     return BlocListener<AttributesTableCubit, VectorImportState>(
       listener: (context, state) {
-        // ✅ só fecha automaticamente quando IMPORT finaliza com sucesso
         if (widget.mode == AttributesTableMode.importFile &&
             state.status == AttributesTableStatus.success) {
           Navigator.of(context).pop(true);
@@ -100,15 +107,15 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                 return _center('Nenhuma feature encontrada.');
               }
 
-              // Colunas selecionáveis (QGIS-like)
               final columns = state.columns;
               final selectedColumnNames = columns
                   .where((c) => c.selected)
                   .map((c) => c.name)
                   .toList(growable: false);
 
-              final bool hasGeometry =
-              state.features.any((f) => f.geometryPoints.isNotEmpty);
+              final hasGeometry = state.features.any(
+                    (f) => f.geometryPoints.isNotEmpty || f.geometryParts.isNotEmpty,
+              );
 
               final tableColumns = <String>[
                 ...selectedColumnNames,
@@ -117,18 +124,19 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
 
               final filteredIndexes = _applySearchFilter(
                 state: state,
-                columnsForSearch: selectedColumnNames,
+                columnsForSearch: selectedColumnNames.isEmpty
+                    ? columns.map((e) => e.name).toList(growable: false)
+                    : selectedColumnNames,
                 query: _searchCtrl.text,
               );
 
               final total = state.features.length;
               final filteredTotal = filteredIndexes.length;
 
-              final start = _pageIndex * _rowsPerPage;
-              final end = (start + _rowsPerPage).clamp(0, filteredTotal);
-              final pageIndexes = (start < end)
-                  ? filteredIndexes.sublist(start, end)
-                  : const <int>[];
+              final pageData = _pageSlice(filteredIndexes, filteredTotal);
+              final pageIndexes = pageData.$1;
+              final currentPage = pageData.$2;
+              final totalPages = pageData.$3;
 
               final geometryType = state.features.first.geometryType;
               final tipo = geometryType.isNotEmpty ? geometryType : 'Desconhecido';
@@ -161,6 +169,8 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                         context,
                         state: state,
                         filteredTotal: filteredTotal,
+                        currentPage: currentPage,
+                        totalPages: totalPages,
                       ),
                     ],
                   ),
@@ -189,10 +199,8 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
 
     final desc = widget.description ??
         (widget.mode == AttributesTableMode.firestore
-            ? 'Modo Firestore: cada linha é um documento. Você pode selecionar linhas e excluir. '
-            'Renomear colunas aqui é apenas visual (não renomeia campos no banco).'
-            : 'Modo QGIS: cada linha será um documento no Firestore e cada coluna é um campo do GeoJSON. '
-            'Os nomes dos campos serão mantidos e todos os campos selecionados serão salvos.');
+            ? 'Modo Firestore: cada linha é um documento. Você pode selecionar linhas e excluir. Renomear colunas aqui é apenas visual.'
+            : 'Modo importação: cada linha será um documento no Firestore e cada coluna será salva como atributo.');
 
     return Card(
       elevation: 0,
@@ -232,34 +240,30 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                           : IconButton(
                         icon: const Icon(Icons.clear, size: 18),
                         onPressed: () {
-                          setState(() {
-                            _searchCtrl.clear();
-                            _pageIndex = 0;
-                          });
+                          _searchCtrl.clear();
                         },
                       ),
                     ),
-                    onChanged: (_) => setState(() => _pageIndex = 0),
                   ),
                 ),
                 const SizedBox(width: 10),
                 PopupMenuButton<String>(
                   tooltip: 'Ações de colunas/linhas',
-                  itemBuilder: (ctx) => [
-                    const PopupMenuItem(
+                  itemBuilder: (ctx) => const [
+                    PopupMenuItem(
                       value: 'select_all_cols',
                       child: Text('Selecionar todas as colunas'),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'unselect_all_cols',
                       child: Text('Desmarcar todas as colunas'),
                     ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    PopupMenuDivider(),
+                    PopupMenuItem(
                       value: 'select_all_rows',
                       child: Text('Selecionar todas as linhas'),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'unselect_all_rows',
                       child: Text('Desmarcar todas as linhas'),
                     ),
@@ -270,16 +274,19 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                         cubit.toggleColumnSelection(i, true);
                       }
                     }
+
                     if (v == 'unselect_all_cols') {
                       for (int i = 0; i < state.columns.length; i++) {
                         cubit.toggleColumnSelection(i, false);
                       }
                     }
+
                     if (v == 'select_all_rows') {
                       for (int i = 0; i < state.features.length; i++) {
                         cubit.toggleRowSelection(i, true);
                       }
                     }
+
                     if (v == 'unselect_all_rows') {
                       for (int i = 0; i < state.features.length; i++) {
                         cubit.toggleRowSelection(i, false);
@@ -334,28 +341,34 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
       const DataColumn(label: Text('Sel')),
       const DataColumn(label: Text('FID')),
       ...tableColumns.map((col) {
-        if (col == 'points') return const DataColumn(label: Text('points'));
+        if (col == 'points') {
+          return const DataColumn(label: Text('points'));
+        }
 
         final idx = state.columns.indexWhere((c) => c.name == col);
+        final columnMeta = idx >= 0 ? state.columns[idx] : null;
 
         return DataColumn(
           label: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Flexible(child: Text(col, overflow: TextOverflow.ellipsis)),
+              Flexible(
+                child: Text(
+                  col,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               const SizedBox(width: 6),
               IconButton(
                 iconSize: 16,
                 padding: EdgeInsets.zero,
                 visualDensity: VisualDensity.compact,
-                tooltip: 'Renomear coluna (visual)',
+                tooltip: 'Renomear coluna',
                 onPressed: idx < 0
                     ? null
                     : () async {
-                  final newName =
-                  await _askRename(context, current: col);
-                  if (newName == null) return;
-                  if (newName.trim().isEmpty) return;
+                  final newName = await _askRename(context, current: col);
+                  if (newName == null || newName.trim().isEmpty) return;
                   cubit.renameColumn(idx, newName.trim());
                 },
                 icon: const Icon(Icons.edit_outlined),
@@ -367,10 +380,16 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                   if (idx >= 0) cubit.changeColumnType(idx, t);
                 },
                 itemBuilder: (_) => TypeFieldGeoJson.values
-                    .map((t) => PopupMenuItem(
-                  value: t,
-                  child: Text('Tipo: ${t.name}'),
-                ))
+                    .map(
+                      (t) => PopupMenuItem(
+                    value: t,
+                    child: Text(
+                      columnMeta?.type == t
+                          ? 'Tipo: ${t.name} ✓'
+                          : 'Tipo: ${t.name}',
+                    ),
+                  ),
+                )
                     .toList(),
                 child: const Icon(Icons.data_object, size: 16),
               ),
@@ -403,8 +422,17 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
           if (!hasGeometry) {
             cells.add(const DataCell(Text('')));
           } else {
+            final partsCount = f.geometryParts.length;
             final ptsCount = f.geometryPoints.length;
-            cells.add(DataCell(Text(ptsCount == 0 ? '' : '[$ptsCount pts]')));
+
+            String label = '';
+            if (partsCount > 1) {
+              label = '[$partsCount trechos / $ptsCount pts]';
+            } else if (ptsCount > 0) {
+              label = '[$ptsCount pts]';
+            }
+
+            cells.add(DataCell(Text(label)));
           }
           continue;
         }
@@ -454,29 +482,50 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
     );
   }
 
-  Future<String?> _askRename(BuildContext context, {required String current}) {
+  Future<String?> _askRename(
+      BuildContext context, {
+        required String current,
+      }) {
     final ctrl = TextEditingController(text: current);
-    return showDialog<String>(
+
+    return showWindowDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Renomear coluna'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(
-            labelText: 'Novo nome',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, ctrl.text),
-            child: const Text('Aplicar'),
-          ),
-        ],
+      title: 'Renomear coluna',
+      width: 420,
+      child: Builder(
+        builder: (dialogCtx) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomTextField(
+                  controller: ctrl,
+                  labelText: 'Novo nome',
+                  onSubmitted: (value) {
+                    Navigator.of(dialogCtx).pop(value.trim());
+                  },
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 10),
+                    FilledButton(
+                      onPressed: () =>
+                          Navigator.of(dialogCtx).pop(ctrl.text.trim()),
+                      child: const Text('Aplicar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -484,6 +533,7 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
   String _stringifyCell(dynamic v) {
     if (v == null) return '';
     if (v is num || v is bool) return v.toString();
+    if (v is DateTime) return v.toIso8601String();
     if (v is String) return v;
     if (v is List) return '[${v.length}]';
     if (v is Map) return '{...}';
@@ -494,13 +544,12 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
       BuildContext context, {
         required VectorImportState state,
         required int filteredTotal,
+        required int currentPage,
+        required int totalPages,
       }) {
     final cubit = context.read<AttributesTableCubit>();
     final isBusy = state.status == AttributesTableStatus.saving ||
         state.status == AttributesTableStatus.deleting;
-
-    final totalPages = (filteredTotal / _rowsPerPage).ceil().clamp(1, 999999);
-    final currentPage = (_pageIndex + 1).clamp(1, totalPages);
 
     return Card(
       elevation: 0,
@@ -513,9 +562,9 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
             const SizedBox(width: 8),
             DropdownButton<int>(
               value: _rowsPerPage,
-              items: const [10, 25, 50, 100].map((v) {
-                return DropdownMenuItem(value: v, child: Text('$v'));
-              }).toList(),
+              items: const [10, 25, 50, 100]
+                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                  .toList(),
               onChanged: (v) {
                 if (v == null) return;
                 setState(() {
@@ -529,7 +578,9 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
             const SizedBox(width: 8),
             IconButton(
               tooltip: 'Anterior',
-              onPressed: _pageIndex <= 0 ? null : () => setState(() => _pageIndex--),
+              onPressed: _pageIndex <= 0
+                  ? null
+                  : () => setState(() => _pageIndex--),
               icon: const Icon(Icons.chevron_left),
             ),
             IconButton(
@@ -540,10 +591,11 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
               icon: const Icon(Icons.chevron_right),
             ),
             const Spacer(),
-
             if (widget.mode == AttributesTableMode.firestore) ...[
               OutlinedButton.icon(
-                onPressed: isBusy ? null : () => cubit.startFromFirestore(widget.collectionPath),
+                onPressed: isBusy
+                    ? null
+                    : () => cubit.startFromFirestore(widget.collectionPath),
                 icon: const Icon(Icons.refresh),
                 label: const Text('Atualizar'),
               ),
@@ -551,7 +603,7 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
               FilledButton.icon(
                 onPressed: (isBusy || !state.hasAnySelected)
                     ? null
-                    : () => cubit.deleteSelectedFromFirestore(),
+                    : cubit.deleteSelectedFromFirestore,
                 icon: const Icon(Icons.delete_outline),
                 label: Text(isBusy ? 'Processando...' : 'Excluir selecionados'),
               ),
@@ -579,6 +631,7 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
     }
 
     final out = <int>[];
+
     for (int i = 0; i < state.features.length; i++) {
       final f = state.features[i];
       final props = f.editedProperties;
@@ -587,6 +640,7 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
       for (final col in columnsForSearch) {
         final v = props[col];
         if (v == null) continue;
+
         if (v.toString().toLowerCase().contains(q)) {
           match = true;
           break;
@@ -595,13 +649,37 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
 
       if (match) out.add(i);
     }
+
     return out;
+  }
+
+  (List<int>, int, int) _pageSlice(List<int> filteredIndexes, int filteredTotal) {
+    final totalPages = (filteredTotal / _rowsPerPage).ceil().clamp(1, 999999);
+
+    if (_pageIndex > totalPages - 1) {
+      _pageIndex = totalPages - 1;
+    }
+
+    final currentPage = (_pageIndex + 1).clamp(1, totalPages);
+    final start = _pageIndex * _rowsPerPage;
+    final end = (start + _rowsPerPage).clamp(0, filteredTotal);
+
+    final pageIndexes = (start < end)
+        ? filteredIndexes.sublist(start, end)
+        : const <int>[];
+
+    return (pageIndexes, currentPage, totalPages);
   }
 
   Widget _center(String text) {
     return Padding(
       padding: const EdgeInsets.all(24),
-      child: Center(child: Text(text, textAlign: TextAlign.center)),
+      child: Center(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+        ),
+      ),
     );
   }
 
@@ -613,8 +691,10 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
         children: [
           const Icon(Icons.error_outline, color: Colors.red, size: 48),
           const SizedBox(height: 16),
-          const Text('Falha ao carregar.',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Falha ao carregar.',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           Text(error ?? 'Erro desconhecido'),
           const SizedBox(height: 16),
@@ -646,7 +726,9 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
           constraints: const BoxConstraints(maxWidth: 340),
           child: Card(
             color: Colors.black.withValues(alpha: 0.8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
@@ -660,15 +742,19 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                       value: isIndeterminate ? null : state.progress,
                       backgroundColor: Colors.grey.shade300,
                       minHeight: 6,
-                    )
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  Text('$progresso% concluído',
-                      style: const TextStyle(color: Colors.white)),
+                  Text(
+                    '$progresso% concluído',
+                    style: const TextStyle(color: Colors.white),
+                  ),
                   const SizedBox(height: 8),
-                  Text(msg,
-                      style: const TextStyle(color: Colors.white),
-                      textAlign: TextAlign.center),
+                  Text(
+                    msg,
+                    style: const TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
