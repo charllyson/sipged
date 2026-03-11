@@ -3,110 +3,64 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/natural_resources/sig_miner/sigmine_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/natural_resources/sig_miner/sigmine_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/natural_resources/sig_miner/sigmine_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/productive_units/energy_plants/energy_plants_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/railways/railways_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/railways/railways_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/railways/railways_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_estadual/roads_state_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_federal/roads_federal_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/transportes/roads_municipal/roads_municipal_state.dart';
-import 'package:sipged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_state.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
-import 'package:sipged/_widgets/geo/layer/layer_registry.dart';
+import 'package:sipged/_widgets/geo/layer/editor/layer_properties_dialog.dart';
 import 'package:sipged/_widgets/geo/layer/layers_drawer.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
+import 'package:sipged/_widgets/geo/layer/editor/symbology/colors_catalog.dart';
+import 'package:sipged/_widgets/geo/layer/editor/symbology/icons_catalog.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
-import 'package:sipged/screens/modules/planning/geo/geo_map.dart';
-import 'package:sipged/screens/modules/planning/geo/geo_network_layer_actions.dart';
-import 'package:sipged/screens/modules/planning/geo/geo_network_tree_controller.dart';
-import 'package:sipged/screens/modules/planning/geo/geo_right_pane.dart';
-import 'package:sipged/screens/modules/planning/geo/layer/layer_db_status_cubit.dart';
-import 'package:sipged/screens/modules/planning/geo/layer/layers_controller.dart';
-import 'package:sipged/screens/modules/planning/geo/layer/layers_geo.dart';
+import 'package:sipged/screens/modules/planning/geo/geo_network_layer.dart';
+import 'package:sipged/screens/modules/planning/geo/geo_network_map.dart';
+import 'package:sipged/screens/modules/planning/geo/geo_network_controller.dart';
+import 'package:sipged/_blocs/modules/planning/geo/db/layer_db_status_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/db/layer_db_controller.dart';
 
 class GeoNetworkPage extends StatelessWidget {
   const GeoNetworkPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final ufInicial = SetupData.selectedUF ?? 'AL';
+    final geoLayersRepository = GeoLayersRepository();
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (_) => SigMineCubit(
-            repository: SigMineRepository(),
-            initialUF: ufInicial,
-          ),
-        ),
-        BlocProvider(create: (_) => IBGELocationCubit()),
         BlocProvider(create: (_) => AttributesTableCubit()),
         BlocProvider(
-          create: (_) => RoadsFederalCubit(
-            repository: RoadsFederalRepository(),
-          ),
-        ),
-        BlocProvider(
-          create: (_) => RoadsStateCubit(
-            repository: RoadsStateRepository(),
-          ),
-        ),
-        BlocProvider(
-          create: (_) => RoadsMunicipalCubit(
-            repository: RoadsMunicipalRepository(),
-          ),
-        ),
-        BlocProvider(
-          create: (_) => RailwaysCubit(
-            repository: RailwaysRepository(),
-          ),
-        ),
-        BlocProvider(
-          create: (_) => EnergyPlantsCubit(
-            repository: EnergyPlantsRepository(),
-          ),
+          create: (_) => GeoLayersCubit(
+            repository: geoLayersRepository,
+          )..load(),
         ),
         BlocProvider(
           create: (_) => LayerDbStatusCubit(
-            resolvers: {
-              'federal_road': (uf) => RoadsFederalRepository().hasData(uf: uf),
-              'state_road': (uf) => RoadsStateRepository().hasData(uf: uf),
-              'municipal_road': (uf) =>
-                  RoadsMunicipalRepository().hasData(uf: uf),
-              'railways': (uf) => RailwaysRepository().hasData(uf: uf),
-              'units_energy': (uf) =>
-                  EnergyPlantsRepository().hasData(uf: uf),
-            },
-          )..refreshAll(uf: ufInicial),
+            repository: geoLayersRepository,
+          ),
+        ),
+        BlocProvider(
+          create: (_) => GeoFeatureCubit(
+            repository: GeoFeatureRepository(),
+          ),
         ),
       ],
-      child: _PlanningNetworkView(initialUf: ufInicial),
+      child: const _PlanningNetworkView(),
     );
   }
 }
 
 class _PlanningNetworkView extends StatefulWidget {
-  const _PlanningNetworkView({required this.initialUf});
-
-  final String initialUf;
+  const _PlanningNetworkView();
 
   @override
   State<_PlanningNetworkView> createState() => _PlanningNetworkViewState();
@@ -114,563 +68,443 @@ class _PlanningNetworkView extends StatefulWidget {
 
 class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  MapController? _controller;
+  MapController? controller;
 
-  late final LayersController _layersController;
-  late final GeoNetworkTreeController _treeController;
-  late String _currentUF;
-
-  final Set<String> _loadedOnce = <String>{};
+  late final LayerDbController _layersController;
 
   @override
   void initState() {
     super.initState();
-    _currentUF = widget.initialUf;
-    _layersController = LayersController({'base_normal'});
-    _treeController = GeoNetworkTreeController(initialTree: kEnvironmentLayers);
+    _layersController = LayerDbController();
   }
 
   Set<String> get _activeLayerIds => _layersController.activeLayerIds;
-  List<LayersGeo> get _layersTree => _treeController.layersTree;
 
-  bool get _isSigMineVisible => _layersController.isSigMineVisible;
-  bool get _isIbgeVisible => _layersController.isIbgeVisible;
-  bool get _isFederalRoadVisible =>
-      _layersController.activeLayerIds.contains('federal_road');
-  bool get _isStateRoadVisible =>
-      _layersController.activeLayerIds.contains('state_road');
-  bool get _isMunicipalRoadVisible =>
-      _layersController.activeLayerIds.contains('municipal_road');
-  bool get _isRailwaysVisible =>
-      _layersController.activeLayerIds.contains('railways');
-  bool get _isUnitsEnergyVisible =>
-      _layersController.activeLayerIds.contains('units_energy');
-
-  int? get _selectedBaseIndex {
-    final baseId = _layersController.activeBaseLayerId;
-    if (baseId == 'base_normal') return 0;
-    if (baseId == 'base_satellite') return 1;
-    return null;
-  }
-
-  void _moveLayerUp(String id) {
-    setState(() {
-      _treeController.moveLayerUp(id);
-    });
-  }
-
-  void _moveLayerDown(String id) {
-    setState(() {
-      _treeController.moveLayerDown(id);
-    });
-  }
-
-  void _createGroupFromSelected(String selectedId) {
-    setState(() {
-      _treeController.createGroupFromSelected(selectedId);
-    });
-  }
-
-  void _dropItem(String draggedId, String? targetParentId, int targetIndex) {
-    setState(() {
-      _treeController.dropItem(draggedId, targetParentId, targetIndex);
-    });
-  }
-
-  void _handleLayerToggleLoad(String id, bool isActiveNow) {
-    if (!isActiveNow) return;
-
-    if (id == 'sigmine' && !_loadedOnce.contains('sigmine')) {
-      _loadedOnce.add('sigmine');
-      context.read<SigMineCubit>().loadUF(_currentUF);
-      return;
-    }
-
-    if (id == 'ibge_cities' && !_loadedOnce.contains('ibge_cities')) {
-      _loadedOnce.add('ibge_cities');
-      context.read<IBGELocationCubit>().loadInitialAuto(ufSiglaHint: _currentUF);
-      return;
-    }
-
-    if (id == 'federal_road' && !_loadedOnce.contains('federal_road')) {
-      _loadedOnce.add('federal_road');
-      final zoom = _controller?.camera.zoom ?? 8.5;
-      final bucket = RoadsFederalCubit.bucketForZoom(zoom);
-      context.read<RoadsFederalCubit>().loadByUF(_currentUF, bucket: bucket);
-      return;
-    }
-
-    if (id == 'state_road' && !_loadedOnce.contains('state_road')) {
-      _loadedOnce.add('state_road');
-      final zoom = _controller?.camera.zoom ?? 8.5;
-      final bucket = RoadsStateCubit.bucketForZoom(zoom);
-      context.read<RoadsStateCubit>().loadByUF(_currentUF, bucket: bucket);
-      return;
-    }
-
-    if (id == 'municipal_road' && !_loadedOnce.contains('municipal_road')) {
-      _loadedOnce.add('municipal_road');
-      final zoom = _controller?.camera.zoom ?? 8.5;
-      final bucket = RoadsMunicipalCubit.bucketForZoom(zoom);
-      context.read<RoadsMunicipalCubit>().loadByUF(_currentUF, bucket: bucket);
-      return;
-    }
-
-    if (id == 'railways' && !_loadedOnce.contains('railways')) {
-      _loadedOnce.add('railways');
-      final zoom = _controller?.camera.zoom ?? 8.5;
-      final bucket = RailwaysCubit.bucketForZoom(zoom);
-      context.read<RailwaysCubit>().loadByUF(
-        _currentUF,
-        zoom: zoom,
-        bucket: bucket,
-      );
-      return;
-    }
-
-    if (id == 'units_energy' && !_loadedOnce.contains('units_energy')) {
-      _loadedOnce.add('units_energy');
-      context.read<EnergyPlantsCubit>().loadByUF(_currentUF);
-    }
-  }
-
-  void _toggleLayer(String id, bool isActiveFromUI) {
+  void _toggleLayer(
+      String id,
+      bool isActiveFromUI,
+      List<GeoLayersData> currentTree,
+      ) {
     setState(() {
       _layersController.toggleLayer(id, isActiveFromUI);
-      final nowActive = _layersController.activeLayerIds.contains(id);
-      _handleLayerToggleLoad(id, nowActive);
     });
+
+    final treeController = GeoNetworkController(initialTree: currentTree);
+    final layer = treeController.findNodeById(currentTree, id);
+
+    if (layer == null || layer.isGroup) return;
+
+    if (isActiveFromUI) {
+      context.read<GeoFeatureCubit>().ensureLayerLoaded(layer);
+    } else {
+      context.read<GeoFeatureCubit>().unloadLayer(id);
+    }
   }
 
-  void _handleMunicipioTap(BuildContext context, String idIbge) {
-    context.read<IBGELocationCubit>().openMunicipioDetailsById(idIbge);
-  }
-
-  void _handleDeselection() {
-    context.read<SigMineCubit>().closeDetails();
-    context.read<IBGELocationCubit>().closeMunicipioDetails();
-  }
-
-  Future<String?> _askNewLayerName({
+  Future<GeoLayersData?> _askEditLayerData({
     required BuildContext context,
-    required String currentName,
+    required GeoLayersData current,
   }) async {
-    final controller = TextEditingController(text: currentName);
-
-    return showWindowDialog<String>(
-      context: context,
-      title: 'Renomear item',
-      width: 480,
-      barrierDismissible: true,
-      usePointerInterceptor: true,
-      child: Builder(
-        builder: (dialogCtx) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CustomTextField(
-                  controller: controller,
-                  labelText: 'Novo nome',
-                  onSubmitted: (value) {
-                    Navigator.of(dialogCtx).pop(value.trim());
-                  },
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => Navigator.of(dialogCtx).pop(),
-                      child: const Text('Cancelar'),
-                    ),
-                    const SizedBox(width: 10),
-                    FilledButton(
-                      onPressed: () {
-                        Navigator.of(dialogCtx).pop(controller.text.trim());
-                      },
-                      child: const Text('Salvar'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+    return LayerPropertiesDialog.show(
+      context,
+      current: current,
     );
   }
 
-  Future<void> _renameSelectedItem(String id) async {
-    final node = _treeController.findNodeById(_layersTree, id);
+  Future<void> _persistTree(List<GeoLayersData> tree) async {
+    await context.read<GeoLayersCubit>().saveTree(tree);
+  }
+
+  Future<void> _editSelectedItem(
+      String id,
+      List<GeoLayersData> currentTree,
+      ) async {
+    final treeController = GeoNetworkController(initialTree: currentTree);
+    final node = treeController.findNodeById(currentTree, id);
     if (node == null) return;
 
-    final newName = await _askNewLayerName(
+    final edited = await _askEditLayerData(
       context: context,
-      currentName: node.title,
+      current: node,
     );
 
-    if (!mounted || newName == null || newName.trim().isEmpty) return;
+    if (!mounted || edited == null) return;
+    if (edited.title.trim().isEmpty) return;
 
-    setState(() {
-      _treeController.renameNodeById(_layersTree, id, newName.trim());
-    });
+    treeController.updateNodeById(
+      treeController.layersTree,
+      id,
+          (_) => edited,
+    );
+
+    await _persistTree(treeController.layersTree);
+    setState(() {});
   }
 
-  Future<void> _handleConnectLayer(String rawId) async {
-    final zoom = _controller?.camera.zoom ?? 8.5;
+  Future<void> _createLayer(List<GeoLayersData> currentTree) async {
+    final treeController = GeoNetworkController(initialTree: currentTree);
+    treeController.addNewLayer();
+    await _persistTree(treeController.layersTree);
+  }
 
-    await GeoNetworkLayerActions.handleConnectLayer(
+  Future<void> _createEmptyGroup(List<GeoLayersData> currentTree) async {
+    final treeController = GeoNetworkController(initialTree: currentTree);
+    treeController.createEmptyGroup();
+    await _persistTree(treeController.layersTree);
+  }
+
+  Future<void> _moveLayerUp(String id, List<GeoLayersData> currentTree) async {
+    final treeController = GeoNetworkController(initialTree: currentTree);
+    final ok = treeController.moveLayerUp(id);
+    if (!ok) return;
+    await _persistTree(treeController.layersTree);
+  }
+
+  Future<void> _moveLayerDown(
+      String id,
+      List<GeoLayersData> currentTree,
+      ) async {
+    final treeController = GeoNetworkController(initialTree: currentTree);
+    final ok = treeController.moveLayerDown(id);
+    if (!ok) return;
+    await _persistTree(treeController.layersTree);
+  }
+
+  Future<void> _dropItem(
+      String draggedId,
+      String? targetParentId,
+      int targetIndex,
+      List<GeoLayersData> currentTree,
+      ) async {
+    final treeController = GeoNetworkController(initialTree: currentTree);
+    final ok = treeController.dropItem(draggedId, targetParentId, targetIndex);
+    if (!ok) return;
+    await _persistTree(treeController.layersTree);
+  }
+
+  Future<void> _removeSelectedItem(
+      String id,
+      List<GeoLayersData> currentTree,
+      ) async {
+    final treeController = GeoNetworkController(initialTree: currentTree);
+    final node = treeController.findNodeById(currentTree, id);
+    if (node == null || node.isSystem) return;
+
+    final ok = treeController.removeNodeById(id);
+    if (!ok) return;
+
+    _layersController.removeLayer(id);
+
+    final existingIds = treeController
+        .flattenAllNodes(treeController.layersTree)
+        .map((e) => e.id)
+        .toSet();
+
+    _layersController.syncWithExistingTreeIds(existingIds);
+
+    context.read<GeoFeatureCubit>().unloadLayer(id);
+
+    await _persistTree(treeController.layersTree);
+    setState(() {});
+  }
+
+  Future<void> _handleConnectLayer(
+      String rawId,
+      List<GeoLayersData> currentTree,
+      ) async {
+    final treeController = GeoNetworkController(initialTree: currentTree);
+    final layer = treeController.findNodeById(currentTree, rawId);
+    if (layer == null) return;
+
+    final isAlreadyActive = _layersController.activeLayerIds.contains(layer.id);
+
+    await GeoNetworkLayer.handleConnectLayer(
       context,
-      rawId: rawId,
-      currentUF: _currentUF,
-      zoom: zoom,
-      layersController: _layersController,
-      loadedOnce: _loadedOnce,
+      layer: layer,
+      shouldLoadOnMap: isAlreadyActive,
     );
 
-    if (mounted) {
+    if (!mounted) return;
+
+    final refreshedTree = context.read<GeoLayersCubit>().state.tree;
+    await context.read<LayerDbStatusCubit>().refreshAll(refreshedTree);
+
+    final hasDbNow =
+        context.read<LayerDbStatusCubit>().state.hasDbByLayer[layer.id] == true;
+
+    if (!hasDbNow) {
       setState(() {});
+      return;
     }
+
+    if (!_layersController.activeLayerIds.contains(layer.id)) {
+      setState(() {
+        _layersController.toggleLayer(layer.id, true);
+      });
+    }
+
+    await context.read<GeoFeatureCubit>().ensureLayerLoaded(
+      layer,
+      force: true,
+    );
+
+    setState(() {});
+  }
+
+  Widget _buildRightPane(
+      BuildContext context, {
+        required GeoFeatureState genericState,
+        required Map<String, GeoLayersData> layersById,
+      }) {
+    final selection = genericState.selected;
+
+    if (selection == null) {
+      return const Center(
+        child: Text(
+          'Selecione uma feição no mapa para visualizar os atributos.',
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    final layer = layersById[selection.layerId];
+    final feature = selection.feature;
+
+    final entries = feature.properties.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              decoration: BoxDecoration(
+                color: (layer?.color ?? Colors.blue).withValues(alpha: 0.10),
+                borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(12)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    layer?.title ?? 'Camada',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    feature.title,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Tipo geométrico: ${feature.geometryType.name}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: entries.isEmpty
+                  ? const Center(
+                child: Text('Esta feição não possui atributos.'),
+              )
+                  : ListView.separated(
+                padding: const EdgeInsets.all(12),
+                itemCount: entries.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, index) {
+                  final e = entries[index];
+                  return ListTile(
+                    dense: true,
+                    title: Text(
+                      e.key,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      e.value == null ? '' : e.value.toString(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        BlocListener<SigMineCubit, SigMineState>(
+        BlocListener<GeoLayersCubit, GeoLayersState>(
           listenWhen: (p, c) =>
-          p.errorMessage != c.errorMessage || p.features != c.features,
-          listener: (context, state) {
-            if (state.errorMessage != null) {
+          p.error != c.error || p.tree != c.tree || p.loaded != c.loaded,
+          listener: (context, state) async {
+            if (state.error != null && state.error!.trim().isNotEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.errorMessage!)),
+                SnackBar(content: Text(state.error!)),
               );
             }
 
-            if (_controller != null &&
-                _isSigMineVisible &&
-                state.features.isNotEmpty) {
-              final bounds = SigMineRepository.boundsFromFeatures(state.features);
-              _controller!.fitCamera(
-                CameraFit.bounds(
-                  bounds: bounds,
-                  padding: const EdgeInsets.all(18),
-                ),
-              );
+            if (state.loaded) {
+              final ids = GeoNetworkController(initialTree: state.tree)
+                  .flattenAllNodes(state.tree)
+                  .map((e) => e.id)
+                  .toSet();
+
+              _layersController.syncWithExistingTreeIds(ids);
+              await context.read<LayerDbStatusCubit>().refreshAll(state.tree);
+
+              if (mounted) {
+                setState(() {});
+              }
             }
           },
         ),
-        BlocListener<IBGELocationCubit, IBGELocationState>(
-          listenWhen: (p, c) => p.errorMessage != c.errorMessage,
+        BlocListener<GeoFeatureCubit, GeoFeatureState>(
+          listenWhen: (p, c) => p.error != c.error,
           listener: (context, state) {
-            if (state.errorMessage != null) {
+            if (state.error != null && state.error!.trim().isNotEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.errorMessage!)),
-              );
-            }
-          },
-        ),
-        BlocListener<RoadsFederalCubit, RoadsFederalState>(
-          listenWhen: (p, c) =>
-          p.errorMessage != c.errorMessage ||
-              p.polylines.length != c.polylines.length,
-          listener: (context, state) {
-            if (state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Rodovias Federais: ${state.errorMessage}'),
-                ),
-              );
-            }
-          },
-        ),
-        BlocListener<RoadsStateCubit, RoadsStateState>(
-          listenWhen: (p, c) =>
-          p.errorMessage != c.errorMessage ||
-              p.polylines.length != c.polylines.length,
-          listener: (context, state) {
-            if (state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Rodovias Estaduais: ${state.errorMessage}'),
-                ),
-              );
-            }
-          },
-        ),
-        BlocListener<RoadsMunicipalCubit, RoadsMunicipalState>(
-          listenWhen: (p, c) =>
-          p.errorMessage != c.errorMessage ||
-              p.polylines.length != c.polylines.length,
-          listener: (context, state) {
-            if (state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Rodovias Municipais: ${state.errorMessage}'),
-                ),
-              );
-            }
-          },
-        ),
-        BlocListener<RailwaysCubit, RailwaysState>(
-          listenWhen: (p, c) =>
-          p.errorMessage != c.errorMessage ||
-              p.polylines.length != c.polylines.length,
-          listener: (context, state) {
-            if (state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Ferrovias: ${state.errorMessage}')),
-              );
-            }
-          },
-        ),
-        BlocListener<EnergyPlantsCubit, EnergyPlantsState>(
-          listenWhen: (p, c) =>
-          p.errorMessage != c.errorMessage ||
-              p.markers.length != c.markers.length,
-          listener: (context, state) {
-            if (state.errorMessage != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Usinas de Energia: ${state.errorMessage}'),
-                ),
+                SnackBar(content: Text(state.error!)),
               );
             }
           },
         ),
       ],
-      child: BlocBuilder<SigMineCubit, SigMineState>(
-        builder: (context, sigState) {
-          final sigCubit = context.read<SigMineCubit>();
-          final ibgeCubit = context.read<IBGELocationCubit>();
+      child: BlocBuilder<GeoLayersCubit, GeoLayersState>(
+        builder: (context, layersState) {
+          final currentTree = layersState.tree;
+          final treeController =
+          GeoNetworkController(initialTree: currentTree);
 
-          final ibgeState = context.watch<IBGELocationCubit>().state;
-          final roadsFederalState = context.watch<RoadsFederalCubit>().state;
-          final roadsStateState = context.watch<RoadsStateCubit>().state;
-          final roadsMunicipalState = context.watch<RoadsMunicipalCubit>().state;
-          final railwaysState = context.watch<RailwaysCubit>().state;
-          final energyState = context.watch<EnergyPlantsCubit>().state;
-          final hasDbByLayer =
-              context.watch<LayerDbStatusCubit>().state.hasDbByLayer;
+          return BlocBuilder<GeoFeatureCubit, GeoFeatureState>(
+            builder: (context, genericState) {
+              final hasDbByLayer =
+                  context.watch<LayerDbStatusCubit>().state.hasDbByLayer;
 
-          final derived = sigCubit.buildDerived(sigmineAtivo: _isSigMineVisible);
-          Color getColor(String s) => sigCubit.getColorForMinerio(s);
+              final allNodes = treeController.flattenAllNodes(currentTree);
+              final layersById = <String, GeoLayersData>{
+                for (final e in allNodes.where((e) => !e.isGroup)) e.id: e,
+              };
 
-          final federalOn = _isFederalRoadVisible;
-          final stateOn = _isStateRoadVisible;
-          final municipalOn = _isMunicipalRoadVisible;
-          final railwaysOn = _isRailwaysVisible;
-          final energyOn = _isUnitsEnergyVisible;
+              final orderedLeafIdsTopToBottom = treeController
+                  .flattenOrderedLeafIds(currentTree)
+                  .where((id) => _layersController.activeLayerIds.contains(id))
+                  .toList();
 
-          final orderedLeafIdsTopToBottom = _treeController
-              .flattenOrderedLeafIds(_layersTree)
-              .where((id) => _layersController.activeLayerIds.contains(id))
-              .toList();
+              final orderedForMap = orderedLeafIdsTopToBottom.reversed.toList();
 
-          final orderedForMap = orderedLeafIdsTopToBottom.reversed.toList();
-
-          final combinedRoads = <TappableChangedPolyline>[];
-          for (final id in orderedForMap) {
-            switch (id) {
-              case 'federal_road':
-                if (federalOn) combinedRoads.addAll(roadsFederalState.polylines);
-                break;
-              case 'state_road':
-                if (stateOn) combinedRoads.addAll(roadsStateState.polylines);
-                break;
-              case 'municipal_road':
-                if (municipalOn) {
-                  combinedRoads.addAll(roadsMunicipalState.polylines);
-                }
-                break;
-              case 'railways':
-                if (railwaysOn) combinedRoads.addAll(railwaysState.polylines);
-                break;
-            }
-          }
-
-          final map = GeoMap(
-            featuresAtivos: derived.visibleFeatures,
-            mineriosAtivos: sigState.mineriosAtivos,
-            getColorForMinerio: getColor,
-            onRegionTap: (processo) {
-              if (processo == null) return _handleDeselection();
-              sigCubit.openDetailsByProcess(processo);
-            },
-            onControllerReady: (c) => _controller = c,
-            onCameraChanged: (_, zoom) {
-              if (federalOn) {
-                context.read<RoadsFederalCubit>().onZoomChanged(
-                  uf: _currentUF,
-                  zoom: zoom,
-                );
-              }
-              if (stateOn) {
-                context.read<RoadsStateCubit>().onZoomChanged(
-                  uf: _currentUF,
-                  zoom: zoom,
-                );
-              }
-              if (municipalOn) {
-                context.read<RoadsMunicipalCubit>().onZoomChanged(
-                  uf: _currentUF,
-                  zoom: zoom,
-                );
-              }
-              if (railwaysOn) {
-                context.read<RailwaysCubit>().onZoomChanged(
-                  uf: _currentUF,
-                  zoom: zoom,
-                );
-              }
-            },
-            onRequestDetails: sigCubit.openDetailsByFeature,
-            onRequestDetailsByProcess: sigCubit.openDetailsByProcess,
-            showSigmine: _isSigMineVisible,
-            roadPolylines: combinedRoads,
-            showRoads: federalOn || stateOn || municipalOn || railwaysOn,
-            ufs: SetupData.ufs,
-            selectedUF: _currentUF,
-            loading: (sigState.isLoading && _isSigMineVisible) ||
-                (ibgeState.isLoading && _isIbgeVisible) ||
-                (roadsFederalState.isLoading && federalOn) ||
-                (roadsStateState.isLoading && stateOn) ||
-                (roadsMunicipalState.isLoading && municipalOn) ||
-                (railwaysState.isLoading && railwaysOn) ||
-                (energyState.isLoading && energyOn),
-            onChangeUF: (uf) {
-              setState(() => _currentUF = uf);
-
-              context.read<LayerDbStatusCubit>().refreshAll(uf: uf);
-
-              if (_loadedOnce.contains('sigmine') || _isSigMineVisible) {
-                context.read<SigMineCubit>().loadUF(uf);
-              }
-
-              if (_loadedOnce.contains('ibge_cities') || _isIbgeVisible) {
-                ibgeCubit.changeSelectedStateBySigla(uf);
-              }
-
-              final zoom = _controller?.camera.zoom ?? 8.5;
-
-              final federalOnNow =
-              _layersController.activeLayerIds.contains('federal_road');
-              if (_loadedOnce.contains('federal_road') || federalOnNow) {
-                final bucket = RoadsFederalCubit.bucketForZoom(zoom);
-                context.read<RoadsFederalCubit>().loadByUF(uf, bucket: bucket);
-              }
-
-              final stateOnNow =
-              _layersController.activeLayerIds.contains('state_road');
-              if (_loadedOnce.contains('state_road') || stateOnNow) {
-                final bucket = RoadsStateCubit.bucketForZoom(zoom);
-                context.read<RoadsStateCubit>().loadByUF(uf, bucket: bucket);
-              }
-
-              final municipalOnNow =
-              _layersController.activeLayerIds.contains('municipal_road');
-              if (_loadedOnce.contains('municipal_road') || municipalOnNow) {
-                final bucket = RoadsMunicipalCubit.bucketForZoom(zoom);
-                context.read<RoadsMunicipalCubit>().loadByUF(uf, bucket: bucket);
-              }
-
-              final railwaysOnNow =
-              _layersController.activeLayerIds.contains('railways');
-              if (_loadedOnce.contains('railways') || railwaysOnNow) {
-                final bucket = RailwaysCubit.bucketForZoom(zoom);
-                context.read<RailwaysCubit>().loadByUF(
-                  uf,
-                  zoom: zoom,
-                  bucket: bucket,
+              final visibleFeatures = <GeoFeatureData>[];
+              for (final layerId in orderedForMap) {
+                visibleFeatures.addAll(
+                  genericState.featuresByLayer[layerId] ??
+                      const <GeoFeatureData>[],
                 );
               }
 
-              final energyOnNow =
-              _layersController.activeLayerIds.contains('units_energy');
-              if (_loadedOnce.contains('units_energy') || energyOnNow) {
-                context.read<EnergyPlantsCubit>().loadByUF(uf);
-              }
-            },
-            ibgeCityPolygons: ibgeState.cityPolygons,
-            showIbgeCities: _isIbgeVisible,
-            onMunicipioTap: (id) => _handleMunicipioTap(context, id),
-            selectedBaseIndex: _selectedBaseIndex,
-            showUnitsEnergy: energyOn,
-            unitsEnergyMarkers: energyState.markers,
-            onEnergyMarkerTap: (item) {},
-            showPluviometria: false,
-            orderedActiveLayerIds: orderedForMap,
-          );
+              final map = GeoNetworkMap(
+                features: visibleFeatures,
+                layersById: layersById,
+                orderedActiveLayerIds: orderedForMap,
+                selectedFeatureKey: genericState.selected?.feature.selectionKey,
+                loading: genericState.isAnyLoading || layersState.isSaving,
+                onControllerReady: (c) => controller = c,
+                onCameraChanged: (_, _) {},
+                onFeatureTap: (feature) {
+                  if (feature == null) {
+                    context.read<GeoFeatureCubit>().clearSelection();
+                    return;
+                  }
 
-          final rightPane = GeoRightPane(
-            sigmineState: sigState,
-            ibgeState: ibgeState,
-            derived: derived,
-            showSigmine: _isSigMineVisible,
-            showIbge: _isIbgeVisible,
-            showWeather: false,
-            getColorForMinerio: getColor,
-          );
+                  context.read<GeoFeatureCubit>().selectFeature(
+                    layerId: feature.layerId,
+                    feature: feature,
+                  );
+                },
+              );
 
-          final bool isLoading = (sigState.isLoading && _isSigMineVisible) ||
-              (ibgeState.isLoading && _isIbgeVisible) ||
-              (roadsFederalState.isLoading && federalOn) ||
-              (roadsStateState.isLoading && stateOn) ||
-              (roadsMunicipalState.isLoading && municipalOn) ||
-              (railwaysState.isLoading && railwaysOn) ||
-              (energyState.isLoading && energyOn);
+              final isLoading =
+                  genericState.isAnyLoading || layersState.isSaving;
 
-          return Scaffold(
-            key: _scaffoldKey,
-            appBar: PreferredSize(
-              preferredSize: const Size.fromHeight(70),
-              child: UpBar(
-                leading: const Padding(
-                  padding: EdgeInsets.only(left: 10),
-                  child: BackCircleButton(),
+              return Scaffold(
+                key: _scaffoldKey,
+                appBar: PreferredSize(
+                  preferredSize: const Size.fromHeight(70),
+                  child: UpBar(
+                    leading: const Padding(
+                      padding: EdgeInsets.only(left: 10),
+                      child: BackCircleButton(),
+                    ),
+                    actions: [
+                      BackCircleButton(
+                        tooltip: 'Camadas do mapa',
+                        icon: Icons.layers_outlined,
+                        onPressed: () =>
+                            _scaffoldKey.currentState?.openEndDrawer(),
+                      ),
+                    ],
+                  ),
                 ),
-                actions: [
-                  BackCircleButton(
-                    tooltip: 'Camadas do mapa',
-                    icon: Icons.layers_outlined,
-                    onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+                endDrawer: LayersDrawer(
+                  layers: currentTree,
+                  activeLayerIds: _activeLayerIds,
+                  onToggleLayer: (id, active) =>
+                      _toggleLayer(id, active, currentTree),
+                  hasDbByLayer: hasDbByLayer,
+                  supportsConnect: (layer) =>
+                  layer.supportsConnect && !layer.isGroup,
+                  onMoveUp: (id) => _moveLayerUp(id, currentTree),
+                  onMoveDown: (id) => _moveLayerDown(id, currentTree),
+                  onCreateEmptyGroup: () => _createEmptyGroup(currentTree),
+                  onCreateLayer: () => _createLayer(currentTree),
+                  onDropItem: (draggedId, targetParentId, targetIndex) =>
+                      _dropItem(
+                        draggedId,
+                        targetParentId,
+                        targetIndex,
+                        currentTree,
+                      ),
+                  onRenameSelected: (id) => _editSelectedItem(id, currentTree),
+                  onRemoveSelected: (id) =>
+                      _removeSelectedItem(id, currentTree),
+                  onConnectLayer: (id) => _handleConnectLayer(id, currentTree),
+                ),
+                body: ScreenLock(
+                  locked: isLoading,
+                  message: 'Carregando dados do mapa',
+                  icon: Icons.map_outlined,
+                  child: Stack(
+                    children: [
+                      const BackgroundClean(),
+                      SplitLayout(
+                        rightPanelWidth: 460,
+                        left: map,
+                        right: _buildRightPane(
+                          context,
+                          genericState: genericState,
+                          layersById: layersById,
+                        ),
+                        showRightPanel: genericState.selected != null,
+                        showDividers: true,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            endDrawer: LayersDrawer(
-              layers: _layersTree,
-              activeLayerIds: _activeLayerIds,
-              onToggleLayer: _toggleLayer,
-              hasDbByLayer: hasDbByLayer,
-              supportsConnect: LayerRegistry.supportsConnect,
-              onMoveUp: _moveLayerUp,
-              onMoveDown: _moveLayerDown,
-              onCreateGroup: _createGroupFromSelected,
-              onDropItem: _dropItem,
-              onRenameSelected: _renameSelectedItem,
-              onConnectLayer: _handleConnectLayer,
-            ),
-            body: ScreenLock(
-              locked: isLoading,
-              message: 'Carregando dados do mapa',
-              icon: Icons.map_outlined,
-              child: Stack(
-                children: [
-                  const BackgroundClean(),
-                  SplitLayout(
-                    rightPanelWidth: 550,
-                    left: map,
-                    right: rightPane,
-                    showRightPanel: sigState.showPanel || _isIbgeVisible,
-                    showDividers: true,
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           );
         },
       ),

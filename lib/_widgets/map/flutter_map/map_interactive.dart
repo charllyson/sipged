@@ -30,7 +30,7 @@ import '../legend/map_legend_widget.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-// ===== Map base / geometry layers
+// ===== Map base / geometry layer
 import 'package:sipged/_widgets/map/base/map_base_layer.dart';
 import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';

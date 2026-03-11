@@ -254,7 +254,7 @@ class _PlanningRightWayPropertyMapState
       } catch (_) {}
 
       final root = _storage.ref(
-        'contracts/$contractId/planning_highway_domain/properties',
+        'contracts/$contractId/planning_highway_domain/editor',
       );
       final propsLevel = await root.listAll();
 

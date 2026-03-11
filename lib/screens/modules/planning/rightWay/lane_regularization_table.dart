@@ -9,8 +9,8 @@ import 'package:sipged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
 import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
-import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
-import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_data.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_controller.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_data.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 class LaneRegularizationTable extends StatelessWidget {

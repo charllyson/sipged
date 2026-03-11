@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:extended_image/extended_image.dart' as vectorImportFileReader;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:xml/xml.dart' as xml;
 
 import 'attributes_table_data.dart';
@@ -39,15 +38,18 @@ class AttributesTableRepository {
           Uri.file(file.path!),
         );
 
-    if (ext == 'geojson' || ext == 'json') {
-      return _featuresFromGeoJsonBytes(bytes);
-    }
+    switch (ext) {
+      case 'geojson':
+      case 'json':
+        return _featuresFromGeoJsonBytes(bytes);
 
-    if (ext == 'kml' || ext == 'kmz') {
-      return _featuresFromKmlOrKmzBytes(bytes, file.name);
-    }
+      case 'kml':
+      case 'kmz':
+        return _featuresFromKmlOrKmzBytes(bytes, file.name);
 
-    throw Exception('Formato não suportado: .$ext');
+      default:
+        throw Exception('Formato não suportado: .$ext');
+    }
   }
 
   (List<AttributesTableData>, List<ImportColumnMeta>) buildImportedFeatures(
@@ -59,7 +61,7 @@ class AttributesTableRepository {
     final inferredTypes = <String, TypeFieldGeoJson>{};
 
     for (final feat in rawFeatures) {
-      final props = Map<String, dynamic>.from(feat['properties'] ?? {});
+      final props = _resolveFeatureProperties(feat);
       keys.addAll(props.keys);
 
       props.forEach((key, value) {
@@ -82,58 +84,33 @@ class AttributesTableRepository {
     )
         .toList(growable: false);
 
-    final features = <AttributesTableData>[];
-
-    for (final feat in rawFeatures) {
-      final props = Map<String, dynamic>.from(feat['properties'] ?? {});
+    final features = rawFeatures.map((feat) {
+      final props = _resolveFeatureProperties(feat);
       final geometry = Map<String, dynamic>.from(feat['geometry'] ?? {});
-      final geometryType = (geometry['type'] ?? 'LineString').toString();
-      final coords = geometry['coordinates'];
+      final geometryType = (geometry['type'] ?? 'Unknown').toString();
 
-      final partsLatLng = _convertToLatLngParts(geometryType, coords);
-      final cleanPartsLatLng = partsLatLng.where((s) => s.length >= 2).toList(growable: false);
-
-      final flatLatLng = <LatLng>[];
-      for (final seg in cleanPartsLatLng) {
-        flatLatLng.addAll(seg);
-      }
-
-      final geoPointsFlat = flatLatLng
-          .map((p) => GeoPoint(p.latitude, p.longitude))
-          .toList(growable: false);
-
-      final geoParts = cleanPartsLatLng
-          .map(
-            (seg) => seg
-            .map((p) => GeoPoint(p.latitude, p.longitude))
-            .toList(growable: false),
-      )
-          .toList(growable: false);
+      final preview = _buildGeometryPreview(geometry);
 
       final colTypes = {
         for (final c in columns) c.name: c.type,
       };
 
-      final edited = <String, dynamic>{};
-      for (final k in sortedKeys) {
-        edited[k] = props[k];
-      }
+      final edited = <String, dynamic>{
+        for (final k in sortedKeys) k: props[k],
+      };
 
-      features.add(
-        AttributesTableData(
-          docId: null,
-          originalProperties: props,
-          editedProperties: edited,
-          columnTypes: colTypes,
-          selected: true,
-          saveGeometry: true,
-          geometryFieldName: 'points',
-          geometryPoints: geoPointsFlat,
-          geometryParts: geoParts,
-          geometryType: geometryType,
-        ),
+      return AttributesTableData(
+        docId: null,
+        originalProperties: props,
+        editedProperties: edited,
+        columnTypes: colTypes,
+        selected: true,
+        geometry: geometry,
+        geometryType: geometryType,
+        geometryPoints: preview.geometryPoints,
+        geometryParts: preview.geometryParts,
       );
-    }
+    }).toList(growable: false);
 
     return (features, columns);
   }
@@ -142,12 +119,10 @@ class AttributesTableRepository {
   loadFromFirestoreAsImportedFeatures({
     required String collectionPath,
     int limit = 2000,
-    String geometryFieldName = 'points',
-    String partsFieldName = 'parts',
     String orderByField = 'createdAt',
     bool orderDescending = true,
   }) async {
-    Query<Map<String, dynamic>> q = _firestore.collection(collectionPath);
+    final q = _firestore.collection(collectionPath);
 
     Future<QuerySnapshot<Map<String, dynamic>>> tryGet(bool withOrder) async {
       Query<Map<String, dynamic>> query = q;
@@ -171,26 +146,16 @@ class AttributesTableRepository {
 
     final keys = <String>{};
     final inferredTypes = <String, TypeFieldGeoJson>{};
-    bool hasGeometry = false;
 
     for (final d in docs) {
       final data = d.data();
+      final props = _resolveFirestoreProperties(data);
 
-      for (final entry in data.entries) {
-        final k = entry.key;
-        final v = entry.value;
-
-        if (k == geometryFieldName || k == partsFieldName) {
-          if (v is List && v.isNotEmpty) {
-            hasGeometry = true;
-          }
-          continue;
-        }
-
-        keys.add(k);
-        inferredTypes[k] = _mergeInferredType(
-          inferredTypes[k],
-          _inferFieldType(v),
+      for (final entry in props.entries) {
+        keys.add(entry.key);
+        inferredTypes[entry.key] = _mergeInferredType(
+          inferredTypes[entry.key],
+          _inferFieldType(entry.value),
         );
       }
     }
@@ -207,79 +172,40 @@ class AttributesTableRepository {
     )
         .toList(growable: false);
 
-    final features = <AttributesTableData>[];
-
-    for (final d in docs) {
+    final features = docs.map((d) {
       final data = Map<String, dynamic>.from(d.data());
-      final docId = d.id;
+      final props = _resolveFirestoreProperties(data);
 
-      final geoParts = <List<GeoPoint>>[];
-      final rawParts = data[partsFieldName];
+      final storedGeometry = Map<String, dynamic>.from(
+        (data['geometry'] as Map?) ?? const <String, dynamic>{},
+      );
 
-      if (rawParts is List) {
-        for (final item in rawParts) {
-          if (item is Map) {
-            final ptsRaw = item['pts'];
-            if (ptsRaw is List) {
-              final pts = <GeoPoint>[];
-              for (final p in ptsRaw) {
-                if (p is GeoPoint) pts.add(p);
-              }
-              if (pts.length >= 2) geoParts.add(pts);
-            }
-            continue;
-          }
+      final geometry = _decodeGeometryFromFirestore(storedGeometry);
+      final geometryType =
+      (geometry['type'] ?? data['geometryType'] ?? '').toString();
 
-          if (item is List) {
-            final pts = <GeoPoint>[];
-            for (final p in item) {
-              if (p is GeoPoint) pts.add(p);
-            }
-            if (pts.length >= 2) geoParts.add(pts);
-          }
-        }
-      }
+      final preview = _buildGeometryPreview(geometry);
 
-      final geoPoints = <GeoPoint>[];
-      final rawGeom = data[geometryFieldName];
-      if (rawGeom is List) {
-        for (final v in rawGeom) {
-          if (v is GeoPoint) geoPoints.add(v);
-        }
-      }
-
-      final geoPointsFlat = geoPoints.isNotEmpty
-          ? geoPoints
-          : <GeoPoint>[
-        for (final seg in geoParts) ...seg,
-      ];
-
-      final geometryType = (data['geometryType'] ?? '').toString();
-
-      final edited = <String, dynamic>{};
-      for (final k in sortedKeys) {
-        edited[k] = data[k];
-      }
+      final edited = <String, dynamic>{
+        for (final k in sortedKeys) k: props[k],
+      };
 
       final colTypes = {
         for (final c in columns) c.name: c.type,
       };
 
-      features.add(
-        AttributesTableData(
-          docId: docId,
-          originalProperties: Map<String, dynamic>.from(edited),
-          editedProperties: edited,
-          columnTypes: colTypes,
-          selected: false,
-          saveGeometry: hasGeometry,
-          geometryFieldName: geometryFieldName,
-          geometryPoints: geoPointsFlat,
-          geometryParts: geoParts,
-          geometryType: geometryType,
-        ),
+      return AttributesTableData(
+        docId: d.id,
+        originalProperties: props,
+        editedProperties: edited,
+        columnTypes: colTypes,
+        selected: false,
+        geometry: geometry,
+        geometryType: geometryType,
+        geometryPoints: preview.geometryPoints,
+        geometryParts: preview.geometryParts,
       );
-    }
+    }).toList(growable: false);
 
     return (features, columns);
   }
@@ -288,47 +214,46 @@ class AttributesTableRepository {
     required String collectionPath,
     required List<AttributesTableData> features,
     required void Function(double progress) onProgress,
-    String geometryTypeField = 'geometryType',
-    String partsFieldName = 'parts',
   }) async {
+    if (features.isEmpty) return;
+
     final uid = _auth.currentUser?.uid ?? '';
     final col = _firestore.collection(collectionPath);
-
-    final selecionadas = features.where((f) => f.selected).toList(growable: false);
-    final total = selecionadas.length;
-    if (total == 0) return;
 
     const chunkSize = 20;
     int written = 0;
 
     onProgress(0.01);
 
-    for (int i = 0; i < selecionadas.length; i += chunkSize) {
-      final end = (i + chunkSize < selecionadas.length) ? i + chunkSize : selecionadas.length;
-      final chunk = selecionadas.sublist(i, end);
+    for (int i = 0; i < features.length; i += chunkSize) {
+      final end = (i + chunkSize < features.length) ? i + chunkSize : features.length;
+      final chunk = features.sublist(i, end);
 
       final batch = _firestore.batch();
 
       for (final feat in chunk) {
-        final docRef = col.doc();
-        final data = Map<String, dynamic>.from(feat.editedProperties);
+        final isUpdate = feat.docId != null && feat.docId!.trim().isNotEmpty;
+        final docRef = isUpdate ? col.doc(feat.docId) : col.doc();
 
-        data['id'] = docRef.id;
-        data['createdAt'] = FieldValue.serverTimestamp();
-        data['createdBy'] = uid;
-        data['updatedAt'] = FieldValue.serverTimestamp();
-        data['updatedBy'] = uid;
-        data[geometryTypeField] = feat.geometryType;
+        final props = Map<String, dynamic>.from(feat.editedProperties);
+        final geometry = _encodeGeometryForFirestore(feat.geometry);
+        final searchTitle = _resolveSearchTitle(props, docRef.id);
 
-        if (feat.saveGeometry && feat.geometryPoints.isNotEmpty) {
-          data[feat.geometryFieldName] = feat.geometryPoints;
-        }
+        final data = <String, dynamic>{
+          'id': docRef.id,
+          'editor': props,
+          'geometryType': feat.geometryType,
+          'geometry': geometry,
+          'searchTitle': searchTitle,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': uid,
+        };
 
-        if (feat.saveGeometry && feat.geometryParts.isNotEmpty) {
-          data[partsFieldName] = feat.geometryParts
-              .where((seg) => seg.isNotEmpty)
-              .map((seg) => <String, dynamic>{'pts': seg})
-              .toList(growable: false);
+        if (!isUpdate) {
+          data.addAll({
+            'createdAt': FieldValue.serverTimestamp(),
+            'createdBy': uid,
+          });
         }
 
         batch.set(docRef, data, SetOptions(merge: true));
@@ -337,7 +262,7 @@ class AttributesTableRepository {
       await batch.commit();
 
       written += chunk.length;
-      onProgress((written / total).clamp(0.0, 1.0));
+      onProgress((written / features.length).clamp(0.0, 1.0));
     }
   }
 
@@ -372,24 +297,32 @@ class AttributesTableRepository {
   }
 
   List<Map<String, dynamic>> _featuresFromGeoJsonBytes(List<int> bytes) {
-    final Map<String, dynamic> geoJson = json.decode(utf8.decode(bytes));
-    final type = geoJson['type'];
+    final decoded = json.decode(utf8.decode(bytes));
+
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('GeoJSON inválido.');
+    }
+
+    final type = decoded['type'];
 
     if (type == 'FeatureCollection') {
-      final feats = (geoJson['features'] as List?) ?? const [];
-      return feats.whereType<Map<String, dynamic>>().toList();
+      final feats = (decoded['features'] as List?) ?? const [];
+      return feats
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(growable: false);
     }
 
     if (type == 'Feature') {
-      return [geoJson.cast<String, dynamic>()];
+      return [decoded];
     }
 
-    if (type == 'LineString' || type == 'MultiLineString') {
+    if (_isStandaloneGeometryType(type?.toString() ?? '')) {
       return [
         {
           'type': 'Feature',
           'properties': const <String, dynamic>{},
-          'geometry': geoJson,
+          'geometry': decoded,
         }
       ];
     }
@@ -397,7 +330,10 @@ class AttributesTableRepository {
     return const <Map<String, dynamic>>[];
   }
 
-  List<Map<String, dynamic>> _featuresFromKmlOrKmzBytes(List<int> bytes, String filename) {
+  List<Map<String, dynamic>> _featuresFromKmlOrKmzBytes(
+      List<int> bytes,
+      String filename,
+      ) {
     try {
       String kmlText;
 
@@ -425,8 +361,8 @@ class AttributesTableRepository {
     final feats = <Map<String, dynamic>>[];
 
     for (final pm in placemarks) {
-      final name = pm.getElement('name')?.innerText ?? '';
-      final desc = pm.getElement('description')?.innerText ?? '';
+      final name = pm.getElement('name')?.innerText.trim() ?? '';
+      final desc = pm.getElement('description')?.innerText.trim() ?? '';
 
       final props = <String, dynamic>{
         if (name.isNotEmpty) 'name': name,
@@ -438,18 +374,45 @@ class AttributesTableRepository {
         for (final d in ed.findAllElements('Data')) {
           final k = d.getAttribute('name') ?? '';
           final v = d.getElement('value')?.innerText ?? '';
-          if (k.isNotEmpty) props[k] = v;
+          if (k.trim().isNotEmpty) {
+            props[k.trim()] = v;
+          }
         }
       }
 
       final multi = pm.findElements('MultiGeometry');
-      final lineStrings = <List<List<double>>>[];
+
+      final pointGeometries = <List<double>>[];
+      final lineGeometries = <List<List<double>>>[];
+      final polygonGeometries = <List<List<List<double>>>>[];
 
       void collect(xml.XmlElement node) {
+        for (final pt in node.findAllElements('Point')) {
+          final raw = pt.getElement('coordinates')?.innerText ?? '';
+          final coords = _parseKmlCoordinates(raw);
+          if (coords.isNotEmpty) {
+            pointGeometries.add(coords.first);
+          }
+        }
+
         for (final ls in node.findAllElements('LineString')) {
           final raw = ls.getElement('coordinates')?.innerText ?? '';
           final coords = _parseKmlCoordinates(raw);
-          if (coords.isNotEmpty) lineStrings.add(coords);
+          if (coords.length >= 2) {
+            lineGeometries.add(coords);
+          }
+        }
+
+        for (final poly in node.findAllElements('Polygon')) {
+          final outer = poly.findAllElements('outerBoundaryIs');
+          for (final o in outer) {
+            final raw =
+            o.findAllElements('coordinates').map((e) => e.innerText).join(' ');
+            final coords = _parseKmlCoordinates(raw);
+            if (coords.length >= 3) {
+              polygonGeometries.add([coords]);
+            }
+          }
         }
       }
 
@@ -461,11 +424,41 @@ class AttributesTableRepository {
         collect(pm);
       }
 
-      if (lineStrings.isEmpty) continue;
+      Map<String, dynamic>? geometry;
 
-      final geometry = lineStrings.length == 1
-          ? {'type': 'LineString', 'coordinates': lineStrings.first}
-          : {'type': 'MultiLineString', 'coordinates': lineStrings};
+      if (polygonGeometries.isNotEmpty) {
+        geometry = polygonGeometries.length == 1
+            ? {
+          'type': 'Polygon',
+          'coordinates': polygonGeometries.first,
+        }
+            : {
+          'type': 'MultiPolygon',
+          'coordinates': polygonGeometries,
+        };
+      } else if (lineGeometries.isNotEmpty) {
+        geometry = lineGeometries.length == 1
+            ? {
+          'type': 'LineString',
+          'coordinates': lineGeometries.first,
+        }
+            : {
+          'type': 'MultiLineString',
+          'coordinates': lineGeometries,
+        };
+      } else if (pointGeometries.isNotEmpty) {
+        geometry = pointGeometries.length == 1
+            ? {
+          'type': 'Point',
+          'coordinates': pointGeometries.first,
+        }
+            : {
+          'type': 'MultiPoint',
+          'coordinates': pointGeometries,
+        };
+      }
+
+      if (geometry == null) continue;
 
       feats.add({
         'type': 'Feature',
@@ -475,6 +468,65 @@ class AttributesTableRepository {
     }
 
     return feats;
+  }
+
+  Map<String, dynamic> _resolveFeatureProperties(Map<String, dynamic> feature) {
+    final editor = feature['editor'];
+    if (editor is Map) {
+      return Map<String, dynamic>.from(editor);
+    }
+
+    final properties = feature['properties'];
+    if (properties is Map) {
+      return Map<String, dynamic>.from(properties);
+    }
+
+    final attributes = feature['attributes'];
+    if (attributes is Map) {
+      return Map<String, dynamic>.from(attributes);
+    }
+
+    return const <String, dynamic>{};
+  }
+
+  Map<String, dynamic> _resolveFirestoreProperties(Map<String, dynamic> data) {
+    final editor = data['editor'];
+    if (editor is Map && editor.isNotEmpty) {
+      return Map<String, dynamic>.from(editor);
+    }
+
+    final properties = data['properties'];
+    if (properties is Map && properties.isNotEmpty) {
+      return Map<String, dynamic>.from(properties);
+    }
+
+    final attributes = data['attributes'];
+    if (attributes is Map && attributes.isNotEmpty) {
+      return Map<String, dynamic>.from(attributes);
+    }
+
+    final ignoredKeys = <String>{
+      'id',
+      'docId',
+      'geometry',
+      'geometryType',
+      'searchTitle',
+      'createdAt',
+      'createdBy',
+      'updatedAt',
+      'updatedBy',
+      'editor',
+      'properties',
+      'attributes',
+    };
+
+    final fallback = <String, dynamic>{};
+    for (final entry in data.entries) {
+      if (ignoredKeys.contains(entry.key)) continue;
+      fallback[entry.key] = entry.value;
+    }
+
+    return fallback;
   }
 
   List<List<double>> _parseKmlCoordinates(String text) {
@@ -490,52 +542,155 @@ class AttributesTableRepository {
       if (t.length >= 2) {
         final lon = double.tryParse(t[0].trim());
         final lat = double.tryParse(t[1].trim());
-        if (lat != null && lon != null) coords.add([lon, lat]);
+        if (lat != null && lon != null) {
+          coords.add([lon, lat]);
+        }
       }
     }
     return coords;
   }
 
-  List<List<LatLng>> _convertToLatLngParts(String type, dynamic coords) {
-    final parts = <List<LatLng>>[];
+  _GeometryPreview _buildGeometryPreview(Map<String, dynamic> geometry) {
+    final type = (geometry['type'] ?? '').toString();
+    final coords = geometry['coordinates'];
 
-    if (coords is! List || coords.isEmpty) return parts;
+    switch (type) {
+      case 'Point':
+        final p = _geoPointFromCoordinate(coords);
+        return _GeometryPreview(
+          geometryPoints: p == null ? const [] : [p],
+          geometryParts: p == null ? const [] : [
+            [p]
+          ],
+        );
 
-    if (type == 'MultiLineString') {
-      for (final sub in coords) {
-        if (sub is! List) continue;
-
-        final seg = <LatLng>[];
-        for (final p in sub) {
-          if (p is List && p.length >= 2) {
-            seg.add(
-              LatLng(
-                (p[1] as num).toDouble(),
-                (p[0] as num).toDouble(),
-              ),
-            );
+      case 'MultiPoint':
+        final points = <GeoPoint>[];
+        if (coords is List) {
+          for (final item in coords) {
+            final p = _geoPointFromCoordinate(item);
+            if (p != null) points.add(p);
           }
         }
-
-        if (seg.length >= 2) parts.add(seg);
-      }
-      return parts;
-    }
-
-    final seg = <LatLng>[];
-    for (final p in coords) {
-      if (p is List && p.length >= 2) {
-        seg.add(
-          LatLng(
-            (p[1] as num).toDouble(),
-            (p[0] as num).toDouble(),
-          ),
+        return _GeometryPreview(
+          geometryPoints: points,
+          geometryParts: points.map((e) => [e]).toList(growable: false),
         );
+
+      case 'LineString':
+        final line = _geoPointListFromCoordinates(coords);
+        return _GeometryPreview(
+          geometryPoints: line,
+          geometryParts: line.isEmpty ? const [] : [line],
+        );
+
+      case 'MultiLineString':
+        final parts = <List<GeoPoint>>[];
+        if (coords is List) {
+          for (final segment in coords) {
+            final seg = _geoPointListFromCoordinates(segment);
+            if (seg.isNotEmpty) parts.add(seg);
+          }
+        }
+        return _GeometryPreview(
+          geometryPoints: parts.expand((e) => e).toList(growable: false),
+          geometryParts: parts,
+        );
+
+      case 'Polygon':
+        final rings = <List<GeoPoint>>[];
+        if (coords is List) {
+          for (final ring in coords) {
+            final r = _geoPointListFromCoordinates(ring);
+            if (r.isNotEmpty) rings.add(r);
+          }
+        }
+        return _GeometryPreview(
+          geometryPoints: rings.expand((e) => e).toList(growable: false),
+          geometryParts: rings,
+        );
+
+      case 'MultiPolygon':
+        final rings = <List<GeoPoint>>[];
+        if (coords is List) {
+          for (final polygon in coords) {
+            if (polygon is List) {
+              for (final ring in polygon) {
+                final r = _geoPointListFromCoordinates(ring);
+                if (r.isNotEmpty) rings.add(r);
+              }
+            }
+          }
+        }
+        return _GeometryPreview(
+          geometryPoints: rings.expand((e) => e).toList(growable: false),
+          geometryParts: rings,
+        );
+
+      default:
+        return const _GeometryPreview();
+    }
+  }
+
+  GeoPoint? _geoPointFromCoordinate(dynamic raw) {
+    if (raw is! List || raw.length < 2) return null;
+
+    final lon = _toDouble(raw[0]);
+    final lat = _toDouble(raw[1]);
+
+    if (lat == null || lon == null) return null;
+    return GeoPoint(lat, lon);
+  }
+
+  List<GeoPoint> _geoPointListFromCoordinates(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <GeoPoint>[];
+    for (final item in raw) {
+      final p = _geoPointFromCoordinate(item);
+      if (p != null) out.add(p);
+    }
+    return out;
+  }
+
+  bool _isStandaloneGeometryType(String type) {
+    return const {
+      'Point',
+      'MultiPoint',
+      'LineString',
+      'MultiLineString',
+      'Polygon',
+      'MultiPolygon',
+    }.contains(type);
+  }
+
+  double? _toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString().replaceAll(',', '.'));
+  }
+
+  String _resolveSearchTitle(Map<String, dynamic> props, String fallback) {
+    const keys = [
+      'title',
+      'titulo',
+      'name',
+      'nome',
+      'label',
+      'descricao',
+      'description',
+      'codigo',
+      'id',
+    ];
+
+    for (final key in keys) {
+      final value = props[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString().trim();
       }
     }
 
-    if (seg.length >= 2) parts.add(seg);
-    return parts;
+    return fallback;
   }
 
   TypeFieldGeoJson _inferFieldType(dynamic value) {
@@ -559,7 +714,9 @@ class AttributesTableRepository {
       }
 
       if (int.tryParse(v) != null) return TypeFieldGeoJson.integer;
-      if (double.tryParse(v.replaceAll(',', '.')) != null) return TypeFieldGeoJson.double_;
+      if (double.tryParse(v.replaceAll(',', '.')) != null) {
+        return TypeFieldGeoJson.double_;
+      }
       if (DateTime.tryParse(v) != null) return TypeFieldGeoJson.datetime;
     }
 
@@ -573,11 +730,231 @@ class AttributesTableRepository {
     if (current == null) return next;
     if (current == next) return current;
 
-    if ((current == TypeFieldGeoJson.integer && next == TypeFieldGeoJson.double_) ||
-        (current == TypeFieldGeoJson.double_ && next == TypeFieldGeoJson.integer)) {
+    if ((current == TypeFieldGeoJson.integer &&
+        next == TypeFieldGeoJson.double_) ||
+        (current == TypeFieldGeoJson.double_ &&
+            next == TypeFieldGeoJson.integer)) {
       return TypeFieldGeoJson.double_;
     }
 
     return TypeFieldGeoJson.string;
   }
+
+  Map<String, dynamic> _encodeGeometryForFirestore(Map<String, dynamic> geometry) {
+    final type = (geometry['type'] ?? '').toString();
+    final coords = geometry['coordinates'];
+
+    switch (type) {
+      case 'Point':
+        return {
+          'type': 'Point',
+          'coordinates': _encodePoint(coords),
+        };
+
+      case 'MultiPoint':
+        return {
+          'type': 'MultiPoint',
+          'coordinates': _encodePointList(coords),
+        };
+
+      case 'LineString':
+        return {
+          'type': 'LineString',
+          'coordinates': _encodePointList(coords),
+        };
+
+      case 'MultiLineString':
+        return {
+          'type': 'MultiLineString',
+          'coordinates': _encodeLineList(coords),
+        };
+
+      case 'Polygon':
+        return {
+          'type': 'Polygon',
+          'coordinates': _encodeRingList(coords),
+        };
+
+      case 'MultiPolygon':
+        return {
+          'type': 'MultiPolygon',
+          'coordinates': _encodePolygonList(coords),
+        };
+
+      default:
+        return geometry;
+    }
+  }
+
+  Map<String, dynamic> _decodeGeometryFromFirestore(Map<String, dynamic> geometry) {
+    final type = (geometry['type'] ?? '').toString();
+    final coords = geometry['coordinates'];
+
+    switch (type) {
+      case 'Point':
+        return {
+          'type': 'Point',
+          'coordinates': _decodePoint(coords),
+        };
+
+      case 'MultiPoint':
+        return {
+          'type': 'MultiPoint',
+          'coordinates': _decodePointList(coords),
+        };
+
+      case 'LineString':
+        return {
+          'type': 'LineString',
+          'coordinates': _decodePointList(coords),
+        };
+
+      case 'MultiLineString':
+        return {
+          'type': 'MultiLineString',
+          'coordinates': _decodeLineList(coords),
+        };
+
+      case 'Polygon':
+        return {
+          'type': 'Polygon',
+          'coordinates': _decodeRingList(coords),
+        };
+
+      case 'MultiPolygon':
+        return {
+          'type': 'MultiPolygon',
+          'coordinates': _decodePolygonList(coords),
+        };
+
+      default:
+        return geometry;
+    }
+  }
+
+  Map<String, dynamic>? _encodePoint(dynamic raw) {
+    if (raw is! List || raw.length < 2) return null;
+
+    final lng = _toDouble(raw[0]);
+    final lat = _toDouble(raw[1]);
+    if (lat == null || lng == null) return null;
+
+    return {'lng': lng, 'lat': lat};
+  }
+
+  List<Map<String, dynamic>> _encodePointList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <Map<String, dynamic>>[];
+    for (final item in raw) {
+      final p = _encodePoint(item);
+      if (p != null) out.add(p);
+    }
+    return out;
+  }
+
+  List<Map<String, dynamic>> _encodeLineList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <Map<String, dynamic>>[];
+    for (final line in raw) {
+      out.add({'points': _encodePointList(line)});
+    }
+    return out;
+  }
+
+  List<Map<String, dynamic>> _encodeRingList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <Map<String, dynamic>>[];
+    for (final ring in raw) {
+      out.add({'ring': _encodePointList(ring)});
+    }
+    return out;
+  }
+
+  List<Map<String, dynamic>> _encodePolygonList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <Map<String, dynamic>>[];
+    for (final polygon in raw) {
+      out.add({'rings': _encodeRingList(polygon)});
+    }
+    return out;
+  }
+
+  List<dynamic> _decodePoint(dynamic raw) {
+    if (raw is Map) {
+      final lng = _toDouble(raw['lng']);
+      final lat = _toDouble(raw['lat']);
+      if (lat != null && lng != null) {
+        return [lng, lat];
+      }
+    }
+    if (raw is List) return raw;
+    return const [];
+  }
+
+  List<List<dynamic>> _decodePointList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <List<dynamic>>[];
+    for (final item in raw) {
+      final point = _decodePoint(item);
+      if (point.length >= 2) out.add(point);
+    }
+    return out;
+  }
+
+  List<List<List<dynamic>>> _decodeLineList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <List<List<dynamic>>>[];
+    for (final item in raw) {
+      if (item is Map) {
+        out.add(_decodePointList(item['points']));
+      } else if (item is List) {
+        out.add(_decodePointList(item));
+      }
+    }
+    return out;
+  }
+
+  List<List<List<dynamic>>> _decodeRingList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <List<List<dynamic>>>[];
+    for (final item in raw) {
+      if (item is Map) {
+        out.add(_decodePointList(item['ring']));
+      } else if (item is List) {
+        out.add(_decodePointList(item));
+      }
+    }
+    return out;
+  }
+
+  List<List<List<List<dynamic>>>> _decodePolygonList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <List<List<List<dynamic>>>>[];
+    for (final item in raw) {
+      if (item is Map) {
+        out.add(_decodeRingList(item['rings']));
+      } else if (item is List) {
+        out.add(_decodeRingList(item));
+      }
+    }
+    return out;
+  }
+}
+
+class _GeometryPreview {
+  final List<GeoPoint> geometryPoints;
+  final List<List<GeoPoint>> geometryParts;
+
+  const _GeometryPreview({
+    this.geometryPoints = const [],
+    this.geometryParts = const [],
+  });
 }

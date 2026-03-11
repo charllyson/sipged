@@ -10,8 +10,8 @@ import 'package:latlong2/latlong.dart';
 class ActiveRailwayData extends ChangeNotifier {
   // ---------- Identificação / atributos principais ----------
   String? id;
-  int? fid;                  // properties.fid
-  double? nativeId;          // properties.id (1434.0 etc.)
+  int? fid;                  // editor.fid
+  double? nativeId;          // editor.id (1434.0 etc.)
   String? codigo;            // "Código"
   String? codigoCoincidente; // "Código Coincidente"
   String? nome;              // "Nome"
@@ -113,7 +113,7 @@ class ActiveRailwayData extends ChangeNotifier {
 
   factory ActiveRailwayData.fromGeoJsonFeature(Map<String, dynamic> feature) {
     final props =
-        (feature['properties'] as Map?)?.cast<String, dynamic>() ?? {};
+        (feature['editor'] as Map?)?.cast<String, dynamic>() ?? {};
     final geom = feature['geometry'];
     return ActiveRailwayData(
       fid: _asInt(props['fid']),

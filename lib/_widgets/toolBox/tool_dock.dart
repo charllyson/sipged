@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/toolBox/flyout_list.dart';
 import 'package:sipged/_widgets/toolBox/panel_shell.dart';
 import 'package:sipged/_widgets/toolBox/tool_button.dart';
-import 'package:sipged/_widgets/toolBox/tool_widget_controller.dart';
+import 'package:sipged/_widgets/toolBox/tool_box_controller.dart';
 import 'package:sipged/_widgets/toolBox/tool_slot.dart';
 
 enum AIDockSide { left, right }
@@ -31,7 +31,7 @@ class ToolDock extends StatefulWidget {
   });
 
   final List<ToolSlot> slots;
-  final ToolWidgetController? controller;
+  final ToolBoxController? controller;
   final AIDockSide side;
   final double radius;
   final double iconSize;

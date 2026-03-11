@@ -41,11 +41,10 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
     super.initState();
 
     _searchCtrl.addListener(() {
-      if (mounted) {
-        setState(() {
-          _pageIndex = 0;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _pageIndex = 0;
+      });
     });
 
     Future.microtask(() {
@@ -87,14 +86,15 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
           height: 760,
           child: BlocBuilder<AttributesTableCubit, VectorImportState>(
             builder: (context, state) {
-              final isLoading = state.status == AttributesTableStatus.pickingFile ||
-                  state.status == AttributesTableStatus.loadingFirestore ||
-                  state.status == AttributesTableStatus.idle;
+              final isLoading =
+                  state.status == AttributesTableStatus.pickingFile ||
+                      state.status == AttributesTableStatus.loadingFirestore ||
+                      state.status == AttributesTableStatus.idle;
 
               if (isLoading) {
                 return _center(
                   widget.mode == AttributesTableMode.firestore
-                      ? 'Carregando dados do Firestore...'
+                      ? 'Carregando feições do Firebase...'
                       : 'Carregando arquivo para pré-visualização...',
                 );
               }
@@ -104,7 +104,7 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
               }
 
               if (state.features.isEmpty) {
-                return _center('Nenhuma feature encontrada.');
+                return _center('Nenhuma feição encontrada.');
               }
 
               final columns = state.columns;
@@ -113,13 +113,11 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                   .map((c) => c.name)
                   .toList(growable: false);
 
-              final hasGeometry = state.features.any(
-                    (f) => f.geometryPoints.isNotEmpty || f.geometryParts.isNotEmpty,
-              );
+              final hasGeometry = state.features.any((f) => f.hasGeometry);
 
               final tableColumns = <String>[
                 ...selectedColumnNames,
-                if (hasGeometry) 'points',
+                if (hasGeometry) '_geometry_preview_',
               ];
 
               final filteredIndexes = _applySearchFilter(
@@ -138,8 +136,18 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
               final currentPage = pageData.$2;
               final totalPages = pageData.$3;
 
-              final geometryType = state.features.first.geometryType;
-              final tipo = geometryType.isNotEmpty ? geometryType : 'Desconhecido';
+              final geometryTypes = state.features
+                  .map((e) => e.geometryType.trim())
+                  .where((e) => e.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+
+              final tipo = geometryTypes.isEmpty
+                  ? 'Desconhecido'
+                  : geometryTypes.length == 1
+                  ? geometryTypes.first
+                  : 'Misto (${geometryTypes.join(', ')})';
 
               return Stack(
                 children: [
@@ -176,7 +184,9 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                   ),
                   if (state.status == AttributesTableStatus.saving ||
                       state.status == AttributesTableStatus.deleting)
-                    Positioned.fill(child: _overlaySaving(state)),
+                    Positioned.fill(
+                      child: _overlaySaving(state),
+                    ),
                 ],
               );
             },
@@ -199,8 +209,8 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
 
     final desc = widget.description ??
         (widget.mode == AttributesTableMode.firestore
-            ? 'Modo Firestore: cada linha é um documento. Você pode selecionar linhas e excluir. Renomear colunas aqui é apenas visual.'
-            : 'Modo importação: cada linha será um documento no Firestore e cada coluna será salva como atributo.');
+            ? 'Modo Firebase: cada linha representa uma feição geográfica salva na camada. Você pode selecionar linhas e excluir. Renomear colunas aqui altera apenas a visualização atual.'
+            : 'Modo importação: cada linha será salva como uma feição geográfica no Firebase, contendo attributes em editor e a geometria associada.');
 
     return Card(
       elevation: 0,
@@ -221,7 +231,7 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                 _chip('Colunas selecionadas', '$selectedColumns'),
                 if (hasGeometry) ...[
                   const SizedBox(width: 8),
-                  _chip('Geom', 'points'),
+                  _chip('Preview', 'geom'),
                 ],
                 const Spacer(),
                 SizedBox(
@@ -239,9 +249,7 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                           ? null
                           : IconButton(
                         icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                        },
+                        onPressed: _searchCtrl.clear,
                       ),
                     ),
                   ),
@@ -317,7 +325,10 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            '$label: ',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           Text(value),
         ],
       ),
@@ -341,8 +352,8 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
       const DataColumn(label: Text('Sel')),
       const DataColumn(label: Text('FID')),
       ...tableColumns.map((col) {
-        if (col == 'points') {
-          return const DataColumn(label: Text('points'));
+        if (col == '_geometry_preview_') {
+          return const DataColumn(label: Text('geom'));
         }
 
         final idx = state.columns.indexWhere((c) => c.name == col);
@@ -409,8 +420,7 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
         DataCell(
           Checkbox(
             value: f.selected,
-            onChanged: (v) =>
-                cubit.toggleRowSelection(featureIndex, v ?? false),
+            onChanged: (v) => cubit.toggleRowSelection(featureIndex, v ?? false),
             visualDensity: VisualDensity.compact,
           ),
         ),
@@ -418,18 +428,27 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
       ];
 
       for (final col in tableColumns) {
-        if (col == 'points') {
-          if (!hasGeometry) {
+        if (col == '_geometry_preview_') {
+          if (!hasGeometry || !f.hasGeometry) {
             cells.add(const DataCell(Text('')));
           } else {
             final partsCount = f.geometryParts.length;
             final ptsCount = f.geometryPoints.length;
+            final geometryType = f.geometryType.trim();
 
-            String label = '';
-            if (partsCount > 1) {
-              label = '[$partsCount trechos / $ptsCount pts]';
+            String label;
+            if (geometryType.isNotEmpty) {
+              label = geometryType;
+            } else if (partsCount > 1) {
+              label = '$partsCount partes';
             } else if (ptsCount > 0) {
-              label = '[$ptsCount pts]';
+              label = '$ptsCount pts';
+            } else {
+              label = 'geom';
+            }
+
+            if (ptsCount > 0) {
+              label += ' [$ptsCount pts]';
             }
 
             cells.add(DataCell(Text(label)));
@@ -563,7 +582,12 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
             DropdownButton<int>(
               value: _rowsPerPage,
               items: const [10, 25, 50, 100]
-                  .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
+                  .map(
+                    (v) => DropdownMenuItem(
+                  value: v,
+                  child: Text('$v'),
+                ),
+              )
                   .toList(),
               onChanged: (v) {
                 if (v == null) return;
@@ -578,9 +602,8 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
             const SizedBox(width: 8),
             IconButton(
               tooltip: 'Anterior',
-              onPressed: _pageIndex <= 0
-                  ? null
-                  : () => setState(() => _pageIndex--),
+              onPressed:
+              _pageIndex <= 0 ? null : () => setState(() => _pageIndex--),
               icon: const Icon(Icons.chevron_left),
             ),
             IconButton(
@@ -605,7 +628,9 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
                     ? null
                     : cubit.deleteSelectedFromFirestore,
                 icon: const Icon(Icons.delete_outline),
-                label: Text(isBusy ? 'Processando...' : 'Excluir selecionados'),
+                label: Text(
+                  isBusy ? 'Processando...' : 'Excluir selecionados',
+                ),
               ),
             ] else ...[
               FilledButton.icon(
@@ -647,13 +672,18 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
         }
       }
 
-      if (match) out.add(i);
+      if (match) {
+        out.add(i);
+      }
     }
 
     return out;
   }
 
-  (List<int>, int, int) _pageSlice(List<int> filteredIndexes, int filteredTotal) {
+  (List<int>, int, int) _pageSlice(
+      List<int> filteredIndexes,
+      int filteredTotal,
+      ) {
     final totalPages = (filteredTotal / _rowsPerPage).ceil().clamp(1, 999999);
 
     if (_pageIndex > totalPages - 1) {
@@ -664,9 +694,8 @@ class _AttributesTableDialogState extends State<AttributesTableDialog> {
     final start = _pageIndex * _rowsPerPage;
     final end = (start + _rowsPerPage).clamp(0, filteredTotal);
 
-    final pageIndexes = (start < end)
-        ? filteredIndexes.sublist(start, end)
-        : const <int>[];
+    final pageIndexes =
+    (start < end) ? filteredIndexes.sublist(start, end) : const <int>[];
 
     return (pageIndexes, currentPage, totalPages);
   }

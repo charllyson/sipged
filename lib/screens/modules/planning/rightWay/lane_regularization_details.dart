@@ -7,8 +7,8 @@ import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_data.dart';
-import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_storage_bloc.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_data.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_storage_bloc.dart';
 
 // ✅ NOVO: sem intl
 import 'package:sipged/_utils/formats/sipged_format_numbers.dart';

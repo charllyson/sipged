@@ -8,8 +8,9 @@ import 'attributes_table_repository.dart';
 class AttributesTableCubit extends Cubit<VectorImportState> {
   final AttributesTableRepository _repo;
 
-  AttributesTableCubit({AttributesTableRepository? repository})
-      : _repo = repository ?? AttributesTableRepository(),
+  AttributesTableCubit({
+    AttributesTableRepository? repository,
+  })  : _repo = repository ?? AttributesTableRepository(),
         super(VectorImportState.initial());
 
   Future<void> startImport(String collectionPath) async {
@@ -27,24 +28,19 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
 
     try {
       final raw = await _repo.pickAndParseRawFeatures();
-      final (features, columns) = _repo.buildImportedFeatures(raw);
+      final result = _repo.buildImportedFeatures(raw);
 
       emit(
         state.copyWith(
           status: AttributesTableStatus.previewReady,
-          features: features,
-          columns: columns,
+          features: result.$1,
+          columns: result.$2,
           progress: 0.0,
           clearError: true,
         ),
       );
     } catch (e) {
-      emit(
-        state.copyWith(
-          status: AttributesTableStatus.failure,
-          error: e.toString(),
-        ),
-      );
+      _emitFailure(e);
     }
   }
 
@@ -61,7 +57,7 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
     );
 
     try {
-      final (features, columns) = await _repo.loadFromFirestoreAsImportedFeatures(
+      final result = await _repo.loadFromFirestoreAsImportedFeatures(
         collectionPath: collectionPath,
         limit: 1500,
       );
@@ -69,56 +65,57 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
       emit(
         state.copyWith(
           status: AttributesTableStatus.previewReady,
-          features: features,
-          columns: columns,
+          features: result.$1,
+          columns: result.$2,
           progress: 0.0,
           clearError: true,
         ),
       );
     } catch (e) {
-      emit(
-        state.copyWith(
-          status: AttributesTableStatus.failure,
-          error: e.toString(),
-        ),
-      );
+      _emitFailure(e);
     }
   }
 
   void toggleRowSelection(int index, bool selected) {
-    final list = [...state.features];
-    if (index < 0 || index >= list.length) return;
+    if (index < 0 || index >= state.features.length) return;
 
+    final list = [...state.features];
     list[index] = list[index].copyWith(selected: selected);
-    emit(state.copyWith(features: list));
+
+    emit(state.copyWith(features: list, clearError: true));
   }
 
   void toggleColumnSelection(int index, bool selected) {
-    final cols = [...state.columns];
-    if (index < 0 || index >= cols.length) return;
+    if (index < 0 || index >= state.columns.length) return;
 
+    final cols = [...state.columns];
     cols[index] = cols[index].copyWith(selected: selected);
-    emit(state.copyWith(columns: cols));
+
+    emit(state.copyWith(columns: cols, clearError: true));
   }
 
   void renameColumn(int index, String newName) {
-    final cols = [...state.columns];
-    if (index < 0 || index >= cols.length) return;
+    if (index < 0 || index >= state.columns.length) return;
 
     final trimmed = newName.trim();
     if (trimmed.isEmpty) return;
 
+    final cols = [...state.columns];
     final oldName = cols[index].name;
+
     if (trimmed == oldName) return;
 
     final exists = cols.any(
           (c) => c.name.toLowerCase() == trimmed.toLowerCase() && c.name != oldName,
     );
+
     if (exists) {
-      emit(state.copyWith(
-        status: AttributesTableStatus.failure,
-        error: 'Já existe uma coluna com o nome "$trimmed".',
-      ));
+      emit(
+        state.copyWith(
+          status: AttributesTableStatus.failure,
+          error: 'Já existe uma coluna com o nome "$trimmed".',
+        ),
+      );
       return;
     }
 
@@ -143,8 +140,8 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
       );
     }).toList(growable: false);
 
-    final newMapping = Map<String, String>.from(state.fieldMapping);
-    newMapping.updateAll((key, value) => value == oldName ? trimmed : value);
+    final newMapping = Map<String, String>.from(state.fieldMapping)
+      ..updateAll((_, value) => value == oldName ? trimmed : value);
 
     emit(
       state.copyWith(
@@ -157,9 +154,9 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
   }
 
   void changeColumnType(int index, TypeFieldGeoJson newType) {
-    final cols = [...state.columns];
-    if (index < 0 || index >= cols.length) return;
+    if (index < 0 || index >= state.columns.length) return;
 
+    final cols = [...state.columns];
     final colName = cols[index].name;
     cols[index] = cols[index].copyWith(type: newType);
 
@@ -169,14 +166,20 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
       return f.copyWith(columnTypes: newTypes);
     }).toList(growable: false);
 
-    emit(state.copyWith(columns: cols, features: feats));
+    emit(
+      state.copyWith(
+        columns: cols,
+        features: feats,
+        clearError: true,
+      ),
+    );
   }
 
   Future<void> save() => saveAllFields();
 
   Future<void> saveAllFields() async {
-    final path = state.collectionPath;
-    if (path == null || path.trim().isEmpty) return;
+    final path = state.collectionPath?.trim();
+    if (path == null || path.isEmpty) return;
 
     emit(
       state.copyWith(
@@ -187,9 +190,8 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
     );
 
     try {
-      final selectedCols = state.columns
-          .where((c) => c.selected)
-          .toList(growable: false);
+      final selectedCols =
+      state.columns.where((c) => c.selected).toList(growable: false);
 
       if (selectedCols.isEmpty) {
         emit(
@@ -201,14 +203,27 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
         return;
       }
 
-      final selectedColNames = selectedCols.map((c) => c.name).toList(growable: false);
+      final selectedRows =
+      state.features.where((f) => f.selected).toList(growable: false);
+
+      if (selectedRows.isEmpty) {
+        emit(
+          state.copyWith(
+            status: AttributesTableStatus.failure,
+            error: 'Nenhuma linha selecionada para salvar.',
+          ),
+        );
+        return;
+      }
+
+      final selectedColNames =
+      selectedCols.map((c) => c.name).toList(growable: false);
+
       final typeByColumn = {
         for (final c in selectedCols) c.name: c.type,
       };
 
-      final prepared = state.features
-          .where((f) => f.selected)
-          .map((f) {
+      final prepared = selectedRows.map((f) {
         final newProps = <String, dynamic>{};
 
         for (final colName in selectedColNames) {
@@ -218,13 +233,14 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
         }
 
         return f.copyWith(editedProperties: newProps);
-      })
-          .toList(growable: false);
+      }).toList(growable: false);
 
       await _repo.saveToCollection(
         collectionPath: path,
         features: prepared,
-        onProgress: (p) => emit(state.copyWith(progress: p)),
+        onProgress: (p) {
+          emit(state.copyWith(progress: p));
+        },
       );
 
       emit(
@@ -235,23 +251,20 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
         ),
       );
     } catch (e) {
-      emit(
-        state.copyWith(
-          status: AttributesTableStatus.failure,
-          error: e.toString(),
-        ),
-      );
+      _emitFailure(e);
     }
   }
 
   Future<void> deleteSelectedFromFirestore() async {
-    final path = state.collectionPath;
-    if (path == null || path.trim().isEmpty) return;
+    final path = state.collectionPath?.trim();
+    if (path == null || path.isEmpty) return;
 
-    final selected = state.features.where((f) => f.selected).toList(growable: false);
+    final selected =
+    state.features.where((f) => f.selected).toList(growable: false);
     if (selected.isEmpty) return;
 
-    final ids = selected.map((f) => f.docId).whereType<String>().toList(growable: false);
+    final ids =
+    selected.map((f) => f.docId).whereType<String>().toList(growable: false);
     if (ids.isEmpty) return;
 
     emit(
@@ -266,7 +279,9 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
       await _repo.deleteDocs(
         collectionPath: path,
         docIds: ids,
-        onProgress: (p) => emit(state.copyWith(progress: p)),
+        onProgress: (p) {
+          emit(state.copyWith(progress: p));
+        },
       );
 
       final remaining = state.features
@@ -282,63 +297,75 @@ class AttributesTableCubit extends Cubit<VectorImportState> {
         ),
       );
     } catch (e) {
-      emit(
-        state.copyWith(
-          status: AttributesTableStatus.failure,
-          error: e.toString(),
-        ),
-      );
+      _emitFailure(e);
     }
   }
 
   void setFieldMapping(String targetField, String? sourceColumn) {
     final map = Map<String, String>.from(state.fieldMapping);
 
-    if (sourceColumn == null || sourceColumn.trim().isEmpty) {
+    final value = sourceColumn?.trim();
+    if (value == null || value.isEmpty) {
       map.remove(targetField);
     } else {
-      map[targetField] = sourceColumn.trim();
+      map[targetField] = value;
     }
 
-    emit(state.copyWith(fieldMapping: map));
+    emit(state.copyWith(fieldMapping: map, clearError: true));
   }
 
   dynamic _castValue(dynamic value, TypeFieldGeoJson type) {
     if (value == null) return null;
+
+    final raw = value.toString().trim();
 
     switch (type) {
       case TypeFieldGeoJson.string:
         return value.toString();
 
       case TypeFieldGeoJson.integer:
+        if (raw.isEmpty) return null;
         if (value is int) return value;
         if (value is num) return value.toInt();
-        return int.tryParse(value.toString().trim()) ?? value;
+        return int.tryParse(raw) ?? value;
 
       case TypeFieldGeoJson.double_:
+        if (raw.isEmpty) return null;
         if (value is double) return value;
         if (value is num) return value.toDouble();
-
-        final normalized = value.toString().trim().replaceAll(',', '.');
-        return double.tryParse(normalized) ?? value;
+        return double.tryParse(raw.replaceAll(',', '.')) ?? value;
 
       case TypeFieldGeoJson.boolean:
+        if (raw.isEmpty) return null;
         if (value is bool) return value;
 
-        final v = value.toString().trim().toLowerCase();
+        final v = raw.toLowerCase();
         if (v == 'true' || v == '1' || v == 'sim' || v == 'yes') return true;
-        if (v == 'false' || v == '0' || v == 'nao' || v == 'não' || v == 'no') {
+        if (v == 'false' ||
+            v == '0' ||
+            v == 'nao' ||
+            v == 'não' ||
+            v == 'no') {
           return false;
         }
         return value;
 
       case TypeFieldGeoJson.datetime:
+        if (raw.isEmpty) return null;
         if (value is DateTime) return value;
         if (value is Timestamp) return value.toDate();
 
-        final raw = value.toString().trim();
         final parsed = DateTime.tryParse(raw);
         return parsed ?? value;
     }
+  }
+
+  void _emitFailure(Object error) {
+    emit(
+      state.copyWith(
+        status: AttributesTableStatus.failure,
+        error: error.toString(),
+      ),
+    );
   }
 }

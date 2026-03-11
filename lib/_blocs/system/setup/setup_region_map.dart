@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_state.dart';
+import 'package:sipged/_blocs/system/location/ibge_localidade_cubit.dart';
+import 'package:sipged/_blocs/system/location/ibge_localidade_data.dart';
+import 'package:sipged/_blocs/system/location/ibge_localidade_repository.dart';
+import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
@@ -450,7 +450,7 @@ class _RegionMunicipiosSelectorBodyState
       stroke = 1.0;
     }
 
-    // Tooltip configurado via properties (se o MapInteractivePage usar)
+    // Tooltip configurado via editor (se o MapInteractivePage usar)
     final String tooltipText =
     isLocked ? '$name (já vinculado a outra região)' : name;
 

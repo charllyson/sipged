@@ -13,7 +13,7 @@ import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
 // Service novo de localidades IBGE
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_location_service.dart';
+import 'package:sipged/_blocs/system/location/ibge_location_service.dart';
 
 class SectionLocalizacao extends StatefulWidget {
   final bool isEditable;

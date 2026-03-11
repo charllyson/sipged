@@ -11,8 +11,8 @@ import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_own
 import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_payment_form.dart';
 import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_property_form.dart';
 
-import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
-import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_store.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_controller.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_store.dart';
 import 'package:sipged/screens/modules/planning/rightWay/lane_regularization_table.dart';
 
 class TabLaneRegularizationPage extends StatefulWidget {

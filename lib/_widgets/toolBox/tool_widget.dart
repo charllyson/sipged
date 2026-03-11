@@ -8,18 +8,18 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sipged/_services/files/dxf/dxf_enums.dart';
 
-import 'package:sipged/_widgets/toolBox/menuAction/menu_actions.dart';
-import 'package:sipged/_widgets/toolBox/menuDrawerPolygon/menu_drawer_polygon.dart';
-import 'package:sipged/_widgets/toolBox/menuBrush/menu_brush.dart';
-import 'package:sipged/_widgets/toolBox/menuExport/menu_export.dart';
-import 'package:sipged/_widgets/toolBox/menuSelect/menu_select.dart';
-import 'package:sipged/_widgets/toolBox/menuText/menuText.dart';
-import 'package:sipged/_widgets/toolBox/menuText/menu_text_enums.dart';
-import 'package:sipged/_widgets/toolBox/menuZoom/menu_zoom.dart';
-import 'menuLock/menu_lock.dart';
+import 'package:sipged/_widgets/toolBox/menu_actions.dart';
+import 'package:sipged/_widgets/toolBox/menu_drawer_polygon.dart';
+import 'package:sipged/_widgets/toolBox/menu_brush.dart';
+import 'package:sipged/_widgets/toolBox/menu_export.dart';
+import 'package:sipged/_widgets/toolBox/menu_select.dart';
+import 'package:sipged/_widgets/toolBox/menuText.dart';
+import 'package:sipged/_widgets/toolBox/menu_text_enums.dart';
+import 'package:sipged/_widgets/toolBox/menu_zoom.dart';
+import 'menu_lock.dart';
 
 import 'package:sipged/_widgets/toolBox/tool_dock.dart';
-import 'package:sipged/_widgets/toolBox/tool_widget_controller.dart';
+import 'package:sipged/_widgets/toolBox/tool_box_controller.dart';
 import 'package:sipged/_widgets/toolBox/tool_slot.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart'; // ✅ usando WindowDialog
 
@@ -133,7 +133,7 @@ class Stroke {
 }
 
 class _ToolBoxWidgetState extends State<ToolBoxWidget> {
-  final _dockCtl = ToolWidgetController();
+  final _dockCtl = ToolBoxController();
   final GlobalKey _repaintBoundaryKey = GlobalKey();
   StreamSubscription<MapEvent>? _mapSub;
 

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_controller.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';

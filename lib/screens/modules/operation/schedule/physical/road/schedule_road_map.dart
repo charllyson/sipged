@@ -637,7 +637,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
       return {
         'type': 'Feature',
-        'properties': normalized ? _normalizeProps(props) : props,
+        'editor': normalized ? _normalizeProps(props) : props,
         'geometry': {
           'type': 'LineString',
           'coordinates': coords,

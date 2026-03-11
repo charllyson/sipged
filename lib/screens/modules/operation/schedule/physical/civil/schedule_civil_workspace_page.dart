@@ -16,7 +16,7 @@ import 'package:sipged/_widgets/background/background_cleaner.dart';
 
 // Toolbox de desenho
 import 'package:sipged/_widgets/toolBox/tool_widget.dart';
-import 'package:sipged/_widgets/toolBox/tool_widget_controller.dart';
+import 'package:sipged/_widgets/toolBox/tool_box_controller.dart';
 
 // Civil
 import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';

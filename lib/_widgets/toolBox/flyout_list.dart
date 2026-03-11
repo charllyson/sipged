@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/toolBox/flyout_tile.dart';
-import 'package:sipged/_widgets/toolBox/tool_action.dart';
+import 'package:sipged/_widgets/toolBox/tool_buttons.dart';
 
 class FlyoutList extends StatelessWidget {
   const FlyoutList({
@@ -11,10 +11,10 @@ class FlyoutList extends StatelessWidget {
     required this.onItemHover,
   });
 
-  final List<ToolAction> items;
+  final List<ToolButtons> items;
   final double maxHeight;
-  final void Function(int index, ToolAction action) onItemTap;
-  final void Function(int index, ToolAction action) onItemHover;
+  final void Function(int index, ToolButtons action) onItemTap;
+  final void Function(int index, ToolButtons action) onItemHover;
 
   @override
   Widget build(BuildContext context) {

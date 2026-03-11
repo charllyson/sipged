@@ -4,9 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/territorial_boundaries/ibge_location/ibge_localidade_state.dart';
+import 'package:sipged/_blocs/system/location/ibge_localidade_cubit.dart';
+import 'package:sipged/_blocs/system/location/ibge_localidade_repository.dart';
+import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';

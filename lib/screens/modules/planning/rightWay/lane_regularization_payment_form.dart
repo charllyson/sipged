@@ -10,8 +10,8 @@ import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_controller.dart';
-import 'package:sipged/_blocs/modules/planning/lane_regularization/lane_regularization_data.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_controller.dart';
+import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_data.dart';
 
 class LaneRegularizationPaymentForm extends StatefulWidget {
   const LaneRegularizationPaymentForm({

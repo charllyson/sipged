@@ -123,9 +123,9 @@ String buildMapboxHtml(
       }
 
       if (cfg.enable3DBuildings) {
-        const layers = map.getStyle().layers;
+        const layer = map.getStyle().layer;
         let labelLayerId;
-        for (const layer of layers) {
+        for (const layer of layer) {
           if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
             labelLayerId = layer.id;
             break;
