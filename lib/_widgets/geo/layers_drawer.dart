@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_widgets/geo/layer/editor/symbology/icons_catalog.dart';
-import 'package:sipged/_widgets/geo/layer/simple_shape_painter.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_icons_catalog.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/geometry/shape_painter.dart';
 
 class LayersDrawer extends StatefulWidget {
   final List<GeoLayersData> layers;
@@ -764,7 +764,7 @@ class _DrawerSingleSymbolPreview extends StatelessWidget {
         width: previewWidth,
         height: previewHeight,
         child: CustomPaint(
-          painter: SimpleShapePainter(
+          painter: ShapePainter(
             shape: symbol.shapeType,
             fillColor: fillColor,
             strokeColor: strokeColor,

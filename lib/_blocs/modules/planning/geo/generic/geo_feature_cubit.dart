@@ -50,16 +50,23 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
       final nextLoaded = Map<String, bool>.from(state.loadedByLayer);
       nextLoaded[layer.id] = true;
 
+      final nextAvailableFields =
+      Map<String, List<String>>.from(state.availableFieldsByLayer);
+      nextAvailableFields[layer.id] = _extractFieldsFromFeatures(features);
+
       final currentSelection = state.selected;
       final shouldClearSelection = currentSelection != null &&
           currentSelection.layerId == layer.id &&
-          !features.any((f) => f.selectionKey == currentSelection.feature.selectionKey);
+          !features.any(
+                (f) => f.selectionKey == currentSelection.feature.selectionKey,
+          );
 
       emit(
         state.copyWith(
           featuresByLayer: nextFeatures,
           loadingByLayer: nextLoading,
           loadedByLayer: nextLoaded,
+          availableFieldsByLayer: nextAvailableFields,
           clearSelection: shouldClearSelection,
           clearError: true,
         ),
@@ -74,6 +81,45 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
           error: e.toString(),
         ),
       );
+    }
+  }
+
+  Future<List<String>> ensureLayerFieldNames(
+      GeoLayersData layer, {
+        bool force = false,
+      }) async {
+    final path = (layer.effectiveCollectionPath ?? '').trim();
+    if (path.isEmpty || layer.isGroup) return const [];
+
+    final cached = state.availableFieldsByLayer[layer.id];
+    if (!force && cached != null && cached.isNotEmpty) {
+      return cached;
+    }
+
+    try {
+      final fieldNames = await _repository.loadFieldNames(
+        collectionPath: path,
+      );
+
+      final nextFields =
+      Map<String, List<String>>.from(state.availableFieldsByLayer);
+      nextFields[layer.id] = fieldNames;
+
+      emit(
+        state.copyWith(
+          availableFieldsByLayer: nextFields,
+          clearError: true,
+        ),
+      );
+
+      return fieldNames;
+    } catch (e) {
+      emit(
+        state.copyWith(
+          error: e.toString(),
+        ),
+      );
+      return const [];
     }
   }
 
@@ -92,6 +138,10 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
     final nextLoading = Map<String, bool>.from(state.loadingByLayer);
     nextLoading.remove(layerId);
 
+    final nextAvailableFields =
+    Map<String, List<String>>.from(state.availableFieldsByLayer);
+    nextAvailableFields.remove(layerId);
+
     final clearSelection = state.selected?.layerId == layerId;
 
     emit(
@@ -99,6 +149,7 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
         featuresByLayer: nextFeatures,
         loadedByLayer: nextLoaded,
         loadingByLayer: nextLoading,
+        availableFieldsByLayer: nextAvailableFields,
         clearSelection: clearSelection,
         clearError: true,
       ),
@@ -127,5 +178,16 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
         clearError: true,
       ),
     );
+  }
+
+  List<String> _extractFieldsFromFeatures(List<GeoFeatureData> features) {
+    final keys = <String>{};
+
+    for (final feature in features) {
+      keys.addAll(feature.properties.keys);
+    }
+
+    final result = keys.toList()..sort();
+    return result;
   }
 }

@@ -5,6 +5,8 @@ class StackActionButton extends StatelessWidget {
   final String tooltip;
   final Color color;
   final VoidCallback? onTap;
+  final double size;
+  final double iconSize;
 
   const StackActionButton({
     super.key,
@@ -12,6 +14,8 @@ class StackActionButton extends StatelessWidget {
     required this.tooltip,
     required this.color,
     required this.onTap,
+    this.size = 38,
+    this.iconSize = 18,
   });
 
   @override
@@ -22,20 +26,20 @@ class StackActionButton extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          width: 34,
-          height: 34,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(
               color: disabled ? Colors.grey.shade300 : color,
             ),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
             icon,
-            size: 18,
+            size: iconSize,
             color: disabled ? Colors.grey.shade400 : color,
           ),
         ),

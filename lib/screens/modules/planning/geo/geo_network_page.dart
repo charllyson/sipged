@@ -13,14 +13,14 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_repository.d
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_state.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
-import 'package:sipged/_widgets/geo/layer/editor/layer_properties_dialog.dart';
-import 'package:sipged/_widgets/geo/layer/layers_drawer.dart';
+import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_dialog.dart';
+import 'package:sipged/_widgets/geo/layers_drawer.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
-import 'package:sipged/_widgets/geo/layer/editor/symbology/colors_catalog.dart';
-import 'package:sipged/_widgets/geo/layer/editor/symbology/icons_catalog.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/colors_catalog.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_icons_catalog.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_layer.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_map.dart';
@@ -105,9 +105,16 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     required BuildContext context,
     required GeoLayersData current,
   }) async {
+    final geoFeatureCubit = context.read<GeoFeatureCubit>();
+
+    final availableFields = await geoFeatureCubit.ensureLayerFieldNames(current);
+
+    if (!context.mounted) return null;
+
     return LayerPropertiesDialog.show(
       context,
       current: current,
+      availableRuleFields: availableFields,
     );
   }
 

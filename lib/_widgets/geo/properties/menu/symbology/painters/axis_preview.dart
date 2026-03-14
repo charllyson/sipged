@@ -1,24 +1,32 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_widgets/geo/layer/editor/symbology/icons_catalog.dart';
-import 'package:sipged/_widgets/geo/layer/simple_shape_painter.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_icons_catalog.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/geometry/shape_painter.dart';
 
-class SymbolAxisPreview extends StatelessWidget {
+class AxisPreview extends StatelessWidget {
   final List<LayerSimpleSymbolData> layers;
 
-  const SymbolAxisPreview({
+  const AxisPreview({
     super.key,
     required this.layers,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.grey.shade100,
-      padding: const EdgeInsets.all(16),
-      child: CustomPaint(
-        painter: _AxisPreviewPainter(layers: layers),
-        child: const SizedBox.expand(),
+    return RepaintBoundary(
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.grey.shade100,
+        padding: const EdgeInsets.all(16),
+        child: CustomPaint(
+          painter: _AxisPreviewPainter(
+            layers: List<LayerSimpleSymbolData>.from(layers),
+          ),
+          size: Size.infinite,
+        ),
       ),
     );
   }
@@ -27,36 +35,36 @@ class SymbolAxisPreview extends StatelessWidget {
 class _AxisPreviewPainter extends CustomPainter {
   final List<LayerSimpleSymbolData> layers;
 
-  _AxisPreviewPainter({
+  const _AxisPreviewPainter({
     required this.layers,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
+    if (size.width <= 0 || size.height <= 0) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
 
     final axisPaint = Paint()
-      ..color = const Color(0xFF707070)
+      ..color = const Color(0xFF8B8B8B)
       ..strokeWidth = 1;
 
+    // eixo vertical
     canvas.drawLine(
       Offset(center.dx, 12),
       Offset(center.dx, size.height - 12),
       axisPaint,
     );
 
+    // eixo horizontal
     canvas.drawLine(
       Offset(12, center.dy),
       Offset(size.width - 12, center.dy),
       axisPaint,
     );
 
-    final visibleLayers =
-    layers.where((e) => e.enabled).toList(growable: false);
+    final visibleLayers = layers.where((e) => e.enabled).toList(growable: false);
 
-    /// importante:
-    /// a camada do topo da lista precisa ser desenhada por último
-    /// para ficar visualmente por cima das anteriores
     for (final layer in visibleLayers.reversed) {
       _drawLayer(canvas, center, layer);
     }
@@ -71,7 +79,7 @@ class _AxisPreviewPainter extends CustomPainter {
         text: TextSpan(
           text: String.fromCharCode(iconData.codePoint),
           style: TextStyle(
-            fontSize: layer.height,
+            fontSize: layer.height <= 0 ? 24 : layer.height,
             fontFamily: iconData.fontFamily,
             package: iconData.fontPackage,
             color: Color(layer.fillColorValue),
@@ -81,7 +89,7 @@ class _AxisPreviewPainter extends CustomPainter {
 
       canvas.save();
       canvas.translate(center.dx, center.dy);
-      canvas.rotate(layer.rotationDegrees * 3.141592653589793 / 180);
+      canvas.rotate(layer.rotationDegrees * math.pi / 180);
       canvas.translate(-center.dx, -center.dy);
 
       final iconOffset = Offset(
@@ -94,7 +102,10 @@ class _AxisPreviewPainter extends CustomPainter {
       return;
     }
 
-    final painter = SimpleShapePainter(
+    final width = layer.width <= 0 ? 24.0 : layer.width;
+    final height = layer.height <= 0 ? 24.0 : layer.height;
+
+    final painter = ShapePainter(
       shape: layer.shapeType,
       fillColor: Color(layer.fillColorValue),
       strokeColor: Color(layer.strokeColorValue),
@@ -104,15 +115,36 @@ class _AxisPreviewPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(
-      center.dx - (layer.width / 2),
-      center.dy - (layer.height / 2),
+      center.dx - (width / 2),
+      center.dy - (height / 2),
     );
-    painter.paint(canvas, Size(layer.width, layer.height));
+    painter.paint(canvas, Size(width, height));
     canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant _AxisPreviewPainter oldDelegate) {
-    return oldDelegate.layers != layers;
+    if (oldDelegate.layers.length != layers.length) return true;
+
+    for (int i = 0; i < layers.length; i++) {
+      final a = oldDelegate.layers[i];
+      final b = layers[i];
+
+      if (a.id != b.id ||
+          a.enabled != b.enabled ||
+          a.type != b.type ||
+          a.iconKey != b.iconKey ||
+          a.shapeType != b.shapeType ||
+          a.width != b.width ||
+          a.height != b.height ||
+          a.fillColorValue != b.fillColorValue ||
+          a.strokeColorValue != b.strokeColorValue ||
+          a.strokeWidth != b.strokeWidth ||
+          a.rotationDegrees != b.rotationDegrees) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

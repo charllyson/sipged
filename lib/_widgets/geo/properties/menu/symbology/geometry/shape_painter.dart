@@ -4,14 +4,14 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 
-class SimpleShapePainter extends CustomPainter {
+class ShapePainter extends CustomPainter {
   final LayerSimpleMarkerShapeType shape;
   final Color fillColor;
   final Color strokeColor;
   final double strokeWidth;
   final double rotationDegrees;
 
-  const SimpleShapePainter({
+  const ShapePainter({
     required this.shape,
     required this.fillColor,
     required this.strokeColor,
@@ -40,8 +40,10 @@ class SimpleShapePainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final path = _buildPath(rect, shape);
 
+    // Algumas geometrias devem ser desenhadas apenas como traço.
     if (shape == LayerSimpleMarkerShapeType.line ||
-        shape == LayerSimpleMarkerShapeType.arc) {
+        shape == LayerSimpleMarkerShapeType.arc ||
+        shape == LayerSimpleMarkerShapeType.cross) {
       canvas.drawPath(path, stroke);
     } else {
       canvas.drawPath(path, fill);
@@ -142,8 +144,22 @@ class SimpleShapePainter extends CustomPainter {
       case LayerSimpleMarkerShapeType.heart:
         return ui.Path()
           ..moveTo(cx, b)
-          ..cubicTo(l - w * 0.10, h * 0.55, l + w * 0.02, t + h * 0.06, cx, h * 0.32)
-          ..cubicTo(r - w * 0.02, t + h * 0.06, r + w * 0.10, h * 0.55, cx, b)
+          ..cubicTo(
+            l - w * 0.10,
+            h * 0.55,
+            l + w * 0.02,
+            t + h * 0.06,
+            cx,
+            h * 0.32,
+          )
+          ..cubicTo(
+            r - w * 0.02,
+            t + h * 0.06,
+            r + w * 0.10,
+            h * 0.55,
+            cx,
+            b,
+          )
           ..close();
 
       case LayerSimpleMarkerShapeType.arrow:
@@ -162,8 +178,20 @@ class SimpleShapePainter extends CustomPainter {
 
       case LayerSimpleMarkerShapeType.plus:
         return ui.Path()
-          ..addRect(Rect.fromCenter(center: rect.center, width: w * 0.26, height: h * 0.92))
-          ..addRect(Rect.fromCenter(center: rect.center, width: w * 0.92, height: h * 0.26));
+          ..addRect(
+            Rect.fromCenter(
+              center: rect.center,
+              width: w * 0.26,
+              height: h * 0.92,
+            ),
+          )
+          ..addRect(
+            Rect.fromCenter(
+              center: rect.center,
+              width: w * 0.92,
+              height: h * 0.26,
+            ),
+          );
 
       case LayerSimpleMarkerShapeType.cross:
         return ui.Path()
@@ -180,7 +208,11 @@ class SimpleShapePainter extends CustomPainter {
       case LayerSimpleMarkerShapeType.arc:
         return ui.Path()
           ..addArc(
-            Rect.fromCenter(center: rect.center, width: w * 0.9, height: h * 0.9),
+            Rect.fromCenter(
+              center: rect.center,
+              width: w * 0.9,
+              height: h * 0.9,
+            ),
             math.pi,
             math.pi * 0.78,
           );
@@ -260,7 +292,7 @@ class SimpleShapePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant SimpleShapePainter oldDelegate) {
+  bool shouldRepaint(covariant ShapePainter oldDelegate) {
     return oldDelegate.shape != shape ||
         oldDelegate.fillColor != fillColor ||
         oldDelegate.strokeColor != strokeColor ||

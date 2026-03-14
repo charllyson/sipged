@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 enum LayerGeometryKind { point, line, polygon, mixed, unknown }
 
+enum LayerRendererType {
+  singleSymbol,
+  ruleBased,
+}
+
 enum LayerSimpleSymbolType {
   svgMarker,
   simpleMarker,
@@ -31,6 +36,18 @@ enum LayerSimpleMarkerShapeType {
   quarterCircle,
   rectangle,
   rightTriangle,
+}
+
+enum LayerRuleOperator {
+  equals,
+  notEquals,
+  contains,
+  greaterThan,
+  lessThan,
+  greaterOrEqual,
+  lessOrEqual,
+  isEmpty,
+  isNotEmpty,
 }
 
 class LayerSimpleSymbolData {
@@ -128,11 +145,105 @@ class LayerSimpleSymbolData {
       height: (map['height'] as num?)?.toDouble() ?? 28,
       keepAspectRatio: map['keepAspectRatio'] != false,
       fillColorValue: (map['fillColorValue'] as num?)?.toInt() ?? 0xFF2563EB,
-      strokeColorValue:
-      (map['strokeColorValue'] as num?)?.toInt() ?? 0xFF1F2937,
+      strokeColorValue: (map['strokeColorValue'] as num?)?.toInt() ?? 0xFF1F2937,
       strokeWidth: (map['strokeWidth'] as num?)?.toDouble() ?? 1.2,
       rotationDegrees: (map['rotationDegrees'] as num?)?.toDouble() ?? 0,
       enabled: map['enabled'] != false,
+    );
+  }
+}
+
+class LayerRuleData {
+  final String id;
+  final String label;
+  final bool enabled;
+  final String field;
+  final LayerRuleOperator operatorType;
+  final String value;
+  final double? minZoom;
+  final double? maxZoom;
+  final List<LayerSimpleSymbolData> symbolLayers;
+
+  const LayerRuleData({
+    required this.id,
+    required this.label,
+    this.enabled = true,
+    this.field = '',
+    this.operatorType = LayerRuleOperator.equals,
+    this.value = '',
+    this.minZoom,
+    this.maxZoom,
+    this.symbolLayers = const [],
+  });
+
+  List<LayerSimpleSymbolData> get effectiveSymbolLayers {
+    if (symbolLayers.isNotEmpty) return symbolLayers;
+    return [
+      LayerSimpleSymbolData(
+        id: 'rule_symbol_$id',
+      ),
+    ];
+  }
+
+  LayerRuleData copyWith({
+    String? id,
+    String? label,
+    bool? enabled,
+    String? field,
+    LayerRuleOperator? operatorType,
+    String? value,
+    double? minZoom,
+    bool clearMinZoom = false,
+    double? maxZoom,
+    bool clearMaxZoom = false,
+    List<LayerSimpleSymbolData>? symbolLayers,
+  }) {
+    return LayerRuleData(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      enabled: enabled ?? this.enabled,
+      field: field ?? this.field,
+      operatorType: operatorType ?? this.operatorType,
+      value: value ?? this.value,
+      minZoom: clearMinZoom ? null : (minZoom ?? this.minZoom),
+      maxZoom: clearMaxZoom ? null : (maxZoom ?? this.maxZoom),
+      symbolLayers: symbolLayers ?? this.symbolLayers,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'label': label,
+      'enabled': enabled,
+      'field': field,
+      'operatorType': operatorType.name,
+      'value': value,
+      'minZoom': minZoom,
+      'maxZoom': maxZoom,
+      'symbolLayers': symbolLayers.map((e) => e.toMap()).toList(),
+    };
+  }
+
+  factory LayerRuleData.fromMap(Map<String, dynamic> map) {
+    final rawSymbols = (map['symbolLayers'] as List?) ?? const [];
+
+    return LayerRuleData(
+      id: (map['id'] ?? '').toString(),
+      label: (map['label'] ?? '').toString(),
+      enabled: map['enabled'] != false,
+      field: (map['field'] ?? '').toString(),
+      operatorType: LayerRuleOperator.values.firstWhere(
+            (e) => e.name == map['operatorType'],
+        orElse: () => LayerRuleOperator.equals,
+      ),
+      value: (map['value'] ?? '').toString(),
+      minZoom: (map['minZoom'] as num?)?.toDouble(),
+      maxZoom: (map['maxZoom'] as num?)?.toDouble(),
+      symbolLayers: rawSymbols
+          .whereType<Map>()
+          .map((e) => LayerSimpleSymbolData.fromMap(Map<String, dynamic>.from(e)))
+          .toList(growable: false),
     );
   }
 }
@@ -150,7 +261,9 @@ class GeoLayersData {
   final bool supportsConnect;
   final bool isTemporary;
   final bool isSystem;
+  final LayerRendererType rendererType;
   final List<LayerSimpleSymbolData> symbolLayers;
+  final List<LayerRuleData> ruleBasedSymbols;
 
   const GeoLayersData({
     required this.id,
@@ -165,7 +278,9 @@ class GeoLayersData {
     this.supportsConnect = true,
     this.isTemporary = false,
     this.isSystem = false,
+    this.rendererType = LayerRendererType.singleSymbol,
     this.symbolLayers = const [],
+    this.ruleBasedSymbols = const [],
   });
 
   Color get color => Color(colorValue);
@@ -175,7 +290,6 @@ class GeoLayersData {
     if (raw.isNotEmpty) return raw;
 
     if (isGroup || !supportsConnect) return null;
-
     return 'geo/catalog/layers/$id/features';
   }
 
@@ -196,14 +310,17 @@ class GeoLayersData {
   }
 
   LayerSimpleSymbolData? get topVisibleSymbol {
-    final visible = effectiveSymbolLayers.where((e) => e.enabled);
+    final source = rendererType == LayerRendererType.ruleBased &&
+        ruleBasedSymbols.any((e) => e.enabled)
+        ? ruleBasedSymbols.firstWhere((e) => e.enabled).effectiveSymbolLayers
+        : effectiveSymbolLayers;
+
+    final visible = source.where((e) => e.enabled);
     if (visible.isNotEmpty) return visible.first;
-    return effectiveSymbolLayers.isNotEmpty ? effectiveSymbolLayers.first : null;
+    return source.isNotEmpty ? source.first : null;
   }
 
-  Color get displayColor {
-    return topVisibleSymbol?.fillColor ?? color;
-  }
+  Color get displayColor => topVisibleSymbol?.fillColor ?? color;
 
   String get displayIconKey {
     final symbol = topVisibleSymbol;
@@ -228,7 +345,9 @@ class GeoLayersData {
     bool? supportsConnect,
     bool? isTemporary,
     bool? isSystem,
+    LayerRendererType? rendererType,
     List<LayerSimpleSymbolData>? symbolLayers,
+    List<LayerRuleData>? ruleBasedSymbols,
   }) {
     return GeoLayersData(
       id: id ?? this.id,
@@ -244,7 +363,9 @@ class GeoLayersData {
       supportsConnect: supportsConnect ?? this.supportsConnect,
       isTemporary: isTemporary ?? this.isTemporary,
       isSystem: isSystem ?? this.isSystem,
+      rendererType: rendererType ?? this.rendererType,
       symbolLayers: symbolLayers ?? this.symbolLayers,
+      ruleBasedSymbols: ruleBasedSymbols ?? this.ruleBasedSymbols,
     );
   }
 
@@ -262,13 +383,16 @@ class GeoLayersData {
       'supportsConnect': supportsConnect,
       'isTemporary': isTemporary,
       'isSystem': isSystem,
+      'rendererType': rendererType.name,
       'symbolLayers': symbolLayers.map((e) => e.toMap()).toList(),
+      'ruleBasedSymbols': ruleBasedSymbols.map((e) => e.toMap()).toList(),
     };
   }
 
   factory GeoLayersData.fromMap(Map<String, dynamic> map) {
     final rawChildren = (map['children'] as List?) ?? const [];
     final rawSymbolLayers = (map['symbolLayers'] as List?) ?? const [];
+    final rawRuleBasedSymbols = (map['ruleBasedSymbols'] as List?) ?? const [];
 
     return GeoLayersData(
       id: (map['id'] ?? '').toString(),
@@ -289,13 +413,17 @@ class GeoLayersData {
       supportsConnect: map['supportsConnect'] != false,
       isTemporary: map['isTemporary'] == true,
       isSystem: map['isSystem'] == true,
+      rendererType: LayerRendererType.values.firstWhere(
+            (e) => e.name == map['rendererType'],
+        orElse: () => LayerRendererType.singleSymbol,
+      ),
       symbolLayers: rawSymbolLayers
           .whereType<Map>()
-          .map(
-            (e) => LayerSimpleSymbolData.fromMap(
-          Map<String, dynamic>.from(e),
-        ),
-      )
+          .map((e) => LayerSimpleSymbolData.fromMap(Map<String, dynamic>.from(e)))
+          .toList(growable: false),
+      ruleBasedSymbols: rawRuleBasedSymbols
+          .whereType<Map>()
+          .map((e) => LayerRuleData.fromMap(Map<String, dynamic>.from(e)))
           .toList(growable: false),
     );
   }
@@ -332,6 +460,7 @@ class GeoLayersData {
       supportsConnect: true,
       isTemporary: true,
       isSystem: false,
+      rendererType: LayerRendererType.singleSymbol,
       symbolLayers: [
         LayerSimpleSymbolData(
           id: 'symbol_$id',
@@ -343,6 +472,7 @@ class GeoLayersData {
           height: 28,
         ),
       ],
+      ruleBasedSymbols: const [],
     );
   }
 
@@ -364,7 +494,9 @@ class GeoLayersData {
       supportsConnect: false,
       isTemporary: false,
       isSystem: false,
+      rendererType: LayerRendererType.singleSymbol,
       symbolLayers: const [],
+      ruleBasedSymbols: const [],
     );
   }
 

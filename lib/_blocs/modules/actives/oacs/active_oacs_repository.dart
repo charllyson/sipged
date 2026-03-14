@@ -126,8 +126,8 @@ class ActiveOacsRepository {
         return 'image/gif';
       case 'webp':
         return 'image/webp';
-      case 'svg':
-        return 'image/svg+xml';
+      case 'pickers':
+        return 'image/pickers+xml';
       case 'json':
         return 'application/json';
       case 'csv':

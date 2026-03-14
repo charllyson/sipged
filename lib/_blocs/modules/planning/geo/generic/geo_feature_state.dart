@@ -18,6 +18,7 @@ class GeoFeatureState extends Equatable {
   final Map<String, List<GeoFeatureData>> featuresByLayer;
   final Map<String, bool> loadingByLayer;
   final Map<String, bool> loadedByLayer;
+  final Map<String, List<String>> availableFieldsByLayer;
   final String? error;
   final GenericGeoLayerSelection? selected;
 
@@ -25,6 +26,7 @@ class GeoFeatureState extends Equatable {
     this.featuresByLayer = const {},
     this.loadingByLayer = const {},
     this.loadedByLayer = const {},
+    this.availableFieldsByLayer = const {},
     this.error,
     this.selected,
   });
@@ -35,6 +37,7 @@ class GeoFeatureState extends Equatable {
     Map<String, List<GeoFeatureData>>? featuresByLayer,
     Map<String, bool>? loadingByLayer,
     Map<String, bool>? loadedByLayer,
+    Map<String, List<String>>? availableFieldsByLayer,
     String? error,
     GenericGeoLayerSelection? selected,
     bool clearError = false,
@@ -44,6 +47,8 @@ class GeoFeatureState extends Equatable {
       featuresByLayer: featuresByLayer ?? this.featuresByLayer,
       loadingByLayer: loadingByLayer ?? this.loadingByLayer,
       loadedByLayer: loadedByLayer ?? this.loadedByLayer,
+      availableFieldsByLayer:
+      availableFieldsByLayer ?? this.availableFieldsByLayer,
       error: clearError ? null : (error ?? this.error),
       selected: clearSelection ? null : (selected ?? this.selected),
     );
@@ -54,6 +59,7 @@ class GeoFeatureState extends Equatable {
     featuresByLayer,
     loadingByLayer,
     loadedByLayer,
+    availableFieldsByLayer,
     error,
     selected,
   ];

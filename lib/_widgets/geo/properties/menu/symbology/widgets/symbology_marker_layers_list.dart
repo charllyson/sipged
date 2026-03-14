@@ -1,15 +1,17 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_widgets/geo/layer/editor/symbology/icons_catalog.dart';
-import 'package:sipged/_widgets/geo/layer/simple_marker_shapes_catalog.dart';
-import 'package:sipged/_widgets/geo/layer/simple_shape_painter.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_icons_catalog.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_shapes_catalog.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/geometry/shape_painter.dart';
 
-class SymbolLayersList extends StatelessWidget {
+class SymbologyMarkerLayersList extends StatelessWidget {
   final List<LayerSimpleSymbolData> layers;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
 
-  const SymbolLayersList({
+  const SymbologyMarkerLayersList({
     super.key,
     required this.layers,
     required this.selectedIndex,
@@ -23,7 +25,7 @@ class SymbolLayersList extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            height: 38,
+            height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: Colors.grey.shade200,
@@ -33,10 +35,10 @@ class SymbolLayersList extends StatelessWidget {
             ),
             child: const Row(
               children: [
-                SizedBox(width: 12),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Marcador',
+                    'Marcadores',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
@@ -51,9 +53,14 @@ class SymbolLayersList extends StatelessWidget {
                 ? const Center(
               child: Text('Nenhum símbolo cadastrado.'),
             )
-                : ListView.builder(
+                : ListView.separated(
               padding: EdgeInsets.zero,
               itemCount: layers.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                thickness: 1,
+                color: Colors.grey.shade200,
+              ),
               itemBuilder: (context, index) {
                 final layer = layers[index];
                 final isSelected = selectedIndex == index;
@@ -61,21 +68,23 @@ class SymbolLayersList extends StatelessWidget {
                 return InkWell(
                   onTap: () => onSelect(index),
                   child: Container(
-                    height: 40,
+                    constraints: const BoxConstraints(minHeight: 46),
                     color: isSelected
-                        ? Colors.grey.shade300
+                        ? Colors.blue.withValues(alpha: 0.10)
                         : Colors.transparent,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
-                        const SizedBox(width: 6),
                         _SymbolLayerPreview(symbol: layer),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             layer.type == LayerSimpleSymbolType.svgMarker
                                 ? 'Marcador SVG ${index + 1}'
-                                : '${SimpleMarkerShapesCatalog.labelFor(layer.shapeType)} ${index + 1}',
+                                : '${MarkerShapesCatalog.labelFor(layer.shapeType)} ${index + 1}',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -110,14 +119,14 @@ class _SymbolLayerPreview extends StatelessWidget {
 
     if (symbol.type == LayerSimpleSymbolType.svgMarker) {
       return SizedBox(
-        width: 22,
-        height: 22,
+        width: 24,
+        height: 24,
         child: Center(
           child: Transform.rotate(
-            angle: symbol.rotationDegrees * 3.141592653589793 / 180,
+            angle: symbol.rotationDegrees * math.pi / 180,
             child: Icon(
               IconsCatalog.iconFor(symbol.iconKey),
-              size: previewWidth > previewHeight ? previewWidth : previewHeight,
+              size: math.max(previewWidth, previewHeight),
               color: Color(symbol.fillColorValue),
             ),
           ),
@@ -126,21 +135,23 @@ class _SymbolLayerPreview extends StatelessWidget {
     }
 
     return SizedBox(
-      width: 22,
-      height: 22,
+      width: 24,
+      height: 24,
       child: Center(
         child: Transform.rotate(
-          angle: symbol.rotationDegrees * 3.141592653589793 / 180,
+          angle: symbol.rotationDegrees * math.pi / 180,
           child: SizedBox(
             width: previewWidth,
             height: previewHeight,
-            child: CustomPaint(
-              painter: SimpleShapePainter(
-                shape: symbol.shapeType,
-                fillColor: Color(symbol.fillColorValue),
-                strokeColor: Color(symbol.strokeColorValue),
-                strokeWidth: symbol.strokeWidth.clamp(0.6, 1.5),
-                rotationDegrees: 0,
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: ShapePainter(
+                  shape: symbol.shapeType,
+                  fillColor: Color(symbol.fillColorValue),
+                  strokeColor: Color(symbol.strokeColorValue),
+                  strokeWidth: symbol.strokeWidth.clamp(0.6, 1.5),
+                  rotationDegrees: 0,
+                ),
               ),
             ),
           ),

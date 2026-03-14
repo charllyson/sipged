@@ -8,6 +8,7 @@ enum LayerPropertiesTab {
   metadata,
 }
 
+@immutable
 class LayerPropertiesMenuItemData {
   final LayerPropertiesTab tab;
   final IconData icon;

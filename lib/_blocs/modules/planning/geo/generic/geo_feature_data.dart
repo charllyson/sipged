@@ -174,37 +174,31 @@ class GeoFeatureData extends Equatable {
           'type': 'Point',
           'coordinates': _decodePoint(coords),
         };
-
       case 'MultiPoint':
         return {
           'type': 'MultiPoint',
           'coordinates': _decodePointList(coords),
         };
-
       case 'LineString':
         return {
           'type': 'LineString',
           'coordinates': _decodePointList(coords),
         };
-
       case 'MultiLineString':
         return {
           'type': 'MultiLineString',
           'coordinates': _decodeLineList(coords),
         };
-
       case 'Polygon':
         return {
           'type': 'Polygon',
           'coordinates': _decodeRingList(coords),
         };
-
       case 'MultiPolygon':
         return {
           'type': 'MultiPolygon',
           'coordinates': _decodePolygonList(coords),
         };
-
       default:
         return geometry;
     }
@@ -273,9 +267,7 @@ class GeoFeatureData extends Equatable {
         if (coords is List) {
           for (final ring in coords) {
             final parsed = _latLngList(ring);
-            if (parsed.length >= 3) {
-              rings.add(parsed);
-            }
+            if (parsed.length >= 3) rings.add(parsed);
           }
         }
         return _ParsedGeometry(polygonRings: rings);
@@ -287,9 +279,7 @@ class GeoFeatureData extends Equatable {
             if (polygon is List) {
               for (final ring in polygon) {
                 final parsed = _latLngList(ring);
-                if (parsed.length >= 3) {
-                  rings.add(parsed);
-                }
+                if (parsed.length >= 3) rings.add(parsed);
               }
             }
           }

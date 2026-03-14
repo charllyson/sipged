@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 
 class LayerGeneralEditor extends StatelessWidget {
@@ -26,6 +25,8 @@ class LayerGeneralEditor extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // A aba Geral foi propositalmente reduzida para conter
+              // apenas os dados básicos da camada.
               CustomTextField(
                 controller: nameController,
                 labelText: 'Nome da camada',

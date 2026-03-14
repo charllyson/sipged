@@ -7,8 +7,8 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_widgets/geo/layer/editor/symbology/icons_catalog.dart';
-import 'package:sipged/_widgets/geo/layer/simple_shape_painter.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_icons_catalog.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/geometry/shape_painter.dart';
 
 class GeoNetworkMap extends StatefulWidget {
   const GeoNetworkMap({
@@ -44,16 +44,14 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
 
   static const Distance _distance = Distance();
 
+  bool _mapReady = false;
+  double _lastKnownZoom = 7.0;
+  LatLng _lastKnownCenter = const LatLng(-9.6658, -35.7353);
+
   @override
   void initState() {
     super.initState();
     _controller = MapController();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      widget.onControllerReady(_controller);
-      _fitToFeaturesIfNeeded();
-    });
   }
 
   @override
@@ -65,25 +63,28 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
     final newKeys =
     widget.features.map((e) => e.selectionKey).toList(growable: false);
 
-    final styleHashOld = _styleHash(oldWidget.layersById);
-    final styleHashNew = _styleHash(widget.layersById);
-
-    if (!listEquals(oldKeys, newKeys) || styleHashOld != styleHashNew) {
+    if (!listEquals(oldKeys, newKeys) && _mapReady) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!mounted || !_mapReady) return;
         _fitToFeaturesIfNeeded();
       });
     }
   }
 
-  String _styleHash(Map<String, GeoLayersData> map) {
-    return map.entries.map((e) {
-      final l = e.value;
-      return '${e.key}_${l.iconKey}_${l.colorValue}_${l.symbolLayers.length}';
-    }).join('|');
+  void _handleMapReady() {
+    if (!mounted) return;
+
+    _mapReady = true;
+    widget.onControllerReady(_controller);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_mapReady) return;
+      _fitToFeaturesIfNeeded();
+    });
   }
 
   void _fitToFeaturesIfNeeded() {
+    if (!_mapReady) return;
     if (widget.features.isEmpty) return;
 
     final allPoints = <LatLng>[];
@@ -101,6 +102,8 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
 
     if (allPoints.length == 1) {
       _controller.move(allPoints.first, 14);
+      _lastKnownCenter = allPoints.first;
+      _lastKnownZoom = 14;
       return;
     }
 
@@ -127,6 +130,28 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
     );
   }
 
+  double get _effectiveZoom {
+    if (_mapReady) {
+      try {
+        return _controller.camera.zoom;
+      } catch (_) {
+        return _lastKnownZoom;
+      }
+    }
+    return _lastKnownZoom;
+  }
+
+  LatLng get _effectiveCenter {
+    if (_mapReady) {
+      try {
+        return _controller.camera.center;
+      } catch (_) {
+        return _lastKnownCenter;
+      }
+    }
+    return _lastKnownCenter;
+  }
+
   @override
   Widget build(BuildContext context) {
     final polygons = _buildPolygons();
@@ -138,13 +163,16 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
         FlutterMap(
           mapController: _controller,
           options: MapOptions(
-            initialCenter: const LatLng(-9.6658, -35.7353),
-            initialZoom: 7.0,
+            initialCenter: _lastKnownCenter,
+            initialZoom: _lastKnownZoom,
+            onMapReady: _handleMapReady,
             onTap: (_, latLng) {
-              final hit = _findFeatureAt(latLng, _controller.camera.zoom);
+              final hit = _findFeatureAt(latLng, _effectiveZoom);
               widget.onFeatureTap(hit);
             },
             onPositionChanged: (camera, hasGesture) {
+              _lastKnownCenter = camera.center;
+              _lastKnownZoom = camera.zoom;
               widget.onCameraChanged?.call(camera.center, camera.zoom);
             },
           ),
@@ -165,22 +193,24 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
             children: [
               FloatingActionButton.small(
                 heroTag: 'geo_zoom_in',
-                onPressed: () {
-                  _controller.move(
-                    _controller.camera.center,
-                    _controller.camera.zoom + 1,
-                  );
+                onPressed: !_mapReady
+                    ? null
+                    : () {
+                  final center = _effectiveCenter;
+                  final zoom = _effectiveZoom;
+                  _controller.move(center, zoom + 1);
                 },
                 child: const Icon(Icons.add),
               ),
               const SizedBox(height: 8),
               FloatingActionButton.small(
                 heroTag: 'geo_zoom_out',
-                onPressed: () {
-                  _controller.move(
-                    _controller.camera.center,
-                    _controller.camera.zoom - 1,
-                  );
+                onPressed: !_mapReady
+                    ? null
+                    : () {
+                  final center = _effectiveCenter;
+                  final zoom = _effectiveZoom;
+                  _controller.move(center, zoom - 1);
                 },
                 child: const Icon(Icons.remove),
               ),
@@ -217,6 +247,68 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
           ),
       ],
     );
+  }
+
+  List<LayerSimpleSymbolData> _resolveSymbolsForFeature(
+      GeoLayersData? layer,
+      GeoFeatureData feature,
+      double zoom,
+      ) {
+    if (layer == null) return const [];
+
+    if (layer.rendererType == LayerRendererType.singleSymbol) {
+      return layer.effectiveSymbolLayers;
+    }
+
+    for (final rule in layer.ruleBasedSymbols) {
+      if (!rule.enabled) continue;
+
+      if (rule.minZoom != null && zoom < rule.minZoom!) continue;
+      if (rule.maxZoom != null && zoom > rule.maxZoom!) continue;
+
+      if (_matchesRule(rule, feature.properties)) {
+        return rule.effectiveSymbolLayers;
+      }
+    }
+
+    return layer.effectiveSymbolLayers;
+  }
+
+  bool _matchesRule(
+      LayerRuleData rule,
+      Map<String, dynamic> properties,
+      ) {
+    final field = rule.field.trim();
+    if (field.isEmpty) return true;
+
+    final raw = properties[field];
+    final left = raw?.toString() ?? '';
+    final right = rule.value;
+
+    switch (rule.operatorType) {
+      case LayerRuleOperator.equals:
+        return left == right;
+      case LayerRuleOperator.notEquals:
+        return left != right;
+      case LayerRuleOperator.contains:
+        return left.toLowerCase().contains(right.toLowerCase());
+      case LayerRuleOperator.greaterThan:
+        return (double.tryParse(left.replaceAll(',', '.')) ?? double.nan) >
+            (double.tryParse(right.replaceAll(',', '.')) ?? double.nan);
+      case LayerRuleOperator.lessThan:
+        return (double.tryParse(left.replaceAll(',', '.')) ?? double.nan) <
+            (double.tryParse(right.replaceAll(',', '.')) ?? double.nan);
+      case LayerRuleOperator.greaterOrEqual:
+        return (double.tryParse(left.replaceAll(',', '.')) ?? double.nan) >=
+            (double.tryParse(right.replaceAll(',', '.')) ?? double.nan);
+      case LayerRuleOperator.lessOrEqual:
+        return (double.tryParse(left.replaceAll(',', '.')) ?? double.nan) <=
+            (double.tryParse(right.replaceAll(',', '.')) ?? double.nan);
+      case LayerRuleOperator.isEmpty:
+        return left.trim().isEmpty;
+      case LayerRuleOperator.isNotEmpty:
+        return left.trim().isNotEmpty;
+    }
   }
 
   List<Polygon> _buildPolygons() {
@@ -272,12 +364,13 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
 
   List<Marker> _buildMarkers() {
     final out = <Marker>[];
+    final zoom = _effectiveZoom;
 
     for (final feature in widget.features) {
       final layer = widget.layersById[feature.layerId];
       final isSelected = widget.selectedFeatureKey == feature.selectionKey;
-      final symbols =
-      (layer?.effectiveSymbolLayers ?? const <LayerSimpleSymbolData>[])
+
+      final symbols = _resolveSymbolsForFeature(layer, feature, zoom)
           .where((e) => e.enabled)
           .toList(growable: false);
 
@@ -356,7 +449,7 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
         width: symbol.width,
         height: symbol.height,
         child: CustomPaint(
-          painter: SimpleShapePainter(
+          painter: ShapePainter(
             shape: symbol.shapeType,
             fillColor: isSelected
                 ? symbol.fillColor.withValues(alpha: 0.75)

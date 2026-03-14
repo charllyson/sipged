@@ -110,13 +110,19 @@ class GeoLayersRepository {
         a.supportsConnect != b.supportsConnect ||
         a.isTemporary != b.isTemporary ||
         a.isSystem != b.isSystem ||
+        a.rendererType != b.rendererType ||
         a.children.length != b.children.length ||
-        a.symbolLayers.length != b.symbolLayers.length) {
+        a.symbolLayers.length != b.symbolLayers.length ||
+        a.ruleBasedSymbols.length != b.ruleBasedSymbols.length) {
       return false;
     }
 
     for (int i = 0; i < a.symbolLayers.length; i++) {
       if (!_isSameSymbol(a.symbolLayers[i], b.symbolLayers[i])) return false;
+    }
+
+    for (int i = 0; i < a.ruleBasedSymbols.length; i++) {
+      if (!_isSameRule(a.ruleBasedSymbols[i], b.ruleBasedSymbols[i])) return false;
     }
 
     for (int i = 0; i < a.children.length; i++) {
@@ -139,5 +145,25 @@ class GeoLayersRepository {
         a.strokeWidth == b.strokeWidth &&
         a.rotationDegrees == b.rotationDegrees &&
         a.enabled == b.enabled;
+  }
+
+  bool _isSameRule(LayerRuleData a, LayerRuleData b) {
+    if (a.id != b.id ||
+        a.label != b.label ||
+        a.enabled != b.enabled ||
+        a.field != b.field ||
+        a.operatorType != b.operatorType ||
+        a.value != b.value ||
+        a.minZoom != b.minZoom ||
+        a.maxZoom != b.maxZoom ||
+        a.symbolLayers.length != b.symbolLayers.length) {
+      return false;
+    }
+
+    for (int i = 0; i < a.symbolLayers.length; i++) {
+      if (!_isSameSymbol(a.symbolLayers[i], b.symbolLayers[i])) return false;
+    }
+
+    return true;
   }
 }

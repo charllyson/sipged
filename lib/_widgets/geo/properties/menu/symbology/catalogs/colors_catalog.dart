@@ -4,14 +4,12 @@ class ColorsCatalog extends StatefulWidget {
   final int selectedColorValue;
   final ValueChanged<int> onChanged;
   final String title;
-  final double maxHeight;
 
   const ColorsCatalog({
     super.key,
     required this.selectedColorValue,
     required this.onChanged,
     this.title = 'Cor do ícone',
-    this.maxHeight = 220,
   });
 
   @override
@@ -30,6 +28,7 @@ class _ColorsCatalogState extends State<ColorsCatalog> {
   @override
   void didUpdateWidget(covariant ColorsCatalog oldWidget) {
     super.didUpdateWidget(oldWidget);
+
     if (oldWidget.selectedColorValue != widget.selectedColorValue) {
       _selectedColorValue = widget.selectedColorValue;
     }
@@ -38,7 +37,7 @@ class _ColorsCatalogState extends State<ColorsCatalog> {
   Future<void> _openColorPickerDialog() async {
     final result = await showDialog<int>(
       context: context,
-      builder: (dialogContext) {
+      builder: (_) {
         return _ColorsCatalogDialog(
           initialColorValue: _selectedColorValue,
           title: widget.title,
@@ -87,6 +86,13 @@ class _ColorsCatalogState extends State<ColorsCatalog> {
                     color: selectedColor,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: Colors.grey.shade500),
+                    boxShadow: [
+                      BoxShadow(
+                        color: selectedColor.withValues(alpha: 0.22),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -94,7 +100,7 @@ class _ColorsCatalogState extends State<ColorsCatalog> {
                   child: Text(
                     '#${selectedColor.value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
                     style: const TextStyle(
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -128,6 +134,39 @@ class _ColorsCatalogDialog extends StatefulWidget {
 class _ColorsCatalogDialogState extends State<_ColorsCatalogDialog> {
   late int _selectedColorValue;
 
+  static const List<Color> _accentRow = [
+    Color(0xFFE11D48),
+    Color(0xFFEF4444),
+    Color(0xFFF97316),
+    Color(0xFFF59E0B),
+    Color(0xFFEAB308),
+    Color(0xFF84CC16),
+    Color(0xFF22C55E),
+    Color(0xFF10B981),
+    Color(0xFF14B8A6),
+    Color(0xFF06B6D4),
+    Color(0xFF0EA5E9),
+    Color(0xFF3B82F6),
+    Color(0xFF6366F1),
+    Color(0xFF8B5CF6),
+    Color(0xFFD946EF),
+    Color(0xFFEC4899),
+  ];
+
+  static const List<Color> _neutralRow = [
+    Color(0xFF000000),
+    Color(0xFF111827),
+    Color(0xFF1F2937),
+    Color(0xFF374151),
+    Color(0xFF4B5563),
+    Color(0xFF6B7280),
+    Color(0xFF9CA3AF),
+    Color(0xFFD1D5DB),
+    Color(0xFFE5E7EB),
+    Color(0xFFF3F4F6),
+    Color(0xFFFFFFFF),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -140,66 +179,17 @@ class _ColorsCatalogDialogState extends State<_ColorsCatalogDialog> {
   }) {
     final palette = <Color>[];
 
-    final neutralRows = <List<Color>>[
-      [
-        Colors.black,
-        const Color(0xFF111111),
-        const Color(0xFF222222),
-        const Color(0xFF333333),
-        const Color(0xFF444444),
-        const Color(0xFF555555),
-        const Color(0xFF666666),
-        const Color(0xFF777777),
-        const Color(0xFF888888),
-        const Color(0xFF999999),
-        const Color(0xFFAAAAAA),
-        const Color(0xFFBBBBBB),
-        const Color(0xFFCCCCCC),
-        const Color(0xFFDDDDDD),
-        const Color(0xFFEEEEEE),
-        Colors.white,
-      ],
-      [
-        const Color(0xFF330000),
-        const Color(0xFF332000),
-        const Color(0xFF333300),
-        const Color(0xFF203300),
-        const Color(0xFF003300),
-        const Color(0xFF003320),
-        const Color(0xFF003333),
-        const Color(0xFF002033),
-        const Color(0xFF000033),
-        const Color(0xFF200033),
-        const Color(0xFF330033),
-        const Color(0xFF330020),
-        const Color(0xFF4D2626),
-        const Color(0xFF4D4D26),
-        const Color(0xFF264D4D),
-        const Color(0xFF4D264D),
-      ],
-    ];
+    palette.addAll(_expandToColumns(_neutralRow, columns));
+    palette.addAll(_expandToColumns(_accentRow, columns));
 
-    for (final row in neutralRows) {
-      if (row.length == columns) {
-        palette.addAll(row);
-      } else {
-        for (var i = 0; i < columns; i++) {
-          final t = columns == 1 ? 0.0 : i / (columns - 1);
-          final index =
-          (t * (row.length - 1)).round().clamp(0, row.length - 1);
-          palette.add(row[index]);
-        }
-      }
-    }
+    for (int row = 0; row < colorRows; row++) {
+      final t = colorRows <= 1 ? 0.0 : row / (colorRows - 1);
 
-    for (var row = 0; row < colorRows; row++) {
-      final rowFactor = colorRows <= 1 ? 0.0 : row / (colorRows - 1);
+      final saturation = _lerpNum(0.35, 1.0, t);
+      final value = _lerpNum(1.0, 0.78, t);
 
-      final saturation = 0.35 + (0.65 * rowFactor);
-      final value = 1.0 - (0.45 * rowFactor);
-
-      for (var col = 0; col < columns; col++) {
-        final hue = columns <= 1 ? 0.0 : (col / columns) * 360.0;
+      for (int col = 0; col < columns; col++) {
+        final hue = (col / columns) * 360.0;
         palette.add(
           HSVColor.fromAHSV(
             1,
@@ -214,18 +204,29 @@ class _ColorsCatalogDialogState extends State<_ColorsCatalogDialog> {
     return palette;
   }
 
+  List<Color> _expandToColumns(List<Color> base, int columns) {
+    if (base.length == columns) return base;
+
+    return List<Color>.generate(columns, (index) {
+      final t = columns == 1 ? 0.0 : index / (columns - 1);
+      final mapped = (t * (base.length - 1)).round().clamp(0, base.length - 1);
+      return base[mapped];
+    });
+  }
+
   int _resolveColumns(double width) {
-    if (width < 180) return 12;
-    if (width < 240) return 14;
-    if (width < 320) return 16;
-    if (width < 420) return 18;
+    if (width < 220) return 10;
+    if (width < 280) return 12;
+    if (width < 360) return 14;
+    if (width < 460) return 16;
+    if (width < 640) return 18;
     return 20;
   }
 
   int _resolveColorRows(double height) {
-    if (height < 120) return 6;
-    if (height < 160) return 8;
-    if (height < 220) return 10;
+    if (height < 140) return 6;
+    if (height < 200) return 8;
+    if (height < 260) return 10;
     return 12;
   }
 
@@ -239,16 +240,15 @@ class _ColorsCatalogDialogState extends State<_ColorsCatalogDialog> {
     final selectedColor = Color(_selectedColorValue);
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: ConstrainedBox(
         constraints: const BoxConstraints(
-          maxWidth: 860,
-          maxHeight: 700,
+          maxWidth: 900,
+          maxHeight: 720,
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -272,16 +272,11 @@ class _ColorsCatalogDialogState extends State<_ColorsCatalogDialog> {
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    const infoAreaHeight = 44.0;
-                    final usableGridHeight =
-                    (constraints.maxHeight - infoAreaHeight)
-                        .clamp(120.0, 10000.0);
-
                     final columns = _resolveColumns(constraints.maxWidth);
-                    final colorRows = _resolveColorRows(usableGridHeight);
+                    final rows = _resolveColorRows(constraints.maxHeight);
                     final palette = _buildPaletteGrid(
                       columns: columns,
-                      colorRows: colorRows,
+                      colorRows: rows,
                     );
 
                     return Column(
@@ -292,8 +287,7 @@ class _ColorsCatalogDialogState extends State<_ColorsCatalogDialog> {
                             decoration: BoxDecoration(
                               color: Colors.grey.shade50,
                               borderRadius: BorderRadius.circular(12),
-                              border:
-                              Border.all(color: Colors.grey.shade300),
+                              border: Border.all(color: Colors.grey.shade300),
                             ),
                             child: GridView.builder(
                               padding: EdgeInsets.zero,
@@ -326,13 +320,13 @@ class _ColorsCatalogDialogState extends State<_ColorsCatalogDialog> {
                                           color: isSelected
                                               ? Colors.black
                                               : Colors.black12,
-                                          width: isSelected ? 2 : 0.35,
+                                          width: isSelected ? 2.2 : 0.35,
                                         ),
                                       ),
                                       child: isSelected
                                           ? Icon(
                                         Icons.check,
-                                        size: 11,
+                                        size: 12,
                                         color: _bestContrast(color),
                                       )
                                           : null,
@@ -348,25 +342,35 @@ class _ColorsCatalogDialogState extends State<_ColorsCatalogDialog> {
                           children: [
                             const Text(
                               'Selecionada:',
-                              style: TextStyle(fontWeight: FontWeight.w500),
+                              style: TextStyle(fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(width: 8),
                             Container(
-                              width: 18,
-                              height: 18,
+                              width: 22,
+                              height: 22,
                               decoration: BoxDecoration(
                                 color: selectedColor,
-                                border:
-                                Border.all(color: Colors.grey.shade500),
+                                border: Border.all(
+                                  color: Colors.grey.shade500,
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                    selectedColor.withValues(alpha: 0.25),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 '#${selectedColor.value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
@@ -399,4 +403,8 @@ class _ColorsCatalogDialogState extends State<_ColorsCatalogDialog> {
       ),
     );
   }
+}
+
+double _lerpNum(num a, num b, double t) {
+  return a * (1.0 - t) + b * t;
 }

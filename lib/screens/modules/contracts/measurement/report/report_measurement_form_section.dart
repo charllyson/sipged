@@ -9,7 +9,7 @@ import 'package:sipged/_widgets/input/custom_text_field.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
-// ✅ lista lateral de arquivos (novo: rename embutido)
+// ✅ lista lateral de arquivos
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
@@ -30,29 +30,23 @@ class ReportMeasurementFormSection extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onClear;
 
-  /// ▶️ Ações (opcionais)
-  final VoidCallback? onOpenMemoDeCalculo; // manter nulo => desabilitado
-  final VoidCallback? onOpenBoletimDeMedicao; // abre modal readonly
+  final VoidCallback? onOpenMemoDeCalculo;
+  final VoidCallback? onOpenBoletimDeMedicao;
 
-  // ▶️ SideListBox props
   final List<dynamic> sideItems;
   final int? selectedSideIndex;
   final VoidCallback? onAddSideItem;
   final void Function(int index)? onTapSideItem;
   final void Function(int index)? onDeleteSideItem;
 
-  /// ✅ opcional: notifica pai com a lista atual (já renomeada / deletada etc.)
   final void Function(List<dynamic> newItems)? onSideItemsChanged;
 
-  /// ✅ opcional: persistir rename (Firestore/Storage)
-  /// Retorne true/false para o SideListBox decidir commit/revert.
   final Future<bool> Function({
   required int index,
   required Attachment oldItem,
   required Attachment newItem,
   })? onRenamePersist;
 
-  /// ✅ NOVO: overlay de upload/carregamento
   final bool sideLoading;
   final double? sideUploadProgress;
 
@@ -71,7 +65,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
     required this.onClear,
     this.onOpenMemoDeCalculo,
     this.onOpenBoletimDeMedicao,
-    // side list
     required this.sideItems,
     this.selectedSideIndex,
     this.onAddSideItem,
@@ -112,11 +105,12 @@ class ReportMeasurementFormSection extends StatelessWidget {
             thousandSeparator: ThousandSeparator.Period,
             mantissaLength: 2,
           ),
-        ?mask,
+        if (mask != null) mask,
       ],
     );
 
     if (!tooltip) return field;
+
     return Tooltip(
       message: 'Este campo é calculado automaticamente.',
       child: field,
@@ -149,7 +143,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
           spaceBetweenReserved: 12.0,
         );
 
-        // -------- Campos
         final camposWrap = Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -275,27 +268,22 @@ class ReportMeasurementFormSection extends StatelessWidget {
           ],
         );
 
-        // -------- SideList
         final side = SideListBox(
           title: 'Arquivos da Medição',
           items: sideItems,
           selectedIndex: selectedSideIndex,
           width: sideWidth,
-
-          // ✅ botão + habilita quando editável (o pai decide se pode anexar)
           onAddPressed: isEditable ? onAddSideItem : null,
-
-          // ✅ só seleciona no pai
           onTap: (i) => onTapSideItem?.call(i),
 
-          // ✅ sem preview interno
-          openOnTap: false,
+          // ✅ removido openOnTap: false
+          // assim fica igual ao AdjustmentMeasurementFormSection
+          // e o PDF volta a abrir ao clicar no item
+
           onDelete: isEditable ? (i) => onDeleteSideItem?.call(i) : null,
           enableRename: isEditable && selectedReportMeasurement != null,
           onRenamePersist: onRenamePersist,
           onItemsChanged: onSideItemsChanged,
-
-          // ✅ overlay
           loading: sideLoading,
           uploadProgress: sideUploadProgress,
         );
