@@ -1,89 +1,54 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/cards/glass/glass_container.dart';
 
 class GlassCard extends StatelessWidget {
-  final IconData icon;
-  final String message;
-  final String? details;
-  final double? progress;
-
-  final Color glassFill;
-  final Color glassBorder;
-  final List<BoxShadow> shadows;
-
-  const GlassCard({super.key,
-    required this.icon,
-    required this.message,
-    required this.details,
-    required this.progress,
-    required this.glassFill,
-    required this.glassBorder,
-    required this.shadows,
+  const GlassCard({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.padding = const EdgeInsets.all(16),
+    this.margin = EdgeInsets.zero,
+    this.width,
+    this.height,
+    this.borderRadius = const BorderRadius.all(Radius.circular(18)),
+    this.backgroundColor,
+    this.borderColor,
+    this.boxShadow,
+    this.gradient,
+    this.blurSigmaX = 12,
+    this.blurSigmaY = 12,
   });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry margin;
+  final double? width;
+  final double? height;
+  final BorderRadius borderRadius;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final List<BoxShadow>? boxShadow;
+  final Gradient? gradient;
+  final double blurSigmaX;
+  final double blurSigmaY;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final indicator = (progress == null)
-        ? const SizedBox(
-      width: 22, // menor, mais delicado
-      height: 22,
-      child: CircularProgressIndicator(strokeWidth: 2.5),
-    )
-        : SizedBox(
-      width: 180,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(value: progress!.clamp(0.0, 1.0)),
-          ),
-          const SizedBox(height: 8),
-          Text('${(progress! * 100).clamp(0, 100).toStringAsFixed(0)}%',
-              style: theme.textTheme.labelMedium),
-        ],
-      ),
-    );
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 420),
-      child: Container(
-        decoration: BoxDecoration(
-          color: glassFill,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: glassBorder),
-          boxShadow: shadows,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        child: DefaultTextStyle(
-          style: theme.textTheme.bodyMedium!,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 24),
-              const SizedBox(height: 10),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              if (details != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  details!,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.85),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              indicator,
-            ],
-          ),
-        ),
-      ),
+    return GlassContainer(
+      onTap: onTap,
+      width: width,
+      height: height,
+      padding: padding,
+      margin: margin,
+      borderRadius: borderRadius,
+      backgroundColor: backgroundColor,
+      borderColor: borderColor,
+      boxShadow: boxShadow,
+      gradient: gradient,
+      blurSigmaX: blurSigmaX,
+      blurSigmaY: blurSigmaY,
+      child: child,
     );
   }
 }

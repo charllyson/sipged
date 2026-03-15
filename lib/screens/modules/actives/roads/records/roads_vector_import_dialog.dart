@@ -1,6 +1,6 @@
 // lib/_widgets/vector_import/roads_vector_import_dialog.dart
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/geo/attributes_table/attributes_table_dialog.dart';
+import 'package:sipged/_widgets/geo/attributes/attributes_dialog.dart';
 
 /// Dialog específico para importar RODOVIAS em `actives_roads`,
 /// usando o VectorPreviewDialog genérico.
@@ -54,7 +54,7 @@ class RoadsVectorImportDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AttributesTableDialog(
+    return AttributesDialog(
       collectionPath: 'actives_roads',
       targetFields: roadTargetFields,
       title: 'Importar rodovias (actives_roads)',

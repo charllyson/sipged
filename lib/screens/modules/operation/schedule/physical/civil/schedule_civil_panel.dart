@@ -1,6 +1,6 @@
 // lib/screens/modules/operation/operation/civil/schedule_civil_panel.dart
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/toolBox/tool_box_controller.dart';
+import 'package:sipged/_widgets/schedule/civil/schedule_civil_controller.dart';
 
 // schedule_civil_panel.dart (exemplo)
 class ScheduleCivilPanel extends StatelessWidget {

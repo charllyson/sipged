@@ -46,7 +46,7 @@ import 'package:sipged/screens/modules/contracts/measurement/tab_bar_measurement
 import 'package:sipged/screens/modules/contracts/validity/validity_tab_bar.dart';
 
 import 'package:sipged/screens/modules/operation/schedule/physical/civil/schedule_civil_workspace_page.dart';
-import 'package:sipged/_widgets/toolBox/tool_box_controller.dart';
+import 'package:sipged/_widgets/schedule/civil/schedule_civil_controller.dart';
 
 import 'package:sipged/screens/modules/actives/airports/network/active_airports_network_page.dart';
 import 'package:sipged/screens/modules/actives/airports/records/active_airports_records_page.dart';

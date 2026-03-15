@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_services/files/dxf/dxf_enums.dart';
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 
@@ -15,8 +14,7 @@ import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 
 // Toolbox de desenho
-import 'package:sipged/_widgets/toolBox/tool_widget.dart';
-import 'package:sipged/_widgets/toolBox/tool_box_controller.dart';
+import 'package:sipged/_widgets/schedule/civil/schedule_civil_controller.dart';
 
 // Civil
 import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
@@ -143,101 +141,24 @@ class _ScheduleCivilWorkspacePageState extends State<ScheduleCivilWorkspacePage>
               left: Stack(
                 children: [
                   // Canvas de desenho / DXF
-                  Positioned.fill(
-                    child: ScheduleCivilWidget(
-                      title: widget.title,
-                      controller: ctrl,
-                      initialPdfBytes: widget.initialPdfBytes, // tratado como DXF no widget
-                      pageNumber: 1,                            // fixo (DXF)
-                      allowPickNewPdf: widget.allowPickNewPdf,
-                      onPolylinesReady: (lines) {
-                        final total = lines.fold<int>(0, (a, b) => a + b.length);
-                        context.read<MapOverlayCubit>().showDxfPolylines(lines);
-                        NotificationCenter.instance.show(
-                          AppNotification(
-                            title: const Text('DXF enviado ao mapa'),
-                            subtitle: Text('${lines.length} linha(s), $total vértice(s)'),
-                            type: AppNotificationType.success,
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Toolbox flutuante — desloca quando painel abre no wide
-                  Positioned.fill(
-                    child: AnimatedBuilder(
-                      animation: ctrl,
-                      builder: (context, _) {
-                        final ready = ctrl.pagePixelSize != null;
-
-                        return AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: !ready
-                              ? const SizedBox.shrink()
-                              : ToolBoxWidget(
-                            // Mantém a posição sob a UpBar e acima da FootBar
-                            topPadding: MediaQuery.paddingOf(context).top + 72 + 8,
-                            snapEnabled: ctrl.snapEnabled,
-                            snapRadius: ctrl.snapRadius,
-                            snapMinGradient: ctrl.snapMinGradient,
-                            canFinishPolygon: ctrl.canFinishPolygon,
-                            canUndo: ctrl.current.isNotEmpty ||
-                                ctrl.features.isNotEmpty ||
-                                ctrl.texts.isNotEmpty,
-                            canClear: ctrl.current.isNotEmpty ||
-                                ctrl.features.isNotEmpty ||
-                                ctrl.texts.isNotEmpty,
-                            hasSelection: ctrl.hasSelection,
-
-                            onActivatePolygonMode: ctrl.activateDraw,
-                            onActivateSelectionMode: ctrl.activateSelect,
-                            onActivateTextMode: ctrl.activateText,
-                            onToggleSnap: ctrl.toggleSnap,
-                            onChangeSnapRadius: ctrl.changeSnapRadius,
-                            onChangeSnapThreshold: ctrl.changeSnapThreshold,
-
-                            // Finaliza e pede nome
-                            onFinishPolygon: () async {
-                              await ctrl.finishPolygon(
-                                onAskName: (_) => _askAreaName(context, initial: 'Área'),
-                              );
-                            },
-
-                            onUndo: ctrl.undo,
-                            onClear: ctrl.clearAll,
-                            onRenameSelected: () => ctrl.renameSelected(
-                              onAskName: (s) async {
-                                final v = await _askAreaName(context, initial: s);
-                                return v ?? s;
-                              },
-                            ),
-                            onDeleteSelected: ctrl.deleteSelected,
-
-                            buildGeoJSON: (normalized) => ctrl.exportGeoJSON(
-                              sourceKind: SourceKind.dxf,
-                              pageNumber: 1,
-                              normalized: normalized,
-                            ),
-
-                            copyToClipboard: (txt) async {
-                              await Clipboard.setData(ClipboardData(text: txt));
-                              if (context.mounted) {
-                                NotificationCenter.instance.show(
-                                  AppNotification(
-                                    title: const Text('Copiado'),
-                                    subtitle: const Text('Conteúdo enviado para a área de transferência.'),
-                                    type: AppNotificationType.info,
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    ),
+                  ScheduleCivilWidget(
+                    title: widget.title,
+                    controller: ctrl,
+                    initialPdfBytes: widget.initialPdfBytes, // tratado como DXF no widget
+                    pageNumber: 1,                            // fixo (DXF)
+                    allowPickNewPdf: widget.allowPickNewPdf,
+                    onPolylinesReady: (lines) {
+                      final total = lines.fold<int>(0, (a, b) => a + b.length);
+                      context.read<MapOverlayCubit>().showDxfPolylines(lines);
+                      NotificationCenter.instance.show(
+                        AppNotification(
+                          title: const Text('DXF enviado ao mapa'),
+                          subtitle: Text('${lines.length} linha(s), $total vértice(s)'),
+                          type: AppNotificationType.success,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

@@ -145,7 +145,8 @@ class LayerSimpleSymbolData {
       height: (map['height'] as num?)?.toDouble() ?? 28,
       keepAspectRatio: map['keepAspectRatio'] != false,
       fillColorValue: (map['fillColorValue'] as num?)?.toInt() ?? 0xFF2563EB,
-      strokeColorValue: (map['strokeColorValue'] as num?)?.toInt() ?? 0xFF1F2937,
+      strokeColorValue:
+      (map['strokeColorValue'] as num?)?.toInt() ?? 0xFF1F2937,
       strokeWidth: (map['strokeWidth'] as num?)?.toDouble() ?? 1.2,
       rotationDegrees: (map['rotationDegrees'] as num?)?.toDouble() ?? 0,
       enabled: map['enabled'] != false,
@@ -467,6 +468,108 @@ class GeoLayersData {
           type: LayerSimpleSymbolType.svgMarker,
           iconKey: defaultIconKeyForGeometry(LayerGeometryKind.unknown),
           fillColorValue: 0xFF2563EB,
+          strokeColorValue: 0xFF1F2937,
+          width: 28,
+          height: 28,
+        ),
+      ],
+      ruleBasedSymbols: const [],
+    );
+  }
+
+  static GeoLayersData temporaryPointLayer({
+    required String id,
+    required int sequence,
+    int colorValue = 0xFF2563EB,
+  }) {
+    return GeoLayersData(
+      id: id,
+      title: 'CAMADA DE PONTOS $sequence',
+      iconKey: defaultIconKeyForGeometry(LayerGeometryKind.point),
+      colorValue: colorValue,
+      defaultVisible: true,
+      isGroup: false,
+      children: const [],
+      collectionPath: 'geo/catalog/layers/$id/features',
+      geometryKind: LayerGeometryKind.point,
+      supportsConnect: false,
+      isTemporary: true,
+      isSystem: false,
+      rendererType: LayerRendererType.singleSymbol,
+      symbolLayers: [
+        LayerSimpleSymbolData(
+          id: 'symbol_$id',
+          type: LayerSimpleSymbolType.svgMarker,
+          iconKey: defaultIconKeyForGeometry(LayerGeometryKind.point),
+          fillColorValue: colorValue,
+          strokeColorValue: 0xFF1F2937,
+          width: 28,
+          height: 28,
+        ),
+      ],
+      ruleBasedSymbols: const [],
+    );
+  }
+
+  static GeoLayersData temporaryLineLayer({
+    required String id,
+    required int sequence,
+    int colorValue = 0xFF2563EB,
+  }) {
+    return GeoLayersData(
+      id: id,
+      title: 'CAMADA DE LINHAS $sequence',
+      iconKey: defaultIconKeyForGeometry(LayerGeometryKind.line),
+      colorValue: colorValue,
+      defaultVisible: true,
+      isGroup: false,
+      children: const [],
+      collectionPath: 'geo/catalog/layers/$id/features',
+      geometryKind: LayerGeometryKind.line,
+      supportsConnect: false,
+      isTemporary: true,
+      isSystem: false,
+      rendererType: LayerRendererType.singleSymbol,
+      symbolLayers: [
+        LayerSimpleSymbolData(
+          id: 'symbol_$id',
+          type: LayerSimpleSymbolType.svgMarker,
+          iconKey: defaultIconKeyForGeometry(LayerGeometryKind.line),
+          fillColorValue: colorValue,
+          strokeColorValue: 0xFF1F2937,
+          width: 28,
+          height: 28,
+        ),
+      ],
+      ruleBasedSymbols: const [],
+    );
+  }
+
+  static GeoLayersData temporaryPolygonLayer({
+    required String id,
+    required int sequence,
+    int colorValue = 0xFF2563EB,
+  }) {
+    return GeoLayersData(
+      id: id,
+      title: 'CAMADA DE POLÍGONOS $sequence',
+      iconKey: defaultIconKeyForGeometry(LayerGeometryKind.polygon),
+      colorValue: colorValue,
+      defaultVisible: true,
+      isGroup: false,
+      children: const [],
+      collectionPath: 'geo/catalog/layers/$id/features',
+      geometryKind: LayerGeometryKind.polygon,
+      supportsConnect: false,
+      isTemporary: true,
+      isSystem: false,
+      rendererType: LayerRendererType.singleSymbol,
+      symbolLayers: [
+        LayerSimpleSymbolData(
+          id: 'symbol_$id',
+          type: LayerSimpleSymbolType.svgMarker,
+          iconKey: defaultIconKeyForGeometry(LayerGeometryKind.polygon),
+          fillColorValue: colorValue,
           strokeColorValue: 0xFF1F2937,
           width: 28,
           height: 28,

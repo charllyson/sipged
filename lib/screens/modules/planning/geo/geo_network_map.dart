@@ -1,11 +1,10 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_icons_catalog.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/geometry/shape_painter.dart';
@@ -21,6 +20,12 @@ class GeoNetworkMap extends StatefulWidget {
     this.onCameraChanged,
     this.selectedFeatureKey,
     this.loading = false,
+    this.onBackgroundTap,
+    this.temporaryPointLayers = const {},
+    this.temporaryLineLayers = const {},
+    this.temporaryPolygonLayers = const {},
+    this.distanceMeasurementPoints = const [],
+    this.cursor = SystemMouseCursors.basic,
   });
 
   final List<GeoFeatureData> features;
@@ -31,6 +36,13 @@ class GeoNetworkMap extends StatefulWidget {
   final void Function(LatLng center, double zoom)? onCameraChanged;
   final String? selectedFeatureKey;
   final bool loading;
+
+  final bool Function(LatLng latLng)? onBackgroundTap;
+  final Map<String, List<LatLng>> temporaryPointLayers;
+  final Map<String, List<LatLng>> temporaryLineLayers;
+  final Map<String, List<LatLng>> temporaryPolygonLayers;
+  final List<LatLng> distanceMeasurementPoints;
+  final MouseCursor cursor;
 
   @override
   State<GeoNetworkMap> createState() => _GeoNetworkMapState();
@@ -43,10 +55,20 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   static const Distance _distance = Distance();
+  static const Color _measureColor = Color(0xFF7C3AED);
 
   bool _mapReady = false;
   double _lastKnownZoom = 7.0;
   LatLng _lastKnownCenter = const LatLng(-9.6658, -35.7353);
+
+  int _lastStaticVisualSignature = 0;
+  int _lastMarkerVisualSignature = 0;
+  double _lastMarkerZoomBucket = -999;
+
+  List<Polygon> _cachedPolygons = const [];
+  List<Polyline> _cachedPolylines = const [];
+  List<Marker> _cachedMarkers = const [];
+  List<GeoFeatureData> _cachedOrderedFeaturesForHit = const [];
 
   @override
   void initState() {
@@ -58,15 +80,11 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
   void didUpdateWidget(covariant GeoNetworkMap oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final oldKeys =
-    oldWidget.features.map((e) => e.selectionKey).toList(growable: false);
-    final newKeys =
-    widget.features.map((e) => e.selectionKey).toList(growable: false);
-
-    if (!listEquals(oldKeys, newKeys) && _mapReady) {
+    final nextBucket = _zoomBucket(_effectiveZoom);
+    if (nextBucket != _lastMarkerZoomBucket && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_mapReady) return;
-        _fitToFeaturesIfNeeded();
+        if (!mounted) return;
+        setState(_ensureMarkerCache);
       });
     }
   }
@@ -76,58 +94,6 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
 
     _mapReady = true;
     widget.onControllerReady(_controller);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_mapReady) return;
-      _fitToFeaturesIfNeeded();
-    });
-  }
-
-  void _fitToFeaturesIfNeeded() {
-    if (!_mapReady) return;
-    if (widget.features.isEmpty) return;
-
-    final allPoints = <LatLng>[];
-    for (final f in widget.features) {
-      allPoints.addAll(f.markerPoints);
-      for (final line in f.lineParts) {
-        allPoints.addAll(line);
-      }
-      for (final ring in f.polygonRings) {
-        allPoints.addAll(ring);
-      }
-    }
-
-    if (allPoints.isEmpty) return;
-
-    if (allPoints.length == 1) {
-      _controller.move(allPoints.first, 14);
-      _lastKnownCenter = allPoints.first;
-      _lastKnownZoom = 14;
-      return;
-    }
-
-    double minLat = allPoints.first.latitude;
-    double maxLat = allPoints.first.latitude;
-    double minLng = allPoints.first.longitude;
-    double maxLng = allPoints.first.longitude;
-
-    for (final p in allPoints) {
-      minLat = math.min(minLat, p.latitude);
-      maxLat = math.max(maxLat, p.latitude);
-      minLng = math.min(minLng, p.longitude);
-      maxLng = math.max(maxLng, p.longitude);
-    }
-
-    _controller.fitCamera(
-      CameraFit.bounds(
-        bounds: LatLngBounds(
-          LatLng(minLat, minLng),
-          LatLng(maxLat, maxLng),
-        ),
-        padding: const EdgeInsets.all(32),
-      ),
-    );
   }
 
   double get _effectiveZoom {
@@ -152,99 +118,199 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
     return _lastKnownCenter;
   }
 
+  double _zoomBucket(double zoom) {
+    return (zoom * 10).round() / 10.0;
+  }
+
+  int _pointsSignature(List<LatLng> points) {
+    return Object.hashAll(
+      points.map((e) => Object.hash(e.latitude, e.longitude)),
+    );
+  }
+
+  int _computeStaticVisualSignature() {
+    return Object.hashAll([
+      widget.selectedFeatureKey,
+      widget.features.length,
+      ...widget.features.map((f) => Object.hash(
+        f.selectionKey,
+        f.layerId,
+        f.markerPoints.length,
+        f.lineParts.length,
+        f.polygonRings.length,
+      )),
+      widget.layersById.length,
+      ...widget.layersById.entries.map(
+            (e) => Object.hash(e.key, e.value.hashCode),
+      ),
+      ...widget.orderedActiveLayerIds,
+      ...widget.temporaryLineLayers.entries.map(
+            (e) => Object.hash(e.key, _pointsSignature(e.value)),
+      ),
+      ...widget.temporaryPolygonLayers.entries.map(
+            (e) => Object.hash(e.key, _pointsSignature(e.value)),
+      ),
+      _pointsSignature(widget.distanceMeasurementPoints),
+    ]);
+  }
+
+  int _computeMarkerVisualSignature(double zoomBucket) {
+    return Object.hashAll([
+      zoomBucket,
+      widget.selectedFeatureKey,
+      widget.features.length,
+      ...widget.features.map((f) => Object.hash(
+        f.selectionKey,
+        f.layerId,
+        f.markerPoints.length,
+      )),
+      widget.layersById.length,
+      ...widget.layersById.entries.map(
+            (e) => Object.hash(e.key, e.value.hashCode),
+      ),
+      ...widget.temporaryPointLayers.entries.map(
+            (e) => Object.hash(e.key, _pointsSignature(e.value)),
+      ),
+      ...widget.temporaryPolygonLayers.entries.map(
+            (e) => Object.hash(e.key, _pointsSignature(e.value)),
+      ),
+      _pointsSignature(widget.distanceMeasurementPoints),
+    ]);
+  }
+
+  void _ensureStaticCache() {
+    final signature = _computeStaticVisualSignature();
+    if (signature == _lastStaticVisualSignature) return;
+
+    _lastStaticVisualSignature = signature;
+    _cachedPolygons = _buildPolygons();
+    _cachedPolylines = _buildPolylines();
+    _cachedOrderedFeaturesForHit = _buildOrderedFeaturesForHit();
+  }
+
+  void _ensureMarkerCache() {
+    final bucket = _zoomBucket(_effectiveZoom);
+    final signature = _computeMarkerVisualSignature(bucket);
+
+    if (signature == _lastMarkerVisualSignature &&
+        bucket == _lastMarkerZoomBucket) {
+      return;
+    }
+
+    _lastMarkerZoomBucket = bucket;
+    _lastMarkerVisualSignature = signature;
+    _cachedMarkers = _buildMarkers(bucket);
+  }
+
+  List<GeoFeatureData> _buildOrderedFeaturesForHit() {
+    final orderedLayerIds = widget.orderedActiveLayerIds.reversed.toList();
+    final orderedFeatures = <GeoFeatureData>[];
+
+    for (final layerId in orderedLayerIds) {
+      orderedFeatures.addAll(
+        widget.features.where((e) => e.layerId == layerId),
+      );
+    }
+
+    return orderedFeatures;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final polygons = _buildPolygons();
-    final polylines = _buildPolylines();
-    final markers = _buildMarkers();
+    _ensureStaticCache();
+    _ensureMarkerCache();
 
     return Stack(
+      clipBehavior: Clip.hardEdge,
       children: [
-        FlutterMap(
-          mapController: _controller,
-          options: MapOptions(
-            initialCenter: _lastKnownCenter,
-            initialZoom: _lastKnownZoom,
-            onMapReady: _handleMapReady,
-            onTap: (_, latLng) {
-              final hit = _findFeatureAt(latLng, _effectiveZoom);
-              widget.onFeatureTap(hit);
-            },
-            onPositionChanged: (camera, hasGesture) {
-              _lastKnownCenter = camera.center;
-              _lastKnownZoom = camera.zoom;
-              widget.onCameraChanged?.call(camera.center, camera.zoom);
-            },
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: _tileUrl,
-              userAgentPackageName: 'com.openai.sipged',
+        RepaintBoundary(
+          child: MouseRegion(
+            cursor: widget.cursor,
+            child: FlutterMap(
+              mapController: _controller,
+              options: MapOptions(
+                initialCenter: _lastKnownCenter,
+                initialZoom: _lastKnownZoom,
+                onMapReady: _handleMapReady,
+                onTap: (_, latLng) {
+                  final consumed = widget.onBackgroundTap?.call(latLng) ?? false;
+                  if (consumed) return;
+
+                  final hit = _findFeatureAt(latLng, _effectiveZoom);
+
+                  if (hit != null) {
+                    widget.onFeatureTap(hit);
+                    return;
+                  }
+
+                  widget.onFeatureTap(null);
+                },
+                onPositionChanged: (camera, hasGesture) {
+                  _lastKnownCenter = camera.center;
+                  _lastKnownZoom = camera.zoom;
+                  widget.onCameraChanged?.call(camera.center, camera.zoom);
+
+                  final nextBucket = _zoomBucket(camera.zoom);
+                  if (nextBucket != _lastMarkerZoomBucket && mounted) {
+                    setState(() {
+                      _ensureMarkerCache();
+                    });
+                  }
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: _tileUrl,
+                  userAgentPackageName: 'com.openai.sipged',
+                  panBuffer: 1,
+                ),
+                if (_cachedPolygons.isNotEmpty)
+                  PolygonLayer(polygons: _cachedPolygons),
+                if (_cachedPolylines.isNotEmpty)
+                  PolylineLayer(polylines: _cachedPolylines),
+                if (_cachedMarkers.isNotEmpty)
+                  MarkerLayer(markers: _cachedMarkers),
+              ],
             ),
-            if (polygons.isNotEmpty) PolygonLayer(polygons: polygons),
-            if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
-            if (markers.isNotEmpty) MarkerLayer(markers: markers),
-          ],
+          ),
         ),
         Positioned(
           right: 16,
           bottom: 16,
-          child: Column(
-            children: [
-              FloatingActionButton.small(
-                heroTag: 'geo_zoom_in',
-                onPressed: !_mapReady
-                    ? null
-                    : () {
-                  final center = _effectiveCenter;
-                  final zoom = _effectiveZoom;
-                  _controller.move(center, zoom + 1);
-                },
-                child: const Icon(Icons.add),
-              ),
-              const SizedBox(height: 8),
-              FloatingActionButton.small(
-                heroTag: 'geo_zoom_out',
-                onPressed: !_mapReady
-                    ? null
-                    : () {
-                  final center = _effectiveCenter;
-                  final zoom = _effectiveZoom;
-                  _controller.move(center, zoom - 1);
-                },
-                child: const Icon(Icons.remove),
-              ),
-            ],
-          ),
-        ),
-        if (widget.loading)
-          Positioned.fill(
-            child: IgnorePointer(
-              ignoring: true,
-              child: Container(
-                color: Colors.black12,
-                alignment: Alignment.topCenter,
-                padding: const EdgeInsets.only(top: 20),
-                child: const Card(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        SizedBox(width: 12),
-                        Text('Carregando camadas...'),
-                      ],
-                    ),
+          child: SafeArea(
+            minimum: EdgeInsets.zero,
+            child: RepaintBoundary(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FloatingActionButton.small(
+                    heroTag: 'geo_zoom_in',
+                    onPressed: !_mapReady
+                        ? null
+                        : () {
+                      final center = _effectiveCenter;
+                      final zoom = _effectiveZoom;
+                      _controller.move(center, zoom + 1);
+                    },
+                    child: const Icon(Icons.add),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton.small(
+                    heroTag: 'geo_zoom_out',
+                    onPressed: !_mapReady
+                        ? null
+                        : () {
+                      final center = _effectiveCenter;
+                      final zoom = _effectiveZoom;
+                      _controller.move(center, zoom - 1);
+                    },
+                    child: const Icon(Icons.remove),
+                  ),
+                ],
               ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -262,7 +328,6 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
 
     for (final rule in layer.ruleBasedSymbols) {
       if (!rule.enabled) continue;
-
       if (rule.minZoom != null && zoom < rule.minZoom!) continue;
       if (rule.maxZoom != null && zoom > rule.maxZoom!) continue;
 
@@ -335,6 +400,25 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       }
     }
 
+    for (final layerId in widget.orderedActiveLayerIds) {
+      final draftPolygon = widget.temporaryPolygonLayers[layerId];
+      if (draftPolygon == null || draftPolygon.isEmpty) continue;
+
+      final layer = widget.layersById[layerId];
+      final color = layer?.displayColor ?? Colors.orange;
+
+      if (draftPolygon.length >= 3) {
+        out.add(
+          Polygon(
+            points: draftPolygon,
+            color: color.withValues(alpha: 0.22),
+            borderColor: color.withValues(alpha: 0.95),
+            borderStrokeWidth: 2.5,
+          ),
+        );
+      }
+    }
+
     return out;
   }
 
@@ -359,12 +443,55 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       }
     }
 
+    for (final layerId in widget.orderedActiveLayerIds) {
+      final draftLine = widget.temporaryLineLayers[layerId];
+      if (draftLine != null && draftLine.length >= 2) {
+        final layer = widget.layersById[layerId];
+        final color = layer?.displayColor ?? Colors.orange;
+
+        out.add(
+          Polyline(
+            points: draftLine,
+            color: color.withValues(alpha: 0.95),
+            strokeWidth: 4.0,
+          ),
+        );
+      }
+
+      final draftPolygon = widget.temporaryPolygonLayers[layerId];
+      if (draftPolygon != null && draftPolygon.length >= 2) {
+        final layer = widget.layersById[layerId];
+        final color = layer?.displayColor ?? Colors.orange;
+
+        final previewPoints = draftPolygon.length >= 3
+            ? [...draftPolygon, draftPolygon.first]
+            : draftPolygon;
+
+        out.add(
+          Polyline(
+            points: previewPoints,
+            color: color.withValues(alpha: 0.95),
+            strokeWidth: 3.0,
+          ),
+        );
+      }
+    }
+
+    if (widget.distanceMeasurementPoints.length >= 2) {
+      out.add(
+        Polyline(
+          points: widget.distanceMeasurementPoints,
+          color: _measureColor,
+          strokeWidth: 4.0,
+        ),
+      );
+    }
+
     return out;
   }
 
-  List<Marker> _buildMarkers() {
+  List<Marker> _buildMarkers(double zoom) {
     final out = <Marker>[];
-    final zoom = _effectiveZoom;
 
     for (final feature in widget.features) {
       final layer = widget.layersById[feature.layerId];
@@ -423,6 +550,133 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       }
     }
 
+    for (final layerId in widget.orderedActiveLayerIds) {
+      final points = widget.temporaryPointLayers[layerId];
+      if (points != null && points.isNotEmpty) {
+        final layer = widget.layersById[layerId];
+        final symbols = (layer?.effectiveSymbolLayers ??
+            const <LayerSimpleSymbolData>[])
+            .where((e) => e.enabled)
+            .toList(growable: false);
+
+        final maxWidth =
+        symbols.isEmpty ? 42.0 : symbols.map((e) => e.width).fold(0.0, math.max);
+        final maxHeight = symbols.isEmpty
+            ? 42.0
+            : symbols.map((e) => e.height).fold(0.0, math.max);
+
+        final markerWidth = (maxWidth + 18).clamp(42.0, 140.0);
+        final markerHeight = (maxHeight + 18).clamp(42.0, 140.0);
+
+        for (final point in points) {
+          out.add(
+            Marker(
+              point: point,
+              width: markerWidth,
+              height: markerHeight,
+              child: IgnorePointer(
+                child: Center(
+                  child: SizedBox(
+                    width: markerWidth,
+                    height: markerHeight,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: markerWidth * 0.62,
+                          height: markerHeight * 0.62,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.orange.withValues(alpha: 0.14),
+                          ),
+                        ),
+                        ...symbols.reversed.map(
+                              (symbol) => _buildSymbolWidget(
+                            symbol: symbol,
+                            isSelected: false,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+
+      final polygonVertices = widget.temporaryPolygonLayers[layerId];
+      if (polygonVertices != null && polygonVertices.isNotEmpty) {
+        final layer = widget.layersById[layerId];
+        final color = layer?.displayColor ?? Colors.orange;
+
+        for (final point in polygonVertices) {
+          out.add(
+            Marker(
+              point: point,
+              width: 20,
+              height: 20,
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    for (int i = 0; i < widget.distanceMeasurementPoints.length; i++) {
+      final point = widget.distanceMeasurementPoints[i];
+
+      out.add(
+        Marker(
+          point: point,
+          width: 28,
+          height: 28,
+          child: IgnorePointer(
+            child: Center(
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: _measureColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${i + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return out;
   }
 
@@ -464,14 +718,7 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
   }
 
   GeoFeatureData? _findFeatureAt(LatLng tap, double zoom) {
-    final orderedLayerIds = widget.orderedActiveLayerIds.reversed.toList();
-
-    final orderedFeatures = <GeoFeatureData>[];
-    for (final layerId in orderedLayerIds) {
-      orderedFeatures.addAll(
-        widget.features.where((e) => e.layerId == layerId),
-      );
-    }
+    final orderedFeatures = _cachedOrderedFeaturesForHit;
 
     for (final feature in orderedFeatures) {
       if (_hitMarker(feature, tap, zoom)) return feature;

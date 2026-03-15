@@ -36,9 +36,6 @@ import 'package:sipged/_widgets/schedule/stakes/stakes_up_right.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 
-// ✅ Toolbox flutuante (mesmo da página do Civil/Board)
-import 'package:sipged/_widgets/toolBox/tool_widget.dart';
-
 // ✅ Janela macOS-like
 
 // ====== constantes de estilo ======
@@ -776,98 +773,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                 taggedMarkers: stakeMarkers,
                 clusterWidgetBuilder: (tagged, selectedPos, onSel) =>
                     _stakesLayer(markers: tagged),
-              ),
-
-              // ===== ✅ Toolbox flutuante =====
-              Positioned.fill(
-                child: SafeArea(
-                  child: Align(
-                    alignment: Alignment.centerRight, // direita
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 60.0, right: 12.0),
-                      child: ToolBoxWidget(
-                        topPadding: 0,
-                        snapEnabled: false,
-                        snapRadius: 8,
-                        snapMinGradient: 1,
-                        canFinishPolygon: false,
-                        canUndo: _selectedTags.isNotEmpty,
-                        canClear: _selectedTags.isNotEmpty,
-                        hasSelection: _selectedTags.isNotEmpty,
-
-                        // Modos
-                        onActivatePolygonMode: () {
-                          _toast('Desenho de polígono não disponível neste mapa.');
-                        },
-                        onActivateSelectionMode: () {
-                          setState(() {
-                            _multiSelectMode = !_multiSelectMode;
-                            if (!_multiSelectMode) _selectedTags.clear();
-                          });
-                          _toast(
-                            _multiSelectMode
-                                ? 'Seleção múltipla ativada — toque em segmentos.'
-                                : 'Seleção múltipla desativada.',
-                          );
-                        },
-                        onActivateTextMode: (t) {
-                          _toast('Anotação de texto não disponível neste mapa.');
-                        },
-
-                        // Snap (não aplicável aqui)
-                        onToggleSnap: () {},
-                        onChangeSnapRadius: (_) {},
-                        onChangeSnapThreshold: (_) {},
-
-                        // Ações
-                        onFinishPolygon: () async {},
-                        onUndo: () {
-                          if (_selectedTags.isNotEmpty) {
-                            setState(
-                                  () => _selectedTags.remove(_selectedTags.last),
-                            );
-                          }
-                        },
-                        onClear: () {
-                          setState(() => _selectedTags.clear());
-                          context.read<ScheduleRoadCubit>().setSelectedPolyline(null);
-                        },
-                        onRenameSelected: () async => _toast(
-                          'Renomear não se aplica a segmentos do mapa.',
-                        ),
-                        onDeleteSelected: () {
-                          setState(() => _selectedTags.clear());
-                          _toast('Seleção limpa.');
-                        },
-
-                        // Exportar seleção para GeoJSON
-                        buildGeoJSON: (normalized) => _buildSelectedGeoJSON(
-                          laneSegments: laneSegments,
-                          normalized: normalized,
-                        ),
-
-                        // Copiar para a área de transferência (já com toast)
-                        copyToClipboard: (txt) async {
-                          await Clipboard.setData(
-                            ClipboardData(text: txt),
-                          );
-                          if (context.mounted) {
-                            NotificationCenter.instance.show(
-                              AppNotification(
-                                title: const Text('Copiado'),
-                                subtitle: const Text(
-                                  'GeoJSON copiado para a área de transferência.',
-                                ),
-                                type: AppNotificationType.info,
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                ),
               ),
 
               // ===== FABs seleção múltipla / aplicar em lote =====

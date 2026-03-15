@@ -12,7 +12,7 @@ import 'package:sipged/_widgets/input/in_line_text_box.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 import 'package:sipged/_widgets/schedule/modal/type.dart';
-import 'package:sipged/_widgets/toolBox/tool_box_controller.dart';
+import 'package:sipged/_widgets/schedule/civil/schedule_civil_controller.dart';
 
 // Modal unificado + tipos
 import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
@@ -22,9 +22,9 @@ import 'package:sipged/_services/files/dxf/dxf_empty_hint.dart';
 import 'package:sipged/_widgets/schedule/civil/schedule_civil_board.dart';
 import 'package:sipged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
 import 'package:sipged/_services/files/dxf/dxf_enums.dart';
-import 'package:sipged/_widgets/toolBox/menu_drawer_polygon_painter.dart';
-import 'package:sipged/_widgets/toolBox/snap_utils.dart';
-import 'package:sipged/_widgets/toolBox/menu_text_enums.dart';
+import 'package:sipged/_widgets/schedule/civil/polygon_painter.dart';
+import 'package:sipged/_widgets/schedule/civil/snap_utils.dart';
+import 'package:sipged/_widgets/schedule/civil/text_item.dart';
 
 // Domínio
 import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
@@ -686,7 +686,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                 // polígonos
                 CustomPaint(
                   size: _dxf.sizePx!,
-                  painter: MenuDrawerPolygonPainter(
+                  painter: PolygonPainter(
                     features: ctrl.features,
                     current: ctrl.current,
                     colorForIndex: _randomStrokeColor,

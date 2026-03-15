@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_widgets/menu/drawer/menu_drawer_item.dart';
 import 'package:sipged/_widgets/cards/action/action_item.dart';
+import 'package:sipged/_widgets/cards/glass/glass_card.dart';
+import 'package:sipged/_widgets/menu/drawer/menu_drawer_item.dart';
 import 'package:sipged/screens/common/home/section_spec.dart';
 
-import '../../../_widgets/cards/glass_card.dart';
-
 class ThemedActionsGrid extends StatelessWidget {
-  const ThemedActionsGrid({super.key, this.onSelect, required this.user});
+  const ThemedActionsGrid({
+    super.key,
+    this.onSelect,
+    required this.user,
+  });
 
   final void Function(ModuleItem item)? onSelect;
   final UserData? user;
@@ -23,7 +26,6 @@ class ThemedActionsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     if (user == null) return const SizedBox.shrink();
 
-    // Cada MenuDrawerItemModule vira uma SectionSpec (PAINÉIS, CONTRATOS, OPERACIONAL, etc.)
     final sections = ModuleData.homeGroups
         .map((group) => _fromGroup(group, user!))
         .where((s) => s.items.isNotEmpty)
@@ -55,7 +57,7 @@ class ThemedActionsGrid extends StatelessWidget {
         for (int i = 0; i < sections.length; i++) ...[
           if (i > 0) const SizedBox(height: 16),
           SectionGrid(
-            title: sections[i].title, // agora é o label do grupo (PAINÉIS, CONTRATOS, etc.)
+            title: sections[i].title,
             items: sections[i].items,
             onSelect: onSelect,
           ),

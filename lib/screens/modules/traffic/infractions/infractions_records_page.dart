@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/toolBox/tool_widget.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
@@ -114,11 +113,6 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                               initialZoom: 9,
                                               activeMap: true,
                                               showLegend: true,
-                                              overlayBuilder: (mapController, _) => ToolBoxWidget(
-                                                mapController: mapController,
-                                                onStrokesChanged: (_) {},
-                                                onExportPng: (_) async {},
-                                              ),
                                             ),
                                           ),
                                         ),
@@ -182,11 +176,6 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                           initialZoom: 9,
                                           activeMap: true,
                                           showLegend: true,
-                                          overlayBuilder: (mapController, _) => ToolBoxWidget(
-                                            mapController: mapController,
-                                            onStrokesChanged: (_) {},
-                                            onExportPng: (_) async {},
-                                          ),
                                         ),
                                       ),
                                     ],

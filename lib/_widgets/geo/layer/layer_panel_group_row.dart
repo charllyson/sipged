@@ -1,0 +1,110 @@
+import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_icons_catalog.dart';
+
+class LayerPanelGroupRow extends StatelessWidget {
+  final GeoLayersData group;
+  final int depth;
+  final double rowHeight;
+  final double trailingActionSlot;
+  final bool isExpanded;
+  final bool isSelected;
+  final bool hoveringInside;
+  final bool? checkboxValue;
+  final VoidCallback onTap;
+  final VoidCallback onToggleExpand;
+  final VoidCallback onToggleGroupVisibility;
+
+  const LayerPanelGroupRow({
+    super.key,
+    required this.group,
+    required this.depth,
+    required this.rowHeight,
+    required this.trailingActionSlot,
+    required this.isExpanded,
+    required this.isSelected,
+    required this.hoveringInside,
+    required this.checkboxValue,
+    required this.onTap,
+    required this.onToggleExpand,
+    required this.onToggleGroupVisibility,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = hoveringInside
+        ? const Color(0xFFB3E5FC)
+        : isSelected
+        ? const Color(0xFF1976D2)
+        : Colors.transparent;
+
+    final textColor = isSelected ? Colors.white : Colors.black87;
+    final iconColor = isSelected ? Colors.white : Colors.grey.shade800;
+    final primaryCheckboxColor = Theme.of(context).colorScheme.primary;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: bgColor,
+        height: rowHeight,
+        padding: EdgeInsets.only(
+          left: 8.0 + depth * 16.0,
+          right: 8.0,
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: Transform.scale(
+                scale: 0.82,
+                child: Checkbox(
+                  value: checkboxValue,
+                  tristate: true,
+                  onChanged: (_) => onToggleGroupVisibility(),
+                  activeColor: primaryCheckboxColor,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: const VisualDensity(
+                    horizontal: -4,
+                    vertical: -4,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              IconsCatalog.iconFor(group.displayIconKey),
+              size: 18,
+              color: iconColor,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                group.title,
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(
+              width: trailingActionSlot,
+              child: IconButton(
+                iconSize: 18,
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                onPressed: onToggleExpand,
+                icon: Icon(
+                  isExpanded ? Icons.keyboard_arrow_down : Icons.chevron_right,
+                  color: iconColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

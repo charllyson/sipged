@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Import do Cubit genérico de importação
-import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cubit.dart';
 
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
@@ -166,7 +166,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
                       barrierDismissible: true,
                       builder: (ctx) {
                         return BlocProvider(
-                          create: (_) => AttributesTableCubit(),
+                          create: (_) => GeoAttributesCubit(),
                           child: const RoadsVectorImportDialog(),
                         );
                       },

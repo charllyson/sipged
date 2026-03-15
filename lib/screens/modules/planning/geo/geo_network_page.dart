@@ -2,31 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_state.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/docking/dock_panel_types.dart';
+import 'package:sipged/_widgets/docking/dock_panel_workspace.dart';
+import 'package:sipged/_widgets/geo/layer/layer_panel.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_dialog.dart';
-import 'package:sipged/_widgets/geo/layers_drawer.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/geo/toolbox/toolbox_content.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
-import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/colors_catalog.dart';
-import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_icons_catalog.dart';
-import 'package:sipged/_widgets/windows/show_window_dialog.dart';
+import 'package:sipged/screens/modules/planning/geo/geo_network_attributes.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_layer.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_map.dart';
-import 'package:sipged/screens/modules/planning/geo/geo_network_controller.dart';
-import 'package:sipged/_blocs/modules/planning/geo/db/layer_db_status_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/db/layer_db_controller.dart';
 
 class GeoNetworkPage extends StatelessWidget {
   const GeoNetworkPage({super.key});
@@ -37,20 +37,23 @@ class GeoNetworkPage extends StatelessWidget {
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => AttributesTableCubit()),
+        BlocProvider(create: (_) => GeoAttributesCubit()),
+        BlocProvider(create: (_) => GeoToolboxCubit()),
         BlocProvider(
           create: (_) => GeoLayersCubit(
             repository: geoLayersRepository,
           )..load(),
         ),
         BlocProvider(
-          create: (_) => LayerDbStatusCubit(
-            repository: geoLayersRepository,
+          create: (_) => GeoFeatureCubit(
+            repository: GeoFeatureRepository(),
           ),
         ),
         BlocProvider(
-          create: (_) => GeoFeatureCubit(
-            repository: GeoFeatureRepository(),
+          create: (context) => GeoMapCubit(
+            layersCubit: context.read<GeoLayersCubit>(),
+            featureCubit: context.read<GeoFeatureCubit>(),
+            toolboxCubit: context.read<GeoToolboxCubit>(),
           ),
         ),
       ],
@@ -67,46 +70,13 @@ class _PlanningNetworkView extends StatefulWidget {
 }
 
 class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   MapController? controller;
-
-  late final LayerDbController _layersController;
-
-  @override
-  void initState() {
-    super.initState();
-    _layersController = LayerDbController();
-  }
-
-  Set<String> get _activeLayerIds => _layersController.activeLayerIds;
-
-  void _toggleLayer(
-      String id,
-      bool isActiveFromUI,
-      List<GeoLayersData> currentTree,
-      ) {
-    setState(() {
-      _layersController.toggleLayer(id, isActiveFromUI);
-    });
-
-    final treeController = GeoNetworkController(initialTree: currentTree);
-    final layer = treeController.findNodeById(currentTree, id);
-
-    if (layer == null || layer.isGroup) return;
-
-    if (isActiveFromUI) {
-      context.read<GeoFeatureCubit>().ensureLayerLoaded(layer);
-    } else {
-      context.read<GeoFeatureCubit>().unloadLayer(id);
-    }
-  }
 
   Future<GeoLayersData?> _askEditLayerData({
     required BuildContext context,
     required GeoLayersData current,
   }) async {
     final geoFeatureCubit = context.read<GeoFeatureCubit>();
-
     final availableFields = await geoFeatureCubit.ensureLayerFieldNames(current);
 
     if (!context.mounted) return null;
@@ -118,16 +88,12 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     );
   }
 
-  Future<void> _persistTree(List<GeoLayersData> tree) async {
-    await context.read<GeoLayersCubit>().saveTree(tree);
-  }
-
   Future<void> _editSelectedItem(
       String id,
       List<GeoLayersData> currentTree,
       ) async {
-    final treeController = GeoNetworkController(initialTree: currentTree);
-    final node = treeController.findNodeById(currentTree, id);
+    final layersCubit = context.read<GeoLayersCubit>();
+    final node = layersCubit.findNodeById(id, tree: currentTree);
     if (node == null) return;
 
     final edited = await _askEditLayerData(
@@ -138,92 +104,19 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     if (!mounted || edited == null) return;
     if (edited.title.trim().isEmpty) return;
 
-    treeController.updateNodeById(
-      treeController.layersTree,
-      id,
-          (_) => edited,
-    );
-
-    await _persistTree(treeController.layersTree);
-    setState(() {});
-  }
-
-  Future<void> _createLayer(List<GeoLayersData> currentTree) async {
-    final treeController = GeoNetworkController(initialTree: currentTree);
-    treeController.addNewLayer();
-    await _persistTree(treeController.layersTree);
-  }
-
-  Future<void> _createEmptyGroup(List<GeoLayersData> currentTree) async {
-    final treeController = GeoNetworkController(initialTree: currentTree);
-    treeController.createEmptyGroup();
-    await _persistTree(treeController.layersTree);
-  }
-
-  Future<void> _moveLayerUp(String id, List<GeoLayersData> currentTree) async {
-    final treeController = GeoNetworkController(initialTree: currentTree);
-    final ok = treeController.moveLayerUp(id);
-    if (!ok) return;
-    await _persistTree(treeController.layersTree);
-  }
-
-  Future<void> _moveLayerDown(
-      String id,
-      List<GeoLayersData> currentTree,
-      ) async {
-    final treeController = GeoNetworkController(initialTree: currentTree);
-    final ok = treeController.moveLayerDown(id);
-    if (!ok) return;
-    await _persistTree(treeController.layersTree);
-  }
-
-  Future<void> _dropItem(
-      String draggedId,
-      String? targetParentId,
-      int targetIndex,
-      List<GeoLayersData> currentTree,
-      ) async {
-    final treeController = GeoNetworkController(initialTree: currentTree);
-    final ok = treeController.dropItem(draggedId, targetParentId, targetIndex);
-    if (!ok) return;
-    await _persistTree(treeController.layersTree);
-  }
-
-  Future<void> _removeSelectedItem(
-      String id,
-      List<GeoLayersData> currentTree,
-      ) async {
-    final treeController = GeoNetworkController(initialTree: currentTree);
-    final node = treeController.findNodeById(currentTree, id);
-    if (node == null || node.isSystem) return;
-
-    final ok = treeController.removeNodeById(id);
-    if (!ok) return;
-
-    _layersController.removeLayer(id);
-
-    final existingIds = treeController
-        .flattenAllNodes(treeController.layersTree)
-        .map((e) => e.id)
-        .toSet();
-
-    _layersController.syncWithExistingTreeIds(existingIds);
-
-    context.read<GeoFeatureCubit>().unloadLayer(id);
-
-    await _persistTree(treeController.layersTree);
-    setState(() {});
+    await layersCubit.updateNodeById(id, (_) => edited);
   }
 
   Future<void> _handleConnectLayer(
       String rawId,
       List<GeoLayersData> currentTree,
       ) async {
-    final treeController = GeoNetworkController(initialTree: currentTree);
-    final layer = treeController.findNodeById(currentTree, rawId);
-    if (layer == null) return;
+    final layersCubit = context.read<GeoLayersCubit>();
+    final layer = layersCubit.findNodeById(rawId, tree: currentTree);
 
-    final isAlreadyActive = _layersController.activeLayerIds.contains(layer.id);
+    if (layer == null || layer.isGroup) return;
+
+    final isAlreadyActive = layersCubit.state.activeLayerIds.contains(layer.id);
 
     await GeoNetworkLayer.handleConnectLayer(
       context,
@@ -233,122 +126,200 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
     if (!mounted) return;
 
-    final refreshedTree = context.read<GeoLayersCubit>().state.tree;
-    await context.read<LayerDbStatusCubit>().refreshAll(refreshedTree);
+    await layersCubit.refreshLayerData(layer, force: true);
 
-    final hasDbNow =
-        context.read<LayerDbStatusCubit>().state.hasDbByLayer[layer.id] == true;
+    final hasDataNow = layersCubit.state.hasDataByLayer[layer.id] == true;
+    if (!hasDataNow) return;
 
-    if (!hasDbNow) {
-      setState(() {});
-      return;
+    if (!layersCubit.state.activeLayerIds.contains(layer.id)) {
+      layersCubit.toggleLayer(layer.id, true);
     }
 
-    if (!_layersController.activeLayerIds.contains(layer.id)) {
-      setState(() {
-        _layersController.toggleLayer(layer.id, true);
-      });
-    }
-
-    await context.read<GeoFeatureCubit>().ensureLayerLoaded(
-      layer,
-      force: true,
-    );
-
-    setState(() {});
+    await context.read<GeoFeatureCubit>().ensureLayerLoaded(layer, force: true);
   }
 
-  Widget _buildRightPane(
-      BuildContext context, {
-        required GeoFeatureState genericState,
-        required Map<String, GeoLayersData> layersById,
-      }) {
-    final selection = genericState.selected;
-
-    if (selection == null) {
-      return const Center(
-        child: Text(
-          'Selecione uma feição no mapa para visualizar os atributos.',
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
-
-    final layer = layersById[selection.layerId];
-    final feature = selection.feature;
-
-    final entries = feature.properties.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Card(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              decoration: BoxDecoration(
-                color: (layer?.color ?? Colors.blue).withValues(alpha: 0.10),
-                borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(12)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    layer?.title ?? 'Camada',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    feature.title,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Tipo geométrico: ${feature.geometryType.name}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: entries.isEmpty
-                  ? const Center(
-                child: Text('Esta feição não possui atributos.'),
-              )
-                  : ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: entries.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (_, index) {
-                  final e = entries[index];
-                  return ListTile(
-                    dense: true,
-                    title: Text(
-                      e.key,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      e.value == null ? '' : e.value.toString(),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+  void _showSnack(BuildContext context, String message) {
+    if (message.trim().isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
+  }
+
+  List<DockPanelGroupData> _composePanelGroups({
+    required BuildContext context,
+    required GeoMapState editorState,
+    required List<GeoLayersData> currentTree,
+    required GeoFeatureState genericState,
+    required Map<String, GeoLayersData> layersById,
+    required Set<String> activeLayerIds,
+    required Map<String, bool> hasDataByLayer,
+    required GeoToolboxState measurementState,
+  }) {
+    final editorCubit = context.read<GeoMapCubit>();
+    final layersCubit = context.read<GeoLayersCubit>();
+
+    final activePointLayer =
+    editorCubit.getActiveDraftPointLayer(currentTree);
+    final activeLineLayer =
+    editorCubit.getActiveDraftLineLayer(currentTree);
+    final activePolygonLayer =
+    editorCubit.getActiveDraftPolygonLayer(currentTree);
+
+    return editorState.panelGroups.map((group) {
+      switch (group.id) {
+        case 'group_ferramentas':
+          return group.copyWith(
+            items: [
+              DockPanelItemData(
+                id: 'tools_main',
+                title: 'Ferramentas',
+                icon: Icons.handyman_outlined,
+                contentPadding: EdgeInsets.zero,
+                child: RepaintBoundary(
+                  child: ToolboxContent(
+                    key: ValueKey(
+                      'toolbox_content_${editorState.selectedLayerPanelItemId ?? 'none'}_${editorState.selectedToolId ?? 'none'}_${editorState.activeEditingPointLayerId ?? 'none'}_${editorState.activeEditingLineLayerId ?? 'none'}_${editorState.activeEditingPolygonLayerId ?? 'none'}_${measurementState.points.length}',
+                    ),
+                    onToolSelected: (message) => _showSnack(context, message),
+                    selectedToolId: editorState.selectedToolId,
+                    onSelectedTool: (id) async {
+                      final error = await editorCubit.selectTool(id);
+                      if (!mounted || error == null) return;
+                      _showSnack(context, error);
+                    },
+                    selectedLayerGeometryKind:
+                    editorCubit.selectedLayerGeometryKind(currentTree),
+                    selectedItemIsGroup:
+                    editorCubit.selectedItemIsGroup(currentTree),
+                    pointEditingActive:
+                    editorState.activeEditingPointLayerId != null,
+                    lineEditingActive:
+                    editorState.activeEditingLineLayerId != null,
+                    polygonEditingActive:
+                    editorState.activeEditingPolygonLayerId != null,
+                    editorState: editorState,
+                    measurementState: measurementState,
+                    activePointLayer: activePointLayer,
+                    activeLineLayer: activeLineLayer,
+                    activePolygonLayer: activePolygonLayer,
+                    onUndoDistanceMeasurementPoint: () =>
+                        context.read<GeoToolboxCubit>().removeLastPoint(),
+                    onClearDistanceMeasurement: () =>
+                        context.read<GeoToolboxCubit>().clear(),
+                    onFinishDistanceMeasurement: () {
+                      context.read<GeoToolboxCubit>().clear();
+                      context
+                          .read<GeoMapCubit>()
+                          .selectTool(editorState.selectedToolId);
+                    },
+                    onFinalizeCurrentPointEditing:
+                    editorCubit.finalizeCurrentPointEditing,
+                    onCancelCurrentPointEditing:
+                    editorCubit.cancelCurrentPointEditing,
+                    onFinalizeCurrentLineEditing:
+                    editorCubit.finalizeCurrentLineEditing,
+                    onCancelCurrentLineEditing:
+                    editorCubit.cancelCurrentLineEditing,
+                    onFinalizeCurrentPolygonEditing:
+                    editorCubit.finalizeCurrentPolygonEditing,
+                    onCancelCurrentPolygonEditing:
+                    editorCubit.cancelCurrentPolygonEditing,
+                  ),
+                ),
+              ),
+            ],
+            activeItemId: 'tools_main',
+          );
+
+        case 'group_vectorizacao':
+          return group.copyWith(
+            items: [
+              DockPanelItemData(
+                id: 'layers_tree',
+                title: 'Camadas',
+                icon: Icons.account_tree_outlined,
+                contentPadding: EdgeInsets.zero,
+                child: RepaintBoundary(
+                  child: LayerPanel(
+                    key: ValueKey(
+                      'layers_panel_${currentTree.length}_${activeLayerIds.length}_${editorState.selectedLayerPanelItemId ?? 'none'}_${editorState.activeEditingPointLayerId ?? 'none'}_${editorState.activeEditingLineLayerId ?? 'none'}_${editorState.activeEditingPolygonLayerId ?? 'none'}',
+                    ),
+                    layers: currentTree,
+                    activeLayerIds: activeLayerIds,
+                    selectedId: editorState.selectedLayerPanelItemId,
+                    onSelectedChanged: editorCubit.selectLayerPanelItem,
+                    onToggleLayer: (id, active) =>
+                        editorCubit.toggleLayer(id, active, currentTree),
+                    hasDataByLayer: hasDataByLayer,
+                    supportsConnect: (layer) =>
+                    layer.supportsConnect && !layer.isGroup,
+                    onMoveUp: (id) => editorCubit.moveLayerUp(id, currentTree),
+                    onMoveDown: (id) => editorCubit.moveLayerDown(id, currentTree),
+                    onCreateEmptyGroup: () =>
+                        editorCubit.createEmptyGroup(currentTree),
+                    onCreateLayer: () => editorCubit.createLayer(currentTree),
+                    onDropItem: (draggedId, targetParentId, targetIndex) =>
+                        editorCubit.dropItem(
+                          draggedId,
+                          targetParentId,
+                          targetIndex,
+                          currentTree,
+                        ),
+                    onRenameSelected: (id) => _editSelectedItem(id, currentTree),
+                    onRemoveSelected: (id) =>
+                        editorCubit.removeSelectedItem(id, currentTree),
+                    onConnectLayer: (id) => _handleConnectLayer(id, currentTree),
+                    onOpenTable: (id) async {
+                      final layer =
+                      layersCubit.findNodeById(id, tree: currentTree);
+
+                      if (layer == null || layer.isGroup) return;
+
+                      editorCubit.selectLayerPanelItem(layer.id);
+
+                      if (!layersCubit.state.activeLayerIds.contains(layer.id)) {
+                        layersCubit.toggleLayer(layer.id, true);
+                      }
+
+                      await context.read<GeoFeatureCubit>().ensureLayerLoaded(
+                        layer,
+                        force: true,
+                      );
+
+                      if (!mounted) return;
+
+                      await GeoNetworkLayer.openFirestoreTable(
+                        context,
+                        layer: layer,
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+            activeItemId: 'layers_tree',
+          );
+
+        case 'group_atributos':
+          return group.copyWith(
+            items: [
+              DockPanelItemData(
+                id: 'feature_attributes',
+                title: 'Feição',
+                icon: Icons.info_outline,
+                child: GeoNetworkAttributes(
+                  genericState: genericState,
+                  layersById: layersById,
+                ),
+              ),
+            ],
+            activeItemId: 'feature_attributes',
+          );
+
+        default:
+          return group;
+      }
+    }).toList(growable: false);
   }
 
   @override
@@ -358,35 +329,34 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
         BlocListener<GeoLayersCubit, GeoLayersState>(
           listenWhen: (p, c) =>
           p.error != c.error || p.tree != c.tree || p.loaded != c.loaded,
-          listener: (context, state) async {
+          listener: (context, state) {
             if (state.error != null && state.error!.trim().isNotEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.error!)),
-              );
+              _showSnack(context, state.error!);
             }
 
             if (state.loaded) {
-              final ids = GeoNetworkController(initialTree: state.tree)
-                  .flattenAllNodes(state.tree)
+              context.read<GeoMapCubit>().syncWithTree(state.tree);
+
+              final layersCubit = context.read<GeoLayersCubit>();
+              final ids = layersCubit
+                  .flattenAllNodes(tree: state.tree)
+                  .where((e) => !e.isGroup)
                   .map((e) => e.id)
                   .toSet();
 
-              _layersController.syncWithExistingTreeIds(ids);
-              await context.read<LayerDbStatusCubit>().refreshAll(state.tree);
-
-              if (mounted) {
-                setState(() {});
-              }
+              layersCubit.syncWithExistingTreeIds(ids);
             }
           },
         ),
         BlocListener<GeoFeatureCubit, GeoFeatureState>(
-          listenWhen: (p, c) => p.error != c.error,
+          listenWhen: (p, c) => p.error != c.error || p.selected != c.selected,
           listener: (context, state) {
             if (state.error != null && state.error!.trim().isNotEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.error!)),
-              );
+              _showSnack(context, state.error!);
+            }
+
+            if (state.selected != null) {
+              context.read<GeoMapCubit>().showPanel('group_atributos');
             }
           },
         ),
@@ -394,122 +364,160 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
       child: BlocBuilder<GeoLayersCubit, GeoLayersState>(
         builder: (context, layersState) {
           final currentTree = layersState.tree;
-          final treeController =
-          GeoNetworkController(initialTree: currentTree);
+          final activeLayerIds = layersState.activeLayerIds;
+          final hasDataByLayer = layersState.hasDataByLayer;
+          final layersCubit = context.read<GeoLayersCubit>();
 
-          return BlocBuilder<GeoFeatureCubit, GeoFeatureState>(
-            builder: (context, genericState) {
-              final hasDbByLayer =
-                  context.watch<LayerDbStatusCubit>().state.hasDbByLayer;
+          return BlocBuilder<GeoMapCubit, GeoMapState>(
+            builder: (context, editorState) {
+              return BlocBuilder<GeoToolboxCubit, GeoToolboxState>(
+                builder: (context, measurementState) {
+                  return BlocBuilder<GeoFeatureCubit, GeoFeatureState>(
+                    builder: (context, genericState) {
+                      final allNodes =
+                      layersCubit.flattenAllNodes(tree: currentTree);
 
-              final allNodes = treeController.flattenAllNodes(currentTree);
-              final layersById = <String, GeoLayersData>{
-                for (final e in allNodes.where((e) => !e.isGroup)) e.id: e,
-              };
+                      final layersById = <String, GeoLayersData>{
+                        for (final e in allNodes.where((e) => !e.isGroup)) e.id: e,
+                      };
 
-              final orderedLeafIdsTopToBottom = treeController
-                  .flattenOrderedLeafIds(currentTree)
-                  .where((id) => _layersController.activeLayerIds.contains(id))
-                  .toList();
+                      final orderedLeafIdsTopToBottom = layersCubit
+                          .flattenOrderedLeafIds(tree: currentTree)
+                          .where((id) => activeLayerIds.contains(id))
+                          .toList(growable: false);
 
-              final orderedForMap = orderedLeafIdsTopToBottom.reversed.toList();
+                      final orderedForMap =
+                      orderedLeafIdsTopToBottom.reversed.toList();
 
-              final visibleFeatures = <GeoFeatureData>[];
-              for (final layerId in orderedForMap) {
-                visibleFeatures.addAll(
-                  genericState.featuresByLayer[layerId] ??
-                      const <GeoFeatureData>[],
-                );
-              }
+                      final visibleFeatures = <GeoFeatureData>[];
+                      for (final layerId in orderedForMap) {
+                        visibleFeatures.addAll(
+                          genericState.featuresByLayer[layerId] ??
+                              const <GeoFeatureData>[],
+                        );
+                      }
 
-              final map = GeoNetworkMap(
-                features: visibleFeatures,
-                layersById: layersById,
-                orderedActiveLayerIds: orderedForMap,
-                selectedFeatureKey: genericState.selected?.feature.selectionKey,
-                loading: genericState.isAnyLoading || layersState.isSaving,
-                onControllerReady: (c) => controller = c,
-                onCameraChanged: (_, _) {},
-                onFeatureTap: (feature) {
-                  if (feature == null) {
-                    context.read<GeoFeatureCubit>().clearSelection();
-                    return;
-                  }
+                      final editorCubit = context.read<GeoMapCubit>();
 
-                  context.read<GeoFeatureCubit>().selectFeature(
-                    layerId: feature.layerId,
-                    feature: feature,
+                      final map = RepaintBoundary(
+                        child: GeoNetworkMap(
+                          features: visibleFeatures,
+                          layersById: layersById,
+                          orderedActiveLayerIds: orderedForMap,
+                          selectedFeatureKey:
+                          genericState.selected?.feature.selectionKey,
+                          loading: genericState.isAnyLoading ||
+                              layersState.isSaving ||
+                              layersState.isRefreshingLayerData,
+                          onControllerReady: (c) => controller = c,
+                          onCameraChanged: (_, _) {},
+                          cursor: editorState.mapCursor,
+                          temporaryPointLayers:
+                          editorCubit.buildVisiblePointDrafts(activeLayerIds),
+                          temporaryLineLayers:
+                          editorCubit.buildVisibleLineDrafts(activeLayerIds),
+                          temporaryPolygonLayers:
+                          editorCubit.buildVisiblePolygonDrafts(
+                            activeLayerIds,
+                          ),
+                          distanceMeasurementPoints: measurementState.points,
+                          onBackgroundTap: (latLng) {
+                            editorCubit
+                                .handleMapBackgroundTap(latLng, currentTree)
+                                .then((error) {
+                              if (!mounted) return;
+                              if (error != null) _showSnack(context, error);
+                            });
+
+                            return editorState.isPointToolSelected ||
+                                editorState.isLineToolSelected ||
+                                editorState.isPolygonToolSelected ||
+                                editorState.isMeasureDistanceToolSelected ||
+                                editorState.isMeasureAreaToolSelected;
+                          },
+                          onFeatureTap: (feature) {
+                            if (feature == null) {
+                              context.read<GeoFeatureCubit>().clearSelection();
+                              return;
+                            }
+
+                            context.read<GeoFeatureCubit>().selectFeature(
+                              layerId: feature.layerId,
+                              feature: feature,
+                            );
+                          },
+                        ),
+                      );
+
+                      final panelGroups = _composePanelGroups(
+                        context: context,
+                        editorState: editorState,
+                        currentTree: currentTree,
+                        genericState: genericState,
+                        layersById: layersById,
+                        activeLayerIds: activeLayerIds,
+                        hasDataByLayer: hasDataByLayer,
+                        measurementState: measurementState,
+                      );
+
+                      final isLoading = genericState.isAnyLoading ||
+                          layersState.isSaving ||
+                          layersState.isRefreshingLayerData;
+
+                      return Scaffold(
+                        appBar: PreferredSize(
+                          preferredSize: const Size.fromHeight(70),
+                          child: UpBar(
+                            showPhotoMenu: true,
+                            leading: const Padding(
+                              padding: EdgeInsets.only(left: 10),
+                              child: BackCircleButton(),
+                            ),
+                            actions: [
+                              BackCircleButton(
+                                tooltip: 'Mostrar ou ocultar caixa de ferramentas',
+                                icon: Icons.handyman_outlined,
+                                onPressed: () => context
+                                    .read<GeoMapCubit>()
+                                    .togglePanelVisibility('group_ferramentas'),
+                              ),
+                              BackCircleButton(
+                                tooltip: 'Mostrar ou ocultar painel de camadas',
+                                icon: Icons.layers_outlined,
+                                onPressed: () => context
+                                    .read<GeoMapCubit>()
+                                    .togglePanelVisibility('group_vectorizacao'),
+                              ),
+                              BackCircleButton(
+                                tooltip: 'Mostrar ou ocultar painel de atributos',
+                                icon: Icons.table_rows_outlined,
+                                onPressed: () => context
+                                    .read<GeoMapCubit>()
+                                    .togglePanelVisibility('group_atributos'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        body: ScreenLock(
+                          locked: isLoading,
+                          message: 'Carregando dados do mapa',
+                          icon: Icons.map_outlined,
+                          child: Stack(
+                            children: [
+                              const BackgroundClean(),
+                              DockPanelWorkspace(
+                                groups: panelGroups,
+                                onChanged:
+                                context.read<GeoMapCubit>().updatePanels,
+                                child: map,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
-              );
-
-              final isLoading =
-                  genericState.isAnyLoading || layersState.isSaving;
-
-              return Scaffold(
-                key: _scaffoldKey,
-                appBar: PreferredSize(
-                  preferredSize: const Size.fromHeight(70),
-                  child: UpBar(
-                    leading: const Padding(
-                      padding: EdgeInsets.only(left: 10),
-                      child: BackCircleButton(),
-                    ),
-                    actions: [
-                      BackCircleButton(
-                        tooltip: 'Camadas do mapa',
-                        icon: Icons.layers_outlined,
-                        onPressed: () =>
-                            _scaffoldKey.currentState?.openEndDrawer(),
-                      ),
-                    ],
-                  ),
-                ),
-                endDrawer: LayersDrawer(
-                  layers: currentTree,
-                  activeLayerIds: _activeLayerIds,
-                  onToggleLayer: (id, active) =>
-                      _toggleLayer(id, active, currentTree),
-                  hasDbByLayer: hasDbByLayer,
-                  supportsConnect: (layer) =>
-                  layer.supportsConnect && !layer.isGroup,
-                  onMoveUp: (id) => _moveLayerUp(id, currentTree),
-                  onMoveDown: (id) => _moveLayerDown(id, currentTree),
-                  onCreateEmptyGroup: () => _createEmptyGroup(currentTree),
-                  onCreateLayer: () => _createLayer(currentTree),
-                  onDropItem: (draggedId, targetParentId, targetIndex) =>
-                      _dropItem(
-                        draggedId,
-                        targetParentId,
-                        targetIndex,
-                        currentTree,
-                      ),
-                  onRenameSelected: (id) => _editSelectedItem(id, currentTree),
-                  onRemoveSelected: (id) =>
-                      _removeSelectedItem(id, currentTree),
-                  onConnectLayer: (id) => _handleConnectLayer(id, currentTree),
-                ),
-                body: ScreenLock(
-                  locked: isLoading,
-                  message: 'Carregando dados do mapa',
-                  icon: Icons.map_outlined,
-                  child: Stack(
-                    children: [
-                      const BackgroundClean(),
-                      SplitLayout(
-                        rightPanelWidth: 460,
-                        left: map,
-                        right: _buildRightPane(
-                          context,
-                          genericState: genericState,
-                          layersById: layersById,
-                        ),
-                        showRightPanel: genericState.selected != null,
-                        showDividers: true,
-                      ),
-                    ],
-                  ),
-                ),
               );
             },
           );

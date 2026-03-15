@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/cards/action/action_item.dart';
-
-import '../glass_card.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
+import 'package:sipged/_widgets/cards/glass/glass_card.dart';
 
 class ActionCard extends StatelessWidget {
-  const ActionCard({super.key, required this.item, required this.onTap});
+  const ActionCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+  });
+
   final ActionItem item;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
+    return BasicCard(
       onTap: onTap,
+      isDark: false,
       child: Row(
         children: [
           Container(
             height: 56,
             width: 56,
             decoration: BoxDecoration(
-              color: item.color.withValues(alpha: .12),
+              color: item.color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(item.icon, size: 28, color: item.color),
@@ -35,7 +41,7 @@ class ActionCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
-                    letterSpacing: .2,
+                    letterSpacing: 0.2,
                     color: Colors.blueGrey.shade900,
                   ),
                 ),
@@ -44,10 +50,9 @@ class ActionCard extends StatelessWidget {
                   item.subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: Colors.blueGrey.shade700),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.blueGrey.shade700,
+                  ),
                 ),
               ],
             ),

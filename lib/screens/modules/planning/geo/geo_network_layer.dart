@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/attributes_table/attributes_table_cubit.dart';
-import 'package:sipged/_widgets/geo/attributes_table/attributes_table_dialog.dart';
-import 'package:sipged/_blocs/modules/planning/geo/db/layer_db_status_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/generic/geo_feature_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_widgets/geo/attributes/attributes_dialog.dart';
 
 class GeoNetworkLayer {
   const GeoNetworkLayer._();
@@ -14,7 +14,7 @@ class GeoNetworkLayer {
       BuildContext context, {
         required GeoLayersData layer,
       }) async {
-    final importCubit = context.read<AttributesTableCubit>();
+    final importCubit = context.read<GeoAttributesCubit>();
     final path = layer.effectiveCollectionPath ?? '';
 
     await showDialog(
@@ -22,7 +22,7 @@ class GeoNetworkLayer {
       barrierDismissible: false,
       builder: (_) => BlocProvider.value(
         value: importCubit,
-        child: AttributesTableDialog(
+        child: AttributesDialog(
           mode: AttributesTableMode.importFile,
           collectionPath: path,
           targetFields: const [],
@@ -38,7 +38,7 @@ class GeoNetworkLayer {
       BuildContext context, {
         required GeoLayersData layer,
       }) async {
-    final importCubit = context.read<AttributesTableCubit>();
+    final importCubit = context.read<GeoAttributesCubit>();
     final path = layer.effectiveCollectionPath ?? '';
 
     await showDialog(
@@ -46,7 +46,7 @@ class GeoNetworkLayer {
       barrierDismissible: false,
       builder: (_) => BlocProvider.value(
         value: importCubit,
-        child: AttributesTableDialog(
+        child: AttributesDialog(
           mode: AttributesTableMode.firestore,
           collectionPath: path,
           targetFields: const [],
@@ -63,7 +63,10 @@ class GeoNetworkLayer {
         required GeoLayersData layer,
         required bool shouldLoadOnMap,
       }) async {
-    await context.read<LayerDbStatusCubit>().refreshLayer(layer, force: true);
+    await context.read<GeoLayersCubit>().refreshLayerData(
+      layer,
+      force: true,
+    );
 
     if (shouldLoadOnMap) {
       await context.read<GeoFeatureCubit>().reloadLayer(layer);
@@ -80,10 +83,10 @@ class GeoNetworkLayer {
     final path = (layer.effectiveCollectionPath ?? '').trim();
     if (path.isEmpty) return;
 
-    final hasDbByLayer = context.read<LayerDbStatusCubit>().state.hasDbByLayer;
-    final hasDb = hasDbByLayer[layer.id] == true;
+    final hasDataByLayer = context.read<GeoLayersCubit>().state.hasDataByLayer;
+    final hasData = hasDataByLayer[layer.id] == true;
 
-    if (hasDb) {
+    if (hasData) {
       await openFirestoreTable(context, layer: layer);
       return;
     }
