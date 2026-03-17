@@ -1,19 +1,24 @@
-// lib/_blocs/modules/actives/roads/active_roads_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_state.dart';
 
+import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_state.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
-import 'package:sipged/_blocs/modules/actives/roads/active_road_style.dart';
-import 'package:sipged/_blocs/modules/actives/roads/roads/road_label_circle.dart';
-import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
-import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_style.dart';
+import 'package:sipged/screens/modules/actives/roads/network/road_label_circle.dart';
+import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
 
 enum ActiveRoadsLoadStatus { idle, loading, success, failure }
 
-/// Geometria já simplificada (por bucket), com segmentos preservados.
+enum ActiveRoadColorMode {
+  defaultColor,
+  surface,
+  vsa,
+  region,
+}
+
 class ActiveRoadMapGeom {
   final String id;
   final ActiveRoadsData road;
@@ -33,28 +38,25 @@ class ActiveRoadsState extends Equatable {
   final ActiveRoadsLoadStatus loadStatus;
   final String? error;
 
-  /// Dados “raw” (doc -> campos)
   final List<ActiveRoadsData> all;
 
-  /// Seleção visual no mapa (id/tag da polyline)
   final String? selectedPolylineId;
 
-  /// >>> FILTROS <<<
   final int? selectedPieIndexFilter;
   final String? selectedRegionFilter;
   final String? selectedSurfaceFilter;
+  final int? selectedVsaFilter;
 
   final bool savingOrImporting;
 
-  /// Labels de região vindos dos dados (regional / metadata['regional']) ou do Setup.
   final List<String> regionLabels;
 
-  // ✅ Cache aplicado (bucket) + geoms simplificados
   final int? activeBucket;
   final List<ActiveRoadMapGeom> mapGeoms;
 
-  /// 🔹 Força emits mesmo com Equatable (geoms não entram em props)
   final int geomVersion;
+
+  final ActiveRoadColorMode colorMode;
 
   const ActiveRoadsState({
     this.initialized = false,
@@ -65,11 +67,13 @@ class ActiveRoadsState extends Equatable {
     this.selectedPieIndexFilter,
     this.selectedRegionFilter,
     this.selectedSurfaceFilter,
+    this.selectedVsaFilter,
     this.savingOrImporting = false,
     this.regionLabels = const [],
     this.activeBucket,
     this.mapGeoms = const [],
     this.geomVersion = 0,
+    this.colorMode = ActiveRoadColorMode.defaultColor,
   });
 
   ActiveRoadsState copyWith({
@@ -81,11 +85,13 @@ class ActiveRoadsState extends Equatable {
     Object? selectedPieIndexFilter = _unset,
     Object? selectedRegionFilter = _unset,
     Object? selectedSurfaceFilter = _unset,
+    Object? selectedVsaFilter = _unset,
     bool? savingOrImporting,
     List<String>? regionLabels,
     int? activeBucket,
     List<ActiveRoadMapGeom>? mapGeoms,
     int? geomVersion,
+    ActiveRoadColorMode? colorMode,
   }) {
     return ActiveRoadsState(
       initialized: initialized ?? this.initialized,
@@ -104,17 +110,18 @@ class ActiveRoadsState extends Equatable {
       selectedSurfaceFilter: identical(selectedSurfaceFilter, _unset)
           ? this.selectedSurfaceFilter
           : selectedSurfaceFilter as String?,
+      selectedVsaFilter: identical(selectedVsaFilter, _unset)
+          ? this.selectedVsaFilter
+          : selectedVsaFilter as int?,
       savingOrImporting: savingOrImporting ?? this.savingOrImporting,
       regionLabels: regionLabels ?? this.regionLabels,
       activeBucket: activeBucket ?? this.activeBucket,
       mapGeoms: mapGeoms ?? this.mapGeoms,
       geomVersion: geomVersion ?? this.geomVersion,
+      colorMode: colorMode ?? this.colorMode,
     );
   }
 
-  // ===========================================================================
-  // Normalização/canonização de REGIÕES
-  // ===========================================================================
   String _stripDiacritics(String s) {
     const map = {
       'Á': 'A',
@@ -141,6 +148,7 @@ class ActiveRoadsState extends Equatable {
       'Ü': 'U',
       'Ç': 'C',
     };
+
     final buf = StringBuffer();
     for (final r in s.runes) {
       final ch = String.fromCharCode(r);
@@ -178,80 +186,107 @@ class ActiveRoadsState extends Equatable {
     return regionLabels.indexWhere((r) => _canonRegion(r) == selC);
   }
 
-  // ===========================================================================
-  // Status/Superfície
-  // ===========================================================================
-  List<String> get _surfaceCodesOrder =>
-      const <String>['DUP', 'EOD', 'PAV', 'EOP', 'IMP', 'EOI', 'PLA', 'LEN', 'OUTRO'];
+  String _surfaceCodeOf(ActiveRoadsData road) {
+    return ActiveRoadsStyle.normalizeSurfaceCode(
+      road.stateSurface ?? road.surface ?? road.state ?? '',
+    );
+  }
 
   String _labelForSurface(String code) {
-    switch (code) {
-      case 'DUP':
-        return 'Duplicada';
-      case 'EOD':
-        return 'Em obra (duplicação)';
-      case 'PAV':
-        return 'Pavimentada';
-      case 'EOP':
-        return 'Em obra (pavim.)';
-      case 'IMP':
-        return 'Implantada';
-      case 'EOI':
-        return 'Em obra (impl.)';
-      case 'PLA':
-        return 'Planejada';
-      case 'LEN':
-        return 'Leito natural';
-      default:
-        return 'Outro';
+    return ActiveRoadsStyle.labelForSurface(code);
+  }
+
+  Color _effectivePolylineColor(ActiveRoadsData road) {
+    switch (colorMode) {
+      case ActiveRoadColorMode.defaultColor:
+        return ActiveRoadsStyle.defaultRoadColor();
+      case ActiveRoadColorMode.vsa:
+        return ActiveRoadsStyle.colorForVsa(road.vsa);
+      case ActiveRoadColorMode.surface:
+        return ActiveRoadsStyle.colorForSurface(_surfaceCodeOf(road));
+      case ActiveRoadColorMode.region:
+        return ActiveRoadsStyle.colorForRegion(road.displayRegion);
     }
   }
 
-  String _surfaceCodeOf(ActiveRoadsData r) {
-    final raw = (r.stateSurface ?? r.surface ?? r.state ?? '').toString().trim().toUpperCase();
-    if (raw.isEmpty) return 'OUTRO';
-    if (_surfaceCodesOrder.contains(raw)) return raw;
-
-    if (raw.contains('DUP')) return 'DUP';
-    if (raw.contains('OBRA') && raw.contains('DUP')) return 'EOD';
-    if (raw.contains('PAV') && raw.contains('OBRA')) return 'EOP';
-    if (raw.contains('PAV')) return 'PAV';
-    if (raw.contains('IMPL')) return 'IMP';
-    if (raw.contains('OBRA') && raw.contains('IMP')) return 'EOI';
-    if (raw.contains('PLAN')) return 'PLA';
-    if (raw.contains('LEITO') || raw.contains('NAT')) return 'LEN';
-    return 'OUTRO';
+  bool _matchesRegion(ActiveRoadsData r, String? regionCanon) {
+    if (regionCanon == null) return true;
+    return _canonRegion(r.displayRegion) == regionCanon;
   }
 
-  // ===========================================================================
-  // Coleções derivadas para CHARTS (base já filtrada por REGIÃO)
-  // ===========================================================================
-  List<ActiveRoadsData> get _baseForCharts {
+  bool _matchesSurface(ActiveRoadsData r, String? surfaceCode, String? fallbackText) {
+    if (surfaceCode != null) {
+      return _surfaceCodeOf(r) == surfaceCode;
+    }
+
+    if (fallbackText != null && fallbackText.isNotEmpty) {
+      final raw = (r.stateSurface ?? r.surface ?? r.state ?? '').toUpperCase();
+      return raw.contains(fallbackText);
+    }
+
+    return true;
+  }
+
+  bool _matchesVsa(ActiveRoadsData r, int? vsa) {
+    if (vsa == null) return true;
+    return r.vsa == vsa;
+  }
+
+  List<ActiveRoadsData> _filterRoads({
+    bool includeRegion = true,
+    bool includeSurface = true,
+    bool includeVsa = true,
+  }) {
     final regionFilterC =
-    selectedRegionFilter == null ? null : _canonRegion(selectedRegionFilter);
-    if (regionFilterC == null) return all;
+    includeRegion && selectedRegionFilter != null ? _canonRegion(selectedRegionFilter) : null;
+
+    final surfaceCode =
+    includeSurface ? _surfaceFilterFromPieOrNull : null;
+
+    final fallbackText =
+    includeSurface ? selectedSurfaceFilter?.toUpperCase() : null;
+
+    final vsaFilter =
+    includeVsa ? selectedVsaFilter : null;
 
     return all.where((r) {
-      final regRaw = (r.regional ?? r.metadata?['regional'] ?? '').toString();
-      return _canonRegion(regRaw) == regionFilterC;
+      if (!_matchesRegion(r, regionFilterC)) return false;
+      if (!_matchesSurface(r, surfaceCode, fallbackText)) return false;
+      if (!_matchesVsa(r, vsaFilter)) return false;
+      return true;
     }).toList(growable: false);
   }
 
-  Map<String, double> get _sumExtBySurfaceInRegion {
-    final src = _baseForCharts;
-    final map = <String, double>{for (final s in _surfaceCodesOrder) s: 0.0};
+  List<ActiveRoadsData> get _baseForPieChart {
+    return _filterRoads(
+      includeRegion: true,
+      includeSurface: false,
+      includeVsa: true,
+    );
+  }
+
+  Map<String, double> get _sumExtBySurfaceInRegionAndVsa {
+    final src = _baseForPieChart;
+    final map = <String, double>{
+      for (final s in ActiveRoadsStyle.surfaceCodesOrder) s: 0.0,
+    };
+
     for (final r in src) {
       final code = _surfaceCodeOf(r);
       final extKm = (r.extension ?? 0.0).toDouble();
       map[code] = (map[code] ?? 0.0) + extKm;
     }
+
     return map;
   }
 
-  List<({String code, Color color, String labelText, double value})> get _pieItems {
-    final sums = _sumExtBySurfaceInRegion;
-    return _surfaceCodesOrder.map((code) {
-      final km = (sums[code] ?? 0.0);
+  List<({String code, Color color, String labelText, double value})>
+  get _pieItems {
+    final sums = _sumExtBySurfaceInRegionAndVsa;
+
+    return ActiveRoadsStyle.surfaceCodesOrder.map((code) {
+      final km = sums[code] ?? 0.0;
+
       return (
       code: code,
       labelText: _labelForSurface(code),
@@ -263,11 +298,15 @@ class ActiveRoadsState extends Equatable {
 
   List<String> get pieLabelsForChart =>
       _pieItems.map((e) => e.labelText).toList(growable: false);
+
   List<double> get pieValuesForChart =>
       _pieItems.map((e) => e.value).toList(growable: false);
+
   List<Color> get pieColorsForChart =>
       _pieItems.map((e) => e.color).toList(growable: false);
-  double get pieTotal => _pieItems.fold<double>(0.0, (sum, e) => sum + e.value);
+
+  double get pieTotal =>
+      _pieItems.fold<double>(0.0, (sum, e) => sum + e.value);
 
   String surfaceCodeFromPieChartIndex(int pieIndex) {
     final items = _pieItems;
@@ -275,35 +314,51 @@ class ActiveRoadsState extends Equatable {
     return items[pieIndex].code;
   }
 
-  // ===========================================================================
-  // GAUGE — percentual de km (considera PIE + REGIÃO)
-  // ===========================================================================
   GaugeVM gaugeForCurrentFilters() {
     final String? codeFilter = _surfaceFilterFromPieOrNull;
     final String? regionFilterC =
     selectedRegionFilter == null ? null : _canonRegion(selectedRegionFilter);
+    final int? vsaFilter = selectedVsaFilter;
 
-    double sumKm({String? regionC, String? surfaceCode}) {
+    double sumKm({
+      String? regionC,
+      String? surfaceCode,
+      int? vsa,
+    }) {
       return all.where((r) {
-        if (regionC != null) {
-          final regRaw = (r.regional ?? r.metadata?['regional'] ?? '').toString();
-          if (_canonRegion(regRaw) != regionC) return false;
+        if (regionC != null && _canonRegion(r.displayRegion) != regionC) {
+          return false;
         }
-        if (surfaceCode != null) {
-          return _surfaceCodeOf(r) == surfaceCode;
+
+        if (surfaceCode != null && _surfaceCodeOf(r) != surfaceCode) {
+          return false;
         }
+
+        if (vsa != null && r.vsa != vsa) {
+          return false;
+        }
+
         return true;
       }).fold<double>(0.0, (acc, r) => acc + (r.extension ?? 0.0));
     }
 
-    final double totalKm = sumKm(regionC: regionFilterC);
-    final double countKm = sumKm(regionC: regionFilterC, surfaceCode: codeFilter);
+    final totalKm = sumKm(
+      regionC: regionFilterC,
+      vsa: vsaFilter,
+    );
+
+    final countKm = sumKm(
+      regionC: regionFilterC,
+      surfaceCode: codeFilter,
+      vsa: vsaFilter,
+    );
 
     if (totalKm <= 0) {
       return const GaugeVM(label: 'Total', count: 0, total: 0, percent: 0);
     }
 
-    final String label = (codeFilter != null) ? _labelForSurface(codeFilter) : 'Total';
+    final label = codeFilter != null ? _labelForSurface(codeFilter) : 'Total';
+
     return GaugeVM(
       label: label,
       count: countKm,
@@ -312,191 +367,166 @@ class ActiveRoadsState extends Equatable {
     );
   }
 
-  // ===========================================================================
-  // REGIÕES — soma de extensão (km)
-  // ===========================================================================
   List<double> get regionSumsKm {
     final values = <double>[];
+
     for (final label in regionLabels) {
       final labelC = _canonRegion(label);
+
       final sumKm = all.where((r) {
-        final regRaw = (r.regional ?? r.metadata?['regional'] ?? '').toString();
-        return _canonRegion(regRaw) == labelC;
+        return _canonRegion(r.displayRegion) == labelC;
       }).fold<double>(0.0, (acc, r) => acc + (r.extension ?? 0.0));
+
       values.add(sumKm);
     }
+
     return values;
   }
 
   List<double> regionCountsFilteredByPie() {
     final values = <double>[];
     final codeFilter = _surfaceFilterFromPieOrNull;
+    final vsaFilter = selectedVsaFilter;
 
     for (final label in regionLabels) {
       final labelC = _canonRegion(label);
+
       final sumKm = all.where((r) {
-        final regRaw = (r.regional ?? r.metadata?['regional'] ?? '').toString();
-        if (_canonRegion(regRaw) != labelC) return false;
-        if (codeFilter == null) return true;
-        return _surfaceCodeOf(r) == codeFilter;
+        if (_canonRegion(r.displayRegion) != labelC) return false;
+        if (codeFilter != null && _surfaceCodeOf(r) != codeFilter) return false;
+        if (vsaFilter != null && r.vsa != vsaFilter) return false;
+        return true;
       }).fold<double>(0.0, (acc, r) => acc + (r.extension ?? 0.0));
+
       values.add(sumKm);
     }
+
     return values;
   }
 
   List<Color> regionBarColors(int? selectedRegionIndex) {
-    final values = regionSumsKm;
-    return List<Color>.generate(values.length, (i) {
-      final v = values[i];
-      if (v == 0.0) return Colors.grey.shade300;
-      return (selectedRegionIndex != null && selectedRegionIndex == i)
-          ? Colors.orangeAccent
-          : Colors.blueAccent;
+    final values = regionCountsFilteredByPie();
+    final hasSelection = selectedRegionIndex != null;
+
+    return List<Color>.generate(regionLabels.length, (i) {
+      final value = i < values.length ? values[i] : 0.0;
+      final base = ActiveRoadsStyle.colorForRegion(regionLabels[i]);
+
+      return ActiveRoadsStyle.colorForBarState(
+        baseColor: base,
+        value: value,
+        isSelected: selectedRegionIndex == i,
+        hasSomeFilter: hasSelection,
+        isInFilter: selectedRegionIndex == i,
+        hasSelection: hasSelection,
+        isHighlighted: !hasSelection,
+      );
     });
   }
 
-  // ===========================================================================
-  // FILTROS aplicados (para mapa e UIs)
-  // ===========================================================================
   String? get _surfaceFilterFromPieOrNull {
     if (selectedPieIndexFilter == null) return null;
     return surfaceCodeFromPieChartIndex(selectedPieIndexFilter!);
   }
 
   List<ActiveRoadsData> get filteredAll {
-    final regionFilterC =
-    selectedRegionFilter == null ? null : _canonRegion(selectedRegionFilter);
-    final codeFilter = _surfaceFilterFromPieOrNull;
-    final fallbackText = selectedSurfaceFilter?.toUpperCase();
+    return _filterRoads(
+      includeRegion: true,
+      includeSurface: true,
+      includeVsa: true,
+    );
+  }
 
-    return all.where((r) {
-      if (regionFilterC != null) {
-        final regRaw = (r.regional ?? r.metadata?['regional'] ?? '').toString();
-        if (_canonRegion(regRaw) != regionFilterC) return false;
-      }
-      if (codeFilter != null) return _surfaceCodeOf(r) == codeFilter;
-      if (fallbackText != null && fallbackText.isNotEmpty) {
-        final raw = (r.stateSurface ?? r.surface ?? r.state ?? '')
-            .toString()
-            .toUpperCase();
-        return raw.contains(fallbackText);
-      }
-      return true;
-    }).toList(growable: false);
+  Set<String> get filteredIds =>
+      filteredAll.map((e) => e.id).whereType<String>().toSet();
+
+  List<String> get vsaLabelsForChart =>
+      const ['VSA 1', 'VSA 2', 'VSA 3', 'VSA 4', 'VSA 5'];
+
+  List<double> get vsaKmValuesForChart {
+    final src = _filterRoads(
+      includeRegion: true,
+      includeSurface: true,
+      includeVsa: false,
+    );
+
+    final map = <int, double>{
+      1: 0.0,
+      2: 0.0,
+      3: 0.0,
+      4: 0.0,
+      5: 0.0,
+    };
+
+    for (final r in src) {
+      final vsa = r.vsa;
+      if (vsa == null || vsa < 1 || vsa > 5) continue;
+
+      final km = (r.extension ?? 0.0).toDouble();
+      map[vsa] = (map[vsa] ?? 0.0) + km;
+    }
+
+    return [
+      map[1] ?? 0.0,
+      map[2] ?? 0.0,
+      map[3] ?? 0.0,
+      map[4] ?? 0.0,
+      map[5] ?? 0.0,
+    ];
+  }
+
+  List<Color> get vsaColorsForChart {
+    final values = vsaKmValuesForChart;
+    final hasSelection = selectedVsaFilter != null;
+
+    return List<Color>.generate(5, (i) {
+      final vsa = i + 1;
+      final base = ActiveRoadsStyle.colorForVsa(vsa);
+      final value = i < values.length ? values[i] : 0.0;
+      final isSelected = selectedVsaFilter == vsa;
+
+      return ActiveRoadsStyle.colorForBarState(
+        baseColor: base,
+        value: value,
+        isSelected: isSelected,
+        hasSomeFilter: hasSelection,
+        isInFilter: isSelected,
+        hasSelection: hasSelection,
+        isHighlighted: !hasSelection,
+      );
+    });
   }
 
   List<String>? get selectedRegionNamesForMap =>
       selectedRegionFilter == null ? null : [selectedRegionFilter!];
 
-  // ===========================================================================
-  // MAPA — polylines estilizadas usando SEGMENTOS SIMPLIFICADOS (mapGeoms)
-  // ===========================================================================
-  List<TappableChangedPolyline> buildStyledPolylines({
+  List<ActiveRoadMapGeom> get filteredMapGeoms {
+    final ids = filteredIds;
+    return mapGeoms.where((g) => ids.contains(g.id)).toList(growable: false);
+  }
+
+  List<PolylineChangedData> buildStyledPolylines({
     required double zoom,
     required double centerLatitude,
   }) {
-    final List<TappableChangedPolyline> lines = [];
+    final lines = <PolylineChangedData>[];
 
-    final lanePx = ActiveRoadsData.laneWidthForZoom(zoom);
-    final sepPx = ActiveRoadsData.laneSeparationPxForZoom(zoom);
-    final degPerPx = ActiveRoadsData.degreesPerPixel(centerLatitude, zoom);
-    final deltaDeg = sepPx * degPerPx;
+    for (final geom in filteredMapGeoms) {
+      final code = _surfaceCodeOf(geom.road);
+      final isSelected =
+          selectedPolylineId != null && selectedPolylineId == geom.id;
 
-    // ✅ aplica filtros em cima de mapGeoms (cache por bucket)
-    final regionFilterC =
-    selectedRegionFilter == null ? null : _canonRegion(selectedRegionFilter);
-    final codeFilter = _surfaceFilterFromPieOrNull;
-    final fallbackText = selectedSurfaceFilter?.toUpperCase();
-
-    bool passFilters(ActiveRoadsData road) {
-      if (regionFilterC != null) {
-        final regRaw = (road.regional ?? road.metadata?['regional'] ?? '').toString();
-        if (_canonRegion(regRaw) != regionFilterC) return false;
-      }
-
-      if (codeFilter != null) return _surfaceCodeOf(road) == codeFilter;
-
-      if (fallbackText != null && fallbackText.isNotEmpty) {
-        final raw = (road.stateSurface ?? road.surface ?? road.state ?? '')
-            .toString()
-            .toUpperCase();
-        return raw.contains(fallbackText);
-      }
-
-      return true;
-    }
-
-    for (final g in mapGeoms) {
-      final road = g.road;
-      final id = g.id;
-      if (!passFilters(road)) continue;
-
-      final code = _surfaceCodeOf(road);
-      final dupla = ActiveRoadsData.isDupla(code);
-      final dash = ActiveRoadsData.isTracejada(code);
-
-      final baseColor = ActiveRoadsStyle.colorForSurface((code == 'OUTRO') ? '' : code);
-
-      final isSelected = (selectedPolylineId != null && selectedPolylineId == id);
-      final displayColor = isSelected ? Colors.orangeAccent : baseColor;
-
-      final bool drawHalo = isSelected;
-      final Color haloColor = Colors.white.withValues(alpha: 0.95);
-      final double haloExtra = 3.0;
-
-      final w = isSelected ? (lanePx + 2) : lanePx;
-
-      void addTrack({required List<LatLng> points}) {
-        if (drawHalo) {
-          lines.add(
-            TappableChangedPolyline(
-              points: points,
-              tag: id,
-              color: haloColor,
-              defaultColor: haloColor,
-              strokeWidth: w + haloExtra,
-              isDotted: false,
-              hitTestable: false,
-            ),
-          );
-        }
-        lines.add(
-          TappableChangedPolyline(
-            points: points,
-            tag: id,
-            color: displayColor,
-            defaultColor: baseColor,
-            strokeWidth: w,
-            isDotted: dash,
-            hitTestable: true,
-          ),
-        );
-      }
-
-      for (final seg in g.segments) {
-        if (seg.length < 2) continue;
-
-        if (dupla) {
-          final left = ActiveRoadsData.deslocarPontos(
-            seg,
-            deslocamentoOrtogonal: -deltaDeg,
-            miterLimit: 3.0,
-            densifyIfSegmentMeters: 0,
-          );
-          addTrack(points: left);
-
-          final right = ActiveRoadsData.deslocarPontos(
-            seg,
-            deslocamentoOrtogonal: deltaDeg,
-            miterLimit: 3.0,
-            densifyIfSegmentMeters: 0,
-          );
-          addTrack(points: right);
-        } else {
-          addTrack(points: seg);
-        }
-      }
+      lines.addAll(
+        ActiveRoadsStyle.buildRoadPolylines(
+          id: geom.id,
+          code: code,
+          segments: geom.segments,
+          zoom: zoom,
+          centerLatitude: centerLatitude,
+          isSelected: isSelected,
+          overrideColor: _effectivePolylineColor(geom.road),
+        ),
+      );
     }
 
     return lines;
@@ -512,63 +542,155 @@ class ActiveRoadsState extends Equatable {
     selectedPieIndexFilter,
     selectedRegionFilter,
     selectedSurfaceFilter,
+    selectedVsaFilter,
     savingOrImporting,
     regionLabels,
     activeBucket,
-    // ✅ garante emit (mesmo sem comparar geoms)
     geomVersion,
+    colorMode,
   ];
 }
 
-// ============================================================================
-// Labels em TaggedChangedMarker (cluster)
-// ============================================================================
+/// ===============================
+/// HELPERS DE LABELS
+/// ===============================
+
+double _labelDiameterForZoom(double zoom) {
+  if (zoom < 7.0) return 0.0;
+  if (zoom < 7.8) return 14.0;
+  if (zoom < 8.6) return 16.0;
+  if (zoom < 9.4) return 18.0;
+  if (zoom < 10.4) return 20.0;
+  if (zoom < 11.4) return 22.0;
+  return 24.0;
+}
+
+double _labelFontForDiameter(double diameter) {
+  if (diameter <= 0) return 0.0;
+  return (diameter * 0.38).clamp(7.0, 10.0);
+}
+
+int _maxLabelsForZoom(double zoom) {
+  if (zoom < 7.0) return 0;
+  if (zoom < 7.8) return 8;
+  if (zoom < 8.6) return 14;
+  if (zoom < 9.4) return 22;
+  if (zoom < 10.4) return 32;
+  if (zoom < 11.4) return 46;
+  return 64;
+}
+
+double _minExtensionKmForZoom(double zoom) {
+  if (zoom < 7.0) return double.infinity;
+  if (zoom < 7.8) return 80.0;
+  if (zoom < 8.6) return 55.0;
+  if (zoom < 9.4) return 35.0;
+  if (zoom < 10.4) return 18.0;
+  if (zoom < 11.4) return 8.0;
+  return 0.0;
+}
+
+String _labelTextForRoad(ActiveRoadsData road) {
+  final label = (road.acronym?.isNotEmpty ?? false)
+      ? road.acronym!
+      : (road.roadCode ?? '');
+  return label.trim();
+}
+
+List<ActiveRoadMapGeom> _selectRoadLabelGeoms({
+  required List<ActiveRoadMapGeom> geoms,
+  required double zoom,
+}) {
+  final maxLabels = _maxLabelsForZoom(zoom);
+  if (maxLabels <= 0) return const [];
+
+  final minExtensionKm = _minExtensionKmForZoom(zoom);
+
+  final filtered = geoms.where((g) {
+    final anchor = g.road.labelAnchorOnLine;
+    if (anchor == null) return false;
+
+    final label = _labelTextForRoad(g.road);
+    if (label.isEmpty) return false;
+
+    final ext = (g.road.extension ?? 0.0).toDouble();
+    if (ext < minExtensionKm) return false;
+
+    return true;
+  }).toList(growable: false);
+
+  final ordered = List<ActiveRoadMapGeom>.from(filtered)
+    ..sort((a, b) {
+      final extA = (a.road.extension ?? 0.0).toDouble();
+      final extB = (b.road.extension ?? 0.0).toDouble();
+
+      final byExt = extB.compareTo(extA);
+      if (byExt != 0) return byExt;
+
+      final labelA = _labelTextForRoad(a.road).toUpperCase();
+      final labelB = _labelTextForRoad(b.road).toUpperCase();
+      return labelA.compareTo(labelB);
+    });
+
+  if (ordered.length <= maxLabels) return ordered;
+  return ordered.take(maxLabels).toList(growable: false);
+}
+
 extension ActiveRoadsLabelClusterExt on ActiveRoadsState {
-  List<TaggedChangedMarker<ActiveRoadsData>> buildRoadLabelTaggedMarkers({
+  List<MarkerChangedData<ActiveRoadsData>> buildRoadLabelTaggedMarkers({
     required double zoom,
   }) {
-    final size = (zoom * 3.2).clamp(18.0, 32.0);
-    final font = (size * 0.45).clamp(8.0, 13.0);
+    final size = _labelDiameterForZoom(zoom);
+    if (size <= 0) return const [];
 
-    // usa o dataset filtrado (para não gerar labels “fantasmas”)
-    final filteredIds = filteredAll.map((e) => e.id).whereType<String>().toSet();
+    final font = _labelFontForDiameter(size);
+    final selected = _selectRoadLabelGeoms(
+      geoms: filteredMapGeoms,
+      zoom: zoom,
+    );
 
-    return mapGeoms
-        .where((g) => filteredIds.contains(g.id))
+    return selected
         .map((g) {
       final r = g.road;
       final anchor = r.labelAnchorOnLine;
       if (anchor == null) return null;
 
-      final label = (r.acronym?.isNotEmpty ?? false) ? r.acronym! : (r.roadCode ?? '');
+      final label = _labelTextForRoad(r);
       if (label.isEmpty) return null;
 
-      return TaggedChangedMarker<ActiveRoadsData>(
+      return MarkerChangedData<ActiveRoadsData>(
         point: anchor,
         data: r,
-        properties: {'label': label, 'diameter': size, 'font': font},
+        properties: {
+          'label': label,
+          'diameter': size,
+          'font': font,
+        },
       );
     })
-        .whereType<TaggedChangedMarker<ActiveRoadsData>>()
+        .whereType<MarkerChangedData<ActiveRoadsData>>()
         .toList(growable: false);
   }
 }
 
 extension ActiveRoadsLabelsExtension on ActiveRoadsState {
   List<Marker> buildRoadLabelMarkers({required double zoom}) {
-    final size = (zoom * 3.2).clamp(18.0, 32.0);
-    final font = (size * 0.45).clamp(8.0, 13.0);
+    final size = _labelDiameterForZoom(zoom);
+    if (size <= 0) return const [];
 
-    final filteredIds = filteredAll.map((e) => e.id).whereType<String>().toSet();
+    final font = _labelFontForDiameter(size);
+    final selected = _selectRoadLabelGeoms(
+      geoms: filteredMapGeoms,
+      zoom: zoom,
+    );
 
-    return mapGeoms
-        .where((g) => filteredIds.contains(g.id))
+    return selected
         .map((g) {
       final r = g.road;
       final anchor = r.labelAnchorOnLine;
       if (anchor == null) return null;
 
-      final label = (r.acronym?.isNotEmpty ?? false) ? r.acronym! : (r.roadCode ?? '');
+      final label = _labelTextForRoad(r);
       if (label.isEmpty) return null;
 
       return Marker(
@@ -588,10 +710,7 @@ extension ActiveRoadsLabelsExtension on ActiveRoadsState {
   }
 }
 
-// ============================================================================
-// Anchors para labels (mantém sua lógica original)
-// ============================================================================
-final _dist = const Distance();
+final _distance = const Distance();
 
 LatLng? pointAtDistanceOnLine(List<LatLng> pts, double targetMeters) {
   if (pts.length < 2) return pts.isNotEmpty ? pts.first : null;
@@ -600,24 +719,28 @@ LatLng? pointAtDistanceOnLine(List<LatLng> pts, double targetMeters) {
   for (int i = 0; i < pts.length - 1; i++) {
     final a = pts[i];
     final b = pts[i + 1];
-    final seg = _dist.as(LengthUnit.Meter, a, b);
+    final seg = _distance.as(LengthUnit.Meter, a, b);
 
     if (acc + seg >= targetMeters) {
       final remain = targetMeters - acc;
-      final t = (seg == 0) ? 0.0 : (remain / seg).clamp(0.0, 1.0);
-      final lat = a.latitude + (b.latitude - a.latitude) * t;
-      final lng = a.longitude + (b.longitude - a.longitude) * t;
-      return LatLng(lat, lng);
+      final t = seg == 0 ? 0.0 : (remain / seg).clamp(0.0, 1.0);
+
+      return LatLng(
+        a.latitude + (b.latitude - a.latitude) * t,
+        a.longitude + (b.longitude - a.longitude) * t,
+      );
     }
+
     acc += seg;
   }
+
   return pts.last;
 }
 
 double lengthOfLineMeters(List<LatLng> pts) {
   double acc = 0.0;
   for (int i = 0; i < pts.length - 1; i++) {
-    acc += _dist.as(LengthUnit.Meter, pts[i], pts[i + 1]);
+    acc += _distance.as(LengthUnit.Meter, pts[i], pts[i + 1]);
   }
   return acc;
 }
@@ -626,8 +749,10 @@ extension ActiveRoadsAnchors on ActiveRoadsData {
   LatLng? get labelAnchorOnLine {
     final pts = points;
     if (pts == null || pts.length < 2) return centerLatLng ?? pts?.first;
-    final L = lengthOfLineMeters(pts);
-    if (L <= 0) return pts.first;
-    return pointAtDistanceOnLine(pts, L / 2);
+
+    final total = lengthOfLineMeters(pts);
+    if (total <= 0) return pts.first;
+
+    return pointAtDistanceOnLine(pts, total / 2);
   }
 }

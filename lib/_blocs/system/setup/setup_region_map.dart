@@ -9,10 +9,10 @@ import 'package:sipged/_blocs/system/location/ibge_localidade_repository.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
-import 'package:sipged/_widgets/map/tooltip/map_tap_overlay.dart';
+import 'package:sipged/_widgets/map/tooltip/tooltip_overlay.dart';
 
 /// Abre um dialog com mapa IBGE para selecionar múltiplos municípios.
 /// [initialSelected] = municípios já vinculados a ESTA região.
@@ -140,7 +140,7 @@ class _RegionMunicipiosSelectorBodyState
   }
 
   /// Centro geométrico simples de um polígono (média dos pontos)
-  LatLng? _computePolygonCenter(PolygonChanged poly) {
+  LatLng? _computePolygonCenter(PolygonChangedData poly) {
     final pts = poly.polygon.points;
     if (pts.isEmpty) return null;
 
@@ -152,7 +152,7 @@ class _RegionMunicipiosSelectorBodyState
     return LatLng(lat, lon);
   }
 
-  LatLng? _computeCenter(List<PolygonChanged> polys) {
+  LatLng? _computeCenter(List<PolygonChangedData> polys) {
     final pts = <LatLng>[];
     for (final p in polys) {
       pts.addAll(p.polygon.points);
@@ -194,8 +194,8 @@ class _RegionMunicipiosSelectorBodyState
     if (renderObj is! RenderBox) return;
     final Offset global = renderObj.localToGlobal(localPos);
 
-    MapTapOverlayTooltip.hide();
-    MapTapOverlayTooltip.show(
+    TooltipOverlay.hide();
+    TooltipOverlay.show(
       overlayState: overlay,
       position: global,
       title: 'Município bloqueado',
@@ -329,7 +329,7 @@ class _RegionMunicipiosSelectorBodyState
                           });
 
                           // Ao trocar estado, esconde tooltip, se existir
-                          MapTapOverlayTooltip.hide();
+                          TooltipOverlay.hide();
                         },
                       ),
                     ),
@@ -393,14 +393,14 @@ class _RegionMunicipiosSelectorBodyState
                           setState(() {
                             _selectedCities.clear();
                           });
-                          MapTapOverlayTooltip.hide();
+                          TooltipOverlay.hide();
                         },
                         child: const Text('Limpar'),
                       ),
                       const SizedBox(width: 8),
                       FilledButton.icon(
                         onPressed: () {
-                          MapTapOverlayTooltip.hide();
+                          TooltipOverlay.hide();
                           Navigator.of(context)
                               .pop(_selectedCities.toList());
                         },
@@ -422,7 +422,7 @@ class _RegionMunicipiosSelectorBodyState
   /// - selecionados nesta região (destaque),
   /// - já usados em outras regiões (cinza),
   /// - disponíveis (cinza clarinho).
-  PolygonChanged _colorizePolygon(PolygonChanged p) {
+  PolygonChangedData _colorizePolygon(PolygonChangedData p) {
     final String name = p.title;
 
     final bool isSelected = _nameInSet(_selectedCities, name);
@@ -464,7 +464,7 @@ class _RegionMunicipiosSelectorBodyState
       props[0]['tooltip'] = tooltipText;
     }
 
-    return PolygonChanged(
+    return PolygonChangedData(
       polygon: Polygon(
         points: p.polygon.points,
         borderColor: border,

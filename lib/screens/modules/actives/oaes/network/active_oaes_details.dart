@@ -10,7 +10,7 @@ import 'package:sipged/_widgets/cards/3d/3d_card.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
 
 import 'package:sipged/_widgets/dates/selector/selectorDates.dart';
 
@@ -52,7 +52,7 @@ class ActiveOaesDetails extends StatefulWidget {
     this.titleSideList = 'Projetos e Documentos',
   });
 
-  final TaggedChangedMarker<ActiveOaesData> marker;
+  final MarkerChangedData<ActiveOaesData> marker;
   final VoidCallback? onClose;
 
   // ---- SideListBox props ----

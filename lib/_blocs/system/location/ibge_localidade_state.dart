@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:sipged/_blocs/system/location/ibge_localidade_data.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
 
 class IBGELocationState extends Equatable {
   final bool isLoading;
@@ -9,7 +9,7 @@ class IBGELocationState extends Equatable {
   final List<IBGELocationStateData> states;
   final IBGELocationStateData? selectedState;
 
-  final List<PolygonChanged> cityPolygons;
+  final List<PolygonChangedData> cityPolygons;
 
   final IBGELocationDetailData? selectedMunicipioDetail;
   final bool isLoadingMunicipioDetail;
@@ -41,7 +41,7 @@ class IBGELocationState extends Equatable {
     String? errorMessage,
     List<IBGELocationStateData>? states,
     IBGELocationStateData? selectedState,
-    List<PolygonChanged>? cityPolygons,
+    List<PolygonChangedData>? cityPolygons,
     IBGELocationDetailData? selectedMunicipioDetail,
     bool clearMunicipioDetail = false,
     bool? isLoadingMunicipioDetail,

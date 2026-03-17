@@ -5,7 +5,7 @@ import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_cubit.d
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
-import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
+import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/radar/radar_chart_changed.dart';
 import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
@@ -53,8 +53,7 @@ class GeneralDashboardStatusServicesRegion extends StatelessWidget {
 
           return DonutChartChanged(
             legendPosition: DonutLegendPosition.bottom,
-            sliceRadius: 50,
-            coresPersonalizadas: cubit.labelsStatusGeneralContracts
+            colorsSlices: cubit.labelsStatusGeneralContracts
                 .map(GeneralDashboardStyle.getColorByStatus)
                 .toList(),
             showPercentageOutside: true,
@@ -63,8 +62,7 @@ class GeneralDashboardStatusServicesRegion extends StatelessWidget {
             filteredValues: cubit.valuesStatusGeneralContractsFiltered,
             selectedLabel: cubit.state.selectedStatus,
             onTapLabel: (label) => cubit.onStatusSelected(label),
-            larguraCard: cardW,
-            larguraGrafico: math.min(cardW * 0.75, 260),
+            widthGraphic: cardW,
           );
         },
 

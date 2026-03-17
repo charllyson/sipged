@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
-import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
-import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
-import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
-
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
+import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
+import 'package:sipged/_widgets/charts/gauges/gauge_chart_change.dart';
+import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
+import 'package:sipged/screens/modules/actives/roads/network/color_mode_selector.dart';
 
 class ActiveRoadsPanel extends StatelessWidget {
   const ActiveRoadsPanel({super.key, this.onClose});
+
   final VoidCallback? onClose;
 
   String _fmtKm(double v) => '${v.toStringAsFixed(1)} km';
 
   @override
   Widget build(BuildContext context) {
-    const double kGaugeBoxWidth = 260;
-    const double kPieBoxWidth = 280;
-
-    const double kBarWidth = 50.0;
-    const double kBarGap = 16.0;
+    const gaugeBoxWidth = 260.0;
+    const pieBoxWidth = 280.0;
+    const barWidth = 50.0;
+    const barGap = 16.0;
 
     return Stack(
       children: [
@@ -30,109 +30,81 @@ class ActiveRoadsPanel extends StatelessWidget {
           children: [
             Expanded(
               child: BlocBuilder<ActiveRoadsCubit, ActiveRoadsState>(
-                builder: (context, st) {
+                builder: (context, state) {
                   final cubit = context.read<ActiveRoadsCubit>();
-
-                  final gaugeVm = st.gaugeForCurrentFilters();
+                  final gaugeVm = state.gaugeForCurrentFilters();
                   final selectedRegionIdx =
-                  st.indexOfRegionNormalized(st.selectedRegionFilter);
+                  state.indexOfRegionNormalized(state.selectedRegionFilter);
+                  final selectedVsaIdx = state.selectedVsaFilter != null
+                      ? state.selectedVsaFilter! - 1
+                      : null;
 
                   return SingleChildScrollView(
                     child: Column(
                       children: [
-                        // ===== Gauge + Pie (wrap) =====
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             children: [
                               const SizedBox(width: 12),
-                              // ---- GAUGE ----
                               SizedBox(
-                                width: kGaugeBoxWidth,
+                                width: gaugeBoxWidth,
                                 child: LayoutBuilder(
                                   builder: (context, constraints) {
-                                    final double side = constraints.maxWidth;
-                                    final double dynamicRadius =
-                                        side * 0.35;
-                                    final double dynamicFontSize =
-                                        dynamicRadius * 0.5;
+                                    final side = constraints.maxWidth;
+                                    final radius = side * 0.35;
+                                    final centerFont = radius * 0.5;
 
                                     return Padding(
                                       padding: const EdgeInsets.only(
                                         top: 12.0,
                                         right: 12,
                                       ),
-                                      child: GaugeCircularPercent(
-                                        centerTitle: gaugeVm.percent
-                                            .clamp(0.0, 1.0),
-                                        footerTitle:
+                                      child: GaugeChartChange(
+                                        heightGraphic: 230,
+                                        centerLabel:
+                                        gaugeVm.percent.clamp(0.0, 1.0),
+                                        footerLabel:
                                         '${gaugeVm.label} • ${_fmtKm(gaugeVm.count)}',
                                         headerMode: GaugeTextMode.number,
                                         centerMode: GaugeTextMode.number,
                                         values: [
                                           double.parse(
-                                            gaugeVm.count
-                                                .toStringAsFixed(3),
+                                            gaugeVm.count.toStringAsFixed(3),
                                           ),
                                         ],
-                                        footerMode:
-                                        GaugeTextMode.explicit,
-                                        radius: dynamicRadius,
-                                        larguraGrafico: side,
-                                        centerFontSize: dynamicFontSize,
+                                        footerMode: GaugeTextMode.explicit,
+                                        radius: radius,
+                                        widthGraphic: side,
+                                        centerFontSize: centerFont,
                                         footerFontSize: 12,
                                       ),
                                     );
                                   },
                                 ),
                               ),
-                              const SizedBox(height: 12),
-
-                              // ---- PIE (Superfície/Status) — valores em km
                               SizedBox(
-                                width: kPieBoxWidth,
+                                width: pieBoxWidth,
                                 child: LayoutBuilder(
                                   builder: (context, constraints) {
-                                    final double side =
-                                        constraints.maxWidth;
-                                    final double chartHeight =
-                                    (side * 0.85)
-                                        .clamp(160.0, 195.0);
-                                    final double maxOuter =
-                                        (chartHeight / 2) - 12.0;
-
-                                    final double baseSlice =
-                                    (side * 0.2).clamp(34.0, maxOuter);
-                                    final double hiSlice =
-                                    (baseSlice + 6.0)
-                                        .clamp(baseSlice, maxOuter);
-                                    final double centerHole =
-                                    (baseSlice * 0.58)
-                                        .clamp(18.0, baseSlice - 10.0);
-
+                                    final side = constraints.maxWidth;
                                     return Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 12.0,
-                                      ),
+                                      padding: const EdgeInsets.only(top: 12.0),
                                       child: DonutChartChanged(
                                         colorCard: Colors.white,
-                                        valueFormatType:
-                                        ValueFormatType.decimal,
-                                        labels: st.pieLabelsForChart,
-                                        values: st.pieValuesForChart,
-                                        coresPersonalizadas:
-                                        st.pieColorsForChart,
-                                        selectedIndex:
-                                        st.selectedPieIndexFilter,
-                                        larguraGrafico: side,
-                                        alturaCard: 295,
-                                        chartHeight: chartHeight,
-                                        sliceRadius: baseSlice,
-                                        sliceRadiusHighlighted: hiSlice,
-                                        centerSpaceRadius: centerHole,
-                                        sectionsSpace: 2,
-                                        onTouch: (idx) {
-                                          cubit.setPieFilter(idx);
+                                        valueFormatType: ValueFormatType.decimal,
+                                        labels: state.pieLabelsForChart,
+                                        values: state.pieValuesForChart,
+                                        colorsSlices: state.pieColorsForChart,
+                                        selectedIndex: state.selectedPieIndexFilter,
+                                        widthGraphic: side,
+                                        heightGraphic: 230,
+                                        onTouch: (index) {
+                                          final newValue =
+                                          index == state.selectedPieIndexFilter
+                                              ? null
+                                              : index;
+                                          cubit.setPieFilter(newValue);
                                         },
                                       ),
                                     );
@@ -143,23 +115,18 @@ class ActiveRoadsPanel extends StatelessWidget {
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 12),
-
-                        // ===== Barras por região (respeita pie) — valores em km =====
                         LayoutBuilder(
                           builder: (context, constraints) {
-                            final double availableWidth =
-                            constraints.hasBoundedWidth
+                            final availableWidth = constraints.hasBoundedWidth
                                 ? constraints.maxWidth
                                 : MediaQuery.of(context).size.width;
 
-                            final int n = st.regionLabels.length;
-                            final double minContentWidth =
-                                16 + n * (kBarWidth + kBarGap) + 16;
+                            final count = state.regionLabels.length;
+                            final minContentWidth =
+                                16 + count * (barWidth + barGap) + 16;
 
-                            final double contentWidth =
-                            minContentWidth > availableWidth
+                            final contentWidth = minContentWidth > availableWidth
                                 ? minContentWidth
                                 : availableWidth;
 
@@ -168,21 +135,24 @@ class ActiveRoadsPanel extends StatelessWidget {
                               child: SizedBox(
                                 width: contentWidth,
                                 child: Padding(
-                                  padding:
-                                  const EdgeInsets.symmetric(
+                                  padding: const EdgeInsets.symmetric(
                                     horizontal: 12.0,
                                   ),
                                   child: BarChartChanged(
                                     colorCard: Colors.white,
+                                    chartTitle: 'Km por regional',
                                     valueFormatter: (v) => _fmtKm(v),
-                                    heightGraphic: 260,
-                                    widthBar: kBarWidth,
-                                    labels: st.regionLabels,
-                                    values: st.regionCountsFilteredByPie(),
+                                    heightGraphic: 230,
+                                    widthBar: barWidth,
+                                    labels: state.regionLabels,
+                                    values: state.regionCountsFilteredByPie(),
+                                    barColors: state.regionBarColors(
+                                      selectedRegionIdx,
+                                    ),
                                     selectedIndex: selectedRegionIdx,
                                     onBarTap: (label) {
                                       final newRegion =
-                                      label == st.selectedRegionFilter
+                                      label == state.selectedRegionFilter
                                           ? null
                                           : label;
                                       cubit.setRegionFilter(newRegion);
@@ -194,6 +164,48 @@ class ActiveRoadsPanel extends StatelessWidget {
                             );
                           },
                         ),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: ColorModeSelectorCards(
+                              selectedMode: state.colorMode,
+                              onChanged: cubit.setColorMode,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          child: BarChartChanged(
+                            colorCard: Colors.white,
+                            chartTitle: 'Valor de Avaliação Subjetiva',
+                            valueFormatter: (v) => _fmtKm(v),
+                            heightGraphic: 230,
+                            widthBar: 52,
+                            labels: state.vsaLabelsForChart,
+                            values: state.vsaKmValuesForChart,
+                            barColors: state.vsaColorsForChart,
+                            selectedIndex: selectedVsaIdx,
+                            expandToMaxWidth: true,
+                            sortType: BarChartSortType.none,
+                            onBarTap: (label) {
+                              final idx =
+                              state.vsaLabelsForChart.indexOf(label);
+                              if (idx < 0) return;
+
+                              final tappedVsa = idx + 1;
+                              final newVsa =
+                              state.selectedVsaFilter == tappedVsa
+                                  ? null
+                                  : tappedVsa;
+
+                              cubit.setVsaFilter(newVsa);
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                       ],
                     ),
                   );

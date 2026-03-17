@@ -10,7 +10,7 @@ import 'package:sipged/_utils/theme/sipged_theme.dart';
 import 'package:sipged/_widgets/map/pin/pin_aureola.dart';
 
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
 
@@ -20,7 +20,7 @@ class AccidentDashboardMap extends StatelessWidget {
   final List<AccidentsData> accidents;
   final void Function(AccidentsData acc) onTapMarker;
 
-  final List<PolygonChanged> polygonsChanged;
+  final List<PolygonChangedData> polygonsChanged;
 
   final List<String>? selectedRegionNames;
   final void Function(String? region)? onRegionTap;
@@ -60,7 +60,7 @@ class AccidentDashboardMap extends StatelessWidget {
   // ---------------------------------------------------------------------------
 
   (_Bounds? bounds, bool any) _boundsFromPolygons(
-      List<PolygonChanged> polys, {
+      List<PolygonChangedData> polys, {
         int sampleTarget = 90,
       }) {
     if (polys.isEmpty) return (null, false);
@@ -152,8 +152,8 @@ class AccidentDashboardMap extends StatelessWidget {
   // ---------------------------------------------------------------------------
 
 
-  List<PolygonChanged> _applyAccidentsStyle({
-    required List<PolygonChanged> polys,
+  List<PolygonChangedData> _applyAccidentsStyle({
+    required List<PolygonChangedData> polys,
     required Map<String, Color> cityColorsNorm,
   }) {
     if (polys.isEmpty) return polys;

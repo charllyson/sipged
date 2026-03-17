@@ -15,7 +15,7 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 import 'active_oaes_panel.dart';
@@ -37,7 +37,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   _RightPanelMode _mode = _RightPanelMode.analytics;
   bool _showPanel = true;
 
-  TaggedChangedMarker<ActiveOaesData>? _detailsMarker;
+  MarkerChangedData<ActiveOaesData>? _detailsMarker;
   int? _selectedSideIndex;
 
   // ======== FILTROS E PAINEL ========
@@ -52,7 +52,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     setState(() => _showPanel = !_showPanel);
   }
 
-  void _openDetails(TaggedChangedMarker<ActiveOaesData> marker) {
+  void _openDetails(MarkerChangedData<ActiveOaesData> marker) {
     setState(() {
       _mode = _RightPanelMode.details;
       _detailsMarker = marker;
@@ -89,7 +89,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
 
     if (!mounted) return;
     setState(() {
-      _detailsMarker = TaggedChangedMarker<ActiveOaesData>(
+      _detailsMarker = MarkerChangedData<ActiveOaesData>(
         point: marker.point,
         data: updated,
         properties: updated.toMap(),
@@ -265,7 +265,7 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
     if (marker == null || d == null) return;
 
     setState(() {
-      _detailsMarker = TaggedChangedMarker<ActiveOaesData>(
+      _detailsMarker = MarkerChangedData<ActiveOaesData>(
         point: marker.point,
         data: d.copyWith(attachments: next),
         properties: d.copyWith(attachments: next).toMap(),

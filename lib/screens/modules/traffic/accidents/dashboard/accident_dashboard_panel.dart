@@ -6,7 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/charts/horizontal_bars/horizontal_bars.dart';
 import 'package:sipged/_widgets/charts/lines/line_chart_changed.dart';
-import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
+import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/section_title.dart';
 import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 
@@ -386,12 +386,9 @@ class _AccidentDashboardPanelState extends State<AccidentDashboardPanel> {
                       labels: donutLabels,
                       values: donutValues,
                       legendPosition: DonutLegendPosition.right,
-                      coresPersonalizadas: donutColors,
+                      colorsSlices: donutColors,
                       valueFormatType: ValueFormatType.integer,
-                      chartHeight: hDonut - 20,
-                      centerSpaceRadius: 34,
-                      sectionsSpace: 3,
-                      sliceRadius: 44,
+                      heightGraphic: hDonut - 20,
                       onTapLabel: (label) {
                         if (label == null) return;
                         cubit.toggleType(label); // ✅ toggle

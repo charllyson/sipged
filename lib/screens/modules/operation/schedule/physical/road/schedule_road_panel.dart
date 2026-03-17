@@ -11,7 +11,7 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_sta
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 
 // Pie
-import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
+import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 
 // Editor de faixas
 import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
@@ -117,18 +117,9 @@ class _ScheduleRoadPanelState extends State<ScheduleRoadPanel> {
                     valueFormatType: ValueFormatType.decimal,
                     labels: labels,
                     values: values,
-                    coresPersonalizadas: cores,
+                    colorsSlices: cores,
                     selectedIndex: null,
-                    larguraGrafico: null,
-                    alturaCard: null,
-                    chartHeight: 220,
-                    sliceRadius: 52,
-                    sliceRadiusHighlighted: 60,
-                    centerSpaceRadius: 42,
-                    sectionsSpace: 2,
-                    onTouch: (idx) {
-                      // opcional: reagir à seleção da fatia
-                    },
+                    heightGraphic: 220,
                   ),
 
                   const SizedBox(height: 16),

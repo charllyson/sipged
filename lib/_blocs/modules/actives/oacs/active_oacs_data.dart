@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
-import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
 
 /// ----------------------------------------------------------------------------
 /// OAC (Obra de Arte Corrente) — modelo completo para:
@@ -988,9 +988,9 @@ class OacMaintenanceEntry {
 
 /// helper para Marker
 extension OacsDataExtension on ActiveOacsData {
-  TaggedChangedMarker<ActiveOacsData>? toTaggedMarker() {
+  MarkerChangedData<ActiveOacsData>? toTaggedMarker() {
     if (latitude == null || longitude == null) return null;
-    return TaggedChangedMarker<ActiveOacsData>(
+    return MarkerChangedData<ActiveOacsData>(
       point: LatLng(latitude!, longitude!),
       data: this,
       properties: toMap(),

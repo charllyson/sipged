@@ -4,8 +4,8 @@ import 'package:flutter/material.dart'; // Color
 import 'package:flutter/widgets.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
-import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
 
 final Distance _distTool = const Distance();
 const double _earthRadius = 6378137.0; // WebMercator
@@ -108,7 +108,7 @@ List<_Sample> _sampleAlong(List<LatLng> axis, double stepMeters) {
 }
 
 /// ===== Estacas (upright) com anti-colisão =====
-List<TaggedChangedMarker<Map<String, dynamic>>> buildStakeMarkersUprightWithTickRight({
+List<MarkerChangedData<Map<String, dynamic>>> buildStakeMarkersUprightWithTickRight({
   required List<LatLng> axis,
   double stepMeters = 20.0,
   double offsetRightMeters = 6.0, // (reservado p/ futuros estilos)
@@ -120,7 +120,7 @@ List<TaggedChangedMarker<Map<String, dynamic>>> buildStakeMarkersUprightWithTick
   final samples = _sampleAlong(axis, stepMeters);
   if (samples.isEmpty) return const [];
 
-  final out = <TaggedChangedMarker<Map<String, dynamic>>>[];
+  final out = <MarkerChangedData<Map<String, dynamic>>>[];
 
   Offset? lastPx;
   for (var i = 0; i < samples.length; i++) {
@@ -138,7 +138,7 @@ List<TaggedChangedMarker<Map<String, dynamic>>> buildStakeMarkersUprightWithTick
       lastPx = currPx;
     }
 
-    out.add(TaggedChangedMarker<Map<String, dynamic>>(
+    out.add(MarkerChangedData<Map<String, dynamic>>(
       point: anchor,
       properties: {'idx': i, 'label': '$i', 'normalAngle': nAngle, 'tickPx': 12.0},
       data: <String, dynamic>{},
@@ -243,12 +243,12 @@ SegmentedAxis splitAxisByFixedStep({
 }
 
 /// Central (20 m)
-List<TappableChangedPolyline> buildSegmentPolylines({
+List<PolylineChangedData> buildSegmentPolylines({
   required SegmentedAxis segmented,
   Color Function(int idx)? colorForIndex,
   double strokeWidth = 5.0,
 }) {
-  final out = <TappableChangedPolyline>[];
+  final out = <PolylineChangedData>[];
   final segs = segmented.segments;
 
   Color defaultColor(int i) =>
@@ -260,7 +260,7 @@ List<TappableChangedPolyline> buildSegmentPolylines({
 
     final baseColor = (colorForIndex ?? defaultColor).call(i);
 
-    out.add(TappableChangedPolyline(
+    out.add(PolylineChangedData(
       points: seg,
       tag: 'segC:$i',
       color: baseColor,
@@ -302,7 +302,7 @@ List<LatLng> _offsetPolylineByNormal(List<LatLng> pts, double offsetMeters, {req
 }
 
 /// Paralelas segmentadas, alinhadas índice-a-índice à central.
-List<TappableChangedPolyline> buildParallelSegmentPolylines({
+List<PolylineChangedData> buildParallelSegmentPolylines({
   required SegmentedAxis segmented,
   double offsetMeters = 3.5,
   bool buildRight = true,
@@ -313,7 +313,7 @@ List<TappableChangedPolyline> buildParallelSegmentPolylines({
   String sidePrefixRight = 'segR',
   String sidePrefixLeft  = 'segL',
 }) {
-  final out = <TappableChangedPolyline>[];
+  final out = <PolylineChangedData>[];
   final segs = segmented.segments;
 
   Color defaultColor(int i) =>
@@ -327,7 +327,7 @@ List<TappableChangedPolyline> buildParallelSegmentPolylines({
     if (buildRight) {
       final rPts = _offsetPolylineByNormal(seg, offsetMeters, right: true);
       if (rPts.length >= 2) {
-        out.add(TappableChangedPolyline(
+        out.add(PolylineChangedData(
           points: rPts,
           tag: '$sidePrefixRight:$i',
           color: baseColor,
@@ -342,7 +342,7 @@ List<TappableChangedPolyline> buildParallelSegmentPolylines({
     if (buildLeft) {
       final lPts = _offsetPolylineByNormal(seg, offsetMeters, right: false);
       if (lPts.length >= 2) {
-        out.add(TappableChangedPolyline(
+        out.add(PolylineChangedData(
           points: lPts,
           tag: '$sidePrefixLeft:$i',
           color: baseColor,

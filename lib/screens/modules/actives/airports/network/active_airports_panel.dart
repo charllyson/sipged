@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/background/background_cleaner.dart';
-import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
-import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
+import 'package:sipged/_widgets/charts/gauges/gauge_chart_change.dart';
+import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
@@ -59,17 +59,17 @@ class ActiveOaesPanel extends StatelessWidget {
                                     return Padding(
                                       padding:
                                       const EdgeInsets.only(top: 12.0),
-                                      child: GaugeCircularPercent(
-                                        centerTitle: gaugeVm.percent
+                                      child: GaugeChartChange(
+                                        centerLabel: gaugeVm.percent
                                             .clamp(0.0, 1.0),
-                                        footerTitle: gaugeVm.label,
+                                        footerLabel: gaugeVm.label,
                                         headerMode: GaugeTextMode.number,
                                         centerMode: GaugeTextMode.number,
                                         values: [gaugeVm.count],
                                         footerMode:
                                         GaugeTextMode.explicit,
                                         radius: dynamicRadius,
-                                        larguraGrafico: side,
+                                        widthGraphic: side,
                                         centerFontSize: dynamicFontSize,
                                         footerFontSize: 12,
                                       ),
@@ -82,24 +82,6 @@ class ActiveOaesPanel extends StatelessWidget {
                                 width: kPieBoxWidth,
                                 child: LayoutBuilder(
                                   builder: (context, constraints) {
-                                    final double side =
-                                        constraints.maxWidth;
-                                    final double chartHeight =
-                                    (side * 0.85)
-                                        .clamp(160.0, 195.0);
-                                    final double maxOuter =
-                                        (chartHeight / 2) - 12.0;
-
-                                    final double baseSlice =
-                                    (side * 0.2)
-                                        .clamp(34.0, maxOuter);
-                                    final double hiSlice =
-                                    (baseSlice + 6.0)
-                                        .clamp(baseSlice, maxOuter);
-                                    final double centerHole =
-                                    (baseSlice * 0.58).clamp(
-                                        18.0, baseSlice - 10.0);
-
                                     return Padding(
                                       padding:
                                       const EdgeInsets.only(
@@ -110,17 +92,11 @@ class ActiveOaesPanel extends StatelessWidget {
                                         ValueFormatType.integer,
                                         labels: st.pieLabelsForChart,
                                         values: st.pieValuesForChart,
-                                        coresPersonalizadas:
+                                        colorsSlices:
                                         st.pieColorsForChart,
                                         selectedIndex:
                                         st.selectedPieIndexFilter,
-                                        larguraGrafico: side,
-                                        alturaCard: 295,
-                                        chartHeight: chartHeight,
-                                        sliceRadius: baseSlice,
-                                        sliceRadiusHighlighted: hiSlice,
-                                        centerSpaceRadius: centerHole,
-                                        sectionsSpace: 2,
+                                        heightGraphic: 295,
                                         onTouch: (idx) {
                                           cubit.setPieFilter(idx);
                                         },

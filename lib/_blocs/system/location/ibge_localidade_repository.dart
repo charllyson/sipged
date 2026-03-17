@@ -1,6 +1,6 @@
 import 'package:sipged/_blocs/system/location/ibge_localidade_data.dart';
 import 'package:sipged/_blocs/system/location/ibge_location_service.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
 
 class IBGELocationRepository {
   final IBGELocationService _service;
@@ -9,7 +9,7 @@ class IBGELocationRepository {
       : _service = service ?? IBGELocationService();
 
   // Cache em memória: evita bater na API toda hora
-  static final Map<int, List<PolygonChanged>> _cachePolygonsByUf = {};
+  static final Map<int, List<PolygonChangedData>> _cachePolygonsByUf = {};
   static List<IBGELocationStateData>? _cacheStates;
 
   // Cache de DETALHES de município: idIbge -> detail
@@ -30,7 +30,7 @@ class IBGELocationRepository {
     return cached != null && cached.isNotEmpty;
   }
 
-  Future<List<PolygonChanged>> getMunicipioPolygonsByUf(int ufCode) async {
+  Future<List<PolygonChangedData>> getMunicipioPolygonsByUf(int ufCode) async {
     final cached = _cachePolygonsByUf[ufCode];
     if (cached != null && cached.isNotEmpty) {
       return cached;

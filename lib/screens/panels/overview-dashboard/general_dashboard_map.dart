@@ -10,7 +10,7 @@ import 'package:sipged/_blocs/system/location/ibge_localidade_state.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/polygon/polygon_changed.dart';
+import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
 
 class GeneralDashboardMap extends StatelessWidget {
   /// MUNICÍPIOS selecionados (para destaque mais forte)
@@ -96,7 +96,7 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
   }
 
   /// Junta todos os pontos dos polígonos para centralizar o mapa.
-  List<LatLng> _geometryPointsFromPolygons(List<PolygonChanged> polys) {
+  List<LatLng> _geometryPointsFromPolygons(List<PolygonChangedData> polys) {
     if (polys.isEmpty) return const <LatLng>[];
     final pts = <LatLng>[];
     for (final p in polys) {
@@ -134,8 +134,8 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
 
   /// ✅ Aplica “forte/fraco” diretamente no PolygonChanged.
   /// Agora não existe mais strongPolygonNames no MapInteractive.
-  List<PolygonChanged> _applyStrengthStyle({
-    required List<PolygonChanged> polys,
+  List<PolygonChangedData> _applyStrengthStyle({
+    required List<PolygonChangedData> polys,
     required List<String> strongNames,
   }) {
     if (polys.isEmpty) return polys;

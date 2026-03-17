@@ -27,10 +27,10 @@ import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
 import 'package:sipged/_widgets/schedule/stakes/line_segmentation.dart';
 import 'package:sipged/_widgets/schedule/stakes/zoom_listener.dart';
 
-import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/shimmer/map_loading_shimmer.dart';
-import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/shimmer/map_shimmer.dart';
+import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
 import 'package:sipged/_widgets/schedule/stakes/stakes_up_right.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
@@ -118,12 +118,12 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   // ===== apagar traçado salvo =====
 
   // ===== cópia segura (mantém tag e flags) =====
-  TappableChangedPolyline _copyKeepingFlags(
-      TappableChangedPolyline p, {
+  PolylineChangedData _copyKeepingFlags(
+      PolylineChangedData p, {
         Color? color,
         double? strokeWidth,
       }) {
-    return TappableChangedPolyline(
+    return PolylineChangedData(
       points: p.points,
       tag: p.tag,
       color: color ?? p.color,
@@ -135,8 +135,8 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   }
 
   // ===== estilo de seleção (suporta múltiplas) =====
-  List<TappableChangedPolyline> _applySelectionStyle(
-      List<TappableChangedPolyline> polylines,
+  List<PolylineChangedData> _applySelectionStyle(
+      List<PolylineChangedData> polylines,
       Set<String> selectedTags,
       ) {
     if (selectedTags.isEmpty) {
@@ -162,10 +162,10 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   }
 
   // ===== helpers “tocáveis” (ampliam área de toque) =====
-  List<TappableChangedPolyline> _withTapHelpers(
-      List<TappableChangedPolyline> src,
+  List<PolylineChangedData> _withTapHelpers(
+      List<PolylineChangedData> src,
       ) {
-    final helpers = <TappableChangedPolyline>[];
+    final helpers = <PolylineChangedData>[];
     for (final p in src) {
       helpers.add(
         _copyKeepingFlags(
@@ -228,14 +228,14 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   }
 
   // ===== lanes -> polylines segmentadas clicáveis =====
-  List<TappableChangedPolyline> _buildLanePolylines({
+  List<PolylineChangedData> _buildLanePolylines({
     required SegmentedAxis segmented,
     required List lanes,
     required ScheduleRoadState st,
   }) {
     const laneSpacing = 3.5; // distância lateral entre faixas (m)
     int le = 0, ce = 0, ld = 0;
-    final out = <TappableChangedPolyline>[];
+    final out = <PolylineChangedData>[];
 
     for (int fi = 0; fi < lanes.length; fi++) {
       final rawLabel = _resolveLaneLabel(lanes[fi]);
@@ -284,7 +284,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           final ptsR = segmented.offsetSegmentRight(segIdx, offset);
           if (ptsR.length >= 2) {
             out.add(
-              TappableChangedPolyline(
+              PolylineChangedData(
                 points: ptsR,
                 tag: 'lane$fi#seg$segIdx#R',
                 color: colorForIdx(segIdx),
@@ -301,7 +301,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           final ptsL = segmented.offsetSegmentLeft(segIdx, offset);
           if (ptsL.length >= 2) {
             out.add(
-              TappableChangedPolyline(
+              PolylineChangedData(
                 points: ptsL,
                 tag: 'lane$fi#seg$segIdx#L',
                 color: colorForIdx(segIdx),
@@ -321,7 +321,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
   // ===== layer de estacas =====
   Widget _stakesLayer({
-    required List<TaggedChangedMarker<Map<String, dynamic>>> markers,
+    required List<MarkerChangedData<Map<String, dynamic>>> markers,
   }) {
     if (markers.isEmpty) return const SizedBox.shrink();
     return MarkerLayer(
@@ -613,7 +613,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
   // ===================== Exportar seleção para GeoJSON (ToolBoxWidget) =====================
   String _buildSelectedGeoJSON({
-    required List<TappableChangedPolyline> laneSegments,
+    required List<PolylineChangedData> laneSegments,
     required bool normalized,
   }) {
     // usamos somente os segmentos "visíveis" (sem helpers de hit)
@@ -683,7 +683,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       ),
       builder: (context, sel) {
         if (!sel.initialized || sel.savingOrImporting) {
-          return const MapLoadingShimmer();
+          return const MapShimmer();
         }
 
         final segmented =
@@ -704,7 +704,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         // markers de estacas
         final showStakes = sel.mapZoom >= 14.0;
         final stakeMarkers = (!showStakes || sel.axis.isEmpty)
-            ? const <TaggedChangedMarker<Map<String, dynamic>>>[]
+            ? const <MarkerChangedData<Map<String, dynamic>>>[]
             : buildStakeMarkersUprightWithTickRight(
           axis: sel.axis,
           stepMeters: 20.0,

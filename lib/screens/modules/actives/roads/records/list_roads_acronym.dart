@@ -17,18 +17,11 @@ class ListRoadAcronym extends StatefulWidget {
     this.initiallyExpanded = false,
   });
 
-  /// Sigla da rodovia (ex.: "AL-101", "BR-104"...)
   final String title;
-
-  /// Lista de segmentos/trechos dessa rodovia.
   final List<ActiveRoadsData> items;
-
   final BoxConstraints constraints;
-
   final RoadTapCallback onTapItem;
   final RoadDeleteCallback onDelete;
-
-  /// Se o grupo abre já expandido.
   final bool initiallyExpanded;
 
   @override
@@ -55,12 +48,7 @@ class _ListRoadAcronymState extends State<ListRoadAcronym> {
     final total = widget.items.length;
     final theme = Theme.of(context);
     final color = theme.colorScheme.primary;
-
-    // 🔹 Soma total de km dos trechos dessa rodovia
-    final num totalKm = widget.items.fold<num>(
-      0,
-          (sum, r) => sum + (r.extension ?? 0),
-    );
+    final totalKm = ActiveRoadsData.sumExtension(widget.items);
 
     return ExpansionTile(
       key: ValueKey('tile_road_${widget.title}'),
@@ -77,7 +65,6 @@ class _ListRoadAcronymState extends State<ListRoadAcronym> {
           ),
           const SizedBox(width: 8),
           Text(
-            // Rodovia AL-101 * 123,4 km
             '• ${_fmtNum(totalKm, maxDecimals: 3)} km',
             style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
@@ -111,7 +98,6 @@ class _ListRoadAcronymState extends State<ListRoadAcronym> {
   }
 }
 
-/// Helper simples para formatar número de km
 String _fmtNum(num? v, {int maxDecimals = 1}) {
   if (v == null) return '-';
   var s = v.toStringAsFixed(maxDecimals);

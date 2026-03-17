@@ -12,12 +12,12 @@ import 'package:sipged/_utils/geometry/sipged_geometry.dart';
 
 // === SIGED widgets ===
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
-import 'package:sipged/_widgets/map/polylines/tappable_changed_polyline.dart';
+import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // cluster animado
-import 'package:sipged/_widgets/map/clusters/cluster_animated_marker_widget.dart';
+import 'package:sipged/_widgets/map/clusters/cluster_marker_layer.dart';
 // pin com bico alinhado no bottom-center
 import 'package:sipged/_widgets/map/pin/pin_changed.dart';
 
@@ -54,10 +54,10 @@ class _PlanningRightWayPropertyMapState
   final _db = FirebaseFirestore.instance;
 
   final List<Polygon> _polygons = [];
-  final List<TappableChangedPolyline> _lines = [];
+  final List<PolylineChangedData> _lines = [];
 
   // markers (pins) no ponto ótimo do polígono
-  final List<TaggedChangedMarker<Map<String, dynamic>>> _markers = [];
+  final List<MarkerChangedData<Map<String, dynamic>>> _markers = [];
 
   // cache idProp -> ownerName
   final Map<String, String> _ownersByPropId = {};
@@ -185,7 +185,7 @@ class _PlanningRightWayPropertyMapState
     for (final g in geoms) {
       if (g.type == SipGedGeometry.line && g.points.length >= 2) {
         _lines.add(
-          TappableChangedPolyline(
+          PolylineChangedData(
             points: g.points,
             color: Colors.redAccent,
             strokeWidth: 3.0,
@@ -212,7 +212,7 @@ class _PlanningRightWayPropertyMapState
         );
 
         _markers.add(
-          TaggedChangedMarker<Map<String, dynamic>>(
+          MarkerChangedData<Map<String, dynamic>>(
             point: labelPoint,
             data: {'propertyId': propertyId},
             properties: {
@@ -364,7 +364,7 @@ class _PlanningRightWayPropertyMapState
             selectedMarkerPosition,
             onMarkerSelected,
             ) {
-          return ClusterAnimatedMarkerLayer<Map<String, dynamic>>(
+          return ClusterMarkerLayer<Map<String, dynamic>>(
             taggedMarkers: taggedMarkers,
             selectedMarkerPosition: selectedMarkerPosition,
             onMarkerSelected: onMarkerSelected,

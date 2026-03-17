@@ -1,4 +1,3 @@
-// lib/_blocs/modules/actives/roads/active_roads_cubit.dart
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -6,12 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_utils/geometry/sipged_tile_math.dart';
 
-import 'active_roads_data.dart';
-import 'active_roads_repository.dart';
-import 'active_roads_state.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_repository.dart';
+import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
+import 'package:sipged/_utils/geometry/sipged_tile_math.dart';
 
 class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
   final ActiveRoadsRepository _repo;
@@ -20,15 +19,10 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
       : _repo = repository ?? ActiveRoadsRepository(),
         super(const ActiveRoadsState());
 
-  // ---------------------------------------------------------------------------
-  // Configs globais
-  // ---------------------------------------------------------------------------
   static const double clusterUntilZoom = 12.0;
+
   bool shouldUseCluster(double zoom) => zoom < clusterUntilZoom;
 
-  // ---------------------------------------------------------------------------
-  // Cache raw + cache por bucket
-  // ---------------------------------------------------------------------------
   List<_RoadRowSegments>? _rawCache;
   final Map<int, List<ActiveRoadMapGeom>> _geomCacheByBucket = {};
 
@@ -45,31 +39,32 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
   LatLngBounds? _lastBounds;
   double? _lastZoom;
 
-  // ---------------------------------------------------------------------------
-  // API pública
-  // ---------------------------------------------------------------------------
-
-  /// Warmup: se não tiver bounds ainda, tenta manter comportamento antigo (fetchAll),
-  /// mas você vai ganhar performance real usando onCameraChangedEx (viewport).
   Future<void> warmup({int bucket = 4}) async {
     if (_lastBounds != null) {
       await loadViewport(bucket: bucket, bounds: _lastBounds!);
       return;
     }
 
-    // fallback (primeira carga, sem viewport ainda)
     await _loadAllFallback(setInitialized: true, bucket: bucket);
   }
 
   Future<void> refresh({int bucket = 4}) async {
     if (_lastBounds != null) {
-      await loadViewport(bucket: bucket, bounds: _lastBounds!, forceRefresh: true);
+      await loadViewport(
+        bucket: bucket,
+        bounds: _lastBounds!,
+        forceRefresh: true,
+      );
       return;
     }
-    await _loadAllFallback(setInitialized: false, bucket: bucket, forceRefresh: true);
+
+    await _loadAllFallback(
+      setInitialized: false,
+      bucket: bucket,
+      forceRefresh: true,
+    );
   }
 
-  /// ✅ NOVO: câmera mudou (zoom + bounds). Aqui é onde fica “Google/OSM-like”.
   void onCameraChanged({
     required double zoom,
     required LatLngBounds bounds,
@@ -77,23 +72,19 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     _lastBounds = bounds;
     _lastZoom = zoom;
 
-    final _ = bucketForZoom(zoom);
-
     _cameraDebounce?.cancel();
     _cameraDebounce = Timer(_cameraDebounceDuration, () async {
       final b = _lastBounds;
       final z = _lastZoom;
       if (b == null || z == null) return;
 
-      final bk = bucketForZoom(z);
-      await loadViewport(bucket: bk, bounds: b);
+      final bucket = bucketForZoom(z);
+      await loadViewport(bucket: bucket, bounds: b);
     });
 
-    // mantém cache de geometria por bucket (debounce “curto”)
     onZoomChanged(zoom: zoom);
   }
 
-  /// Mantém o seu bucket/cache para simplificação por zoom
   void onZoomChanged({required double zoom}) {
     final bucket = bucketForZoom(zoom);
     if (_activeBucket == bucket) return;
@@ -105,10 +96,27 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     });
   }
 
+  void setColorMode(ActiveRoadColorMode mode) {
+    if (state.colorMode == mode) return;
+    emit(state.copyWith(colorMode: mode));
+  }
+
   void clearCache() {
     _rawCache = null;
     _geomCacheByBucket.clear();
     _activeBucket = null;
+  }
+
+  void clearAllFilters() {
+    emit(
+      state.copyWith(
+        selectedRegionFilter: null,
+        selectedSurfaceFilter: null,
+        selectedPieIndexFilter: null,
+        selectedVsaFilter: null,
+        selectedPolylineId: null,
+      ),
+    );
   }
 
   @override
@@ -118,10 +126,6 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     return super.close();
   }
 
-  // ---------------------------------------------------------------------------
-  // Viewport loader (tiles + bucket)
-  // ---------------------------------------------------------------------------
-
   Future<void> loadViewport({
     required int bucket,
     required LatLngBounds bounds,
@@ -129,58 +133,64 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
   }) async {
     final reqId = ++_requestSeq;
 
-    // não piscar shimmer se já tem algo desenhado
-    final bool hasData = state.all.isNotEmpty && state.mapGeoms.isNotEmpty;
-    emit(state.copyWith(
-      loadStatus: hasData ? state.loadStatus : ActiveRoadsLoadStatus.loading,
-      error: null,
-    ));
+    final hasData = state.all.isNotEmpty && state.mapGeoms.isNotEmpty;
+
+    emit(
+      state.copyWith(
+        loadStatus: hasData ? state.loadStatus : ActiveRoadsLoadStatus.loading,
+        error: null,
+      ),
+    );
 
     try {
-      // zTile (quanto menor, menos tiles) — ajuste fino conforme seu dataset
-      final zTile = _tileZoomForBucket(bucket);
+      final tileZoom = _tileZoomForBucket(bucket);
 
       final quadKeys = SipGedTileMath.quadKeysForBounds(
         bounds: bounds,
-        z: zTile,
+        z: tileZoom,
         maxTiles: 80,
       );
 
-      final list = await _repo.fetchByTiles(bucket: bucket, quadKeys: quadKeys);
+      final list = await _repo.fetchByTiles(
+        bucket: bucket,
+        quadKeys: quadKeys,
+      );
+
       if (reqId != _requestSeq) return;
 
-      // labels podem vir do Setup; aqui vai do conjunto visível
       final regionLabels = _buildRegionLabelsFromData(list);
 
-      // invalida caches se mudou o conjunto (ou se quiser sempre)
       if (forceRefresh) {
         clearCache();
       } else {
-        _geomCacheByBucket.clear(); // mantém raw e refaz geoms se necessário
+        _geomCacheByBucket.clear();
       }
 
       _rawCache = _buildRawSegmentsFromRoads(list);
-      _applyBucketFromCache(bucket, emitLoading: false);
+      _applyBucketFromCache(bucket);
 
       if (reqId != _requestSeq) return;
 
-      emit(state.copyWith(
-        initialized: true,
-        all: list,
-        regionLabels: regionLabels,
-        loadStatus: ActiveRoadsLoadStatus.success,
-        error: null,
-      ));
+      emit(
+        state.copyWith(
+          initialized: true,
+          all: _sortRoads(list),
+          regionLabels: regionLabels,
+          loadStatus: ActiveRoadsLoadStatus.success,
+          error: null,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(
-        loadStatus: ActiveRoadsLoadStatus.failure,
-        error: e.toString(),
-      ));
+      emit(
+        state.copyWith(
+          loadStatus: ActiveRoadsLoadStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
 
   int _tileZoomForBucket(int bucket) {
-    // bucket maior -> tile zoom maior (mais detalhe / mais tiles)
     switch (bucket) {
       case 1:
         return 7;
@@ -196,10 +206,6 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Fallback loader (antigo fetchAll) — mantém para não quebrar se bounds não vier
-  // ---------------------------------------------------------------------------
-
   Future<void> _loadAllFallback({
     required bool setInitialized,
     required int bucket,
@@ -207,80 +213,94 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
   }) async {
     final reqId = ++_requestSeq;
 
-    emit(state.copyWith(
-      loadStatus: ActiveRoadsLoadStatus.loading,
-      error: null,
-    ));
+    emit(
+      state.copyWith(
+        loadStatus: ActiveRoadsLoadStatus.loading,
+        error: null,
+      ),
+    );
 
     try {
       final sw = Stopwatch()..start();
       _perf('[PERF] ActiveRoads.loadAllFallback(bucket=$bucket) :: start=0ms');
 
-      final list = await _repo.fetchAll();
+      final list = _sortRoads(await _repo.fetchAll());
+
       if (reqId != _requestSeq) return;
 
       final regionLabels = _buildRegionLabelsFromData(list);
 
       if (forceRefresh || _rawCache == null) {
         final tParse = Stopwatch()..start();
+
         _rawCache = _buildRawSegmentsFromRoads(list);
+
         tParse.stop();
 
         final rawPointsTotal =
         _rawCache!.fold<int>(0, (acc, e) => acc + e.rawPointsTotal);
+
         _perf(
           '[PERF] ActiveRoads.loadAllFallback(bucket=$bucket) :: parse rows=${_rawCache!.length} rawPointsTotal=$rawPointsTotal = ${tParse.elapsedMilliseconds}ms',
         );
       }
 
-      _applyBucketFromCache(bucket, emitLoading: false);
+      _applyBucketFromCache(bucket);
+
       if (reqId != _requestSeq) return;
 
-      emit(state.copyWith(
-        initialized: setInitialized ? true : state.initialized,
-        all: list,
-        regionLabels: regionLabels,
-        loadStatus: ActiveRoadsLoadStatus.success,
-        error: null,
-      ));
+      emit(
+        state.copyWith(
+          initialized: setInitialized ? true : state.initialized,
+          all: list,
+          regionLabels: regionLabels,
+          loadStatus: ActiveRoadsLoadStatus.success,
+          error: null,
+        ),
+      );
 
       sw.stop();
-      _perf('[PERF] ActiveRoads.loadAllFallback(bucket=$bucket) :: END=${sw.elapsedMilliseconds}ms');
+      _perf(
+        '[PERF] ActiveRoads.loadAllFallback(bucket=$bucket) :: END=${sw.elapsedMilliseconds}ms',
+      );
     } catch (e) {
-      emit(state.copyWith(
-        loadStatus: ActiveRoadsLoadStatus.failure,
-        error: e.toString(),
-      ));
+      emit(
+        state.copyWith(
+          loadStatus: ActiveRoadsLoadStatus.failure,
+          error: e.toString(),
+        ),
+      );
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Bucket/cache apply
-  // ---------------------------------------------------------------------------
-
-  void _applyBucketFromCache(int bucket, {bool emitLoading = true}) {
+  void _applyBucketFromCache(int bucket) {
     final raw = _rawCache;
+
     if (raw == null || raw.isEmpty) {
-      emit(state.copyWith(
-        activeBucket: bucket,
-        mapGeoms: const [],
-        geomVersion: state.geomVersion + 1,
-      ));
+      emit(
+        state.copyWith(
+          activeBucket: bucket,
+          mapGeoms: const [],
+          geomVersion: state.geomVersion + 1,
+        ),
+      );
       _activeBucket = bucket;
       return;
     }
 
     if (_geomCacheByBucket.containsKey(bucket)) {
       _activeBucket = bucket;
-      emit(state.copyWith(
-        activeBucket: bucket,
-        mapGeoms: _geomCacheByBucket[bucket]!,
-        geomVersion: state.geomVersion + 1,
-      ));
+      emit(
+        state.copyWith(
+          activeBucket: bucket,
+          mapGeoms: _geomCacheByBucket[bucket]!,
+          geomVersion: state.geomVersion + 1,
+        ),
+      );
       return;
     }
 
-    final tol = _toleranceMetersForBucket(bucket);
+    final tolerance = _toleranceMetersForBucket(bucket);
     final stride = _strideForBucket(bucket);
 
     final sw = Stopwatch()..start();
@@ -288,19 +308,20 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
 
     final geoms = _buildGeomsForBucket(
       rows: raw,
-      bucket: bucket,
-      toleranceMeters: tol,
+      toleranceMeters: tolerance,
       stride: stride,
     );
 
     _geomCacheByBucket[bucket] = geoms;
     _activeBucket = bucket;
 
-    emit(state.copyWith(
-      activeBucket: bucket,
-      mapGeoms: geoms,
-      geomVersion: state.geomVersion + 1,
-    ));
+    emit(
+      state.copyWith(
+        activeBucket: bucket,
+        mapGeoms: geoms,
+        geomVersion: state.geomVersion + 1,
+      ),
+    );
 
     sw.stop();
 
@@ -310,13 +331,12 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     );
 
     _perf(
-      '[PERF] ActiveRoads.applyBucket(bucket=$bucket) :: END=${sw.elapsedMilliseconds}ms simpPointsTotal=$simpPointsTotal tol=${tol.toStringAsFixed(0)}m stride=$stride',
+      '[PERF] ActiveRoads.applyBucket(bucket=$bucket) :: END=${sw.elapsedMilliseconds}ms simpPointsTotal=$simpPointsTotal tol=${tolerance.toStringAsFixed(0)}m stride=$stride',
     );
   }
 
   List<ActiveRoadMapGeom> _buildGeomsForBucket({
     required List<_RoadRowSegments> rows,
-    required int bucket,
     required double toleranceMeters,
     required int stride,
   }) {
@@ -355,13 +375,9 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     return out;
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers internos
-  // ---------------------------------------------------------------------------
-
   List<String> _buildRegionLabelsFromData(List<ActiveRoadsData> list) {
     final labels = list
-        .map((r) => (r.regional ?? r.metadata?['regional'] ?? '').toString().trim())
+        .map((r) => r.displayRegion.trim())
         .where((s) => s.isNotEmpty)
         .toSet()
         .toList()
@@ -370,12 +386,25 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     return labels;
   }
 
+  List<ActiveRoadsData> _sortRoads(List<ActiveRoadsData> list) {
+    final out = List<ActiveRoadsData>.from(list);
+
+    out.sort((a, b) {
+      final aKey = '${a.acronym ?? ''}_${a.initialKm ?? 0}';
+      final bKey = '${b.acronym ?? ''}_${b.initialKm ?? 0}';
+      return aKey.compareTo(bKey);
+    });
+
+    return out;
+  }
+
   List<_RoadRowSegments> _buildRawSegmentsFromRoads(List<ActiveRoadsData> list) {
     final out = <_RoadRowSegments>[];
 
-    for (final r in list) {
-      final id = r.id;
-      final pts = r.points;
+    for (final road in list) {
+      final id = road.id;
+      final pts = road.points;
+
       if (id == null || pts == null || pts.length < 2) continue;
 
       final segments = _splitByGapMeters(
@@ -397,7 +426,7 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
       out.add(
         _RoadRowSegments(
           id: id,
-          road: r,
+          road: road,
           segments: cleanSegs,
           rawPointsTotal: rawPointsTotal,
         ),
@@ -415,29 +444,26 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
 
     final dist = const Distance();
     final out = <List<LatLng>>[];
-    var cur = <LatLng>[pts.first];
+    var current = <LatLng>[pts.first];
 
     for (int i = 1; i < pts.length; i++) {
       final a = pts[i - 1];
       final b = pts[i];
       final d = dist.as(LengthUnit.Meter, a, b);
 
-      if (d > maxGapMeters && cur.length >= 2) {
-        out.add(cur);
-        cur = <LatLng>[b];
+      if (d > maxGapMeters && current.length >= 2) {
+        out.add(current);
+        current = <LatLng>[b];
       } else {
-        cur.add(b);
+        current.add(b);
       }
     }
 
-    if (cur.length >= 2) out.add(cur);
+    if (current.length >= 2) out.add(current);
     if (out.isEmpty) out.add(pts);
+
     return out;
   }
-
-  // ---------------------------------------------------------------------------
-  // Lookup / Tooltips / Filtros / CRUD (mantidos)
-  // ---------------------------------------------------------------------------
 
   ActiveRoadsData? findById(String id) {
     for (final r in state.all) {
@@ -454,8 +480,8 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
 
   String tooltipTitle(ActiveRoadsData road) {
     final acr = road.acronym ?? '--';
-    final cod = road.roadCode ?? '--';
-    return 'Rodovia: AL-$acr ($cod)';
+    final code = road.roadCode ?? '--';
+    return 'Rodovia: AL-$acr ($code)';
   }
 
   String tooltipSubtitle(ActiveRoadsData road) {
@@ -476,75 +502,104 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     emit(state.copyWith(regionLabels: labels));
   }
 
-  void selectPolyline(String? id) => emit(state.copyWith(selectedPolylineId: id));
-  void clearPolylineSelection() => emit(state.copyWith(selectedPolylineId: null));
-  void setRegionFilter(String? region) => emit(state.copyWith(selectedRegionFilter: region));
-  void setSurfaceFilter(String? surfaceCode) => emit(state.copyWith(selectedSurfaceFilter: surfaceCode));
-  void setPieFilter(int? pieIndex) => emit(state.copyWith(selectedPieIndexFilter: pieIndex));
+  void selectPolyline(String? id) {
+    emit(state.copyWith(selectedPolylineId: id));
+  }
+
+  void clearPolylineSelection() {
+    emit(state.copyWith(selectedPolylineId: null));
+  }
+
+  void setRegionFilter(String? region) {
+    emit(state.copyWith(selectedRegionFilter: region));
+  }
+
+  void setSurfaceFilter(String? surfaceCode) {
+    emit(state.copyWith(selectedSurfaceFilter: surfaceCode));
+  }
+
+  void setPieFilter(int? pieIndex) {
+    emit(state.copyWith(selectedPieIndexFilter: pieIndex));
+  }
+
+  void setVsaFilter(int? vsa) {
+    emit(state.copyWith(selectedVsaFilter: vsa));
+  }
 
   Future<void> upsert(ActiveRoadsData data) async {
     emit(state.copyWith(savingOrImporting: true, error: null));
+
     try {
       final saved = await _repo.upsert(data);
 
       final list = List<ActiveRoadsData>.from(state.all);
       final idx = list.indexWhere((r) => r.id == saved.id);
+
       if (idx == -1) {
         list.add(saved);
       } else {
         list[idx] = saved;
       }
 
-      list.sort((a, b) {
-        final aKey = '${a.acronym ?? ''}_${a.initialKm ?? 0}';
-        final bKey = '${b.acronym ?? ''}_${b.initialKm ?? 0}';
-        return aKey.compareTo(bKey);
-      });
-
-      final regionLabels = _buildRegionLabelsFromData(list);
+      final sorted = _sortRoads(list);
+      final regionLabels = _buildRegionLabelsFromData(sorted);
 
       clearCache();
-      _rawCache = _buildRawSegmentsFromRoads(list);
+      _rawCache = _buildRawSegmentsFromRoads(sorted);
+
       final bucket = _activeBucket ?? 4;
       _applyBucketFromCache(bucket);
 
-      emit(state.copyWith(
-        all: list,
-        regionLabels: regionLabels,
-        savingOrImporting: false,
-        error: null,
-      ));
+      emit(
+        state.copyWith(
+          all: sorted,
+          regionLabels: regionLabels,
+          savingOrImporting: false,
+          error: null,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(
-        savingOrImporting: false,
-        error: e.toString(),
-      ));
+      emit(
+        state.copyWith(
+          savingOrImporting: false,
+          error: e.toString(),
+        ),
+      );
     }
   }
 
   Future<void> deleteById(String id) async {
     emit(state.copyWith(savingOrImporting: true, error: null));
+
     try {
       await _repo.deleteById(id);
-      final filtered = [...state.all]..removeWhere((r) => r.id == id);
 
-      final regionLabels = _buildRegionLabelsFromData(filtered);
+      final filtered = List<ActiveRoadsData>.from(state.all)
+        ..removeWhere((r) => r.id == id);
+
+      final sorted = _sortRoads(filtered);
+      final regionLabels = _buildRegionLabelsFromData(sorted);
 
       clearCache();
-      _rawCache = _buildRawSegmentsFromRoads(filtered);
+      _rawCache = _buildRawSegmentsFromRoads(sorted);
+
       final bucket = _activeBucket ?? 4;
       _applyBucketFromCache(bucket);
 
-      emit(state.copyWith(
-        all: filtered,
-        regionLabels: regionLabels,
-        savingOrImporting: false,
-      ));
+      emit(
+        state.copyWith(
+          all: sorted,
+          regionLabels: regionLabels,
+          savingOrImporting: false,
+        ),
+      );
     } catch (e) {
-      emit(state.copyWith(
-        savingOrImporting: false,
-        error: e.toString(),
-      ));
+      emit(
+        state.copyWith(
+          savingOrImporting: false,
+          error: e.toString(),
+        ),
+      );
     }
   }
 
@@ -553,33 +608,36 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     required List<Map<String, dynamic>> subcolecoes,
   }) async {
     emit(state.copyWith(savingOrImporting: true, error: null));
+
     try {
       await _repo.importarRodoviasComCoordenadas(
         linhasPrincipais: linhasPrincipais,
         subcolecoes: subcolecoes,
       );
 
-      // após importar, recarrega viewport se tiver bounds, senão fallback total
-      final b = _lastBounds;
-      final z = _lastZoom;
+      final bounds = _lastBounds;
+      final zoom = _lastZoom;
+
       emit(state.copyWith(savingOrImporting: false, error: null));
 
-      if (b != null && z != null) {
-        await loadViewport(bucket: bucketForZoom(z), bounds: b, forceRefresh: true);
+      if (bounds != null && zoom != null) {
+        await loadViewport(
+          bucket: bucketForZoom(zoom),
+          bounds: bounds,
+          forceRefresh: true,
+        );
       } else {
         await refresh(bucket: _activeBucket ?? 4);
       }
     } catch (e) {
-      emit(state.copyWith(
-        savingOrImporting: false,
-        error: e.toString(),
-      ));
+      emit(
+        state.copyWith(
+          savingOrImporting: false,
+          error: e.toString(),
+        ),
+      );
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // BUCKET
-  // ---------------------------------------------------------------------------
 
   static int bucketForZoom(double zoom) {
     if (zoom < 6.2) return 1;
@@ -621,25 +679,24 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Simplificação (RDP) + decimate
-  // ---------------------------------------------------------------------------
-
   List<LatLng> _decimate(List<LatLng> pts, int step) {
-    if (pts.length <= 2) return pts;
-    if (step <= 1) return pts;
+    if (pts.length <= 2 || step <= 1) return pts;
 
     final out = <LatLng>[pts.first];
+
     for (int i = step; i < pts.length - 1; i += step) {
       out.add(pts[i]);
     }
+
     out.add(pts.last);
     return out;
   }
 
-  List<LatLng> _simplifyRdpMeters(List<LatLng> pts, double toleranceMeters) {
-    if (pts.length <= 2) return pts;
-    if (toleranceMeters <= 0) return pts;
+  List<LatLng> _simplifyRdpMeters(
+      List<LatLng> pts,
+      double toleranceMeters,
+      ) {
+    if (pts.length <= 2 || toleranceMeters <= 0) return pts;
 
     final tol2 = toleranceMeters * toleranceMeters;
     final keep = List<bool>.filled(pts.length, false);
@@ -652,6 +709,7 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
       final seg = stack.removeLast();
       final s = seg.a;
       final e = seg.b;
+
       if (e <= s + 1) continue;
 
       int index = -1;
@@ -679,12 +737,14 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     for (int i = 0; i < pts.length; i++) {
       if (keep[i]) out.add(pts[i]);
     }
+
     return out.length >= 2 ? out : <LatLng>[pts.first, pts.last];
   }
 
   double _distPointToSegmentMeters2(LatLng p, LatLng a, LatLng b) {
     final lat0 = (a.latitude + b.latitude) * 0.5 * math.pi / 180.0;
     final cosLat = math.cos(lat0);
+
     const metersPerDegLat = 111320.0;
 
     double toY(double latDeg) => latDeg * metersPerDegLat;
@@ -718,13 +778,8 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
     return ex * ex + ey * ey;
   }
 
-  // ---------------------------------------------------------------------------
-  // LOG
-  // ---------------------------------------------------------------------------
-
   void _perf(String msg) {
     if (kDebugMode) {
-      // ignore: avoid_print
       print(msg);
     }
   }
@@ -733,6 +788,7 @@ class ActiveRoadsCubit extends Cubit<ActiveRoadsState> {
 class _IdxPair {
   final int a;
   final int b;
+
   const _IdxPair(this.a, this.b);
 }
 

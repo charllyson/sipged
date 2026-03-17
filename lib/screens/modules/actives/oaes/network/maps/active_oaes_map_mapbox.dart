@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 
-import 'package:sipged/_widgets/map/map_box/map_box_changed.dart';
+import 'package:sipged/_widgets/map/map_box/map_mapbox_layer.dart';
 import 'package:sipged/_services/map/map_box/mapbox_data.dart';
-import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
 
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
@@ -17,7 +17,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
   });
 
   final ActiveOaesState state;
-  final void Function(TaggedChangedMarker<ActiveOaesData> marker)? onOpenDetails;
+  final void Function(MarkerChangedData<ActiveOaesData> marker)? onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +33,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
 
     final taggedMarkers = state.filteredAll
         .map((o) => o.toTaggedMarker())
-        .whereType<TaggedChangedMarker<ActiveOaesData>>()
+        .whereType<MarkerChangedData<ActiveOaesData>>()
         .toList(growable: false);
 
     if (taggedMarkers.isEmpty) {
@@ -58,7 +58,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       );
     }).toList(growable: false);
 
-    TaggedChangedMarker<ActiveOaesData>? findMarkerById(String id) {
+    MarkerChangedData<ActiveOaesData>? findMarkerById(String id) {
       for (final m in taggedMarkers) {
         if (m.data.id == id) return m;
       }

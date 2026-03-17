@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
+import 'package:sipged/_widgets/charts/gauges/gauge_chart_change.dart';
 import 'package:sipged/_widgets/charts/lines/line_chart_changed.dart';
-import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
+import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 
 class AdjustmentMeasurementGraphSection extends StatelessWidget {
   final List<String> labels;
@@ -30,11 +30,11 @@ class AdjustmentMeasurementGraphSection extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: 12),
-          GaugeCircularPercent(
-            centerTitle: valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
-            headerTitle: 'Execução dos Reajustes',
+          GaugeChartChange(
+            centerLabel: valorTotal == 0 ? 0 : totalMedicoes / valorTotal,
+            headerLabel: 'Execução dos Reajustes',
             radius: 70,
-            larguraGrafico: 200,
+            widthGraphic: 200,
             values: totalMedicoes.isNaN ? null : [totalMedicoes],
           ),
           const SizedBox(width: 12),
@@ -42,8 +42,7 @@ class AdjustmentMeasurementGraphSection extends StatelessWidget {
             labels: labels,
             values: values,
             selectedIndex: selectedIndex,
-            larguraCard: 300,
-            larguraGrafico: 240,
+            widthGraphic: 300,
             onTouch: (index) {
               if (index != null && index >= 0 && index < values.length) {
                 onSelectIndex?.call(index);

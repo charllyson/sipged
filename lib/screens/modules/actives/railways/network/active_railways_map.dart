@@ -10,10 +10,10 @@ import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
 
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
-import 'package:sipged/_widgets/map/shimmer/map_loading_shimmer.dart';
+import 'package:sipged/_widgets/map/shimmer/map_shimmer.dart';
 
 // NOVO helper de overlay ancorado
-import 'package:sipged/_widgets/map/tooltip/map_tap_overlay.dart';
+import 'package:sipged/_widgets/map/tooltip/tooltip_overlay.dart';
 
 import 'active_railways_details.dart';
 
@@ -39,7 +39,7 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
             !widget.state.initialized;
 
     if (isInitialLoading) {
-      return const MapLoadingShimmer();
+      return const MapShimmer();
     }
 
     return MapInteractivePage(
@@ -60,7 +60,7 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
             _anchorLatLng!,
           );
           final global = _toGlobal!(local);
-          MapTapOverlayTooltip.updatePosition(global);
+          TooltipOverlay.updatePosition(global);
         }
       },
 
@@ -69,7 +69,7 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
         _anchorLatLng = null;
         _lastMapController = null;
         _toGlobal = null;
-        MapTapOverlayTooltip.hide();
+        TooltipOverlay.hide();
       },
 
       onSelectPolyline: (polyline) async {
@@ -122,7 +122,7 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
         final title = _title(fer);
         final subtitle = _subtitle(fer);
 
-        MapTapOverlayTooltip.show(
+        TooltipOverlay.show(
           overlayState: overlay,
           position: position,
           title: title,
@@ -130,7 +130,7 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
           maxWidth: 320,
           forceDownArrow: true, // seta sempre para baixo (aponta para a via)
           onDetails: () async {
-            MapTapOverlayTooltip.hide();
+            TooltipOverlay.hide();
             await showDialog(
               context: context,
               barrierDismissible: true,

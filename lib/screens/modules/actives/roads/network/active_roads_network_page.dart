@@ -1,12 +1,10 @@
-// lib/screens/modules/actives/roads/network/active_roads_network_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
-
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 import 'active_roads_map.dart';
 import 'active_roads_panel.dart';
@@ -21,7 +19,6 @@ class ActiveRoadsNetworkPage extends StatefulWidget {
 
 class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
   late final ActiveRoadsCubit _cubit;
-
   bool _showPanel = true;
 
   @override
@@ -36,23 +33,13 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
     super.dispose();
   }
 
-  // =========================
-  // Ações da UpBar
-  // =========================
-
   void _clearFilters() {
-    _cubit.setRegionFilter(null);
-    _cubit.setSurfaceFilter(null);
-    _cubit.setPieFilter(null);
+    _cubit.clearAllFilters();
   }
 
   void _togglePanel() {
     setState(() => _showPanel = !_showPanel);
   }
-
-  // =========================
-  // BUILD
-  // =========================
 
   @override
   Widget build(BuildContext context) {
@@ -82,25 +69,15 @@ class _ActiveRoadsNetworkPageState extends State<ActiveRoadsNetworkPage> {
             ],
           ),
         ),
-
-        // =========================
-        // Layout principal com mapa + painel
-        // =========================
         body: BlocBuilder<ActiveRoadsCubit, ActiveRoadsState>(
           builder: (context, state) {
             return SplitLayout(
               left: const ActiveRoadsMap(),
-
-              // Painel lateral (igual OAE)
               right: const ActiveRoadsPanel(),
-
-              // Mostrar/Ocultar
               showRightPanel: _showPanel,
-
-              // 🔥 Exatamente os mesmos valores do OAEs
               breakpoint: 980.0,
-              rightPanelWidth: 580.0, // mesmo do OAE
-              bottomPanelHeight: 420.0, // mesmo do OAE
+              rightPanelWidth: 580.0,
+              bottomPanelHeight: 420.0,
               showDividers: true,
             );
           },

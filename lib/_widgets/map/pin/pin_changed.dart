@@ -1,4 +1,3 @@
-// lib/_widgets/map/pin/pin_changed.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -16,15 +15,11 @@ class PinChanged extends StatelessWidget {
     this.labelStyle,
     this.maxLabelChars = 3,
     this.anchor = PinAnchor.center,
-
-    // shape (center)
-    this.tipFactor = 0.90,  // comprimento do bico: 0.75–1.00
-    this.taper = 0.38,      // afunilamento lateral: 0.30–0.45
-
-    // “halo” (auréola) opcional ao redor da cabeça
+    this.tipFactor = 0.90,
+    this.taper = 0.38,
     this.halo = false,
     this.haloOpacity = 0.25,
-    this.haloScale = 1.65,  // raio do halo em múltiplos do raio da cabeça
+    this.haloScale = 1.65,
   });
 
   final double size;
@@ -40,7 +35,6 @@ class PinChanged extends StatelessWidget {
   final double tipFactor;
   final double taper;
 
-  // halo
   final bool halo;
   final double haloOpacity;
   final double haloScale;
@@ -93,28 +87,24 @@ class _PinPainter extends CustomPainter {
   final TextStyle? labelStyle;
   final int maxLabelChars;
   final PinAnchor anchor;
-
   final double tipFactor;
   final double taper;
-
   final bool halo;
   final double haloOpacity;
   final double haloScale;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
+    final w = size.width;
+    final h = size.height;
 
     if (anchor == PinAnchor.tip) {
-      // ===== Pin ancorado na PONTA (a ponta fica em y = height) =====
-      final w = size.width, h = size.height;
-      final cx = w / 2, bottom = h;
+      final cx = w / 2;
+      final bottom = h;
 
-      // altura total ≈ 2r + tipH
       final r = (h / (2 + tipFactor)).clamp(6.0, h / 2);
       final tipH = r * tipFactor;
 
-      // centro da cabeça sobe para caber o bico
       final center = Offset(cx, bottom - (tipH + r));
       final head = Rect.fromCircle(center: center, radius: r);
 
@@ -140,6 +130,7 @@ class _PinPainter extends CustomPainter {
       if (showShadow) {
         canvas.drawShadow(path, Colors.black.withValues(alpha: 0.28), 3, true);
       }
+
       if (halo && haloOpacity > 0) {
         canvas.drawCircle(
           center,
@@ -149,7 +140,13 @@ class _PinPainter extends CustomPainter {
             ..color = Colors.black.withValues(alpha: haloOpacity),
         );
       }
-      canvas.drawPath(path, Paint()..isAntiAlias = true..color = color);
+
+      canvas.drawPath(
+        path,
+        Paint()
+          ..isAntiAlias = true
+          ..color = color,
+      );
 
       if (borderColor.alpha > 0) {
         canvas.drawPath(
@@ -166,36 +163,29 @@ class _PinPainter extends CustomPainter {
       return;
     }
 
+    final cx = w / 2;
+    final cy = h / 2;
 
-    // ====== Modo center: cabeça perfeitamente redonda + bico simétrico ======
-    final cx = w / 2, cy = h / 2;
-
-    // altura total ≈ 2r + r*tipFactor  → r = h / (2 + tipFactor)
     final r = (h / (2 + tipFactor)).clamp(6.0, h / 2);
     final tipH = r * tipFactor;
 
-    // sobe a cabeça para caber o bico
     final center = Offset(cx, cy - tipH / 2);
     final head = Rect.fromCircle(center: center, radius: r);
 
-    // pontos na base inferior do círculo, levemente abertos (ângulos 210° e 330°)
     Offset onCircle(double deg) {
       final a = deg * math.pi / 180.0;
       return Offset(center.dx + r * math.cos(a), center.dy + r * math.sin(a));
     }
 
-    final pL = onCircle(210); // base esquerda
-    final pR = onCircle(330); // base direita
+    final pL = onCircle(210);
+    final pR = onCircle(330);
     final tip = Offset(center.dx, center.dy + r + tipH);
 
-    // controles das curvas que descem para o bico (simétricos)
     final cpDownL = Offset(center.dx - r * taper, center.dy + r * 0.70);
     final cpDownR = Offset(center.dx + r * taper, center.dy + r * 0.70);
 
     final path = Path()
-    // 1) cabeça perfeita: círculo completo
       ..addOval(head)
-    // 2) rabo (gota) — curva direita e esquerda fechando no pL
       ..moveTo(pR.dx, pR.dy)
       ..quadraticBezierTo(cpDownR.dx, cpDownR.dy, tip.dx, tip.dy)
       ..quadraticBezierTo(cpDownL.dx, cpDownL.dy, pL.dx, pL.dy)
@@ -205,7 +195,6 @@ class _PinPainter extends CustomPainter {
       canvas.drawShadow(path, Colors.black.withValues(alpha: 0.28), 3, true);
     }
 
-    // halo (auréola translúcida) — fica atrás de tudo
     if (halo && haloOpacity > 0) {
       canvas.drawCircle(
         center,
@@ -215,8 +204,13 @@ class _PinPainter extends CustomPainter {
           ..color = Colors.black.withValues(alpha: haloOpacity),
       );
     }
-    // corpo
-    canvas.drawPath(path, Paint()..isAntiAlias = true..color = color);
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..isAntiAlias = true
+        ..color = color,
+    );
 
     if (borderColor.alpha > 0) {
       canvas.drawPath(
@@ -236,7 +230,14 @@ class _PinPainter extends CustomPainter {
     if (!innerDot) return;
 
     final whiteR = r * 0.58;
-    canvas.drawCircle(center, whiteR, Paint()..isAntiAlias = true..color = Colors.white);
+    canvas.drawCircle(
+      center,
+      whiteR,
+      Paint()
+        ..isAntiAlias = true
+        ..color = Colors.white,
+    );
+
     canvas.drawCircle(
       center,
       whiteR,
@@ -250,17 +251,33 @@ class _PinPainter extends CustomPainter {
     final raw = (label ?? '').trim().toUpperCase();
     if (raw.isEmpty) return;
 
-    final text = raw.length <= maxLabelChars ? raw : raw.substring(0, maxLabelChars);
+    final text = raw.length <= maxLabelChars
+        ? raw
+        : raw.substring(0, maxLabelChars);
+
     double fontSize;
     switch (text.length) {
-      case 1: fontSize = whiteR * 1.15; break;
-      case 2: fontSize = whiteR * 0.95; break;
-      default: fontSize = whiteR * 0.80; break;
+      case 1:
+        fontSize = whiteR * 1.15;
+        break;
+      case 2:
+        fontSize = whiteR * 0.95;
+        break;
+      default:
+        fontSize = whiteR * 0.80;
+        break;
     }
 
     final style = (labelStyle ??
-        const TextStyle(color: Colors.black87, fontWeight: FontWeight.w700))
-        .copyWith(fontSize: fontSize, height: 1.0, letterSpacing: 0.5);
+        const TextStyle(
+          color: Colors.black87,
+          fontWeight: FontWeight.w700,
+        ))
+        .copyWith(
+      fontSize: fontSize,
+      height: 1.0,
+      letterSpacing: 0.5,
+    );
 
     final tp = TextPainter(
       text: TextSpan(text: text, style: style),
@@ -268,22 +285,81 @@ class _PinPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: whiteR * 2.0);
 
-    tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
+    tp.paint(
+      canvas,
+      Offset(center.dx - tp.width / 2, center.dy - tp.height / 2),
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _PinPainter old) =>
-      old.color != color ||
-          old.borderColor != borderColor ||
-          old.showShadow != showShadow ||
-          old.innerDot != innerDot ||
-          old.label != label ||
-          old.labelStyle != labelStyle ||
-          old.maxLabelChars != maxLabelChars ||
-          old.anchor != anchor ||
-          old.tipFactor != tipFactor ||
-          old.taper != taper ||
-          old.halo != halo ||
-          old.haloOpacity != haloOpacity ||
-          old.haloScale != haloScale;
+  bool shouldRepaint(covariant _PinPainter old) {
+    return old.color != color ||
+        old.borderColor != borderColor ||
+        old.showShadow != showShadow ||
+        old.innerDot != innerDot ||
+        old.label != label ||
+        old.labelStyle != labelStyle ||
+        old.maxLabelChars != maxLabelChars ||
+        old.anchor != anchor ||
+        old.tipFactor != tipFactor ||
+        old.taper != taper ||
+        old.halo != halo ||
+        old.haloOpacity != haloOpacity ||
+        old.haloScale != haloScale;
+  }
+}
+
+class PinAureola extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const PinAureola({
+    super.key,
+    required this.color,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.18),
+          ),
+        ),
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+                color: color.withValues(alpha: 0.35),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

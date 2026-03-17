@@ -18,29 +18,6 @@ class ListRoadsPage extends StatelessWidget {
   final RoadTapCallback onTapItem;
   final RoadDeleteCallback onDelete;
 
-  Map<String, List<ActiveRoadsData>> _groupByAcronym(
-      List<ActiveRoadsData> list) {
-    final map = <String, List<ActiveRoadsData>>{};
-    for (final r in list) {
-      final key = (r.acronym ?? 'SEM SIGLA').trim().toUpperCase();
-      map.putIfAbsent(key, () => <ActiveRoadsData>[]).add(r);
-    }
-
-    // ordena internamente por UF + código
-    for (final e in map.entries) {
-      e.value.sort(
-            (a, b) =>
-            ('${a.uf ?? ''}${a.roadCode ?? ''}')
-                .toUpperCase()
-                .compareTo(
-              ('${b.uf ?? ''}${b.roadCode ?? ''}').toUpperCase(),
-            ),
-      );
-    }
-
-    return map;
-  }
-
   @override
   Widget build(BuildContext context) {
     if (roads.isEmpty) {
@@ -50,7 +27,7 @@ class ListRoadsPage extends StatelessWidget {
       );
     }
 
-    final grouped = _groupByAcronym(roads);
+    final grouped = ActiveRoadsData.groupByAcronym(roads);
     final keys = grouped.keys.toList()..sort();
 
     return LayoutBuilder(

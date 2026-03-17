@@ -4,7 +4,7 @@ import 'package:flutter/animation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_widgets/map/markers/tagged_marker.dart';
+import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class ActiveOaesData {
@@ -387,9 +387,9 @@ class ActiveOaesData {
 
 // helper para Marker
 extension OAEsDataExtension on ActiveOaesData {
-  TaggedChangedMarker<ActiveOaesData>? toTaggedMarker() {
+  MarkerChangedData<ActiveOaesData>? toTaggedMarker() {
     if (latitude == null || longitude == null) return null;
-    return TaggedChangedMarker<ActiveOaesData>(
+    return MarkerChangedData<ActiveOaesData>(
       point: LatLng(latitude!, longitude!),
       data: this,
       properties: toMap(),

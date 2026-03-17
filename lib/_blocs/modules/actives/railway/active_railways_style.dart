@@ -2,55 +2,89 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/map/polylines/polyline_changed_class.dart';
+import 'package:sipged/_widgets/map/polylines/polyline_changed_data.dart';
 
 class ActiveRailwaysStyle extends ChangeNotifier {
   /// status esperado (código canônico):
-  /// 'OP' (Em operação), 'OBRA' (Em obras), 'PLAN' (Planejada), 'INAT' (Inativa), default -> 'OUTRO'
-  static List<PolylineClass> styleLane(String? status, double zoom) {
+  /// 'OP'   -> Em operação
+  /// 'OBRA' -> Em obras
+  /// 'PLAN' -> Planejada
+  /// 'INAT' -> Inativa
+  /// default -> 'OUTRO'
+  static List<PolylineChangedData> styleLane(String? status, double zoom) {
     switch (status?.toUpperCase()) {
-      case 'OP': // EM OPERAÇÃO
+      case 'OP':
         return [
-          PolylineClass(
-            cor: colorForStatus('OP'),
-            width:
+          PolylineChangedData(
+            points: const [],
+            tag: null,
+            color: colorForStatus('OP'),
+            defaultColor: colorForStatus('OP'),
+            strokeWidth:
             (1.0 * math.pow(2, 5 - zoom)).clamp(1.5, 4.0).toDouble(),
+            dx: 0,
+            isDotted: false,
+            hitTestable: false,
           ),
         ];
 
-      case 'OBRA': // EM OBRAS
+      case 'OBRA':
         return [
-          PolylineClass(
-            cor: colorForStatus('OBRA'),
-            width:
+          PolylineChangedData(
+            points: const [],
+            tag: null,
+            color: colorForStatus('OBRA'),
+            defaultColor: colorForStatus('OBRA'),
+            strokeWidth:
             (1.0 * math.pow(2, 5 - zoom)).clamp(1.5, 4.0).toDouble(),
+            dx: 0,
+            isDotted: false,
+            hitTestable: false,
           ),
         ];
 
-      case 'PLAN': // PLANEJADA
+      case 'PLAN':
         return [
-          PolylineClass(
-            cor: colorForStatus('PLAN'),
-            width:
+          PolylineChangedData(
+            points: const [],
+            tag: null,
+            color: colorForStatus('PLAN'),
+            defaultColor: colorForStatus('PLAN'),
+            strokeWidth:
             (1.0 * math.pow(2, 5 - zoom)).clamp(1.5, 4.0).toDouble(),
+            dx: 0,
+            isDotted: false,
+            hitTestable: false,
           ),
         ];
 
-      case 'INAT': // INATIVA / DESATIVADA
+      case 'INAT':
         return [
-          PolylineClass(
-            cor: colorForStatus('INAT'),
-            width:
+          PolylineChangedData(
+            points: const [],
+            tag: null,
+            color: colorForStatus('INAT'),
+            defaultColor: colorForStatus('INAT'),
+            strokeWidth:
             (1.0 * math.pow(2, 5 - zoom)).clamp(1.5, 4.0).toDouble(),
+            dx: 0,
+            isDotted: false,
+            hitTestable: false,
           ),
         ];
 
-      default: // OUTROS
+      default:
         return [
-          PolylineClass(
-            cor: colorForStatus('OUTRO'),
-            width:
+          PolylineChangedData(
+            points: const [],
+            tag: null,
+            color: colorForStatus('OUTRO'),
+            defaultColor: colorForStatus('OUTRO'),
+            strokeWidth:
             (5.0 * math.pow(2, 1 - zoom)).clamp(1.0, 10.0).toDouble(),
+            dx: 0,
+            isDotted: false,
+            hitTestable: false,
           ),
         ];
     }
@@ -68,7 +102,7 @@ class ActiveRailwaysStyle extends ChangeNotifier {
       case 'INAT':
         return Colors.grey.shade600;
       default:
-        return Colors.brown.shade500; // OUTRO
+        return Colors.brown.shade500;
     }
   }
 }

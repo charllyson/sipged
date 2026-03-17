@@ -5,8 +5,8 @@ import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
 
 import 'package:sipged/_widgets/background/background_cleaner.dart';
-import 'package:sipged/_widgets/charts/gauges/gauge_circular_percent.dart';
-import 'package:sipged/_widgets/charts/pies/donut_chart_changed.dart';
+import 'package:sipged/_widgets/charts/gauges/gauge_chart_change.dart';
+import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
 
 class ActiveRailwaysPanel extends StatelessWidget {
@@ -79,14 +79,10 @@ class ActiveRailwaysPanel extends StatelessWidget {
                                   builder: (context, constraints) {
                                     final double side =
                                         constraints.maxWidth;
-                                    final double dynamicRadius =
-                                        side * 0.35;
-                                    final double dynamicFontSize =
-                                        dynamicRadius * 0.5;
 
-                                    return GaugeCircularPercent(
-                                      centerTitle: percent,
-                                      footerTitle:
+                                    return GaugeChartChange(
+                                      centerLabel: percent,
+                                      footerLabel:
                                       '$selLabel • ${_fmtKm(selValue)}',
                                       headerMode: GaugeTextMode.number,
                                       centerMode: GaugeTextMode.number,
@@ -97,10 +93,7 @@ class ActiveRailwaysPanel extends StatelessWidget {
                                       ],
                                       footerMode:
                                       GaugeTextMode.explicit,
-                                      radius: dynamicRadius,
-                                      larguraGrafico: side,
-                                      centerFontSize:
-                                      dynamicFontSize,
+                                      widthGraphic: side,
                                       footerFontSize: 12,
                                     );
                                   },
@@ -114,22 +107,6 @@ class ActiveRailwaysPanel extends StatelessWidget {
                                   builder: (context, constraints) {
                                     final double side =
                                         constraints.maxWidth;
-                                    final double chartHeight =
-                                    (side * 0.85)
-                                        .clamp(160.0, 195.0);
-                                    final double maxOuter =
-                                        (chartHeight / 2) - 12.0;
-
-                                    final double baseSlice =
-                                    (side * 0.2)
-                                        .clamp(34.0, maxOuter);
-                                    final double hiSlice =
-                                    (baseSlice + 6.0)
-                                        .clamp(baseSlice, maxOuter);
-                                    final double centerHole =
-                                    (baseSlice * 0.58)
-                                        .clamp(18.0, baseSlice - 10.0);
-
                                     return DonutChartChanged(
                                       colorCard: Colors.white,
                                       valueFormatType:
@@ -138,19 +115,12 @@ class ActiveRailwaysPanel extends StatelessWidget {
                                       st.pieLabelsForChart,
                                       values:
                                       st.pieValuesForChart, // km
-                                      coresPersonalizadas:
+                                      colorsSlices:
                                       st.pieColorsForChart,
                                       selectedIndex:
                                       st.selectedPieIndexFilter,
-                                      larguraGrafico: side,
-                                      alturaCard: 295,
-                                      chartHeight: chartHeight,
-                                      sliceRadius: baseSlice,
-                                      sliceRadiusHighlighted:
-                                      hiSlice,
-                                      centerSpaceRadius:
-                                      centerHole,
-                                      sectionsSpace: 2,
+                                      widthGraphic: side,
+                                      heightGraphic: 295,
                                       onTouch: (idx) {
                                         cubit.setPieFilter(idx);
                                       },
