@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_services/firestore/cleanup/cleanup_subcollections_tile.dart';
 import 'package:sipged/_services/firestore/cleanup/selective_delete_tile.dart';
-import 'package:sipged/_services/firestore/migrate/migrateDocForSubCollection.dart';
+import 'package:sipged/_services/firestore/migrate/migrate_doc_for_sub_collection.dart';
 import 'package:sipged/_services/firestore/migrate/migration.dart';
 import 'package:sipged/_services/firestore/firebase_utils.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';

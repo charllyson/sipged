@@ -113,7 +113,7 @@ class _ReactiveClusterLayer<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<LatLng?>(
       valueListenable: selectedMarkerPositionVN,
-      builder: (_, selectedMarkerPosition, __) {
+      builder: (_, selectedMarkerPosition, _) {
         return RepaintBoundary(
           child: clusterWidgetBuilder(
             taggedMarkers,

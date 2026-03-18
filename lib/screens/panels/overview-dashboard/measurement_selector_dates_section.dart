@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/dates/selector/selectorDates.dart';
+import 'package:sipged/_widgets/dates/selector/selector_dates.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
 class MeasurementSelectorDatesSection extends StatefulWidget {

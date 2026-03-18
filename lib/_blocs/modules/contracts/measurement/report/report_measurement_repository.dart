@@ -616,7 +616,9 @@ class ReportMeasurementRepository {
       final its = await g.reference.collection('items').get();
       for (final chunk in _chunk(its.docs, _kMaxBatchOps)) {
         final batch = _db.batch();
-        for (final d in chunk) batch.delete(d.reference);
+        for (final d in chunk) {
+          batch.delete(d.reference);
+        }
         await batch.commit();
       }
       await g.reference.delete();
@@ -678,7 +680,9 @@ class ReportMeasurementRepository {
         final items = await g.reference.collection('items').get();
         for (final chunk in _chunk(items.docs, _kMaxBatchOps)) {
           final batch = _db.batch();
-          for (final it in chunk) batch.delete(it.reference);
+          for (final it in chunk) {
+            batch.delete(it.reference);
+          }
           await batch.commit();
         }
         await g.reference.delete();

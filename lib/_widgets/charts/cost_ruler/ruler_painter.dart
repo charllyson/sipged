@@ -333,11 +333,17 @@ class RulerPainter extends CustomPainter {
     final units = span / base;
 
     double mult;
-    if (units <= 1.2) mult = 0.2;
-    else if (units <= 2.5) mult = 0.5;
-    else if (units <= 6) mult = 1.0;
-    else if (units <= 12) mult = 2.0;
-    else mult = 5.0;
+    if (units <= 1.2) {
+      mult = 0.2;
+    } else if (units <= 2.5) {
+      mult = 0.5;
+    } else if (units <= 6) {
+      mult = 1.0;
+    } else if (units <= 12) {
+      mult = 2.0;
+    } else {
+      mult = 5.0;
+    }
 
     return mult * base;
   }

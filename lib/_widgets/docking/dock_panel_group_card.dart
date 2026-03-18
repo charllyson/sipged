@@ -401,7 +401,7 @@ class _DockTabs extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: group.items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
         itemBuilder: (_, index) {
           final item = group.items[index];
           final active = item.id == activeId;

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'package:vector_math/vector_math_64.dart' show Matrix4;
 
 /// Cubo 3D em Flutter para representar orientação da câmera do Mapbox.
 ///

@@ -73,7 +73,7 @@ class ToolboxStatus extends StatelessWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: status.texts.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
+                separatorBuilder: (_, _) => const SizedBox(width: 14),
                 itemBuilder: (context, index) {
                   return Align(
                     alignment: Alignment.centerLeft,
@@ -98,7 +98,7 @@ class ToolboxStatus extends StatelessWidget {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: status.actions.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  separatorBuilder: (_, _) => const SizedBox(width: 6),
                   itemBuilder: (context, index) {
                     final action = status.actions[index];
                     return _MiniSquareButton(

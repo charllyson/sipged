@@ -478,7 +478,7 @@ class ScheduleRoadRepository {
       'status': norm,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      if (takenMs != null) 'takenAtMs': takenMs,
+      'takenAtMs': ?takenMs,
     };
 
     DocumentReference<Map<String, dynamic>>? docRef;
@@ -575,7 +575,7 @@ class ScheduleRoadRepository {
           'fotos_meta': FieldValue.arrayUnion(uploadedMetas),
           'updatedAt': FieldValue.serverTimestamp(),
           'updatedBy': currentUserId,
-          if (takenMs != null) 'takenAtMs': takenMs,
+          'takenAtMs': ?takenMs,
         });
       }
     }
@@ -617,7 +617,7 @@ class ScheduleRoadRepository {
           'fotos_meta': FieldValue.arrayRemove(metasToRemove),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        if (takenMs != null) 'takenAtMs': takenMs,
+        'takenAtMs': ?takenMs,
       };
       await docRef.update(updates);
     }
@@ -629,7 +629,7 @@ class ScheduleRoadRepository {
         'fotos_meta': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        if (takenMs != null) 'takenAtMs': takenMs,
+        'takenAtMs': ?takenMs,
       });
       clearContractCache(contractId);
       return uploadedUrls;
@@ -676,7 +676,7 @@ class ScheduleRoadRepository {
       'fotos_meta': metasAll,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      if (takenMs != null) 'takenAtMs': takenMs,
+      'takenAtMs': ?takenMs,
     });
 
     clearContractCache(contractId);

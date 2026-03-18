@@ -1,4 +1,4 @@
-// lib/_widgets/dates/selector/selectorDates.dart
+// lib/_widgets/dates/selector/selector_dates.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';

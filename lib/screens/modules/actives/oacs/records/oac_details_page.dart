@@ -688,7 +688,7 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                         children: [
                           ElevatedButton.icon(
                             style: ButtonStyle(
-                              backgroundColor: MaterialStateProperty.all(Colors.blue.shade800),
+                              backgroundColor: WidgetStateProperty.all(Colors.blue.shade800),
                             ),
                             onPressed: isSaving ? null : () => _handleSave(st),
                             icon: isSaving

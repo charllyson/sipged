@@ -364,9 +364,9 @@ class ApostillesRepository {
   Future<double> getAllApostillesValue(String contractId) async {
     final s = await _db.collection('contracts').doc(contractId).collection('apostilles').get();
 
-    return s.docs.fold<double>(0.0, (sum, d) {
+    return s.docs.fold<double>(0.0, (soma, d) {
       final a = ApostillesData.fromDocument(snapshot: d);
-      return sum + (a.apostilleValue ?? 0.0);
+      return soma + (a.apostilleValue ?? 0.0);
     });
   }
 

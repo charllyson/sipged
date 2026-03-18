@@ -1,6 +1,4 @@
 // lib/_widgets/schedule/square_modal/custom_camera_page.dart
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart' as cam;

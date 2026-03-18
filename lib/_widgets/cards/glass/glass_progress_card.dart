@@ -38,9 +38,7 @@ class GlassProgressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final normalizedProgress = progress == null
-        ? null
-        : progress!.clamp(0.0, 1.0);
+    final normalizedProgress = progress?.clamp(0.0, 1.0);
 
     final Widget indicator = normalizedProgress == null
         ? const SizedBox(

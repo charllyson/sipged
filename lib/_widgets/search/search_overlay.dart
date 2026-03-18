@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/search/SearchBox.dart';
+import 'package:sipged/_widgets/search/search_box.dart';
 import '../map/suggestions/search_suggestion.dart';
 
 enum SearchExpandSide { left, right }
@@ -175,7 +175,7 @@ class SearchOverlay {
                             child: ListView.separated(
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               itemCount: _suggestions.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                               const Divider(height: 1, thickness: 0.5),
                               itemBuilder: (ctx, i) {
                                 final s = _suggestions[i];

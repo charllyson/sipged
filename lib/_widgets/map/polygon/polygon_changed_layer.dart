@@ -33,7 +33,7 @@ class PolygonChangedLayer extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<Set<String>>(
       valueListenable: selectedRegionsVN,
-      builder: (_, selected, __) {
+      builder: (_, selected, _) {
         final map = polygonChangeColors;
         final hasExternalColors = map != null && map.isNotEmpty;
 

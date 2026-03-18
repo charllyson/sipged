@@ -16,7 +16,7 @@ class PinSearch extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<LatLng?>(
       valueListenable: searchHitVN,
-      builder: (_, pos, __) {
+      builder: (_, pos, _) {
         if (pos == null) return const SizedBox.shrink();
 
         const double pinH = 56.0;

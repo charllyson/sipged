@@ -3,12 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 enum UserProfile {
-  ADMINISTRADOR,
-  DESENVOLVEDOR,
-  GESTOR_REGIONAL,
-  FISCAL,
-  COLABORADOR,
-  LEITOR,
+  administrador,
+  developer,
+  regionalManager,
+  fiscal,
+  collaborator,
+  readerOnly,
 }
 
 /// Codec centralizado: parse, serialize e label num só lugar.
@@ -20,8 +20,8 @@ class UserRoleCodec {
     final up = (raw ?? '').trim().toUpperCase();
 
     // suporte legado e tolerância
-    if (up.isEmpty) return UserProfile.LEITOR;
-    if (up == 'CONVIDADO') return UserProfile.LEITOR;
+    if (up.isEmpty) return UserProfile.readerOnly;
+    if (up == 'CONVIDADO') return UserProfile.readerOnly;
 
     // tentativa direta pelo enum.name
     for (final r in UserProfile.values) {
@@ -34,24 +34,24 @@ class UserRoleCodec {
       if (r.name == normalized) return r;
     }
 
-    return UserProfile.LEITOR;
+    return UserProfile.readerOnly;
   }
 
   static String serialize(UserProfile role) => role.name;
 
   static String label(UserProfile role) {
     switch (role) {
-      case UserProfile.ADMINISTRADOR:
+      case UserProfile.administrador:
         return 'Administrador';
-      case UserProfile.DESENVOLVEDOR:
+      case UserProfile.developer:
         return 'Desenvolvedor';
-      case UserProfile.GESTOR_REGIONAL:
+      case UserProfile.regionalManager:
         return 'Gestor Regional';
-      case UserProfile.FISCAL:
+      case UserProfile.fiscal:
         return 'Fiscal';
-      case UserProfile.COLABORADOR:
+      case UserProfile.collaborator:
         return 'Colaborador';
-      case UserProfile.LEITOR:
+      case UserProfile.readerOnly:
         return 'Leitor';
     }
   }
@@ -65,7 +65,7 @@ UserProfile roleForUser(UserData user) {
     final raw = (data['baseRole'] as String?) ?? (data['baseProfile'] as String?);
     return UserRoleCodec.parse(raw);
   }
-  return UserProfile.LEITOR;
+  return UserProfile.readerOnly;
 }
 
 /// Persistência: grava sempre baseRole com id estável (enum.name).

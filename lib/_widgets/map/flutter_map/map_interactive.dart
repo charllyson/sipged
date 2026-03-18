@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
-import 'package:provider/provider.dart';
 
 // ===== Process (core) =====
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';

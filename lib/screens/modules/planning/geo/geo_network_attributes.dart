@@ -68,7 +68,7 @@ class GeoNetworkAttributes extends StatelessWidget {
                   : ListView.separated(
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 itemCount: entries.length,
-                separatorBuilder: (_, __) => Container(height: 10),
+                separatorBuilder: (_, _) => Container(height: 10),
                 itemBuilder: (_, index) {
                   final e = entries[index];
                   return CustomTextField(

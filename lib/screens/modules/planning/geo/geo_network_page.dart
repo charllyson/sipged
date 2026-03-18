@@ -138,8 +138,10 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     await context.read<GeoFeatureCubit>().ensureLayerLoaded(layer, force: true);
   }
 
-  void _showSnack(BuildContext context, String message) {
+  void _showSnack(String message) {
+    if (!mounted) return;
     if (message.trim().isEmpty) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -158,10 +160,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     final editorCubit = context.read<GeoMapCubit>();
     final layersCubit = context.read<GeoLayersCubit>();
 
-    final activePointLayer =
-    editorCubit.getActiveDraftPointLayer(currentTree);
-    final activeLineLayer =
-    editorCubit.getActiveDraftLineLayer(currentTree);
+    final activePointLayer = editorCubit.getActiveDraftPointLayer(currentTree);
+    final activeLineLayer = editorCubit.getActiveDraftLineLayer(currentTree);
     final activePolygonLayer =
     editorCubit.getActiveDraftPolygonLayer(currentTree);
 
@@ -180,12 +180,12 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                     key: ValueKey(
                       'toolbox_content_${editorState.selectedLayerPanelItemId ?? 'none'}_${editorState.selectedToolId ?? 'none'}_${editorState.activeEditingPointLayerId ?? 'none'}_${editorState.activeEditingLineLayerId ?? 'none'}_${editorState.activeEditingPolygonLayerId ?? 'none'}_${measurementState.points.length}',
                     ),
-                    onToolSelected: (message) => _showSnack(context, message),
+                    onToolSelected: _showSnack,
                     selectedToolId: editorState.selectedToolId,
                     onSelectedTool: (id) async {
                       final error = await editorCubit.selectTool(id);
                       if (!mounted || error == null) return;
-                      _showSnack(context, error);
+                      _showSnack(error);
                     },
                     selectedLayerGeometryKind:
                     editorCubit.selectedLayerGeometryKind(currentTree),
@@ -254,7 +254,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                     supportsConnect: (layer) =>
                     layer.supportsConnect && !layer.isGroup,
                     onMoveUp: (id) => editorCubit.moveLayerUp(id, currentTree),
-                    onMoveDown: (id) => editorCubit.moveLayerDown(id, currentTree),
+                    onMoveDown: (id) =>
+                        editorCubit.moveLayerDown(id, currentTree),
                     onCreateEmptyGroup: () =>
                         editorCubit.createEmptyGroup(currentTree),
                     onCreateLayer: () => editorCubit.createLayer(currentTree),
@@ -331,7 +332,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
           p.error != c.error || p.tree != c.tree || p.loaded != c.loaded,
           listener: (context, state) {
             if (state.error != null && state.error!.trim().isNotEmpty) {
-              _showSnack(context, state.error!);
+              _showSnack(state.error!);
             }
 
             if (state.loaded) {
@@ -352,7 +353,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
           listenWhen: (p, c) => p.error != c.error || p.selected != c.selected,
           listener: (context, state) {
             if (state.error != null && state.error!.trim().isNotEmpty) {
-              _showSnack(context, state.error!);
+              _showSnack(state.error!);
             }
 
             if (state.selected != null) {
@@ -378,7 +379,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                       layersCubit.flattenAllNodes(tree: currentTree);
 
                       final layersById = <String, GeoLayersData>{
-                        for (final e in allNodes.where((e) => !e.isGroup)) e.id: e,
+                        for (final e in allNodes.where((e) => !e.isGroup))
+                          e.id: e,
                       };
 
                       final orderedLeafIdsTopToBottom = layersCubit
@@ -425,8 +427,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                             editorCubit
                                 .handleMapBackgroundTap(latLng, currentTree)
                                 .then((error) {
-                              if (!mounted) return;
-                              if (error != null) _showSnack(context, error);
+                              if (!mounted || error == null) return;
+                              _showSnack(error);
                             });
 
                             return editorState.isPointToolSelected ||
@@ -475,25 +477,34 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                             ),
                             actions: [
                               BackCircleButton(
-                                tooltip: 'Mostrar ou ocultar caixa de ferramentas',
+                                tooltip:
+                                'Mostrar ou ocultar caixa de ferramentas',
                                 icon: Icons.handyman_outlined,
                                 onPressed: () => context
                                     .read<GeoMapCubit>()
-                                    .togglePanelVisibility('group_ferramentas'),
+                                    .togglePanelVisibility(
+                                  'group_ferramentas',
+                                ),
                               ),
                               BackCircleButton(
-                                tooltip: 'Mostrar ou ocultar painel de camadas',
+                                tooltip:
+                                'Mostrar ou ocultar painel de camadas',
                                 icon: Icons.layers_outlined,
                                 onPressed: () => context
                                     .read<GeoMapCubit>()
-                                    .togglePanelVisibility('group_vectorizacao'),
+                                    .togglePanelVisibility(
+                                  'group_vectorizacao',
+                                ),
                               ),
                               BackCircleButton(
-                                tooltip: 'Mostrar ou ocultar painel de atributos',
+                                tooltip:
+                                'Mostrar ou ocultar painel de atributos',
                                 icon: Icons.table_rows_outlined,
                                 onPressed: () => context
                                     .read<GeoMapCubit>()
-                                    .togglePanelVisibility('group_atributos'),
+                                    .togglePanelVisibility(
+                                  'group_atributos',
+                                ),
                               ),
                             ],
                           ),

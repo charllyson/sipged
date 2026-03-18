@@ -203,18 +203,18 @@ class CivilScheduleRepository {
     bool hasCreatedAt = list.any((e) => e['createdAt'] != null);
     bool hasUpdatedAt = list.any((e) => e['updatedAt'] != null);
 
-    int _tsMillis(dynamic v) {
+    int tsMillis(dynamic v) {
       final ts = (v is Timestamp) ? v : null;
       return ts?.millisecondsSinceEpoch ?? -1; // nulos primeiro
     }
 
     list.sort((a, b) {
       if (hasCreatedAt) {
-        final c = _tsMillis(a['createdAt']).compareTo(_tsMillis(b['createdAt']));
+        final c = tsMillis(a['createdAt']).compareTo(tsMillis(b['createdAt']));
         if (c != 0) return c;
       }
       if (hasUpdatedAt) {
-        final u = _tsMillis(a['updatedAt']).compareTo(_tsMillis(b['updatedAt']));
+        final u = tsMillis(a['updatedAt']).compareTo(tsMillis(b['updatedAt']));
         if (u != 0) return u;
       }
       final an = (a['name'] ?? '').toString().toLowerCase();

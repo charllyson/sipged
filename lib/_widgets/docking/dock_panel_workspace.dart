@@ -497,7 +497,6 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
           child: Stack(
             children: [
               DockPanelDockedLayout(
-                child: widget.child,
                 contentPadding: widget.contentPadding,
                 leftGroups: leftGroups,
                 rightGroups: rightGroups,
@@ -552,6 +551,7 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                     totalAvailablePixels: totalPixels,
                   );
                 },
+                child: widget.child,
               ),
               DockPanelFloatingLayer(
                 floatingGroups: floatingGroups,

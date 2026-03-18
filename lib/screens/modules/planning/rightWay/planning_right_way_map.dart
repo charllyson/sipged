@@ -1,6 +1,5 @@
 // lib/screens/modules/planning/rightWay/planning_right_way_map.dart
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';

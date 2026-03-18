@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/dates/selector/selectorDates.dart';
+import 'package:sipged/_widgets/dates/selector/selector_dates.dart';
 import '../../../../../_blocs/modules/transit/accidents/accidents_data.dart';
 
 class AccidentsSelectorDatesSection extends StatelessWidget {

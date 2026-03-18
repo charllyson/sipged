@@ -576,7 +576,7 @@ class AccidentsData extends Equatable {
         ? (map['publicReport'] as Map).cast<String, dynamic>()
         : <String, dynamic>{};
 
-    DateTime? _dt2(dynamic v) => _parseDate(v);
+    DateTime? dt2(dynamic v) => _parseDate(v);
 
     return AccidentsData(
       id: map['id']?.toString(),
@@ -620,9 +620,9 @@ class AccidentsData extends Equatable {
       // ✅ público
       publicReportEnabled: pr['enabled'] == true,
       publicReportToken: pr['token']?.toString(),
-      publicReportCreatedAt: _dt2(pr['createdAt']),
-      publicReportExpiresAt: _dt2(pr['expiresAt']),
-      publicReportRevokedAt: _dt2(pr['revokedAt']),
+      publicReportCreatedAt: dt2(pr['createdAt']),
+      publicReportExpiresAt: dt2(pr['expiresAt']),
+      publicReportRevokedAt: dt2(pr['revokedAt']),
     );
   }
 

@@ -1,5 +1,4 @@
 // lib/_widgets/files/dxf/dxf_controller.dart
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

@@ -60,7 +60,7 @@ class StageProgress extends StatelessWidget {
       OutlinedButton.icon(
         style: ButtonStyle(
           foregroundColor:
-          MaterialStatePropertyAll(SipGedTheme.primaryColor),
+          WidgetStatePropertyAll(SipGedTheme.primaryColor),
         ),
         onPressed: busy ? null : onSave,
         icon: const Icon(Icons.save_outlined),
@@ -73,7 +73,7 @@ class StageProgress extends StatelessWidget {
       FilledButton.icon(
         style: ButtonStyle(
           backgroundColor:
-          MaterialStatePropertyAll(SipGedTheme.primaryColor),
+          WidgetStatePropertyAll(SipGedTheme.primaryColor),
         ),
         onPressed: busy
             ? null

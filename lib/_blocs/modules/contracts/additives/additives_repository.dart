@@ -269,7 +269,7 @@ class AdditivesRepository {
               .collection('additives')
               .get();
 
-          return snap.docs.fold<double>(0.0, (sum, doc) {
+          return snap.docs.fold<double>(0.0, (soma, doc) {
             final data = doc.data();
             final raw = data['additivevalue'] ?? data['additiveValue'];
             num? n;
@@ -278,7 +278,7 @@ class AdditivesRepository {
             } else if (raw is String) {
               n = num.tryParse(raw);
             }
-            return sum + (n?.toDouble() ?? 0.0);
+            return soma + (n?.toDouble() ?? 0.0);
           });
         } catch (_) {
           return 0.0;
@@ -330,9 +330,9 @@ class AdditivesRepository {
         .doc(contractId)
         .collection('additives')
         .get();
-    return s.docs.fold<double>(0.0, (sum, d) {
+    return s.docs.fold<double>(0.0, (soma, d) {
       final a = AdditivesData.fromDocument(snapshot: d);
-      return sum + (a.additiveValue ?? 0.0);
+      return soma + (a.additiveValue ?? 0.0);
     });
   }
 

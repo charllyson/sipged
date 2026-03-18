@@ -1,5 +1,4 @@
 // lib/_datas/widgets/pickedPhoto/carousel_metadata.dart
-import 'dart:typed_data';
 import 'package:exif/exif.dart' as exif;
 import 'package:flutter/foundation.dart';
 

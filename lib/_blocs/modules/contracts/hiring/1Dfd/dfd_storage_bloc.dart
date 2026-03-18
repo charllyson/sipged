@@ -159,7 +159,7 @@ class DfdStorageBloc {
     // ignore: avoid_dynamic_calls
     final io = await _io();
     // ignore: avoid_dynamic_calls
-    return io.File(path);
+    return io.file(path);
   }
 
   Future<dynamic> _io() async {
@@ -177,7 +177,7 @@ class DfdStorageBloc {
 /// MAS: na prática, esse proxy só é usado quando kIsWeb == false.
 class _DartIoProxy {
   // ignore: avoid_dynamic_calls
-  dynamic File(String path) {
+  dynamic file(String path) {
     // ignore: avoid_dynamic_calls
     // ignore: uri_does_not_exist
     // Se seu build reclamar aqui, eu te mando a versão 100% correta com import condicional em 2 arquivos.

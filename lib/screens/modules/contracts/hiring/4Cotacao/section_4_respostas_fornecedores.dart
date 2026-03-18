@@ -1,6 +1,5 @@
 // lib/screens/modules/contracts/hiring/4Cotacao/section_4_respostas_fornecedores.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/windows/company_body_dialog.dart';

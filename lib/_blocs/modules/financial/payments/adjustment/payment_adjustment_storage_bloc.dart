@@ -176,21 +176,21 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
   }
 
   /// Lista todos os arquivos já existentes na pasta do pagamento (novo esquema).
-  Future<List<_StorageFile>> listarArquivosDoPagamento({
+  Future<List<StorageFile>> listarArquivosDoPagamento({
     required String contractId,
     required String paymentAdjustmentId,
   }) async {
     final dir = 'contracts/$contractId/adjustmentPayments/$paymentAdjustmentId';
     try {
       final res = await _storage.ref(dir).listAll();
-      final out = <_StorageFile>[];
+      final out = <StorageFile>[];
       for (final item in res.items) {
         final url = await item.getDownloadURL();
-        out.add(_StorageFile(name: item.name, url: url));
+        out.add(StorageFile(name: item.name, url: url));
       }
       return out;
     } catch (e) {
-      return const <_StorageFile>[];
+      return const <StorageFile>[];
     }
   }
 
@@ -243,8 +243,8 @@ class PaymentAdjustmentStorageBloc extends BlocBase {
 
 }
 
-class _StorageFile {
+class StorageFile {
   final String name;
   final String url;
-  const _StorageFile({required this.name, required this.url});
+  const StorageFile({required this.name, required this.url});
 }

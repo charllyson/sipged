@@ -17,7 +17,7 @@ class MapUserLocation extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<LatLng?>(
       valueListenable: userLocationVN,
-      builder: (_, pos, __) {
+      builder: (_, pos, _) {
         if (pos == null) return const SizedBox.shrink();
 
         return RepaintBoundary(

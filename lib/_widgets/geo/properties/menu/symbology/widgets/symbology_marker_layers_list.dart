@@ -56,7 +56,7 @@ class SymbologyMarkerLayersList extends StatelessWidget {
                 : ListView.separated(
               padding: EdgeInsets.zero,
               itemCount: layers.length,
-              separatorBuilder: (_, __) => Divider(
+              separatorBuilder: (_, _) => Divider(
                 height: 1,
                 thickness: 1,
                 color: Colors.grey.shade200,

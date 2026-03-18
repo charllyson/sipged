@@ -29,8 +29,12 @@ class HealthScoreCard extends StatelessWidget {
     Color badge;
     if (score >= 80) {
       badge = Colors.green;
-    } else if (score >= 60) badge = Colors.orange;
-    else badge = Colors.red;
+    } else if (score >= 60) {
+      badge = Colors.orange;
+    }
+    else {
+      badge = Colors.red;
+    }
 
     return Card(
       color: Colors.white,

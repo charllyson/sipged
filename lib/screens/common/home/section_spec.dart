@@ -43,8 +43,12 @@ class SectionGrid extends StatelessWidget {
           builder: (context, c) {
             final w = c.maxWidth;
             int cross = 1;
-            if (w >= 1100) cross = 3;
-            else if (w >= 740) cross = 2;
+            if (w >= 1100) {
+              cross = 3;
+            }
+            else if (w >= 740) {
+              cross = 2;
+            }
 
             return GridView.builder(
               shrinkWrap: true,

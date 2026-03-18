@@ -1,5 +1,4 @@
 // lib/_widgets/map/markers/tooltip_animated_card.dart
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class TooltipAnimatedCard extends StatefulWidget {

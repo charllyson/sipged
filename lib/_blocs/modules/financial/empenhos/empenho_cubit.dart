@@ -199,8 +199,12 @@ class EmpenhoCubit extends Cubit<EmpenhoState> {
     if (idx != null) {
       if (list.isEmpty) {
         idx = null;
-      } else if (idx < 0) idx = 0;
-      else if (idx >= list.length) idx = list.length - 1;
+      } else if (idx < 0) {
+        idx = 0;
+      }
+      else if (idx >= list.length) {
+        idx = list.length - 1;
+      }
     }
 
     emit(state.copyWith(attachments: list, selectedSideIndex: idx));

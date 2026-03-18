@@ -210,9 +210,15 @@ class _SpecificDashboardMetricsState extends State<SpecificDashboardMetrics> {
     double nice;
     if (scaled <= 1) {
       nice = 1;
-    } else if (scaled <= 2) nice = 2;
-    else if (scaled <= 5) nice = 5;
-    else nice = 10;
+    } else if (scaled <= 2) {
+      nice = 2;
+    }
+    else if (scaled <= 5) {
+      nice = 5;
+    }
+    else {
+      nice = 10;
+    }
     return nice * base;
   }
 }

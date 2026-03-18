@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 
 import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_controller.dart';

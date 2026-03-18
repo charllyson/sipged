@@ -30,7 +30,7 @@ class HorizontalBars extends StatelessWidget {
 
     return ListView.separated(
       itemCount: entries.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (_, i) {
         final e = entries[i];
         final ratio = (e.value / maxV).clamp(0.0, 1.0);

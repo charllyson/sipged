@@ -358,7 +358,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
           ),
           dotData: FlDotData(
             show: true,
-            getDotPainter: (spot, _, __, idx) {
+            getDotPainter: (spot, _, _, idx) {
               final isSelected = idx == widget.selectedIndex;
               return FlDotCirclePainter(
                 radius: isSelected ? 6.5 : 3.2,
@@ -409,7 +409,7 @@ class _LineChartChangedState extends State<LineChartChanged> {
           ),
           dotData: FlDotData(
             show: true,
-            getDotPainter: (spot, _, __, idx) {
+            getDotPainter: (spot, _, _, idx) {
               final isSelected = idx == widget.selectedIndex;
               final isStart = s.id == 'INICIO_OBRA';
               final fill = isStart
