@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/cards/action/action_item.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
-import 'package:sipged/_widgets/cards/glass/glass_card.dart';
 
 class ActionCard extends StatelessWidget {
   const ActionCard({

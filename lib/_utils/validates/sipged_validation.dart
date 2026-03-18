@@ -1,21 +1,28 @@
 import 'dart:async';
+
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_utils/input/sipged_sanitize.dart';
 
 mixin SipGedValidation {
-  final Map<TextEditingController, VoidCallback> _listeners = {};
+  final Map<TextEditingController, VoidCallback> _listeners =
+  <TextEditingController, VoidCallback>{};
 
   void setupValidation(
       List<TextEditingController> controllers,
       VoidCallback callback,
       ) {
     for (final ctrl in controllers) {
-      // evita duplicar listener se chamar duas vezes
-      if (_listeners[ctrl] != callback) {
-        _listeners[ctrl] = callback;
-        ctrl.addListener(callback);
+      final existing = _listeners[ctrl];
+      if (existing == callback) continue;
+
+      if (existing != null) {
+        ctrl.removeListener(existing);
       }
+
+      _listeners[ctrl] = callback;
+      ctrl.addListener(callback);
     }
   }
 
@@ -36,38 +43,48 @@ mixin SipGedValidation {
     return controllers.every((ctrl) => ctrl.text.trim().length >= minLength);
   }
 
-  bool isFieldInvalid(TextEditingController controller, {int minLength = 1}) {
+  bool isFieldInvalid(
+      TextEditingController controller, {
+        int minLength = 1,
+      }) {
     return controller.text.trim().length < minLength;
   }
 
-  String? validateRequired(String? value, {String message = 'Campo obrigatório'}) {
+  String? validateRequired(
+      String? value, {
+        String message = 'Campo obrigatório',
+      }) {
     if (value == null || value.trim().isEmpty) return message;
     return null;
   }
 
-  String? Function(DateTime?)? validateDateToBirthday = (date) {
+  String? validateDateToBirthday(DateTime? date) {
     if (date == null) return 'Selecione uma data';
     if (date.isBefore(DateTime.now())) return 'Data não pode ser no passado';
     return null;
-  };
+  }
 
   String? validateNoEmptyDate(DateTime? date) {
     if (date == null) return 'Data obrigatória';
     return null;
   }
 
-  final StreamTransformer<String, String> validateEmail = StreamTransformer<String, String>.fromHandlers(handleData: (email, sink) {
-    const Pattern pattern =
-        r"^(([^<>()[\]\\.,;:\s@\']+(\.[^<>()[\]\\.,;:\s@\']+)*)|(\'.+\',))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$";
-    final RegExp regex = RegExp(pattern as String,);
-    if (email.isEmpty) {
-      sink.addError("Campo obrigatório",);
-    } else if (!regex.hasMatch(email)) {
-      sink.addError("E-mail inválido",);
-    } else {
-      sink.add(email);
-    }
-  },);
+  final StreamTransformer<String, String> validateEmail =
+  StreamTransformer<String, String>.fromHandlers(
+    handleData: (email, sink) {
+      const pattern =
+          r"^(([^<>()[\]\\.,;:\s@']+(\.[^<>()[\]\\.,;:\s@']+)*)|('.+'))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$";
+      final regex = RegExp(pattern);
+
+      if (email.isEmpty) {
+        sink.addError('Campo obrigatório');
+      } else if (!regex.hasMatch(email)) {
+        sink.addError('E-mail inválido');
+      } else {
+        sink.add(email);
+      }
+    },
+  );
 
   final StreamTransformer<String, String> validatePassword =
   StreamTransformer<String, String>.fromHandlers(
@@ -83,9 +100,10 @@ mixin SipGedValidation {
   );
 
   String? validateCpf(String? text) {
-    if (text!.isEmpty || text.length < 11) {
+    final value = text?.trim() ?? '';
+    if (value.isEmpty || value.length < 11) {
       return 'Você deve informar um CPF';
-    } else if (!CPFValidator.isValid(text)) {
+    } else if (!CPFValidator.isValid(value)) {
       return 'CPF Inválido';
     }
     return null;
@@ -98,8 +116,8 @@ mixin SipGedValidation {
 
   String? validateDouble(String? value, {bool allowZero = false}) {
     if (value == null || value.trim().isEmpty) return 'Campo obrigatório';
-    final v = double.tryParse(value.replaceAll(',', '.'));
-    if (v == null || (!allowZero && v == 0)) return 'Valor inválido';
+    final parsed = double.tryParse(value.replaceAll(',', '.'));
+    if (parsed == null || (!allowZero && parsed == 0)) return 'Valor inválido';
     return null;
   }
 
@@ -127,14 +145,17 @@ mixin SipGedValidation {
   }
 
   bool allFieldsValid(List<String? Function()> validators) {
-    for (var validator in validators) {
+    for (final validator in validators) {
       final result = validator();
       if (result != null) return false;
     }
     return true;
   }
 
-  String? validateDropdown(String? value, {String message = 'Campo obrigatório'}) {
+  String? validateDropdown(
+      String? value, {
+        String message = 'Campo obrigatório',
+      }) {
     if (value == null || value.isEmpty) return message;
     return null;
   }
@@ -149,7 +170,7 @@ mixin SipGedValidation {
   }
 
   String? validateTitle(String? text) {
-    if (text!.isEmpty) return 'Você deve informar o título';
+    if ((text ?? '').isEmpty) return 'Você deve informar o título';
     return null;
   }
 
@@ -159,7 +180,7 @@ mixin SipGedValidation {
   }
 
   String? validateDescription(String? text) {
-    if (text!.isEmpty) return 'Você deve informar uma descrição';
+    if ((text ?? '').isEmpty) return 'Você deve informar uma descrição';
     return null;
   }
 
@@ -169,20 +190,20 @@ mixin SipGedValidation {
   }
 
   String? validateCnpj(String? text) {
-    if (text!.isEmpty || text.length < 14) {
+    final value = text?.trim() ?? '';
+    if (value.isEmpty || value.length < 14) {
       return 'Você deve informar um Cnpj';
-    } else if (!CNPJValidator.isValid(text)) {
+    } else if (!CNPJValidator.isValid(value)) {
       return 'CNPJ Inválido';
     }
     return null;
   }
 
   String? validateNoEmpty(String? text) {
-    if (text!.isEmpty) return 'Este campo não pode ficar vazio';
+    if ((text ?? '').isEmpty) return 'Este campo não pode ficar vazio';
     return null;
   }
 
-  ///Validação de datas
   String? validateDurationConsult(DateTime dateDurationConsult) {
     return null;
   }
@@ -207,26 +228,24 @@ mixin SipGedValidation {
     return null;
   }
 
-  ///Validação de preço
   String? validatePrice(String? text) {
-    if (text!.isEmpty) {
+    final value = text?.trim() ?? '';
+    if (value.isEmpty) {
       return 'Você deve informar o preço da consulta';
     }
-    //O VALOR RETORNA UM VALOR INTEIRO
-    if (int.tryParse(SipGedSanitize.onlyDigits(text)) == null) {
+    if (int.tryParse(SipGedSanitize.onlyDigits(value)) == null) {
       return 'Utilize valores válidos';
     }
     return null;
   }
 
-  ///Validação de usuário
   String? validateName(String? text) {
-    if (text!.isEmpty) return 'Você deve informar um nome';
+    if ((text ?? '').isEmpty) return 'Você deve informar um nome';
     return null;
   }
 
   String? validateSurname(String? text) {
-    if (text!.isEmpty) return 'Você deve informar um sobrenome';
+    if ((text ?? '').isEmpty) return 'Você deve informar um sobrenome';
     return null;
   }
 
@@ -235,7 +254,6 @@ mixin SipGedValidation {
     return null;
   }
 
-  ///Validações do History
   String? validateBloodGroup(String text) {
     if (text.isEmpty) return 'Informe o tipo sanguíneo';
     return null;
@@ -251,37 +269,41 @@ mixin SipGedValidation {
     return null;
   }
 
-  ///Validações de registros médicos
   String? validateCurrentState(String text) {
     if (text.isEmpty) return 'Informe o estado atual do paciente';
     return null;
   }
 
   String? validateMainComplaint(String? text) {
-    if (text!.isEmpty) return 'Informe a queixa principal do paciente';
+    if ((text ?? '').isEmpty) {
+      return 'Informe a queixa principal do paciente';
+    }
     return null;
   }
 
   String? validateCurrentHistory(String? text) {
-    if (text!.isEmpty) return 'Informe a história da causa do paciente';
+    if ((text ?? '').isEmpty) {
+      return 'Informe a história da causa do paciente';
+    }
     return null;
   }
 
   String? validateSystemReview(String? text) {
-    if (text!.isEmpty) {
+    if ((text ?? '').isEmpty) {
       return 'Informe o que você diagnosticou sobre os sistemas';
     }
     return null;
   }
 
   String? validateTreatmentPlan(String? text) {
-    if (text!.isEmpty) return 'Informe qual tratamento você seguirá';
+    if ((text ?? '').isEmpty) {
+      return 'Informe qual tratamento você seguirá';
+    }
     return null;
   }
 
-  ///Rating page
   String validateComments(String? text) {
-    if (text!.isEmpty || text.length < 5) {
+    if ((text ?? '').isEmpty || (text ?? '').length < 5) {
       return 'Escreva um commentário autentico';
     }
     return '';
@@ -316,16 +338,18 @@ mixin SipGedValidation {
   }
 
   String? validateEmailLogin(String? text) {
-    const Pattern pattern =
-        r"^(([^<>()[\]\\.,;:\s@\']+(\.[^<>()[\]\\.,;:\s@\']+)*)|(\'.+\',))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$";
-    if (text!.isEmpty || !text.contains(RegExp(pattern as String,),)) {
+    const pattern =
+        r"^(([^<>()[\]\\.,;:\s@']+(\.[^<>()[\]\\.,;:\s@']+)*)|('.+'))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$";
+    final value = text?.trim() ?? '';
+
+    if (value.isEmpty || !RegExp(pattern).hasMatch(value)) {
       return 'Você deve informar um email válido';
     }
     return null;
   }
 
   String? validatePasswordLogin(String? text) {
-    if (text!.isEmpty) return 'Você deve informar uma senha válida';
+    if ((text ?? '').isEmpty) return 'Você deve informar uma senha válida';
     return null;
   }
 }

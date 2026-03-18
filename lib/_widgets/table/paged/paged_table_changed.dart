@@ -227,18 +227,18 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
                     child: DataTableTheme(
                       data: DataTableThemeData(
                         headingRowColor:
-                        MaterialStateProperty.all(widget.colorHeadTable),
+                        WidgetStateProperty.all(widget.colorHeadTable),
                         headingTextStyle: TextStyle(
                           color: widget.colorHeadTableText,
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
-                        dataRowColor: MaterialStateProperty.resolveWith(
+                        dataRowColor: WidgetStateProperty.resolveWith(
                               (states) {
-                            if (states.contains(MaterialState.hovered)) {
+                            if (states.contains(WidgetState.hovered)) {
                               return Colors.blue.withValues(alpha: 0.05);
                             }
-                            if (states.contains(MaterialState.selected)) {
+                            if (states.contains(WidgetState.selected)) {
                               return const Color(0xFFE1F5FE);
                             }
                             return Colors.white;
@@ -261,7 +261,7 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
                           if (chunk.type == _RowChunkType.groupHeader) {
                             return [
                               DataRow(
-                                color: MaterialStateProperty.all(
+                                color: WidgetStateProperty.all(
                                   Colors.grey.shade200,
                                 ),
                                 cells: List.generate(totalColumns, (i) {

@@ -4,7 +4,6 @@ import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 
 class YesNoDrop extends StatelessWidget with SipGedValidation {
-
   YesNoDrop({
     super.key,
     required this.labelText,

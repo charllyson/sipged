@@ -317,7 +317,6 @@ class ActiveRoadsStyle {
   }
 
   static bool leftTrackDashedForDual(String code) {
-    final c = normalizeSurfaceCode(code);
     return false;
   }
 

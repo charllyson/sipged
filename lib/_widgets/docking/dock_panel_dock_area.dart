@@ -2,7 +2,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/docking/dock_panel_group_card.dart';
 import 'package:sipged/_widgets/docking/dock_panel_splitter.dart';
 import 'package:sipged/_widgets/docking/dock_panel_types.dart';
 

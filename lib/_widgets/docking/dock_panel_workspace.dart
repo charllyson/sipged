@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/docking/dock_panel_docked_layout.dart';
 import 'package:sipged/_widgets/docking/dock_panel_floating_layer.dart';

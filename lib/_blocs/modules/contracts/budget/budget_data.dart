@@ -1,12 +1,11 @@
-// ==================== TIPOS BÁSICOS ====================
 enum BudgetColumnType { auto, text, number, money, percent, date, code, sectionTitle }
 
 class BudgetColumn {
   final String name;
   final BudgetColumnType type;
   final double width;
-  final String? unit;     // ex: "km", "m³"
-  final int? precision;   // ex: 2 para money/number
+  final String? unit;
+  final int? precision;
 
   const BudgetColumn({
     required this.name,
@@ -22,13 +21,14 @@ class BudgetColumn {
     double? width,
     String? unit,
     int? precision,
-  }) => BudgetColumn(
-    name: name ?? this.name,
-    type: type ?? this.type,
-    width: width ?? this.width,
-    unit: unit ?? this.unit,
-    precision: precision ?? this.precision,
-  );
+  }) =>
+      BudgetColumn(
+        name: name ?? this.name,
+        type: type ?? this.type,
+        width: width ?? this.width,
+        unit: unit ?? this.unit,
+        precision: precision ?? this.precision,
+      );
 
   Map<String, dynamic> toMap() => {
     'name': name,
@@ -45,7 +45,7 @@ class BudgetColumn {
       orElse: () => BudgetColumnType.auto,
     ),
     width: (m['width'] is num) ? (m['width'] as num).toDouble() : 120.0,
-    unit: (m['unit'] as String?),
+    unit: m['unit'] as String?,
     precision: (m['precision'] is num) ? (m['precision'] as num).toInt() : null,
   );
 }
@@ -57,7 +57,7 @@ class BudgetSchema {
   BudgetSchema._(this.columns, this._indexByName);
 
   factory BudgetSchema(List<BudgetColumn> cols) {
-    final map = <String,int>{};
+    final map = <String, int>{};
     for (var i = 0; i < cols.length; i++) {
       map[cols[i].name] = i;
     }
@@ -81,11 +81,12 @@ class BudgetSchema {
     required List<double> widths,
   }) {
     final len = names.length;
-    List<BudgetColumn> cols = List.generate(len, (i) {
+    final cols = List<BudgetColumn>.generate(len, (i) {
       final t = (i < types.length) ? types[i] : 'auto';
       final w = (i < widths.length) ? widths[i] : 120.0;
       final type = BudgetColumnType.values.firstWhere(
-            (x) => x.name == t, orElse: () => BudgetColumnType.auto,
+            (x) => x.name == t,
+        orElse: () => BudgetColumnType.auto,
       );
       return BudgetColumn(name: names[i], type: type, width: w);
     });
@@ -93,7 +94,6 @@ class BudgetSchema {
   }
 }
 
-// ==================== ENTRADAS (SEÇÃO vs ITEM) ====================
 abstract class BudgetEntry {
   const BudgetEntry();
   bool get isSection => this is BudgetSection;
@@ -108,9 +108,9 @@ class BudgetSection extends BudgetEntry {
 }
 
 class BudgetItem extends BudgetEntry {
-  final String code;           // ex: "1.2.3"
-  final int depth;             // ex: 3
-  final List<String> values;   // linha com tamanho do schema
+  final String code;
+  final int depth;
+  final List<String> values;
 
   const BudgetItem({
     required this.code,
@@ -127,12 +127,11 @@ class BudgetItem extends BudgetEntry {
   num? valueNum(BudgetSchema schema, String colName) {
     final v = value(schema, colName);
     if (v == null) return null;
-    final vv = v.replaceAll('.', '').replaceAll(',', '.'); // se vier BR
+    final vv = v.replaceAll('.', '').replaceAll(',', '.');
     return num.tryParse(vv);
   }
 }
 
-// ==================== MODELO PRINCIPAL ====================
 class BudgetData {
   final BudgetSchema schema;
   final List<BudgetEntry> entries;
@@ -141,7 +140,6 @@ class BudgetData {
 
   bool get isEmpty => entries.isEmpty || schema.columns.isEmpty;
 
-  // ---- Query helpers ----
   Iterable<BudgetSection> get sections sync* {
     for (final e in entries) {
       if (e is BudgetSection) yield e;
@@ -154,26 +152,28 @@ class BudgetData {
     }
   }
 
-  BudgetItem? itemByCode(String code) =>
-      items.firstWhere((it) => it.code == code, orElse: () => null as BudgetItem);
+  BudgetItem? itemByCode(String code) {
+    for (final item in items) {
+      if (item.code == code) return item;
+    }
+    return null;
+  }
 
   Iterable<BudgetItem> itemsUnderSection(BudgetSection s) sync* {
-    // Convenção simples: itens que aparecem após a seção até a próxima seção.
     bool inRange = false;
     for (final e in entries) {
       if (e is BudgetSection) {
-        inRange = (e.order == s.order);
+        inRange = e.order == s.order;
         continue;
       }
       if (inRange && e is BudgetItem) yield e;
     }
   }
 
-  // ---- Totais por coluna (global ou por seção) ----
   num sumColumn(String colName, {BudgetSection? within}) {
     final idx = schema.indexOf(colName);
     if (idx == null) return 0;
-    Iterable<BudgetItem> range = (within == null) ? items : itemsUnderSection(within);
+    final range = (within == null) ? items : itemsUnderSection(within);
 
     num total = 0;
     for (final it in range) {
@@ -186,15 +186,12 @@ class BudgetData {
     return total;
   }
 
-  // ---- Serialização p/ Firestore/Interop (LEGADO) ----
-  // Converte p/ o "tableData" (primeira linha = header)
   List<List<String>> toTableData() {
-    final List<List<String>> table = [];
+    final table = <List<String>>[];
     table.add(schema.headerNames);
 
     for (final e in entries) {
       if (e is BudgetSection) {
-        // Coluna 0 = order, coluna 1 = title, demais vazias
         final row = List<String>.filled(schema.columns.length, '');
         row[0] = e.order.toString();
         if (schema.columns.length > 1) row[1] = e.title;
@@ -210,7 +207,6 @@ class BudgetData {
     return table;
   }
 
-  // Conversor a partir do legado (headers/types/widths + table)
   factory BudgetData.fromLegacy({
     required List<String> headers,
     required List<String> colTypes,
@@ -234,21 +230,23 @@ class BudgetData {
     }
 
     final codeRe = RegExp(r'^\d+(?:\.\d+)+$');
-    final List<BudgetEntry> entries = [];
+    final entries = <BudgetEntry>[];
 
     if (tableData.isEmpty) {
       return BudgetData(schema: schema, entries: const []);
     }
 
-    final dataRows = tableData.skip(1); // pula header
+    final dataRows = tableData.skip(1);
     int currentSectionOrder = -1;
 
     for (final row0 in dataRows) {
-      final row = _padRow(row0.map((e) => e.toString()).toList(), schema.columns.length);
+      final row =
+      _padRow(row0.map((e) => e.toString()).toList(), schema.columns.length);
       if (row.every((c) => c.trim().isEmpty)) continue;
 
       if (isSectionRow(row)) {
-        currentSectionOrder = int.tryParse(row[0].trim()) ?? (currentSectionOrder + 1);
+        currentSectionOrder =
+            int.tryParse(row[0].trim()) ?? (currentSectionOrder + 1);
         final title = (row.length > 1 ? row[1].trim() : '');
         entries.add(BudgetSection(order: currentSectionOrder, title: title));
         continue;
@@ -264,20 +262,19 @@ class BudgetData {
     return BudgetData(schema: schema, entries: List.unmodifiable(entries));
   }
 
-  // Ajuda a criar um novo com cabeçalhos
   factory BudgetData.withSchema(BudgetSchema schema) =>
       BudgetData(schema: schema, entries: const []);
 
   BudgetData copyWith({
     BudgetSchema? schema,
     List<BudgetEntry>? entries,
-  }) => BudgetData(
-    schema: schema ?? this.schema,
-    entries: entries ?? this.entries,
-  );
+  }) =>
+      BudgetData(
+        schema: schema ?? this.schema,
+        entries: entries ?? this.entries,
+      );
 }
 
-// ===== helper local =====
 List<String> _padRow(List<String> r, int headerLen) {
   if (r.length >= headerLen) return r.take(headerLen).toList();
   return [...r, for (int i = r.length; i < headerLen; i++) ''];

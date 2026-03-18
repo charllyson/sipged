@@ -1,6 +1,5 @@
 // lib/screens/modules/operation/schedule/road/schedule_road_map.dart
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -609,53 +608,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         duration: const Duration(seconds: 8),
       ),
     );
-  }
-
-  // ===================== Exportar seleção para GeoJSON (ToolBoxWidget) =====================
-  String _buildSelectedGeoJSON({
-    required List<PolylineChangedData> laneSegments,
-    required bool normalized,
-  }) {
-    // usamos somente os segmentos "visíveis" (sem helpers de hit)
-    final visible = laneSegments.where((p) => p.tag != null).toList();
-    final selected = _selectedTags.isEmpty
-        ? visible
-        : visible.where((p) => _selectedTags.contains(p.tag.toString())).toList();
-
-    final features = selected.map((p) {
-      final coords =
-      p.points.map((pt) => [pt.longitude, pt.latitude]).toList();
-      final tag = p.tag?.toString() ?? '';
-      final props = {
-        'tag': tag,
-        'stroke': (p.defaultColor ?? p.color).value,
-        'strokeWidth': p.strokeWidth,
-      };
-
-      return {
-        'type': 'Feature',
-        'editor': normalized ? _normalizeProps(props) : props,
-        'geometry': {
-          'type': 'LineString',
-          'coordinates': coords,
-        },
-      };
-    }).toList();
-
-    final fc = {
-      'type': 'FeatureCollection',
-      'features': features,
-    };
-    return const JsonEncoder.withIndent('  ').convert(fc);
-  }
-
-  Map<String, dynamic> _normalizeProps(Map<String, dynamic> m) {
-    final out = <String, dynamic>{};
-    for (final e in m.entries) {
-      final k = e.key.trim();
-      out[k] = e.value;
-    }
-    return out;
   }
 
   @override

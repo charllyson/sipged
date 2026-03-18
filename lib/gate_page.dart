@@ -15,7 +15,6 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
-import 'package:sipged/screens/modules/planning/geo/geo_network_page.dart';
 
 /// 🔧 FLAG TEMPORÁRIA
 const bool kForceInitialSetupOverlay = false;

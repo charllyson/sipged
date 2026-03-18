@@ -44,7 +44,7 @@ class AccidentsRecordsNetworkPage extends StatelessWidget {
 }
 
 class _AccidentsRecordsNetworkPageInner extends StatefulWidget {
-  const _AccidentsRecordsNetworkPageInner({super.key});
+  const _AccidentsRecordsNetworkPageInner();
 
   @override
   State<_AccidentsRecordsNetworkPageInner> createState() =>

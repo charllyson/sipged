@@ -1,15 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
-
-import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
-import 'dart:math' as math;
-
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_style.dart';
@@ -548,7 +540,9 @@ class ActiveRoadsData {
       RoadViewField(label: 'Metadata', value: metadata?.toString() ?? ''),
     ];
 
-    return items.where((e) => e.value.trim().isNotEmpty).toList(growable: false);
+    return items
+        .where((e) => e.value.trim().isNotEmpty)
+        .toList(growable: false);
   }
 
   double get idealDetailMapZoom => computeIdealZoom(points ?? const []);
@@ -603,7 +597,7 @@ class ActiveRoadsData {
   }
 
   static num sumExtension(Iterable<ActiveRoadsData> items) {
-    return items.fold<num>(0, (sum, r) => sum + (r.extension ?? 0));
+    return items.fold<num>(0, (total, r) => total + (r.extension ?? 0));
   }
 
   static double computeIdealZoom(List<LatLng> pts) {

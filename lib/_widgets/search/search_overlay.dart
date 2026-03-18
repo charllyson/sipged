@@ -76,7 +76,6 @@ class SearchOverlay {
     if (_visible) return;
 
     final overlay = Overlay.of(context);
-    if (overlay == null) return;
 
     _expanded = false;
     _ensureControllerListening();

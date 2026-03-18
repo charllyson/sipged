@@ -25,11 +25,10 @@ class _WebTransport implements LabelBleTransport {
     return n.isNotEmpty ? n : d.id;
   }
 
-  // Serviços comuns em impressoras BLE (hints)
   static const List<String> _knownServices = [
-    '49535343-fe7d-4ae5-8fa9-9fafd205e455', // Nordic UART / HM-10
-    '0000ffe0-0000-1000-8000-00805f9b34fb', // FFE0/FFE1
-    '0000ae30-0000-1000-8000-00805f9b34fb', // AE30/AE01
+    '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+    '0000ffe0-0000-1000-8000-00805f9b34fb',
+    '0000ae30-0000-1000-8000-00805f9b34fb',
     '0000ff00-0000-1000-8000-00805f9b34fb',
     '000018f0-0000-1000-8000-00805f9b34fb',
   ];
@@ -46,6 +45,8 @@ class _WebTransport implements LabelBleTransport {
     );
 
     _dev = await fwb.FlutterWebBluetooth.instance.requestDevice(opts);
+
+    // ignore: invalid_use_of_visible_for_testing_member
     final gatt = await _dev!.gatt!.connect();
 
     final services = await gatt.getPrimaryServices();
@@ -53,9 +54,9 @@ class _WebTransport implements LabelBleTransport {
     for (final svc in services) {
       final chars = await svc.getCharacteristics();
       for (final c in chars) {
-        final p = c.properties; // síncrono
+        final p = c.properties;
         if (p.write || p.writeWithoutResponse) {
-          _ch = c; // js.WebBluetoothRemoteGATTCharacteristic
+          _ch = c;
           _supportsWriteWithResponse = p.write;
           _supportsWriteWithoutResponse = p.writeWithoutResponse;
           break;
@@ -78,7 +79,6 @@ class _WebTransport implements LabelBleTransport {
     final ch = _ch;
     if (ch == null) throw StateError('BLE não conectado.');
 
-    // Chrome costuma ser estável ~180-200. Vamos limitar.
     final step = math.max(1, math.min(chunk, 200));
     final wait = Duration(milliseconds: math.max(0, delayMs));
 
@@ -94,15 +94,20 @@ class _WebTransport implements LabelBleTransport {
         throw StateError('Characteristic não suporta escrita.');
       }
 
-      if (delayMs > 0) await Future.delayed(wait);
+      if (delayMs > 0) {
+        await Future.delayed(wait);
+      }
     }
   }
 
   @override
   Future<void> disconnect() async {
     try {
+      // ignore: invalid_use_of_visible_for_testing_member
       final gatt = _dev?.gatt;
-      if (gatt != null) gatt.disconnect();
+      if (gatt != null) {
+        gatt.disconnect();
+      }
     } catch (_) {}
     _dev = null;
     _ch = null;

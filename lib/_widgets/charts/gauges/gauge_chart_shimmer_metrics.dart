@@ -36,7 +36,6 @@ class GaugeChartShimmerMetrics {
   }) {
     final bool ultraCompact = maxWidth <= 210 || maxHeight <= 180;
     final bool veryCompact = maxWidth <= 250 || maxHeight <= 210;
-    final bool compact = maxWidth <= 300 || maxHeight <= 250;
 
     final double headerHeight = ultraCompact
         ? 10.0

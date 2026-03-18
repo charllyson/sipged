@@ -66,17 +66,17 @@ class MarkerChangedLayer<T> extends StatelessWidget {
     final children = <Widget>[
       if (hasTaggedLayer)
         _ReactiveClusterLayer<T>(
-          taggedMarkers: tagged!,
+          taggedMarkers: tagged,
           selectedMarkerPositionVN: selectedMarkerPositionVN,
           onMarkerSelected: onMarkerSelected,
-          clusterWidgetBuilder: clusterBuilder!,
+          clusterWidgetBuilder: clusterBuilder,
         ),
 
       if (hasExtraLayer)
         IgnorePointer(
           ignoring: true,
           child: RepaintBoundary(
-            child: MarkerLayer(markers: extras!),
+            child: MarkerLayer(markers: extras),
           ),
         ),
     ];

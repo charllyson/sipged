@@ -405,8 +405,12 @@ class MagicTableController extends ChangeNotifier {
         break;
       case ColumnType.boolean_:
         final v = value.toLowerCase();
-        if (['true','t','sim','s','1'].contains(v)) value = 'true';
-        else if (['false','f','nao','não','n','0'].contains(v)) value = 'false';
+        if (['true','t','sim','s','1'].contains(v)) {
+          value = 'true';
+        }
+        else if (['false','f','nao','não','n','0'].contains(v)) {
+          value = 'false';
+        }
         break;
       case ColumnType.date:
         DateTime? dt;
@@ -648,8 +652,12 @@ class MagicTableController extends ChangeNotifier {
 
         case ColumnType.boolean_:
           final v = raw.toLowerCase();
-          if (['true','t','sim','s','1'].contains(v)) tableData[r][col] = 'true';
-          else if (['false','f','nao','não','n','0'].contains(v)) tableData[r][col] = 'false';
+          if (['true','t','sim','s','1'].contains(v)) {
+            tableData[r][col] = 'true';
+          }
+          else if (['false','f','nao','não','n','0'].contains(v)) {
+            tableData[r][col] = 'false';
+          }
           break;
         case ColumnType.date:
           DateTime? dt;

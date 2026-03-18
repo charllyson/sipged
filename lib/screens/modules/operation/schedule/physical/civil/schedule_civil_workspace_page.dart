@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
 
 // UpBar / FootBar / BG
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
@@ -62,44 +61,7 @@ class _ScheduleCivilWorkspacePageState extends State<ScheduleCivilWorkspacePage>
   static const double kBreakpoint = 980.0;
 
   // ---- diálogo com botão "Salvar" que devolve o nome digitado ----
-  Future<String?> _askAreaName(BuildContext context, {String initial = ''}) async {
-    final txt = TextEditingController(text: initial);
-    final result = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Nome da área', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 14),
-                CustomTextField(
-                  controller: txt,
-                  labelText: 'Digite um nome',
-                  onSubmitted: (_) => Navigator.of(ctx).pop(txt.text.trim()),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(ctx).pop(txt.text.trim()),
-                      child: const Text('Salvar'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    return (result != null && result.trim().isNotEmpty) ? result.trim() : null;
-  }
+
 
   void _togglePanel() => setState(() => _panelOpen = !_panelOpen);
 
