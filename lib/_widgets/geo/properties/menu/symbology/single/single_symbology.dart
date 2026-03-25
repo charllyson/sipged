@@ -1,13 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/form/form_symbology_menu.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/single/single_list_panel.dart';
 
 class SingleSymbology extends StatefulWidget {
   final LayerGeometryKind geometryKind;
-  final List<LayerSimpleSymbolData> symbolLayers;
-  final ValueChanged<List<LayerSimpleSymbolData>> onChanged;
+  final List<GeoLayersDataSimple> symbolLayers;
+  final ValueChanged<List<GeoLayersDataSimple>> onChanged;
 
   const SingleSymbology({
     super.key,
@@ -21,13 +22,13 @@ class SingleSymbology extends StatefulWidget {
 }
 
 class _SingleSymbologyState extends State<SingleSymbology> {
-  late List<LayerSimpleSymbolData> _layers;
+  late List<GeoLayersDataSimple> _layers;
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _layers = List<LayerSimpleSymbolData>.from(widget.symbolLayers);
+    _layers = List<GeoLayersDataSimple>.from(widget.symbolLayers);
     _normalizeSelection();
   }
 
@@ -37,7 +38,7 @@ class _SingleSymbologyState extends State<SingleSymbology> {
 
     if (!listEquals(oldWidget.symbolLayers, widget.symbolLayers) ||
         oldWidget.geometryKind != widget.geometryKind) {
-      _layers = List<LayerSimpleSymbolData>.from(widget.symbolLayers);
+      _layers = List<GeoLayersDataSimple>.from(widget.symbolLayers);
       _normalizeSelection();
     }
   }
@@ -54,10 +55,10 @@ class _SingleSymbologyState extends State<SingleSymbology> {
   }
 
   void _notifyParent() {
-    widget.onChanged(List<LayerSimpleSymbolData>.unmodifiable(_layers));
+    widget.onChanged(List<GeoLayersDataSimple>.unmodifiable(_layers));
   }
 
-  LayerSimpleSymbolData? get _selectedLayer {
+  GeoLayersDataSimple? get _selectedLayer {
     if (_layers.isEmpty) return null;
     return _layers[_selectedIndex];
   }
@@ -84,7 +85,7 @@ class _SingleSymbologyState extends State<SingleSymbology> {
       id: 'symbol_$now',
       family: _familyFromGeometry(),
     )
-        : LayerSimpleSymbolData(
+        : GeoLayersDataSimple(
       id: 'symbol_$now',
       family: _familyFromGeometry(),
     );
@@ -138,7 +139,7 @@ class _SingleSymbologyState extends State<SingleSymbology> {
     _notifyParent();
   }
 
-  void _updateSelected(LayerSimpleSymbolData value) {
+  void _updateSelected(GeoLayersDataSimple value) {
     if (_selectedLayer == null) return;
 
     _layers[_selectedIndex] = value.copyWith(

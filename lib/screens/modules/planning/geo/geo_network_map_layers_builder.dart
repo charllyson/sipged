@@ -6,6 +6,8 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shape_painter.dart';
 
@@ -131,7 +133,7 @@ class GeoNetworkMapLayersBuilder {
       if (draftPolygon == null || draftPolygon.isEmpty) continue;
 
       final layer = layersById[layerId];
-      final symbols = (layer?.effectiveSymbolLayers ?? const <LayerSimpleSymbolData>[])
+      final symbols = (layer?.effectiveSymbolLayers ?? const <GeoLayersDataSimple>[])
           .where((e) => e.enabled)
           .toList(growable: false);
 
@@ -305,7 +307,7 @@ class GeoNetworkMapLayersBuilder {
       final draftLine = temporaryLineLayers[layerId];
       if (draftLine != null && draftLine.length >= 2) {
         final layer = layersById[layerId];
-        final symbols = (layer?.effectiveSymbolLayers ?? const <LayerSimpleSymbolData>[])
+        final symbols = (layer?.effectiveSymbolLayers ?? const <GeoLayersDataSimple>[])
             .where((e) => e.enabled)
             .toList(growable: false);
 
@@ -372,7 +374,7 @@ class GeoNetworkMapLayersBuilder {
       final draftPolygon = temporaryPolygonLayers[layerId];
       if (draftPolygon != null && draftPolygon.length >= 2) {
         final layer = layersById[layerId];
-        final symbols = (layer?.effectiveSymbolLayers ?? const <LayerSimpleSymbolData>[])
+        final symbols = (layer?.effectiveSymbolLayers ?? const <GeoLayersDataSimple>[])
             .where((e) => e.enabled)
             .toList(growable: false);
 
@@ -531,7 +533,7 @@ class GeoNetworkMapLayersBuilder {
       final points = temporaryPointLayers[layerId];
       if (points != null && points.isNotEmpty) {
         final layer = layersById[layerId];
-        final symbols = (layer?.effectiveSymbolLayers ?? const <LayerSimpleSymbolData>[])
+        final symbols = (layer?.effectiveSymbolLayers ?? const <GeoLayersDataSimple>[])
             .where((e) => e.enabled)
             .toList(growable: false);
 
@@ -657,7 +659,7 @@ class GeoNetworkMapLayersBuilder {
     return out;
   }
 
-  static List<LayerSimpleSymbolData> resolveSymbolsForFeature({
+  static List<GeoLayersDataSimple> resolveSymbolsForFeature({
     required GeoLayersData? layer,
     required GeoFeatureData feature,
     required double zoom,
@@ -686,7 +688,7 @@ class GeoNetworkMapLayersBuilder {
   }
 
   static bool _matchesRule(
-      LayerRuleData rule,
+      GeoLayersDataRule rule,
       Map<String, dynamic> properties,
       ) {
     final field = rule.field.trim();
@@ -723,7 +725,7 @@ class GeoNetworkMapLayersBuilder {
   }
 
   static Widget buildSymbolWidget({
-    required LayerSimpleSymbolData symbol,
+    required GeoLayersDataSimple symbol,
     required bool isSelected,
   }) {
     if (symbol.family != LayerSymbolFamily.point) {
@@ -764,7 +766,7 @@ class GeoNetworkMapLayersBuilder {
   }
 
   static fm.StrokePattern _resolveFlutterStrokePattern({
-    required LayerSimpleSymbolData symbol,
+    required GeoLayersDataSimple symbol,
     required double zoom,
     required double scaledStrokeWidth,
   }) {

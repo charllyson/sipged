@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/rules/rule_symbology.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/single/single_symbology.dart';
 import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
@@ -7,13 +9,13 @@ import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 class MenuSymbology extends StatefulWidget {
   final LayerGeometryKind geometryKind;
   final LayerRendererType rendererType;
-  final List<LayerSimpleSymbolData> symbolLayers;
-  final List<LayerRuleData> ruleBasedSymbols;
+  final List<GeoLayersDataSimple> symbolLayers;
+  final List<GeoLayersDataRule> ruleBasedSymbols;
   final List<String> availableRuleFields;
 
   final ValueChanged<LayerRendererType> onRendererTypeChanged;
-  final ValueChanged<List<LayerSimpleSymbolData>> onSymbolLayersChanged;
-  final ValueChanged<List<LayerRuleData>> onRuleBasedSymbolsChanged;
+  final ValueChanged<List<GeoLayersDataSimple>> onSymbolLayersChanged;
+  final ValueChanged<List<GeoLayersDataRule>> onRuleBasedSymbolsChanged;
 
   const MenuSymbology({
     super.key,

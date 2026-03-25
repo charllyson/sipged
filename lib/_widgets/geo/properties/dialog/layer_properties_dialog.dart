@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_placeholder_menu.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_menu.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_types.dart';
@@ -94,8 +96,8 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
   late final TextEditingController _nameController;
 
   late LayerRendererType _rendererType;
-  late List<LayerSimpleSymbolData> _symbolLayers;
-  late List<LayerRuleData> _ruleBasedSymbols;
+  late List<GeoLayersDataSimple> _symbolLayers;
+  late List<GeoLayersDataRule> _ruleBasedSymbols;
 
   LayerPropertiesTab _selectedTab = LayerPropertiesTab.general;
 
@@ -119,8 +121,8 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
 
   void _syncFromCurrent(GeoLayersData current) {
     _rendererType = current.rendererType;
-    _symbolLayers = List<LayerSimpleSymbolData>.from(current.symbolLayers);
-    _ruleBasedSymbols = List<LayerRuleData>.from(current.ruleBasedSymbols);
+    _symbolLayers = List<GeoLayersDataSimple>.from(current.symbolLayers);
+    _ruleBasedSymbols = List<GeoLayersDataRule>.from(current.ruleBasedSymbols);
   }
 
   @override
@@ -129,7 +131,7 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
     super.dispose();
   }
 
-  int _resolveColorValue(LayerSimpleSymbolData? firstSymbol) {
+  int _resolveColorValue(GeoLayersDataSimple? firstSymbol) {
     if (widget.current.geometryKind == LayerGeometryKind.line) {
       return firstSymbol?.strokeColorValue ?? widget.current.colorValue;
     }

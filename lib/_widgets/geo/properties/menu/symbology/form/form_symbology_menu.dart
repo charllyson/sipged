@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/draw/colors/colors_change_catalog.dart';
 import 'package:sipged/_widgets/draw/icons/icon_picker_grid.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
@@ -10,8 +11,8 @@ import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 
 class FormSymbologyMenu extends StatefulWidget {
   final LayerGeometryKind geometryKind;
-  final LayerSimpleSymbolData symbol;
-  final ValueChanged<LayerSimpleSymbolData> onChanged;
+  final GeoLayersDataSimple symbol;
+  final ValueChanged<GeoLayersDataSimple> onChanged;
 
   const FormSymbologyMenu({
     super.key,
@@ -25,7 +26,7 @@ class FormSymbologyMenu extends StatefulWidget {
 }
 
 class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
-  late LayerSimpleSymbolData _local;
+  late GeoLayersDataSimple _local;
   late final TextEditingController _symbolTypeCtrl;
   late final TextEditingController _strokePatternCtrl;
   late final TextEditingController _dashArrayCtrl;
@@ -93,7 +94,7 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
     return LayerSymbolFamily.point;
   }
 
-  void _emit(LayerSimpleSymbolData value) {
+  void _emit(GeoLayersDataSimple value) {
     final normalized = value.copyWith(family: _family);
 
     _local = normalized;

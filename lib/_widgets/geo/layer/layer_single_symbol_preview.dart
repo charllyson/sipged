@@ -2,11 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shape_painter.dart';
 
 class DrawerSingleSymbolPreview extends StatelessWidget {
-  final LayerSimpleSymbolData symbol;
+  final GeoLayersDataSimple symbol;
   final bool isSelected;
   final bool isActive;
 

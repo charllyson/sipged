@@ -2,12 +2,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shape_painter.dart';
 
 class FormSymbologyPreview extends StatelessWidget {
   final LayerGeometryKind geometryKind;
-  final LayerSimpleSymbolData symbol;
+  final GeoLayersDataSimple symbol;
 
   const FormSymbologyPreview({
     super.key,
@@ -95,7 +96,7 @@ class FormSymbologyPreview extends StatelessWidget {
 }
 
 class _MiniLinePreviewPainter extends CustomPainter {
-  final LayerSimpleSymbolData symbol;
+  final GeoLayersDataSimple symbol;
 
   const _MiniLinePreviewPainter(this.symbol);
 
@@ -167,7 +168,7 @@ class _MiniLinePreviewPainter extends CustomPainter {
 }
 
 class _MiniPolygonPreviewPainter extends CustomPainter {
-  final LayerSimpleSymbolData symbol;
+  final GeoLayersDataSimple symbol;
 
   const _MiniPolygonPreviewPainter(this.symbol);
 

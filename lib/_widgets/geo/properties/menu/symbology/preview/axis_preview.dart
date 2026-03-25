@@ -3,12 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shape_painter.dart';
 
 class AxisPreview extends StatelessWidget {
   final LayerGeometryKind geometryKind;
-  final List<LayerSimpleSymbolData> layers;
+  final List<GeoLayersDataSimple> layers;
 
   const AxisPreview({
     super.key,
@@ -31,7 +32,7 @@ class AxisPreview extends StatelessWidget {
 
 class AxisPreviewCanvas extends StatelessWidget {
   final LayerGeometryKind geometryKind;
-  final List<LayerSimpleSymbolData> layers;
+  final List<GeoLayersDataSimple> layers;
   final Color backgroundColor;
   final EdgeInsets padding;
   final bool showAxes;
@@ -62,7 +63,7 @@ class AxisPreviewCanvas extends StatelessWidget {
             willChange: false,
             painter: AxisPreviewPainter(
               geometryKind: geometryKind,
-              layers: List<LayerSimpleSymbolData>.unmodifiable(layers),
+              layers: List<GeoLayersDataSimple>.unmodifiable(layers),
               showAxes: showAxes,
             ),
             size: Size.infinite,
@@ -75,7 +76,7 @@ class AxisPreviewCanvas extends StatelessWidget {
 
 class AxisPreviewPainter extends CustomPainter {
   final LayerGeometryKind geometryKind;
-  final List<LayerSimpleSymbolData> layers;
+  final List<GeoLayersDataSimple> layers;
   final bool showAxes;
 
   const AxisPreviewPainter({
@@ -130,7 +131,7 @@ class AxisPreviewPainter extends CustomPainter {
     canvas.restore();
   }
 
-  double _computeFitScale(Size size, List<LayerSimpleSymbolData> visibleLayers) {
+  double _computeFitScale(Size size, List<GeoLayersDataSimple> visibleLayers) {
     switch (geometryKind) {
       case LayerGeometryKind.line:
         return _computeLineFitScale(size, visibleLayers);
@@ -143,7 +144,7 @@ class AxisPreviewPainter extends CustomPainter {
     }
   }
 
-  double _computePointFitScale(Size size, List<LayerSimpleSymbolData> visibleLayers) {
+  double _computePointFitScale(Size size, List<GeoLayersDataSimple> visibleLayers) {
     double maxW = 0;
     double maxH = 0;
 
@@ -165,7 +166,7 @@ class AxisPreviewPainter extends CustomPainter {
     return math.min(1.0, math.min(scaleX, scaleY));
   }
 
-  double _computeLineFitScale(Size size, List<LayerSimpleSymbolData> visibleLayers) {
+  double _computeLineFitScale(Size size, List<GeoLayersDataSimple> visibleLayers) {
     const baseHalf = _baseLineHalf;
 
     double minX = -baseHalf;
@@ -192,7 +193,7 @@ class AxisPreviewPainter extends CustomPainter {
     return math.min(1.0, math.min(scaleX, scaleY));
   }
 
-  double _computePolygonFitScale(Size size, List<LayerSimpleSymbolData> visibleLayers) {
+  double _computePolygonFitScale(Size size, List<GeoLayersDataSimple> visibleLayers) {
     const baseW = _basePolygonWidth;
     const baseH = _basePolygonHeight;
 
@@ -214,7 +215,7 @@ class AxisPreviewPainter extends CustomPainter {
       Canvas canvas,
       Size size,
       Offset center,
-      LayerSimpleSymbolData layer,
+      GeoLayersDataSimple layer,
       ) {
     switch (geometryKind) {
       case LayerGeometryKind.line:
@@ -234,7 +235,7 @@ class AxisPreviewPainter extends CustomPainter {
   void _drawPointPreview(
       Canvas canvas,
       Offset center,
-      LayerSimpleSymbolData layer,
+      GeoLayersDataSimple layer,
       ) {
     if (layer.type == LayerSimpleSymbolType.svgMarker) {
       final iconData = IconsCatalog.iconFor(layer.iconKey);
@@ -291,7 +292,7 @@ class AxisPreviewPainter extends CustomPainter {
   void _drawLinePreview(
       Canvas canvas,
       Offset center,
-      LayerSimpleSymbolData layer,
+      GeoLayersDataSimple layer,
       ) {
     final paint = Paint()
       ..color = layer.strokeColor
@@ -323,7 +324,7 @@ class AxisPreviewPainter extends CustomPainter {
   void _drawPolygonPreview(
       Canvas canvas,
       Offset center,
-      LayerSimpleSymbolData layer,
+      GeoLayersDataSimple layer,
       ) {
     final fillPaint = Paint()
       ..color = layer.fillColor.withValues(alpha: 0.55)

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/buttons/geo_action_button.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/form/form_symbology_layers.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/preview/axis_preview.dart';
 
 class SingleListPanel extends StatelessWidget {
   final LayerGeometryKind geometryKind;
-  final List<LayerSimpleSymbolData> layers;
+  final List<GeoLayersDataSimple> layers;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback? onAdd;

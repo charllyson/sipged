@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/single/single_symbology.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 
 class RuleDetails extends StatefulWidget {
   final LayerGeometryKind geometryKind;
-  final LayerRuleData rule;
+  final GeoLayersDataRule rule;
   final List<String> availableFields;
   final String Function(LayerRuleOperator op) operatorLabel;
   final LayerRuleOperator Function(String? label) operatorFromLabel;
-  final ValueChanged<LayerRuleData> onChanged;
+  final ValueChanged<GeoLayersDataRule> onChanged;
 
   const RuleDetails({
     super.key,
@@ -75,7 +76,7 @@ class _RuleDetailsState extends State<RuleDetails> {
     super.dispose();
   }
 
-  void _emit(LayerRuleData value) {
+  void _emit(GeoLayersDataRule value) {
     widget.onChanged(value);
   }
 

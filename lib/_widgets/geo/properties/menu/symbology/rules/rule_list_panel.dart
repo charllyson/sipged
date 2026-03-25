@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
 import 'package:sipged/_widgets/buttons/geo_action_button.dart';
 
 class RuleListPanel extends StatelessWidget {
-  final List<LayerRuleData> rules;
+  final List<GeoLayersDataRule> rules;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback? onAdd;
@@ -22,7 +23,7 @@ class RuleListPanel extends StatelessWidget {
     required this.operatorLabel,
   });
 
-  String _ruleText(LayerRuleData rule) {
+  String _ruleText(GeoLayersDataRule rule) {
     if (rule.field.trim().isEmpty) return '(sem filtro)';
 
     if (rule.operatorType == LayerRuleOperator.isEmpty ||

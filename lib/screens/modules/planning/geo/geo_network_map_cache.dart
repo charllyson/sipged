@@ -1,6 +1,8 @@
 import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 
 class GeoNetworkMapCache {
   GeoNetworkMapCache._();
@@ -47,7 +49,7 @@ class GeoNetworkMapCache {
     ]);
   }
 
-  static int symbolVisualSignature(LayerSimpleSymbolData symbol) {
+  static int symbolVisualSignature(GeoLayersDataSimple symbol) {
     return Object.hashAll([
       symbol.id,
       symbol.family,
@@ -68,7 +70,7 @@ class GeoNetworkMapCache {
     ]);
   }
 
-  static int ruleVisualSignature(LayerRuleData rule) {
+  static int ruleVisualSignature(GeoLayersDataRule rule) {
     return Object.hashAll([
       rule.id,
       rule.label,

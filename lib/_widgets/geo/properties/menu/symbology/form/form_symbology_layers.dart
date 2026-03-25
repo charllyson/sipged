@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/draw/shapes/shapes_change_catalog.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/form/form_symbology_preview.dart';
 
 class FormSymbologyLayers extends StatelessWidget {
   final LayerGeometryKind geometryKind;
-  final List<LayerSimpleSymbolData> layers;
+  final List<GeoLayersDataSimple> layers;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
 
@@ -17,7 +18,7 @@ class FormSymbologyLayers extends StatelessWidget {
     required this.onSelect,
   });
 
-  String _labelForLayer(LayerSimpleSymbolData layer, int index) {
+  String _labelForLayer(GeoLayersDataSimple layer, int index) {
     switch (geometryKind) {
       case LayerGeometryKind.line:
         return 'Linha ${index + 1}';

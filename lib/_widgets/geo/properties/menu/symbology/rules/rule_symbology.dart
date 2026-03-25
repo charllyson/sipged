@@ -1,14 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/rules/rule_details.dart';
 import 'package:sipged/_widgets/geo/properties/menu/symbology/rules/rule_list_panel.dart';
 
 class RuleSymbology extends StatefulWidget {
   final LayerGeometryKind geometryKind;
-  final List<LayerRuleData> rules;
+  final List<GeoLayersDataRule> rules;
   final List<String> availableFields;
-  final ValueChanged<List<LayerRuleData>> onChanged;
+  final ValueChanged<List<GeoLayersDataRule>> onChanged;
 
   const RuleSymbology({
     super.key,
@@ -23,13 +25,13 @@ class RuleSymbology extends StatefulWidget {
 }
 
 class _RuleSymbologyState extends State<RuleSymbology> {
-  late List<LayerRuleData> _rules;
+  late List<GeoLayersDataRule> _rules;
   int _selectedRuleIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _rules = List<LayerRuleData>.from(widget.rules);
+    _rules = List<GeoLayersDataRule>.from(widget.rules);
     _normalizeSelection();
   }
 
@@ -37,7 +39,7 @@ class _RuleSymbologyState extends State<RuleSymbology> {
   void didUpdateWidget(covariant RuleSymbology oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!listEquals(oldWidget.rules, widget.rules)) {
-      _rules = List<LayerRuleData>.from(widget.rules);
+      _rules = List<GeoLayersDataRule>.from(widget.rules);
       _normalizeSelection();
     }
   }
@@ -54,10 +56,10 @@ class _RuleSymbologyState extends State<RuleSymbology> {
   }
 
   void _notifyParent() {
-    widget.onChanged(List<LayerRuleData>.unmodifiable(_rules));
+    widget.onChanged(List<GeoLayersDataRule>.unmodifiable(_rules));
   }
 
-  LayerRuleData? get _selectedRule {
+  GeoLayersDataRule? get _selectedRule {
     if (_rules.isEmpty) return null;
     return _rules[_selectedRuleIndex];
   }
@@ -81,12 +83,12 @@ class _RuleSymbologyState extends State<RuleSymbology> {
     widget.availableFields.isNotEmpty ? widget.availableFields.first : '';
 
     _rules.add(
-      LayerRuleData(
+      GeoLayersDataRule(
         id: 'rule_$now',
         label: 'Nova regra ${_rules.length + 1}',
         field: defaultField,
         symbolLayers: [
-          LayerSimpleSymbolData(
+          GeoLayersDataSimple(
             id: 'symbol_$now',
             family: _familyFromGeometry(),
           ),
@@ -134,7 +136,7 @@ class _RuleSymbologyState extends State<RuleSymbology> {
     _notifyParent();
   }
 
-  void _updateSelectedRule(LayerRuleData value) {
+  void _updateSelectedRule(GeoLayersDataRule value) {
     if (_selectedRule == null) return;
     _rules[_selectedRuleIndex] = value;
     _notifyParent();

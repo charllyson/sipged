@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 
 class GeoLayersRepository {
   GeoLayersRepository({
@@ -135,7 +137,7 @@ class GeoLayersRepository {
     return true;
   }
 
-  bool _isSameSymbol(LayerSimpleSymbolData a, LayerSimpleSymbolData b) {
+  bool _isSameSymbol(GeoLayersDataSimple a, GeoLayersDataSimple b) {
     if (a.id != b.id ||
         a.family != b.family ||
         a.type != b.type ||
@@ -168,7 +170,7 @@ class GeoLayersRepository {
     return true;
   }
 
-  bool _isSameRule(LayerRuleData a, LayerRuleData b) {
+  bool _isSameRule(GeoLayersDataRule a, GeoLayersDataRule b) {
     if (a.id != b.id ||
         a.label != b.label ||
         a.enabled != b.enabled ||
