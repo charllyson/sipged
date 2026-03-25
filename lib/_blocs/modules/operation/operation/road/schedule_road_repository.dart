@@ -1,31 +1,43 @@
+import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_style.dart';
-import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
 
 class ScheduleRoadRepository {
-  ScheduleRoadRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
+  ScheduleRoadRepository({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _storage = storage ?? FirebaseStorage.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
-  // ---------------- Cache in-memory ----------------
   final Map<String, List<ScheduleRoadData>> _execCache = {};
+  final Map<String, List<ScheduleRoadData>> _servicesCache = {};
+  final Map<String, Map<String, double>> _totalsCache = {};
+  final Map<String, List<ScheduleLaneClass>> _lanesCache = {};
+  final Map<String, ({List<int> periods, Map<String, List<double>> grid})>
+  _physfinCache = {};
+  final Map<String, ScheduleRoadData?> _geometryCache = {};
 
   void clearContractCache(String contractId) {
     _execCache.removeWhere((k, _) => k.startsWith('$contractId|'));
+    _servicesCache.remove(contractId);
+    _totalsCache.remove(contractId);
+    _lanesCache.remove(contractId);
+    _physfinCache.remove(contractId);
+    _geometryCache.remove(contractId);
   }
 
   String _slug(String s) =>
@@ -36,24 +48,23 @@ class ScheduleRoadRepository {
   CollectionReference<Map<String, dynamic>> _contractCol(
       String contractId,
       String collection,
-      ) =>
-      _firestore
-          .collection('contracts')
-          .doc(contractId)
-          .collection(collection);
+      ) {
+    return _firestore.collection('contracts').doc(contractId).collection(collection);
+  }
 
   Reference _photosFolderRef({
     required String contractId,
     required String serviceKey,
     required int estaca,
     required int faixaIndex,
-  }) =>
-      _storage.ref(
-        'contracts/$contractId/schedules/${_slug(serviceKey)}/${estaca}_$faixaIndex',
-      );
+  }) {
+    return _storage.ref(
+      'contracts/$contractId/schedules/${_slug(serviceKey)}/${estaca}_$faixaIndex',
+    );
+  }
 
   String _sanitizeName(String name) =>
-      name.replaceAll(RegExp(r'[^a-zA-Z0-9\\._-]'), '_');
+      name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
 
   String _guessContentType(String name, [String fallback = 'image/jpeg']) {
     final lower = name.toLowerCase();
@@ -66,15 +77,18 @@ class ScheduleRoadRepository {
     return fallback;
   }
 
-  // ---------------- Helpers orçamento ----------------
-
   DocumentReference<Map<String, dynamic>> _budgetMetaRef(String contractId) =>
+      _firestore.collection('contracts').doc(contractId).collection('budget').doc('meta');
+
+  DocumentReference<Map<String, dynamic>> _physFinDoc(String contractId) =>
       _firestore
           .collection('contracts')
           .doc(contractId)
-          .collection('budget')
-          .doc('meta');
+          .collection('schedule_meta')
+          .doc('physfin_grid');
 
+  CollectionReference<Map<String, dynamic>> get _planningProjects =>
+      _firestore.collection('planning_projects');
 
   int _findTotalColumnIndex(List<String> headers) {
     int ix = headers.indexWhere((h) {
@@ -97,31 +111,136 @@ class ScheduleRoadRepository {
     return double.tryParse(s) ?? 0.0;
   }
 
-  // ---------------- Serviços (meta) ----------------
+  String _canonStatus(String? raw) {
+    var s = (raw ?? '').toLowerCase().trim();
+    s = s
+        .replaceAll('á', 'a')
+        .replaceAll('à', 'a')
+        .replaceAll('â', 'a')
+        .replaceAll('ã', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('ê', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ô', 'o')
+        .replaceAll('õ', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ç', 'c')
+        .replaceAll(RegExp(r'[\s\-_]+'), ' ');
+
+    if (s.contains('conclu')) return 'concluido';
+    if (s.contains('andament') || s.contains('progress')) return 'em_andamento';
+    if (s.contains('iniciar') || s.contains('todo')) return 'a_iniciar';
+    return 'a_iniciar';
+  }
+
+  String _normalizeStatus(String status) {
+    switch (_canonStatus(status)) {
+      case 'concluido':
+        return 'concluido';
+      case 'em_andamento':
+        return 'em_andamento';
+      default:
+        return 'a_iniciar';
+    }
+  }
+
+  List<List<LatLng>> _parseMulti(dynamic g) {
+    if (g is! List) return const <List<LatLng>>[];
+
+    final out = <List<LatLng>>[];
+    for (final seg in g) {
+      if (seg is! List) continue;
+
+      final line = <LatLng>[];
+      for (final p in seg) {
+        if (p is List && p.length >= 2) {
+          final lon = (p[0] as num?)?.toDouble();
+          final lat = (p[1] as num?)?.toDouble();
+          if (lat != null && lon != null) {
+            line.add(LatLng(lat, lon));
+          }
+        } else if (p is Map) {
+          final lat = (p['lat'] ?? p['latitude']) as num?;
+          final lon = (p['lng'] ?? p['longitude']) as num?;
+          if (lat != null && lon != null) {
+            line.add(LatLng(lat.toDouble(), lon.toDouble()));
+          }
+        } else if (p is GeoPoint) {
+          line.add(LatLng(p.latitude, p.longitude));
+        }
+      }
+
+      if (line.isNotEmpty) out.add(line);
+    }
+
+    return out;
+  }
+
+  List<LatLng> _parsePoints(dynamic v) {
+    if (v is! List) return const <LatLng>[];
+
+    final out = <LatLng>[];
+    for (final p in v) {
+      if (p is GeoPoint) {
+        out.add(LatLng(p.latitude, p.longitude));
+      } else if (p is List && p.length >= 2) {
+        final lon = (p[0] as num?)?.toDouble();
+        final lat = (p[1] as num?)?.toDouble();
+        if (lat != null && lon != null) {
+          out.add(LatLng(lat, lon));
+        }
+      } else if (p is Map) {
+        final lat = (p['lat'] ?? p['latitude']) as num?;
+        final lon = (p['lng'] ?? p['longitude']) as num?;
+        if (lat != null && lon != null) {
+          out.add(LatLng(lat.toDouble(), lon.toDouble()));
+        }
+      }
+    }
+
+    return out;
+  }
+
+  List<List<dynamic>>? _toMultiList(List<List<LatLng>>? ml) {
+    if (ml == null) return null;
+    return ml
+        .map((seg) => seg.map((p) => <double>[p.longitude, p.latitude]).toList())
+        .toList(growable: false);
+  }
+
+  List<dynamic>? _toPoints(List<LatLng>? pts) {
+    if (pts == null) return null;
+    return pts
+        .map((p) => <String, double>{
+      'latitude': p.latitude,
+      'longitude': p.longitude,
+    })
+        .toList(growable: false);
+  }
+
   Future<List<ScheduleRoadData>> loadAvailableServicesFromBudget(
       String contractId,
       ) async {
+    final cached = _servicesCache[contractId];
+    if (cached != null) return cached;
+
     final List<ScheduleRoadData> services = <ScheduleRoadData>[
-      const ScheduleRoadData(
-        numero: 0,
-        faixaIndex: 0,
-        key: 'geral',
-        label: 'GERAL',
-        icon: Icons.clear_all,
-        color: Colors.grey,
-      ),
+      ScheduleRoadData.emptyGeral,
     ];
 
     try {
       final metaRef = _budgetMetaRef(contractId);
       final metaSnap = await metaRef.get();
-      if (!metaSnap.exists) return services;
+      if (!metaSnap.exists) {
+        _servicesCache[contractId] = List.unmodifiable(services);
+        return _servicesCache[contractId]!;
+      }
 
       final data = metaSnap.data()!;
       final activeId = (data['activeWriteId'] as String?) ?? '';
 
-      QuerySnapshot<Map<String, dynamic>> groupsSnap;
-
+      late final QuerySnapshot<Map<String, dynamic>> groupsSnap;
       if (activeId.isNotEmpty) {
         groupsSnap = await metaRef
             .collection('rows_v')
@@ -151,33 +270,31 @@ class ScheduleRoadRepository {
           ),
         );
       }
-    } catch (_) {
-      // mantém GERAL
-    }
-    return services;
+    } catch (_) {}
+
+    final frozen = List<ScheduleRoadData>.unmodifiable(services);
+    _servicesCache[contractId] = frozen;
+    return frozen;
   }
 
-  /// Soma o valor TOTAL (coluna de total) de todos os itens dentro de cada grupo.
-  /// Retorna um map: serviceKey -> soma em double.
-  Future<Map<String, double>> fetchBudgetServiceTotals(
-      String contractId,
-      ) async {
+  Future<Map<String, double>> fetchBudgetServiceTotals(String contractId) async {
+    final cached = _totalsCache[contractId];
+    if (cached != null) return cached;
+
     final metaRef = _budgetMetaRef(contractId);
     final metaSnap = await metaRef.get();
-    if (!metaSnap.exists) return const {};
+    if (!metaSnap.exists) return const <String, double>{};
 
     final meta = metaSnap.data()!;
     final headers = (meta['headers'] as List? ?? const [])
         .map((e) => (e ?? '').toString())
-        .toList();
+        .toList(growable: false);
+
     final totalCol = _findTotalColumnIndex(headers);
     final activeId = (meta['activeWriteId'] as String?) ?? '';
-
     final out = <String, double>{};
 
-    Future<void> sumForGroups(
-        QuerySnapshot<Map<String, dynamic>> groups,
-        ) async {
+    Future<void> sumForGroups(QuerySnapshot<Map<String, dynamic>> groups) async {
       for (final g in groups.docs) {
         final gData = g.data();
         final title = (gData['title'] ?? '').toString().trim();
@@ -194,6 +311,7 @@ class ScheduleRoadRepository {
           final totalStr = (values[totalCol] ?? '').toString();
           sum += _parseBRL(totalStr);
         }
+
         out[key] = sum;
       }
     }
@@ -211,18 +329,16 @@ class ScheduleRoadRepository {
       await sumForGroups(groups);
     }
 
-    return out;
+    final frozen = Map<String, double>.unmodifiable(out);
+    _totalsCache[contractId] = frozen;
+    return frozen;
   }
 
-  // ---------------- Faixas ----------------
-  Future<void> saveFaixas(
-      String contractId,
-      List<ScheduleLaneClass> rows,
-      ) async {
-    final positions = rows.map((r) => r.pos).toList();
-    final names = rows.map((r) => r.nome).toList();
-    final alturas = rows.map((r) => r.altura).toList();
-    final allowed = rows.map((r) => r.allowedByService).toList();
+  Future<void> saveFaixas(String contractId, List<ScheduleLaneClass> rows) async {
+    final positions = rows.map((r) => r.pos).toList(growable: false);
+    final names = rows.map((r) => r.nome).toList(growable: false);
+    final alturas = rows.map((r) => r.altura).toList(growable: false);
+    final allowed = rows.map((r) => r.allowedByService).toList(growable: false);
 
     await _firestore
         .collection('contracts')
@@ -237,10 +353,14 @@ class ScheduleRoadRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
+    _lanesCache.remove(contractId);
     clearContractCache(contractId);
   }
 
   Future<List<ScheduleLaneClass>> loadFaixas(String contractId) async {
+    final cached = _lanesCache[contractId];
+    if (cached != null) return cached;
+
     final doc = await _firestore
         .collection('contracts')
         .doc(contractId)
@@ -248,51 +368,57 @@ class ScheduleRoadRepository {
         .doc('lanes')
         .get();
 
-    if (!doc.exists) return <ScheduleLaneClass>[];
+    if (!doc.exists) return const <ScheduleLaneClass>[];
 
-    final data = doc.data() ?? <String, dynamic>{};
-    if (data.isEmpty) return <ScheduleLaneClass>[];
+    final data = doc.data() ?? const <String, dynamic>{};
+    if (data.isEmpty) return const <ScheduleLaneClass>[];
 
     final positions = (data['lane_positions'] as List?)
         ?.map((e) => e?.toString() ?? '')
-        .toList() ??
-        <String>[];
-    final names =
-        (data['lane_names'] as List?)?.map((e) => e?.toString() ?? '').toList() ??
-            <String>[];
+        .toList(growable: false) ??
+        const <String>[];
+
+    final names = (data['lane_names'] as List?)
+        ?.map((e) => e?.toString() ?? '')
+        .toList(growable: false) ??
+        const <String>[];
+
     final alturas = (data['lane_alturas'] as List?)
         ?.map((e) => (e is num) ? e.toDouble() : 20.0)
-        .toList() ??
-        <double>[];
-    final rawAllowed =
-        (data['lane_allowed_by_service'] as List?) ?? const <dynamic>[];
+        .toList(growable: false) ??
+        const <double>[];
 
-    if (positions.isEmpty ||
-        names.isEmpty ||
-        positions.length != names.length) {
-      return <ScheduleLaneClass>[];
+    final rawAllowed = (data['lane_allowed_by_service'] as List?) ?? const <dynamic>[];
+
+    if (positions.isEmpty || names.isEmpty || positions.length != names.length) {
+      return const <ScheduleLaneClass>[];
     }
 
     final rows = <ScheduleLaneClass>[];
     for (var i = 0; i < names.length; i++) {
       final alt = i < alturas.length ? alturas[i] : 20.0;
 
-      Map<String, bool> allowedByService = const {};
+      Map<String, bool> allowedByService = const <String, bool>{};
       if (i < rawAllowed.length && rawAllowed[i] is Map) {
         final m = Map<String, dynamic>.from(rawAllowed[i] as Map);
-        allowedByService = {
-          for (final k in m.keys) k.toString().toLowerCase(): (m[k] == true),
+        allowedByService = <String, bool>{
+          for (final k in m.keys) k.toString().toLowerCase(): m[k] == true,
         };
       }
 
-      rows.add(ScheduleLaneClass(
-        pos: positions[i],
-        nome: names[i],
-        altura: alt,
-        allowedByService: allowedByService,
-      ));
+      rows.add(
+        ScheduleLaneClass(
+          pos: positions[i],
+          nome: names[i],
+          altura: alt,
+          allowedByService: allowedByService,
+        ),
+      );
     }
-    return rows;
+
+    final frozen = List<ScheduleLaneClass>.unmodifiable(rows);
+    _lanesCache[contractId] = frozen;
+    return frozen;
   }
 
   Future<void> ensureDefaultLaneIfMissing(String contractId) async {
@@ -305,17 +431,17 @@ class ScheduleRoadRepository {
         .collection('schedule_meta')
         .doc('lanes')
         .set({
-      'lane_positions': ['EIXO'],
-      'lane_names': ['FAIXA ÚNICA'],
-      'lane_alturas': [20.0],
-      'lane_allowed_by_service': [<String, bool>{}],
+      'lane_positions': const <String>['EIXO'],
+      'lane_names': const <String>['FAIXA ÚNICA'],
+      'lane_alturas': const <double>[20.0],
+      'lane_allowed_by_service': const <Map<String, bool>>[<String, bool>{}],
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
+    _lanesCache.remove(contractId);
     clearContractCache(contractId);
   }
 
-  // ---------------- Execuções (fetch + cache) ----------------
   Future<List<ScheduleRoadData>> fetchExecucoes({
     required String contractId,
     required String selectedServiceKey,
@@ -326,33 +452,33 @@ class ScheduleRoadRepository {
     final cached = _execCache[cacheKey];
     if (cached != null) return cached;
 
-    final results = <ScheduleRoadData>[];
-
     ScheduleRoadData fromDoc(
         Map<String, dynamic> m, {
           ScheduleRoadData? meta,
         }) {
       final rawCreated = m['createdAt'];
       final rawUpdated = m['updatedAt'];
-      final createdAt =
-      (rawCreated is Timestamp) ? rawCreated.toDate() : rawCreated;
-      final updatedAt =
-      (rawUpdated is Timestamp) ? rawUpdated.toDate() : rawUpdated;
 
-      final fotos = List<String>.from(m['fotos'] ?? const []);
-      final statusRaw = (m['status'] as String?);
+      final createdAt = rawCreated is Timestamp ? rawCreated.toDate() : rawCreated;
+      final updatedAt = rawUpdated is Timestamp ? rawUpdated.toDate() : rawUpdated;
+
+      final fotos = List<String>.from(m['fotos'] ?? const <String>[]);
+      final statusRaw = m['status'] as String?;
       final status = (statusRaw == null || statusRaw.trim().isEmpty)
           ? (fotos.isNotEmpty ? 'em_andamento' : 'a_iniciar')
           : _canonStatus(statusRaw);
 
-      final normalized = {
+      final normalized = <String, dynamic>{
         ...m,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
         'status': status,
       };
+
       return ScheduleRoadData.fromMap(normalized, meta: meta);
     }
+
+    final results = <ScheduleRoadData>[];
 
     if (selectedServiceKey == 'geral') {
       if (serviceKeysForGeral.isNotEmpty) {
@@ -360,6 +486,7 @@ class ScheduleRoadRepository {
           for (final k in serviceKeysForGeral)
             _contractCol(contractId, _collectionForService(k)).get(),
         ]);
+
         for (final snap in snaps) {
           for (final d in snap.docs) {
             results.add(fromDoc(d.data(), meta: metaForSelected));
@@ -367,8 +494,9 @@ class ScheduleRoadRepository {
         }
       }
     } else {
-      final snap = await _contractCol(contractId, _collectionForService(selectedServiceKey))
-          .get();
+      final snap =
+      await _contractCol(contractId, _collectionForService(selectedServiceKey)).get();
+
       for (final d in snap.docs) {
         results.add(fromDoc(d.data(), meta: metaForSelected));
       }
@@ -380,53 +508,16 @@ class ScheduleRoadRepository {
       final cur = map[key];
       final timeE = e.updatedAt ?? e.createdAt;
       final timeCur = cur?.updatedAt ?? cur?.createdAt;
+
       if (cur == null ||
           (timeE != null && (timeCur == null || timeE.isAfter(timeCur)))) {
         map[key] = e;
       }
     }
-    final list = map.values.toList(growable: false);
+
+    final list = List<ScheduleRoadData>.unmodifiable(map.values);
     _execCache[cacheKey] = list;
     return list;
-  }
-
-  String _canonStatus(String? raw) {
-    var s = (raw ?? '').toLowerCase().trim();
-    s = s
-        .replaceAll('á', 'a')
-        .replaceAll('à', 'a')
-        .replaceAll('â', 'a')
-        .replaceAll('ã', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('ê', 'e')
-        .replaceAll('í', 'i')
-        .replaceAll('ó', 'o')
-        .replaceAll('ô', 'o')
-        .replaceAll('õ', 'o')
-        .replaceAll('ú', 'u')
-        .replaceAll('ç', 'c')
-        .replaceAll(RegExp(r'[\s\-_]+'), ' ');
-    if (s.contains('conclu')) return 'concluido';
-    if (s.contains('andament') || s.contains('progress')) return 'em_andamento';
-    if (s.contains('iniciar') || s.contains('todo')) return 'a_iniciar';
-    return s.isEmpty ? 'a_iniciar' : 'a_iniciar';
-  }
-
-  // ---------------- APPLY ----------------
-
-  String _normalizeStatus(String status) {
-    switch (status.toLowerCase()) {
-      case 'concluido':
-        return 'concluido';
-      case 'em_andamento':
-      case 'em andamento':
-        return 'em_andamento';
-      case 'a_iniciar':
-      case 'a iniciar':
-        return 'a_iniciar';
-      default:
-        return 'a_iniciar';
-    }
   }
 
   Future<List<String>> applySquareChanges({
@@ -446,16 +537,12 @@ class ScheduleRoadRepository {
   }) async {
     if (serviceKey == 'geral') return const <String>[];
 
-    try {
-      final lanes = await loadFaixas(contractId);
-      if (faixaIndex < 0 || faixaIndex >= lanes.length) {
-        throw 'Faixa inválida.';
-      }
-      if (!lanes[faixaIndex].isAllowed(serviceKey)) {
-        throw 'Serviço "$serviceKey" não é aplicável na faixa ${lanes[faixaIndex].label}.';
-      }
-    } catch (_) {
-      rethrow;
+    final lanes = await loadFaixas(contractId);
+    if (faixaIndex < 0 || faixaIndex >= lanes.length) {
+      throw 'Faixa inválida.';
+    }
+    if (!lanes[faixaIndex].isAllowed(serviceKey)) {
+      throw 'Serviço "$serviceKey" não é aplicável na faixa ${lanes[faixaIndex].label}.';
     }
 
     final col = _contractCol(contractId, _collectionForService(serviceKey));
@@ -465,15 +552,12 @@ class ScheduleRoadRepository {
         .limit(1)
         .get();
 
-    final hasComment = (comentario?.trim().isNotEmpty ?? false);
-    final hasPhotos =
-        finalPhotoUrls.isNotEmpty || newFilesBytes.isNotEmpty;
+    final hasComment = comentario?.trim().isNotEmpty ?? false;
+    final hasPhotos = finalPhotoUrls.isNotEmpty || newFilesBytes.isNotEmpty;
 
     var norm = _normalizeStatus(status);
     final takenMs = takenAtForNew?.millisecondsSinceEpoch;
 
-    // 🔴 Regra de conteúdo: se status veio a_iniciar mas tem comentário/foto,
-    // forçamos em_andamento (mínimo > 0% de avanço).
     if (norm == 'a_iniciar' && (hasComment || hasPhotos)) {
       norm = 'em_andamento';
     }
@@ -485,36 +569,42 @@ class ScheduleRoadRepository {
       'status': norm,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      'takenAtMs': ?takenMs,
+      if (takenMs != null) 'takenAtMs': takenMs,
     };
 
     DocumentReference<Map<String, dynamic>>? docRef;
 
-    // Se realmente é "a_iniciar" e não há conteúdo, limpa a célula
     if (norm == 'a_iniciar') {
       if (q.docs.isNotEmpty) {
         try {
           final data = q.docs.first.data();
-          final urls = (data['fotos'] is List)
+          final urls = data['fotos'] is List
               ? List<String>.from(data['fotos'] as List)
               : const <String>[];
+
           for (final u in urls) {
             try {
               await _storage.refFromURL(u).delete();
             } catch (_) {}
           }
         } catch (_) {}
+
         await q.docs.first.reference.delete();
       }
+
       clearContractCache(contractId);
       return const <String>[];
     }
 
     if (q.docs.isNotEmpty) {
       docRef = q.docs.first.reference;
-      final updates = Map<String, dynamic>.from(base)
-        ..['comentario'] =
-        hasComment ? comentario!.trim() : FieldValue.delete();
+
+      final updates = <String, dynamic>{
+        ...base,
+        if (hasComment) 'comentario': comentario!.trim(),
+        if (!hasComment) 'comentario': FieldValue.delete(),
+      };
+
       await docRef.update(updates);
     } else {
       final create = <String, dynamic>{
@@ -536,16 +626,18 @@ class ScheduleRoadRepository {
         estaca: estaca,
         faixaIndex: faixaIndex,
       );
+
       final now = DateTime.now();
       final nowMs = now.millisecondsSinceEpoch;
 
       for (int i = 0; i < newFilesBytes.length; i++) {
-        final suggested =
-        (newFileNames != null && i < newFileNames.length && newFileNames[i].trim().isNotEmpty)
+        final suggested = (newFileNames != null &&
+            i < newFileNames.length &&
+            newFileNames[i].trim().isNotEmpty)
             ? _sanitizeName(newFileNames[i])
             : 'img_${nowMs}_$i.jpg';
 
-        final unique = '$suggested.${DateTime.now().microsecondsSinceEpoch}';
+        final unique = '${DateTime.now().microsecondsSinceEpoch}_$suggested';
         final contentType = _guessContentType(suggested);
         final ref = folder.child(unique);
 
@@ -553,10 +645,11 @@ class ScheduleRoadRepository {
           newFilesBytes[i],
           SettableMetadata(contentType: contentType),
         );
+
         final url = await task.ref.getDownloadURL();
         uploadedUrls.add(url);
 
-        final m = (i < newPhotoMetas.length)
+        final m = i < newPhotoMetas.length
             ? newPhotoMetas[i]
             : const pm.CarouselMetadata();
         final taken = m.takenAt ?? takenAtForNew;
@@ -582,19 +675,21 @@ class ScheduleRoadRepository {
           'fotos_meta': FieldValue.arrayUnion(uploadedMetas),
           'updatedAt': FieldValue.serverTimestamp(),
           'updatedBy': currentUserId,
-          'takenAtMs': ?takenMs,
+          if (takenMs != null) 'takenAtMs': takenMs,
         });
       }
     }
 
     final snap = await docRef.get();
-    final data = snap.data() ?? <String, dynamic>{};
-    final currentUrls = (data['fotos'] is List)
+    final data = snap.data() ?? const <String, dynamic>{};
+
+    final currentUrls = data['fotos'] is List
         ? List<String>.from(data['fotos'] as List)
         : const <String>[];
+
     final removed = currentUrls
         .where((u) => !finalPhotoUrls.contains(u) && !uploadedUrls.contains(u))
-        .toList();
+        .toList(growable: false);
 
     for (final url in removed) {
       try {
@@ -605,38 +700,39 @@ class ScheduleRoadRepository {
     if (removed.isNotEmpty) {
       final rawMetaList =
       (data['fotos_meta'] is List) ? (data['fotos_meta'] as List) : const [];
+
       final metaList = rawMetaList
           .whereType<Object>()
-          .map((e) =>
-      (e is Map) ? Map<String, dynamic>.from(e) : <String, dynamic>{})
+          .map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{})
           .where((m) => m.isNotEmpty)
-          .toList();
+          .toList(growable: false);
 
       final metasToRemove = metaList
           .where((m) => removed.contains(m['url'] as String?))
           .map((m) => Map<String, dynamic>.from(m))
-          .toList();
+          .toList(growable: false);
 
-      final updates = <String, dynamic>{
+      await docRef.update({
         if (removed.isNotEmpty) 'fotos': FieldValue.arrayRemove(removed),
         if (metasToRemove.isNotEmpty)
           'fotos_meta': FieldValue.arrayRemove(metasToRemove),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        'takenAtMs': ?takenMs,
-      };
-      await docRef.update(updates);
+        if (takenMs != null) 'takenAtMs': takenMs,
+      });
     }
 
     final newOrdered = <String>[...finalPhotoUrls, ...uploadedUrls];
+
     if (newOrdered.isEmpty) {
       await docRef.update({
         'fotos': FieldValue.delete(),
         'fotos_meta': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        'takenAtMs': ?takenMs,
+        if (takenMs != null) 'takenAtMs': takenMs,
       });
+
       clearContractCache(contractId);
       return uploadedUrls;
     }
@@ -644,15 +740,16 @@ class ScheduleRoadRepository {
     final metasAll = <Map<String, dynamic>>[];
     try {
       final snap2 = await docRef.get();
-      final d2 = snap2.data() ?? <String, dynamic>{};
+      final d2 = snap2.data() ?? const <String, dynamic>{};
+
       final rawMetaList2 =
       (d2['fotos_meta'] is List) ? (d2['fotos_meta'] as List) : const [];
+
       final metaList2 = rawMetaList2
           .whereType<Object>()
-          .map((e) =>
-      (e is Map) ? Map<String, dynamic>.from(e) : <String, dynamic>{})
+          .map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{})
           .where((m) => m.isNotEmpty)
-          .toList();
+          .toList(growable: false);
 
       final byUrl = <String, Map<String, dynamic>>{};
       for (final m in metaList2) {
@@ -663,13 +760,16 @@ class ScheduleRoadRepository {
       for (final u in newOrdered) {
         final m = byUrl[u];
         metasAll.add(
-          m != null ? Map<String, dynamic>.from(m) : {'url': u, 'name': u.split('/').last},
+          m != null ? Map<String, dynamic>.from(m) : <String, dynamic>{'url': u, 'name': u.split('/').last},
         );
       }
     } catch (_) {
       metasAll.addAll(
         newOrdered.map(
-              (u) => {'url': u, 'name': u.split('/').last},
+              (u) => <String, dynamic>{
+            'url': u,
+            'name': u.split('/').last,
+          },
         ),
       );
     }
@@ -679,71 +779,66 @@ class ScheduleRoadRepository {
       'fotos_meta': metasAll,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      'takenAtMs': ?takenMs,
+      if (takenMs != null) 'takenAtMs': takenMs,
     });
 
     clearContractCache(contractId);
-
     return uploadedUrls;
   }
 
-  // ===================== PHYS/FIN (períodos + percentuais) =====================
-
-  /// Doc: contracts/{cid}/schedule_meta/physfin_grid
-  DocumentReference<Map<String, dynamic>> _physFinDoc(String contractId) =>
-      _firestore
-          .collection('contracts')
-          .doc(contractId)
-          .collection('schedule_meta')
-          .doc('physfin_grid');
-
-  /// Lê períodos e grade de percentuais por serviço (aceita qualquer chave).
   Future<({List<int> periods, Map<String, List<double>> grid})> loadPhysFinGrid(
       String contractId,
       ) async {
-    final doc = await _physFinDoc(contractId).get();
+    final cached = _physfinCache[contractId];
+    if (cached != null) return cached;
 
+    final doc = await _physFinDoc(contractId).get();
     if (!doc.exists) {
-      return (periods: const <int>[], grid: const <String, List<double>>{});
+      const empty = (periods: <int>[], grid: <String, List<double>>{});
+      _physfinCache[contractId] = empty;
+      return empty;
     }
 
     final data = doc.data() ?? const <String, dynamic>{};
 
-    // periods -> List<int>
     final periods = ((data['periods'] as List?) ?? const [])
         .whereType<Object>()
-        .map(
-          (e) => (e is int)
-          ? e
-          : (e is num)
-          ? e.toInt()
-          : int.tryParse(e.toString()) ?? 0,
-    )
+        .map((e) {
+      if (e is int) return e;
+      if (e is num) return e.toInt();
+      return int.tryParse(e.toString()) ?? 0;
+    })
         .toList(growable: false);
 
-    // grid -> Map<String, List<double>>
     final rawGrid = (data['grid'] as Map?) ?? const <String, dynamic>{};
     final grid = <String, List<double>>{};
+
     for (final entry in rawGrid.entries) {
-      final key = entry.key.toString(); // pode ser índice "001" (preferido) ou legado
+      final key = entry.key.toString();
       final lst = (entry.value as List?) ?? const [];
       final values = lst
           .whereType<Object>()
-          .map(
-            (v) => (v is double)
-            ? v
-            : (v is num)
-            ? v.toDouble()
-            : double.tryParse(v.toString()) ?? 0.0,
-      )
+          .map((v) {
+        if (v is double) return v;
+        if (v is num) return v.toDouble();
+        return double.tryParse(v.toString()) ?? 0.0;
+      })
           .toList(growable: false);
+
       grid[key] = values;
     }
 
-    return (periods: periods, grid: grid);
+    final frozen = (
+    periods: List<int>.unmodifiable(periods),
+    grid: Map<String, List<double>>.unmodifiable({
+      for (final e in grid.entries) e.key: List<double>.unmodifiable(e.value),
+    }),
+    );
+
+    _physfinCache[contractId] = frozen;
+    return frozen;
   }
 
-  /// Salva períodos (dias) e grade **por índice** (ITEM).
   Future<void> savePhysFinGrid({
     required String contractId,
     required List<int> periods,
@@ -752,17 +847,22 @@ class ScheduleRoadRepository {
   }) async {
     final nCols = periods.length;
     final normGrid = <String, List<double>>{};
+
     grid.forEach((k, row) {
-      // 👇 mantém a chave exatamente como veio (índice "001", "002"...)
-      final kk = k;
-      final r =
-      List<double>.from(row.map((e) => (e is num) ? e.toDouble() : 0.0));
+      final r = List<double>.from(
+        row.map((e) => e is num ? e.toDouble() : 0.0),
+        growable: false,
+      );
+
       if (r.length > nCols) {
-        normGrid[kk] = r.sublist(0, nCols);
+        normGrid[k] = r.sublist(0, nCols);
       } else if (r.length < nCols) {
-        normGrid[kk] = [...r, ...List<double>.filled(nCols - r.length, 0.0)];
+        normGrid[k] = <double>[
+          ...r,
+          ...List<double>.filled(nCols - r.length, 0.0),
+        ];
       } else {
-        normGrid[kk] = r;
+        normGrid[k] = r;
       }
     });
 
@@ -773,78 +873,22 @@ class ScheduleRoadRepository {
       if (updatedBy != null && updatedBy.isNotEmpty) 'updatedBy': updatedBy,
       'version': 1,
     }, SetOptions(merge: true));
-  }
 
-  // ==================== GEOMETRIA =======================
-  CollectionReference<Map<String, dynamic>> get _planningProjects =>
-      _firestore.collection('planning_projects');
-
-  List<List<LatLng>> _parseMulti(dynamic g) {
-    if (g is! List) return const <List<LatLng>>[];
-    final out = <List<LatLng>>[];
-    for (final seg in g) {
-      if (seg is List) {
-        final line = <LatLng>[];
-        for (final p in seg) {
-          if (p is List && p.length >= 2) {
-            final lon = (p[0] as num?)?.toDouble();
-            final lat = (p[1] as num?)?.toDouble();
-            if (lat != null && lon != null) line.add(LatLng(lat, lon));
-          } else if (p is Map) {
-            final lat = (p['lat'] ?? p['latitude']) as num?;
-            final lon = (p['lng'] ?? p['longitude']) as num?;
-            if (lat != null && lon != null) {
-              line.add(LatLng(lat.toDouble(), lon.toDouble()));
-            }
-          } else if (p is GeoPoint) {
-            line.add(LatLng(p.latitude, p.longitude));
-          }
-        }
-        if (line.isNotEmpty) out.add(line);
-      }
-    }
-    return out;
-  }
-
-  List<LatLng> _parsePoints(dynamic v) {
-    if (v is! List) return const <LatLng>[];
-    final out = <LatLng>[];
-    for (final p in v) {
-      if (p is GeoPoint) {
-        out.add(LatLng(p.latitude, p.longitude));
-      } else if (p is List && p.length >= 2) {
-        final lon = (p[0] as num?)?.toDouble();
-        final lat = (p[1] as num?)?.toDouble();
-        if (lat != null && lon != null) out.add(LatLng(lat, lon));
-      } else if (p is Map) {
-        final lat = (p['lat'] ?? p['latitude']) as num?;
-        final lon = (p['lng'] ?? p['longitude']) as num?;
-        if (lat != null && lon != null) {
-          out.add(LatLng(lat.toDouble(), lon.toDouble()));
-        }
-      }
-    }
-    return out;
-  }
-
-  List<List<dynamic>>? _toMultiList(List<List<LatLng>>? ml) {
-    if (ml == null) return null;
-    return ml
-        .map((seg) => seg.map((p) => [p.longitude, p.latitude]).toList())
-        .toList();
-  }
-
-  List<dynamic>? _toPoints(List<LatLng>? pts) {
-    if (pts == null) return null;
-    return pts
-        .map((p) => {'latitude': p.latitude, 'longitude': p.longitude})
-        .toList();
+    _physfinCache.remove(contractId);
   }
 
   Future<ScheduleRoadData?> fetchProjectGeometry(String contractId) async {
+    if (_geometryCache.containsKey(contractId)) {
+      return _geometryCache[contractId];
+    }
+
     final snap = await _planningProjects.doc(contractId).get();
-    if (!snap.exists) return null;
-    final d = snap.data() ?? <String, dynamic>{};
+    if (!snap.exists) {
+      _geometryCache[contractId] = null;
+      return null;
+    }
+
+    final d = snap.data() ?? const <String, dynamic>{};
 
     final geometryType = (d['geometryType'] ?? '').toString().trim().isEmpty
         ? null
@@ -853,7 +897,7 @@ class ScheduleRoadRepository {
     final multiLine = _parseMulti(d['multiLine']);
     final points = _parsePoints(d['points']);
 
-    return ScheduleRoadData(
+    final result = ScheduleRoadData(
       numero: 0,
       faixaIndex: 0,
       key: 'geral',
@@ -864,10 +908,14 @@ class ScheduleRoadRepository {
       multiLine: multiLine.isEmpty ? null : multiLine,
       points: points.isEmpty ? null : points,
     );
+
+    _geometryCache[contractId] = result;
+    return result;
   }
 
   Future<void> deleteProjectGeometry(String contractId) async {
     await _planningProjects.doc(contractId).delete();
+    _geometryCache.remove(contractId);
   }
 
   Future<ScheduleRoadData> upsertProjectGeometry({
@@ -880,7 +928,7 @@ class ScheduleRoadRepository {
 
     final base = <String, dynamic>{
       'contractId': contractId,
-      'summarySubjectContract': ?summarySubjectContract,
+      if (summarySubjectContract != null) 'summarySubjectContract': summarySubjectContract,
       if (data.geometryType != null) 'geometryType': data.geometryType,
       if (data.multiLine != null) 'multiLine': _toMultiList(data.multiLine),
       if (data.points != null) 'points': _toPoints(data.points),
@@ -896,9 +944,9 @@ class ScheduleRoadRepository {
 
     await docRef.set(base, SetOptions(merge: true));
     final after = await docRef.get();
-    final saved = after.data() ?? <String, dynamic>{};
+    final saved = after.data() ?? const <String, dynamic>{};
 
-    return ScheduleRoadData(
+    final result = ScheduleRoadData(
       numero: 0,
       faixaIndex: 0,
       key: 'geral',
@@ -909,6 +957,9 @@ class ScheduleRoadRepository {
       multiLine: _parseMulti(saved['multiLine']),
       points: _parsePoints(saved['points']),
     );
+
+    _geometryCache[contractId] = result;
+    return result;
   }
 
   Future<ScheduleRoadData> importGeoJson({
@@ -988,27 +1039,33 @@ class ScheduleRoadRepository {
 
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final docRef = _planningProjects.doc(contractId);
+
     final base = <String, dynamic>{
       'contractId': contractId,
-      'summarySubjectContract': ?summarySubjectContract,
+      if (summarySubjectContract != null) 'summarySubjectContract': summarySubjectContract,
       if (meta.geometryType != null) 'geometryType': meta.geometryType,
       if (meta.multiLine != null) 'multiLine': _toMultiList(meta.multiLine),
       if (meta.points != null) 'points': _toPoints(meta.points),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': uid,
     };
+
     final snap = await docRef.get();
     if (!snap.exists) {
       base['createdAt'] = FieldValue.serverTimestamp();
       base['createdBy'] = uid;
     }
+
     await docRef.set(base, SetOptions(merge: true));
+    _geometryCache[contractId] = meta;
 
     return meta.copyWith();
   }
 
   String docIdFromBoardData(ScheduleRoadData d) {
-    if ((d.createdBy ?? '').trim().isNotEmpty) return d.createdBy!.trim();
+    if ((d.createdBy ?? '').trim().isNotEmpty) {
+      return d.createdBy!.trim();
+    }
     return 'contract_unknown';
   }
 }

@@ -1,11 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_widgets/images/carousel/photo_item.dart';
-import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
-
-// Adapter condicional
 import 'package:sipged/_utils/images/image_adapter_loader.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/photo_item.dart';
+import 'package:sipged/_widgets/images/carousel/photo_metadata_overlay.dart';
 
 enum _FitMode { cover, contain }
 
@@ -16,203 +17,236 @@ Future<void> showPhotoGalleryDialog(
     }) async {
   if (!context.mounted || items.isEmpty) return;
 
-  final controller = PageController(initialPage: initialIndex);
-  var idx = initialIndex;
-  var fitMode = _FitMode.cover; // padrão: preencher (sem bordas pretas)
-
-
-
-  Future<Widget> buildImage(PhotoItem item) async {
-    Image img;
-    if (item is PhotoBytesItem) {
-      img = Image.memory(
-        item.bytes,
-        fit: fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain,
-      );
-    } else if (item is PhotoUrlItem) {
-      if (kIsWeb) {
-        try {
-          final raw = await loadImageBytes(item.url);
-          final isHeic = pm.sniffFormat(raw) == pm.ImgFmt.heic || sniffIsHeic(raw);
-          final converted = isHeic ? await tryConvertHeicToJpeg(raw) : null;
-          final bytes = converted ?? raw;
-          img = Image.memory(
-            bytes,
-            fit: fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain,
-          );
-        } catch (_) {
-          return const Center(
-            child: Text('Falha ao carregar imagem', style: TextStyle(color: Colors.redAccent)),
-          );
-        }
-      } else {
-        img = Image.network(
-          item.url,
-          fit: fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain,
-          errorBuilder: (_, _, _) => const Center(
-            child: Text('Erro ao carregar', style: TextStyle(color: Colors.redAccent)),
-          ),
-        );
-      }
-    } else {
-      return const Center(
-        child: Text('Tipo de foto desconhecido', style: TextStyle(color: Colors.redAccent)),
-      );
-    }
-
-    // Para “cover”, ocupar totalmente:
-    return Positioned.fill(child: img);
-  }
-
   await showDialog(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.8),
-    builder: (_) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          final item = items[idx];
+    builder: (_) => _PhotoGalleryDialog(
+      items: items,
+      initialIndex: initialIndex,
+    ),
+  );
+}
 
-          return Dialog(
-            backgroundColor: Colors.black,
-            insetPadding: const EdgeInsets.all(16),
-            child: LayoutBuilder(
-              builder: (context, c) {
-                return ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800),
-                  child: Stack(
-                    children: [
-                      // Área da imagem (PageView)
-                      Positioned.fill(
-                        child: PageView.builder(
-                          controller: controller,
-                          onPageChanged: (i) => setState(() => idx = i),
-                          itemCount: items.length,
-                          itemBuilder: (_, pageIndex) {
-                            return FutureBuilder<Widget>(
-                              future: buildImage(items[pageIndex]),
-                              builder: (c, snap) {
-                                if (snap.connectionState != ConnectionState.done) {
-                                  return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                                }
-                                return Stack(children: [
-                                  if (snap.data != null) snap.data!,
-                                ]);
-                              },
-                            );
-                          },
-                        ),
-                      ),
+class _PhotoGalleryDialog extends StatefulWidget {
+  final List<PhotoItem> items;
+  final int initialIndex;
 
-                      // Fechar
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: IconButton(
-                          color: Colors.white,
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close),
-                          tooltip: 'Fechar',
-                        ),
-                      ),
+  const _PhotoGalleryDialog({
+    required this.items,
+    required this.initialIndex,
+  });
 
-                      // Metadados (você já tem esse overlay em outro arquivo)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: _DefaultMetaOverlay(meta: item.meta),
-                      ),
+  @override
+  State<_PhotoGalleryDialog> createState() => _PhotoGalleryDialogState();
+}
 
-                      // Setas navegação
-                      if (items.length > 1) ...[
-                        Positioned(
-                          left: 8,
-                          top: 0,
-                          bottom: 0,
-                          child: Center(
-                            child: IconButton(
-                              onPressed: idx > 0
-                                  ? () => controller.previousPage(
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeOut,
-                              )
-                                  : null,
-                              icon: const Icon(Icons.chevron_left, size: 42),
-                              color: Colors.white.withValues(alpha: idx > 0 ? 0.9 : 0.3),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 8,
-                          top: 0,
-                          bottom: 0,
-                          child: Center(
-                            child: IconButton(
-                              onPressed: idx < items.length - 1
-                                  ? () => controller.nextPage(
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.easeOut,
-                              )
-                                  : null,
-                              icon: const Icon(Icons.chevron_right, size: 42),
-                              color: Colors.white.withValues(alpha: idx < items.length - 1 ? 0.9 : 0.3),
-                            ),
-                          ),
-                        ),
-                      ],
+class _PhotoGalleryDialogState extends State<_PhotoGalleryDialog> {
+  late final PageController _controller;
+  late int _idx;
+  _FitMode _fitMode = _FitMode.cover;
+  final Map<String, Future<Uint8List>> _webCache = {};
 
-                      // Botão de ajuste (Cover/Contain)
-                      Positioned(
-                        left: 8,
-                        top: 8,
-                        child: TextButton.icon(
-                          style: TextButton.styleFrom(foregroundColor: Colors.white),
-                          onPressed: () => setState(() {
-                            fitMode = fitMode == _FitMode.cover ? _FitMode.contain : _FitMode.cover;
-                          }),
-                          icon: Icon(fitMode == _FitMode.cover ? Icons.crop : Icons.fit_screen),
-                          label: Text(fitMode == _FitMode.cover ? 'Preencher' : 'Ajustar'),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+  @override
+  void initState() {
+    super.initState();
+    _idx = widget.initialIndex.clamp(0, widget.items.length - 1);
+    _controller = PageController(initialPage: _idx);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<Uint8List> _loadWebUrl(String url) {
+    return _webCache.putIfAbsent(url, () async {
+      final raw = await loadImageBytes(url);
+      final isHeic =
+          pm.sniffFormat(raw) == pm.ImgFmt.heic || sniffIsHeic(raw);
+      final converted = isHeic ? await tryConvertHeicToJpeg(raw) : null;
+      return converted ?? raw;
+    });
+  }
+
+  Widget _buildImage(PhotoItem item) {
+    final fit = _fitMode == _FitMode.cover ? BoxFit.cover : BoxFit.contain;
+
+    if (item is PhotoBytesItem) {
+      return Positioned.fill(
+        child: Image.memory(
+          item.bytes,
+          fit: fit,
+          gaplessPlayback: true,
+        ),
+      );
+    }
+
+    if (item is PhotoUrlItem) {
+      if (!kIsWeb) {
+        return Positioned.fill(
+          child: Image.network(
+            item.url,
+            fit: fit,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => const Center(
+              child: Text(
+                'Erro ao carregar',
+                style: TextStyle(color: Colors.redAccent),
+              ),
+            ),
+          ),
+        );
+      }
+
+      return FutureBuilder<Uint8List>(
+        future: _loadWebUrl(item.url),
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            );
+          }
+          if (!snap.hasData) {
+            return const Center(
+              child: Text(
+                'Falha ao carregar imagem',
+                style: TextStyle(color: Colors.redAccent),
+              ),
+            );
+          }
+
+          return Positioned.fill(
+            child: Image.memory(
+              snap.data!,
+              fit: fit,
+              gaplessPlayback: true,
             ),
           );
         },
       );
-    },
-  );
-}
+    }
 
-/// Overlay de metadados simples para manter o exemplo autocontido
-class _DefaultMetaOverlay extends StatelessWidget {
-  final pm.CarouselMetadata? meta;
-  const _DefaultMetaOverlay({required this.meta});
+    return const Center(
+      child: Text(
+        'Tipo de foto desconhecido',
+        style: TextStyle(color: Colors.redAccent),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Se você já tem PhotoMetadataOverlay, troque por ele aqui.
-    final m = meta;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.bottomCenter,
-          end: Alignment.topCenter,
-          colors: [Color(0xCC000000), Color(0x66000000), Colors.transparent],
-          stops: [0, 0.5, 1],
-        ),
-      ),
-      child: DefaultTextStyle(
-        style: const TextStyle(color: Colors.white, fontSize: 12),
-        child: Text(
-          m == null ? '—' : [
-            if ((m.make ?? '').trim().isNotEmpty) m.make!,
-            if ((m.model ?? '').trim().isNotEmpty) m.model!,
-          ].join(' '),
-        ),
+    final item = widget.items[_idx];
+
+    return Dialog(
+      backgroundColor: Colors.black,
+      insetPadding: const EdgeInsets.all(16),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          return ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 1200,
+              maxHeight: 800,
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: PageView.builder(
+                    controller: _controller,
+                    onPageChanged: (i) => setState(() => _idx = i),
+                    itemCount: widget.items.length,
+                    itemBuilder: (_, pageIndex) {
+                      return Stack(
+                        children: [
+                          _buildImage(widget.items[pageIndex]),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: IconButton(
+                    color: Colors.white,
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Fechar',
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: PhotoMetadataOverlay(meta: item.meta),
+                ),
+                if (widget.items.length > 1) ...[
+                  Positioned(
+                    left: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: IconButton(
+                        onPressed: _idx > 0
+                            ? () => _controller.previousPage(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                        )
+                            : null,
+                        icon: const Icon(Icons.chevron_left, size: 42),
+                        color: Colors.white.withValues(
+                          alpha: _idx > 0 ? 0.9 : 0.3,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 8,
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: IconButton(
+                        onPressed: _idx < widget.items.length - 1
+                            ? () => _controller.nextPage(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                        )
+                            : null,
+                        icon: const Icon(Icons.chevron_right, size: 42),
+                        color: Colors.white.withValues(
+                          alpha: _idx < widget.items.length - 1 ? 0.9 : 0.3,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: TextButton.icon(
+                    style: TextButton.styleFrom(foregroundColor: Colors.white),
+                    onPressed: () {
+                      setState(() {
+                        _fitMode = _fitMode == _FitMode.cover
+                            ? _FitMode.contain
+                            : _FitMode.cover;
+                      });
+                    },
+                    icon: Icon(
+                      _fitMode == _FitMode.cover
+                          ? Icons.crop
+                          : Icons.fit_screen,
+                    ),
+                    label: Text(
+                      _fitMode == _FitMode.cover ? 'Preencher' : 'Ajustar',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

@@ -1,17 +1,20 @@
-// lib/_widgets/carousel/overlays/photo_metadata_overlay.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
 class PhotoMetadataOverlay extends StatelessWidget {
   final pm.CarouselMetadata? meta;
-  const PhotoMetadataOverlay({super.key, required this.meta});
+
+  const PhotoMetadataOverlay({
+    super.key,
+    required this.meta,
+  });
 
   @override
   Widget build(BuildContext context) {
     final m = meta;
-    final style = const TextStyle(color: Colors.white, fontSize: 12);
-    final titleStyle = const TextStyle(
+    const style = TextStyle(color: Colors.white, fontSize: 12);
+    const titleStyle = TextStyle(
       color: Colors.white,
       fontSize: 12,
       fontWeight: FontWeight.w700,
@@ -22,8 +25,6 @@ class PhotoMetadataOverlay extends StatelessWidget {
         : '—';
 
     String fmt(double? v) => v == null ? '—' : v.toStringAsFixed(6);
-    final lat = fmt(m?.lat);
-    final lng = fmt(m?.lng);
 
     final device = [
       if ((m?.make ?? '').trim().isNotEmpty) m!.make!,
@@ -47,11 +48,21 @@ class PhotoMetadataOverlay extends StatelessWidget {
           runSpacing: 8,
           children: [
             _kv('Data/hora', dateStr, titleStyle, style),
-            _kv('Latitude', lat, titleStyle, style),
-            _kv('Longitude', lng, titleStyle, style),
-            _kv('Dispositivo', device.isEmpty ? '—' : device, titleStyle, style),
+            _kv('Latitude', fmt(m?.lat), titleStyle, style),
+            _kv('Longitude', fmt(m?.lng), titleStyle, style),
+            _kv(
+              'Dispositivo',
+              device.isEmpty ? '—' : device,
+              titleStyle,
+              style,
+            ),
             if (m?.orientation != null)
-              _kv('Orientação EXIF', '${m!.orientation}', titleStyle, style),
+              _kv(
+                'Orientação EXIF',
+                '${m!.orientation}',
+                titleStyle,
+                style,
+              ),
           ],
         ),
       ),

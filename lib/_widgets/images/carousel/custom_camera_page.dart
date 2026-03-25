@@ -1,13 +1,12 @@
-// lib/_widgets/schedule/square_modal/custom_camera_page.dart
+import 'dart:typed_data';
+
+import 'package:camera/camera.dart' as cam;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:camera/camera.dart' as cam;
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-/// Câmera full-screen baseada no pacote `camera` (iOS/Android).
-/// Retorna bytes (JPEG) via Navigator.pop.
 class CustomCameraPage extends StatefulWidget {
   const CustomCameraPage({super.key});
 
@@ -19,65 +18,118 @@ class _CustomCameraPageState extends State<CustomCameraPage>
     with WidgetsBindingObserver {
   cam.CameraController? _controller;
   bool _busy = false;
+  bool _initializing = false;
   String? _error;
+  int _initToken = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _init();
+    _initCamera();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _controller?.dispose();
+    final c = _controller;
+    _controller = null;
+    c?.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_controller == null || !(_controller!.value.isInitialized)) return;
-    if (state == AppLifecycleState.inactive) {
-      _controller?.dispose();
-    } else if (state == AppLifecycleState.resumed) {
-      _init(reinitialize: true);
+    final c = _controller;
+    if (c == null) return;
+
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      c.dispose();
+      _controller = null;
+      if (mounted) {
+        setState(() {});
+      }
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      _initCamera();
     }
   }
 
-  Future<void> _init({bool reinitialize = false}) async {
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
+  Future<void> _initCamera() async {
+    if (_initializing) return;
+
+    _initializing = true;
+    final int token = ++_initToken;
+
+    if (mounted) {
+      setState(() {
+        _busy = true;
+        _error = null;
+      });
+    }
 
     try {
-      // Evita corte de UI no iOS
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
       final cams = await cam.availableCameras();
+      if (cams.isEmpty) {
+        throw 'Nenhuma câmera disponível neste dispositivo.';
+      }
+
       final back = cams.firstWhere(
             (c) => c.lensDirection == cam.CameraLensDirection.back,
         orElse: () => cams.first,
       );
 
+      final old = _controller;
+      _controller = null;
+      await old?.dispose();
+
       final controller = cam.CameraController(
         back,
-        cam.ResolutionPreset.max,
+        cam.ResolutionPreset.high,
         enableAudio: false,
         imageFormatGroup: cam.ImageFormatGroup.jpeg,
       );
 
       await controller.initialize();
-      await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
 
+      try {
+        await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+      } catch (_) {}
+
+      if (!mounted || token != _initToken) {
+        await controller.dispose();
+        return;
+      }
+
+      setState(() {
+        _controller = controller;
+      });
+    } on cam.CameraException catch (e) {
       if (!mounted) return;
-      setState(() => _controller = controller);
+      setState(() {
+        _error = 'Erro da câmera: ${e.description ?? e.code}';
+      });
+
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Falha ao iniciar a câmera'),
+          subtitle: Text('${e.description ?? e.code}'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Câmera'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Erro ao iniciar câmera: $e');
+      setState(() {
+        _error = 'Erro ao iniciar câmera: $e';
+      });
 
-      // ❌ erro via NotificationCenter
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Falha ao iniciar a câmera'),
@@ -88,7 +140,10 @@ class _CustomCameraPageState extends State<CustomCameraPage>
         ),
       );
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _initializing = false;
+      if (mounted && token == _initToken) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -98,10 +153,21 @@ class _CustomCameraPageState extends State<CustomCameraPage>
 
     setState(() => _busy = true);
     try {
-      final xfile = await c.takePicture(); // JPEG
+      final xfile = await c.takePicture();
       final bytes = await xfile.readAsBytes();
       if (!mounted) return;
       Navigator.of(context).pop<Uint8List>(bytes);
+    } on cam.CameraException catch (e) {
+      if (!mounted) return;
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('Falha ao capturar'),
+          subtitle: Text('${e.description ?? e.code}'),
+          type: AppNotificationType.error,
+          leadingLabel: const Text('Câmera'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       NotificationCenter.instance.show(
@@ -118,82 +184,83 @@ class _CustomCameraPageState extends State<CustomCameraPage>
     }
   }
 
+  Widget _buildPreview() {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final previewSize = c.value.previewSize;
+    if (previewSize == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Positioned.fill(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: previewSize.height,
+          height: previewSize.width,
+          child: cam.CameraPreview(c),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final c = _controller;
+    final topInset = MediaQuery.of(context).padding.top;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: Stack(
-          children: [
-            if (c != null && c.value.isInitialized)
-              Positioned.fill(
-                child: FittedBox(
-                  fit: BoxFit.cover, // cobre toda a tela
-                  child: SizedBox(
-                    width: c.value.previewSize!.height, // invertido (camera)
-                    height: c.value.previewSize!.width,
-                    child: cam.CameraPreview(c),
-                  ),
-                ),
-              )
-            else
-              const Positioned.fill(
-                child: Center(child: CircularProgressIndicator()),
-              ),
-
-            // Fechar
-            Positioned(
-              left: 8,
-              top: MediaQuery.of(context).padding.top + 8,
-              child: IconButton(
-                onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
-              ),
+      body: Stack(
+        children: [
+          _buildPreview(),
+          Positioned(
+            left: 8,
+            top: topInset + 8,
+            child: IconButton(
+              onPressed: _busy ? null : () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close, color: Colors.white),
             ),
-
-            if (_error != null)
-              Positioned.fill(
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.white),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ),
-
-            // Disparo
-            Positioned(
-              bottom: 28 + MediaQuery.of(context).padding.bottom,
-              left: 0,
-              right: 0,
+          ),
+          if (_error != null)
+            Positioned.fill(
               child: Center(
-                child: GestureDetector(
-                  onTap: _busy ? null : _take,
-                  child: Container(
-                    width: 84,
-                    height: 84,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 6),
-                    ),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.white),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          Positioned(
+            bottom: 28 + bottomInset,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: _busy ? null : _take,
+                child: Container(
+                  width: 84,
+                  height: 84,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 6),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

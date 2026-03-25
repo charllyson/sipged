@@ -1,4 +1,3 @@
-// lib/screens/modules/operation/schedule/road/schedule_road_workspace_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -10,25 +9,16 @@ import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/schedule/linear/schedule_header.dart';
-
 import 'package:sipged/_widgets/schedule/linear/schedule_menu_buttons.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-
-// ✅ Cubit do cronograma rodoviário
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
 import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_road_map.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_road_panel.dart';
-
-// Board
 import 'package:sipged/_widgets/schedule/linear/schedule_road_board.dart';
-
-// Layout unificado (lado a lado vs empilhado)
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
-
-// 🔒 Overlay de bloqueio de tela
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_status_legend_item.dart';
 
@@ -52,19 +42,13 @@ class _ScheduleRoadWorkspacePageState
   _ViewMode _mode = _ViewMode.board;
   bool _panelOpen = false;
 
-  // sincroniza o painel com o mapa (o mapa só lê este valor)
   final ValueNotifier<bool> _panelVN = ValueNotifier<bool>(false);
 
-  // cache local da extensão via DFD (por contrato)
   static final Map<String, Future<double>> _extKmCache = {};
 
-  // 🔥 widgets criados uma única vez
   late final Widget _map;
   Widget? _board;
 
-  // extensão em km
-
-  // controle de warmup (pra não reinicializar ao abrir painel)
   bool _warmupRequested = false;
 
   @override
@@ -73,13 +57,11 @@ class _ScheduleRoadWorkspacePageState
 
     final String contractId = widget.contractData.id ?? '';
 
-    // Mapa criado apenas uma vez
     _map = ScheduleRoadMap(
       contractData: widget.contractData,
       externalPanelController: _panelVN,
     );
 
-    // carrega extensão do DFD e depois monta board + warmup
     _loadExtentAndInit(contractId);
   }
 
@@ -91,7 +73,6 @@ class _ScheduleRoadWorkspacePageState
     final newId = widget.contractData.id ?? '';
 
     if (oldId != newId) {
-      // novo contrato: reseta estado local e recarrega extensão + warmup
       _warmupRequested = false;
       _board = null;
       _loadExtentAndInit(newId);
@@ -104,8 +85,6 @@ class _ScheduleRoadWorkspacePageState
     final km = await _readExtentKmFromDfd(context, contractId);
     if (!mounted) return;
 
-
-    // dispara warmup UMA vez
     _ensureWarmupOnce(km);
 
     setState(() {
@@ -116,8 +95,6 @@ class _ScheduleRoadWorkspacePageState
     });
   }
 
-  /// Dispara o warmup do ScheduleRoadCubit apenas uma vez,
-  /// mesmo que o layout/painel cause rebuilds.
   void _ensureWarmupOnce(double extensaoKm) {
     if (_warmupRequested) return;
 
@@ -129,9 +106,7 @@ class _ScheduleRoadWorkspacePageState
 
     final km = extensaoKm > 0 ? extensaoKm : 0.0;
     final totalEstacas = ((km * 1000) / 20).ceil();
-
     final int safeTotalEstacas = totalEstacas > 0 ? totalEstacas : 200;
-
     final summary = contract.id;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -185,15 +160,12 @@ class _ScheduleRoadWorkspacePageState
 
   @override
   Widget build(BuildContext context) {
-    // Constantes de layout
     const double kBottomPanelHeight = 420.0;
     const double kBreakpoint = 980.0;
     const double kCardMaxWidth = 520.0;
 
-    final isMap = _mode == _ViewMode.map;
-    final screenWidth = MediaQuery.sizeOf(context).width;
-
-    // Painel inicia com 25% da largura da tela (SplitLayout continua genérico)
+    final bool isMap = _mode == _ViewMode.map;
+    final double screenWidth = MediaQuery.sizeOf(context).width;
     final double initialRightPanelWidth = screenWidth * 0.25;
 
     return Scaffold(
@@ -202,13 +174,13 @@ class _ScheduleRoadWorkspacePageState
         child: BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
           builder: (ctx, state) {
             final double vConcluido =
-            (state.pctConcluido).isFinite ? (state.pctConcluido) : 0;
+            state.pctConcluido.isFinite ? state.pctConcluido : 0;
             final double vAndamento =
-            (state.pctAndamento).isFinite ? (state.pctAndamento) : 0;
+            state.pctAndamento.isFinite ? state.pctAndamento : 0;
             final double vAIniciar =
-            (state.pctAIniciar).isFinite ? (state.pctAIniciar) : 0;
+            state.pctAIniciar.isFinite ? state.pctAIniciar : 0;
 
-            final labels = const ['Concluído', 'Em andamento', 'A iniciar'];//
+            const labels = ['Concluído', 'Em andamento', 'A iniciar'];
             final values = <double>[vConcluido, vAndamento, vAIniciar];
 
             return UpBar(
@@ -257,11 +229,10 @@ class _ScheduleRoadWorkspacePageState
                       ),
                     ],
                   ),
-                )
+                ),
               ],
               subtitleHeight: 20,
               actions: [
-                // Alternar Board <-> Mapa (sem push)
                 IconButton(
                   tooltip: isMap ? 'Ver Board' : 'Ver Mapa',
                   icon: Icon(
@@ -285,8 +256,6 @@ class _ScheduleRoadWorkspacePageState
           },
         ),
       ),
-
-      // ======================= BODY COM SCREENLOCK =======================
       body: BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
         buildWhen: (prev, curr) =>
         prev.initialized != curr.initialized ||
@@ -314,7 +283,6 @@ class _ScheduleRoadWorkspacePageState
                 const BackgroundClean(),
                 Builder(
                   builder: (context) {
-                    // LEFT: Stack com Board/Mapa + botões fixos ao canto direito
                     final left = Stack(
                       fit: StackFit.expand,
                       children: [
@@ -325,8 +293,6 @@ class _ScheduleRoadWorkspacePageState
                             _map,
                           ],
                         ),
-                        // ✅ Botões SEMPRE dentro do lado esquerdo,
-                        // acompanhando o drag do SplitLayout.
                         Positioned(
                           right: 16,
                           bottom: 12,
@@ -336,6 +302,7 @@ class _ScheduleRoadWorkspacePageState
                               if (st.services.isEmpty) {
                                 return const SizedBox.shrink();
                               }
+
                               return ConstrainedBox(
                                 constraints: const BoxConstraints(
                                   maxWidth: kCardMaxWidth,
@@ -357,17 +324,17 @@ class _ScheduleRoadWorkspacePageState
                     final rightPanel =
                     ScheduleRoadPanel(contract: widget.contractData);
 
-                    final content = SplitLayout(
-                      left: left,
-                      right: rightPanel,
-                      showRightPanel: _panelOpen,
-                      breakpoint: kBreakpoint,
-                      rightPanelWidth: initialRightPanelWidth,
-                      bottomPanelHeight: kBottomPanelHeight,
-                      showDividers: true,
+                    return Positioned.fill(
+                      child: SplitLayout(
+                        left: left,
+                        right: rightPanel,
+                        showRightPanel: _panelOpen,
+                        breakpoint: kBreakpoint,
+                        rightPanelWidth: initialRightPanelWidth,
+                        bottomPanelHeight: kBottomPanelHeight,
+                        showDividers: true,
+                      ),
                     );
-
-                    return Positioned.fill(child: content);
                   },
                 ),
               ],
@@ -375,7 +342,6 @@ class _ScheduleRoadWorkspacePageState
           );
         },
       ),
-
       bottomNavigationBar: const FootBar(),
     );
   }

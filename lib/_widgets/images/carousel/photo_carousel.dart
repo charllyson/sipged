@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
+import 'package:sipged/_widgets/images/carousel/carousel_photo.dart';
+import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
 import 'package:sipged/_widgets/images/carousel/photo_gallery_dialog.dart';
 import 'package:sipged/_widgets/images/carousel/photo_item.dart';
 import 'package:sipged/_widgets/images/carousel/photo_thumb.dart';
-import 'package:sipged/_widgets/images/carousel/carousel_photo_theme.dart';
-import 'carousel_metadata.dart' as pm;
-import 'carousel_photo.dart';
 
 class PhotoCarousel extends StatelessWidget {
   final Widget? leading;
@@ -25,7 +25,7 @@ class PhotoCarousel extends StatelessWidget {
     CarouselPhotoTheme theme = const CarouselPhotoTheme(),
     void Function(BuildContext, int, PhotoItem)? onTapItem,
   }) {
-    final List<PhotoItem> items = [
+    final items = <PhotoItem>[
       ...existingUrls.map((u) => PhotoUrlItem(u, meta: existingMetaByUrl?[u])),
       ...List.generate(newPhotos.length, (i) {
         final p = newPhotos[i];
@@ -87,18 +87,18 @@ class PhotoCarousel extends StatelessWidget {
             );
           }
 
-          final idx = hasLeading ? (globalIndex - 1) : globalIndex;
+          final idx = hasLeading ? globalIndex - 1 : globalIndex;
           if (idx < 0 || idx >= items.length) {
-            // Defesa extra caso algo desincronize
             return const SizedBox.shrink();
           }
+
           final item = items[idx];
 
-          Future<void> defaultTap() async {
-            await showPhotoGalleryDialog(
+          Future<void> defaultTap() {
+            return showPhotoGalleryDialog(
               context,
               items: items,
-              initialIndex: idx, // int garantido
+              initialIndex: idx,
             );
           }
 

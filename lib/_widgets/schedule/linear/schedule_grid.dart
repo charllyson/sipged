@@ -13,12 +13,13 @@ class ScheduleGrid extends StatelessWidget {
     required this.totalEstacas,
     required this.faixas,
     required this.execucoes,
-    required this.execIndex, // ✅ índice O(1)
+    required this.execIndex,
     required this.servicoSelecionado,
     required this.legendWidth,
     required this.estacaWidth,
     required this.getSquareColor,
     required this.onTapSquare,
+    required this.userLabelResolver,
     this.selectedKeys = const <String>{},
     this.onDragStart,
     this.onDragUpdate,
@@ -40,11 +41,9 @@ class ScheduleGrid extends StatelessWidget {
   final double legendWidth;
   final double estacaWidth;
 
-  /// Cor base calculada pelo State (com sombreamento por recência).
   final Color Function(ScheduleRoadData e) getSquareColor;
-
-  /// Handler de toque em célula válida.
   final void Function(ScheduleRoadData e) onTapSquare;
+  final String Function(String? uid) userLabelResolver;
 
   final Set<String> selectedKeys;
   final void Function(int estaca, int faixaIndex)? onDragStart;
@@ -63,9 +62,9 @@ class ScheduleGrid extends StatelessWidget {
   }
 
   int _faixaIndexFromDy(double dy) {
-    // dy relativo à área do grid (não ao ListView inteiro)
     dy -= headerHeight;
     if (dy < 0) return 0;
+
     double acc = 0;
     for (int i = 0; i < faixas.length; i++) {
       final seg = faixas[i].altura + kCellVPad * 2;
@@ -75,6 +74,11 @@ class ScheduleGrid extends StatelessWidget {
     return faixas.length - 1;
   }
 
+  bool _laneEnabledFor(int faixaIndex) {
+    if (faixaIndex < 0 || faixaIndex >= faixas.length) return true;
+    return faixas[faixaIndex].isAllowed(servicoSelecionado);
+  }
+
   @override
   Widget build(BuildContext context) {
     const double gapLegendGrid = 8.0;
@@ -82,24 +86,77 @@ class ScheduleGrid extends StatelessWidget {
     const double itemVPad = 12.0;
 
     final double columnHeight = (headerHeight +
-        faixas.fold<double>(0, (acc, f) => acc + f.altura + kCellVPad * 2))
+        faixas.fold<double>(
+          0,
+              (acc, f) => acc + f.altura + kCellVPad * 2,
+        ))
         .roundToDouble();
 
-    // wrappers para respeitar allowedByService SEM mudar o resto dos widgets
-    bool laneEnabledFor(int faixaIndex) {
-      if (faixaIndex < 0 || faixaIndex >= faixas.length) return true;
-      return faixas[faixaIndex].isAllowed(servicoSelecionado);
-    }
-
     Color safeSquareColor(ScheduleRoadData e) {
-      return laneEnabledFor(e.faixaIndex)
+      return _laneEnabledFor(e.faixaIndex)
           ? getSquareColor(e)
-          : Colors.grey.shade200; // visual desabilitado
+          : Colors.grey.shade200;
     }
 
     void safeOnTapSquare(ScheduleRoadData e) {
-      if (!laneEnabledFor(e.faixaIndex)) return; // ignora toques
+      if (!_laneEnabledFor(e.faixaIndex)) return;
       onTapSquare(e);
+    }
+
+    Widget buildGhostColumn(double width) {
+      double top = headerHeight;
+      final children = <Widget>[
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 0,
+          height: headerHeight,
+          child: const SizedBox.shrink(),
+        ),
+      ];
+
+      for (int i = 0; i < faixas.length; i++) {
+        final double segHeight = faixas[i].altura + kCellVPad * 2;
+
+        children.add(
+          Positioned(
+            left: 0,
+            right: 0,
+            top: top,
+            height: segHeight,
+            child: IgnorePointer(
+              child: Padding(
+                padding:
+                const EdgeInsets.symmetric(vertical: ScheduleGrid.kCellVPad),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: ScheduleRoadStyle.colorForFaixa(faixas[i].label),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _posLabelForIndex(i),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        top += segHeight;
+      }
+
+      return SizedBox(
+        width: width,
+        height: columnHeight,
+        child: Stack(children: children),
+      );
     }
 
     return LayoutBuilder(
@@ -113,172 +170,127 @@ class ScheduleGrid extends StatelessWidget {
 
         final int colsTotal =
         (larguraUtilGrid / estacaWidth).floor().clamp(2, 100000);
-        final int reaisPorLinha =
-        (colsTotal - 1).clamp(1, 100000); // -1 ghost
+        final int reaisPorLinha = (colsTotal - 1).clamp(1, 100000);
         final double cellWidth =
         colsTotal > 0 ? larguraUtilGrid / colsTotal : estacaWidth;
         final int linhas = (totalEstacas / reaisPorLinha).ceil();
 
-        // dx -> número da estaca naquela linha (considerando a 1ª coluna fantasma)
         int estacaFromDx(double dx, int start, int reaisPorLinha) {
-          int col = (dx / cellWidth).floor(); // 0 = ghost, 1..N = reais
-          if (col <= 0) return (start + 1).clamp(1, totalEstacas);
-          final estaca = start + col; // col 1 -> start+1
-          final maxEstacaLinha = (start + reaisPorLinha);
-          return estaca.clamp(start + 1, math.min(maxEstacaLinha, totalEstacas));
-        }
-
-        Widget ghostColumn(double w) {
-          double top = headerHeight;
-          final List<Widget> children = [
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              height: headerHeight,
-              child: const SizedBox.shrink(),
-            ),
-          ];
-
-          for (int i = 0; i < faixas.length; i++) {
-            final double segHeight = faixas[i].altura + kCellVPad * 2;
-            children.add(
-              Positioned(
-                left: 0,
-                right: 0,
-                top: top,
-                height: segHeight,
-                child: IgnorePointer(
-                  child: Padding(
-                    padding:
-                    const EdgeInsets.symmetric(vertical: ScheduleGrid.kCellVPad),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: ScheduleRoadStyle.colorForFaixa(faixas[i].label),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _posLabelForIndex(i),
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black54),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-            top += segHeight;
+          final int col = (dx / cellWidth).floor();
+          if (col <= 0) {
+            return (start + 1).clamp(1, totalEstacas);
           }
 
-          return SizedBox(width: w, height: columnHeight, child: Stack(children: children));
+          final estaca = start + col;
+          final maxEstacaLinha = start + reaisPorLinha;
+          return estaca.clamp(
+            start + 1,
+            math.min(maxEstacaLinha, totalEstacas),
+          );
         }
 
-        return Stack(
-          children: [
-            ListView.builder(
-              addAutomaticKeepAlives: false,
-              addRepaintBoundaries: true,
-              addSemanticIndexes: false,
-              cacheExtent: 800,
-              itemCount: linhas,
-              itemBuilder: (context, linhaIndex) {
-                final start = linhaIndex * reaisPorLinha;
-                final endExclusive =
-                math.min(start + reaisPorLinha, totalEstacas);
-                final count = endExclusive - start;
+        return ListView.builder(
+          addAutomaticKeepAlives: false,
+          addRepaintBoundaries: true,
+          addSemanticIndexes: false,
+          cacheExtent: 800,
+          itemCount: linhas,
+          itemBuilder: (context, linhaIndex) {
+            final start = linhaIndex * reaisPorLinha;
+            final endExclusive = math.min(start + reaisPorLinha, totalEstacas);
+            final count = endExclusive - start;
 
-                final reais = List.generate(count, (i) {
-                  final estacaNumero = start + i + 1;
-                  return SizedBox(
-                    width: cellWidth,
-                    height: columnHeight,
-                    child: RepaintBoundary(
-                      child: ScheduleGridRow(
-                        estacaNumero: estacaNumero,
+            final reais = List<Widget>.generate(count, (i) {
+              final estacaNumero = start + i + 1;
+              return SizedBox(
+                width: cellWidth,
+                height: columnHeight,
+                child: RepaintBoundary(
+                  child: ScheduleGridRow(
+                    estacaNumero: estacaNumero,
+                    faixas: faixas,
+                    execucoes: execucoes,
+                    execIndex: execIndex,
+                    servicoSelecionado: servicoSelecionado,
+                    getSquareColor: safeSquareColor,
+                    onTapSquare: safeOnTapSquare,
+                    userLabelResolver: userLabelResolver,
+                    selectedKeys: selectedKeys,
+                    highlightColor: highlightColor,
+                    headerHeight: headerHeight,
+                    columnHeight: columnHeight,
+                  ),
+                ),
+              );
+            });
+
+            final gridArea = SizedBox(
+              width: larguraUtilGrid,
+              height: columnHeight,
+              child: Row(
+                children: [
+                  buildGhostColumn(cellWidth),
+                  ...reais,
+                ],
+              ),
+            );
+
+            final gridWithDrag = Listener(
+              behavior: HitTestBehavior.deferToChild,
+              onPointerDown: (ev) {
+                if (onDragStart == null) return;
+                final p = ev.localPosition;
+                if (p.dy <= headerHeight) return;
+
+                final faixa = _faixaIndexFromDy(p.dy);
+                if (!_laneEnabledFor(faixa)) return;
+
+                final estaca = estacaFromDx(p.dx, start, reaisPorLinha);
+                onDragStart!(estaca, faixa);
+              },
+              onPointerMove: (ev) {
+                if (onDragUpdate == null) return;
+                final p = ev.localPosition;
+                if (p.dy <= headerHeight) return;
+
+                final faixa = _faixaIndexFromDy(p.dy);
+                if (!_laneEnabledFor(faixa)) return;
+
+                final estaca = estacaFromDx(p.dx, start, reaisPorLinha);
+                onDragUpdate!(estaca, faixa);
+              },
+              onPointerUp: (_) => onDragEnd?.call(),
+              onPointerCancel: (_) => onDragEnd?.call(),
+              child: gridArea,
+            );
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: itemVPad,
+                horizontal: itemHPad,
+              ),
+              child: SizedBox(
+                width: larguraInterna,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: legendWidth,
+                      height: columnHeight,
+                      child: ScheduleLegend(
                         faixas: faixas,
-                        execucoes: execucoes,     // compat / fallback
-                        execIndex: execIndex,     // ✅ O(1)
-                        servicoSelecionado: servicoSelecionado,
-                        // wrappers que blindam cor e toque quando faixa não é aplicável
-                        getSquareColor: safeSquareColor,
-                        onTapSquare: safeOnTapSquare,
-                        selectedKeys: selectedKeys,
-                        highlightColor: highlightColor,
+                        legendWidth: legendWidth,
                         headerHeight: headerHeight,
                         columnHeight: columnHeight,
                       ),
                     ),
-                  );
-                });
-
-                final gridArea = SizedBox(
-                  width: larguraUtilGrid,
-                  height: columnHeight,
-                  child: Row(
-                    children: [
-                      ghostColumn(cellWidth),
-                      ...reais,
-                    ],
-                  ),
-                );
-
-                // captura arrasto sem bloquear os taps das células
-                final gridWithDrag = Listener(
-                  behavior: HitTestBehavior.deferToChild,
-                  onPointerDown: (ev) {
-                    if (onDragStart == null) return;
-                    final p = ev.localPosition;
-                    if (p.dy <= headerHeight) return; // ignora cabeçalho
-                    final faixa = _faixaIndexFromDy(p.dy);
-                    if (!laneEnabledFor(faixa)) return; // não inicia seleção em faixa bloqueada
-                    final estaca = estacaFromDx(p.dx, start, reaisPorLinha);
-                    onDragStart!(estaca, faixa);
-                  },
-                  onPointerMove: (ev) {
-                    if (onDragUpdate == null) return;
-                    final p = ev.localPosition;
-                    if (p.dy <= headerHeight) return;
-                    final faixa = _faixaIndexFromDy(p.dy);
-                    if (!laneEnabledFor(faixa)) return; // ignora movimento sobre faixa bloqueada
-                    final estaca = estacaFromDx(p.dx, start, reaisPorLinha);
-                    onDragUpdate!(estaca, faixa);
-                  },
-                  onPointerUp: (_) => onDragEnd?.call(),
-                  onPointerCancel: (_) => onDragEnd?.call(),
-                  child: gridArea,
-                );
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: itemVPad, horizontal: itemHPad),
-                  child: SizedBox(
-                    width: larguraInterna,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: legendWidth,
-                          height: columnHeight,
-                          child: ScheduleLegend(
-                            faixas: faixas,
-                            legendWidth: legendWidth,
-                            headerHeight: headerHeight,
-                            columnHeight: columnHeight,
-                          ),
-                        ),
-                        const SizedBox(width: gapLegendGrid),
-                        gridWithDrag,
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
+                    const SizedBox(width: gapLegendGrid),
+                    gridWithDrag,
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );

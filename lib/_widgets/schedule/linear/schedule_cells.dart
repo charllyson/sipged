@@ -1,4 +1,3 @@
-// lib/_widgets/schedule/schedule_cells.dart
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_utils/formats/sipged_format_dates.dart';
@@ -9,11 +8,9 @@ class ScheduleCells extends StatelessWidget {
   final Color cor;
   final VoidCallback onTap;
 
-  // Seleção
   final bool isSelected;
   final Color highlightColor;
 
-  // Durações do tooltip
   final Duration waitDuration;
   final Duration showDuration;
 
@@ -38,7 +35,9 @@ class ScheduleCells extends StatelessWidget {
   });
 
   bool get _hasComment => (scheduleData.comentario?.trim().isNotEmpty ?? false);
+
   bool get _hasPhotos => scheduleData.fotos.any((u) => u.trim().isNotEmpty);
+
   int get _photosCount =>
       scheduleData.fotos.where((u) => u.trim().isNotEmpty).length;
 
@@ -74,7 +73,9 @@ class ScheduleCells extends StatelessWidget {
         }
       }
 
-      if (d != null && (best == null || d.isAfter(best))) best = d;
+      if (d != null && (best == null || d.isAfter(best))) {
+        best = d;
+      }
     }
 
     return best ?? scheduleData.updatedAt ?? scheduleData.createdAt;
@@ -89,12 +90,12 @@ class ScheduleCells extends StatelessWidget {
     final usuario = userLabelResolver?.call(uid) ?? '—';
     final comentario = scheduleData.comentario?.trim();
 
-    String data = '—', hour = '—';
+    String data = '—';
+    String hour = '—';
+
     final dt = _primaryDate();
     if (dt != null) {
-      // Data centralizada no SipGedConverterDates
       data = SipGedFormatDates.dateToDdMMyyyy(dt);
-      // Hora sem intl
       hour = SipGedFormatDates.timeToHHmm(dt);
     }
 
@@ -103,28 +104,48 @@ class ScheduleCells extends StatelessWidget {
       ..writeln('Atualizado por: $usuario')
       ..writeln('Data: $data às $hour');
 
-    if (_hasPhotos) buf.writeln('Fotos: $_photosCount');
-    if ((comentario ?? '').isNotEmpty) buf.writeln('Comentário: $comentario');
+    if (_hasPhotos) {
+      buf.writeln('Fotos: $_photosCount');
+    }
+    if ((comentario ?? '').isNotEmpty) {
+      buf.writeln('Comentário: $comentario');
+    }
 
     final msg = buf.toString().trim();
     return msg.isEmpty ? 'A iniciar' : msg;
   }
 
+  Widget _buildCenterIcon() {
+    if (_hasPhotos) {
+      return const Icon(
+        Icons.camera_alt,
+        size: 16,
+        color: Colors.black38,
+      );
+    }
+
+    if (_hasComment) {
+      return const Icon(
+        Icons.info_outline_rounded,
+        size: 15,
+        color: Colors.black38,
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 3 cenários de mensagem
     final String tooltipMessage = !enabled
         ? 'Não necessário nestas estacas'
         : (scheduleData.statusCanonical == 'a_iniciar'
         ? 'A iniciar'
         : _richTooltipText());
 
-    // Regra de exibição dos ícones:
-    // - só comentário -> ícone de info
-    // - só foto       -> ícone de câmera
-    // - ambos         -> apenas câmera
     final bool showCommentIcon = enabled && _hasComment && !_hasPhotos;
     final bool showPhotoIcon = enabled && _hasPhotos;
+    final bool showCenterIcon = showCommentIcon || showPhotoIcon;
 
     final core = GestureDetector(
       onTap: enabled ? onTap : null,
@@ -135,7 +156,6 @@ class ScheduleCells extends StatelessWidget {
         height: height,
         child: Stack(
           children: [
-            // fundo
             Positioned.fill(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
@@ -147,86 +167,42 @@ class ScheduleCells extends StatelessWidget {
                 ),
               ),
             ),
-
-            // ícone central (apenas um, conforme regra)
-            if (showCommentIcon || showPhotoIcon)
-              const Positioned.fill(
+            if (showCenterIcon)
+              Positioned.fill(
                 child: Center(
-                  child: _CellIcon(),
+                  child: _buildCenterIcon(),
                 ),
               ),
-
-            // overlay listrado quando desabilitado
             if (!enabled)
               Positioned.fill(
-                child: CustomPaint(painter: _DiagonalStripesPainter()),
+                child: CustomPaint(
+                  painter: _DiagonalStripesPainter(),
+                ),
               ),
           ],
         ),
       ),
     );
 
-    // Evita custo de Tooltip quando não há nada relevante
     final bool shouldShowTooltip = enabled &&
-        (scheduleData.statusCanonical != 'a_iniciar' || _hasComment || _hasPhotos);
+        (scheduleData.statusCanonical != 'a_iniciar' ||
+            _hasComment ||
+            _hasPhotos);
 
-    return _IconScope(
-      showCommentIcon: showCommentIcon,
-      showPhotoIcon: showPhotoIcon,
-      child: shouldShowTooltip
-          ? Tooltip(
-        message: tooltipMessage,
-        waitDuration: waitDuration,
-        showDuration: showDuration,
-        child: core,
-      )
-          : core,
+    if (!shouldShowTooltip) return core;
+
+    return Tooltip(
+      message: tooltipMessage,
+      waitDuration: waitDuration,
+      showDuration: showDuration,
+      child: core,
     );
   }
 }
 
-/// Widget que desenha 1 ícone conforme a regra passada pelo _IconScope.
-class _CellIcon extends StatelessWidget {
-  const _CellIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    final scope = _IconScope.of(context);
-    if (scope.showPhotoIcon) {
-      return const Icon(Icons.camera_alt, size: 16, color: Colors.black38);
-    }
-    if (scope.showCommentIcon) {
-      return const Icon(Icons.info_outline_rounded, size: 15, color: Colors.black38);
-    }
-    return const SizedBox.shrink();
-  }
-}
-
-/// Pequeno InheritedWidget para transportar flags do ícone sem refatorar a árvore.
-class _IconScope extends InheritedWidget {
-  final bool showCommentIcon;
-  final bool showPhotoIcon;
-
-  const _IconScope({
-    required this.showCommentIcon,
-    required this.showPhotoIcon,
-    required super.child,
-  });
-
-  static _IconScope of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<_IconScope>();
-    assert(scope != null, 'IconScope não encontrado no contexto');
-    return scope!;
-  }
-
-  @override
-  bool updateShouldNotify(covariant _IconScope oldWidget) {
-    return oldWidget.showCommentIcon != showCommentIcon ||
-        oldWidget.showPhotoIcon != showPhotoIcon;
-  }
-}
-
 class _DiagonalStripesPainter extends CustomPainter {
+  const _DiagonalStripesPainter();
+
   @override
   void paint(Canvas canvas, Size size) {
     final bg = Paint()..color = Colors.grey.shade200;

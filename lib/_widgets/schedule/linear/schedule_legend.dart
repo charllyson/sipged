@@ -19,19 +19,20 @@ class ScheduleLegend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: columnHeight, // 🔹 altura fixa
+      height: columnHeight,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(height: headerHeight),
-          for (final f in faixas)
-            SizedBox(
+          ...faixas.map(
+                (f) => SizedBox(
               height: f.altura + ScheduleGrid.kCellVPad * 2,
               width: legendWidth,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    vertical: ScheduleGrid.kCellVPad),
+                  vertical: ScheduleGrid.kCellVPad,
+                ),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -42,6 +43,7 @@ class ScheduleLegend extends StatelessWidget {
                 ),
               ),
             ),
+          ),
         ],
       ),
     );

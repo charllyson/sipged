@@ -1,4 +1,3 @@
-// lib/_widgets/schedule/linear/schedule_road_board.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,21 +14,23 @@ import 'package:sipged/_widgets/schedule/modal/type.dart';
 // Modal unificado
 import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
 
-// Cubit (novo padrão)
+// Cubit
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
+
+// Usuários
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_event.dart';
 
 // Metadados por URL pro carrossel
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
-// 🔔 Notificações centralizadas
+// Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class ScheduleRoadBoard extends StatefulWidget {
   final ProcessData? contractData;
-
-  /// Extensão em km (opcionalmente usada para exibição futura).
   final double extensao;
 
   const ScheduleRoadBoard({
@@ -53,16 +54,39 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
   int? _anchorEstaca;
   int? _anchorFaixa;
   bool _modalOpen = false;
+  bool _requestedUsersLoad = false;
 
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   @override
   bool get wantKeepAlive => true;
 
-  // ===================== Helpers de formatação do nome =====================
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _ensureUsersLoadedOnce();
+  }
+
+  void _ensureUsersLoadedOnce() {
+    if (_requestedUsersLoad) return;
+
+    final userState = context.read<UserBloc>().state;
+    if (!userState.initialized && userState.all.isEmpty) {
+      _requestedUsersLoad = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context
+            .read<UserBloc>()
+            .add(const UsersEnsureLoadedRequested(listenRealtime: true));
+      });
+    }
+  }
+
   String _extractSide(String raw) {
-    final m = RegExp(r'\b(LE|CE|LD)\b', caseSensitive: false)
-        .firstMatch(raw.toUpperCase());
+    final m = RegExp(
+      r'\b(LE|CE|LD)\b',
+      caseSensitive: false,
+    ).firstMatch(raw.toUpperCase());
     return (m?.group(1) ?? '').toUpperCase();
   }
 
@@ -81,7 +105,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     return cleaned.toUpperCase();
   }
 
-  String _formatRoadName({required String laneLabel, required int estaca}) {
+  String _formatRoadName({
+    required String laneLabel,
+    required int estaca,
+  }) {
     final side = _extractSide(laneLabel);
     final name = _cleanLaneName(laneLabel);
     return side.isNotEmpty ? '$name - $side - E: $estaca' : '$name - E: $estaca';
@@ -102,7 +129,6 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
   void initState() {
     super.initState();
 
-    // Garante que o Cubit existe no contexto com mensagem amigável
     try {
       context.read<ScheduleRoadCubit>();
     } catch (_) {
@@ -115,7 +141,11 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // obrigatório com keepAlive
+    super.build(context);
+
+    final userLabelResolver = context.select<UserBloc, String Function(String?)>(
+          (bloc) => bloc.state.labelFor,
+    );
 
     return BlocConsumer<ScheduleRoadCubit, ScheduleRoadState>(
       listenWhen: (p, c) => p.error != c.error,
@@ -141,11 +171,14 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
           children: [
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.only(left: 12.0, right: 12.0),
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
                 child: state.initialized
                     ? Container(
                   color: Colors.white,
-                  child: _gridOrPlaceholder(state),
+                  child: _gridOrPlaceholder(
+                    state,
+                    userLabelResolver,
+                  ),
                 )
                     : const SizedBox.expand(),
               ),
@@ -156,14 +189,14 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     );
   }
 
-  // ===================== Grid/Placeholder =====================
-  Widget _gridOrPlaceholder(ScheduleRoadState state) {
-    // 🔕 sem spinner aqui – quem mostra loading é a WorkspacePage
+  Widget _gridOrPlaceholder(
+      ScheduleRoadState state,
+      String Function(String? uid) userLabelResolver,
+      ) {
     if (!state.initialized) {
       return const SizedBox.shrink();
     }
 
-    // já inicializado, mas ainda carregando faixas? segue sem spinner local
     if (state.loadingLanes) {
       return const SizedBox.shrink();
     }
@@ -173,7 +206,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
         child: Text(
           'Nenhuma faixa definida.\nAbra o painel "Editar" para configurar.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16, color: Colors.black87),
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.black87,
+          ),
         ),
       );
     }
@@ -189,35 +225,41 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       estacaWidth: kEstacaWidth,
       getSquareColor: state.squareColor,
       onTapSquare: (e) => _onTapSquare(e, state),
-      onDragStart: (e, f) => _onDragStart(e, f),
+      onDragStart: _onDragStart,
       onDragUpdate: (e, f) => _onDragUpdate(e, f, state),
       onDragEnd: _onDragEnd,
       selectedKeys: _selectedKeys,
       highlightColor: Colors.blueAccent,
+      userLabelResolver: userLabelResolver,
     );
   }
 
-  // ===================== Interações (UI-only) =====================
   Future<void> _onTapSquare(
       ScheduleRoadData e,
       ScheduleRoadState state,
       ) async {
     if (_isDragging || _modalOpen) return;
+
     if (!state.canEditSingleCell) {
       _toast('Para editar, selecione um serviço específico.');
       return;
     }
+
     final cellKey = '${e.numero}_${e.faixaIndex}';
-    setState(() => _selectedKeys
-      ..clear()
-      ..add(cellKey));
+    setState(() {
+      _selectedKeys
+        ..clear()
+        ..add(cellKey);
+    });
 
     try {
       _modalOpen = true;
       final metaByUrl = <String, pm.CarouselMetadata>{};
+
       for (final m in e.fotosMeta) {
         final url = m['url']?.toString() ?? '';
         if (url.isEmpty) continue;
+
         metaByUrl[url] = pm.CarouselMetadata(
           name: m['name']?.toString(),
           takenAt: (m['takenAtMs'] is num)
@@ -279,7 +321,6 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
         },
       );
 
-      // Com Cubit: recarrega execuções diretamente
       await context.read<ScheduleRoadCubit>().reloadExecucoes();
       _toast(
         'Célula atualizada com sucesso!',
@@ -292,7 +333,9 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       );
     } finally {
       _modalOpen = false;
-      if (mounted) setState(() => _selectedKeys.clear());
+      if (mounted) {
+        setState(() => _selectedKeys.clear());
+      }
     }
   }
 
@@ -307,6 +350,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
   void _onDragStart(int estaca, int faixa) {
     if (_modalOpen) return;
+
     _isDragging = true;
     setState(() {
       _anchorEstaca = estaca;
@@ -322,15 +366,15 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       int faixa,
       ScheduleRoadState state,
       ) {
-    if (!_isDragging || _anchorEstaca == null || _anchorFaixa == null) {
-      return;
-    }
+    if (!_isDragging || _anchorEstaca == null || _anchorFaixa == null) return;
+
     final sel = state.selectionBetween(
       _anchorEstaca!,
       _anchorFaixa!,
       estaca,
       faixa,
     );
+
     setState(() {
       _selectedKeys
         ..clear()
@@ -340,6 +384,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
 
   void _onDragEnd() {
     if (!_isDragging) return;
+
     _isDragging = false;
     if (_selectedKeys.length > 1) {
       _openBulkWithUnifiedModal();
@@ -362,12 +407,14 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     for (final key in _selectedKeys) {
       final parts = key.split('_');
       if (parts.length != 2) continue;
+
       final estaca = int.tryParse(parts[0]);
       final faixa = int.tryParse(parts[1]);
       if (estaca == null || faixa == null) continue;
 
       estacasSelecionadas.add(estaca);
       final fotosAtuais = state.fotosAtuaisFor(estaca, faixa);
+
       targets.add(
         ScheduleApplyTarget(
           estaca: estaca,
@@ -422,11 +469,12 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       _toast('Falha no lote: $e', type: AppNotificationType.error);
     } finally {
       _modalOpen = false;
-      if (mounted) setState(() => _selectedKeys.clear());
+      if (mounted) {
+        setState(() => _selectedKeys.clear());
+      }
     }
   }
 
-  // ===================== Notificações centralizadas =====================
   void _toast(
       String msg, {
         AppNotificationType type = AppNotificationType.info,

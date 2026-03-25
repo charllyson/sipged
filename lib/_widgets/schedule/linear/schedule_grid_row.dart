@@ -1,22 +1,15 @@
-// lib/_widgets/schedule/schedule_grid_row.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/schedule/linear/schedule_cells.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 import 'package:sipged/_widgets/schedule/linear/schedule_lane_class.dart';
 import 'schedule_grid.dart';
 
-// Bloc de Usuário
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
-
 class ScheduleGridRow extends StatelessWidget {
   final int estacaNumero;
   final List<ScheduleLaneClass> faixas;
 
-  /// Mantido para compat, mas buscamos O(1) via `execIndex`
+  /// Mantido para compatibilidade
   final List<ScheduleRoadData> execucoes;
 
   /// Índice O(1): [estaca][faixa] -> ScheduleData
@@ -25,6 +18,7 @@ class ScheduleGridRow extends StatelessWidget {
   final String servicoSelecionado;
   final Color Function(ScheduleRoadData) getSquareColor;
   final void Function(ScheduleRoadData) onTapSquare;
+  final String Function(String? uid) userLabelResolver;
 
   final Set<String> selectedKeys;
   final Color highlightColor;
@@ -36,49 +30,51 @@ class ScheduleGridRow extends StatelessWidget {
     required this.estacaNumero,
     required this.faixas,
     required this.execucoes,
-    required this.execIndex, // ✅ novo param
+    required this.execIndex,
     required this.servicoSelecionado,
     required this.getSquareColor,
     required this.onTapSquare,
+    required this.userLabelResolver,
     required this.columnHeight,
     this.selectedKeys = const <String>{},
     this.highlightColor = const Color(0xFF1E88E5),
     this.headerHeight = 25,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final isMultiploDe10 = estacaNumero % 10 == 0;
-    final numeroStyle = TextStyle(
+  TextStyle _numeroStyle(bool isMultiploDe10) {
+    return TextStyle(
       fontSize: isMultiploDe10 ? 10 : 7,
       height: 1.0,
       color: isMultiploDe10 ? Colors.red : Colors.grey[600],
       fontWeight: isMultiploDe10 ? FontWeight.bold : FontWeight.normal,
     );
+  }
 
-    // Estado atual do UserBloc
-    final userState = context.watch<UserBloc>().state;
+  ScheduleRoadData _buildDefaultExec(int faixaIndex) {
+    return ScheduleRoadData(
+      numero: estacaNumero,
+      faixaIndex: faixaIndex,
+      tipo: servicoSelecionado,
+      status: 'a iniciar',
+      createdAt: null,
+      comentario: null,
+      key: servicoSelecionado,
+      label: servicoSelecionado.toUpperCase(),
+      icon: Icons.layers_outlined,
+      color: Colors.grey,
+    );
+  }
 
-    // Se ainda não carregamos a lista de usuários, pedimos pós-frame.
-    if (!userState.initialized && userState.all.isEmpty) {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) {
-          context
-              .read<UserBloc>()
-              .add(const UsersEnsureLoadedRequested(listenRealtime: true));
-        }
-      });
-    }
-
-    // Resolver: UID -> rótulo legível (usa helper do estado)
-    String resolveUser(String? uid) => userState.labelFor(uid);
+  @override
+  Widget build(BuildContext context) {
+    final isMultiploDe10 = estacaNumero % 10 == 0;
+    final numeroStyle = _numeroStyle(isMultiploDe10);
 
     return SizedBox(
       height: columnHeight,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Cabeçalho da coluna (número da estaca)
           SizedBox(
             height: headerHeight,
             child: Center(
@@ -98,37 +94,22 @@ class ScheduleGridRow extends StatelessWidget {
               ),
             ),
           ),
-
-          // Corpo: uma célula por faixa
           ...List.generate(faixas.length, (i) {
             final faixa = faixas[i];
 
-            // O(1): pega direto do índice; se não houver, usa default
-            final ScheduleRoadData exec = execIndex[estacaNumero]?[i] ??
-                ScheduleRoadData(
-                  numero: estacaNumero,
-                  faixaIndex: i,
-                  tipo: servicoSelecionado,
-                  status: 'a iniciar',
-                  createdAt: null,
-                  comentario: null,
-                  key: servicoSelecionado,
-                  label: servicoSelecionado.toUpperCase(),
-                  icon: Icons.layers_outlined,
-                  color: Colors.grey,
-                );
+            final ScheduleRoadData exec =
+                execIndex[estacaNumero]?[i] ?? _buildDefaultExec(i);
 
-            // Esta faixa aceita o serviço atual?
             final bool enabled = faixa.isAllowed(servicoSelecionado);
-
-            final cellKey = '${exec.numero}_${exec.faixaIndex}';
-            final isSelected = selectedKeys.contains(cellKey) && enabled;
+            final String cellKey = '${exec.numero}_${exec.faixaIndex}';
+            final bool isSelected = selectedKeys.contains(cellKey) && enabled;
 
             return SizedBox(
               height: faixa.altura + ScheduleGrid.kCellVPad * 2,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    vertical: ScheduleGrid.kCellVPad),
+                  vertical: ScheduleGrid.kCellVPad,
+                ),
                 child: ScheduleCells(
                   scheduleData: exec,
                   height: faixa.altura,
@@ -136,8 +117,8 @@ class ScheduleGridRow extends StatelessWidget {
                   onTap: () => onTapSquare(exec),
                   isSelected: isSelected,
                   highlightColor: highlightColor,
-                  userLabelResolver: resolveUser,
-                  enabled: enabled, // ← controla tooltip/click e overlay listrado
+                  userLabelResolver: userLabelResolver,
+                  enabled: enabled,
                 ),
               ),
             );

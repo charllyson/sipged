@@ -1,8 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show GeoPoint, Timestamp;
+import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp, GeoPoint;
 import 'package:latlong2/latlong.dart';
 
-class ScheduleRoadData {
+class ScheduleRoadData extends Equatable {
   final int numero;
   final int faixaIndex;
   final String? tipo;
@@ -13,9 +14,6 @@ class ScheduleRoadData {
   final List<Map<String, dynamic>> fotosMeta;
 
   final int? takenAtMs;
-  DateTime? get takenAt =>
-      takenAtMs == null ? null : DateTime.fromMillisecondsSinceEpoch(takenAtMs!);
-
   final DateTime? createdAt;
   final String? createdBy;
   final DateTime? updatedAt;
@@ -52,12 +50,24 @@ class ScheduleRoadData {
     this.points,
   });
 
+  static const ScheduleRoadData emptyGeral = ScheduleRoadData(
+    numero: 0,
+    faixaIndex: 0,
+    key: 'geral',
+    label: 'GERAL',
+    icon: Icons.clear_all,
+    color: Colors.grey,
+  );
+
+  DateTime? get takenAt =>
+      takenAtMs == null ? null : DateTime.fromMillisecondsSinceEpoch(takenAtMs!);
+
   List<List<LatLng>> getSegments() {
     if (multiLine != null && multiLine!.isNotEmpty) {
-      return multiLine!.map((s) => List<LatLng>.from(s)).toList();
+      return multiLine!.map((s) => List<LatLng>.from(s)).toList(growable: false);
     }
     if (points != null && points!.isNotEmpty) {
-      return [List<LatLng>.from(points!)];
+      return <List<LatLng>>[List<LatLng>.from(points!)];
     }
     return const <List<LatLng>>[];
   }
@@ -65,38 +75,58 @@ class ScheduleRoadData {
   List<LatLng> get axis => getSegments().expand((s) => s).toList(growable: false);
 
   static String _strip(String s) {
-    const from = 'ÀÁÂÃÄÅàáâãäåÈÉÊËèéêëÌÍÎÏìíîïÒÓÔÕÖòóôõöÙÚÛÜùúûüÇçÑñÝýÿ';
-    const to   = 'AAAAAAaaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNnYyy';
-    final map = { for (var i = 0; i < from.length; i++) from[i]: to[i] };
-    final noAccents = s.split('').map((c) => map[c] ?? c).join();
-    return noAccents.toLowerCase().trim().replaceAll(RegExp(r'\s+'), '_');
+    const from =
+        'ÀÁÂÃÄÅàáâãäåÈÉÊËèéêëÌÍÎÏìíîïÒÓÔÕÖòóôõöÙÚÛÜùúûüÇçÑñÝýÿ';
+    const to =
+        'AAAAAAaaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNnYyy';
+    final map = <String, String>{
+      for (var i = 0; i < from.length; i++) from[i]: to[i],
+    };
+
+    return s
+        .split('')
+        .map((c) => map[c] ?? c)
+        .join()
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '_');
   }
 
   String get statusCanonical {
     final raw = status ?? '';
     final s = _strip(raw);
+
     if (s.contains('conclu')) return 'concluido';
-    if (s.contains('andamento') || s.contains('progress')) return 'em_andamento';
-    if (s.contains('iniciar') || s == 'a_iniciar' || s == 'a') return 'a_iniciar';
+    if (s.contains('andamento') || s.contains('progress')) {
+      return 'em_andamento';
+    }
+    if (s.contains('iniciar') || s == 'a_iniciar' || s == 'a') {
+      return 'a_iniciar';
+    }
     return 'a_iniciar';
   }
 
   String get statusLabel {
     switch (statusCanonical) {
-      case 'concluido':     return 'Concluído';
-      case 'em_andamento':  return 'Em andamento';
-      case 'a_iniciar':     return 'A iniciar';
-      default:              return (status ?? '').isEmpty ? 'A iniciar' : _titleCase(status!);
+      case 'concluido':
+        return 'Concluído';
+      case 'em_andamento':
+        return 'Em andamento';
+      case 'a_iniciar':
+        return 'A iniciar';
+      default:
+        return (status ?? '').isEmpty ? 'A iniciar' : _titleCase(status!);
     }
   }
 
-  bool get isConcluido    => statusCanonical == 'concluido';
-  bool get isEmAndamento  => statusCanonical == 'em_andamento';
-  bool get isAIniciar     => statusCanonical == 'a_iniciar';
+  bool get isConcluido => statusCanonical == 'concluido';
+  bool get isEmAndamento => statusCanonical == 'em_andamento';
+  bool get isAIniciar => statusCanonical == 'a_iniciar';
 
   static String _titleCase(String s) {
     final t = s.trim();
     if (t.isEmpty) return t;
+
     return t.split(RegExp(r'\s+')).map((p) {
       if (p.isEmpty) return p;
       final first = p.characters.first.toUpperCase();
@@ -106,20 +136,25 @@ class ScheduleRoadData {
   }
 
   bool get hasPhotos => fotos.any((u) => u.trim().isNotEmpty);
+
   int get photosCount => fotos.where((u) => u.trim().isNotEmpty).length;
 
   DateTime? get primaryDate {
     if (takenAt != null) return takenAt;
+
     final metaMax = _maxDateFromMetas();
     if (metaMax != null) return metaMax;
+
     return updatedAt ?? createdAt;
   }
 
   DateTime? _maxDateFromMetas() {
     DateTime? best;
+
     for (final m in fotosMeta) {
       DateTime? d;
       final rawTaken = m['takenAt'] ?? m['takenAtMs'];
+
       if (rawTaken is int) {
         d = DateTime.fromMillisecondsSinceEpoch(rawTaken);
       } else if (rawTaken is String) {
@@ -127,37 +162,44 @@ class ScheduleRoadData {
         if (asInt != null) {
           d = DateTime.fromMillisecondsSinceEpoch(asInt);
         } else {
-          try { d = DateTime.parse(rawTaken); } catch (_) {}
+          try {
+            d = DateTime.parse(rawTaken);
+          } catch (_) {}
         }
       } else if (rawTaken is DateTime) {
         d = rawTaken;
       } else if (rawTaken is Timestamp) {
         d = rawTaken.toDate();
       }
+
       if (d == null) {
         final up = m['uploadedAtMs'];
-        if (up is int) d = DateTime.fromMillisecondsSinceEpoch(up);
-        if (up is String) {
+        if (up is int) {
+          d = DateTime.fromMillisecondsSinceEpoch(up);
+        } else if (up is String) {
           final asInt = int.tryParse(up);
-          if (asInt != null) d = DateTime.fromMillisecondsSinceEpoch(asInt);
+          if (asInt != null) {
+            d = DateTime.fromMillisecondsSinceEpoch(asInt);
+          }
         } else if (up is Timestamp) {
           d = up.toDate();
         }
       }
-      if (d != null && (best == null || d.isAfter(best))) best = d;
+
+      if (d != null && (best == null || d.isAfter(best))) {
+        best = d;
+      }
     }
+
     return best;
   }
 
-  factory ScheduleRoadData.fromMap(Map<String, dynamic> m, {ScheduleRoadData? meta}) {
-    final def = ScheduleRoadData(
-      numero: 0,
-      faixaIndex: 0,
-      key: 'geral',
-      label: 'GERAL',
-      icon: Icons.clear_all,
-      color: Colors.grey,
-    );
+  factory ScheduleRoadData.fromMap(
+      Map<String, dynamic> m, {
+        ScheduleRoadData? meta,
+      }) {
+    final def = emptyGeral;
+
     return ScheduleRoadData(
       numero: _asInt(m['numero']) ?? 0,
       faixaIndex: _asInt(m['faixa_index']) ?? 0,
@@ -199,6 +241,7 @@ class ScheduleRoadData {
       if (multiLine != null) 'multiLine': _toMultiList(multiLine),
       if (points != null) 'points': _toPoints(points),
     };
+
     if (includeMeta) {
       map.addAll({
         'key': key,
@@ -207,6 +250,7 @@ class ScheduleRoadData {
         'color': color.value,
       });
     }
+
     return map;
   }
 
@@ -258,6 +302,7 @@ class ScheduleRoadData {
     if (v == null) return null;
     if (v is int) return v;
     if (v is double) return v.round();
+    if (v is num) return v.toInt();
     if (v is String) return int.tryParse(v);
     return null;
   }
@@ -266,7 +311,10 @@ class ScheduleRoadData {
 
   static List<String> _asStringList(dynamic v) {
     if (v is List) {
-      return v.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+      return v
+          .map((e) => e?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList(growable: false);
     }
     return const <String>[];
   }
@@ -275,9 +323,9 @@ class ScheduleRoadData {
     if (v is List) {
       return v
           .whereType<Object>()
-          .map((e) => (e is Map) ? Map<String, dynamic>.from(e) : <String, dynamic>{})
+          .map((e) => e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{})
           .where((m) => m.isNotEmpty)
-          .toList();
+          .toList(growable: false);
     }
     return const <Map<String, dynamic>>[];
   }
@@ -287,7 +335,11 @@ class ScheduleRoadData {
     if (v is DateTime) return v;
     if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
     if (v is String) {
-      try { return DateTime.parse(v); } catch (_) {}
+      try {
+        return DateTime.parse(v);
+      } catch (_) {
+        return null;
+      }
     }
     if (v is Timestamp) return v.toDate();
     return null;
@@ -298,6 +350,8 @@ class ScheduleRoadData {
     if (v is int) return v;
     if (v is num) return v.toInt();
     if (v is String) {
+      final intValue = int.tryParse(v);
+      if (intValue != null) return intValue;
       final d = DateTime.tryParse(v);
       return d?.millisecondsSinceEpoch;
     }
@@ -308,33 +362,41 @@ class ScheduleRoadData {
 
   static List<List<LatLng>>? _parseMulti(dynamic g) {
     if (g is! List) return null;
+
     final out = <List<LatLng>>[];
     for (final seg in g) {
-      if (seg is List) {
-        final line = <LatLng>[];
-        for (final p in seg) {
-          if (p is List && p.length >= 2) {
-            final lon = (p[0] as num?)?.toDouble();
-            final lat = (p[1] as num?)?.toDouble();
-            if (lat != null && lon != null) line.add(LatLng(lat, lon));
-          } else if (p is Map) {
-            final lat = (p['lat'] ?? p['latitude']) as num?;
-            final lon = (p['lng'] ?? p['longitude']) as num?;
-            if (lat != null && lon != null) {
-              line.add(LatLng(lat.toDouble(), lon.toDouble()));
-            }
-          } else if (p is GeoPoint) {
-            line.add(LatLng(p.latitude, p.longitude));
+      if (seg is! List) continue;
+
+      final line = <LatLng>[];
+      for (final p in seg) {
+        if (p is List && p.length >= 2) {
+          final lon = (p[0] as num?)?.toDouble();
+          final lat = (p[1] as num?)?.toDouble();
+          if (lat != null && lon != null) {
+            line.add(LatLng(lat, lon));
           }
+        } else if (p is Map) {
+          final lat = (p['lat'] ?? p['latitude']) as num?;
+          final lon = (p['lng'] ?? p['longitude']) as num?;
+          if (lat != null && lon != null) {
+            line.add(LatLng(lat.toDouble(), lon.toDouble()));
+          }
+        } else if (p is GeoPoint) {
+          line.add(LatLng(p.latitude, p.longitude));
         }
-        if (line.isNotEmpty) out.add(line);
+      }
+
+      if (line.isNotEmpty) {
+        out.add(line);
       }
     }
+
     return out.isEmpty ? null : out;
   }
 
   static List<LatLng>? _parsePoints(dynamic v) {
     if (v is! List) return null;
+
     final out = <LatLng>[];
     for (final p in v) {
       if (p is GeoPoint) {
@@ -342,7 +404,9 @@ class ScheduleRoadData {
       } else if (p is List && p.length >= 2) {
         final lon = (p[0] as num?)?.toDouble();
         final lat = (p[1] as num?)?.toDouble();
-        if (lat != null && lon != null) out.add(LatLng(lat, lon));
+        if (lat != null && lon != null) {
+          out.add(LatLng(lat, lon));
+        }
       } else if (p is Map) {
         final lat = (p['lat'] ?? p['latitude']) as num?;
         final lon = (p['lng'] ?? p['longitude']) as num?;
@@ -351,20 +415,47 @@ class ScheduleRoadData {
         }
       }
     }
+
     return out.isEmpty ? null : out;
   }
 
   static List<List<dynamic>>? _toMultiList(List<List<LatLng>>? ml) {
     if (ml == null) return null;
     return ml
-        .map((seg) => seg.map((p) => [p.longitude, p.latitude]).toList())
-        .toList();
+        .map((seg) => seg.map((p) => <double>[p.longitude, p.latitude]).toList())
+        .toList(growable: false);
   }
 
   static List<dynamic>? _toPoints(List<LatLng>? pts) {
     if (pts == null) return null;
     return pts
-        .map((p) => {'latitude': p.latitude, 'longitude': p.longitude})
-        .toList();
+        .map((p) => <String, double>{
+      'latitude': p.latitude,
+      'longitude': p.longitude,
+    })
+        .toList(growable: false);
   }
+
+  @override
+  List<Object?> get props => [
+    numero,
+    faixaIndex,
+    tipo,
+    status,
+    comentario,
+    fotos,
+    fotosMeta,
+    takenAtMs,
+    createdAt,
+    createdBy,
+    updatedAt,
+    updatedBy,
+    key,
+    label,
+    icon.codePoint,
+    color.value,
+    geometryType,
+    multiLine,
+    points,
+  ];
 }

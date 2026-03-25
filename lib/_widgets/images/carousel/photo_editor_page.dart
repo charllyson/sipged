@@ -1,47 +1,26 @@
-// lib/_widgets/schedule/square_modal/photo_editor_page.dart
+import 'dart:io' show File, Platform;
+import 'dart:typed_data';
+
+import 'package:exif/exif.dart' as exif;
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
-// Export nativo (Android/iOS) — rápido
-import 'package:image_editor/image_editor.dart' as ien;
-
-// Export Dart puro — funciona em todas as plataformas
 import 'package:image/image.dart' as img;
-
-// EXIF leitura e escrita nativa
-import 'package:exif/exif.dart' as exif;
-import 'dart:io' show File, Platform;
-import 'package:path_provider/path_provider.dart';
+import 'package:image_editor/image_editor.dart' as ien;
 import 'package:native_exif/native_exif.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-/// Tela de preview/edição (crop, rotate, flip, zoom).
-/// Retorna os bytes recortados via `Navigator.pop<Uint8List>(bytes)`.
 class PhotoEditorPage extends StatefulWidget {
   final Uint8List originalBytes;
-
-  /// Zoom máximo no editor
   final double maxScale;
-
-  /// Qualidade JPEG na exportação (0..100)
   final int exportQuality;
-
-  /// (Sem efeito no v10 — mantido por compat)
   final bool circleCrop;
-
-  /// Proporções disponíveis (ex.: [1, 4/3, 16/9]). Se null → [Livre, 1:1, 4:3, 16:9].
   final List<double>? aspectRatios;
-
-  /// Tenta export nativo primeiro e cai pro Dart em erro.
   final bool preferNative;
-
-  /// Gravar EXIF no resultado (Android/iOS). No Web/Desktop, ignora.
   final bool writeExif;
-
-  /// Overrides para EXIF de saída (se null, tenta herdar do EXIF original).
   final String? exifImageDescription;
   final String? exifUserComment;
   final String? exifSoftware;
@@ -83,8 +62,6 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
 
   double? _currentAspect;
   bool _saving = false;
-
-  // cache do EXIF original (lido uma vez)
   _OrigExif? _origExif;
 
   List<_Aspect> get _ratios {
@@ -95,6 +72,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
         ...custom.map((r) => _Aspect(_aspectLabelOf(r), r)),
       ];
     }
+
     return const [
       _Aspect('Livre', null),
       _Aspect('1:1', 1.0),
@@ -131,9 +109,12 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     final list = _ratios;
     final next = (_currentAspectIndexIn(list) + 1) % list.length;
     final sel = list[next];
+
     setState(() {
       _currentAspect = sel.value;
-      _controller.updateCropAspectRatio(sel.value ?? CropAspectRatios.custom);
+      _controller.updateCropAspectRatio(
+        sel.value ?? CropAspectRatios.custom,
+      );
     });
   }
 
@@ -157,7 +138,7 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
   Widget build(BuildContext context) {
     final editor = ExtendedImage.memory(
       widget.originalBytes,
-      key: ValueKey(_currentAspect), // reinit ao trocar proporção
+      key: ValueKey(_currentAspect),
       mode: ExtendedImageMode.editor,
       fit: BoxFit.contain,
       enableLoadState: false,
@@ -181,7 +162,10 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('Ajustar foto', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Ajustar foto',
+          style: TextStyle(color: Colors.white),
+        ),
         actions: [
           TextButton.icon(
             style: TextButton.styleFrom(foregroundColor: Colors.white),
@@ -212,7 +196,11 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              _btn(Icons.rotate_90_degrees_ccw, 'Rot 90', () => _controller.rotate()),
+              _btn(
+                Icons.rotate_90_degrees_ccw,
+                'Rot 90',
+                    () => _controller.rotate(),
+              ),
               const SizedBox(width: 8),
               _btn(Icons.flip, 'Flip', () => _controller.flip()),
               const SizedBox(width: 8),
@@ -246,13 +234,11 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     setState(() => _saving = true);
 
     try {
-      // 1) Exporta (nativo ou Dart)
-      final edited = widget.preferNative ? await _exportNative() : await _exportDart();
+      final edited =
+      widget.preferNative ? await _exportNative() : await _exportDart();
 
-      // 2) Tenta gravar EXIF no resultado (Android/iOS)
       final withExif = await _applyExifIfSupported(edited);
 
-      // ✅ toast sucesso ANTES de fechar a tela
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Foto exportada'),
@@ -280,17 +266,16 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     }
   }
 
-  /// ===== Export nativo (image_editor) =====
   Future<Uint8List> _exportNative() async {
     final st = _state;
     if (st == null) throw 'Editor não pronto';
 
-    final Uint8List raw = st.rawImageData;
-    final Rect? crop = _controller.getCropRect();
+    final raw = st.rawImageData;
+    final crop = _controller.getCropRect();
 
     final action = st.editAction;
-    final double deg = action?.rotateDegrees ?? 0.0; // v10
-    final bool flipH = action?.flipY ?? false;       // v10 (só horizontal)
+    final deg = action?.rotateDegrees ?? 0.0;
+    final flipH = action?.flipY ?? false;
 
     final opt = ien.ImageEditorOption();
 
@@ -299,10 +284,9 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     }
 
     if (flipH) {
-      opt.addOption(const ien.FlipOption(
-        horizontal: true,
-        vertical: false,
-      ));
+      opt.addOption(
+        const ien.FlipOption(horizontal: true, vertical: false),
+      );
     }
 
     if (crop != null && crop.width > 0 && crop.height > 0) {
@@ -315,28 +299,25 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       image: raw,
       imageEditorOption: opt,
     );
-    if (out == null) throw 'Edição nativa retornou null';
 
+    if (out == null) throw 'Edição nativa retornou null';
     return out;
   }
 
-  /// ===== Export Dart (package:image) =====
   Future<Uint8List> _exportDart() async {
     final st = _state;
     if (st == null) throw 'Editor não pronto';
 
-    final Uint8List raw = st.rawImageData;
-    final Rect? crop = _controller.getCropRect();
+    final raw = st.rawImageData;
+    final crop = _controller.getCropRect();
 
     final action = st.editAction;
-    final double deg = action?.rotateDegrees ?? 0.0;
-    final bool flipH = action?.flipY ?? false;
+    final deg = action?.rotateDegrees ?? 0.0;
+    final flipH = action?.flipY ?? false;
 
-    // Decode em isolate
     final img.Image src = await compute(_decodeImage, raw);
     img.Image out = img.bakeOrientation(src);
 
-    // Rotação / flip / crop
     if (deg.abs() > 0.01) {
       out = img.copyRotate(out, angle: deg);
     }
@@ -353,20 +334,14 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       );
     }
 
-    // Encode JPG em isolate (sem EXIF aqui — escrita via nativo se disponível)
-    final Uint8List encoded = await compute(_encodeJpg, _JpgArgs(out, widget.exportQuality));
-    return encoded;
+    return compute(_encodeJpg, _JpgArgs(out, widget.exportQuality));
   }
 
-  // ====== EXIF: leitura do original e escrita no resultado ======
-
-  /// Lê alguns campos do EXIF original (se existirem).
   Future<_OrigExif?> _readOriginalExif(Uint8List data) async {
     try {
       final tags = await exif.readExifFromBytes(data);
       if (tags.isEmpty) return null;
 
-      // --- Data/hora (pega a primeira que existir)
       DateTime? dt;
       for (final key in const [
         'Image DateTime',
@@ -383,13 +358,13 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
         }
       }
 
-      // --- GPS: Latitude/Longitude (DMS -> decimal)
-      double? lat, lon;
+      double? lat;
+      double? lon;
 
       final latTag = tags['GPS GPSLatitude'];
-      final latRef = tags['GPS GPSLatitudeRef']?.printable; // 'N' ou 'S'
+      final latRef = tags['GPS GPSLatitudeRef']?.printable;
       final lonTag = tags['GPS GPSLongitude'];
-      final lonRef = tags['GPS GPSLongitudeRef']?.printable; // 'E' ou 'W'
+      final lonRef = tags['GPS GPSLongitudeRef']?.printable;
 
       double? ratiosToDeg(exif.IfdValues? v) {
         if (v is exif.IfdRatios && v.ratios.length >= 3) {
@@ -416,28 +391,26 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     }
   }
 
-  /// Aplica EXIF ao JPEG final caso esteja em Android/iOS e writeExif==true.
   Future<Uint8List> _applyExifIfSupported(Uint8List editedJpeg) async {
     if (!widget.writeExif) return editedJpeg;
     if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
-      // Web/Desktop: sem escrita confiável — retorna como está
       return editedJpeg;
     }
 
     try {
       final tempDir = await getTemporaryDirectory();
-      final f = File('${tempDir.path}/edited_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final f = File(
+        '${tempDir.path}/edited_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
       await f.writeAsBytes(editedJpeg, flush: true);
 
       final ex = await Exif.fromPath(f.path);
 
-      // === Definição dos campos finais (override > original > agora) ===
       final now = DateTime.now();
       final finalDate = widget.exifDateTime ?? _origExif?.dateTime ?? now;
       final finalLat = widget.exifLatitude ?? _origExif?.latitude;
       final finalLon = widget.exifLongitude ?? _origExif?.longitude;
 
-      // Datas (strings no formato EXIF)
       final dateStr = _formatExifDate(finalDate);
 
       await ex.writeAttributes({
@@ -456,7 +429,6 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
           'Copyright': widget.exifCopyright!,
       });
 
-      // GPS (usa Latitude/Longitude + Ref, como string)
       if (finalLat != null && finalLon != null) {
         final latRef = finalLat >= 0 ? 'N' : 'S';
         final lonRef = finalLon >= 0 ? 'E' : 'W';
@@ -469,21 +441,15 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
       }
 
       await ex.close();
-
-      final updated = await f.readAsBytes();
-      return updated;
+      return await f.readAsBytes();
     } catch (_) {
-      // Se qualquer etapa falhar, devolve a imagem editada sem EXIF extra
       return editedJpeg;
     }
   }
 
-  // ===== helpers isolados (para compute/encode) =====
   static img.Image _decodeImage(Uint8List data) {
     final i = img.decodeImage(data);
-    if (i == null) {
-      throw 'Imagem inválida';
-    }
+    if (i == null) throw 'Imagem inválida';
     return i;
   }
 
@@ -495,7 +461,6 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
 
   static String _formatExifDate(DateTime dt) {
     String two(int v) => v.toString().padLeft(2, '0');
-    // Formato EXIF: "YYYY:MM:DD HH:MM:SS"
     return '${dt.year}:${two(dt.month)}:${two(dt.day)} ${two(dt.hour)}:${two(dt.minute)}:${two(dt.second)}';
   }
 
@@ -503,9 +468,12 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
     try {
       final dateTime = s.trim();
       final date = dateTime.split(' ').first;
-      final time = dateTime.split(' ').length > 1 ? dateTime.split(' ')[1] : '00:00:00';
+      final time =
+      dateTime.split(' ').length > 1 ? dateTime.split(' ')[1] : '00:00:00';
+
       final partsD = date.split(':');
       final partsT = time.split(':');
+
       if (partsD.length == 3 && partsT.length >= 2) {
         final y = int.parse(partsD[0]);
         final m = int.parse(partsD[1]);
@@ -523,12 +491,14 @@ class _PhotoEditorPageState extends State<PhotoEditorPage> {
 class _Aspect {
   final String label;
   final double? value;
+
   const _Aspect(this.label, this.value);
 }
 
 class _JpgArgs {
   final img.Image image;
   final int quality;
+
   const _JpgArgs(this.image, this.quality);
 }
 
@@ -536,5 +506,10 @@ class _OrigExif {
   final DateTime? dateTime;
   final double? latitude;
   final double? longitude;
-  const _OrigExif({this.dateTime, this.latitude, this.longitude});
+
+  const _OrigExif({
+    this.dateTime,
+    this.latitude,
+    this.longitude,
+  });
 }
