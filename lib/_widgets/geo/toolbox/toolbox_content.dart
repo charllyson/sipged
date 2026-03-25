@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_state.dart';
 import 'package:sipged/_widgets/geo/toolbox/toolbox_action_item.dart';
 import 'package:sipged/_widgets/geo/toolbox/toolbox_panel.dart';
-import 'package:sipged/_widgets/geo/toolbox/toolbox_status.dart';
 
 class ToolboxContent extends StatelessWidget {
   final void Function(String message) onToolSelected;
@@ -19,26 +16,6 @@ class ToolboxContent extends StatelessWidget {
   final bool lineEditingActive;
   final bool polygonEditingActive;
 
-  final GeoMapState editorState;
-  final GeoToolboxState measurementState;
-
-  final GeoLayersData? activePointLayer;
-  final GeoLayersData? activeLineLayer;
-  final GeoLayersData? activePolygonLayer;
-
-  final VoidCallback onUndoDistanceMeasurementPoint;
-  final VoidCallback onClearDistanceMeasurement;
-  final VoidCallback onFinishDistanceMeasurement;
-
-  final Future<bool> Function() onFinalizeCurrentPointEditing;
-  final Future<void> Function() onCancelCurrentPointEditing;
-
-  final Future<bool> Function() onFinalizeCurrentLineEditing;
-  final Future<void> Function() onCancelCurrentLineEditing;
-
-  final Future<bool> Function() onFinalizeCurrentPolygonEditing;
-  final Future<void> Function() onCancelCurrentPolygonEditing;
-
   const ToolboxContent({
     super.key,
     required this.onToolSelected,
@@ -50,20 +27,6 @@ class ToolboxContent extends StatelessWidget {
     this.pointEditingActive = false,
     this.lineEditingActive = false,
     this.polygonEditingActive = false,
-    required this.editorState,
-    required this.measurementState,
-    required this.activePointLayer,
-    required this.activeLineLayer,
-    required this.activePolygonLayer,
-    required this.onUndoDistanceMeasurementPoint,
-    required this.onClearDistanceMeasurement,
-    required this.onFinishDistanceMeasurement,
-    required this.onFinalizeCurrentPointEditing,
-    required this.onCancelCurrentPointEditing,
-    required this.onFinalizeCurrentLineEditing,
-    required this.onCancelCurrentLineEditing,
-    required this.onFinalizeCurrentPolygonEditing,
-    required this.onCancelCurrentPolygonEditing,
   });
 
   bool get _hasSelectedEditableLayer =>
@@ -175,34 +138,12 @@ class ToolboxContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: ToolboxPanel(
-            sections: sections ?? _defaultSections(),
-            selectedToolId: selectedToolId,
-            onSelected: onSelectedTool,
-            iconSize: 20,
-            buttonSize: 40,
-          ),
-        ),
-        ToolboxStatus(
-          editorState: editorState,
-          measurementState: measurementState,
-          activePointLayer: activePointLayer,
-          activeLineLayer: activeLineLayer,
-          activePolygonLayer: activePolygonLayer,
-          onUndoDistanceMeasurementPoint: onUndoDistanceMeasurementPoint,
-          onClearDistanceMeasurement: onClearDistanceMeasurement,
-          onFinishDistanceMeasurement: onFinishDistanceMeasurement,
-          onFinalizeCurrentPointEditing: onFinalizeCurrentPointEditing,
-          onCancelCurrentPointEditing: onCancelCurrentPointEditing,
-          onFinalizeCurrentLineEditing: onFinalizeCurrentLineEditing,
-          onCancelCurrentLineEditing: onCancelCurrentLineEditing,
-          onFinalizeCurrentPolygonEditing: onFinalizeCurrentPolygonEditing,
-          onCancelCurrentPolygonEditing: onCancelCurrentPolygonEditing,
-        ),
-      ],
+    return ToolboxPanel(
+      sections: sections ?? _defaultSections(),
+      selectedToolId: selectedToolId,
+      onSelected: onSelectedTool,
+      iconSize: 20,
+      buttonSize: 40,
     );
   }
 }

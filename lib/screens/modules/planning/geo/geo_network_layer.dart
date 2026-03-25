@@ -5,7 +5,7 @@ import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cub
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_widgets/geo/attributes/attributes_dialog.dart';
+import 'package:sipged/_widgets/geo/attributes/attributes_table.dart';
 
 class GeoNetworkLayer {
   const GeoNetworkLayer._();
@@ -22,7 +22,7 @@ class GeoNetworkLayer {
       barrierDismissible: false,
       builder: (_) => BlocProvider.value(
         value: importCubit,
-        child: AttributesDialog(
+        child: AttributesTable(
           mode: AttributesTableMode.importFile,
           collectionPath: path,
           targetFields: const [],
@@ -46,7 +46,7 @@ class GeoNetworkLayer {
       barrierDismissible: false,
       builder: (_) => BlocProvider.value(
         value: importCubit,
-        child: AttributesDialog(
+        child: AttributesTable(
           mode: AttributesTableMode.firestore,
           collectionPath: path,
           targetFields: const [],

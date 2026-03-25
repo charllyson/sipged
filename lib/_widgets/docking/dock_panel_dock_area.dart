@@ -1,4 +1,3 @@
-
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,8 +7,13 @@ import 'package:sipged/_widgets/docking/dock_panel_types.dart';
 class DockPanelDockArea extends StatelessWidget {
   final List<DockPanelGroupData> groups;
   final DockArea area;
-  final void Function(int leadingIndex, double deltaPixels, double totalPixels)
-  onResizeWeights;
+
+  final void Function(
+      int leadingIndex,
+      double deltaPixels,
+      double totalPixels,
+      ) onResizeWeights;
+
   final VoidCallback onResizeWeightsStart;
   final VoidCallback onResizeWeightsEnd;
 
@@ -37,29 +41,38 @@ class DockPanelDockArea extends StatelessWidget {
         final totalPixels =
         isSideArea ? constraints.maxHeight : constraints.maxWidth;
 
+        if (!totalPixels.isFinite || totalPixels <= 0) {
+          return const SizedBox.shrink();
+        }
+
         final totalWeight = groups.fold<double>(
           0.0,
               (sum, item) => sum + item.dockWeight,
         );
+        final safeTotalWeight = totalWeight <= 0 ? 1.0 : totalWeight;
 
         final children = <Widget>[];
 
         for (var i = 0; i < groups.length; i++) {
           final group = groups[i];
+
           final flex = math.max(
             1,
-            ((group.dockWeight / (totalWeight == 0 ? 1 : totalWeight)) * 1000)
-                .round(),
+            ((group.dockWeight / safeTotalWeight) * 1000).round(),
           );
 
-          children.add(
-            Expanded(
-              flex: flex,
-              child: RepaintBoundary(
-                child: buildGroupCard(group),
-              ),
-            ),
+          final card = RepaintBoundary(
+            child: buildGroupCard(group),
           );
+
+          final groupChild = group.shrinkWrapOnMainAxis
+              ? card
+              : Expanded(
+            flex: flex,
+            child: card,
+          );
+
+          children.add(groupChild);
 
           if (i < groups.length - 1) {
             children.add(
@@ -77,12 +90,8 @@ class DockPanelDockArea extends StatelessWidget {
           }
         }
 
-        return isSideArea
-            ? Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children,
-        )
-            : Row(
+        return Flex(
+          direction: isSideArea ? Axis.vertical : Axis.horizontal,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: children,
         );

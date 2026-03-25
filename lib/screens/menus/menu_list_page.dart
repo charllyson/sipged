@@ -572,7 +572,6 @@ class _MenuListPageState extends State<MenuListPage> {
               const FloatButtonMenu(),
             ],
           ),
-          bottomNavigationBar: const FootBar(),
         );
       },
     );

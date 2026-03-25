@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/docking/dock_panel_docked_layout.dart';
 import 'package:sipged/_widgets/docking/dock_panel_floating_layer.dart';
@@ -57,18 +58,30 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   void didUpdateWidget(covariant DockPanelWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (listEquals(oldWidget.groups, widget.groups) &&
+        oldWidget.contentPadding == widget.contentPadding &&
+        oldWidget.snapThickness == widget.snapThickness &&
+        oldWidget.backgroundOverlayColor == widget.backgroundOverlayColor &&
+        identical(oldWidget.child, widget.child)) {
+      return;
+    }
+
     final preserveLayout = _isDragging ||
         _isDockExtentResizing ||
         _isDockWeightResizing ||
         _isFloatingResizing;
 
-    _workingGroups = DockPanelWorkspaceLogic.normalizeDockSpans(
+    final merged = DockPanelWorkspaceLogic.normalizeDockSpans(
       DockPanelWorkspaceLogic.mergeIncomingGroups(
         incoming: widget.groups,
         current: _workingGroups,
         preserveLayout: preserveLayout,
       ),
     );
+
+    if (!listEquals(_workingGroups, merged)) {
+      _workingGroups = merged;
+    }
   }
 
   List<DockPanelGroupData> get _visibleGroups =>
@@ -82,6 +95,8 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   }
 
   void _setWorkingGroups(List<DockPanelGroupData> next) {
+    if (listEquals(_workingGroups, next)) return;
+
     setState(() {
       _workingGroups = next;
     });
@@ -95,19 +110,34 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
       String id,
       DockPanelGroupData Function(DockPanelGroupData current) update,
       ) {
+    var changed = false;
+
     final next = _workingGroups.map((group) {
       if (group.id != id) return group;
-      return update(group);
+      final updated = update(group);
+      if (updated != group) changed = true;
+      return updated;
     }).toList(growable: false);
 
+    if (!changed) return;
     _setWorkingGroups(next);
   }
 
   void _updateManyGroupsLocal(Map<String, DockPanelGroupData> updatesById) {
+    if (updatesById.isEmpty) return;
+
+    var changed = false;
+
     final next = _workingGroups.map((group) {
-      return updatesById[group.id] ?? group;
+      final updated = updatesById[group.id];
+      if (updated != null && updated != group) {
+        changed = true;
+        return updated;
+      }
+      return group;
     }).toList(growable: false);
 
+    if (!changed) return;
     _setWorkingGroups(next);
   }
 
@@ -134,7 +164,10 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   void _setGroupActiveItem(String groupId, String itemId) {
     _updateGroupAndCommit(
       groupId,
-          (current) => current.copyWith(activeItemId: itemId),
+          (current) {
+        if (current.activeItemId == itemId) return current;
+        return current.copyWith(activeItemId: itemId);
+      },
     );
   }
 
@@ -168,6 +201,8 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   }
 
   void _handleDragUpdate(String groupId, DragUpdateDetails details) {
+    if (_workspaceSize.isEmpty) return;
+
     final local = _globalToLocal(details.globalPosition);
     final snap = DockPanelWorkspaceLogic.resolveSnapArea(
       localPosition: local,
@@ -239,14 +274,14 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
       _commitWorkingGroups();
     }
 
-    if (mounted) {
-      setState(() {
-        _isDragging = false;
-        _hoveredSnapArea = null;
-        _draggingGroupId = null;
-        _lastDragLocalPosition = null;
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _isDragging = false;
+      _hoveredSnapArea = null;
+      _draggingGroupId = null;
+      _lastDragLocalPosition = null;
+    });
   }
 
   void _resizeDockWeightsLocal({
@@ -265,7 +300,7 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
     final totalWeight = first.dockWeight + second.dockWeight;
     if (totalWeight <= 0) return;
 
-    final deltaWeight = deltaPixels / totalAvailablePixels * totalWeight;
+    final deltaWeight = (deltaPixels / totalAvailablePixels) * totalWeight;
 
     var newFirst = first.dockWeight + deltaWeight;
     var newSecond = second.dockWeight - deltaWeight;
@@ -297,12 +332,13 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
     final groups = _groupsInArea(area);
     if (groups.isEmpty) return;
 
-    double currentExtent = DockPanelWorkspaceLogic.resolvedDockExtentForArea(
+    final currentExtent = DockPanelWorkspaceLogic.resolvedDockExtentForArea(
       area,
       _workingGroups,
     );
 
-    double next;
+    late final double next;
+
     switch (area) {
       case DockArea.left:
         next = (currentExtent + rawDelta)
@@ -342,8 +378,11 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
 
     final updates = <String, DockPanelGroupData>{};
     for (final g in groups) {
-      updates[g.id] = g.copyWith(dockExtent: next);
+      if (g.dockExtent != next) {
+        updates[g.id] = g.copyWith(dockExtent: next);
+      }
     }
+
     _updateManyGroupsLocal(updates);
   }
 
@@ -365,33 +404,36 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
             );
             _setWorkingGroups(projected);
             _commitWorkingGroups();
-          } else {
-            final next = DockPanelWorkspaceLogic.normalizeDockSpans(
-              _workingGroups.map((current) {
-                if (current.id != group.id) return current;
-                return current.copyWith(
-                  area: DockArea.floating,
-                  crossSpan: DockCrossSpan.full,
-                );
-              }).toList(growable: false),
-            );
-            _setWorkingGroups(next);
-            _commitWorkingGroups();
+            return;
           }
+
+          final next = DockPanelWorkspaceLogic.normalizeDockSpans(
+            _workingGroups.map((current) {
+              if (current.id != group.id) return current;
+              return current.copyWith(
+                area: DockArea.floating,
+                crossSpan: DockCrossSpan.full,
+              );
+            }).toList(growable: false),
+          );
+
+          _setWorkingGroups(next);
+          _commitWorkingGroups();
         },
         onHide: () => _setGroupVisible(group.id, false),
         onTabSelected: (itemId) => _setGroupActiveItem(group.id, itemId),
         onDragStarted: () {
-          if (!_isDragging) {
-            setState(() {
-              _isDragging = true;
-              _draggingGroupId = group.id;
-            });
-          }
+          if (_isDragging) return;
+
+          setState(() {
+            _isDragging = true;
+            _draggingGroupId = group.id;
+          });
         },
         onDragUpdate: (details) => _handleDragUpdate(group.id, details),
         onDragEnd: (details) => _handleDragEnd(group.id, details),
         onResizeStart: () {
+          if (_isFloatingResizing) return;
           setState(() {
             _isFloatingResizing = true;
           });
@@ -420,11 +462,11 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
         },
         onResizeEnd: (_) {
           _commitWorkingGroups();
-          if (mounted) {
-            setState(() {
-              _isFloatingResizing = false;
-            });
-          }
+          if (!mounted) return;
+
+          setState(() {
+            _isFloatingResizing = false;
+          });
         },
       ),
     );
@@ -434,13 +476,13 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final nextSize = Size(
+        final nextWorkspaceSize = Size(
           constraints.maxWidth.isFinite ? constraints.maxWidth : 0,
           constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
         );
 
-        if (_workspaceSize != nextSize) {
-          _workspaceSize = nextSize;
+        if (_workspaceSize != nextWorkspaceSize) {
+          _workspaceSize = nextWorkspaceSize;
         }
 
         final leftGroups = _groupsInArea(DockArea.left);
@@ -497,6 +539,7 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
           child: Stack(
             children: [
               DockPanelDockedLayout(
+                child: widget.child,
                 contentPadding: widget.contentPadding,
                 leftGroups: leftGroups,
                 rightGroups: rightGroups,
@@ -512,31 +555,33 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                 bottomSpan: bottomSpan,
                 buildGroupCard: _buildGroupCard,
                 onSideExtentResizeStart: () {
+                  if (_isDockExtentResizing) return;
                   setState(() {
                     _isDockExtentResizing = true;
                   });
                 },
                 onSideExtentResizeEnd: () {
                   _commitWorkingGroups();
-                  if (mounted) {
-                    setState(() {
-                      _isDockExtentResizing = false;
-                    });
-                  }
+                  if (!mounted) return;
+
+                  setState(() {
+                    _isDockExtentResizing = false;
+                  });
                 },
                 onSideExtentResize: _handleAreaExtentResize,
                 onWeightResizeStart: () {
+                  if (_isDockWeightResizing) return;
                   setState(() {
                     _isDockWeightResizing = true;
                   });
                 },
                 onWeightResizeEnd: () {
                   _commitWorkingGroups();
-                  if (mounted) {
-                    setState(() {
-                      _isDockWeightResizing = false;
-                    });
-                  }
+                  if (!mounted) return;
+
+                  setState(() {
+                    _isDockWeightResizing = false;
+                  });
                 },
                 onWeightResize: (
                     groups,
@@ -551,7 +596,6 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                     totalAvailablePixels: totalPixels,
                   );
                 },
-                child: widget.child,
               ),
               DockPanelFloatingLayer(
                 floatingGroups: floatingGroups,

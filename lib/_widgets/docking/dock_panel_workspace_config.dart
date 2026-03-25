@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class DockPanelWorkspaceConfig {
   DockPanelWorkspaceConfig._();
 
-  static const double minDockSideExtent = 220.0;
-  static const double maxDockSideExtent = 700.0;
+  // PAINÉIS LATERAIS (esquerda / direita)
+  static const double minDockSideExtent = 140.0;
+  static const double maxDockSideExtent = 1100.0;
 
-  static const double minDockTopBottomExtent = 140.0;
-  static const double maxDockTopBottomExtent = 500.0;
+  // PAINÉIS SUPERIOR / INFERIOR
+  static const double minDockTopBottomExtent = 100.0;
+  static const double maxDockTopBottomExtent = 700.0;
 
   static const double splitterThickness = 6.0;
   static const double minDockWeight = 0.35;
@@ -15,9 +17,10 @@ class DockPanelWorkspaceConfig {
 
   static const BorderRadius panelRadius = BorderRadius.zero;
 
+  // PAINÉIS FLUTUANTES
   static const double minFloatingWidth = 260.0;
-  static const double maxFloatingWidth = 900.0;
+  static const double maxFloatingWidth = 1200.0;
 
   static const double minFloatingHeight = 180.0;
-  static const double maxFloatingHeight = 800.0;
+  static const double maxFloatingHeight = 900.0;
 }

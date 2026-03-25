@@ -34,7 +34,7 @@ class PopUpPhotoMenu extends StatelessWidget {
     // ✅ Usa o novo modelo para checar papel global
     final base = roles.roleForUser(userData); // BaseRole
     final isAdmin =
-        base == roles.UserProfile.administrador || base == roles.UserProfile.developer;
+        base == roles.UserProfile.ADMINISTRADOR || base == roles.UserProfile.DESENVOLVEDOR;
 
     return PopupMenuButton<String>(
       color: Colors.white,

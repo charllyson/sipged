@@ -19,8 +19,8 @@ class ContractPermissions {
   /// Perfis com acesso total ao sistema.
   static bool isSuperUser(UserData user) {
     final r = roles.roleForUser(user);
-    return r == roles.UserProfile.administrador ||
-        r == roles.UserProfile.developer;
+    return r == roles.UserProfile.ADMINISTRADOR ||
+        r == roles.UserProfile.DESENVOLVEDOR;
   }
 
   /// UID normalizado (trim) ou string vazia.

@@ -83,7 +83,7 @@ class AdditivesCubit extends Cubit<AdditivesState> {
 
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
-    if (roles.roleForUser(user) == roles.UserProfile.administrador) {
+    if (roles.roleForUser(user) == roles.UserProfile.ADMINISTRADOR) {
       return true;
     }
     final canEdit = perms.userCanModule(

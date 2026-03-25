@@ -243,6 +243,7 @@ class AccidentsRepository {
   }
 
   /// ✅ Agora devolve URL de PDF (direto no browser)
+  /// Ex: https://deral.sipged.com.br/bo/<token>.pdf
   String buildPublicUrlFromToken(String token) {
     final base = _publicReportBaseUrl.trim();
     if (base.isEmpty) return token; // fallback (não recomendado)

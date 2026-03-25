@@ -13,6 +13,13 @@ enum GeoFeatureGeometryType {
   unknown,
 }
 
+enum GeoFeatureGeometryFamily {
+  point,
+  line,
+  polygon,
+  unknown,
+}
+
 class GeoFeatureData extends Equatable {
   final String id;
   final String layerId;
@@ -59,6 +66,29 @@ class GeoFeatureData extends Equatable {
 
     return id;
   }
+
+  GeoFeatureGeometryFamily get geometryFamily {
+    switch (geometryType) {
+      case GeoFeatureGeometryType.point:
+      case GeoFeatureGeometryType.multiPoint:
+        return GeoFeatureGeometryFamily.point;
+
+      case GeoFeatureGeometryType.lineString:
+      case GeoFeatureGeometryType.multiLineString:
+        return GeoFeatureGeometryFamily.line;
+
+      case GeoFeatureGeometryType.polygon:
+      case GeoFeatureGeometryType.multiPolygon:
+        return GeoFeatureGeometryFamily.polygon;
+
+      case GeoFeatureGeometryType.unknown:
+        return GeoFeatureGeometryFamily.unknown;
+    }
+  }
+
+  bool get isPointFamily => geometryFamily == GeoFeatureGeometryFamily.point;
+  bool get isLineFamily => geometryFamily == GeoFeatureGeometryFamily.line;
+  bool get isPolygonFamily => geometryFamily == GeoFeatureGeometryFamily.polygon;
 
   bool get hasGeometry =>
       markerPoints.isNotEmpty || lineParts.isNotEmpty || polygonRings.isNotEmpty;

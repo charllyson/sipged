@@ -59,9 +59,6 @@ class _ScheduleCivilWorkspacePageState extends State<ScheduleCivilWorkspacePage>
   static const double kBottomPanelHeight = 380.0;
   static const double kBreakpoint = 980.0;
 
-  // ---- diálogo com botão "Salvar" que devolve o nome digitado ----
-
-
   void _togglePanel() => setState(() => _panelOpen = !_panelOpen);
 
   @override

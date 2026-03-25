@@ -20,7 +20,7 @@ class HiringStyle {
       ThemeData theme,
       ) {
     // fallback neutro
-    Color bg = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3);
+    Color bg = theme.colorScheme.surfaceVariant.withValues(alpha: 0.3);
     Color border = theme.dividerColor;
     Color title = theme.colorScheme.onSurface;
 
@@ -65,7 +65,7 @@ class HiringStyle {
       ThemeData theme,
       ) {
     // fallback neutro
-    Color bg = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3);
+    Color bg = theme.colorScheme.surfaceVariant.withValues(alpha: 0.3);
     Color border = theme.dividerColor;
     Color title = theme.colorScheme.onSurface;
 

@@ -22,55 +22,80 @@ class LayerPanelTopToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final selectedId = this.selectedId;
+
+    return SizedBox(
       height: 46,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      alignment: Alignment.centerLeft,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _toolbarIconButton(
-              icon: Icons.add,
-              tooltip: 'Criar camada',
-              onTap: onCreateLayer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _ToolbarIconButton(
+                  icon: Icons.add,
+                  tooltip: 'Criar camada',
+                  onTap: onCreateLayer,
+                ),
+                _ToolbarIconButton(
+                  icon: Icons.remove_circle_outline,
+                  tooltip: 'Remover item',
+                  onTap: selectedId == null
+                      ? null
+                      : () => onRemoveSelected?.call(selectedId),
+                ),
+                _ToolbarIconButton(
+                  icon: Icons.create_new_folder_outlined,
+                  tooltip: 'Criar grupo',
+                  onTap: onCreateEmptyGroup,
+                ),
+                _ToolbarIconButton(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Editar',
+                  onTap: selectedId == null
+                      ? null
+                      : () => onRenameSelected?.call(selectedId),
+                ),
+                _ToolbarIconButton(
+                  icon: Icons.arrow_downward_outlined,
+                  tooltip: 'Mover para baixo',
+                  onTap: selectedId == null
+                      ? null
+                      : () => onMoveDown?.call(selectedId),
+                ),
+                _ToolbarIconButton(
+                  icon: Icons.arrow_upward_outlined,
+                  tooltip: 'Mover para cima',
+                  onTap: selectedId == null
+                      ? null
+                      : () => onMoveUp?.call(selectedId),
+                ),
+              ],
             ),
-            _toolbarIconButton(
-              icon: Icons.remove_circle_outline,
-              tooltip: 'Remover item',
-              onTap: selectedId == null ? null : () => onRemoveSelected?.call(selectedId!),
-            ),
-            _toolbarIconButton(
-              icon: Icons.create_new_folder_outlined,
-              tooltip: 'Criar grupo',
-              onTap: onCreateEmptyGroup,
-            ),
-            _toolbarIconButton(
-              icon: Icons.edit_outlined,
-              tooltip: 'Editar',
-              onTap: selectedId == null ? null : () => onRenameSelected?.call(selectedId!),
-            ),
-            _toolbarIconButton(
-              icon: Icons.arrow_downward_outlined,
-              tooltip: 'Mover para baixo',
-              onTap: selectedId == null ? null : () => onMoveDown?.call(selectedId!),
-            ),
-            _toolbarIconButton(
-              icon: Icons.arrow_upward_outlined,
-              tooltip: 'Mover para cima',
-              onTap: selectedId == null ? null : () => onMoveUp?.call(selectedId!),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _toolbarIconButton({
-    required IconData icon,
-    required String tooltip,
-    VoidCallback? onTap,
-  }) {
+class _ToolbarIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  const _ToolbarIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = onTap == null ? Colors.grey.shade400 : Colors.grey.shade800;
+
     return Padding(
       padding: const EdgeInsets.only(right: 4),
       child: Tooltip(
@@ -83,7 +108,7 @@ class LayerPanelTopToolbar extends StatelessWidget {
             child: Icon(
               icon,
               size: 18,
-              color: Colors.grey.shade800,
+              color: color,
             ),
           ),
         ),

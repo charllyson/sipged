@@ -26,7 +26,8 @@ class LayerPanelInsertTarget extends StatelessWidget {
         final isHovering = candidateData.isNotEmpty;
 
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
           height: isHovering ? 8 : 4,
           margin: EdgeInsets.only(
             left: 22 + (depth * 16.0),

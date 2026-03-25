@@ -81,7 +81,8 @@ class GeoLayersRepository {
       return node.copyWith(
         children: _sanitizeTree(node.children),
       );
-    }).toList(growable: false);
+    })
+        .toList(growable: false);
   }
 
   bool _isLegacyBaseLayer(GeoLayersData node) {
@@ -122,7 +123,9 @@ class GeoLayersRepository {
     }
 
     for (int i = 0; i < a.ruleBasedSymbols.length; i++) {
-      if (!_isSameRule(a.ruleBasedSymbols[i], b.ruleBasedSymbols[i])) return false;
+      if (!_isSameRule(a.ruleBasedSymbols[i], b.ruleBasedSymbols[i])) {
+        return false;
+      }
     }
 
     for (int i = 0; i < a.children.length; i++) {
@@ -133,18 +136,36 @@ class GeoLayersRepository {
   }
 
   bool _isSameSymbol(LayerSimpleSymbolData a, LayerSimpleSymbolData b) {
-    return a.id == b.id &&
-        a.type == b.type &&
-        a.iconKey == b.iconKey &&
-        a.shapeType == b.shapeType &&
-        a.width == b.width &&
-        a.height == b.height &&
-        a.keepAspectRatio == b.keepAspectRatio &&
-        a.fillColorValue == b.fillColorValue &&
-        a.strokeColorValue == b.strokeColorValue &&
-        a.strokeWidth == b.strokeWidth &&
-        a.rotationDegrees == b.rotationDegrees &&
-        a.enabled == b.enabled;
+    if (a.id != b.id ||
+        a.family != b.family ||
+        a.type != b.type ||
+        a.iconKey != b.iconKey ||
+        a.shapeType != b.shapeType ||
+        a.width != b.width ||
+        a.height != b.height ||
+        a.keepAspectRatio != b.keepAspectRatio ||
+        a.fillColorValue != b.fillColorValue ||
+        a.strokeColorValue != b.strokeColorValue ||
+        a.strokeWidth != b.strokeWidth ||
+        a.rotationDegrees != b.rotationDegrees ||
+        a.enabled != b.enabled ||
+        a.strokePattern != b.strokePattern ||
+        a.offset != b.offset ||
+        a.useCustomDashPattern != b.useCustomDashPattern ||
+        a.dashWidth != b.dashWidth ||
+        a.dashGap != b.dashGap ||
+        a.strokeJoin != b.strokeJoin ||
+        a.strokeCap != b.strokeCap) {
+      return false;
+    }
+
+    if (a.dashArray.length != b.dashArray.length) return false;
+
+    for (int i = 0; i < a.dashArray.length; i++) {
+      if (a.dashArray[i] != b.dashArray[i]) return false;
+    }
+
+    return true;
   }
 
   bool _isSameRule(LayerRuleData a, LayerRuleData b) {

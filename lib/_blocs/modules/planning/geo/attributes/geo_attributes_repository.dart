@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart' as archive;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:extended_image/extended_image.dart' as vectorImportFileReader;
+import 'package:extended_image/extended_image.dart' as vector_import_file_reader;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:xml/xml.dart' as xml;
@@ -34,7 +34,7 @@ class GeoAttributesRepository {
     final ext = (file.extension ?? '').toLowerCase();
 
     final bytes = file.bytes ??
-        await vectorImportFileReader.readBytes(
+        await vector_import_file_reader.readBytes(
           Uri.file(file.path!),
         );
 

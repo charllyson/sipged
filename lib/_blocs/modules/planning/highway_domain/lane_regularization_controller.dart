@@ -210,7 +210,7 @@ class LaneRegularizationController extends ChangeNotifier with SipGedValidation 
   bool get isAdmin {
     final u = currentUser;
     if (u == null) return false;
-    return roles.roleForUser(u) == roles.UserProfile.administrador;
+    return roles.roleForUser(u) == roles.UserProfile.ADMINISTRADOR;
   }
 
   // =======================

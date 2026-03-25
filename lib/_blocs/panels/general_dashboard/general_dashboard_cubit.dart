@@ -1,5 +1,4 @@
 // lib/_blocs/panels/general_dashboard/general_dashboard_cubit.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';

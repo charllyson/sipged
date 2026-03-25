@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_widgets/geo/properties/menu/symbology/catalogs/marker_icons_catalog.dart';
+import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 
 class LayerPanelGroupRow extends StatelessWidget {
   final GeoLayersData group;
@@ -44,65 +44,70 @@ class LayerPanelGroupRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      child: Container(
-        color: bgColor,
+      child: SizedBox(
         height: rowHeight,
-        padding: EdgeInsets.only(
-          left: 8.0 + depth * 16.0,
-          right: 8.0,
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 4),
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: Transform.scale(
-                scale: 0.82,
-                child: Checkbox(
-                  value: checkboxValue,
-                  tristate: true,
-                  onChanged: (_) => onToggleGroupVisibility(),
-                  activeColor: primaryCheckboxColor,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: const VisualDensity(
-                    horizontal: -4,
-                    vertical: -4,
+        child: ColoredBox(
+          color: bgColor,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 8.0 + depth * 16.0,
+              right: 8.0,
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 4),
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: Transform.scale(
+                    scale: 0.82,
+                    child: Checkbox(
+                      value: checkboxValue,
+                      tristate: true,
+                      onChanged: (_) => onToggleGroupVisibility(),
+                      activeColor: primaryCheckboxColor,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: const VisualDensity(
+                        horizontal: -4,
+                        vertical: -4,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              IconsCatalog.iconFor(group.displayIconKey),
-              size: 18,
-              color: iconColor,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                group.title,
-                style: TextStyle(
-                  color: textColor,
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            SizedBox(
-              width: trailingActionSlot,
-              child: IconButton(
-                iconSize: 18,
-                padding: EdgeInsets.zero,
-                visualDensity: VisualDensity.compact,
-                onPressed: onToggleExpand,
-                icon: Icon(
-                  isExpanded ? Icons.keyboard_arrow_down : Icons.chevron_right,
+                const SizedBox(width: 4),
+                Icon(
+                  IconsCatalog.iconFor(group.displayIconKey),
+                  size: 18,
                   color: iconColor,
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    group.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: trailingActionSlot,
+                  child: IconButton(
+                    iconSize: 18,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onToggleExpand,
+                    icon: Icon(
+                      isExpanded ? Icons.keyboard_arrow_down : Icons.chevron_right,
+                      color: iconColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

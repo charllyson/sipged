@@ -128,7 +128,7 @@ class _TabBannerState extends State<TabBanner> {
         getRole: (uid) {
           final st = context.read<UserBloc>().state;
           final u = st.byId[uid];
-          final base = (u != null) ? roles.roleForUser(u) : roles.UserProfile.readerOnly;
+          final base = (u != null) ? roles.roleForUser(u) : roles.UserProfile.LEITOR;
           return roles.UserRoleCodec.label(base);
         },
         getPerms: (uid) {

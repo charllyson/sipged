@@ -11,7 +11,7 @@ class GenericGeoLayerSelection extends Equatable {
   });
 
   @override
-  List<Object?> get props => [layerId, feature.selectionKey];
+  List<Object?> get props => [layerId, feature];
 }
 
 class GeoFeatureState extends Equatable {

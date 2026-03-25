@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 enum DockArea {
@@ -27,6 +28,26 @@ class DockPanelItemData {
     this.icon,
     this.contentPadding = const EdgeInsets.all(8),
   });
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other is DockPanelItemData &&
+            other.id == id &&
+            other.title == title &&
+            other.icon == icon &&
+            identical(other.child, child) &&
+            other.contentPadding == contentPadding);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    icon,
+    identityHashCode(child),
+    contentPadding,
+  );
 }
 
 class DockPanelGroupData {
@@ -44,6 +65,10 @@ class DockPanelGroupData {
   final IconData? icon;
   final Color? accentColor;
 
+  /// Quando true, o painel dockado tenta usar apenas a altura/largura
+  /// necessária para o conteúdo no eixo principal da área.
+  final bool shrinkWrapOnMainAxis;
+
   const DockPanelGroupData({
     required this.id,
     required this.title,
@@ -58,14 +83,17 @@ class DockPanelGroupData {
     this.dockWeight = 1.0,
     this.icon,
     this.accentColor,
+    this.shrinkWrapOnMainAxis = false,
   });
 
   DockPanelItemData? get activeItem {
     if (items.isEmpty) return null;
     if (activeItemId == null) return items.first;
+
     for (final item in items) {
       if (item.id == activeItemId) return item;
     }
+
     return items.first;
   }
 
@@ -83,6 +111,7 @@ class DockPanelGroupData {
     double? dockWeight,
     IconData? icon,
     Color? accentColor,
+    bool? shrinkWrapOnMainAxis,
   }) {
     return DockPanelGroupData(
       id: id ?? this.id,
@@ -98,8 +127,48 @@ class DockPanelGroupData {
       dockWeight: dockWeight ?? this.dockWeight,
       icon: icon ?? this.icon,
       accentColor: accentColor ?? this.accentColor,
+      shrinkWrapOnMainAxis:
+      shrinkWrapOnMainAxis ?? this.shrinkWrapOnMainAxis,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other is DockPanelGroupData &&
+            other.id == id &&
+            other.title == title &&
+            other.area == area &&
+            other.crossSpan == crossSpan &&
+            listEquals(other.items, items) &&
+            other.activeItemId == activeItemId &&
+            other.visible == visible &&
+            other.floatingOffset == floatingOffset &&
+            other.floatingSize == floatingSize &&
+            other.dockExtent == dockExtent &&
+            other.dockWeight == dockWeight &&
+            other.icon == icon &&
+            other.accentColor == accentColor &&
+            other.shrinkWrapOnMainAxis == shrinkWrapOnMainAxis);
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    title,
+    area,
+    crossSpan,
+    Object.hashAll(items),
+    activeItemId,
+    visible,
+    floatingOffset,
+    floatingSize,
+    dockExtent,
+    dockWeight,
+    icon,
+    accentColor,
+    shrinkWrapOnMainAxis,
+  ]);
 }
 
 class DockDragPayload {

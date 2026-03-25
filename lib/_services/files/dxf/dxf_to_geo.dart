@@ -1,4 +1,4 @@
-import 'dart:math' as Math;
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:latlong2/latlong.dart';
@@ -66,12 +66,12 @@ class UtmProjector implements DxfProjector {
   double sin2(double x) => (mathSin(2 * x));
   double sin4(double x) => (mathSin(4 * x));
   double sin6(double x) => (mathSin(6 * x));
-  double mathSin(double x) => Math.sin(x);
-  double mathCos(double x) => Math.cos(x);
-  double mathTan(double x) => Math.tan(x);
-  double mathSqrt(double x) => Math.sqrt(x);
-  double mathPow(double x, double p) => Math.pow(x, p).toDouble();
-  double get mathPi => Math.pi;
+  double mathSin(double x) => math.sin(x);
+  double mathCos(double x) => math.cos(x);
+  double mathTan(double x) => math.tan(x);
+  double mathSqrt(double x) => math.sqrt(x);
+  double mathPow(double x, double p) => math.pow(x, p).toDouble();
+  double get mathPi => math.pi;
 }
 
 /// Projector afim com dois pontos de controle (rotação+escala uniforme).
@@ -134,7 +134,7 @@ class DxfToGeo {
       final n = mathMax(arcSampling, (c.r / 2).round());
       final seq = <LatLng>[];
       for (int i = 0; i <= n; i++) {
-        final t = 2 * Math.pi * (i / n);
+        final t = 2 * math.pi * (i / n);
         final pt = c.center + Offset.fromDirection(t, c.r);
         seq.add(projector.project(pt.dx, pt.dy));
       }

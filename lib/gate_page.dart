@@ -15,6 +15,7 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
+import 'package:sipged/screens/modules/planning/geo/geo_network_page.dart';
 
 /// 🔧 FLAG TEMPORÁRIA
 const bool kForceInitialSetupOverlay = false;
@@ -74,7 +75,7 @@ class GatePage extends StatelessWidget {
 
               return BlocBuilder<SetupCubit, SetupState>(
                 builder: (context, setupState) {
-                  final base = MenuListPage();
+                  final base = GeoNetworkPage();
                   final bool needsSetup = kForceInitialSetupOverlay || setupState.companies.isEmpty;
 
                   if (!needsSetup) return base;

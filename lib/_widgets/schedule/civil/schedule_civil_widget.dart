@@ -575,9 +575,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
   void _onHover(PointerHoverEvent e) {
     if (widget.controller.mode != ToolMode.draw ||
         !widget.controller.snapEnabled ||
-        _dxf.sizePx == null) {
-      return;
-    }
+        _dxf.sizePx == null) return;
 
     var p = _toImageSpace(e.position);
     if (p.dx < 0 || p.dy < 0 || p.dx > _dxf.sizePx!.width || p.dy > _dxf.sizePx!.height) {

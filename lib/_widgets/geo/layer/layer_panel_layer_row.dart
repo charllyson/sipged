@@ -46,93 +46,78 @@ class LayerPanelLayerRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      child: Container(
-        color: bgColor,
+      child: SizedBox(
         height: rowHeight,
-        padding: EdgeInsets.only(
-          left: 8.0 + depth * 16.0,
-          right: 8.0,
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 14),
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: Transform.scale(
-                scale: 0.82,
-                child: Checkbox(
-                  value: isActive,
-                  onChanged: (v) => onToggleLayer(v ?? false),
-                  activeColor: primaryCheckboxColor,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: const VisualDensity(
-                    horizontal: -4,
-                    vertical: -4,
-                  ),
-                ),
-              ),
+        child: ColoredBox(
+          color: bgColor,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 8.0 + depth * 16.0,
+              right: 8.0,
             ),
-            const SizedBox(width: 4),
-            LayerSymbolStackPreview(
-              layer: layer,
-              isSelected: isSelected,
-              isActive: isActive,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      layer.title,
-                      style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.normal,
-                        fontStyle: FontStyle.normal,
+            child: Row(
+              children: [
+                const SizedBox(width: 14),
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: Transform.scale(
+                    scale: 0.82,
+                    child: Checkbox(
+                      value: isActive,
+                      onChanged: (v) => onToggleLayer(v ?? false),
+                      activeColor: primaryCheckboxColor,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: const VisualDensity(
+                        horizontal: -4,
+                        vertical: -4,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ],
-              ),
-            ),
-            SizedBox(
-              width: trailingActionSlot,
-              child: canConnect
-                  ? Tooltip(
-                message: visual.tooltip,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapDown: (_) => onActionTapDown(),
-                  onTap: onActionTap,
-                  child: Center(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      transitionBuilder: (child, animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: ScaleTransition(
-                            scale: animation,
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Icon(
-                        visual.icon,
-                        key: ValueKey(
-                          'action_${layer.id}_${visual.hasData ? 'table' : 'cloud'}',
+                ),
+                const SizedBox(width: 4),
+                RepaintBoundary(
+                  child: LayerSymbolStackPreview(
+                    layer: layer,
+                    isSelected: isSelected,
+                    isActive: isActive,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    layer.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: trailingActionSlot,
+                  child: canConnect
+                      ? Tooltip(
+                    message: visual.tooltip,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (_) => onActionTapDown(),
+                      onTap: onActionTap,
+                      child: Center(
+                        child: Icon(
+                          visual.icon,
+                          size: 18,
+                          color: actionIconColor,
                         ),
-                        size: 18,
-                        color: actionIconColor,
                       ),
                     ),
-                  ),
+                  )
+                      : const SizedBox.shrink(),
                 ),
-              )
-                  : const SizedBox.shrink(),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

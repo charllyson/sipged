@@ -1,17 +1,13 @@
-import 'dart:js_interop';
+// Função utilitária para baixar bytes no Web usando fetch
 import 'dart:typed_data';
-
-import 'package:web/web.dart' as web;
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 
 Future<Uint8List> fetchBytesWeb(String url) async {
-  final response = await web.window.fetch(url.toJS).toDart;
-
-  if (!response.ok) {
-    throw Exception(
-      'Erro ao buscar bytes: HTTP ${response.status} - $url',
-    );
-  }
-
-  final buffer = await response.arrayBuffer().toDart;
-  return Uint8List.view(buffer.toDart);
+  final resp = await html.HttpRequest.request(
+    url,
+    responseType: 'arraybuffer',
+  );
+  final buf = resp.response as ByteBuffer;
+  return buf.asUint8List();
 }

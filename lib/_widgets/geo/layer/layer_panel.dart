@@ -88,15 +88,16 @@ class _LayerPanelState extends State<LayerPanel> {
       }
     }
 
-    final newAllGroups = _collectAllGroupIds(widget.layers);
-    final before = _expandedGroupIds.length;
-    _expandedGroupIds.addAll(newAllGroups);
+    final allGroupsNow = _collectAllGroupIds(widget.layers);
+    final beforeLength = _expandedGroupIds.length;
+    _expandedGroupIds.addAll(allGroupsNow);
 
-    if (_expandedGroupIds.length != before) {
+    if (_expandedGroupIds.length != beforeLength) {
       shouldRebuild = true;
     }
 
-    if (widget.selectedId != oldWidget.selectedId && widget.selectedId != null) {
+    if (widget.selectedId != oldWidget.selectedId &&
+        widget.selectedId != _internalSelectedId) {
       _internalSelectedId = widget.selectedId;
       shouldRebuild = true;
     }
@@ -162,8 +163,8 @@ class _LayerPanelState extends State<LayerPanel> {
     }
     if (node.children.isEmpty) return false;
 
-    for (final c in node.children) {
-      if (!_areAllChildrenActive(c)) return false;
+    for (final child in node.children) {
+      if (!_areAllChildrenActive(child)) return false;
     }
     return true;
   }
@@ -174,8 +175,8 @@ class _LayerPanelState extends State<LayerPanel> {
     }
     if (node.children.isEmpty) return false;
 
-    for (final c in node.children) {
-      if (_hasAnyChildActive(c)) return true;
+    for (final child in node.children) {
+      if (_hasAnyChildActive(child)) return true;
     }
     return false;
   }
@@ -183,11 +184,11 @@ class _LayerPanelState extends State<LayerPanel> {
   List<GeoLayersData> _flattenLeaves(GeoLayersData node) {
     if (!node.isGroup) return [node];
 
-    final list = <GeoLayersData>[];
-    for (final c in node.children) {
-      list.addAll(_flattenLeaves(c));
+    final result = <GeoLayersData>[];
+    for (final child in node.children) {
+      result.addAll(_flattenLeaves(child));
     }
-    return list;
+    return result;
   }
 
   bool _hasData(String id) => widget.hasDataByLayer[id] == true;
@@ -196,8 +197,9 @@ class _LayerPanelState extends State<LayerPanel> {
     if (layer.isGroup) return false;
     if (widget.onConnectLayer == null && widget.onOpenTable == null) return false;
 
-    if (widget.supportsConnect != null) {
-      return widget.supportsConnect!(layer);
+    final supportsConnect = widget.supportsConnect;
+    if (supportsConnect != null) {
+      return supportsConnect(layer);
     }
 
     return layer.supportsConnect && !layer.isGroup;
@@ -235,11 +237,53 @@ class _LayerPanelState extends State<LayerPanel> {
     );
   }
 
+  List<_TreeRenderEntry> _buildVisibleEntries(List<GeoLayersData> nodes) {
+    final result = <_TreeRenderEntry>[];
+
+    void walk(
+        List<GeoLayersData> entries, {
+          required int depth,
+          required String? parentId,
+        }) {
+      for (var i = 0; i <= entries.length; i++) {
+        result.add(
+          _TreeRenderEntry.insert(
+            parentId: parentId,
+            targetIndex: i,
+            depth: depth,
+          ),
+        );
+
+        if (i == entries.length) continue;
+
+        final entry = entries[i];
+        result.add(
+          _TreeRenderEntry.node(
+            entry: entry,
+            depth: depth,
+          ),
+        );
+
+        if (entry.isGroup && _expandedGroupIds.contains(entry.id)) {
+          walk(
+            entry.children,
+            depth: depth + 1,
+            parentId: entry.id,
+          );
+        }
+      }
+    }
+
+    walk(nodes, depth: 0, parentId: null);
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final visibleEntries = _buildVisibleEntries(widget.layers);
 
-    return Container(
+    return ColoredBox(
       color: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -253,71 +297,46 @@ class _LayerPanelState extends State<LayerPanel> {
             onMoveDown: widget.onMoveDown,
             onMoveUp: widget.onMoveUp,
           ),
-          Divider(height: 1, color: theme.dividerColor.withValues(alpha: 0.7)),
+          Divider(
+            height: 1,
+            color: theme.dividerColor.withValues(alpha: 0.7),
+          ),
           Expanded(
             child: Scrollbar(
               thumbVisibility: true,
-              child: ListView(
+              child: ListView.builder(
                 key: const PageStorageKey('layers_panel_list'),
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                children: _buildTreeArea(
-                  context,
-                  widget.layers,
-                  depth: 0,
-                  parentId: null,
-                ),
+                itemCount: visibleEntries.length,
+                itemBuilder: (context, index) {
+                  final item = visibleEntries[index];
+
+                  if (item.isInsertTarget) {
+                    return LayerPanelInsertTarget(
+                      key: ValueKey(
+                        'insert_${item.parentId ?? 'root'}_${item.targetIndex}',
+                      ),
+                      parentId: item.parentId,
+                      targetIndex: item.targetIndex!,
+                      depth: item.depth,
+                      onDropItem: widget.onDropItem,
+                    );
+                  }
+
+                  final entry = item.entry!;
+                  return LayerPanelDraggableNode(
+                    key: ValueKey('drag_${entry.id}'),
+                    entry: entry,
+                    row: _buildNodeRow(context, entry, item.depth),
+                    onDragStarted: () => _selectItem(entry.id),
+                  );
+                },
               ),
             ),
           ),
         ],
       ),
     );
-  }
-
-  List<Widget> _buildTreeArea(
-      BuildContext context,
-      List<GeoLayersData> entries, {
-        required int depth,
-        required String? parentId,
-      }) {
-    final widgets = <Widget>[];
-
-    for (int i = 0; i <= entries.length; i++) {
-      widgets.add(
-        LayerPanelInsertTarget(
-          key: ValueKey('insert_${parentId ?? 'root'}_$i'),
-          parentId: parentId,
-          targetIndex: i,
-          depth: depth,
-          onDropItem: widget.onDropItem,
-        ),
-      );
-
-      if (i == entries.length) continue;
-
-      final entry = entries[i];
-
-      widgets.add(
-        LayerPanelDraggableNode(
-          entry: entry,
-          row: _buildNodeRow(context, entry, depth),
-          onDragStarted: () => _selectItem(entry.id),
-        ),
-      );
-
-      if (entry.isGroup && _expandedGroupIds.contains(entry.id)) {
-        widgets.addAll(
-          _buildTreeArea(
-            context,
-            entry.children,
-            depth: depth + 1,
-            parentId: entry.id,
-          ),
-        );
-      }
-    }
-
-    return widgets;
   }
 
   Widget _buildNodeRow(
@@ -338,6 +357,7 @@ class _LayerPanelState extends State<LayerPanel> {
         },
         builder: (context, candidateData, rejectedData) {
           final hoveringInside = candidateData.isNotEmpty;
+
           return LayerPanelGroupRow(
             group: entry,
             depth: depth,
@@ -382,4 +402,43 @@ class _LayerPanelState extends State<LayerPanel> {
       },
     );
   }
+}
+
+class _TreeRenderEntry {
+  final GeoLayersData? entry;
+  final int depth;
+  final String? parentId;
+  final int? targetIndex;
+  final bool isInsertTarget;
+
+  const _TreeRenderEntry._({
+    required this.entry,
+    required this.depth,
+    required this.parentId,
+    required this.targetIndex,
+    required this.isInsertTarget,
+  });
+
+  const _TreeRenderEntry.node({
+    required GeoLayersData entry,
+    required int depth,
+  }) : this._(
+    entry: entry,
+    depth: depth,
+    parentId: null,
+    targetIndex: null,
+    isInsertTarget: false,
+  );
+
+  const _TreeRenderEntry.insert({
+    required String? parentId,
+    required int targetIndex,
+    required int depth,
+  }) : this._(
+    entry: null,
+    depth: depth,
+    parentId: parentId,
+    targetIndex: targetIndex,
+    isInsertTarget: true,
+  );
 }

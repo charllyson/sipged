@@ -60,8 +60,19 @@ class DockPanelGroupCard extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final shouldShrinkWrap = !isFloating && group.shrinkWrapOnMainAxis;
+
+    final contentBody = RepaintBoundary(
+      child: Container(
+        width: double.infinity,
+        padding: activeItem.contentPadding,
+        child: activeItem.child,
+      ),
+    );
+
     final content = isDragging
         ? Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         _DraggableHeader(
           group: group,
@@ -73,10 +84,15 @@ class DockPanelGroupCard extends StatelessWidget {
           onDragUpdate: onDragUpdate,
           onDragEnd: onDragEnd,
         ),
-        Expanded(child: _DragPlaceholder(accent: accent)),
+        if (shouldShrinkWrap)
+          _DragPlaceholder(accent: accent)
+        else
+          Expanded(child: _DragPlaceholder(accent: accent)),
       ],
     )
         : Column(
+      mainAxisSize:
+      shouldShrinkWrap ? MainAxisSize.min : MainAxisSize.max,
       children: [
         _DraggableHeader(
           group: group,
@@ -94,15 +110,10 @@ class DockPanelGroupCard extends StatelessWidget {
             accent: accent,
             onTabSelected: onTabSelected,
           ),
-        Expanded(
-          child: RepaintBoundary(
-            child: Container(
-              width: double.infinity,
-              padding: activeItem.contentPadding,
-              child: activeItem.child,
-            ),
-          ),
-        ),
+        if (shouldShrinkWrap)
+          contentBody
+        else
+          Expanded(child: contentBody),
         if (isFloating)
           _ResizeHandle(
             onPanStart: onResizeStart,
@@ -273,7 +284,6 @@ class _LightweightDragFeedback extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.drag_indicator, size: 18),
               if (group.icon != null) ...[
                 const SizedBox(width: 6),
                 Icon(group.icon, size: 16, color: accent),
@@ -316,7 +326,18 @@ class _GroupHeaderBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textColor = theme.textTheme.bodyLarge?.color ?? Colors.black87;
+    final isDark = theme.brightness == Brightness.dark;
+
+    final headerColor =
+    isDark ? const Color(0xFF2A2F3A) : const Color(0xFFF2F3F5);
+
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.08);
+
+    final textColor = isDark
+        ? Colors.white.withValues(alpha: 0.90)
+        : Colors.black.withValues(alpha: 0.85);
 
     return MouseRegion(
       cursor: SystemMouseCursors.grab,
@@ -324,26 +345,16 @@ class _GroupHeaderBar extends StatelessWidget {
         height: 30,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              accent.withValues(alpha: 0.16),
-              accent.withValues(alpha: 0.05),
-            ],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
+          color: headerColor,
           border: Border(
-            bottom: BorderSide(
-              color: accent.withValues(alpha: 0.20),
-            ),
+            bottom: BorderSide(color: borderColor),
           ),
         ),
         child: Row(
           children: [
-            const Icon(Icons.drag_indicator, size: 18),
             if (group.icon != null) ...[
               const SizedBox(width: 6),
-              Icon(group.icon, size: 16, color: accent),
+              Icon(group.icon, size: 16, color: textColor),
             ],
             const SizedBox(width: 8),
             Expanded(
@@ -365,13 +376,14 @@ class _GroupHeaderBar extends StatelessWidget {
               icon: Icon(
                 isFloating ? Icons.close_fullscreen : Icons.open_in_full,
                 size: 18,
+                color: textColor,
               ),
             ),
             IconButton(
               tooltip: 'Ocultar painel',
               visualDensity: VisualDensity.compact,
               onPressed: onHide,
-              icon: const Icon(Icons.close, size: 18),
+              icon: Icon(Icons.close, size: 18, color: textColor),
             ),
           ],
         ),
@@ -394,58 +406,130 @@ class _DockTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeId = group.activeItem?.id;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final tabsBg = isDark
+        ? const Color(0xFF2A2F3A)
+        : const Color(0xFFF2F3F5);
+
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.08);
 
     return Container(
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: group.items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 6),
-        itemBuilder: (_, index) {
-          final item = group.items[index];
-          final active = item.id == activeId;
+      height: 36,
+      decoration: BoxDecoration(
+        color: tabsBg,
+        border: Border(
+          bottom: BorderSide(color: borderColor),
+        ),
+      ),
+      child: Align(
+        alignment: Alignment.bottomLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.only(left: 4, right: 4, top: 1),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: group.items.map((item) {
+              final active = item.id == activeId;
 
-          return InkWell(
-            onTap: () => onTabSelected(item.id),
-            borderRadius: BorderRadius.zero,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 120),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: active
-                    ? accent.withValues(alpha: 0.14)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.zero,
-                border: Border.all(
-                  color: active
-                      ? accent.withValues(alpha: 0.38)
-                      : Colors.transparent,
-                ),
-              ),
-              child: Row(
-                children: [
-                  if (item.icon != null) ...[
-                    Icon(
-                      item.icon,
-                      size: 14,
-                      color: active ? accent : null,
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                  Text(
-                    item.title,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                      color: active ? accent : null,
-                    ),
-                  ),
-                ],
+              return _ExcelLikeTab(
+                title: item.title,
+                active: active,
+                accent: accent,
+                onTap: () => onTabSelected(item.id),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExcelLikeTab extends StatefulWidget {
+  final String title;
+  final bool active;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _ExcelLikeTab({
+    required this.title,
+    required this.active,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  State<_ExcelLikeTab> createState() => _ExcelLikeTabState();
+}
+
+class _ExcelLikeTabState extends State<_ExcelLikeTab> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final inactiveTextColor = isDark
+        ? Colors.white.withValues(alpha: 0.84)
+        : Colors.black.withValues(alpha: 0.78);
+
+    final bgColor = widget.active
+        ? (isDark ? const Color(0xFF182033) : Colors.white)
+        : (_hovered
+        ? (isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.04))
+        : Colors.transparent);
+
+    final borderColor = widget.active
+        ? widget.accent.withValues(alpha: 0.55)
+        : (isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : Colors.black.withValues(alpha: 0.10));
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+          onTap: widget.onTap,
+          child: Container(
+            height: 28,
+            margin: const EdgeInsets.only(right: 2),
+            constraints: const BoxConstraints(minWidth: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+              border: Border(
+                top: BorderSide(color: borderColor),
+                left: BorderSide(color: borderColor),
+                right: BorderSide(color: borderColor),
+                // sem bottom
               ),
             ),
-          );
-        },
+            child: Text(
+              widget.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: widget.active ? FontWeight.w700 : FontWeight.w600,
+                color: widget.active ? widget.accent : inactiveTextColor,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -459,6 +543,7 @@ class _DragPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: const BoxConstraints(minHeight: 80),
       decoration: BoxDecoration(
         borderRadius: DockPanelWorkspaceConfig.panelRadius,
         border: Border.all(

@@ -78,13 +78,15 @@ class CustomDateField extends StatelessWidget {
               final theme = Theme.of(context);
               final customTheme = theme.copyWith(
                 // cor de fundo do diálogo
+                dialogBackgroundColor: Colors.white,
                 colorScheme: theme.colorScheme.copyWith(
                   surface: Colors.white,
+                  background: Colors.white,
                   // cor principal (círculo do dia selecionado, botões OK/Cancelar)
                   primary: Colors.deepPurple, // ou Colors.blue, etc.
                   onPrimary: Colors.white,
                   onSurface: Colors.black,
-                ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
+                ),
               );
 
               final DateTime? time = await showDatePicker(

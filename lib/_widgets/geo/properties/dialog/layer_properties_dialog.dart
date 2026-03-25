@@ -3,11 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_widgets/geo/properties/dialog/layer_placeholder_menu.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_menu.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_types.dart';
-import 'package:sipged/_widgets/geo/properties/editors/layer_general_editor.dart';
-import 'package:sipged/_widgets/geo/properties/editors/layer_placeholder_editor.dart';
-import 'package:sipged/_widgets/geo/properties/editors/layer_symbology_editor.dart';
+import 'package:sipged/_widgets/geo/properties/menu/general/menu_general.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/menu_symbology.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class LayerPropertiesDialog extends StatefulWidget {
@@ -28,15 +28,11 @@ class LayerPropertiesDialog extends StatefulWidget {
     final media = MediaQuery.of(context).size;
     final isMobile = media.width < 700;
 
-    // Em telas menores, o dialog ocupa quase toda a tela para
-    // preservar espaço útil sem estourar margens.
-    final dialogWidth = isMobile
-        ? media.width - 8
-        : math.min(1100.0, media.width - 24);
+    final dialogWidth =
+    isMobile ? media.width - 8 : math.min(1100.0, media.width - 24);
 
-    final dialogHeight = isMobile
-        ? media.height * 0.88
-        : math.min(760.0, media.height - 24);
+    final dialogHeight =
+    isMobile ? media.height * 0.88 : math.min(760.0, media.height - 24);
 
     return showWindowDialog<GeoLayersData>(
       context: context,
@@ -62,78 +58,7 @@ class LayerPropertiesDialog extends StatefulWidget {
 }
 
 class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
-  late final TextEditingController _nameController;
-
-  late LayerRendererType _rendererType;
-  late List<LayerSimpleSymbolData> _symbolLayers;
-  late List<LayerRuleData> _ruleBasedSymbols;
-
-  LayerPropertiesTab _selectedTab = LayerPropertiesTab.general;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.current.title);
-
-    _rendererType = widget.current.rendererType;
-    _symbolLayers = List<LayerSimpleSymbolData>.from(
-      widget.current.symbolLayers,
-    );
-    _ruleBasedSymbols = List<LayerRuleData>.from(
-      widget.current.ruleBasedSymbols,
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant LayerPropertiesDialog oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Se a camada mudou, recarregamos todo o estado local do dialog.
-    if (oldWidget.current.id != widget.current.id) {
-      _nameController.text = widget.current.title;
-      _rendererType = widget.current.rendererType;
-      _symbolLayers = List<LayerSimpleSymbolData>.from(
-        widget.current.symbolLayers,
-      );
-      _ruleBasedSymbols = List<LayerRuleData>.from(
-        widget.current.ruleBasedSymbols,
-      );
-      _selectedTab = LayerPropertiesTab.general;
-    }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final trimmed = _nameController.text.trim();
-    if (trimmed.isEmpty) return;
-
-    // Caso a lista local esteja vazia, ainda tentamos manter uma base
-    // coerente usando os símbolos efetivos atuais da camada.
-    final baseSymbols = _symbolLayers.isNotEmpty
-        ? _symbolLayers
-        : widget.current.effectiveSymbolLayers;
-
-    final firstSymbol = baseSymbols.isNotEmpty ? baseSymbols.first : null;
-
-    Navigator.of(context).pop(
-      widget.current.copyWith(
-        title: trimmed,
-        rendererType: _rendererType,
-        symbolLayers: _symbolLayers,
-        ruleBasedSymbols: _ruleBasedSymbols,
-        // Mantemos compatibilidade com campos legados/derivados do layer.
-        iconKey: firstSymbol?.iconKey ?? widget.current.iconKey,
-        colorValue: firstSymbol?.fillColorValue ?? widget.current.colorValue,
-      ),
-    );
-  }
-
-  List<LayerPropertiesMenuItemData> get _menuItems => const [
+  static const List<LayerPropertiesMenuItemData> _menuItems = [
     LayerPropertiesMenuItemData(
       tab: LayerPropertiesTab.general,
       icon: Icons.tune_outlined,
@@ -166,23 +91,93 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
     ),
   ];
 
+  late final TextEditingController _nameController;
+
+  late LayerRendererType _rendererType;
+  late List<LayerSimpleSymbolData> _symbolLayers;
+  late List<LayerRuleData> _ruleBasedSymbols;
+
+  LayerPropertiesTab _selectedTab = LayerPropertiesTab.general;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.current.title);
+    _syncFromCurrent(widget.current);
+  }
+
+  @override
+  void didUpdateWidget(covariant LayerPropertiesDialog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.current != widget.current) {
+      _nameController.text = widget.current.title;
+      _syncFromCurrent(widget.current);
+      _selectedTab = LayerPropertiesTab.general;
+    }
+  }
+
+  void _syncFromCurrent(GeoLayersData current) {
+    _rendererType = current.rendererType;
+    _symbolLayers = List<LayerSimpleSymbolData>.from(current.symbolLayers);
+    _ruleBasedSymbols = List<LayerRuleData>.from(current.ruleBasedSymbols);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  int _resolveColorValue(LayerSimpleSymbolData? firstSymbol) {
+    if (widget.current.geometryKind == LayerGeometryKind.line) {
+      return firstSymbol?.strokeColorValue ?? widget.current.colorValue;
+    }
+    return firstSymbol?.fillColorValue ?? widget.current.colorValue;
+  }
+
+  void _submit() {
+    final trimmed = _nameController.text.trim();
+    if (trimmed.isEmpty) return;
+
+    final baseSymbols = _symbolLayers.isNotEmpty
+        ? _symbolLayers
+        : widget.current.effectiveSymbolLayers;
+
+    final firstSymbol = baseSymbols.isNotEmpty ? baseSymbols.first : null;
+
+    final updated = widget.current.copyWith(
+      title: trimmed,
+      rendererType: _rendererType,
+      symbolLayers: _symbolLayers,
+      ruleBasedSymbols: _ruleBasedSymbols,
+      iconKey: firstSymbol?.iconKey ?? widget.current.iconKey,
+      colorValue: _resolveColorValue(firstSymbol),
+    );
+
+    Navigator.of(context).pop(updated);
+  }
+
   Widget _buildTabContent() {
     switch (_selectedTab) {
       case LayerPropertiesTab.general:
-        return LayerGeneralEditor(
+        return MenuGeneral(
           key: const ValueKey('general'),
           nameController: _nameController,
+          geometryKind: widget.current.geometryKind,
           onSubmit: _submit,
         );
 
       case LayerPropertiesTab.symbology:
-        return LayerSymbologyEditor(
+        return MenuSymbology(
           key: const ValueKey('symbology'),
+          geometryKind: widget.current.geometryKind,
           rendererType: _rendererType,
           symbolLayers: _symbolLayers,
           ruleBasedSymbols: _ruleBasedSymbols,
           availableRuleFields: widget.availableRuleFields,
           onRendererTypeChanged: (value) {
+            if (_rendererType == value) return;
             setState(() => _rendererType = value);
           },
           onSymbolLayersChanged: (value) {
@@ -194,7 +189,7 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
         );
 
       case LayerPropertiesTab.labels:
-        return const LayerPlaceholderEditor(
+        return const LayerPlaceholderMenu(
           key: ValueKey('labels'),
           title: 'Rótulos',
           subtitle: 'Esta aba será usada para configurar os rótulos da camada.',
@@ -202,7 +197,7 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
         );
 
       case LayerPropertiesTab.source:
-        return const LayerPlaceholderEditor(
+        return const LayerPlaceholderMenu(
           key: ValueKey('source'),
           title: 'Fonte',
           subtitle:
@@ -211,7 +206,7 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
         );
 
       case LayerPropertiesTab.metadata:
-        return const LayerPlaceholderEditor(
+        return const LayerPlaceholderMenu(
           key: ValueKey('metadata'),
           title: 'Metadados',
           subtitle:
@@ -235,23 +230,28 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(
-                      width: menuWidth,
-                      child: LayerPropertiesMenu(
-                        items: _menuItems,
-                        selectedTab: _selectedTab,
-                        isCompact: isCompactMenu,
-                        onTapItem: (tab) {
-                          setState(() => _selectedTab = tab);
-                        },
+                    RepaintBoundary(
+                      child: SizedBox(
+                        width: menuWidth,
+                        child: LayerPropertiesMenu(
+                          items: _menuItems,
+                          selectedTab: _selectedTab,
+                          isCompact: isCompactMenu,
+                          onTapItem: (tab) {
+                            if (_selectedTab == tab) return;
+                            setState(() => _selectedTab = tab);
+                          },
+                        ),
                       ),
                     ),
                     Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        child: _buildTabContent(),
+                      child: RepaintBoundary(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          child: _buildTabContent(),
+                        ),
                       ),
                     ),
                   ],
