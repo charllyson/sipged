@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_services/map/map_box/service/nominatim_bloc.dart';
-import 'package:sipged/_widgets/cards/glass/glass_container.dart';
+import 'package:sipged/_widgets/cards/glass/glass_card.dart';
 import 'package:sipged/_widgets/ia/ai_chat_sheet.dart';
 import 'package:sipged/_widgets/ia/ai_futuristic_button.dart';
 
@@ -70,7 +70,7 @@ class _FootBarState extends State<FootBar> {
                 ),
               ),
             ),
-            GlassContainer(
+            GlassCard(
               height: 38,
               padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
               borderRadius: BorderRadius.zero,

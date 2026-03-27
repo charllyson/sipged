@@ -16,7 +16,6 @@ class DockPanelGroup extends StatelessWidget {
   final bool isDragging;
 
   final VoidCallback onToggleFloating;
-  final VoidCallback onToggleMinimized;
   final VoidCallback onHide;
   final ValueChanged<String> onTabSelected;
 
@@ -34,7 +33,6 @@ class DockPanelGroup extends StatelessWidget {
     required this.isFloating,
     required this.isDragging,
     required this.onToggleFloating,
-    required this.onToggleMinimized,
     required this.onHide,
     required this.onTabSelected,
     required this.onDragStarted,
@@ -147,7 +145,6 @@ class DockPanelGroup extends StatelessWidget {
           accent: accent,
           isFloating: isFloating,
           onToggleFloating: onToggleFloating,
-          onToggleMinimized: onToggleMinimized,
           onHide: onHide,
           onDragStarted: onDragStarted,
           onDragUpdate: onDragUpdate,
@@ -168,7 +165,6 @@ class DockPanelGroup extends StatelessWidget {
           accent: accent,
           isFloating: isFloating,
           onToggleFloating: onToggleFloating,
-          onToggleMinimized: onToggleMinimized,
           onHide: onHide,
           onDragStarted: onDragStarted,
           onDragUpdate: onDragUpdate,

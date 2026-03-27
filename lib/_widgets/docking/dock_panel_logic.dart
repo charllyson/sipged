@@ -15,6 +15,32 @@ class DockPanelLogic {
     return area == DockArea.left || area == DockArea.right;
   }
 
+  static bool occupiesLayout(DockPanelData group) {
+    return group.visible && !group.collapsed;
+  }
+
+  static bool hasCollapsedRailForArea(
+      DockArea area,
+      List<DockPanelData> source,
+      ) {
+    if (area != DockArea.left && area != DockArea.right) {
+      return false;
+    }
+
+    return source.any(
+          (g) => g.visible && g.collapsed && g.area == area,
+    );
+  }
+
+  static double reservedRailInsetForArea(
+      DockArea area,
+      List<DockPanelData> source,
+      ) {
+    return hasCollapsedRailForArea(area, source)
+        ? DockPanelConfig.sideRailWidth
+        : 0.0;
+  }
+
   static List<DockPanelData> mergeIncomingGroups({
     required List<DockPanelData> incoming,
     required List<DockPanelData> current,
@@ -38,10 +64,15 @@ class DockPanelLogic {
         dockExtent: local.dockExtent,
         dockWeight: local.dockWeight,
         visible: local.visible,
+        collapsed: local.collapsed,
         activeItemId: local.activeItemId,
         minimized: local.minimized,
         lastDockArea: local.lastDockArea,
         lastDockCrossSpan: local.lastDockCrossSpan,
+        floatingAsDialog: local.floatingAsDialog,
+        restoreToFloatingOnDialogClose: local.restoreToFloatingOnDialogClose,
+        storedFloatingOffset: local.storedFloatingOffset,
+        storedFloatingSize: local.storedFloatingSize,
       );
     }).toList(growable: false);
   }
@@ -50,10 +81,12 @@ class DockPanelLogic {
       List<DockPanelData> source, {
         DockArea? preferredFullArea,
       }) {
-    final hasLeft = source.any((g) => g.visible && g.area == DockArea.left);
-    final hasRight = source.any((g) => g.visible && g.area == DockArea.right);
-    final hasTop = source.any((g) => g.visible && g.area == DockArea.top);
-    final hasBottom = source.any((g) => g.visible && g.area == DockArea.bottom);
+    final effective = source.where(occupiesLayout).toList(growable: false);
+
+    final hasLeft = effective.any((g) => g.area == DockArea.left);
+    final hasRight = effective.any((g) => g.area == DockArea.right);
+    final hasTop = effective.any((g) => g.area == DockArea.top);
+    final hasBottom = effective.any((g) => g.area == DockArea.bottom);
 
     final hasVertical = hasLeft || hasRight;
     final hasHorizontal = hasTop || hasBottom;
@@ -62,18 +95,12 @@ class DockPanelLogic {
       return source;
     }
 
-    final hasFullVertical = source.any(
-          (g) =>
-      g.visible &&
-          isVerticalArea(g.area) &&
-          g.crossSpan == DockCrossSpan.full,
+    final hasFullVertical = effective.any(
+          (g) => isVerticalArea(g.area) && g.crossSpan == DockCrossSpan.full,
     );
 
-    final hasFullHorizontal = source.any(
-          (g) =>
-      g.visible &&
-          isHorizontalArea(g.area) &&
-          g.crossSpan == DockCrossSpan.full,
+    final hasFullHorizontal = effective.any(
+          (g) => isHorizontalArea(g.area) && g.crossSpan == DockCrossSpan.full,
     );
 
     bool horizontalWins;
@@ -92,7 +119,7 @@ class DockPanelLogic {
     }
 
     return source.map((group) {
-      if (!group.visible || group.area == DockArea.floating) {
+      if (!occupiesLayout(group) || group.area == DockArea.floating) {
         return group;
       }
 
@@ -116,7 +143,7 @@ class DockPanelLogic {
       List<DockPanelData> source,
       ) {
     final groups = source
-        .where((g) => g.visible && g.area == area)
+        .where((g) => occupiesLayout(g) && g.area == area)
         .toList(growable: false);
 
     if (groups.isEmpty) return 0;
@@ -154,7 +181,7 @@ class DockPanelLogic {
       List<DockPanelData> source,
       ) {
     final groups = source
-        .where((g) => g.visible && g.area == area)
+        .where((g) => occupiesLayout(g) && g.area == area)
         .toList(growable: false);
 
     if (groups.isEmpty) return DockCrossSpan.full;
@@ -165,7 +192,7 @@ class DockPanelLogic {
       DockArea area,
       List<DockPanelData> source,
       ) {
-    return source.any((g) => g.visible && g.area == area);
+    return source.any((g) => occupiesLayout(g) && g.area == area);
   }
 
   static DockArea? resolveSnapArea({
@@ -257,8 +284,10 @@ class DockPanelLogic {
           area: targetArea,
           crossSpan: targetSpan,
           visible: true,
+          collapsed: false,
           minimized: false,
-          lastDockArea: targetArea == DockArea.floating ? group.lastDockArea : targetArea,
+          lastDockArea:
+          targetArea == DockArea.floating ? group.lastDockArea : targetArea,
           lastDockCrossSpan: targetArea == DockArea.floating
               ? group.lastDockCrossSpan
               : targetSpan,
@@ -296,28 +325,31 @@ class DockPanelLogic {
     if (area == DockArea.floating) return null;
 
     final groups = source
-        .where((g) => g.visible && g.area == area)
+        .where((g) => occupiesLayout(g) && g.area == area)
         .toList(growable: false);
 
     if (groups.isEmpty) return null;
 
     final leftGroups = source
-        .where((g) => g.visible && g.area == DockArea.left)
+        .where((g) => occupiesLayout(g) && g.area == DockArea.left)
         .toList(growable: false);
     final rightGroups = source
-        .where((g) => g.visible && g.area == DockArea.right)
+        .where((g) => occupiesLayout(g) && g.area == DockArea.right)
         .toList(growable: false);
     final topGroups = source
-        .where((g) => g.visible && g.area == DockArea.top)
+        .where((g) => occupiesLayout(g) && g.area == DockArea.top)
         .toList(growable: false);
     final bottomGroups = source
-        .where((g) => g.visible && g.area == DockArea.bottom)
+        .where((g) => occupiesLayout(g) && g.area == DockArea.bottom)
         .toList(growable: false);
 
     final leftWidth = resolvedDockExtentForArea(DockArea.left, source);
     final rightWidth = resolvedDockExtentForArea(DockArea.right, source);
     final topHeight = resolvedDockExtentForArea(DockArea.top, source);
     final bottomHeight = resolvedDockExtentForArea(DockArea.bottom, source);
+
+    final leftRailWidth = reservedRailInsetForArea(DockArea.left, source);
+    final rightRailWidth = reservedRailInsetForArea(DockArea.right, source);
 
     final span = resolvedCrossSpanForArea(area, source);
 
@@ -334,9 +366,9 @@ class DockPanelLogic {
             : workspaceSize.height - occupiedBottom;
 
         return Rect.fromLTRB(
-          0,
+          leftRailWidth,
           top,
-          leftWidth,
+          leftRailWidth + leftWidth,
           bottom,
         );
 
@@ -347,17 +379,20 @@ class DockPanelLogic {
             : workspaceSize.height - occupiedBottom;
 
         return Rect.fromLTRB(
-          workspaceSize.width - rightWidth,
+          workspaceSize.width - rightRailWidth - rightWidth,
           top,
-          workspaceSize.width,
+          workspaceSize.width - rightRailWidth,
           bottom,
         );
 
       case DockArea.top:
-        final left = span == DockCrossSpan.full ? 0.0 : occupiedLeft;
+        final left = span == DockCrossSpan.full
+            ? leftRailWidth
+            : leftRailWidth + occupiedLeft;
+
         final right = span == DockCrossSpan.full
-            ? workspaceSize.width
-            : workspaceSize.width - occupiedRight;
+            ? workspaceSize.width - rightRailWidth
+            : workspaceSize.width - rightRailWidth - occupiedRight;
 
         return Rect.fromLTRB(
           left,
@@ -367,10 +402,13 @@ class DockPanelLogic {
         );
 
       case DockArea.bottom:
-        final left = span == DockCrossSpan.full ? 0.0 : occupiedLeft;
+        final left = span == DockCrossSpan.full
+            ? leftRailWidth
+            : leftRailWidth + occupiedLeft;
+
         final right = span == DockCrossSpan.full
-            ? workspaceSize.width
-            : workspaceSize.width - occupiedRight;
+            ? workspaceSize.width - rightRailWidth
+            : workspaceSize.width - rightRailWidth - occupiedRight;
 
         return Rect.fromLTRB(
           left,
@@ -389,23 +427,41 @@ class DockPanelLogic {
     required Size workspaceSize,
     EdgeInsets contentPadding = EdgeInsets.zero,
   }) {
-    final hasLeft = hasVisibleArea(DockArea.left, source);
-    final hasRight = hasVisibleArea(DockArea.right, source);
-    final hasTop = hasVisibleArea(DockArea.top, source);
-    final hasBottom = hasVisibleArea(DockArea.bottom, source);
+    final hasLeftDock = hasVisibleArea(DockArea.left, source);
+    final hasRightDock = hasVisibleArea(DockArea.right, source);
+    final hasTopDock = hasVisibleArea(DockArea.top, source);
+    final hasBottomDock = hasVisibleArea(DockArea.bottom, source);
 
-    final leftInset =
-    hasLeft ? resolvedDockExtentForArea(DockArea.left, source) : 0.0;
-    final rightInset =
-    hasRight ? resolvedDockExtentForArea(DockArea.right, source) : 0.0;
-    final topInset =
-    hasTop ? resolvedDockExtentForArea(DockArea.top, source) : 0.0;
-    final bottomInset =
-    hasBottom ? resolvedDockExtentForArea(DockArea.bottom, source) : 0.0;
+    final leftDockExtent =
+    hasLeftDock ? resolvedDockExtentForArea(DockArea.left, source) : 0.0;
+    final rightDockExtent =
+    hasRightDock ? resolvedDockExtentForArea(DockArea.right, source) : 0.0;
+    final topDockExtent =
+    hasTopDock ? resolvedDockExtentForArea(DockArea.top, source) : 0.0;
+    final bottomDockExtent =
+    hasBottomDock ? resolvedDockExtentForArea(DockArea.bottom, source) : 0.0;
+
+    final leftRailInset = hasLeftDock
+        ? reservedRailInsetForArea(DockArea.left, source)
+        : 0.0;
+
+    final rightRailInset = hasRightDock
+        ? reservedRailInsetForArea(DockArea.right, source)
+        : 0.0;
+
+    // Regra:
+    // - rail recolhida sozinha NÃO empurra o conteúdo;
+    // - rail + dock aberto no mesmo lado DEVEM ser somados,
+    //   porque o dock já foi deslocado para dentro pela rail.
+    final leftInset = leftDockExtent + leftRailInset;
+    final rightInset = rightDockExtent + rightRailInset;
+    final topInset = topDockExtent;
+    final bottomInset = bottomDockExtent;
 
     final left = (leftInset + contentPadding.left)
         .clamp(0.0, workspaceSize.width)
         .toDouble();
+
     final top = (topInset + contentPadding.top)
         .clamp(0.0, workspaceSize.height)
         .toDouble();
@@ -413,6 +469,7 @@ class DockPanelLogic {
     final right = (workspaceSize.width - rightInset - contentPadding.right)
         .clamp(0.0, workspaceSize.width)
         .toDouble();
+
     final bottom = (workspaceSize.height - bottomInset - contentPadding.bottom)
         .clamp(0.0, workspaceSize.height)
         .toDouble();

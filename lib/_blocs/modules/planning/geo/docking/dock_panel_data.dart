@@ -24,6 +24,10 @@ class DockPanelData {
   final String? activeItemId;
   final bool visible;
 
+  /// Quando true, o painel não ocupa layout, mas continua acessível
+  /// na rail lateral.
+  final bool collapsed;
+
   final Offset floatingOffset;
   final Size floatingSize;
 
@@ -57,6 +61,7 @@ class DockPanelData {
     this.crossSpan = DockCrossSpan.full,
     this.activeItemId,
     this.visible = true,
+    this.collapsed = false,
     this.floatingOffset = const Offset(80, 80),
     this.floatingSize = const Size(360, 420),
     this.dockExtent = 320,
@@ -92,6 +97,7 @@ class DockPanelData {
     List<DockPanelDataItem>? items,
     String? activeItemId,
     bool? visible,
+    bool? collapsed,
     Offset? floatingOffset,
     Size? floatingSize,
     double? dockExtent,
@@ -115,6 +121,7 @@ class DockPanelData {
       items: items ?? this.items,
       activeItemId: activeItemId ?? this.activeItemId,
       visible: visible ?? this.visible,
+      collapsed: collapsed ?? this.collapsed,
       floatingOffset: floatingOffset ?? this.floatingOffset,
       floatingSize: floatingSize ?? this.floatingSize,
       dockExtent: dockExtent ?? this.dockExtent,
@@ -145,6 +152,7 @@ class DockPanelData {
             listEquals(other.items, items) &&
             other.activeItemId == activeItemId &&
             other.visible == visible &&
+            other.collapsed == collapsed &&
             other.floatingOffset == floatingOffset &&
             other.floatingSize == floatingSize &&
             other.dockExtent == dockExtent &&
@@ -171,6 +179,7 @@ class DockPanelData {
     Object.hashAll(items),
     activeItemId,
     visible,
+    collapsed,
     floatingOffset,
     floatingSize,
     dockExtent,

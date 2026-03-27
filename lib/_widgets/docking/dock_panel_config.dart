@@ -22,4 +22,7 @@ class DockPanelConfig {
 
   static const double minFloatingHeight = 180.0;
   static const double maxFloatingHeight = 900.0;
+
+  /// Largura reservada para a barra lateral dos painéis recolhidos.
+  static const double sideRailWidth = 44.0;
 }

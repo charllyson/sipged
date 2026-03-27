@@ -85,6 +85,18 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     _emitGroups(next);
   }
 
+  DockArea _collapseAnchorFor(DockPanelData group) {
+    if (group.area == DockArea.left || group.area == DockArea.right) {
+      return group.area;
+    }
+
+    if (group.lastDockArea == DockArea.left || group.lastDockArea == DockArea.right) {
+      return group.lastDockArea!;
+    }
+
+    return DockArea.right;
+  }
+
   void setGroupVisible(String id, bool visible) {
     final next = DockPanelLogic.normalizeDockSpans(
       state.workingGroups.map((group) {
@@ -106,11 +118,73 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     _commitGroups(next);
   }
 
-  void toggleMinimized(String groupId) {
-    final next = state.workingGroups.map((group) {
-      if (group.id != groupId) return group;
-      return group.copyWith(minimized: !group.minimized);
-    }).toList(growable: false);
+  void collapseToRail(String groupId) {
+    final current = state.groupById(groupId);
+    final targetArea = _collapseAnchorFor(current);
+
+    final next = DockPanelLogic.normalizeDockSpans(
+      state.workingGroups.map((group) {
+        if (group.id != groupId) return group;
+
+        return group.copyWith(
+          area: targetArea,
+          visible: true,
+          collapsed: true,
+          minimized: false,
+          floatingAsDialog: false,
+          restoreToFloatingOnDialogClose: false,
+          lastDockArea: targetArea,
+          lastDockCrossSpan: targetArea == DockArea.left || targetArea == DockArea.right
+              ? group.crossSpan
+              : group.lastDockCrossSpan,
+        );
+      }).toList(growable: false),
+    );
+
+    _commitGroups(next);
+  }
+
+  void restoreFromRail(String groupId) {
+    final current = state.groupById(groupId);
+    final restoreArea = current.area == DockArea.left || current.area == DockArea.right
+        ? current.area
+        : (current.lastDockArea == DockArea.left || current.lastDockArea == DockArea.right
+        ? current.lastDockArea!
+        : DockArea.right);
+
+    final restoreSpan = current.lastDockCrossSpan ??
+        (restoreArea == DockArea.left || restoreArea == DockArea.right
+            ? DockCrossSpan.inner
+            : DockCrossSpan.full);
+
+    final isCompact = state.workspaceSize.width > 0 && state.workspaceSize.width < 900;
+
+    final next = DockPanelLogic.normalizeDockSpans(
+      state.workingGroups.map((group) {
+        if (group.id == groupId) {
+          return group.copyWith(
+            area: restoreArea,
+            crossSpan: restoreSpan,
+            visible: true,
+            collapsed: false,
+            minimized: false,
+            floatingAsDialog: false,
+            restoreToFloatingOnDialogClose: false,
+          );
+        }
+
+        if (isCompact &&
+            group.visible &&
+            !group.collapsed &&
+            (group.area == DockArea.left || group.area == DockArea.right) &&
+            group.id != groupId) {
+          return group.copyWith(collapsed: true);
+        }
+
+        return group;
+      }).toList(growable: false),
+      preferredFullArea: restoreSpan == DockCrossSpan.full ? restoreArea : null,
+    );
 
     _commitGroups(next);
   }
@@ -171,6 +245,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
               floatingOffset: current.storedFloatingOffset,
               floatingSize: current.storedFloatingSize,
               visible: true,
+              collapsed: false,
               minimized: false,
             );
           }).toList(growable: false),
@@ -190,6 +265,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
             area: restoreArea,
             crossSpan: restoreSpan,
             visible: true,
+            collapsed: false,
             minimized: false,
             floatingAsDialog: false,
             restoreToFloatingOnDialogClose: false,
@@ -214,6 +290,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
             area: DockArea.floating,
             crossSpan: DockCrossSpan.full,
             visible: true,
+            collapsed: false,
             minimized: false,
             floatingAsDialog: true,
             restoreToFloatingOnDialogClose: true,
@@ -236,10 +313,12 @@ class DockPanelCubit extends Cubit<DockPanelState> {
           area: DockArea.floating,
           crossSpan: DockCrossSpan.full,
           visible: true,
+          collapsed: false,
           minimized: false,
           floatingAsDialog: true,
           restoreToFloatingOnDialogClose: false,
-          lastDockArea: group.area == DockArea.floating ? group.lastDockArea : group.area,
+          lastDockArea:
+          group.area == DockArea.floating ? group.lastDockArea : group.area,
           lastDockCrossSpan: group.area == DockArea.floating
               ? group.lastDockCrossSpan
               : group.crossSpan,
@@ -273,6 +352,9 @@ class DockPanelCubit extends Cubit<DockPanelState> {
 
   void startDrag(String groupId) {
     if (state.isDragging) return;
+
+    final group = state.groupById(groupId);
+    if (group.collapsed) return;
 
     emit(
       state.copyWith(
@@ -345,6 +427,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
       ).map((group) {
         if (group.id != groupId) return group;
         return group.copyWith(
+          collapsed: false,
           floatingAsDialog: false,
           restoreToFloatingOnDialogClose: false,
         );
@@ -370,6 +453,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
           return current.copyWith(
             area: DockArea.floating,
             crossSpan: DockCrossSpan.full,
+            collapsed: false,
             floatingOffset: bounded,
             minimized: false,
             floatingAsDialog: false,

@@ -10,7 +10,6 @@ class DraggableHeader extends StatelessWidget {
   final Color accent;
   final bool isFloating;
   final VoidCallback onToggleFloating;
-  final VoidCallback onToggleMinimized;
   final VoidCallback onHide;
 
   final VoidCallback onDragStarted;
@@ -22,7 +21,6 @@ class DraggableHeader extends StatelessWidget {
     required this.accent,
     required this.isFloating,
     required this.onToggleFloating,
-    required this.onToggleMinimized,
     required this.onHide,
     required this.onDragStarted,
     required this.onDragUpdate,
@@ -36,7 +34,6 @@ class DraggableHeader extends StatelessWidget {
       accent: accent,
       isFloating: isFloating,
       onToggleFloating: onToggleFloating,
-      onToggleMinimized: onToggleMinimized,
       onHide: onHide,
     );
 

@@ -649,6 +649,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
         case 'group_vectorizacao':
           return group.copyWith(
             shrinkWrapOnMainAxis: false,
+            dockExtent: 260,
             items: [
               DockPanelDataItem(
                 id: 'layers_tree',
@@ -863,10 +864,6 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     }).toList(growable: false);
   }
 
-  void _togglePanel(BuildContext context, String panelId) {
-    context.read<GeoMapCubit>().togglePanelVisibility(panelId);
-  }
-
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
@@ -1065,33 +1062,6 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                   padding: EdgeInsets.only(left: 10),
                   child: BackCircleButton(),
                 ),
-                actions: [
-                  BackCircleButton(
-                    tooltip: 'Mostrar ou ocultar caixa de ferramentas',
-                    icon: Icons.handyman_outlined,
-                    onPressed: () => _togglePanel(context, 'group_ferramentas'),
-                  ),
-                  BackCircleButton(
-                    tooltip: 'Mostrar ou ocultar painel de camadas',
-                    icon: Icons.layers_outlined,
-                    onPressed: () => _togglePanel(context, 'group_vectorizacao'),
-                  ),
-                  BackCircleButton(
-                    tooltip: 'Mostrar ou ocultar painel de atributos',
-                    icon: Icons.table_rows_outlined,
-                    onPressed: () => _togglePanel(context, 'group_atributos'),
-                  ),
-                  BackCircleButton(
-                    tooltip: 'Mostrar ou ocultar painel de visualizações',
-                    icon: Icons.dashboard_customize_outlined,
-                    onPressed: () => _togglePanel(context, 'group_visualizacoes'),
-                  ),
-                  BackCircleButton(
-                    tooltip: 'Mostrar ou ocultar área de trabalho',
-                    icon: Icons.space_dashboard_outlined,
-                    onPressed: () => _togglePanel(context, 'group_area_trabalho'),
-                  ),
-                ],
               ),
             ),
             body: ScreenLock(

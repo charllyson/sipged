@@ -49,7 +49,7 @@ class GeoMapState extends Equatable {
         ),
         DockPanelData(
           id: 'group_ferramentas',
-          title: 'Caixa de Ferramentas',
+          title: 'Ferramentas',
           area: DockArea.right,
           crossSpan: DockCrossSpan.full,
           dockExtent: 320,

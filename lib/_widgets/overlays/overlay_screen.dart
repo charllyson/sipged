@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/cards/glass/glass_progress_card.dart';
+import 'package:sipged/_widgets/cards/progress/progress_card.dart';
 import 'package:sipged/_widgets/overlays/animated_scale_fade.dart';
 
 class OverlayScreen extends StatelessWidget {
@@ -79,7 +79,7 @@ class OverlayScreen extends StatelessWidget {
                 alignment: Alignment.center,
                 child: AnimatedScaleFade(
                   duration: animationDuration,
-                  child: GlassProgressCard(
+                  child: ProgressCard(
                     icon: icon ?? Icons.sync,
                     message: message ?? 'Processando...',
                     details: details,

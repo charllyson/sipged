@@ -80,6 +80,7 @@ class _ToolboxIconButtonState extends State<ToolboxIconButton> {
     final displayAction = _displayAction;
     final isEnabled = displayAction.enabled;
 
+    final radius = BorderRadius.circular(6);
     final iconColor = isEnabled
         ? (_isSelected ? _modernBlue : theme.iconTheme.color)
         : theme.disabledColor;
@@ -98,6 +99,11 @@ class _ToolboxIconButtonState extends State<ToolboxIconButton> {
         : showHover
         ? theme.dividerColor.withValues(alpha: 0.25)
         : Colors.transparent;
+
+    final arrowZoneSize = widget.buttonSize <= 36 ? 16.0 : 18.0;
+    final arrowIconSize = widget.buttonSize <= 36 ? 12.0 : 14.0;
+    final badgeSize = widget.buttonSize <= 36 ? 13.0 : 15.0;
+    final badgeIconSize = widget.buttonSize <= 36 ? 8.0 : 9.0;
 
     return Tooltip(
       message: displayAction.tooltip,
@@ -127,7 +133,7 @@ class _ToolboxIconButtonState extends State<ToolboxIconButton> {
               height: widget.buttonSize,
               decoration: BoxDecoration(
                 color: backgroundColor,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: radius,
                 border: Border.all(color: borderColor),
                 boxShadow: _isSelected
                     ? [
@@ -145,12 +151,17 @@ class _ToolboxIconButtonState extends State<ToolboxIconButton> {
                   Positioned.fill(
                     child: InkWell(
                       onTap: isEnabled ? _handleMainTap : null,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: radius,
                       child: Center(
-                        child: Icon(
-                          displayAction.icon,
-                          size: widget.iconSize,
-                          color: iconColor,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: action.hasChildren ? arrowZoneSize * 0.18 : 0,
+                          ),
+                          child: Icon(
+                            displayAction.icon,
+                            size: widget.iconSize,
+                            color: iconColor,
+                          ),
                         ),
                       ),
                     ),
@@ -162,18 +173,17 @@ class _ToolboxIconButtonState extends State<ToolboxIconButton> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap:
-                          isEnabled ? () => _handleArrowTap(context) : null,
-                          borderRadius: const BorderRadius.only(
-                            bottomRight: Radius.circular(4),
-                            topLeft: Radius.circular(4),
+                          onTap: isEnabled ? () => _handleArrowTap(context) : null,
+                          borderRadius: BorderRadius.only(
+                            bottomRight: radius.topRight,
+                            topLeft: Radius.circular(radius.topLeft.x),
                           ),
                           child: SizedBox(
-                            width: 18,
-                            height: 18,
+                            width: arrowZoneSize,
+                            height: arrowZoneSize,
                             child: Icon(
                               Icons.arrow_drop_down,
-                              size: 14,
+                              size: arrowIconSize,
                               color: iconColor?.withValues(alpha: 0.95),
                             ),
                           ),
@@ -182,17 +192,17 @@ class _ToolboxIconButtonState extends State<ToolboxIconButton> {
                     ),
                   if (_displayAction.showEditBadge)
                     Positioned(
-                      right: action.hasChildren ? 14 : -2,
+                      right: action.hasChildren ? arrowZoneSize - 4 : -2,
                       bottom: -2,
                       child: Container(
-                        width: 15,
-                        height: 15,
+                        width: badgeSize,
+                        height: badgeSize,
                         decoration: BoxDecoration(
                           color: _editBadgeRed,
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: Theme.of(context).scaffoldBackgroundColor,
-                            width: 1.4,
+                            width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -202,10 +212,10 @@ class _ToolboxIconButtonState extends State<ToolboxIconButton> {
                             ),
                           ],
                         ),
-                        child: const Center(
+                        child: Center(
                           child: Icon(
                             Icons.edit,
-                            size: 9,
+                            size: badgeIconSize,
                             color: Colors.white,
                           ),
                         ),
@@ -258,7 +268,7 @@ class _ToolboxIconButtonState extends State<ToolboxIconButton> {
                   color: isCurrent ? _modernBlue : null,
                 ),
                 const SizedBox(width: 8),
-                Expanded(
+                Flexible(
                   child: Text(
                     child.tooltip,
                     overflow: TextOverflow.ellipsis,

@@ -83,14 +83,35 @@ class DockPanelState {
   List<DockPanelData> get visibleGroups =>
       workingGroups.where((g) => g.visible).toList(growable: false);
 
-  List<DockPanelData> groupsInArea(DockArea area) =>
-      visibleGroups.where((g) => g.area == area).toList(growable: false);
+  List<DockPanelData> get layoutGroups => workingGroups
+      .where((g) => g.visible && !g.collapsed)
+      .toList(growable: false);
+
+  List<DockPanelData> groupsInArea(
+      DockArea area, {
+        bool includeCollapsed = false,
+      }) {
+    return workingGroups.where((g) {
+      if (!g.visible) return false;
+      if (g.area != area) return false;
+      if (!includeCollapsed && g.collapsed) return false;
+      return true;
+    }).toList(growable: false);
+  }
 
   List<DockPanelData> get leftGroups => groupsInArea(DockArea.left);
   List<DockPanelData> get rightGroups => groupsInArea(DockArea.right);
   List<DockPanelData> get topGroups => groupsInArea(DockArea.top);
   List<DockPanelData> get bottomGroups => groupsInArea(DockArea.bottom);
   List<DockPanelData> get floatingGroups => groupsInArea(DockArea.floating);
+
+  List<DockPanelData> get collapsedLeftGroups => workingGroups
+      .where((g) => g.visible && g.collapsed && g.area == DockArea.left)
+      .toList(growable: false);
+
+  List<DockPanelData> get collapsedRightGroups => workingGroups
+      .where((g) => g.visible && g.collapsed && g.area == DockArea.right)
+      .toList(growable: false);
 
   bool get preserveLayoutDuringExternalSync =>
       isDragging ||

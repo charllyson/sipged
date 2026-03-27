@@ -76,7 +76,7 @@ class DockPanelDockedLayout extends StatelessWidget {
         if (hasLeft && leftRect != null)
           Positioned.fromRect(
             rect: leftRect,
-            child: _SideDock(
+            child: SideDock(
               groups: leftGroups,
               area: DockArea.left,
               extent: leftWidth,
@@ -99,7 +99,7 @@ class DockPanelDockedLayout extends StatelessWidget {
         if (hasRight && rightRect != null)
           Positioned.fromRect(
             rect: rightRect,
-            child: _SideDock(
+            child: SideDock(
               groups: rightGroups,
               area: DockArea.right,
               extent: rightWidth,
@@ -123,7 +123,7 @@ class DockPanelDockedLayout extends StatelessWidget {
         if (hasTop && topRect != null)
           Positioned.fromRect(
             rect: topRect,
-            child: _TopBottomDock(
+            child: TopBottomDock(
               groups: topGroups,
               area: DockArea.top,
               extent: topHeight,
@@ -146,7 +146,7 @@ class DockPanelDockedLayout extends StatelessWidget {
         if (hasBottom && bottomRect != null)
           Positioned.fromRect(
             rect: bottomRect,
-            child: _TopBottomDock(
+            child: TopBottomDock(
               groups: bottomGroups,
               area: DockArea.bottom,
               extent: bottomHeight,
@@ -172,7 +172,7 @@ class DockPanelDockedLayout extends StatelessWidget {
   }
 }
 
-class _SideDock extends StatelessWidget {
+class SideDock extends StatelessWidget {
   final List<DockPanelData> groups;
   final DockArea area;
   final double extent;
@@ -188,7 +188,7 @@ class _SideDock extends StatelessWidget {
   final void Function(int leadingIndex, double deltaPixels, double totalPixels)
   onWeightResize;
 
-  const _SideDock({
+  const SideDock({super.key,
     required this.groups,
     required this.area,
     required this.extent,
@@ -242,7 +242,7 @@ class _SideDock extends StatelessWidget {
   }
 }
 
-class _TopBottomDock extends StatelessWidget {
+class TopBottomDock extends StatelessWidget {
   final List<DockPanelData> groups;
   final DockArea area;
   final double extent;
@@ -258,7 +258,7 @@ class _TopBottomDock extends StatelessWidget {
   final void Function(int leadingIndex, double deltaPixels, double totalPixels)
   onWeightResize;
 
-  const _TopBottomDock({
+  const TopBottomDock({super.key,
     required this.groups,
     required this.area,
     required this.extent,

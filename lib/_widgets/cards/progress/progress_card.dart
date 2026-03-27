@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/cards/glass/glass_container.dart';
+import 'package:sipged/_widgets/cards/glass/glass_card.dart';
 
-class GlassProgressCard extends StatelessWidget {
-  const GlassProgressCard({
+class ProgressCard extends StatelessWidget {
+  const ProgressCard({
     super.key,
     required this.icon,
     required this.message,
@@ -70,7 +70,7 @@ class GlassProgressCard extends StatelessWidget {
       constraints: BoxConstraints(
         maxWidth: width ?? 420,
       ),
-      child: GlassContainer(
+      child: GlassCard(
         padding: padding,
         borderRadius: borderRadius,
         backgroundColor: backgroundColor,

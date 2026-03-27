@@ -6,7 +6,6 @@ class DockPanelHeader extends StatelessWidget {
   final Color accent;
   final bool isFloating;
   final VoidCallback onToggleFloating;
-  final VoidCallback onToggleMinimized;
   final VoidCallback onHide;
 
   const DockPanelHeader({
@@ -15,9 +14,36 @@ class DockPanelHeader extends StatelessWidget {
     required this.accent,
     required this.isFloating,
     required this.onToggleFloating,
-    required this.onToggleMinimized,
     required this.onHide,
   });
+
+  bool get _canCollapseToRail {
+    if (group.area == DockArea.left || group.area == DockArea.right) return true;
+    if (group.lastDockArea == DockArea.left || group.lastDockArea == DockArea.right) {
+      return true;
+    }
+    return !group.floatingAsDialog;
+  }
+
+  IconData _collapseIcon() {
+    final anchor = group.area == DockArea.left || group.area == DockArea.right
+        ? group.area
+        : group.lastDockArea;
+
+    if (anchor == DockArea.left) return Icons.first_page;
+    return Icons.last_page;
+  }
+
+  String _collapseTooltip() {
+    final anchor = group.area == DockArea.left || group.area == DockArea.right
+        ? group.area
+        : group.lastDockArea;
+
+    if (anchor == DockArea.left) {
+      return 'Recolher';
+    }
+    return 'Recolher';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +83,7 @@ class DockPanelHeader extends StatelessWidget {
         child: Row(
           children: [
             if (group.icon != null) ...[
-              const SizedBox(width: 6),
+              const SizedBox(width: 3),
               Icon(group.icon, size: 16, color: textColor),
             ],
             const SizedBox(width: 8),
@@ -74,31 +100,28 @@ class DockPanelHeader extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: group.minimized ? 'Restaurar' : 'Minimizar',
-              visualDensity: VisualDensity.compact,
-              onPressed: onToggleMinimized,
-              icon: Icon(
-                group.minimized ? Icons.expand_more : Icons.remove,
-                size: 18,
-                color: buttonColor,
-              ),
-            ),
-            IconButton(
-              tooltip: isExpandedView ? 'Fechar visualização ampliada' : 'Ampliar painel',
+              tooltip: isExpandedView
+                  ? 'Fechar'
+                  : 'Ampliar',
               visualDensity: VisualDensity.compact,
               onPressed: onToggleFloating,
               icon: Icon(
                 isExpandedView ? Icons.close_fullscreen : Icons.open_in_full,
-                size: 16,
+                size: 14,
                 color: buttonColor,
               ),
             ),
-            IconButton(
-              tooltip: 'Ocultar',
-              visualDensity: VisualDensity.compact,
-              onPressed: onHide,
-              icon: Icon(Icons.close, size: 18, color: buttonColor),
-            ),
+            if (_canCollapseToRail)
+              IconButton(
+                tooltip: _collapseTooltip(),
+                visualDensity: VisualDensity.compact,
+                onPressed: onHide,
+                icon: Icon(
+                  _collapseIcon(),
+                  size: 18,
+                  color: buttonColor,
+                ),
+              ),
           ],
         ),
       ),

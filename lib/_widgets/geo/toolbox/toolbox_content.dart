@@ -142,8 +142,6 @@ class ToolboxContent extends StatelessWidget {
       sections: sections ?? _defaultSections(),
       selectedToolId: selectedToolId,
       onSelected: onSelectedTool,
-      iconSize: 20,
-      buttonSize: 40,
     );
   }
 }

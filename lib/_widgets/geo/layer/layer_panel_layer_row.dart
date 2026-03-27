@@ -52,7 +52,7 @@ class LayerPanelLayerRow extends StatelessWidget {
           color: bgColor,
           child: Padding(
             padding: EdgeInsets.only(
-              left: 8.0 + depth * 16.0,
+              left: 8.0 + depth,
               right: 8.0,
             ),
             child: Row(
