@@ -149,7 +149,7 @@ class CivilScheduleRepository {
   /// 2) updatedAt asc
   /// 3) name asc
   ///
-  /// Se faltar índice/field: tenta combinações mais fracas e, no limite,
+  /// Se faltar índice/table: tenta combinações mais fracas e, no limite,
   /// aplica ordenação em memória para garantir estabilidade.
   Future<List<Map<String, dynamic>>> fetchPolygons({
     required String contractId,

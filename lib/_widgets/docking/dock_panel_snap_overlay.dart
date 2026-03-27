@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/docking/dock_panel_types.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 
 class DockPanelSnapOverlay extends StatelessWidget {
   final bool visible;

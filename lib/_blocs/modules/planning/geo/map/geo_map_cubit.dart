@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_cubit.dart';
-import 'package:sipged/_widgets/docking/dock_panel_types.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 
 class GeoMapCubit extends Cubit<GeoMapState> {
   GeoMapCubit({
@@ -22,7 +22,7 @@ class GeoMapCubit extends Cubit<GeoMapState> {
   final GeoFeatureCubit _featureCubit;
   final GeoToolboxCubit _toolboxCubit;
 
-  void updatePanels(List<DockPanelGroupData> groups) {
+  void updatePanels(List<DockPanelData> groups) {
     emit(state.copyWith(panelGroups: groups));
   }
 

@@ -1,11 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/docking/dock_panel_splitter.dart';
-import 'package:sipged/_widgets/docking/dock_panel_types.dart';
 
 class DockPanelDockArea extends StatelessWidget {
-  final List<DockPanelGroupData> groups;
+  final List<DockPanelData> groups;
   final DockArea area;
 
   final void Function(
@@ -17,7 +17,7 @@ class DockPanelDockArea extends StatelessWidget {
   final VoidCallback onResizeWeightsStart;
   final VoidCallback onResizeWeightsEnd;
 
-  final Widget Function(DockPanelGroupData group) buildGroupCard;
+  final Widget Function(DockPanelData group) buildGroupCard;
 
   const DockPanelDockArea({
     super.key,
@@ -65,7 +65,10 @@ class DockPanelDockArea extends StatelessWidget {
             child: buildGroupCard(group),
           );
 
-          final groupChild = group.shrinkWrapOnMainAxis
+          final shouldShrinkWrap =
+              group.shrinkWrapOnMainAxis || group.minimized;
+
+          final groupChild = shouldShrinkWrap
               ? card
               : Expanded(
             flex: flex,

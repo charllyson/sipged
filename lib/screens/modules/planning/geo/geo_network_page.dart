@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_repository.dart';
@@ -15,18 +16,21 @@ import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_field.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_property.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
-import 'package:sipged/_widgets/docking/dock_panel_types.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/docking/dock_panel_workspace.dart';
-import 'package:sipged/_widgets/geo/attributes/attributes_panel.dart';
+import 'package:sipged/_widgets/geo/attributes/layer/attribute_panel.dart';
 import 'package:sipged/_widgets/geo/layer/layer_panel.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_dialog.dart';
 import 'package:sipged/_widgets/geo/status/pop_up_status_bar.dart';
 import 'package:sipged/_widgets/geo/toolbox/toolbox_content.dart';
-import 'package:sipged/_widgets/geo/visualizations/data/geo_visualizations_data.dart';
-import 'package:sipged/_widgets/geo/visualizations/itens/geo_visualizations_panel.dart';
-import 'package:sipged/_widgets/geo/workspace/geo_workspace_item_data.dart';
+import 'package:sipged/_widgets/geo/visualizations/property/tab_property_panel.dart';
+import 'package:sipged/_widgets/geo/visualizations/catalog/tab_widget_data.dart';
+import 'package:sipged/_widgets/geo/visualizations/catalog/tab_widget_panel.dart';
 import 'package:sipged/_widgets/geo/workspace/geo_workspace_panel.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
@@ -77,7 +81,7 @@ class _PlanningNetworkView extends StatefulWidget {
 class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
   MapController? controller;
 
-  final List<GeoWorkspaceItemData> _workspaceItems = [];
+  final List<GeoWorkspaceData> _workspaceItems = [];
   int _workspaceCounter = 0;
 
   String? _selectedCatalogItemId;
@@ -86,11 +90,58 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
   bool _statusDismissed = false;
   String _lastStatusIdentity = '';
 
-  GeoWorkspaceItemData? get _selectedWorkspaceItem {
+  GeoWorkspaceData? get _selectedWorkspaceItem {
     for (final item in _workspaceItems) {
       if (item.id == _selectedWorkspaceItemId) return item;
     }
     return null;
+  }
+
+  Object _workspaceItemToken(GeoWorkspaceData item) {
+    return Object.hash(
+      item.id,
+      item.title,
+      item.type,
+      item.offset,
+      item.size,
+      Object.hashAll(item.properties),
+    );
+  }
+
+  Object _workspaceItemsToken() {
+    return Object.hashAll(_workspaceItems.map(_workspaceItemToken));
+  }
+
+  Object _selectedWorkspaceItemToken() {
+    final item = _selectedWorkspaceItem;
+    if (item == null) return 'no_selected_workspace_item';
+    return _workspaceItemToken(item);
+  }
+
+  Object _featuresByLayerToken(Map<String, List<GeoFeatureData>> featuresByLayer) {
+    final orderedKeys = featuresByLayer.keys.toList()..sort();
+
+    return Object.hashAll(
+      orderedKeys.map((key) {
+        final features = featuresByLayer[key] ?? const <GeoFeatureData>[];
+
+        return Object.hash(
+          key,
+          features.length,
+          Object.hashAll(
+            features.map(
+                  (f) => Object.hash(
+                f.selectionKey,
+                f.geometryType,
+                Object.hashAll(
+                  f.properties.entries.map((e) => Object.hash(e.key, e.value)),
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
+    );
   }
 
   Future<GeoLayersData?> _askEditLayerData({
@@ -205,8 +256,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     );
   }
 
-  GeoWorkspaceItemData _buildWorkspaceItemFromCatalog({
-    required GeoVisualizationCatalogItem catalogItem,
+  GeoWorkspaceData _buildWorkspaceItemFromCatalog({
+    required TabWidgetsCatalog catalogItem,
     required Offset localOffset,
   }) {
     final type = GeoWorkspaceWidgetTypeMapper.fromCatalogItemId(catalogItem.id);
@@ -214,7 +265,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
       throw Exception('Tipo não implementado: ${catalogItem.id}');
     }
 
-    return GeoWorkspaceItemData(
+    return GeoWorkspaceData(
       id: 'workspace_item_${_workspaceCounter++}',
       title: catalogItem.title,
       type: type,
@@ -225,7 +276,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
   }
 
   void _handleWorkspaceCatalogDrop(
-      GeoVisualizationCatalogItem item,
+      TabWidgetsCatalog item,
       Offset localOffset,
       ) {
     final newItem = _buildWorkspaceItemFromCatalog(
@@ -234,7 +285,15 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     );
 
     setState(() {
-      _workspaceItems.add(newItem);
+      final nextItems = <GeoWorkspaceData>[
+        ..._workspaceItems,
+        newItem,
+      ];
+
+      _workspaceItems
+        ..clear()
+        ..addAll(nextItems);
+
       _selectedCatalogItemId = newItem.catalogItemId;
       _selectedWorkspaceItemId = newItem.id;
     });
@@ -257,7 +316,12 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     if (updated == current) return;
 
     setState(() {
-      _workspaceItems[index] = updated;
+      final nextItems = List<GeoWorkspaceData>.from(_workspaceItems);
+      nextItems[index] = updated;
+
+      _workspaceItems
+        ..clear()
+        ..addAll(nextItems);
     });
   }
 
@@ -266,7 +330,12 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     if (removedIndex < 0) return;
 
     setState(() {
-      _workspaceItems.removeAt(removedIndex);
+      final nextItems = List<GeoWorkspaceData>.from(_workspaceItems)
+        ..removeAt(removedIndex);
+
+      _workspaceItems
+        ..clear()
+        ..addAll(nextItems);
 
       if (_selectedWorkspaceItemId == itemId) {
         if (_workspaceItems.isEmpty) {
@@ -283,7 +352,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     });
   }
 
-  void _handleWorkspaceItemSelected(GeoWorkspaceItemData? item) {
+  void _handleWorkspaceItemSelected(GeoWorkspaceData? item) {
     final nextWorkspaceId = item?.id;
     final nextCatalogId = item?.catalogItemId;
 
@@ -300,7 +369,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
   void _handleWorkspacePropertyChanged(
       String itemId,
-      GeoWorkspacePropertyData property,
+      GeoWorkspaceDataProperty property,
       ) {
     final index = _workspaceItems.indexWhere((e) => e.id == itemId);
     if (index < 0) return;
@@ -311,7 +380,12 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     if (updated == current) return;
 
     setState(() {
-      _workspaceItems[index] = updated;
+      final nextItems = List<GeoWorkspaceData>.from(_workspaceItems);
+      nextItems[index] = updated;
+
+      _workspaceItems
+        ..clear()
+        ..addAll(nextItems);
 
       if (_selectedWorkspaceItemId == itemId) {
         _selectedCatalogItemId = updated.catalogItemId;
@@ -322,7 +396,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
   Future<void> _handleWorkspaceBindingDropped(
       String itemId,
       String propertyKey,
-      GeoWorkspaceFieldDragData data,
+      GeoWorkspaceDataFieldDrag data,
       List<GeoLayersData> currentTree,
       ) async {
     final itemIndex = _workspaceItems.indexWhere((e) => e.id == itemId);
@@ -333,7 +407,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     final updatedProperties = currentItem.properties.map((property) {
       if (property.key == propertyKey) {
         return property.copyWith(
-          bindingValue: GeoWorkspaceFieldBinding(
+          bindingValue: GeoWorkspaceFieldData(
             sourceId: data.sourceId,
             sourceLabel: data.sourceLabel,
             fieldName: data.fieldName,
@@ -349,7 +423,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
         if (currentSourceId.isEmpty || currentSourceId != data.sourceId) {
           return property.copyWith(
-            bindingValue: GeoWorkspaceFieldBinding(
+            bindingValue: GeoWorkspaceFieldData(
               sourceId: data.sourceId,
               sourceLabel: data.sourceLabel,
             ),
@@ -364,9 +438,15 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
     if (updatedItem != currentItem) {
       setState(() {
-        _workspaceItems[itemIndex] = updatedItem;
+        final nextItems = List<GeoWorkspaceData>.from(_workspaceItems);
+        nextItems[itemIndex] = updatedItem;
+
+        _workspaceItems
+          ..clear()
+          ..addAll(nextItems);
 
         if (_selectedWorkspaceItemId == itemId) {
+          _selectedWorkspaceItemId = updatedItem.id;
           _selectedCatalogItemId = updatedItem.catalogItemId;
         }
       });
@@ -414,7 +494,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     return 'idle';
   }
 
-  int _findSecondFromRightInsertIndex(List<DockPanelGroupData> groups) {
+  int _findSecondFromRightInsertIndex(List<DockPanelData> groups) {
     final rightIndexes = <int>[];
 
     for (var i = 0; i < groups.length; i++) {
@@ -428,16 +508,16 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     return rightIndexes[rightIndexes.length - 1];
   }
 
-  List<DockPanelGroupData> _ensureDefaultGroups(
-      List<DockPanelGroupData> source,
+  List<DockPanelData> _ensureDefaultGroups(
+      List<DockPanelData> source,
       ) {
-    final next = <DockPanelGroupData>[...source];
+    final next = <DockPanelData>[...source];
 
     final hasVisualizations = next.any((e) => e.id == 'group_visualizacoes');
     final hasWorkspace = next.any((e) => e.id == 'group_area_trabalho');
 
     if (!hasVisualizations) {
-      const visualizationsGroup = DockPanelGroupData(
+      const visualizationsGroup = DockPanelData(
         id: 'group_visualizacoes',
         title: 'Visualizações',
         area: DockArea.right,
@@ -447,13 +527,13 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
         icon: Icons.dashboard_customize_outlined,
         shrinkWrapOnMainAxis: false,
         items: [
-          DockPanelItemData(
+          DockPanelDataItem(
             id: 'catalogo_visualizacoes_itens',
             title: 'Itens',
             contentPadding: EdgeInsets.zero,
             child: SizedBox.shrink(),
           ),
-          DockPanelItemData(
+          DockPanelDataItem(
             id: 'catalogo_visualizacoes_dados',
             title: 'Dados',
             contentPadding: EdgeInsets.zero,
@@ -469,7 +549,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
     if (!hasWorkspace) {
       next.add(
-        const DockPanelGroupData(
+        const DockPanelData(
           id: 'group_area_trabalho',
           title: 'Área de trabalho',
           area: DockArea.bottom,
@@ -479,7 +559,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
           icon: Icons.space_dashboard_outlined,
           shrinkWrapOnMainAxis: false,
           items: [
-            DockPanelItemData(
+            DockPanelDataItem(
               id: 'workspace_area_main',
               title: 'Área de trabalho',
               icon: Icons.space_dashboard_outlined,
@@ -495,7 +575,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     return next;
   }
 
-  List<DockPanelGroupData> _composePanelGroups({
+  List<DockPanelData> _composePanelGroups({
     required BuildContext context,
     required GeoMapState editorState,
     required List<GeoLayersData> currentTree,
@@ -508,18 +588,29 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     final editorCubit = context.read<GeoMapCubit>();
     final baseGroups = _ensureDefaultGroups(editorState.panelGroups);
 
+    final featuresToken = _featuresByLayerToken(genericState.featuresByLayer);
+    final workspaceItemsToken = _workspaceItemsToken();
+    final selectedWorkspaceToken = _selectedWorkspaceItemToken();
+
     return baseGroups.map((group) {
       switch (group.id) {
         case 'group_ferramentas':
           return group.copyWith(
-            dockWeight: 1.15,
             shrinkWrapOnMainAxis: true,
             items: [
-              DockPanelItemData(
+              DockPanelDataItem(
                 id: 'tools_main',
                 title: 'Ferramentas',
                 icon: Icons.handyman_outlined,
                 contentPadding: EdgeInsets.zero,
+                contentToken: Object.hash(
+                  editorState.selectedLayerPanelItemId,
+                  editorState.selectedToolId,
+                  editorState.activeEditingPointLayerId,
+                  editorState.activeEditingLineLayerId,
+                  editorState.activeEditingPolygonLayerId,
+                  measurementState.points.length,
+                ),
                 child: RepaintBoundary(
                   child: ToolboxContent(
                     key: ValueKey(
@@ -559,11 +650,24 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
           return group.copyWith(
             shrinkWrapOnMainAxis: false,
             items: [
-              DockPanelItemData(
+              DockPanelDataItem(
                 id: 'layers_tree',
                 title: 'Camadas',
                 icon: Icons.account_tree_outlined,
                 contentPadding: EdgeInsets.zero,
+                contentToken: Object.hash(
+                  currentTree.length,
+                  Object.hashAll(currentTree),
+                  activeLayerIds.length,
+                  Object.hashAll(activeLayerIds),
+                  editorState.selectedLayerPanelItemId,
+                  editorState.activeEditingPointLayerId,
+                  editorState.activeEditingLineLayerId,
+                  editorState.activeEditingPolygonLayerId,
+                  Object.hashAll(
+                    hasDataByLayer.entries.map((e) => Object.hash(e.key, e.value)),
+                  ),
+                ),
                 child: RepaintBoundary(
                   child: LayerPanel(
                     key: ValueKey(
@@ -573,7 +677,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                           '${editorState.selectedLayerPanelItemId ?? 'none'}_'
                           '${editorState.activeEditingPointLayerId ?? 'none'}_'
                           '${editorState.activeEditingLineLayerId ?? 'none'}_'
-                          '${editorState.activeEditingPolygonLayerId ?? 'none'}',
+                          '${editorState.activeEditingPolygonLayerId ?? 'none'}_'
+                          '${Object.hashAll(hasDataByLayer.entries.map((e) => Object.hash(e.key, e.value)))}',
                     ),
                     layers: currentTree,
                     activeLayerIds: activeLayerIds,
@@ -616,16 +721,26 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
           return group.copyWith(
             shrinkWrapOnMainAxis: false,
             items: [
-              DockPanelItemData(
+              DockPanelDataItem(
                 id: 'feature_attributes',
                 title: 'Feição',
                 icon: Icons.info_outline,
+                contentToken: Object.hash(
+                  genericState.selected?.feature.selectionKey,
+                  editorState.selectedLayerPanelItemId,
+                  Object.hashAll(
+                    genericState.availableFieldsByLayer.entries.map(
+                          (e) => Object.hash(e.key, Object.hashAll(e.value)),
+                    ),
+                  ),
+                ),
                 child: RepaintBoundary(
-                  child: AttributesPanel(
+                  child: AttributePanel(
                     key: ValueKey(
                       'attributes_panel_'
                           '${genericState.selected?.feature.selectionKey ?? 'none'}_'
-                          '${editorState.selectedLayerPanelItemId ?? 'none'}',
+                          '${editorState.selectedLayerPanelItemId ?? 'none'}_'
+                          '${Object.hashAll(genericState.availableFieldsByLayer.entries.map((e) => Object.hash(e.key, Object.hashAll(e.value))))}',
                     ),
                     genericState: genericState,
                     layersById: layersById,
@@ -640,17 +755,15 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
         case 'group_visualizacoes':
           return group.copyWith(
-            area: DockArea.right,
-            crossSpan: DockCrossSpan.inner,
-            dockWeight: 0.90,
             shrinkWrapOnMainAxis: false,
             items: [
-              DockPanelItemData(
+              DockPanelDataItem(
                 id: 'catalogo_visualizacoes_itens',
                 title: 'Itens',
                 contentPadding: EdgeInsets.zero,
+                contentToken: Object.hash(_selectedCatalogItemId, 'visual_items'),
                 child: RepaintBoundary(
-                  child: GeoVisualizationsPanel(
+                  child: TabWidgetPanel(
                     selectedItemId: _selectedCatalogItemId,
                     onItemTap: (item) {
                       if (_selectedCatalogItemId != item.id) {
@@ -667,12 +780,23 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                   ),
                 ),
               ),
-              DockPanelItemData(
+              DockPanelDataItem(
                 id: 'catalogo_visualizacoes_dados',
                 title: 'Dados',
                 contentPadding: EdgeInsets.zero,
+                contentToken: Object.hash(
+                  selectedWorkspaceToken,
+                  workspaceItemsToken,
+                  featuresToken,
+                ),
                 child: RepaintBoundary(
-                  child: GeoVisualizationsData(
+                  child: TabPropertyPanel(
+                    key: ValueKey(
+                      'visualizations_data_'
+                          '$selectedWorkspaceToken'
+                          '_$workspaceItemsToken'
+                          '_$featuresToken',
+                    ),
                     selectedItem: _selectedWorkspaceItem,
                     featuresByLayer: genericState.featuresByLayer,
                     onPropertyChanged: _handleWorkspacePropertyChanged,
@@ -693,18 +817,26 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
         case 'group_area_trabalho':
           return group.copyWith(
-            area: DockArea.bottom,
-            crossSpan: DockCrossSpan.full,
-            dockWeight: 1.0,
             shrinkWrapOnMainAxis: false,
             items: [
-              DockPanelItemData(
+              DockPanelDataItem(
                 id: 'workspace_area_main',
                 title: 'Área de trabalho',
                 icon: Icons.space_dashboard_outlined,
                 contentPadding: EdgeInsets.zero,
+                contentToken: Object.hash(
+                  workspaceItemsToken,
+                  selectedWorkspaceToken,
+                  featuresToken,
+                ),
                 child: RepaintBoundary(
                   child: GeoWorkspacePanel(
+                    key: ValueKey(
+                      'workspace_panel_'
+                          '$workspaceItemsToken'
+                          '_$selectedWorkspaceToken'
+                          '_$featuresToken',
+                    ),
                     items: _workspaceItems,
                     featuresByLayer: genericState.featuresByLayer,
                     onCatalogItemDropped: _handleWorkspaceCatalogDrop,

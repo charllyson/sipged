@@ -1,28 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_state.dart';
 import 'package:sipged/_widgets/docking/dock_panel_dock_area.dart';
-import 'package:sipged/_widgets/docking/dock_panel_types.dart';
-import 'package:sipged/_widgets/docking/dock_panel_workspace_logic.dart';
 
 class DockPanelDockedLayout extends StatelessWidget {
+  final DockPanelState state;
   final Widget child;
   final EdgeInsets contentPadding;
 
-  final List<DockPanelGroupData> leftGroups;
-  final List<DockPanelGroupData> rightGroups;
-  final List<DockPanelGroupData> topGroups;
-  final List<DockPanelGroupData> bottomGroups;
-
-  final double leftWidth;
-  final double rightWidth;
-  final double topHeight;
-  final double bottomHeight;
-
-  final DockCrossSpan leftSpan;
-  final DockCrossSpan rightSpan;
-  final DockCrossSpan topSpan;
-  final DockCrossSpan bottomSpan;
-
-  final Widget Function(DockPanelGroupData group, bool isFloating)
+  final Widget Function(DockPanelData group, bool isFloating)
   buildGroupCard;
 
   final VoidCallback onSideExtentResizeStart;
@@ -32,7 +18,7 @@ class DockPanelDockedLayout extends StatelessWidget {
   final VoidCallback onWeightResizeStart;
   final VoidCallback onWeightResizeEnd;
   final void Function(
-      List<DockPanelGroupData> groups,
+      List<DockPanelData> groups,
       int leadingIndex,
       double deltaPixels,
       double totalPixels,
@@ -40,20 +26,9 @@ class DockPanelDockedLayout extends StatelessWidget {
 
   const DockPanelDockedLayout({
     super.key,
+    required this.state,
     required this.child,
     required this.contentPadding,
-    required this.leftGroups,
-    required this.rightGroups,
-    required this.topGroups,
-    required this.bottomGroups,
-    required this.leftWidth,
-    required this.rightWidth,
-    required this.topHeight,
-    required this.bottomHeight,
-    required this.leftSpan,
-    required this.rightSpan,
-    required this.topSpan,
-    required this.bottomSpan,
     required this.buildGroupCard,
     required this.onSideExtentResizeStart,
     required this.onSideExtentResizeEnd,
@@ -65,172 +40,143 @@ class DockPanelDockedLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final leftGroups = state.leftGroups;
+    final rightGroups = state.rightGroups;
+    final topGroups = state.topGroups;
+    final bottomGroups = state.bottomGroups;
+
     final hasLeft = leftGroups.isNotEmpty;
     final hasRight = rightGroups.isNotEmpty;
     final hasTop = topGroups.isNotEmpty;
     final hasBottom = bottomGroups.isNotEmpty;
 
-    final allGroups = <DockPanelGroupData>[
-      ...leftGroups,
-      ...rightGroups,
-      ...topGroups,
-      ...bottomGroups,
-    ];
+    final leftWidth = state.resolvedDockExtent(DockArea.left);
+    final rightWidth = state.resolvedDockExtent(DockArea.right);
+    final topHeight = state.resolvedDockExtent(DockArea.top);
+    final bottomHeight = state.resolvedDockExtent(DockArea.bottom);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final workspaceSize = Size(
-          constraints.maxWidth.isFinite ? constraints.maxWidth : 0,
-          constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
-        );
+    final leftRect = state.resolveDockRectForArea(DockArea.left);
+    final rightRect = state.resolveDockRectForArea(DockArea.right);
+    final topRect = state.resolveDockRectForArea(DockArea.top);
+    final bottomRect = state.resolveDockRectForArea(DockArea.bottom);
 
-        final leftRect = DockPanelWorkspaceLogic.resolveDockRectForArea(
-          area: DockArea.left,
-          source: allGroups,
-          workspaceSize: workspaceSize,
-        );
+    final contentRect = state.resolveContentRect(
+      contentPadding: contentPadding,
+    );
 
-        final rightRect = DockPanelWorkspaceLogic.resolveDockRectForArea(
-          area: DockArea.right,
-          source: allGroups,
-          workspaceSize: workspaceSize,
-        );
-
-        final topRect = DockPanelWorkspaceLogic.resolveDockRectForArea(
-          area: DockArea.top,
-          source: allGroups,
-          workspaceSize: workspaceSize,
-        );
-
-        final bottomRect = DockPanelWorkspaceLogic.resolveDockRectForArea(
-          area: DockArea.bottom,
-          source: allGroups,
-          workspaceSize: workspaceSize,
-        );
-
-        final contentRect = DockPanelWorkspaceLogic.resolveContentRect(
-          source: allGroups,
-          workspaceSize: workspaceSize,
-          contentPadding: contentPadding,
-        );
-
-        return Stack(
-          clipBehavior: Clip.hardEdge,
-          children: [
-            Positioned.fromRect(
-              rect: contentRect,
-              child: RepaintBoundary(
-                child: ClipRect(child: child),
-              ),
+    return Stack(
+      clipBehavior: Clip.hardEdge,
+      children: [
+        Positioned.fromRect(
+          rect: contentRect,
+          child: RepaintBoundary(
+            child: ClipRect(child: child),
+          ),
+        ),
+        if (hasLeft && leftRect != null)
+          Positioned.fromRect(
+            rect: leftRect,
+            child: _SideDock(
+              groups: leftGroups,
+              area: DockArea.left,
+              extent: leftWidth,
+              buildGroupCard: buildGroupCard,
+              onExtentResizeStart: onSideExtentResizeStart,
+              onExtentResizeEnd: onSideExtentResizeEnd,
+              onExtentResize: (delta) => onSideExtentResize(DockArea.left, delta),
+              onWeightResizeStart: onWeightResizeStart,
+              onWeightResizeEnd: onWeightResizeEnd,
+              onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
+                onWeightResize(
+                  leftGroups,
+                  leadingIndex,
+                  deltaPixels,
+                  totalPixels,
+                );
+              },
             ),
-            if (hasLeft && leftRect != null)
-              Positioned.fromRect(
-                rect: leftRect,
-                child: _SideDock(
-                  groups: leftGroups,
-                  area: DockArea.left,
-                  extent: leftWidth,
-                  buildGroupCard: buildGroupCard,
-                  onExtentResizeStart: onSideExtentResizeStart,
-                  onExtentResizeEnd: onSideExtentResizeEnd,
-                  onExtentResize: (delta) =>
-                      onSideExtentResize(DockArea.left, delta),
-                  onWeightResizeStart: onWeightResizeStart,
-                  onWeightResizeEnd: onWeightResizeEnd,
-                  onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
-                    onWeightResize(
-                      leftGroups,
-                      leadingIndex,
-                      deltaPixels,
-                      totalPixels,
-                    );
-                  },
-                ),
-              ),
-            if (hasRight && rightRect != null)
-              Positioned.fromRect(
-                rect: rightRect,
-                child: _SideDock(
-                  groups: rightGroups,
-                  area: DockArea.right,
-                  extent: rightWidth,
-                  buildGroupCard: buildGroupCard,
-                  onExtentResizeStart: onSideExtentResizeStart,
-                  onExtentResizeEnd: onSideExtentResizeEnd,
-                  onExtentResize: (delta) =>
-                      onSideExtentResize(DockArea.right, delta),
-                  onWeightResizeStart: onWeightResizeStart,
-                  onWeightResizeEnd: onWeightResizeEnd,
-                  onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
-                    onWeightResize(
-                      rightGroups,
-                      leadingIndex,
-                      deltaPixels,
-                      totalPixels,
-                    );
-                  },
-                ),
-              ),
-            if (hasTop && topRect != null)
-              Positioned.fromRect(
-                rect: topRect,
-                child: _TopBottomDock(
-                  groups: topGroups,
-                  area: DockArea.top,
-                  extent: topHeight,
-                  buildGroupCard: buildGroupCard,
-                  onExtentResizeStart: onSideExtentResizeStart,
-                  onExtentResizeEnd: onSideExtentResizeEnd,
-                  onExtentResize: (delta) =>
-                      onSideExtentResize(DockArea.top, delta),
-                  onWeightResizeStart: onWeightResizeStart,
-                  onWeightResizeEnd: onWeightResizeEnd,
-                  onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
-                    onWeightResize(
-                      topGroups,
-                      leadingIndex,
-                      deltaPixels,
-                      totalPixels,
-                    );
-                  },
-                ),
-              ),
-            if (hasBottom && bottomRect != null)
-              Positioned.fromRect(
-                rect: bottomRect,
-                child: _TopBottomDock(
-                  groups: bottomGroups,
-                  area: DockArea.bottom,
-                  extent: bottomHeight,
-                  buildGroupCard: buildGroupCard,
-                  onExtentResizeStart: onSideExtentResizeStart,
-                  onExtentResizeEnd: onSideExtentResizeEnd,
-                  onExtentResize: (delta) =>
-                      onSideExtentResize(DockArea.bottom, delta),
-                  onWeightResizeStart: onWeightResizeStart,
-                  onWeightResizeEnd: onWeightResizeEnd,
-                  onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
-                    onWeightResize(
-                      bottomGroups,
-                      leadingIndex,
-                      deltaPixels,
-                      totalPixels,
-                    );
-                  },
-                ),
-              ),
-          ],
-        );
-      },
+          ),
+        if (hasRight && rightRect != null)
+          Positioned.fromRect(
+            rect: rightRect,
+            child: _SideDock(
+              groups: rightGroups,
+              area: DockArea.right,
+              extent: rightWidth,
+              buildGroupCard: buildGroupCard,
+              onExtentResizeStart: onSideExtentResizeStart,
+              onExtentResizeEnd: onSideExtentResizeEnd,
+              onExtentResize: (delta) =>
+                  onSideExtentResize(DockArea.right, delta),
+              onWeightResizeStart: onWeightResizeStart,
+              onWeightResizeEnd: onWeightResizeEnd,
+              onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
+                onWeightResize(
+                  rightGroups,
+                  leadingIndex,
+                  deltaPixels,
+                  totalPixels,
+                );
+              },
+            ),
+          ),
+        if (hasTop && topRect != null)
+          Positioned.fromRect(
+            rect: topRect,
+            child: _TopBottomDock(
+              groups: topGroups,
+              area: DockArea.top,
+              extent: topHeight,
+              buildGroupCard: buildGroupCard,
+              onExtentResizeStart: onSideExtentResizeStart,
+              onExtentResizeEnd: onSideExtentResizeEnd,
+              onExtentResize: (delta) => onSideExtentResize(DockArea.top, delta),
+              onWeightResizeStart: onWeightResizeStart,
+              onWeightResizeEnd: onWeightResizeEnd,
+              onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
+                onWeightResize(
+                  topGroups,
+                  leadingIndex,
+                  deltaPixels,
+                  totalPixels,
+                );
+              },
+            ),
+          ),
+        if (hasBottom && bottomRect != null)
+          Positioned.fromRect(
+            rect: bottomRect,
+            child: _TopBottomDock(
+              groups: bottomGroups,
+              area: DockArea.bottom,
+              extent: bottomHeight,
+              buildGroupCard: buildGroupCard,
+              onExtentResizeStart: onSideExtentResizeStart,
+              onExtentResizeEnd: onSideExtentResizeEnd,
+              onExtentResize: (delta) =>
+                  onSideExtentResize(DockArea.bottom, delta),
+              onWeightResizeStart: onWeightResizeStart,
+              onWeightResizeEnd: onWeightResizeEnd,
+              onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
+                onWeightResize(
+                  bottomGroups,
+                  leadingIndex,
+                  deltaPixels,
+                  totalPixels,
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 }
 
 class _SideDock extends StatelessWidget {
-  final List<DockPanelGroupData> groups;
+  final List<DockPanelData> groups;
   final DockArea area;
   final double extent;
-  final Widget Function(DockPanelGroupData group, bool isFloating)
+  final Widget Function(DockPanelData group, bool isFloating)
   buildGroupCard;
 
   final VoidCallback onExtentResizeStart;
@@ -284,9 +230,7 @@ class _SideDock extends StatelessWidget {
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onPanStart: (_) => onExtentResizeStart(),
-                onPanUpdate: (details) {
-                  onExtentResize(details.delta.dx);
-                },
+                onPanUpdate: (details) => onExtentResize(details.delta.dx),
                 onPanEnd: (_) => onExtentResizeEnd(),
                 child: Container(color: Colors.transparent),
               ),
@@ -299,10 +243,10 @@ class _SideDock extends StatelessWidget {
 }
 
 class _TopBottomDock extends StatelessWidget {
-  final List<DockPanelGroupData> groups;
+  final List<DockPanelData> groups;
   final DockArea area;
   final double extent;
-  final Widget Function(DockPanelGroupData group, bool isFloating)
+  final Widget Function(DockPanelData group, bool isFloating)
   buildGroupCard;
 
   final VoidCallback onExtentResizeStart;
@@ -356,9 +300,7 @@ class _TopBottomDock extends StatelessWidget {
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onPanStart: (_) => onExtentResizeStart(),
-                onPanUpdate: (details) {
-                  onExtentResize(details.delta.dy);
-                },
+                onPanUpdate: (details) => onExtentResize(details.delta.dy),
                 onPanEnd: (_) => onExtentResizeEnd(),
                 child: Container(color: Colors.transparent),
               ),

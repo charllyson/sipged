@@ -1,12 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/docking/dock_panel_types.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 
 class DockPanelFloatingLayer extends StatelessWidget {
-  final List<DockPanelGroupData> floatingGroups;
+  final List<DockPanelData> floatingGroups;
   final Size workspaceSize;
-  final Widget Function(DockPanelGroupData group, bool isFloating)
+  final Widget Function(DockPanelData group, bool isFloating)
   buildGroupCard;
 
   const DockPanelFloatingLayer({

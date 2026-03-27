@@ -275,11 +275,6 @@ class ReportMeasurementFormSection extends StatelessWidget {
           width: sideWidth,
           onAddPressed: isEditable ? onAddSideItem : null,
           onTap: (i) => onTapSideItem?.call(i),
-
-          // ✅ removido openOnTap: false
-          // assim fica igual ao AdjustmentMeasurementFormSection
-          // e o PDF volta a abrir ao clicar no item
-
           onDelete: isEditable ? (i) => onDeleteSideItem?.call(i) : null,
           enableRename: isEditable && selectedReportMeasurement != null,
           onRenamePersist: onRenamePersist,

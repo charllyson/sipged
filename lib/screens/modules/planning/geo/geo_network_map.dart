@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_map_cache.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_map_hit_test.dart';
-import 'package:sipged/screens/modules/planning/geo/geo_network_map_layers_builder.dart';
+import 'package:sipged/screens/modules/planning/geo/geo_network_map_layers.dart';
 
 class GeoNetworkMap extends StatefulWidget {
   const GeoNetworkMap({
@@ -145,7 +145,7 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
     _lastStaticVisualSignature = signature;
     _featuresByLayer = GeoNetworkMapCache.groupFeaturesByLayer(widget.features);
 
-    _cachedPolygons = GeoNetworkMapLayersBuilder.buildPolygons(
+    _cachedPolygons = GeoNetworkMapLayers.buildPolygons(
       zoom: bucket,
       featuresByLayer: _featuresByLayer,
       orderedActiveLayerIds: widget.orderedActiveLayerIds,
@@ -154,7 +154,7 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       temporaryPolygonLayers: widget.temporaryPolygonLayers,
     );
 
-    _cachedPolylines = GeoNetworkMapLayersBuilder.buildPolylines(
+    _cachedPolylines = GeoNetworkMapLayers.buildPolylines(
       zoom: bucket,
       featuresByLayer: _featuresByLayer,
       orderedActiveLayerIds: widget.orderedActiveLayerIds,
@@ -192,7 +192,7 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
     _lastMarkerZoomBucket = bucket;
     _lastMarkerVisualSignature = signature;
 
-    _cachedMarkers = GeoNetworkMapLayersBuilder.buildMarkers(
+    _cachedMarkers = GeoNetworkMapLayers.buildMarkers(
       zoom: bucket,
       featuresByLayer: _featuresByLayer,
       orderedActiveLayerIds: widget.orderedActiveLayerIds,

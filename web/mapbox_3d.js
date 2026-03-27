@@ -22,7 +22,7 @@ function initMapbox3D(containerId, accessToken) {
             if (
             layer.type === 'symbol' &&
             layer.layout &&
-            layer.layout['text-field']
+            layer.layout['text-table']
             ) {
                 labelLayerId = layer.id;
                 break;

@@ -126,7 +126,7 @@ String buildMapboxHtml(
         const layer = map.getStyle().layer;
         let labelLayerId;
         for (const layer of layer) {
-          if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+          if (layer.type === 'symbol' && layer.layout && layer.layout['text-table']) {
             labelLayerId = layer.id;
             break;
           }

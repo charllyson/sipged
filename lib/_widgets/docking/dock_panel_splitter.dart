@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/docking/dock_panel_workspace_config.dart';
+import 'package:sipged/_widgets/docking/dock_panel_config.dart';
 
 class DockPanelSplitter extends StatelessWidget {
   final Axis axis;
@@ -28,10 +28,10 @@ class DockPanelSplitter extends StatelessWidget {
         onPanEnd: onPanEnd,
         child: Container(
           width: axis == Axis.horizontal
-              ? DockPanelWorkspaceConfig.splitterThickness
+              ? DockPanelConfig.splitterThickness
               : null,
           height: axis == Axis.vertical
-              ? DockPanelWorkspaceConfig.splitterThickness
+              ? DockPanelConfig.splitterThickness
               : null,
           color: Colors.transparent,
           alignment: Alignment.center,

@@ -1,4 +1,3 @@
-
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 
@@ -73,7 +72,13 @@ class GeoLayersDataRule {
       'id': id,
       'label': label,
       'enabled': enabled,
+
+      // chave correta
       'field': field,
+
+      // compatibilidade temporária com dados antigos
+      'table': field,
+
       'operatorType': operatorType.name,
       'value': value,
       'minZoom': minZoom,
@@ -89,7 +94,10 @@ class GeoLayersDataRule {
       id: (map['id'] ?? '').toString(),
       label: (map['label'] ?? '').toString(),
       enabled: map['enabled'] != false,
-      field: (map['field'] ?? '').toString(),
+
+      // aceita o formato novo e o legado
+      field: (map['field'] ?? map['table'] ?? '').toString(),
+
       operatorType: LayerRuleOperator.values.firstWhere(
             (e) => e.name == map['operatorType'],
         orElse: () => LayerRuleOperator.equals,

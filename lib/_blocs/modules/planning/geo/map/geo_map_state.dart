@@ -1,10 +1,10 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_widgets/docking/dock_panel_types.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 
 class GeoMapState extends Equatable {
-  final List<DockPanelGroupData> panelGroups;
+  final List<DockPanelData> panelGroups;
 
   final String? selectedToolId;
   final String? selectedLayerPanelItemId;
@@ -35,7 +35,7 @@ class GeoMapState extends Equatable {
   factory GeoMapState.initial() {
     return const GeoMapState(
       panelGroups: [
-        DockPanelGroupData(
+        DockPanelData(
           id: 'group_vectorizacao',
           title: 'Vetorização',
           area: DockArea.left,
@@ -47,7 +47,7 @@ class GeoMapState extends Equatable {
           icon: Icons.layers_outlined,
           items: [],
         ),
-        DockPanelGroupData(
+        DockPanelData(
           id: 'group_ferramentas',
           title: 'Caixa de Ferramentas',
           area: DockArea.right,
@@ -59,7 +59,7 @@ class GeoMapState extends Equatable {
           icon: Icons.handyman_outlined,
           items: [],
         ),
-        DockPanelGroupData(
+        DockPanelData(
           id: 'group_atributos',
           title: 'Atributos',
           area: DockArea.right,
@@ -105,7 +105,7 @@ class GeoMapState extends Equatable {
   }
 
   GeoMapState copyWith({
-    List<DockPanelGroupData>? panelGroups,
+    List<DockPanelData>? panelGroups,
     String? selectedToolId,
     bool clearSelectedTool = false,
     String? selectedLayerPanelItemId,

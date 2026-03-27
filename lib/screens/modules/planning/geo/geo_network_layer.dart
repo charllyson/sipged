@@ -5,7 +5,7 @@ import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cub
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_widgets/geo/attributes/attributes_table.dart';
+import 'package:sipged/_widgets/geo/attributes/table/attributes_table.dart';
 
 class GeoNetworkLayer {
   const GeoNetworkLayer._();

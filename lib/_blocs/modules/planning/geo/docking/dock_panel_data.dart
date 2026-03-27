@@ -1,0 +1,197 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
+
+enum DockArea {
+  left,
+  right,
+  top,
+  bottom,
+  floating,
+}
+
+enum DockCrossSpan {
+  full,
+  inner,
+}
+
+class DockPanelData {
+  final String id;
+  final String title;
+  final DockArea area;
+  final DockCrossSpan crossSpan;
+  final List<DockPanelDataItem> items;
+  final String? activeItemId;
+  final bool visible;
+
+  final Offset floatingOffset;
+  final Size floatingSize;
+
+  final double dockExtent;
+  final double dockWeight;
+
+  final IconData? icon;
+  final Color? accentColor;
+
+  final bool shrinkWrapOnMainAxis;
+  final bool minimized;
+  final DockArea? lastDockArea;
+  final DockCrossSpan? lastDockCrossSpan;
+
+  /// Quando true, o floating está em modo popup/dialog ampliado.
+  final bool floatingAsDialog;
+
+  /// Se true, ao fechar o dialog ele volta para floating normal.
+  /// Se false, ele volta para a área dockada anterior.
+  final bool restoreToFloatingOnDialogClose;
+
+  /// Estado anterior do floating normal antes de abrir como dialog.
+  final Offset storedFloatingOffset;
+  final Size storedFloatingSize;
+
+  const DockPanelData({
+    required this.id,
+    required this.title,
+    required this.area,
+    required this.items,
+    this.crossSpan = DockCrossSpan.full,
+    this.activeItemId,
+    this.visible = true,
+    this.floatingOffset = const Offset(80, 80),
+    this.floatingSize = const Size(360, 420),
+    this.dockExtent = 320,
+    this.dockWeight = 1.0,
+    this.icon,
+    this.accentColor,
+    this.shrinkWrapOnMainAxis = false,
+    this.minimized = false,
+    this.lastDockArea,
+    this.lastDockCrossSpan,
+    this.floatingAsDialog = false,
+    this.restoreToFloatingOnDialogClose = false,
+    this.storedFloatingOffset = const Offset(80, 80),
+    this.storedFloatingSize = const Size(360, 420),
+  });
+
+  DockPanelDataItem? get activeItem {
+    if (items.isEmpty) return null;
+    if (activeItemId == null) return items.first;
+
+    for (final item in items) {
+      if (item.id == activeItemId) return item;
+    }
+
+    return items.first;
+  }
+
+  DockPanelData copyWith({
+    String? id,
+    String? title,
+    DockArea? area,
+    DockCrossSpan? crossSpan,
+    List<DockPanelDataItem>? items,
+    String? activeItemId,
+    bool? visible,
+    Offset? floatingOffset,
+    Size? floatingSize,
+    double? dockExtent,
+    double? dockWeight,
+    IconData? icon,
+    Color? accentColor,
+    bool? shrinkWrapOnMainAxis,
+    bool? minimized,
+    DockArea? lastDockArea,
+    DockCrossSpan? lastDockCrossSpan,
+    bool? floatingAsDialog,
+    bool? restoreToFloatingOnDialogClose,
+    Offset? storedFloatingOffset,
+    Size? storedFloatingSize,
+  }) {
+    return DockPanelData(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      area: area ?? this.area,
+      crossSpan: crossSpan ?? this.crossSpan,
+      items: items ?? this.items,
+      activeItemId: activeItemId ?? this.activeItemId,
+      visible: visible ?? this.visible,
+      floatingOffset: floatingOffset ?? this.floatingOffset,
+      floatingSize: floatingSize ?? this.floatingSize,
+      dockExtent: dockExtent ?? this.dockExtent,
+      dockWeight: dockWeight ?? this.dockWeight,
+      icon: icon ?? this.icon,
+      accentColor: accentColor ?? this.accentColor,
+      shrinkWrapOnMainAxis:
+      shrinkWrapOnMainAxis ?? this.shrinkWrapOnMainAxis,
+      minimized: minimized ?? this.minimized,
+      lastDockArea: lastDockArea ?? this.lastDockArea,
+      lastDockCrossSpan: lastDockCrossSpan ?? this.lastDockCrossSpan,
+      floatingAsDialog: floatingAsDialog ?? this.floatingAsDialog,
+      restoreToFloatingOnDialogClose:
+      restoreToFloatingOnDialogClose ?? this.restoreToFloatingOnDialogClose,
+      storedFloatingOffset: storedFloatingOffset ?? this.storedFloatingOffset,
+      storedFloatingSize: storedFloatingSize ?? this.storedFloatingSize,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other is DockPanelData &&
+            other.id == id &&
+            other.title == title &&
+            other.area == area &&
+            other.crossSpan == crossSpan &&
+            listEquals(other.items, items) &&
+            other.activeItemId == activeItemId &&
+            other.visible == visible &&
+            other.floatingOffset == floatingOffset &&
+            other.floatingSize == floatingSize &&
+            other.dockExtent == dockExtent &&
+            other.dockWeight == dockWeight &&
+            other.icon == icon &&
+            other.accentColor == accentColor &&
+            other.shrinkWrapOnMainAxis == shrinkWrapOnMainAxis &&
+            other.minimized == minimized &&
+            other.lastDockArea == lastDockArea &&
+            other.lastDockCrossSpan == lastDockCrossSpan &&
+            other.floatingAsDialog == floatingAsDialog &&
+            other.restoreToFloatingOnDialogClose ==
+                restoreToFloatingOnDialogClose &&
+            other.storedFloatingOffset == storedFloatingOffset &&
+            other.storedFloatingSize == storedFloatingSize);
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    title,
+    area,
+    crossSpan,
+    Object.hashAll(items),
+    activeItemId,
+    visible,
+    floatingOffset,
+    floatingSize,
+    dockExtent,
+    dockWeight,
+    icon,
+    accentColor,
+    shrinkWrapOnMainAxis,
+    minimized,
+    lastDockArea,
+    lastDockCrossSpan,
+    floatingAsDialog,
+    restoreToFloatingOnDialogClose,
+    storedFloatingOffset,
+    storedFloatingSize,
+  ]);
+}
+
+class DockDragPayload {
+  final String groupId;
+
+  const DockDragPayload({
+    required this.groupId,
+  });
+}

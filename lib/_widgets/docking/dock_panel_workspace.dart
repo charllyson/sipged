@@ -1,17 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
 import 'package:sipged/_widgets/docking/dock_panel_docked_layout.dart';
 import 'package:sipged/_widgets/docking/dock_panel_floating_layer.dart';
-import 'package:sipged/_widgets/docking/dock_panel_group_card.dart';
+import 'package:sipged/_widgets/docking/dock_panel_group.dart';
 import 'package:sipged/_widgets/docking/dock_panel_snap_overlay.dart';
-import 'package:sipged/_widgets/docking/dock_panel_types.dart';
-import 'package:sipged/_widgets/docking/dock_panel_workspace_config.dart';
-import 'package:sipged/_widgets/docking/dock_panel_workspace_logic.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_state.dart';
 
 class DockPanelWorkspace extends StatefulWidget {
   final Widget child;
-  final List<DockPanelGroupData> groups;
-  final ValueChanged<List<DockPanelGroupData>> onChanged;
+  final List<DockPanelData> groups;
+  final ValueChanged<List<DockPanelData>> onChanged;
   final EdgeInsets contentPadding;
   final double snapThickness;
   final Color? backgroundOverlayColor;
@@ -32,149 +34,99 @@ class DockPanelWorkspace extends StatefulWidget {
 
 class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   final GlobalKey _stackKey = GlobalKey();
-
-  late List<DockPanelGroupData> _workingGroups;
-
-  bool _isDragging = false;
-  DockArea? _hoveredSnapArea;
-  String? _draggingGroupId;
-  Offset? _lastDragLocalPosition;
-
-  bool _isDockExtentResizing = false;
-  bool _isDockWeightResizing = false;
-  bool _isFloatingResizing = false;
-
-  Size _workspaceSize = Size.zero;
+  late final DockPanelCubit _cubit;
 
   @override
   void initState() {
     super.initState();
-    _workingGroups = DockPanelWorkspaceLogic.normalizeDockSpans(
-      List<DockPanelGroupData>.from(widget.groups),
+    _cubit = DockPanelCubit(
+      initialGroups: widget.groups,
+      onCommit: widget.onChanged,
+      snapThickness: widget.snapThickness,
     );
+  }
+
+  bool _sameExternalLayout(
+      List<DockPanelData> a,
+      List<DockPanelData> b,
+      ) {
+    if (a.length != b.length) return false;
+
+    for (var i = 0; i < a.length; i++) {
+      if (!_sameGroupLayout(a[i], b[i])) return false;
+    }
+
+    return true;
+  }
+
+  bool _sameGroupLayout(
+      DockPanelData a,
+      DockPanelData b,
+      ) {
+    return a.id == b.id &&
+        a.title == b.title &&
+        a.area == b.area &&
+        a.crossSpan == b.crossSpan &&
+        a.activeItemId == b.activeItemId &&
+        a.visible == b.visible &&
+        a.floatingOffset == b.floatingOffset &&
+        a.floatingSize == b.floatingSize &&
+        a.dockExtent == b.dockExtent &&
+        a.dockWeight == b.dockWeight &&
+        a.icon == b.icon &&
+        a.accentColor == b.accentColor &&
+        a.shrinkWrapOnMainAxis == b.shrinkWrapOnMainAxis &&
+        a.minimized == b.minimized &&
+        a.lastDockArea == b.lastDockArea &&
+        a.lastDockCrossSpan == b.lastDockCrossSpan &&
+        a.floatingAsDialog == b.floatingAsDialog &&
+        a.restoreToFloatingOnDialogClose ==
+            b.restoreToFloatingOnDialogClose &&
+        a.storedFloatingOffset == b.storedFloatingOffset &&
+        a.storedFloatingSize == b.storedFloatingSize &&
+        _sameItemsMetadata(a.items, b.items);
+  }
+
+  bool _sameItemsMetadata(
+      List<DockPanelDataItem> a,
+      List<DockPanelDataItem> b,
+      ) {
+    if (a.length != b.length) return false;
+
+    for (var i = 0; i < a.length; i++) {
+      final x = a[i];
+      final y = b[i];
+
+      if (x.id != y.id ||
+          x.title != y.title ||
+          x.icon != y.icon ||
+          x.contentPadding != y.contentPadding ||
+          x.contentToken != y.contentToken) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   @override
   void didUpdateWidget(covariant DockPanelWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (listEquals(oldWidget.groups, widget.groups) &&
-        oldWidget.contentPadding == widget.contentPadding &&
-        oldWidget.snapThickness == widget.snapThickness &&
-        oldWidget.backgroundOverlayColor == widget.backgroundOverlayColor &&
-        identical(oldWidget.child, widget.child)) {
-      return;
-    }
-
-    final preserveLayout = _isDragging ||
-        _isDockExtentResizing ||
-        _isDockWeightResizing ||
-        _isFloatingResizing;
-
-    final merged = DockPanelWorkspaceLogic.normalizeDockSpans(
-      DockPanelWorkspaceLogic.mergeIncomingGroups(
-        incoming: widget.groups,
-        current: _workingGroups,
-        preserveLayout: preserveLayout,
-      ),
+    final layoutChanged = !_sameExternalLayout(
+      oldWidget.groups,
+      widget.groups,
     );
 
-    if (!listEquals(_workingGroups, merged)) {
-      _workingGroups = merged;
+    if (layoutChanged) {
+      _cubit.syncFromExternal(widget.groups);
     }
   }
 
-  List<DockPanelGroupData> get _visibleGroups =>
-      _workingGroups.where((g) => g.visible).toList(growable: false);
-
-  DockPanelGroupData _groupById(String id) =>
-      _workingGroups.firstWhere((g) => g.id == id);
-
-  List<DockPanelGroupData> _groupsInArea(DockArea area) {
-    return _visibleGroups.where((g) => g.area == area).toList(growable: false);
-  }
-
-  void _setWorkingGroups(List<DockPanelGroupData> next) {
-    if (listEquals(_workingGroups, next)) return;
-
-    setState(() {
-      _workingGroups = next;
-    });
-  }
-
-  void _commitWorkingGroups() {
-    widget.onChanged(List<DockPanelGroupData>.from(_workingGroups));
-  }
-
-  void _updateGroupLocal(
-      String id,
-      DockPanelGroupData Function(DockPanelGroupData current) update,
-      ) {
-    var changed = false;
-
-    final next = _workingGroups.map((group) {
-      if (group.id != id) return group;
-      final updated = update(group);
-      if (updated != group) changed = true;
-      return updated;
-    }).toList(growable: false);
-
-    if (!changed) return;
-    _setWorkingGroups(next);
-  }
-
-  void _updateManyGroupsLocal(Map<String, DockPanelGroupData> updatesById) {
-    if (updatesById.isEmpty) return;
-
-    var changed = false;
-
-    final next = _workingGroups.map((group) {
-      final updated = updatesById[group.id];
-      if (updated != null && updated != group) {
-        changed = true;
-        return updated;
-      }
-      return group;
-    }).toList(growable: false);
-
-    if (!changed) return;
-    _setWorkingGroups(next);
-  }
-
-  void _updateGroupAndCommit(
-      String id,
-      DockPanelGroupData Function(DockPanelGroupData current) update,
-      ) {
-    _updateGroupLocal(id, update);
-    _commitWorkingGroups();
-  }
-
-  void _setGroupVisible(String id, bool visible) {
-    final next = DockPanelWorkspaceLogic.normalizeDockSpans(
-      _workingGroups.map((group) {
-        if (group.id != id) return group;
-        return group.copyWith(visible: visible);
-      }).toList(growable: false),
-    );
-
-    _setWorkingGroups(next);
-    _commitWorkingGroups();
-  }
-
-  void _setGroupActiveItem(String groupId, String itemId) {
-    _updateGroupAndCommit(
-      groupId,
-          (current) {
-        if (current.activeItemId == itemId) return current;
-        return current.copyWith(activeItemId: itemId);
-      },
-    );
-  }
-
-  Rect _workspaceRect() {
-    final renderBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return Rect.zero;
-    return Offset.zero & renderBox.size;
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
   Offset _globalToLocal(Offset globalOffset) {
@@ -183,435 +135,122 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
     return renderBox.globalToLocal(globalOffset);
   }
 
-  bool _shouldUpdateDragState({
-    required String groupId,
-    required DockArea? snap,
-    required Offset local,
-  }) {
-    if (!_isDragging) return true;
-    if (_draggingGroupId != groupId) return true;
-    if (_hoveredSnapArea != snap) return true;
-    if (_lastDragLocalPosition == null) return true;
-
-    final dx = (local.dx - _lastDragLocalPosition!.dx).abs();
-    final dy = (local.dy - _lastDragLocalPosition!.dy).abs();
-
-    return dx >= DockPanelWorkspaceConfig.dragUpdateThreshold ||
-        dy >= DockPanelWorkspaceConfig.dragUpdateThreshold;
-  }
-
-  void _handleDragUpdate(String groupId, DragUpdateDetails details) {
-    if (_workspaceSize.isEmpty) return;
-
-    final local = _globalToLocal(details.globalPosition);
-    final snap = DockPanelWorkspaceLogic.resolveSnapArea(
-      localPosition: local,
-      workspaceSize: _workspaceSize,
-      snapThickness: widget.snapThickness,
-    );
-
-    if (_shouldUpdateDragState(groupId: groupId, snap: snap, local: local)) {
-      setState(() {
-        _isDragging = true;
-        _hoveredSnapArea = snap;
-        _draggingGroupId = groupId;
-        _lastDragLocalPosition = local;
-      });
-    }
-  }
-
-  List<DockPanelGroupData> _projectDocking({
-    required String groupId,
-    required DockArea targetArea,
-    required Offset localPosition,
-  }) {
-    return DockPanelWorkspaceLogic.projectDocking(
-      workingGroups: _workingGroups,
-      groupId: groupId,
-      targetArea: targetArea,
-      localPosition: localPosition,
-      workspaceSize: _workspaceSize,
-    );
-  }
-
-  void _handleDragEnd(String groupId, DraggableDetails details) {
-    final local = _lastDragLocalPosition;
-    final snap = _hoveredSnapArea;
-
-    if (local != null && snap != null) {
-      final projected = _projectDocking(
-        groupId: groupId,
-        targetArea: snap,
-        localPosition: local,
-      );
-      _setWorkingGroups(projected);
-      _commitWorkingGroups();
-    } else {
-      final rect = _workspaceRect();
-      final group = _groupById(groupId);
-
-      final fallbackLocal = _globalToLocal(details.offset);
-      final desired = Offset(fallbackLocal.dx, fallbackLocal.dy);
-
-      final bounded = DockPanelWorkspaceLogic.clampFloatingOffset(
-        desired: desired,
-        floatingSize: group.floatingSize,
-        workspaceSize: rect.size,
-      );
-
-      final next = DockPanelWorkspaceLogic.normalizeDockSpans(
-        _workingGroups.map((current) {
-          if (current.id != groupId) return current;
-          return current.copyWith(
-            area: DockArea.floating,
-            crossSpan: DockCrossSpan.full,
-            floatingOffset: bounded,
-          );
-        }).toList(growable: false),
-      );
-
-      _setWorkingGroups(next);
-      _commitWorkingGroups();
-    }
-
-    if (!mounted) return;
-
-    setState(() {
-      _isDragging = false;
-      _hoveredSnapArea = null;
-      _draggingGroupId = null;
-      _lastDragLocalPosition = null;
-    });
-  }
-
-  void _resizeDockWeightsLocal({
-    required List<DockPanelGroupData> groups,
-    required int leadingIndex,
-    required double deltaPixels,
-    required double totalAvailablePixels,
-  }) {
-    if (groups.length < 2) return;
-    if (leadingIndex < 0 || leadingIndex >= groups.length - 1) return;
-    if (totalAvailablePixels <= 0) return;
-
-    final first = groups[leadingIndex];
-    final second = groups[leadingIndex + 1];
-
-    final totalWeight = first.dockWeight + second.dockWeight;
-    if (totalWeight <= 0) return;
-
-    final deltaWeight = (deltaPixels / totalAvailablePixels) * totalWeight;
-
-    var newFirst = first.dockWeight + deltaWeight;
-    var newSecond = second.dockWeight - deltaWeight;
-
-    if (newFirst < DockPanelWorkspaceConfig.minDockWeight) {
-      final diff = DockPanelWorkspaceConfig.minDockWeight - newFirst;
-      newFirst += diff;
-      newSecond -= diff;
-    }
-
-    if (newSecond < DockPanelWorkspaceConfig.minDockWeight) {
-      final diff = DockPanelWorkspaceConfig.minDockWeight - newSecond;
-      newSecond += diff;
-      newFirst -= diff;
-    }
-
-    if (newFirst < DockPanelWorkspaceConfig.minDockWeight ||
-        newSecond < DockPanelWorkspaceConfig.minDockWeight) {
-      return;
-    }
-
-    _updateManyGroupsLocal({
-      first.id: first.copyWith(dockWeight: newFirst),
-      second.id: second.copyWith(dockWeight: newSecond),
-    });
-  }
-
-  void _handleAreaExtentResize(DockArea area, double rawDelta) {
-    final groups = _groupsInArea(area);
-    if (groups.isEmpty) return;
-
-    final currentExtent = DockPanelWorkspaceLogic.resolvedDockExtentForArea(
-      area,
-      _workingGroups,
-    );
-
-    late final double next;
-
-    switch (area) {
-      case DockArea.left:
-        next = (currentExtent + rawDelta)
-            .clamp(
-          DockPanelWorkspaceConfig.minDockSideExtent,
-          DockPanelWorkspaceConfig.maxDockSideExtent,
-        )
-            .toDouble();
-        break;
-      case DockArea.right:
-        next = (currentExtent - rawDelta)
-            .clamp(
-          DockPanelWorkspaceConfig.minDockSideExtent,
-          DockPanelWorkspaceConfig.maxDockSideExtent,
-        )
-            .toDouble();
-        break;
-      case DockArea.top:
-        next = (currentExtent + rawDelta)
-            .clamp(
-          DockPanelWorkspaceConfig.minDockTopBottomExtent,
-          DockPanelWorkspaceConfig.maxDockTopBottomExtent,
-        )
-            .toDouble();
-        break;
-      case DockArea.bottom:
-        next = (currentExtent - rawDelta)
-            .clamp(
-          DockPanelWorkspaceConfig.minDockTopBottomExtent,
-          DockPanelWorkspaceConfig.maxDockTopBottomExtent,
-        )
-            .toDouble();
-        break;
-      case DockArea.floating:
-        return;
-    }
-
-    final updates = <String, DockPanelGroupData>{};
-    for (final g in groups) {
-      if (g.dockExtent != next) {
-        updates[g.id] = g.copyWith(dockExtent: next);
-      }
-    }
-
-    _updateManyGroupsLocal(updates);
-  }
-
-  Widget _buildGroupCard(DockPanelGroupData group, bool isFloating) {
-    final isGroupDragging = _isDragging && _draggingGroupId == group.id;
+  Widget _buildGroupCard(
+      DockPanelState state,
+      DockPanelData group,
+      bool isFloating,
+      ) {
+    final isGroupDragging = state.isDragging && state.draggingGroupId == group.id;
 
     return KeyedSubtree(
-      key: ValueKey('${isFloating ? 'float' : 'dock'}_${group.id}'),
-      child: DockPanelGroupCard(
+      key: ValueKey(
+        '${isFloating ? 'float' : 'dock'}_${group.id}_${group.floatingAsDialog}',
+      ),
+      child: DockPanelGroup(
         group: group,
         isFloating: isFloating,
         isDragging: isGroupDragging,
-        onToggleFloating: () {
-          if (isFloating) {
-            final projected = _projectDocking(
-              groupId: group.id,
-              targetArea: DockArea.left,
-              localPosition: const Offset(0, 0),
-            );
-            _setWorkingGroups(projected);
-            _commitWorkingGroups();
-            return;
-          }
-
-          final next = DockPanelWorkspaceLogic.normalizeDockSpans(
-            _workingGroups.map((current) {
-              if (current.id != group.id) return current;
-              return current.copyWith(
-                area: DockArea.floating,
-                crossSpan: DockCrossSpan.full,
-              );
-            }).toList(growable: false),
-          );
-
-          _setWorkingGroups(next);
-          _commitWorkingGroups();
+        onToggleFloating: () => _cubit.toggleFloating(group.id),
+        onToggleMinimized: () => _cubit.toggleMinimized(group.id),
+        onHide: () => _cubit.setGroupVisible(group.id, false),
+        onTabSelected: (itemId) => _cubit.setGroupActiveItem(group.id, itemId),
+        onDragStarted: () => _cubit.startDrag(group.id),
+        onDragUpdate: (details) {
+          final local = _globalToLocal(details.globalPosition);
+          _cubit.updateDrag(group.id, local);
         },
-        onHide: () => _setGroupVisible(group.id, false),
-        onTabSelected: (itemId) => _setGroupActiveItem(group.id, itemId),
-        onDragStarted: () {
-          if (_isDragging) return;
-
-          setState(() {
-            _isDragging = true;
-            _draggingGroupId = group.id;
-          });
-        },
-        onDragUpdate: (details) => _handleDragUpdate(group.id, details),
-        onDragEnd: (details) => _handleDragEnd(group.id, details),
-        onResizeStart: () {
-          if (_isFloatingResizing) return;
-          setState(() {
-            _isFloatingResizing = true;
-          });
-        },
-        onResizeUpdate: (details) {
-          final current = _groupById(group.id).floatingSize;
-          final next = Size(
-            (current.width + details.delta.dx)
-                .clamp(
-              DockPanelWorkspaceConfig.minFloatingWidth,
-              DockPanelWorkspaceConfig.maxFloatingWidth,
-            )
-                .toDouble(),
-            (current.height + details.delta.dy)
-                .clamp(
-              DockPanelWorkspaceConfig.minFloatingHeight,
-              DockPanelWorkspaceConfig.maxFloatingHeight,
-            )
-                .toDouble(),
-          );
-
-          _updateGroupLocal(
-            group.id,
-                (currentGroup) => currentGroup.copyWith(floatingSize: next),
+        onDragEnd: (details) {
+          final fallbackLocal = _globalToLocal(details.offset);
+          _cubit.endDrag(
+            groupId: group.id,
+            fallbackLocalPosition: fallbackLocal,
           );
         },
-        onResizeEnd: (_) {
-          _commitWorkingGroups();
-          if (!mounted) return;
-
-          setState(() {
-            _isFloatingResizing = false;
-          });
-        },
+        onResizeStart: _cubit.startFloatingResize,
+        onResizeUpdate: (details) => _cubit.resizeFloatingGroup(group.id, details),
+        onResizeEnd: (_) => _cubit.endFloatingResize(),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final nextWorkspaceSize = Size(
-          constraints.maxWidth.isFinite ? constraints.maxWidth : 0,
-          constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
-        );
+    return BlocProvider<DockPanelCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<DockPanelCubit, DockPanelState>(
+        builder: (context, state) {
+          final hasDialogPanel = state.floatingGroups.any((g) => g.floatingAsDialog);
 
-        if (_workspaceSize != nextWorkspaceSize) {
-          _workspaceSize = nextWorkspaceSize;
-        }
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final nextWorkspaceSize = Size(
+                constraints.maxWidth.isFinite ? constraints.maxWidth : 0,
+                constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
+              );
 
-        final leftGroups = _groupsInArea(DockArea.left);
-        final rightGroups = _groupsInArea(DockArea.right);
-        final topGroups = _groupsInArea(DockArea.top);
-        final bottomGroups = _groupsInArea(DockArea.bottom);
-        final floatingGroups = _groupsInArea(DockArea.floating);
-
-        final leftWidth = DockPanelWorkspaceLogic.resolvedDockExtentForArea(
-          DockArea.left,
-          _workingGroups,
-        );
-        final rightWidth = DockPanelWorkspaceLogic.resolvedDockExtentForArea(
-          DockArea.right,
-          _workingGroups,
-        );
-        final topHeight = DockPanelWorkspaceLogic.resolvedDockExtentForArea(
-          DockArea.top,
-          _workingGroups,
-        );
-        final bottomHeight = DockPanelWorkspaceLogic.resolvedDockExtentForArea(
-          DockArea.bottom,
-          _workingGroups,
-        );
-
-        final leftSpan = DockPanelWorkspaceLogic.resolvedCrossSpanForArea(
-          DockArea.left,
-          _workingGroups,
-        );
-        final rightSpan = DockPanelWorkspaceLogic.resolvedCrossSpanForArea(
-          DockArea.right,
-          _workingGroups,
-        );
-        final topSpan = DockPanelWorkspaceLogic.resolvedCrossSpanForArea(
-          DockArea.top,
-          _workingGroups,
-        );
-        final bottomSpan = DockPanelWorkspaceLogic.resolvedCrossSpanForArea(
-          DockArea.bottom,
-          _workingGroups,
-        );
-
-        final previewRect = DockPanelWorkspaceLogic.projectedPreviewRect(
-          isDragging: _isDragging,
-          hoveredSnapArea: _hoveredSnapArea,
-          draggingGroupId: _draggingGroupId,
-          lastDragLocalPosition: _lastDragLocalPosition,
-          workingGroups: _workingGroups,
-          workspaceSize: _workspaceSize,
-        );
-
-        return SizedBox(
-          key: _stackKey,
-          child: Stack(
-            children: [
-              DockPanelDockedLayout(
-                child: widget.child,
-                contentPadding: widget.contentPadding,
-                leftGroups: leftGroups,
-                rightGroups: rightGroups,
-                topGroups: topGroups,
-                bottomGroups: bottomGroups,
-                leftWidth: leftWidth,
-                rightWidth: rightWidth,
-                topHeight: topHeight,
-                bottomHeight: bottomHeight,
-                leftSpan: leftSpan,
-                rightSpan: rightSpan,
-                topSpan: topSpan,
-                bottomSpan: bottomSpan,
-                buildGroupCard: _buildGroupCard,
-                onSideExtentResizeStart: () {
-                  if (_isDockExtentResizing) return;
-                  setState(() {
-                    _isDockExtentResizing = true;
-                  });
-                },
-                onSideExtentResizeEnd: () {
-                  _commitWorkingGroups();
+              if (_cubit.state.workspaceSize != nextWorkspaceSize) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
+                  _cubit.setWorkspaceSize(nextWorkspaceSize);
+                });
+              }
 
-                  setState(() {
-                    _isDockExtentResizing = false;
-                  });
-                },
-                onSideExtentResize: _handleAreaExtentResize,
-                onWeightResizeStart: () {
-                  if (_isDockWeightResizing) return;
-                  setState(() {
-                    _isDockWeightResizing = true;
-                  });
-                },
-                onWeightResizeEnd: () {
-                  _commitWorkingGroups();
-                  if (!mounted) return;
-
-                  setState(() {
-                    _isDockWeightResizing = false;
-                  });
-                },
-                onWeightResize: (
-                    groups,
-                    leadingIndex,
-                    deltaPixels,
-                    totalPixels,
-                    ) {
-                  _resizeDockWeightsLocal(
-                    groups: groups,
-                    leadingIndex: leadingIndex,
-                    deltaPixels: deltaPixels,
-                    totalAvailablePixels: totalPixels,
-                  );
-                },
-              ),
-              DockPanelFloatingLayer(
-                floatingGroups: floatingGroups,
-                workspaceSize: _workspaceSize,
-                buildGroupCard: _buildGroupCard,
-              ),
-              DockPanelSnapOverlay(
-                visible: _isDragging,
-                snapArea: _hoveredSnapArea,
-                previewRect: previewRect,
-                backgroundOverlayColor: widget.backgroundOverlayColor,
-              ),
-            ],
-          ),
-        );
-      },
+              return SizedBox(
+                key: _stackKey,
+                child: Stack(
+                  children: [
+                    DockPanelDockedLayout(
+                      state: state,
+                      contentPadding: widget.contentPadding,
+                      buildGroupCard: (group, isFloating) =>
+                          _buildGroupCard(state, group, isFloating),
+                      onSideExtentResizeStart: _cubit.startDockExtentResize,
+                      onSideExtentResizeEnd: _cubit.endDockExtentResize,
+                      onSideExtentResize: _cubit.resizeAreaExtent,
+                      onWeightResizeStart: _cubit.startDockWeightResize,
+                      onWeightResizeEnd: _cubit.endDockWeightResize,
+                      onWeightResize: (
+                          groups,
+                          leadingIndex,
+                          deltaPixels,
+                          totalPixels,
+                          ) {
+                        _cubit.resizeDockWeights(
+                          groups: groups,
+                          leadingIndex: leadingIndex,
+                          deltaPixels: deltaPixels,
+                          totalAvailablePixels: totalPixels,
+                        );
+                      },
+                      child: widget.child,
+                    ),
+                    if (hasDialogPanel)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Container(
+                            color: Colors.black.withValues(alpha: 0.16),
+                          ),
+                        ),
+                      ),
+                    DockPanelFloatingLayer(
+                      floatingGroups: state.floatingGroups,
+                      workspaceSize: state.workspaceSize,
+                      buildGroupCard: (group, isFloating) =>
+                          _buildGroupCard(state, group, isFloating),
+                    ),
+                    DockPanelSnapOverlay(
+                      visible: state.isDragging,
+                      snapArea: state.hoveredSnapArea,
+                      previewRect: state.previewRect,
+                      backgroundOverlayColor: widget.backgroundOverlayColor,
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
