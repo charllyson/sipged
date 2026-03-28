@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 
@@ -72,13 +73,8 @@ class GeoLayersDataRule {
       'id': id,
       'label': label,
       'enabled': enabled,
-
-      // chave correta
       'field': field,
-
-      // compatibilidade temporária com dados antigos
       'table': field,
-
       'operatorType': operatorType.name,
       'value': value,
       'minZoom': minZoom,
@@ -94,10 +90,7 @@ class GeoLayersDataRule {
       id: (map['id'] ?? '').toString(),
       label: (map['label'] ?? '').toString(),
       enabled: map['enabled'] != false,
-
-      // aceita o formato novo e o legado
       field: (map['field'] ?? map['table'] ?? '').toString(),
-
       operatorType: LayerRuleOperator.values.firstWhere(
             (e) => e.name == map['operatorType'],
         orElse: () => LayerRuleOperator.equals,
@@ -111,4 +104,31 @@ class GeoLayersDataRule {
           .toList(growable: false),
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GeoLayersDataRule &&
+        other.id == id &&
+        other.label == label &&
+        other.enabled == enabled &&
+        other.field == field &&
+        other.operatorType == operatorType &&
+        other.value == value &&
+        other.minZoom == minZoom &&
+        other.maxZoom == maxZoom &&
+        listEquals(other.symbolLayers, symbolLayers);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    label,
+    enabled,
+    field,
+    operatorType,
+    value,
+    minZoom,
+    maxZoom,
+    Object.hashAll(symbolLayers),
+  );
 }

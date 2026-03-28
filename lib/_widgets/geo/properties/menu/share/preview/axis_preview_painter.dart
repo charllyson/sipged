@@ -7,82 +7,26 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shape_painter.dart';
 
-class AxisPreview extends StatelessWidget {
-  final LayerGeometryKind geometryKind;
-  final List<GeoLayersDataSimple> layers;
-
-  const AxisPreview({
-    super.key,
-    required this.geometryKind,
-    required this.layers,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AxisPreviewCanvas(
-      geometryKind: geometryKind,
-      layers: layers,
-      backgroundColor: Colors.grey.shade100,
-      padding: const EdgeInsets.all(16),
-      showAxes: true,
-      borderRadius: BorderRadius.circular(0),
-    );
-  }
-}
-
-class AxisPreviewCanvas extends StatelessWidget {
-  final LayerGeometryKind geometryKind;
-  final List<GeoLayersDataSimple> layers;
-  final Color backgroundColor;
-  final EdgeInsets padding;
-  final bool showAxes;
-  final BorderRadius borderRadius;
-
-  const AxisPreviewCanvas({
-    super.key,
-    required this.geometryKind,
-    required this.layers,
-    this.backgroundColor = Colors.transparent,
-    this.padding = EdgeInsets.zero,
-    this.showAxes = true,
-    this.borderRadius = BorderRadius.zero,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: backgroundColor,
-          padding: padding,
-          child: CustomPaint(
-            isComplex: true,
-            willChange: false,
-            painter: AxisPreviewPainter(
-              geometryKind: geometryKind,
-              layers: List<GeoLayersDataSimple>.unmodifiable(layers),
-              showAxes: showAxes,
-            ),
-            size: Size.infinite,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class AxisPreviewPainter extends CustomPainter {
   final LayerGeometryKind geometryKind;
   final List<GeoLayersDataSimple> layers;
   final bool showAxes;
 
+  final String? overlayText;
+  final Offset overlayOffset;
+  final double overlayFontSize;
+  final Color overlayColor;
+  final FontWeight overlayFontWeight;
+
   const AxisPreviewPainter({
     required this.geometryKind,
     required this.layers,
     this.showAxes = true,
+    this.overlayText,
+    this.overlayOffset = Offset.zero,
+    this.overlayFontSize = 13,
+    this.overlayColor = const Color(0xFF111827),
+    this.overlayFontWeight = FontWeight.w600,
   });
 
   static const double _outerPadding = 10.0;
@@ -114,24 +58,65 @@ class AxisPreviewPainter extends CustomPainter {
       );
     }
 
-    final visibleLayers = layers.where((e) => e.enabled).toList(growable: false);
-    if (visibleLayers.isEmpty) return;
+    final visibleLayers =
+    layers.where((e) => e.enabled).toList(growable: false);
 
-    final scale = _computeFitScale(size, visibleLayers);
+    if (visibleLayers.isNotEmpty) {
+      final scale = _computeFitScale(size, visibleLayers);
 
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.scale(scale, scale);
-    canvas.translate(-center.dx, -center.dy);
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.scale(scale, scale);
+      canvas.translate(-center.dx, -center.dy);
 
-    for (final layer in visibleLayers.reversed) {
-      _drawLayer(canvas, size, center, layer);
+      // O preview deve respeitar exatamente a ordem recebida,
+      // pois a lista e o mapa já estão corretos no fluxo atual.
+      for (final layer in visibleLayers) {
+        _drawLayer(canvas, size, center, layer);
+      }
+
+      canvas.restore();
     }
 
-    canvas.restore();
+    _drawOverlay(canvas, center);
+  }
+
+  void _drawOverlay(Canvas canvas, Offset center) {
+    final text = overlayText?.trim() ?? '';
+    if (text.isEmpty) return;
+
+    final painter = TextPainter(
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: overlayFontSize,
+          color: overlayColor,
+          fontWeight: overlayFontWeight,
+        ),
+      ),
+    )..layout();
+
+    final anchor = center + overlayOffset;
+
+    final offset = Offset(
+      anchor.dx - (painter.width / 2),
+      anchor.dy - (painter.height / 2),
+    );
+
+    painter.paint(canvas, offset);
   }
 
   double _computeFitScale(Size size, List<GeoLayersDataSimple> visibleLayers) {
+    final hasPointLikePreview = visibleLayers.any(_usesPointLikePreview);
+
+    if (hasPointLikePreview &&
+        (geometryKind == LayerGeometryKind.line ||
+            geometryKind == LayerGeometryKind.polygon)) {
+      return _computePointFitScale(size, visibleLayers);
+    }
+
     switch (geometryKind) {
       case LayerGeometryKind.line:
         return _computeLineFitScale(size, visibleLayers);
@@ -144,17 +129,36 @@ class AxisPreviewPainter extends CustomPainter {
     }
   }
 
-  double _computePointFitScale(Size size, List<GeoLayersDataSimple> visibleLayers) {
+  bool _usesPointLikePreview(GeoLayersDataSimple layer) {
+    if (layer.type == LayerSimpleSymbolType.textLayer) return true;
+    if (layer.type == LayerSimpleSymbolType.svgMarker) return true;
+    if (layer.type == LayerSimpleSymbolType.simpleMarker &&
+        layer.family == LayerSymbolFamily.point) {
+      return true;
+    }
+    return false;
+  }
+
+  double _computePointFitScale(
+      Size size,
+      List<GeoLayersDataSimple> visibleLayers,
+      ) {
     double maxW = 0;
     double maxH = 0;
 
     for (final layer in visibleLayers) {
-      if (layer.type == LayerSimpleSymbolType.svgMarker) {
+      if (layer.type == LayerSimpleSymbolType.textLayer) {
+        maxW = math.max(maxW, 80);
+        maxH = math.max(maxH, layer.textFontSize + 16);
+      } else if (_usesPointLikePreview(layer)) {
         maxW = math.max(maxW, math.max(layer.width, layer.height));
         maxH = math.max(maxH, math.max(layer.width, layer.height));
-      } else {
-        maxW = math.max(maxW, layer.width);
-        maxH = math.max(maxH, layer.height);
+      } else if (layer.family == LayerSymbolFamily.line) {
+        maxW = math.max(maxW, 120);
+        maxH = math.max(maxH, layer.strokeWidth + 12);
+      } else if (layer.family == LayerSymbolFamily.polygon) {
+        maxW = math.max(maxW, _basePolygonWidth);
+        maxH = math.max(maxH, _basePolygonHeight);
       }
     }
 
@@ -166,7 +170,10 @@ class AxisPreviewPainter extends CustomPainter {
     return math.min(1.0, math.min(scaleX, scaleY));
   }
 
-  double _computeLineFitScale(Size size, List<GeoLayersDataSimple> visibleLayers) {
+  double _computeLineFitScale(
+      Size size,
+      List<GeoLayersDataSimple> visibleLayers,
+      ) {
     const baseHalf = _baseLineHalf;
 
     double minX = -baseHalf;
@@ -175,6 +182,27 @@ class AxisPreviewPainter extends CustomPainter {
     double maxY = 0;
 
     for (final layer in visibleLayers) {
+      if (layer.type == LayerSimpleSymbolType.textLayer) {
+        final textHalfW = 40.0;
+        final textHalfH = (layer.textFontSize + 8) / 2;
+
+        minY = math.min(minY, layer.textOffsetY - textHalfH);
+        maxY = math.max(maxY, layer.textOffsetY + textHalfH);
+        minX = math.min(minX, layer.textOffsetX - textHalfW);
+        maxX = math.max(maxX, layer.textOffsetX + textHalfW);
+        continue;
+      }
+
+      if (_usesPointLikePreview(layer)) {
+        final halfW = layer.width / 2;
+        final halfH = layer.height / 2;
+        minX = math.min(minX, -halfW);
+        maxX = math.max(maxX, halfW);
+        minY = math.min(minY, -halfH);
+        maxY = math.max(maxY, halfH);
+        continue;
+      }
+
       final halfStroke = math.max(0.5, layer.strokeWidth / 2);
       final y = layer.offset;
       final localMinY = y - halfStroke;
@@ -193,17 +221,32 @@ class AxisPreviewPainter extends CustomPainter {
     return math.min(1.0, math.min(scaleX, scaleY));
   }
 
-  double _computePolygonFitScale(Size size, List<GeoLayersDataSimple> visibleLayers) {
+  double _computePolygonFitScale(
+      Size size,
+      List<GeoLayersDataSimple> visibleLayers,
+      ) {
     const baseW = _basePolygonWidth;
     const baseH = _basePolygonHeight;
 
     double extraStroke = 0;
+    double extraText = 0;
+    double extraPointLike = 0;
+
     for (final layer in visibleLayers) {
-      extraStroke = math.max(extraStroke, layer.strokeWidth);
+      if (layer.type == LayerSimpleSymbolType.textLayer) {
+        extraText = math.max(extraText, layer.textFontSize + 24);
+      } else if (_usesPointLikePreview(layer)) {
+        extraPointLike =
+            math.max(extraPointLike, math.max(layer.width, layer.height));
+      } else {
+        extraStroke = math.max(extraStroke, layer.strokeWidth);
+      }
     }
 
-    final width = baseW + extraStroke + (_outerPadding * 2);
-    final height = baseH + extraStroke + (_outerPadding * 2);
+    final width =
+        baseW + extraStroke + extraText + extraPointLike + (_outerPadding * 2);
+    final height =
+        baseH + extraStroke + extraText + extraPointLike + (_outerPadding * 2);
 
     final scaleX = size.width / math.max(1, width);
     final scaleY = size.height / math.max(1, height);
@@ -217,6 +260,16 @@ class AxisPreviewPainter extends CustomPainter {
       Offset center,
       GeoLayersDataSimple layer,
       ) {
+    if (layer.type == LayerSimpleSymbolType.textLayer) {
+      _drawTextPreview(canvas, center, layer);
+      return;
+    }
+
+    if (_usesPointLikePreview(layer)) {
+      _drawPointPreview(canvas, center, layer);
+      return;
+    }
+
     switch (geometryKind) {
       case LayerGeometryKind.line:
         _drawLinePreview(canvas, center, layer);
@@ -230,6 +283,39 @@ class AxisPreviewPainter extends CustomPainter {
         _drawPointPreview(canvas, center, layer);
         return;
     }
+  }
+
+  void _drawTextPreview(
+      Canvas canvas,
+      Offset center,
+      GeoLayersDataSimple layer,
+      ) {
+    final text = layer.text.trim().isEmpty ? 'Texto' : layer.text;
+
+    final painter = TextPainter(
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: layer.textFontSize,
+          color: Color(layer.textColorValue),
+          fontWeight: layer.textFontWeight,
+        ),
+      ),
+    )..layout();
+
+    final anchor = Offset(
+      center.dx + layer.textOffsetX,
+      center.dy + layer.textOffsetY,
+    );
+
+    final offset = Offset(
+      anchor.dx - (painter.width / 2),
+      anchor.dy - (painter.height / 2),
+    );
+
+    painter.paint(canvas, offset);
   }
 
   void _drawPointPreview(
@@ -445,6 +531,11 @@ class AxisPreviewPainter extends CustomPainter {
   bool shouldRepaint(covariant AxisPreviewPainter oldDelegate) {
     if (oldDelegate.geometryKind != geometryKind) return true;
     if (oldDelegate.showAxes != showAxes) return true;
+    if (oldDelegate.overlayText != overlayText) return true;
+    if (oldDelegate.overlayOffset != overlayOffset) return true;
+    if (oldDelegate.overlayFontSize != overlayFontSize) return true;
+    if (oldDelegate.overlayColor != overlayColor) return true;
+    if (oldDelegate.overlayFontWeight != overlayFontWeight) return true;
     if (oldDelegate.layers.length != layers.length) return true;
 
     for (int i = 0; i < layers.length; i++) {
@@ -470,7 +561,13 @@ class AxisPreviewPainter extends CustomPainter {
           a.dashGap != b.dashGap ||
           a.strokeJoin != b.strokeJoin ||
           a.strokeCap != b.strokeCap ||
-          listEquals(a.dashArray, b.dashArray) == false) {
+          a.text != b.text ||
+          a.textFontSize != b.textFontSize ||
+          a.textColorValue != b.textColorValue ||
+          a.textFontWeight != b.textFontWeight ||
+          a.textOffsetX != b.textOffsetX ||
+          a.textOffsetY != b.textOffsetY ||
+          !listEquals(a.dashArray, b.dashArray)) {
         return true;
       }
     }

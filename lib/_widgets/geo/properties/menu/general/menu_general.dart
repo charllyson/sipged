@@ -40,46 +40,49 @@ class MenuGeneral extends StatelessWidget {
         color: Colors.grey.shade50,
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: RepaintBoundary(
-        child: Scrollbar(
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CustomTextField(
-                  controller: nameController,
-                  labelText: 'Nome da camada',
-                  onSubmitted: (_) => onSubmit(),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(10),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: RepaintBoundary(
+          child: Scrollbar(
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CustomTextField(
+                    controller: nameController,
+                    labelText: 'Nome da camada',
+                    onSubmitted: (_) => onSubmit(),
                   ),
-                  child: Text(
-                    'Geometria da camada: ${_geometryLabel(geometryKind)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Geometria da camada: ${_geometryLabel(geometryKind)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-                if (!isKnownGeometry) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    'A camada ainda está com geometria indefinida. O sistema assume comportamento básico até que o tipo real seja salvo na camada.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.orange.shade800,
-                      fontWeight: FontWeight.w500,
+                  if (!isKnownGeometry) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'A camada ainda está com geometria indefinida. O sistema assume comportamento básico até que o tipo real seja salvo na camada.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange.shade800,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

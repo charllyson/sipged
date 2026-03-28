@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 
@@ -43,8 +44,11 @@ class GeoNetworkMapCache {
       layer.isTemporary,
       layer.isSystem,
       layer.rendererType,
+      layer.labelRendererType,
       ...layer.symbolLayers.map(symbolVisualSignature),
       ...layer.ruleBasedSymbols.map(ruleVisualSignature),
+      ...layer.labelLayers.map(labelVisualSignature),
+      ...layer.ruleBasedLabels.map(labelRuleVisualSignature),
       ...layer.children.map(layerVisualSignature),
     ]);
   }
@@ -67,6 +71,18 @@ class GeoNetworkMapCache {
       symbol.strokePattern,
       symbol.offset,
       ...symbol.dashArray,
+      symbol.title,
+      symbol.text,
+      symbol.textFontSize,
+      symbol.textColorValue,
+      symbol.textFontWeight,
+      symbol.textOffsetX,
+      symbol.textOffsetY,
+      symbol.useCustomDashPattern,
+      symbol.dashWidth,
+      symbol.dashGap,
+      symbol.strokeJoin,
+      symbol.strokeCap,
     ]);
   }
 
@@ -81,6 +97,45 @@ class GeoNetworkMapCache {
       rule.minZoom,
       rule.maxZoom,
       ...rule.symbolLayers.map(symbolVisualSignature),
+    ]);
+  }
+
+  static int labelVisualSignature(GeoLabelStyleData label) {
+    return Object.hashAll([
+      label.id,
+      label.title,
+      label.text,
+      label.enabled,
+      label.type,
+      label.fontSize,
+      label.colorValue,
+      label.fontWeight,
+      label.offsetX,
+      label.offsetY,
+      label.iconKey,
+      label.shapeType,
+      label.width,
+      label.height,
+      label.keepAspectRatio,
+      label.fillColorValue,
+      label.strokeColorValue,
+      label.strokeWidth,
+      label.rotationDegrees,
+      label.geometryOffset,
+    ]);
+  }
+
+  static int labelRuleVisualSignature(GeoLabelRuleData rule) {
+    return Object.hashAll([
+      rule.id,
+      rule.label,
+      rule.enabled,
+      rule.field,
+      rule.operatorType,
+      rule.value,
+      rule.minZoom,
+      rule.maxZoom,
+      labelVisualSignature(rule.style),
     ]);
   }
 
@@ -128,6 +183,7 @@ class GeoNetworkMapCache {
     required String? selectedFeatureKey,
     required List<GeoFeatureData> features,
     required Map<String, GeoLayersData> layersById,
+    required List<String> orderedActiveLayerIds,
     required Map<String, List<LatLng>> temporaryPointLayers,
     required Map<String, List<LatLng>> temporaryPolygonLayers,
     required List<LatLng> distanceMeasurementPoints,
@@ -148,6 +204,7 @@ class GeoNetworkMapCache {
       ...layersById.entries.map(
             (e) => Object.hash(e.key, layerVisualSignature(e.value)),
       ),
+      ...orderedActiveLayerIds,
       ...temporaryPointLayers.entries.map(
             (e) => Object.hash(e.key, pointsSignature(e.value)),
       ),

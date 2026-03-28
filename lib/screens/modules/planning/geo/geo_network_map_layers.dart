@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
@@ -16,14 +17,323 @@ class GeoNetworkMapLayers {
   GeoNetworkMapLayers._();
 
   static const Color _measureColor = Color(0xFF7C3AED);
-
-  /// Zoom de referência em que os valores configurados no painel
-  /// representam praticamente 1:1 o que será mostrado no mapa.
   static const double _referenceZoom = 15.0;
-
-  /// Limites de atenuação/expansão visual.
   static const double _minVisualScale = 0.42;
   static const double _maxVisualScale = 1.35;
+
+  static List<fm.Marker> buildLabelMarkers({
+    required double zoom,
+    required Map<String, List<GeoFeatureData>> featuresByLayer,
+    required List<String> orderedActiveLayerIds,
+    required Map<String, GeoLayersData> layersById,
+    required String? selectedFeatureKey,
+  }) {
+    final out = <fm.Marker>[];
+
+    for (final layerId in orderedActiveLayerIds) {
+      final layer = layersById[layerId];
+      if (layer == null) continue;
+
+      final features = featuresByLayer[layerId];
+      if (features == null || features.isEmpty) continue;
+
+      for (final feature in features) {
+        final labels = resolveLabelsForFeature(
+          layer: layer,
+          feature: feature,
+          zoom: zoom,
+        ).where((e) => e.enabled).toList(growable: false);
+
+        if (labels.isEmpty) continue;
+
+        final anchor = _labelAnchorForFeature(feature);
+        if (anchor == null) continue;
+
+        final isSelected = selectedFeatureKey == feature.selectionKey;
+
+        for (final label in labels) {
+          final markerSize = _labelMarkerSize(label);
+
+          out.add(
+            fm.Marker(
+              point: anchor,
+              width: markerSize.width,
+              height: markerSize.height,
+              child: IgnorePointer(
+                child: Center(
+                  child: Transform.translate(
+                    offset: Offset(
+                      label.offsetX,
+                      label.offsetY - label.geometryOffset,
+                    ),
+                    child: _buildLabelWidget(
+                      label: label,
+                      feature: feature,
+                      isSelected: isSelected,
+                      zoom: zoom,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    return out;
+  }
+
+  static List<GeoLabelStyleData> resolveLabelsForFeature({
+    required GeoLayersData? layer,
+    required GeoFeatureData feature,
+    required double zoom,
+  }) {
+    if (layer == null) return const [];
+
+    if (layer.labelRendererType == LabelRendererType.singleLabel) {
+      return layer.effectiveLabelLayers;
+    }
+
+    for (final rule in layer.ruleBasedLabels) {
+      if (!rule.enabled) continue;
+      if (rule.minZoom != null && zoom < rule.minZoom!) continue;
+      if (rule.maxZoom != null && zoom > rule.maxZoom!) continue;
+
+      final matched = _matchesLabelRule(rule, feature.properties);
+      if (matched) {
+        return [rule.style];
+      }
+    }
+
+    return layer.effectiveLabelLayers;
+  }
+
+  static bool _matchesLabelRule(
+      GeoLabelRuleData rule,
+      Map<String, dynamic> properties,
+      ) {
+    final field = rule.field.trim();
+    if (field.isEmpty) return true;
+
+    final raw = _readPropertyValue(properties, field);
+    final left = _normalizeText(raw);
+    final right = _normalizeText(rule.value);
+
+    switch (rule.operatorType) {
+      case LayerRuleOperator.equals:
+        return left == right;
+      case LayerRuleOperator.notEquals:
+        return left != right;
+      case LayerRuleOperator.contains:
+        return right.isEmpty ? left.isEmpty : left.contains(right);
+      case LayerRuleOperator.greaterThan:
+        return _toDouble(raw) > _toDouble(rule.value);
+      case LayerRuleOperator.lessThan:
+        return _toDouble(raw) < _toDouble(rule.value);
+      case LayerRuleOperator.greaterOrEqual:
+        return _toDouble(raw) >= _toDouble(rule.value);
+      case LayerRuleOperator.lessOrEqual:
+        return _toDouble(raw) <= _toDouble(rule.value);
+      case LayerRuleOperator.isEmpty:
+        return left.isEmpty;
+      case LayerRuleOperator.isNotEmpty:
+        return left.isNotEmpty;
+    }
+  }
+
+  static Widget _buildLabelWidget({
+    required GeoLabelStyleData label,
+    required GeoFeatureData feature,
+    required bool isSelected,
+    required double zoom,
+  }) {
+    switch (label.type) {
+      case LayerSimpleSymbolType.textLayer:
+        final text = _resolveLabelText(label, feature.properties);
+        if (text.trim().isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final fontSize = _adaptTextSize(
+          baseSize: label.fontSize,
+          zoom: zoom,
+          min: 8,
+          max: 28,
+        );
+
+        return Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: label.fontWeight,
+            color: isSelected ? Colors.black : label.color,
+            height: 1.0,
+          ),
+        );
+
+      case LayerSimpleSymbolType.svgMarker:
+        return Transform.rotate(
+          angle: label.rotationDegrees * math.pi / 180,
+          child: Icon(
+            IconsCatalog.iconFor(label.iconKey),
+            size: math.max(label.width, label.height),
+            color: isSelected ? Colors.black : label.fillColor,
+          ),
+        );
+
+      case LayerSimpleSymbolType.simpleMarker:
+        return Transform.rotate(
+          angle: label.rotationDegrees * math.pi / 180,
+          child: SizedBox(
+            width: label.width,
+            height: label.height,
+            child: CustomPaint(
+              painter: ShapePainter(
+                shape: label.shapeType,
+                fillColor: isSelected
+                    ? label.fillColor.withValues(alpha: 0.82)
+                    : label.fillColor,
+                strokeColor: isSelected ? Colors.black : label.strokeColor,
+                strokeWidth: label.strokeWidth,
+                rotationDegrees: 0,
+              ),
+            ),
+          ),
+        );
+    }
+  }
+
+  static String _resolveLabelText(
+      GeoLabelStyleData label,
+      Map<String, dynamic> properties,
+      ) {
+    final raw = label.text.trim();
+    if (raw.isEmpty) return '';
+
+    final propertyValue = _readPropertyValue(properties, raw);
+    if (propertyValue != null && propertyValue.toString().trim().isNotEmpty) {
+      return propertyValue.toString();
+    }
+
+    return raw;
+  }
+
+  static Size _labelMarkerSize(GeoLabelStyleData label) {
+    switch (label.type) {
+      case LayerSimpleSymbolType.textLayer:
+        return const Size(180, 36);
+      case LayerSimpleSymbolType.svgMarker:
+      case LayerSimpleSymbolType.simpleMarker:
+        final w = (label.width + 24).clamp(32.0, 140.0);
+        final h = (label.height + 24).clamp(32.0, 140.0);
+        return Size(w, h);
+    }
+  }
+
+  static LatLng? _labelAnchorForFeature(GeoFeatureData feature) {
+    if (feature.markerPoints.isNotEmpty) {
+      return feature.markerPoints.first;
+    }
+
+    if (feature.lineParts.isNotEmpty) {
+      final line = feature.lineParts.reduce((a, b) {
+        return _polylineLength(a) >= _polylineLength(b) ? a : b;
+      });
+      return _polylineMidPoint(line);
+    }
+
+    if (feature.polygonRings.isNotEmpty) {
+      final ring = feature.polygonRings.reduce((a, b) {
+        return _ringAreaAbs(a) >= _ringAreaAbs(b) ? a : b;
+      });
+      return _boundsCenter(ring);
+    }
+
+    return null;
+  }
+
+  static double _polylineLength(List<LatLng> points) {
+    if (points.length < 2) return 0;
+    double total = 0;
+    for (int i = 1; i < points.length; i++) {
+      total += const Distance().as(LengthUnit.Meter, points[i - 1], points[i]);
+    }
+    return total;
+  }
+
+  static LatLng _polylineMidPoint(List<LatLng> points) {
+    if (points.isEmpty) return const LatLng(0, 0);
+    if (points.length == 1) return points.first;
+
+    final total = _polylineLength(points);
+    if (total <= 0) return points[points.length ~/ 2];
+
+    final half = total / 2;
+    double acc = 0;
+
+    for (int i = 1; i < points.length; i++) {
+      final a = points[i - 1];
+      final b = points[i];
+      final segment = const Distance().as(LengthUnit.Meter, a, b);
+
+      if (acc + segment >= half) {
+        final remain = half - acc;
+        final t = segment == 0 ? 0.0 : remain / segment;
+        return LatLng(
+          a.latitude + ((b.latitude - a.latitude) * t),
+          a.longitude + ((b.longitude - a.longitude) * t),
+        );
+      }
+      acc += segment;
+    }
+
+    return points[points.length ~/ 2];
+  }
+
+  static double _ringAreaAbs(List<LatLng> ring) {
+    if (ring.length < 3) return 0;
+    double area = 0;
+    for (int i = 0; i < ring.length; i++) {
+      final p1 = ring[i];
+      final p2 = ring[(i + 1) % ring.length];
+      area += (p1.longitude * p2.latitude) - (p2.longitude * p1.latitude);
+    }
+    return area.abs() / 2;
+  }
+
+  static LatLng _boundsCenter(List<LatLng> points) {
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
+
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+
+    return LatLng(
+      (minLat + maxLat) / 2,
+      (minLng + maxLng) / 2,
+    );
+  }
+
+  static double _adaptTextSize({
+    required double baseSize,
+    required double zoom,
+    required double min,
+    required double max,
+  }) {
+    final safeBase = baseSize <= 0 ? 12.0 : baseSize;
+    final scaled = safeBase * _visualScaleForZoom(zoom);
+    return scaled.clamp(min, max);
+  }
 
   static List<fm.Polygon> buildPolygons({
     required double zoom,
@@ -97,9 +407,7 @@ class GeoNetworkMapLayers {
           final baseBorderWidth =
           symbol.strokeWidth <= 0 ? 1.2 : symbol.strokeWidth;
           final effectiveBorderWidth = _adaptStrokeWidth(
-            baseWidth: isSelected
-                ? (baseBorderWidth + 0.8)
-                : baseBorderWidth,
+            baseWidth: isSelected ? (baseBorderWidth + 0.8) : baseBorderWidth,
             zoom: zoom,
             min: isSelected ? 1.8 : 0.8,
             max: isSelected ? 5.0 : 4.0,
@@ -690,15 +998,6 @@ class GeoNetworkMapLayers {
       final matched = _matchesRule(rule, feature.properties);
 
       if (matched) {
-        debugPrint(
-          '[RULE MATCH] '
-              'layer=${layer.title} '
-              'feature=${feature.id} '
-              'rule=${rule.label} '
-              'field=${rule.field} '
-              'value=${rule.value}',
-        );
-
         return rule.effectiveSymbolLayers(
           geometryKind: layer.geometryKind,
           fallbackIconKey: layer.iconKey,
@@ -706,13 +1005,6 @@ class GeoNetworkMapLayers {
         );
       }
     }
-
-    debugPrint(
-      '[RULE FALLBACK] '
-          'layer=${layer.title} '
-          'feature=${feature.id}',
-    );
-
     return layer.effectiveSymbolLayers;
   }
 
@@ -730,28 +1022,20 @@ class GeoNetworkMapLayers {
     switch (rule.operatorType) {
       case LayerRuleOperator.equals:
         return left == right;
-
       case LayerRuleOperator.notEquals:
         return left != right;
-
       case LayerRuleOperator.contains:
         return right.isEmpty ? left.isEmpty : left.contains(right);
-
       case LayerRuleOperator.greaterThan:
         return _toDouble(raw) > _toDouble(rule.value);
-
       case LayerRuleOperator.lessThan:
         return _toDouble(raw) < _toDouble(rule.value);
-
       case LayerRuleOperator.greaterOrEqual:
         return _toDouble(raw) >= _toDouble(rule.value);
-
       case LayerRuleOperator.lessOrEqual:
         return _toDouble(raw) <= _toDouble(rule.value);
-
       case LayerRuleOperator.isEmpty:
         return left.isEmpty;
-
       case LayerRuleOperator.isNotEmpty:
         return left.isNotEmpty;
     }
@@ -969,8 +1253,7 @@ class GeoNetworkMapLayers {
     if (baseOffsetPixels.abs() < 0.0001) return 0.0;
 
     final scale = _visualScaleForZoom(zoom);
-    final zoomAdjusted =
-        baseOffsetPixels * math.pow(scale, 1.10).toDouble();
+    final zoomAdjusted = baseOffsetPixels * math.pow(scale, 1.10).toDouble();
 
     final safeStroke = baseStrokeWidth <= 0 ? 1.0 : baseStrokeWidth;
     final maxAbsOffset = math.max(2.0, safeStroke * 2.2);

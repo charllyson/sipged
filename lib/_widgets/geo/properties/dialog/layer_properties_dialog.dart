@@ -1,15 +1,16 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_placeholder_menu.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_menu.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_types.dart';
 import 'package:sipged/_widgets/geo/properties/menu/general/menu_general.dart';
-import 'package:sipged/_widgets/geo/properties/menu/symbology/menu_symbology.dart';
+import 'package:sipged/_widgets/geo/properties/menu/labels/labels_menu.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/symbology_menu.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class LayerPropertiesDialog extends StatefulWidget {
@@ -77,7 +78,7 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
       tab: LayerPropertiesTab.labels,
       icon: Icons.label_outline,
       title: 'Rótulos',
-      subtitle: 'Em breve',
+      subtitle: 'Texto e regras',
     ),
     LayerPropertiesMenuItemData(
       tab: LayerPropertiesTab.source,
@@ -98,6 +99,10 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
   late LayerRendererType _rendererType;
   late List<GeoLayersDataSimple> _symbolLayers;
   late List<GeoLayersDataRule> _ruleBasedSymbols;
+
+  late LabelRendererType _labelRendererType;
+  late List<GeoLabelStyleData> _labelLayers;
+  late List<GeoLabelRuleData> _ruleBasedLabels;
 
   LayerPropertiesTab _selectedTab = LayerPropertiesTab.general;
 
@@ -123,6 +128,10 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
     _rendererType = current.rendererType;
     _symbolLayers = List<GeoLayersDataSimple>.from(current.symbolLayers);
     _ruleBasedSymbols = List<GeoLayersDataRule>.from(current.ruleBasedSymbols);
+
+    _labelRendererType = current.labelRendererType;
+    _labelLayers = List<GeoLabelStyleData>.from(current.labelLayers);
+    _ruleBasedLabels = List<GeoLabelRuleData>.from(current.ruleBasedLabels);
   }
 
   @override
@@ -132,10 +141,19 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
   }
 
   int _resolveColorValue(GeoLayersDataSimple? firstSymbol) {
-    if (widget.current.geometryKind == LayerGeometryKind.line) {
-      return firstSymbol?.strokeColorValue ?? widget.current.colorValue;
+    if (firstSymbol == null) {
+      return widget.current.colorValue;
     }
-    return firstSymbol?.fillColorValue ?? widget.current.colorValue;
+
+    if (firstSymbol.type == LayerSimpleSymbolType.textLayer) {
+      return firstSymbol.textColorValue;
+    }
+
+    if (widget.current.geometryKind == LayerGeometryKind.line) {
+      return firstSymbol.strokeColorValue;
+    }
+
+    return firstSymbol.fillColorValue;
   }
 
   void _submit() {
@@ -153,6 +171,9 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
       rendererType: _rendererType,
       symbolLayers: _symbolLayers,
       ruleBasedSymbols: _ruleBasedSymbols,
+      labelRendererType: _labelRendererType,
+      labelLayers: _labelLayers,
+      ruleBasedLabels: _ruleBasedLabels,
       iconKey: firstSymbol?.iconKey ?? widget.current.iconKey,
       colorValue: _resolveColorValue(firstSymbol),
     );
@@ -171,7 +192,7 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
         );
 
       case LayerPropertiesTab.symbology:
-        return MenuSymbology(
+        return SymbologyMenu(
           key: const ValueKey('symbology'),
           geometryKind: widget.current.geometryKind,
           rendererType: _rendererType,
@@ -191,11 +212,26 @@ class _LayerPropertiesDialogState extends State<LayerPropertiesDialog> {
         );
 
       case LayerPropertiesTab.labels:
-        return const LayerPlaceholderMenu(
-          key: ValueKey('labels'),
-          title: 'Rótulos',
-          subtitle: 'Esta aba será usada para configurar os rótulos da camada.',
-          icon: Icons.label_outline,
+        return LabelsMenu(
+          key: const ValueKey('labels'),
+          geometryKind: widget.current.geometryKind,
+          symbolLayers: _symbolLayers.isNotEmpty
+              ? _symbolLayers
+              : widget.current.effectiveSymbolLayers,
+          rendererType: _labelRendererType,
+          labelLayers: _labelLayers,
+          ruleBasedLabels: _ruleBasedLabels,
+          availableRuleFields: widget.availableRuleFields,
+          onRendererTypeChanged: (value) {
+            if (_labelRendererType == value) return;
+            setState(() => _labelRendererType = value);
+          },
+          onLabelLayersChanged: (value) {
+            setState(() => _labelLayers = value);
+          },
+          onRuleBasedLabelsChanged: (value) {
+            setState(() => _ruleBasedLabels = value);
+          },
         );
 
       case LayerPropertiesTab.source:

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
-
-import '../properties/menu/symbology/preview/axis_preview.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/preview/axis_preview_canvas.dart';
 
 class LayerSymbolStackPreview extends StatelessWidget {
   final GeoLayersData layer;
@@ -40,6 +39,11 @@ class LayerSymbolStackPreview extends StatelessWidget {
       );
     }
 
+    // No painel lateral, a pilha recebida por effectiveSymbolLayers
+    // precisa ser invertida para que o item visualmente do topo
+    // seja desenhado por último dentro do preview.
+    final previewSymbols = visibleSymbols.reversed.toList(growable: false);
+
     final backgroundColor = isSelected
         ? Colors.white.withValues(alpha: 0.16)
         : isActive
@@ -68,7 +72,7 @@ class LayerSymbolStackPreview extends StatelessWidget {
           padding: const EdgeInsets.all(2),
           child: AxisPreviewCanvas(
             geometryKind: layer.geometryKind,
-            layers: visibleSymbols,
+            layers: previewSymbols,
             showAxes: false,
             backgroundColor: Colors.transparent,
             padding: EdgeInsets.zero,

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
@@ -21,16 +22,15 @@ import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_property.dart';
 import 'package:sipged/_widgets/background/background_cleaner.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/docking/dock_panel_workspace.dart';
 import 'package:sipged/_widgets/geo/attributes/layer/attribute_panel.dart';
 import 'package:sipged/_widgets/geo/layer/layer_panel.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_dialog.dart';
 import 'package:sipged/_widgets/geo/status/pop_up_status_bar.dart';
 import 'package:sipged/_widgets/geo/toolbox/toolbox_content.dart';
-import 'package:sipged/_widgets/geo/visualizations/property/tab_property_panel.dart';
 import 'package:sipged/_widgets/geo/visualizations/catalog/tab_widget_data.dart';
 import 'package:sipged/_widgets/geo/visualizations/catalog/tab_widget_panel.dart';
+import 'package:sipged/_widgets/geo/visualizations/property/tab_property_panel.dart';
 import 'package:sipged/_widgets/geo/workspace/geo_workspace_panel.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
@@ -118,7 +118,9 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     return _workspaceItemToken(item);
   }
 
-  Object _featuresByLayerToken(Map<String, List<GeoFeatureData>> featuresByLayer) {
+  Object _featuresByLayerToken(
+      Map<String, List<GeoFeatureData>> featuresByLayer,
+      ) {
     final orderedKeys = featuresByLayer.keys.toList()..sort();
 
     return Object.hashAll(
@@ -476,7 +478,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     }
 
     if (activePointLayer != null) {
-      final count = editorState.draftPointLayers[activePointLayer.id]?.length ?? 0;
+      final count =
+          editorState.draftPointLayers[activePointLayer.id]?.length ?? 0;
       return 'point_${activePointLayer.id}_$count';
     }
 
@@ -508,9 +511,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     return rightIndexes[rightIndexes.length - 1];
   }
 
-  List<DockPanelData> _ensureDefaultGroups(
-      List<DockPanelData> source,
-      ) {
+  List<DockPanelData> _ensureDefaultGroups(List<DockPanelData> source) {
     final next = <DockPanelData>[...source];
 
     final hasVisualizations = next.any((e) => e.id == 'group_visualizacoes');
@@ -710,7 +711,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                     onRemoveSelected: (id) =>
                         editorCubit.removeSelectedItem(id, currentTree),
                     onConnectLayer: (id) => _handleConnectLayer(id, currentTree),
-                    onOpenTable: (id) => _openLayerTable(context, id, currentTree),
+                    onOpenTable: (id) =>
+                        _openLayerTable(context, id, currentTree),
                   ),
                 ),
               ),
@@ -762,7 +764,10 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                 id: 'catalogo_visualizacoes_itens',
                 title: 'Itens',
                 contentPadding: EdgeInsets.zero,
-                contentToken: Object.hash(_selectedCatalogItemId, 'visual_items'),
+                contentToken: Object.hash(
+                  _selectedCatalogItemId,
+                  'visual_items',
+                ),
                 child: RepaintBoundary(
                   child: TabWidgetPanel(
                     selectedItemId: _selectedCatalogItemId,
@@ -963,8 +968,10 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
             );
           }
 
-          final activePointLayer = editorCubit.getActiveDraftPointLayer(currentTree);
-          final activeLineLayer = editorCubit.getActiveDraftLineLayer(currentTree);
+          final activePointLayer =
+          editorCubit.getActiveDraftPointLayer(currentTree);
+          final activeLineLayer =
+          editorCubit.getActiveDraftLineLayer(currentTree);
           final activePolygonLayer =
           editorCubit.getActiveDraftPolygonLayer(currentTree);
 
@@ -1003,12 +1010,12 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
               editorCubit.buildVisiblePolygonDrafts(activeLayerIds),
               distanceMeasurementPoints: measurementState.points,
               onBackgroundTap: (latLng) {
-                editorCubit.handleMapBackgroundTap(latLng, currentTree).then((
-                    error,
-                    ) {
-                  if (!mounted) return;
-                  if (error != null) _showSnack(context, error);
-                });
+                editorCubit.handleMapBackgroundTap(latLng, currentTree).then(
+                      (error) {
+                    if (!mounted) return;
+                    if (error != null) _showSnack(context, error);
+                  },
+                );
 
                 return editorState.isPointToolSelected ||
                     editorState.isLineToolSelected ||
@@ -1099,9 +1106,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                                   activeLineLayer: activeLineLayer,
                                   activePolygonLayer: activePolygonLayer,
                                   onUndoDistanceMeasurementPoint: () =>
-                                      context
-                                          .read<GeoToolboxCubit>()
-                                          .removeLastPoint(),
+                                      context.read<GeoToolboxCubit>().removeLastPoint(),
                                   onClearDistanceMeasurement: () =>
                                       context.read<GeoToolboxCubit>().clear(),
                                   onFinishDistanceMeasurement: () {

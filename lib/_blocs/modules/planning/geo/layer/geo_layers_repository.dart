@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 
@@ -114,9 +115,12 @@ class GeoLayersRepository {
         a.isTemporary != b.isTemporary ||
         a.isSystem != b.isSystem ||
         a.rendererType != b.rendererType ||
+        a.labelRendererType != b.labelRendererType ||
         a.children.length != b.children.length ||
         a.symbolLayers.length != b.symbolLayers.length ||
-        a.ruleBasedSymbols.length != b.ruleBasedSymbols.length) {
+        a.ruleBasedSymbols.length != b.ruleBasedSymbols.length ||
+        a.labelLayers.length != b.labelLayers.length ||
+        a.ruleBasedLabels.length != b.ruleBasedLabels.length) {
       return false;
     }
 
@@ -126,6 +130,18 @@ class GeoLayersRepository {
 
     for (int i = 0; i < a.ruleBasedSymbols.length; i++) {
       if (!_isSameRule(a.ruleBasedSymbols[i], b.ruleBasedSymbols[i])) {
+        return false;
+      }
+    }
+
+    for (int i = 0; i < a.labelLayers.length; i++) {
+      if (!_isSameLabelStyle(a.labelLayers[i], b.labelLayers[i])) {
+        return false;
+      }
+    }
+
+    for (int i = 0; i < a.ruleBasedLabels.length; i++) {
+      if (!_isSameLabelRule(a.ruleBasedLabels[i], b.ruleBasedLabels[i])) {
         return false;
       }
     }
@@ -157,7 +173,14 @@ class GeoLayersRepository {
         a.dashWidth != b.dashWidth ||
         a.dashGap != b.dashGap ||
         a.strokeJoin != b.strokeJoin ||
-        a.strokeCap != b.strokeCap) {
+        a.strokeCap != b.strokeCap ||
+        a.title != b.title ||
+        a.text != b.text ||
+        a.textFontSize != b.textFontSize ||
+        a.textColorValue != b.textColorValue ||
+        a.textFontWeight != b.textFontWeight ||
+        a.textOffsetX != b.textOffsetX ||
+        a.textOffsetY != b.textOffsetY) {
       return false;
     }
 
@@ -188,5 +211,40 @@ class GeoLayersRepository {
     }
 
     return true;
+  }
+
+  bool _isSameLabelStyle(GeoLabelStyleData a, GeoLabelStyleData b) {
+    return a.id == b.id &&
+        a.title == b.title &&
+        a.text == b.text &&
+        a.enabled == b.enabled &&
+        a.type == b.type &&
+        a.fontSize == b.fontSize &&
+        a.colorValue == b.colorValue &&
+        a.fontWeight == b.fontWeight &&
+        a.offsetX == b.offsetX &&
+        a.offsetY == b.offsetY &&
+        a.iconKey == b.iconKey &&
+        a.shapeType == b.shapeType &&
+        a.width == b.width &&
+        a.height == b.height &&
+        a.keepAspectRatio == b.keepAspectRatio &&
+        a.fillColorValue == b.fillColorValue &&
+        a.strokeColorValue == b.strokeColorValue &&
+        a.strokeWidth == b.strokeWidth &&
+        a.rotationDegrees == b.rotationDegrees &&
+        a.geometryOffset == b.geometryOffset;
+  }
+
+  bool _isSameLabelRule(GeoLabelRuleData a, GeoLabelRuleData b) {
+    return a.id == b.id &&
+        a.label == b.label &&
+        a.enabled == b.enabled &&
+        a.field == b.field &&
+        a.operatorType == b.operatorType &&
+        a.value == b.value &&
+        a.minZoom == b.minZoom &&
+        a.maxZoom == b.maxZoom &&
+        _isSameLabelStyle(a.style, b.style);
   }
 }

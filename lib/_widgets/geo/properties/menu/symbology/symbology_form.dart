@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 import 'package:sipged/_widgets/draw/colors/colors_change_catalog.dart';
 import 'package:sipged/_widgets/draw/icons/icon_picker_grid.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shapes_change_catalog.dart';
+import 'package:sipged/_utils/number_field.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/layer_type/layer_type_section.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/text_change_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/text_change_data_style.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 
-class FormSymbologyMenu extends StatefulWidget {
+class SymbologyForm extends StatefulWidget {
   final LayerGeometryKind geometryKind;
   final GeoLayersDataSimple symbol;
   final ValueChanged<GeoLayersDataSimple> onChanged;
 
-  const FormSymbologyMenu({
+  const SymbologyForm({
     super.key,
     required this.geometryKind,
     required this.symbol,
@@ -22,10 +25,10 @@ class FormSymbologyMenu extends StatefulWidget {
   });
 
   @override
-  State<FormSymbologyMenu> createState() => _FormSymbologyMenuState();
+  State<SymbologyForm> createState() => _SymbologyFormState();
 }
 
-class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
+class _SymbologyFormState extends State<SymbologyForm> {
   late GeoLayersDataSimple _local;
   late final TextEditingController _symbolTypeCtrl;
   late final TextEditingController _strokePatternCtrl;
@@ -33,15 +36,12 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
   late final TextEditingController _strokeJoinCtrl;
   late final TextEditingController _strokeCapCtrl;
 
-  static const String _svgMarkerLabel = 'Marcador SVG';
-  static const String _simpleMarkerLabel = 'Marcador simples';
-
   @override
   void initState() {
     super.initState();
     _local = widget.symbol;
     _symbolTypeCtrl = TextEditingController(
-      text: _labelFromSymbolType(_local.type),
+      text: LayerTypeSection.labelFromType(_local.type),
     );
     _strokePatternCtrl = TextEditingController(
       text: _labelFromStrokePattern(_local.strokePattern),
@@ -58,12 +58,12 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
   }
 
   @override
-  void didUpdateWidget(covariant FormSymbologyMenu oldWidget) {
+  void didUpdateWidget(covariant SymbologyForm oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.symbol != widget.symbol ||
         oldWidget.geometryKind != widget.geometryKind) {
       _local = widget.symbol;
-      _symbolTypeCtrl.text = _labelFromSymbolType(_local.type);
+      _symbolTypeCtrl.text = LayerTypeSection.labelFromType(_local.type);
       _strokePatternCtrl.text = _labelFromStrokePattern(_local.strokePattern);
       _dashArrayCtrl.text = _local.dashArray.join(', ');
       _strokeJoinCtrl.text = _labelFromStrokeJoin(_local.strokeJoin);
@@ -81,12 +81,17 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
     super.dispose();
   }
 
-  bool get _isPointFamily => widget.geometryKind == LayerGeometryKind.point ||
-      widget.geometryKind == LayerGeometryKind.mixed ||
-      widget.geometryKind == LayerGeometryKind.unknown;
+  bool get _isPointFamily =>
+      widget.geometryKind == LayerGeometryKind.point ||
+          widget.geometryKind == LayerGeometryKind.mixed ||
+          widget.geometryKind == LayerGeometryKind.unknown;
 
   bool get _isLineFamily => widget.geometryKind == LayerGeometryKind.line;
-  bool get _isPolygonFamily => widget.geometryKind == LayerGeometryKind.polygon;
+
+  bool get _isPolygonFamily =>
+      widget.geometryKind == LayerGeometryKind.polygon;
+
+  bool get _isTextLayer => _local.type == LayerSimpleSymbolType.textLayer;
 
   LayerSymbolFamily get _family {
     if (_isLineFamily) return LayerSymbolFamily.line;
@@ -98,7 +103,7 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
     final normalized = value.copyWith(family: _family);
 
     _local = normalized;
-    _symbolTypeCtrl.text = _labelFromSymbolType(normalized.type);
+    _symbolTypeCtrl.text = LayerTypeSection.labelFromType(normalized.type);
     _strokePatternCtrl.text =
         _labelFromStrokePattern(normalized.strokePattern);
     _dashArrayCtrl.text = normalized.dashArray.join(', ');
@@ -126,25 +131,6 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
       return;
     }
     _emit(_local.copyWith(height: value));
-  }
-
-  String _labelFromSymbolType(LayerSimpleSymbolType type) {
-    switch (type) {
-      case LayerSimpleSymbolType.svgMarker:
-        return _svgMarkerLabel;
-      case LayerSimpleSymbolType.simpleMarker:
-        return _simpleMarkerLabel;
-    }
-  }
-
-  LayerSimpleSymbolType _symbolTypeFromLabel(String? value) {
-    switch (value) {
-      case _simpleMarkerLabel:
-        return LayerSimpleSymbolType.simpleMarker;
-      case _svgMarkerLabel:
-      default:
-        return LayerSimpleSymbolType.svgMarker;
-    }
   }
 
   String _labelFromStrokePattern(LayerStrokePattern type) {
@@ -225,9 +211,43 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
         .toList(growable: false);
   }
 
+  Widget _buildTextSection() {
+    return TextChangeDataStyle(
+      value: TextChangeData(
+        title: _local.title,
+        text: _local.text,
+        enabled: _local.enabled,
+        fontSize: _local.textFontSize,
+        colorValue: _local.textColorValue,
+        fontWeight: _local.textFontWeight,
+        offsetX: _local.textOffsetX,
+        offsetY: _local.textOffsetY,
+      ),
+      titleLabel: 'Nome da camada',
+      textLabel: 'Texto da camada',
+      onChanged: (value) {
+        _emit(
+          _local.copyWith(
+            title: value.title,
+            text: value.text,
+            enabled: value.enabled,
+            textFontSize: value.fontSize,
+            textColorValue: value.colorValue,
+            textFontWeight: value.fontWeight,
+            textOffsetX: value.offsetX,
+            textOffsetY: value.offsetY,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final fillColor = Color(_local.fillColorValue);
+    final typeItems = LayerTypeSection.itemsForGeometry(
+      widget.geometryKind,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -237,22 +257,27 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_isPointFamily) ...[
-              DropDownButtonChange(
-                controller: _symbolTypeCtrl,
-                labelText: 'Tipo da camada símbolo',
-                width: double.infinity,
-                items: const [
-                  _svgMarkerLabel,
-                  _simpleMarkerLabel,
-                ],
-                onChanged: (value) {
-                  final newType = _symbolTypeFromLabel(value);
-                  if (newType == _local.type) return;
-                  _emit(_local.copyWith(type: newType));
-                },
-              ),
-              const SizedBox(height: 12),
+            DropDownButtonChange(
+              controller: _symbolTypeCtrl,
+              labelText: 'Tipo da camada',
+              width: double.infinity,
+              items: typeItems,
+              onChanged: (value) {
+                final newType = LayerTypeSection.typeFromLabel(value);
+                if (newType == _local.type) return;
+
+                if (!_isPointFamily &&
+                    newType == LayerSimpleSymbolType.svgMarker) {
+                  return;
+                }
+
+                _emit(_local.copyWith(type: newType));
+              },
+            ),
+            const SizedBox(height: 12),
+            if (_isTextLayer) ...[
+              _buildTextSection(),
+            ] else if (_isPointFamily) ...[
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -260,7 +285,7 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                 children: [
                   SizedBox(
                     width: fieldWidth,
-                    child: _NumberField(
+                    child: NumberField(
                       label: 'Largura (x)',
                       value: _local.width,
                       onChanged: _updateWidth,
@@ -268,7 +293,7 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                   ),
                   SizedBox(
                     width: fieldWidth,
-                    child: _NumberField(
+                    child: NumberField(
                       label: 'Altura (y)',
                       value: _local.height,
                       onChanged: _updateHeight,
@@ -326,8 +351,8 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                 runSpacing: 12,
                 children: [
                   SizedBox(
-                    width: small ? constraints.maxWidth : 220,
-                    child: _NumberField(
+                    width: fieldWidth,
+                    child: NumberField(
                       label: 'Largura do traçado',
                       value: _local.strokeWidth,
                       onChanged: (value) =>
@@ -335,8 +360,8 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                     ),
                   ),
                   SizedBox(
-                    width: small ? constraints.maxWidth : 220,
-                    child: _NumberField(
+                    width: fieldWidth,
+                    child: NumberField(
                       label: 'Rotação',
                       suffix: '°',
                       value: _local.rotationDegrees,
@@ -384,7 +409,7 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                 children: [
                   SizedBox(
                     width: fieldWidth,
-                    child: _NumberField(
+                    child: NumberField(
                       label: _isLineFamily
                           ? 'Espessura da linha'
                           : 'Espessura da borda',
@@ -395,7 +420,7 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                   ),
                   SizedBox(
                     width: fieldWidth,
-                    child: _NumberField(
+                    child: NumberField(
                       label: 'Rotação',
                       suffix: '°',
                       value: _local.rotationDegrees,
@@ -405,7 +430,7 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                   ),
                   SizedBox(
                     width: fieldWidth,
-                    child: _NumberField(
+                    child: NumberField(
                       label: 'Offset',
                       value: _local.offset,
                       onChanged: (value) =>
@@ -459,9 +484,8 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                 },
               ),
               const SizedBox(height: 12),
-              Container(
+              SizedBox(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: CheckboxListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -485,7 +509,7 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                   children: [
                     SizedBox(
                       width: fieldWidth,
-                      child: _NumberField(
+                      child: NumberField(
                         label: 'Largura do traço',
                         suffix: 'px',
                         value: _local.dashWidth,
@@ -495,7 +519,7 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
                     ),
                     SizedBox(
                       width: fieldWidth,
-                      child: _NumberField(
+                      child: NumberField(
                         label: 'Espaço vazio',
                         suffix: 'px',
                         value: _local.dashGap,
@@ -541,91 +565,6 @@ class _FormSymbologyMenuState extends State<FormSymbologyMenu> {
             const SizedBox(height: 12),
           ],
         );
-      },
-    );
-  }
-}
-
-class _NumberField extends StatefulWidget {
-  final String label;
-  final double value;
-  final String? suffix;
-  final ValueChanged<double> onChanged;
-
-  const _NumberField({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-    this.suffix,
-  });
-
-  @override
-  State<_NumberField> createState() => _NumberFieldState();
-}
-
-class _NumberFieldState extends State<_NumberField> {
-  late final TextEditingController _controller;
-
-  String _format(double value) {
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-    return value.toStringAsFixed(1);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: _format(widget.value));
-  }
-
-  @override
-  void didUpdateWidget(covariant _NumberField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value) {
-      final text = _format(widget.value);
-      if (_controller.text != text) {
-        _controller.text = text;
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomTextField(
-      controller: _controller,
-      labelText: widget.label,
-      suffix: widget.suffix == null
-          ? null
-          : Padding(
-        padding: const EdgeInsets.only(right: 10),
-        child: Center(
-          widthFactor: 1,
-          child: Text(
-            widget.suffix!,
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ),
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9.,-]')),
-      ],
-      onChanged: (v) {
-        final parsed = double.tryParse(v.replaceAll(',', '.'));
-        if (parsed != null) {
-          widget.onChanged(parsed);
-        }
       },
     );
   }

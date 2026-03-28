@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
 
@@ -10,6 +11,7 @@ enum LayerRendererType {
 }
 
 enum LayerSimpleSymbolType {
+  textLayer,
   svgMarker,
   simpleMarker,
 }
@@ -109,9 +111,16 @@ class GeoLayersData {
   final bool supportsConnect;
   final bool isTemporary;
   final bool isSystem;
+
+  // simbologia
   final LayerRendererType rendererType;
   final List<GeoLayersDataSimple> symbolLayers;
   final List<GeoLayersDataRule> ruleBasedSymbols;
+
+  // rótulos
+  final LabelRendererType labelRendererType;
+  final List<GeoLabelStyleData> labelLayers;
+  final List<GeoLabelRuleData> ruleBasedLabels;
 
   const GeoLayersData({
     required this.id,
@@ -129,6 +138,9 @@ class GeoLayersData {
     this.rendererType = LayerRendererType.singleSymbol,
     this.symbolLayers = const [],
     this.ruleBasedSymbols = const [],
+    this.labelRendererType = LabelRendererType.singleLabel,
+    this.labelLayers = const [],
+    this.ruleBasedLabels = const [],
   });
 
   Color get color => Color(colorValue);
@@ -154,6 +166,10 @@ class GeoLayersData {
     ];
   }
 
+  List<GeoLabelStyleData> get effectiveLabelLayers {
+    return labelLayers;
+  }
+
   GeoLayersDataSimple? get topVisibleSymbol {
     if (rendererType == LayerRendererType.ruleBased) {
       for (final rule in ruleBasedSymbols) {
@@ -164,6 +180,7 @@ class GeoLayersData {
           fallbackIconKey: iconKey,
           fallbackColorValue: colorValue,
         );
+
         final visible = source.where((e) => e.enabled);
         if (visible.isNotEmpty) return visible.first;
         if (source.isNotEmpty) return source.first;
@@ -188,17 +205,21 @@ class GeoLayersData {
       case LayerGeometryKind.point:
       case LayerGeometryKind.mixed:
       case LayerGeometryKind.unknown:
-        return symbol.fillColor;
+        return symbol.type == LayerSimpleSymbolType.textLayer
+            ? symbol.textColor
+            : symbol.fillColor;
     }
   }
 
   String get displayIconKey {
     final symbol = topVisibleSymbol;
     if (symbol == null) return iconKey;
+
     if (symbol.family == LayerSymbolFamily.point &&
         symbol.type == LayerSimpleSymbolType.svgMarker) {
       return symbol.iconKey;
     }
+
     return iconKey;
   }
 
@@ -219,6 +240,9 @@ class GeoLayersData {
     LayerRendererType? rendererType,
     List<GeoLayersDataSimple>? symbolLayers,
     List<GeoLayersDataRule>? ruleBasedSymbols,
+    LabelRendererType? labelRendererType,
+    List<GeoLabelStyleData>? labelLayers,
+    List<GeoLabelRuleData>? ruleBasedLabels,
   }) {
     return GeoLayersData(
       id: id ?? this.id,
@@ -237,6 +261,9 @@ class GeoLayersData {
       rendererType: rendererType ?? this.rendererType,
       symbolLayers: symbolLayers ?? this.symbolLayers,
       ruleBasedSymbols: ruleBasedSymbols ?? this.ruleBasedSymbols,
+      labelRendererType: labelRendererType ?? this.labelRendererType,
+      labelLayers: labelLayers ?? this.labelLayers,
+      ruleBasedLabels: ruleBasedLabels ?? this.ruleBasedLabels,
     );
   }
 
@@ -257,6 +284,9 @@ class GeoLayersData {
       'rendererType': rendererType.name,
       'symbolLayers': symbolLayers.map((e) => e.toMap()).toList(),
       'ruleBasedSymbols': ruleBasedSymbols.map((e) => e.toMap()).toList(),
+      'labelRendererType': labelRendererType.name,
+      'labelLayers': labelLayers.map((e) => e.toMap()).toList(),
+      'ruleBasedLabels': ruleBasedLabels.map((e) => e.toMap()).toList(),
     };
   }
 
@@ -264,6 +294,8 @@ class GeoLayersData {
     final rawChildren = (map['children'] as List?) ?? const [];
     final rawSymbolLayers = (map['symbolLayers'] as List?) ?? const [];
     final rawRuleBasedSymbols = (map['ruleBasedSymbols'] as List?) ?? const [];
+    final rawLabelLayers = (map['labelLayers'] as List?) ?? const [];
+    final rawRuleBasedLabels = (map['ruleBasedLabels'] as List?) ?? const [];
 
     return GeoLayersData(
       id: (map['id'] ?? '').toString(),
@@ -295,6 +327,18 @@ class GeoLayersData {
       ruleBasedSymbols: rawRuleBasedSymbols
           .whereType<Map>()
           .map((e) => GeoLayersDataRule.fromMap(Map<String, dynamic>.from(e)))
+          .toList(growable: false),
+      labelRendererType: LabelRendererType.values.firstWhere(
+            (e) => e.name == map['labelRendererType'],
+        orElse: () => LabelRendererType.singleLabel,
+      ),
+      labelLayers: rawLabelLayers
+          .whereType<Map>()
+          .map((e) => GeoLabelStyleData.fromMap(Map<String, dynamic>.from(e)))
+          .toList(growable: false),
+      ruleBasedLabels: rawRuleBasedLabels
+          .whereType<Map>()
+          .map((e) => GeoLabelRuleData.fromMap(Map<String, dynamic>.from(e)))
           .toList(growable: false),
     );
   }
@@ -341,6 +385,9 @@ class GeoLayersData {
         ),
       ],
       ruleBasedSymbols: const [],
+      labelRendererType: LabelRendererType.singleLabel,
+      labelLayers: const [],
+      ruleBasedLabels: const [],
     );
   }
 
@@ -372,6 +419,9 @@ class GeoLayersData {
         ),
       ],
       ruleBasedSymbols: const [],
+      labelRendererType: LabelRendererType.singleLabel,
+      labelLayers: const [],
+      ruleBasedLabels: const [],
     );
   }
 
@@ -403,6 +453,9 @@ class GeoLayersData {
         ),
       ],
       ruleBasedSymbols: const [],
+      labelRendererType: LabelRendererType.singleLabel,
+      labelLayers: const [],
+      ruleBasedLabels: const [],
     );
   }
 
@@ -434,6 +487,9 @@ class GeoLayersData {
         ),
       ],
       ruleBasedSymbols: const [],
+      labelRendererType: LabelRendererType.singleLabel,
+      labelLayers: const [],
+      ruleBasedLabels: const [],
     );
   }
 
@@ -458,6 +514,9 @@ class GeoLayersData {
       rendererType: LayerRendererType.singleSymbol,
       symbolLayers: const [],
       ruleBasedSymbols: const [],
+      labelRendererType: LabelRendererType.singleLabel,
+      labelLayers: const [],
+      ruleBasedLabels: const [],
     );
   }
 

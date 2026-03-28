@@ -3,16 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
-import 'package:sipged/_widgets/geo/properties/menu/symbology/rules/rule_details.dart';
-import 'package:sipged/_widgets/geo/properties/menu/symbology/rules/rule_list_panel.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/rules/layer_rule_list.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/rules/layer_rule_core.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/symbology_rule_details.dart';
 
-class RuleSymbology extends StatefulWidget {
+class SymbologyRule extends StatefulWidget {
   final LayerGeometryKind geometryKind;
   final List<GeoLayersDataRule> rules;
   final List<String> availableFields;
   final ValueChanged<List<GeoLayersDataRule>> onChanged;
 
-  const RuleSymbology({
+  const SymbologyRule({
     super.key,
     required this.geometryKind,
     required this.rules,
@@ -21,10 +22,10 @@ class RuleSymbology extends StatefulWidget {
   });
 
   @override
-  State<RuleSymbology> createState() => _RuleSymbologyState();
+  State<SymbologyRule> createState() => _SymbologyRuleState();
 }
 
-class _RuleSymbologyState extends State<RuleSymbology> {
+class _SymbologyRuleState extends State<SymbologyRule> {
   late List<GeoLayersDataRule> _rules;
   int _selectedRuleIndex = 0;
 
@@ -36,7 +37,7 @@ class _RuleSymbologyState extends State<RuleSymbology> {
   }
 
   @override
-  void didUpdateWidget(covariant RuleSymbology oldWidget) {
+  void didUpdateWidget(covariant SymbologyRule oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!listEquals(oldWidget.rules, widget.rules)) {
       _rules = List<GeoLayersDataRule>.from(widget.rules);
@@ -64,19 +65,6 @@ class _RuleSymbologyState extends State<RuleSymbology> {
     return _rules[_selectedRuleIndex];
   }
 
-  LayerSymbolFamily _familyFromGeometry() {
-    switch (widget.geometryKind) {
-      case LayerGeometryKind.line:
-        return LayerSymbolFamily.line;
-      case LayerGeometryKind.polygon:
-        return LayerSymbolFamily.polygon;
-      case LayerGeometryKind.point:
-      case LayerGeometryKind.mixed:
-      case LayerGeometryKind.unknown:
-        return LayerSymbolFamily.point;
-    }
-  }
-
   void _addRule() {
     final now = DateTime.now().microsecondsSinceEpoch;
     final defaultField =
@@ -88,9 +76,9 @@ class _RuleSymbologyState extends State<RuleSymbology> {
         label: 'Nova regra ${_rules.length + 1}',
         field: defaultField,
         symbolLayers: [
-          GeoLayersDataSimple(
+          LayerRuleCore.createDefaultSymbolLayer(
             id: 'symbol_$now',
-            family: _familyFromGeometry(),
+            geometryKind: widget.geometryKind,
           ),
         ],
       ),
@@ -117,15 +105,16 @@ class _RuleSymbologyState extends State<RuleSymbology> {
     if (selected == null) return;
 
     final now = DateTime.now().microsecondsSinceEpoch;
+    final family = LayerRuleCore.symbolFamilyFromGeometry(widget.geometryKind);
 
     final duplicated = selected.copyWith(
       id: 'rule_$now',
       label: '${selected.label} (cópia)',
       symbolLayers: selected.symbolLayers
           .map(
-            (e) => e.copyWith(
-          id: 'symbol_${DateTime.now().microsecondsSinceEpoch}_${e.id}',
-          family: _familyFromGeometry(),
+            (item) => item.copyWith(
+          id: 'symbol_${DateTime.now().microsecondsSinceEpoch}_${item.id}',
+          family: family,
         ),
       )
           .toList(growable: false),
@@ -142,36 +131,6 @@ class _RuleSymbologyState extends State<RuleSymbology> {
     _notifyParent();
   }
 
-  String _operatorLabel(LayerRuleOperator op) {
-    switch (op) {
-      case LayerRuleOperator.equals:
-        return 'Igual a';
-      case LayerRuleOperator.notEquals:
-        return 'Diferente de';
-      case LayerRuleOperator.contains:
-        return 'Contém';
-      case LayerRuleOperator.greaterThan:
-        return 'Maior que';
-      case LayerRuleOperator.lessThan:
-        return 'Menor que';
-      case LayerRuleOperator.greaterOrEqual:
-        return 'Maior ou igual';
-      case LayerRuleOperator.lessOrEqual:
-        return 'Menor ou igual';
-      case LayerRuleOperator.isEmpty:
-        return 'Está vazio';
-      case LayerRuleOperator.isNotEmpty:
-        return 'Não está vazio';
-    }
-  }
-
-  LayerRuleOperator _operatorFromLabel(String? value) {
-    for (final op in LayerRuleOperator.values) {
-      if (_operatorLabel(op) == value) return op;
-    }
-    return LayerRuleOperator.equals;
-  }
-
   @override
   Widget build(BuildContext context) {
     final selected = _selectedRule;
@@ -179,8 +138,8 @@ class _RuleSymbologyState extends State<RuleSymbology> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        RuleListPanel(
-          rules: _rules,
+        LayerRuleList<GeoLayersDataRule>(
+          items: _rules,
           selectedIndex: _selectedRuleIndex,
           onSelect: (index) {
             if (_selectedRuleIndex == index) return;
@@ -189,17 +148,21 @@ class _RuleSymbologyState extends State<RuleSymbology> {
           onAdd: _addRule,
           onRemove: _rules.isEmpty ? null : _removeRule,
           onDuplicate: _rules.isEmpty ? null : _duplicateRule,
-          operatorLabel: _operatorLabel,
+          labelOf: (rule) => rule.label,
+          enabledOf: (rule) => rule.enabled,
+          fieldOf: (rule) => rule.field,
+          operatorOf: (rule) => rule.operatorType,
+          valueOf: (rule) => rule.value,
+          minZoomOf: (rule) => rule.minZoom,
+          maxZoomOf: (rule) => rule.maxZoom,
         ),
         const SizedBox(height: 12),
         if (selected != null)
-          RuleDetails(
+          SymbologyRuleDetails(
             key: ValueKey(selected.id),
             geometryKind: widget.geometryKind,
             rule: selected,
             availableFields: widget.availableFields,
-            operatorLabel: _operatorLabel,
-            operatorFromLabel: _operatorFromLabel,
             onChanged: _updateSelectedRule,
           )
         else

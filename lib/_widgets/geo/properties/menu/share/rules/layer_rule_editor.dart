@@ -1,33 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_rule.dart';
-import 'package:sipged/_widgets/geo/properties/menu/symbology/single/single_symbology.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/rules/layer_rule_data.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/rules/layer_rule_core.dart';
 import 'package:sipged/_widgets/input/custom_text_field.dart';
 import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
 
-class RuleDetails extends StatefulWidget {
-  final LayerGeometryKind geometryKind;
-  final GeoLayersDataRule rule;
+class LayerRuleEditor extends StatefulWidget {
+  final LayerRuleData value;
   final List<String> availableFields;
-  final String Function(LayerRuleOperator op) operatorLabel;
-  final LayerRuleOperator Function(String? label) operatorFromLabel;
-  final ValueChanged<GeoLayersDataRule> onChanged;
+  final ValueChanged<LayerRuleData> onChanged;
+  final Widget? preview;
+  final Widget child;
 
-  const RuleDetails({
+  const LayerRuleEditor({
     super.key,
-    required this.geometryKind,
-    required this.rule,
+    required this.value,
     required this.availableFields,
-    required this.operatorLabel,
-    required this.operatorFromLabel,
     required this.onChanged,
+    required this.child,
+    this.preview,
   });
 
   @override
-  State<RuleDetails> createState() => _RuleDetailsState();
+  State<LayerRuleEditor> createState() => _LayerRuleEditorState();
 }
 
-class _RuleDetailsState extends State<RuleDetails> {
+class _LayerRuleEditorState extends State<LayerRuleEditor> {
   late final TextEditingController _labelCtrl;
   late final TextEditingController _fieldCtrl;
   late final TextEditingController _operatorCtrl;
@@ -44,25 +42,24 @@ class _RuleDetailsState extends State<RuleDetails> {
     _valueCtrl = TextEditingController();
     _minZoomCtrl = TextEditingController();
     _maxZoomCtrl = TextEditingController();
-    _syncFromRule();
+    _syncControllers();
   }
 
   @override
-  void didUpdateWidget(covariant RuleDetails oldWidget) {
+  void didUpdateWidget(covariant LayerRuleEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.rule != widget.rule) {
-      _syncFromRule();
+    if (oldWidget.value != widget.value) {
+      _syncControllers();
     }
   }
 
-  void _syncFromRule() {
-    _labelCtrl.text = widget.rule.label;
-    _fieldCtrl.text = widget.rule.field;
-    _operatorCtrl.text = widget.operatorLabel(widget.rule.operatorType);
-    _valueCtrl.text = widget.rule.value;
-    _minZoomCtrl.text = widget.rule.minZoom?.toString() ?? '';
-    _maxZoomCtrl.text = widget.rule.maxZoom?.toString() ?? '';
+  void _syncControllers() {
+    _labelCtrl.text = widget.value.label;
+    _fieldCtrl.text = widget.value.field;
+    _operatorCtrl.text = LayerRuleCore.operatorLabel(widget.value.operatorType);
+    _valueCtrl.text = widget.value.value;
+    _minZoomCtrl.text = widget.value.minZoom?.toString() ?? '';
+    _maxZoomCtrl.text = widget.value.maxZoom?.toString() ?? '';
   }
 
   @override
@@ -76,19 +73,16 @@ class _RuleDetailsState extends State<RuleDetails> {
     super.dispose();
   }
 
-  void _emit(GeoLayersDataRule value) {
-    widget.onChanged(value);
+  void _emit(LayerRuleData next) {
+    _operatorCtrl.text = LayerRuleCore.operatorLabel(next.operatorType);
+    widget.onChanged(next);
   }
 
-  bool get _hideValueField {
-    return widget.rule.operatorType == LayerRuleOperator.isEmpty ||
-        widget.rule.operatorType == LayerRuleOperator.isNotEmpty;
-  }
+  bool get _hideValueField =>
+      LayerRuleCore.hidesValueField(widget.value.operatorType);
 
   @override
   Widget build(BuildContext context) {
-    final rule = widget.rule;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmall = constraints.maxWidth < 760;
@@ -97,6 +91,13 @@ class _RuleDetailsState extends State<RuleDetails> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.preview != null) ...[
+              SizedBox(
+                height: 150,
+                child: widget.preview!,
+              ),
+              const SizedBox(height: 12),
+            ],
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -109,7 +110,9 @@ class _RuleDetailsState extends State<RuleDetails> {
                   child: CustomTextField(
                     controller: _labelCtrl,
                     labelText: 'Rótulo',
-                    onChanged: (v) => _emit(rule.copyWith(label: v)),
+                    onChanged: (value) {
+                      _emit(widget.value.copyWith(label: value));
+                    },
                   ),
                 ),
                 Container(
@@ -124,8 +127,12 @@ class _RuleDetailsState extends State<RuleDetails> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Ativa'),
-                    value: rule.enabled,
-                    onChanged: (v) => _emit(rule.copyWith(enabled: v ?? true)),
+                    value: widget.value.enabled,
+                    onChanged: (value) {
+                      _emit(
+                        widget.value.copyWith(enabled: value ?? true),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -143,8 +150,8 @@ class _RuleDetailsState extends State<RuleDetails> {
                     width: double.infinity,
                     items: widget.availableFields,
                     enabled: widget.availableFields.isNotEmpty,
-                    onChanged: (v) {
-                      _emit(rule.copyWith(field: v ?? ''));
+                    onChanged: (value) {
+                      _emit(widget.value.copyWith(field: value ?? ''));
                     },
                   ),
                 ),
@@ -155,12 +162,12 @@ class _RuleDetailsState extends State<RuleDetails> {
                     labelText: 'Operador',
                     width: double.infinity,
                     items: LayerRuleOperator.values
-                        .map(widget.operatorLabel)
+                        .map(LayerRuleCore.operatorLabel)
                         .toList(growable: false),
-                    onChanged: (v) {
+                    onChanged: (value) {
                       _emit(
-                        rule.copyWith(
-                          operatorType: widget.operatorFromLabel(v),
+                        widget.value.copyWith(
+                          operatorType: LayerRuleCore.operatorFromLabel(value),
                         ),
                       );
                     },
@@ -172,7 +179,9 @@ class _RuleDetailsState extends State<RuleDetails> {
                     child: CustomTextField(
                       controller: _valueCtrl,
                       labelText: 'Valor',
-                      onChanged: (v) => _emit(rule.copyWith(value: v)),
+                      onChanged: (value) {
+                        _emit(widget.value.copyWith(value: value));
+                      },
                     ),
                   ),
               ],
@@ -198,12 +207,15 @@ class _RuleDetailsState extends State<RuleDetails> {
                   child: CustomTextField(
                     controller: _minZoomCtrl,
                     labelText: 'Escala mínima / zoom mínimo',
-                    onChanged: (v) {
-                      final parsed = double.tryParse(v.replaceAll(',', '.'));
+                    onChanged: (value) {
+                      final parsed = double.tryParse(
+                        value.replaceAll(',', '.'),
+                      );
+
                       _emit(
-                        v.trim().isEmpty
-                            ? rule.copyWith(clearMinZoom: true)
-                            : rule.copyWith(minZoom: parsed),
+                        value.trim().isEmpty
+                            ? widget.value.copyWith(clearMinZoom: true)
+                            : widget.value.copyWith(minZoom: parsed),
                       );
                     },
                   ),
@@ -213,12 +225,15 @@ class _RuleDetailsState extends State<RuleDetails> {
                   child: CustomTextField(
                     controller: _maxZoomCtrl,
                     labelText: 'Escala máxima / zoom máximo',
-                    onChanged: (v) {
-                      final parsed = double.tryParse(v.replaceAll(',', '.'));
+                    onChanged: (value) {
+                      final parsed = double.tryParse(
+                        value.replaceAll(',', '.'),
+                      );
+
                       _emit(
-                        v.trim().isEmpty
-                            ? rule.copyWith(clearMaxZoom: true)
-                            : rule.copyWith(maxZoom: parsed),
+                        value.trim().isEmpty
+                            ? widget.value.copyWith(clearMaxZoom: true)
+                            : widget.value.copyWith(maxZoom: parsed),
                       );
                     },
                   ),
@@ -226,13 +241,7 @@ class _RuleDetailsState extends State<RuleDetails> {
               ],
             ),
             const SizedBox(height: 12),
-            SingleSymbology(
-              geometryKind: widget.geometryKind,
-              symbolLayers: rule.symbolLayers,
-              onChanged: (layers) {
-                _emit(rule.copyWith(symbolLayers: layers));
-              },
-            ),
+            widget.child,
           ],
         );
       },

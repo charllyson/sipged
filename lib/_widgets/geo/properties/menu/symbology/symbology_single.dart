@@ -2,15 +2,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.dart';
-import 'package:sipged/_widgets/geo/properties/menu/symbology/form/form_symbology_menu.dart';
-import 'package:sipged/_widgets/geo/properties/menu/symbology/single/single_list_panel.dart';
+import 'package:sipged/_widgets/draw/shapes/shapes_change_catalog.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/list_layer/layer_buttons.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/layer_panel.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/list_layer/layer_items_list.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/list_layer/layer_mini_preview.dart';
+import 'package:sipged/_widgets/geo/properties/menu/share/preview/axis_preview.dart';
+import 'package:sipged/_widgets/geo/properties/menu/symbology/symbology_form.dart';
 
-class SingleSymbology extends StatefulWidget {
+class SymbologySingle extends StatefulWidget {
   final LayerGeometryKind geometryKind;
   final List<GeoLayersDataSimple> symbolLayers;
   final ValueChanged<List<GeoLayersDataSimple>> onChanged;
 
-  const SingleSymbology({
+  const SymbologySingle({
     super.key,
     required this.geometryKind,
     required this.symbolLayers,
@@ -18,10 +23,10 @@ class SingleSymbology extends StatefulWidget {
   });
 
   @override
-  State<SingleSymbology> createState() => _SingleSymbologyState();
+  State<SymbologySingle> createState() => _SymbologySingleState();
 }
 
-class _SingleSymbologyState extends State<SingleSymbology> {
+class _SymbologySingleState extends State<SymbologySingle> {
   late List<GeoLayersDataSimple> _layers;
   int _selectedIndex = 0;
 
@@ -33,7 +38,7 @@ class _SingleSymbologyState extends State<SingleSymbology> {
   }
 
   @override
-  void didUpdateWidget(covariant SingleSymbology oldWidget) {
+  void didUpdateWidget(covariant SymbologySingle oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     if (!listEquals(oldWidget.symbolLayers, widget.symbolLayers) ||
@@ -62,6 +67,9 @@ class _SingleSymbologyState extends State<SingleSymbology> {
     if (_layers.isEmpty) return null;
     return _layers[_selectedIndex];
   }
+
+  List<GeoLayersDataSimple> get _previewLayers =>
+      _layers.reversed.toList(growable: false);
 
   LayerSymbolFamily _familyFromGeometry() {
     switch (widget.geometryKind) {
@@ -148,6 +156,27 @@ class _SingleSymbologyState extends State<SingleSymbology> {
     _notifyParent();
   }
 
+  String _labelForLayer(GeoLayersDataSimple layer, int index) {
+    if (layer.type == LayerSimpleSymbolType.textLayer) {
+      return layer.title.trim().isNotEmpty
+          ? layer.title
+          : 'Texto ${index + 1}';
+    }
+
+    switch (widget.geometryKind) {
+      case LayerGeometryKind.line:
+        return 'Linha ${index + 1}';
+      case LayerGeometryKind.polygon:
+        return 'Polígono ${index + 1}';
+      case LayerGeometryKind.point:
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        return layer.type == LayerSimpleSymbolType.svgMarker
+            ? 'SVG ${index + 1}'
+            : '${MarkerShapesCatalog.labelFor(layer.shapeType)} ${index + 1}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final selected = _selectedLayer;
@@ -155,23 +184,46 @@ class _SingleSymbologyState extends State<SingleSymbology> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SingleListPanel(
-          geometryKind: widget.geometryKind,
-          layers: _layers,
-          selectedIndex: _selectedIndex,
-          onSelect: (index) {
-            if (_selectedIndex == index) return;
-            setState(() => _selectedIndex = index);
-          },
-          onAdd: _addLayer,
-          onRemove: _layers.isEmpty ? null : _removeLayer,
-          onDuplicate: _layers.isEmpty ? null : _duplicateLayer,
-          onMoveUp: _layers.isEmpty ? null : _moveUp,
-          onMoveDown: _layers.isEmpty ? null : _moveDown,
+        LayerPanel(
+          preview: RepaintBoundary(
+            child: AxisPreview(
+              geometryKind: widget.geometryKind,
+              layers: _previewLayers,
+            ),
+          ),
+          list: LayerItemsList<GeoLayersDataSimple>(
+            title: 'Camadas',
+            emptyMessage: 'Nenhuma camada cadastrada.',
+            items: _layers,
+            selectedIndex: _selectedIndex,
+            onSelect: (index) {
+              if (_selectedIndex == index) return;
+              setState(() => _selectedIndex = index);
+            },
+            previewBuilder: (context, item, index, isSelected) {
+              return MiniLayerPreview.symbol(
+                geometryKind: widget.geometryKind,
+                symbol: item,
+                width: 24,
+                height: 24,
+                showContainerBackground: false,
+              );
+            },
+            titleBuilder: (item, index) => _labelForLayer(item, index),
+          ),
+          actions: [
+            LayerButtons(
+              onAdd: _addLayer,
+              onRemove: _layers.isEmpty ? null : _removeLayer,
+              onDuplicate: _layers.isEmpty ? null : _duplicateLayer,
+              onMoveUp: _layers.isEmpty ? null : _moveUp,
+              onMoveDown: _layers.isEmpty ? null : _moveDown,
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         if (selected != null)
-          FormSymbologyMenu(
+          SymbologyForm(
             key: ValueKey(selected.id),
             geometryKind: widget.geometryKind,
             symbol: selected,

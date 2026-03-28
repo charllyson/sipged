@@ -1,18 +1,31 @@
-
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 
 class GeoLayersDataSimple {
   final String id;
   final LayerSymbolFamily family;
 
-  // point
+  // point / visual kind
   final LayerSimpleSymbolType type;
+
+  // svg
   final String iconKey;
+
+  // simple geometry
   final LayerSimpleMarkerShapeType shapeType;
   final double width;
   final double height;
   final bool keepAspectRatio;
+
+  // text
+  final String title;
+  final String text;
+  final double textFontSize;
+  final int textColorValue;
+  final FontWeight textFontWeight;
+  final double textOffsetX;
+  final double textOffsetY;
 
   // generic / line / polygon
   final int fillColorValue;
@@ -26,7 +39,7 @@ class GeoLayersDataSimple {
   final List<double> dashArray;
   final double offset;
 
-  // NOVOS CAMPOS
+  // extras
   final bool useCustomDashPattern;
   final double dashWidth;
   final double dashGap;
@@ -42,6 +55,13 @@ class GeoLayersDataSimple {
     this.width = 28,
     this.height = 28,
     this.keepAspectRatio = true,
+    this.title = '',
+    this.text = 'Texto',
+    this.textFontSize = 13,
+    this.textColorValue = 0xFF111827,
+    this.textFontWeight = FontWeight.w600,
+    this.textOffsetX = 0,
+    this.textOffsetY = 0,
     this.fillColorValue = 0xFF2563EB,
     this.strokeColorValue = 0xFF1F2937,
     this.strokeWidth = 1.2,
@@ -59,6 +79,7 @@ class GeoLayersDataSimple {
 
   Color get fillColor => Color(fillColorValue);
   Color get strokeColor => Color(strokeColorValue);
+  Color get textColor => Color(textColorValue);
 
   List<double> get effectiveDashArray {
     if (strokePattern == LayerStrokePattern.solid) {
@@ -116,6 +137,13 @@ class GeoLayersDataSimple {
     double? width,
     double? height,
     bool? keepAspectRatio,
+    String? title,
+    String? text,
+    double? textFontSize,
+    int? textColorValue,
+    FontWeight? textFontWeight,
+    double? textOffsetX,
+    double? textOffsetY,
     int? fillColorValue,
     int? strokeColorValue,
     double? strokeWidth,
@@ -139,6 +167,13 @@ class GeoLayersDataSimple {
       width: width ?? this.width,
       height: height ?? this.height,
       keepAspectRatio: keepAspectRatio ?? this.keepAspectRatio,
+      title: title ?? this.title,
+      text: text ?? this.text,
+      textFontSize: textFontSize ?? this.textFontSize,
+      textColorValue: textColorValue ?? this.textColorValue,
+      textFontWeight: textFontWeight ?? this.textFontWeight,
+      textOffsetX: textOffsetX ?? this.textOffsetX,
+      textOffsetY: textOffsetY ?? this.textOffsetY,
       fillColorValue: fillColorValue ?? this.fillColorValue,
       strokeColorValue: strokeColorValue ?? this.strokeColorValue,
       strokeWidth: strokeWidth ?? this.strokeWidth,
@@ -166,6 +201,13 @@ class GeoLayersDataSimple {
       'width': width,
       'height': height,
       'keepAspectRatio': keepAspectRatio,
+      'title': title,
+      'text': text,
+      'textFontSize': textFontSize,
+      'textColorValue': textColorValue,
+      'textFontWeight': _fontWeightToIndex(textFontWeight),
+      'textOffsetX': textOffsetX,
+      'textOffsetY': textOffsetY,
       'fillColorValue': fillColorValue,
       'strokeColorValue': strokeColorValue,
       'strokeWidth': strokeWidth,
@@ -203,6 +245,14 @@ class GeoLayersDataSimple {
       width: (map['width'] as num?)?.toDouble() ?? 28,
       height: (map['height'] as num?)?.toDouble() ?? 28,
       keepAspectRatio: map['keepAspectRatio'] != false,
+      title: (map['title'] ?? '').toString(),
+      text: (map['text'] ?? 'Texto').toString(),
+      textFontSize: (map['textFontSize'] as num?)?.toDouble() ?? 13,
+      textColorValue: (map['textColorValue'] as num?)?.toInt() ?? 0xFF111827,
+      textFontWeight:
+      _fontWeightFromIndex((map['textFontWeight'] as num?)?.toInt()),
+      textOffsetX: (map['textOffsetX'] as num?)?.toDouble() ?? 0,
+      textOffsetY: (map['textOffsetY'] as num?)?.toDouble() ?? 0,
       fillColorValue: (map['fillColorValue'] as num?)?.toInt() ?? 0xFF2563EB,
       strokeColorValue:
       (map['strokeColorValue'] as num?)?.toInt() ?? 0xFF1F2937,
@@ -232,6 +282,44 @@ class GeoLayersDataSimple {
     );
   }
 
+  static int _fontWeightToIndex(FontWeight weight) {
+    if (weight == FontWeight.w100) return 100;
+    if (weight == FontWeight.w200) return 200;
+    if (weight == FontWeight.w300) return 300;
+    if (weight == FontWeight.w400) return 400;
+    if (weight == FontWeight.w500) return 500;
+    if (weight == FontWeight.w600) return 600;
+    if (weight == FontWeight.w700) return 700;
+    if (weight == FontWeight.w800) return 800;
+    if (weight == FontWeight.w900) return 900;
+    return 600;
+  }
+
+  static FontWeight _fontWeightFromIndex(int? value) {
+    switch (value) {
+      case 100:
+        return FontWeight.w100;
+      case 200:
+        return FontWeight.w200;
+      case 300:
+        return FontWeight.w300;
+      case 400:
+        return FontWeight.w400;
+      case 500:
+        return FontWeight.w500;
+      case 600:
+        return FontWeight.w600;
+      case 700:
+        return FontWeight.w700;
+      case 800:
+        return FontWeight.w800;
+      case 900:
+        return FontWeight.w900;
+      default:
+        return FontWeight.w600;
+    }
+  }
+
   static GeoLayersDataSimple defaultForGeometryKind(
       LayerGeometryKind kind, {
         required String id,
@@ -255,6 +343,7 @@ class GeoLayersDataSimple {
         return GeoLayersDataSimple(
           id: id,
           family: LayerSymbolFamily.line,
+          type: LayerSimpleSymbolType.simpleMarker,
           fillColorValue: 0x00000000,
           strokeColorValue: colorValue,
           strokeWidth: 3,
@@ -272,6 +361,7 @@ class GeoLayersDataSimple {
         return GeoLayersDataSimple(
           id: id,
           family: LayerSymbolFamily.polygon,
+          type: LayerSimpleSymbolType.simpleMarker,
           fillColorValue: colorValue,
           strokeColorValue: 0xFF1F2937,
           strokeWidth: 1.4,
@@ -299,4 +389,69 @@ class GeoLayersDataSimple {
         );
     }
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GeoLayersDataSimple &&
+        other.id == id &&
+        other.family == family &&
+        other.type == type &&
+        other.iconKey == iconKey &&
+        other.shapeType == shapeType &&
+        other.width == width &&
+        other.height == height &&
+        other.keepAspectRatio == keepAspectRatio &&
+        other.title == title &&
+        other.text == text &&
+        other.textFontSize == textFontSize &&
+        other.textColorValue == textColorValue &&
+        other.textFontWeight == textFontWeight &&
+        other.textOffsetX == textOffsetX &&
+        other.textOffsetY == textOffsetY &&
+        other.fillColorValue == fillColorValue &&
+        other.strokeColorValue == strokeColorValue &&
+        other.strokeWidth == strokeWidth &&
+        other.rotationDegrees == rotationDegrees &&
+        other.enabled == enabled &&
+        other.strokePattern == strokePattern &&
+        listEquals(other.dashArray, dashArray) &&
+        other.offset == offset &&
+        other.useCustomDashPattern == useCustomDashPattern &&
+        other.dashWidth == dashWidth &&
+        other.dashGap == dashGap &&
+        other.strokeJoin == strokeJoin &&
+        other.strokeCap == strokeCap;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    family,
+    type,
+    iconKey,
+    shapeType,
+    width,
+    height,
+    keepAspectRatio,
+    title,
+    text,
+    textFontSize,
+    textColorValue,
+    textFontWeight,
+    textOffsetX,
+    textOffsetY,
+    fillColorValue,
+    strokeColorValue,
+    strokeWidth,
+    rotationDegrees,
+    enabled,
+    strokePattern,
+    Object.hashAll(dashArray),
+    offset,
+    useCustomDashPattern,
+    dashWidth,
+    dashGap,
+    strokeJoin,
+    strokeCap,
+  ]);
 }

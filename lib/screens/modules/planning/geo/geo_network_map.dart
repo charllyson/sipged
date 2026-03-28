@@ -66,6 +66,7 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
   List<Polygon> _cachedPolygons = const [];
   List<Polyline> _cachedPolylines = const [];
   List<Marker> _cachedMarkers = const [];
+  List<Marker> _cachedLabelMarkers = const [];
   List<FeatureHitEntry> _cachedHitEntries = const [];
 
   @override
@@ -179,6 +180,7 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       selectedFeatureKey: widget.selectedFeatureKey,
       features: widget.features,
       layersById: widget.layersById,
+      orderedActiveLayerIds: widget.orderedActiveLayerIds,
       temporaryPointLayers: widget.temporaryPointLayers,
       temporaryPolygonLayers: widget.temporaryPolygonLayers,
       distanceMeasurementPoints: widget.distanceMeasurementPoints,
@@ -202,6 +204,14 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       temporaryPolygonLayers: widget.temporaryPolygonLayers,
       distanceMeasurementPoints: widget.distanceMeasurementPoints,
       onFeatureTap: widget.onFeatureTap,
+    );
+
+    _cachedLabelMarkers = GeoNetworkMapLayers.buildLabelMarkers(
+      zoom: bucket,
+      featuresByLayer: _featuresByLayer,
+      orderedActiveLayerIds: widget.orderedActiveLayerIds,
+      layersById: widget.layersById,
+      selectedFeatureKey: widget.selectedFeatureKey,
     );
   }
 
@@ -271,6 +281,8 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
                   PolylineLayer(polylines: _cachedPolylines),
                 if (_cachedMarkers.isNotEmpty)
                   MarkerLayer(markers: _cachedMarkers),
+                if (_cachedLabelMarkers.isNotEmpty)
+                  MarkerLayer(markers: _cachedLabelMarkers),
               ],
             ),
           ),
