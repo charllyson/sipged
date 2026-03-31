@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/docking/dock_panel_config.dart';
-import 'package:sipged/_widgets/docking/dock_panel_logic.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_state.dart';
+import 'package:sipged/_widgets/geo/docking/dock_panel_config.dart';
+import 'package:sipged/_widgets/geo/docking/dock_panel_logic.dart';
 
 class DockPanelCubit extends Cubit<DockPanelState> {
   DockPanelCubit({
@@ -37,7 +37,18 @@ class DockPanelCubit extends Cubit<DockPanelState> {
 
   void setWorkspaceSize(Size size) {
     if (size == state.workspaceSize) return;
-    emit(state.copyWith(workspaceSize: size));
+
+    final adaptedGroups = DockPanelLogic.adaptGroupsToWorkspace(
+      groups: state.workingGroups,
+      workspaceSize: size,
+    );
+
+    emit(
+      state.copyWith(
+        workspaceSize: size,
+        workingGroups: adaptedGroups,
+      ),
+    );
   }
 
   void _emitGroups(List<DockPanelData> next) {
@@ -46,25 +57,39 @@ class DockPanelCubit extends Cubit<DockPanelState> {
   }
 
   void _commitGroups(List<DockPanelData> next) {
-    _emitGroups(next);
+    if (listEquals(next, state.workingGroups)) return;
+    emit(state.copyWith(workingGroups: next));
     onCommit(List<DockPanelData>.from(next));
   }
 
-  void _updateGroupLocal(
-      String id,
-      DockPanelData Function(DockPanelData current) update,
-      ) {
+  void _updateGroups({
+    required DockPanelData Function(DockPanelData group) transform,
+    required bool commit,
+    bool normalize = false,
+    DockArea? preferredFullArea,
+  }) {
     var changed = false;
 
-    final next = state.workingGroups.map((group) {
-      if (group.id != id) return group;
-      final updated = update(group);
+    List<DockPanelData> next = state.workingGroups.map((group) {
+      final updated = transform(group);
       if (updated != group) changed = true;
       return updated;
     }).toList(growable: false);
 
     if (!changed) return;
-    _emitGroups(next);
+
+    if (normalize) {
+      next = DockPanelLogic.normalizeDockSpans(
+        next,
+        preferredFullArea: preferredFullArea,
+      );
+    }
+
+    if (commit) {
+      _commitGroups(next);
+    } else {
+      _emitGroups(next);
+    }
   }
 
   void _updateManyGroupsLocal(Map<String, DockPanelData> updatesById) {
@@ -98,32 +123,34 @@ class DockPanelCubit extends Cubit<DockPanelState> {
   }
 
   void setGroupVisible(String id, bool visible) {
-    final next = DockPanelLogic.normalizeDockSpans(
-      state.workingGroups.map((group) {
-        if (group.id != id) return group;
+    _updateGroups(
+      commit: true,
+      normalize: true,
+      transform: (group) {
+        if (group.id != id || group.visible == visible) return group;
         return group.copyWith(visible: visible);
-      }).toList(growable: false),
+      },
     );
-
-    _commitGroups(next);
   }
 
   void setGroupActiveItem(String groupId, String itemId) {
-    final next = state.workingGroups.map((group) {
-      if (group.id != groupId) return group;
-      if (group.activeItemId == itemId) return group;
-      return group.copyWith(activeItemId: itemId);
-    }).toList(growable: false);
-
-    _commitGroups(next);
+    _updateGroups(
+      commit: true,
+      transform: (group) {
+        if (group.id != groupId || group.activeItemId == itemId) return group;
+        return group.copyWith(activeItemId: itemId);
+      },
+    );
   }
 
   void collapseToRail(String groupId) {
     final current = state.groupById(groupId);
     final targetArea = _collapseAnchorFor(current);
 
-    final next = DockPanelLogic.normalizeDockSpans(
-      state.workingGroups.map((group) {
+    _updateGroups(
+      commit: true,
+      normalize: true,
+      transform: (group) {
         if (group.id != groupId) return group;
 
         return group.copyWith(
@@ -138,10 +165,8 @@ class DockPanelCubit extends Cubit<DockPanelState> {
               ? group.crossSpan
               : group.lastDockCrossSpan,
         );
-      }).toList(growable: false),
+      },
     );
-
-    _commitGroups(next);
   }
 
   void restoreFromRail(String groupId) {
@@ -159,8 +184,11 @@ class DockPanelCubit extends Cubit<DockPanelState> {
 
     final isCompact = state.workspaceSize.width > 0 && state.workspaceSize.width < 900;
 
-    final next = DockPanelLogic.normalizeDockSpans(
-      state.workingGroups.map((group) {
+    _updateGroups(
+      commit: true,
+      normalize: true,
+      preferredFullArea: restoreSpan == DockCrossSpan.full ? restoreArea : null,
+      transform: (group) {
         if (group.id == groupId) {
           return group.copyWith(
             area: restoreArea,
@@ -176,17 +204,13 @@ class DockPanelCubit extends Cubit<DockPanelState> {
         if (isCompact &&
             group.visible &&
             !group.collapsed &&
-            (group.area == DockArea.left || group.area == DockArea.right) &&
-            group.id != groupId) {
+            (group.area == DockArea.left || group.area == DockArea.right)) {
           return group.copyWith(collapsed: true);
         }
 
         return group;
-      }).toList(growable: false),
-      preferredFullArea: restoreSpan == DockCrossSpan.full ? restoreArea : null,
+      },
     );
-
-    _commitGroups(next);
   }
 
   Size _dialogSizeForWorkspace() {
@@ -233,8 +257,10 @@ class DockPanelCubit extends Cubit<DockPanelState> {
 
     if (current.area == DockArea.floating && current.floatingAsDialog) {
       if (current.restoreToFloatingOnDialogClose) {
-        final next = DockPanelLogic.normalizeDockSpans(
-          state.workingGroups.map((group) {
+        _updateGroups(
+          commit: true,
+          normalize: true,
+          transform: (group) {
             if (group.id != groupId) return group;
 
             return group.copyWith(
@@ -248,18 +274,19 @@ class DockPanelCubit extends Cubit<DockPanelState> {
               collapsed: false,
               minimized: false,
             );
-          }).toList(growable: false),
+          },
         );
-
-        _commitGroups(next);
         return;
       }
 
       final restoreArea = current.lastDockArea ?? DockArea.left;
       final restoreSpan = current.lastDockCrossSpan ?? DockCrossSpan.full;
 
-      final next = DockPanelLogic.normalizeDockSpans(
-        state.workingGroups.map((group) {
+      _updateGroups(
+        commit: true,
+        normalize: true,
+        preferredFullArea: restoreSpan == DockCrossSpan.full ? restoreArea : null,
+        transform: (group) {
           if (group.id != groupId) return group;
           return group.copyWith(
             area: restoreArea,
@@ -270,12 +297,8 @@ class DockPanelCubit extends Cubit<DockPanelState> {
             floatingAsDialog: false,
             restoreToFloatingOnDialogClose: false,
           );
-        }).toList(growable: false),
-        preferredFullArea:
-        restoreSpan == DockCrossSpan.full ? restoreArea : null,
+        },
       );
-
-      _commitGroups(next);
       return;
     }
 
@@ -283,8 +306,10 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     final dialogOffset = _dialogOffsetForSize(dialogSize);
 
     if (current.area == DockArea.floating) {
-      final next = DockPanelLogic.normalizeDockSpans(
-        state.workingGroups.map((group) {
+      _updateGroups(
+        commit: true,
+        normalize: true,
+        transform: (group) {
           if (group.id != groupId) return group;
           return group.copyWith(
             area: DockArea.floating,
@@ -299,15 +324,15 @@ class DockPanelCubit extends Cubit<DockPanelState> {
             floatingOffset: dialogOffset,
             floatingSize: dialogSize,
           );
-        }).toList(growable: false),
+        },
       );
-
-      _commitGroups(next);
       return;
     }
 
-    final next = DockPanelLogic.normalizeDockSpans(
-      state.workingGroups.map((group) {
+    _updateGroups(
+      commit: true,
+      normalize: true,
+      transform: (group) {
         if (group.id != groupId) return group;
         return group.copyWith(
           area: DockArea.floating,
@@ -317,20 +342,16 @@ class DockPanelCubit extends Cubit<DockPanelState> {
           minimized: false,
           floatingAsDialog: true,
           restoreToFloatingOnDialogClose: false,
-          lastDockArea:
-          group.area == DockArea.floating ? group.lastDockArea : group.area,
-          lastDockCrossSpan: group.area == DockArea.floating
-              ? group.lastDockCrossSpan
-              : group.crossSpan,
+          lastDockArea: group.area == DockArea.floating ? group.lastDockArea : group.area,
+          lastDockCrossSpan:
+          group.area == DockArea.floating ? group.lastDockCrossSpan : group.crossSpan,
           storedFloatingOffset: group.floatingOffset,
           storedFloatingSize: group.floatingSize,
           floatingOffset: dialogOffset,
           floatingSize: dialogSize,
         );
-      }).toList(growable: false),
+      },
     );
-
-    _commitGroups(next);
   }
 
   bool _shouldUpdateDragState({
@@ -408,8 +429,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     required Offset fallbackLocalPosition,
   }) {
     final sourceGroup = state.groupById(groupId);
-    final releaseLocalPosition =
-        state.lastDragLocalPosition ?? fallbackLocalPosition;
+    final releaseLocalPosition = state.lastDragLocalPosition ?? fallbackLocalPosition;
 
     final releaseSnap = state.workspaceSize.isEmpty
         ? null
@@ -446,8 +466,10 @@ class DockPanelCubit extends Cubit<DockPanelState> {
         workspaceSize: state.workspaceSize,
       );
 
-      final next = DockPanelLogic.normalizeDockSpans(
-        state.workingGroups.map((current) {
+      _updateGroups(
+        commit: true,
+        normalize: true,
+        transform: (current) {
           if (current.id != groupId) return current;
 
           return current.copyWith(
@@ -458,17 +480,13 @@ class DockPanelCubit extends Cubit<DockPanelState> {
             minimized: false,
             floatingAsDialog: false,
             restoreToFloatingOnDialogClose: false,
-            lastDockArea: current.area == DockArea.floating
-                ? current.lastDockArea
-                : current.area,
-            lastDockCrossSpan: current.area == DockArea.floating
-                ? current.lastDockCrossSpan
-                : current.crossSpan,
+            lastDockArea:
+            current.area == DockArea.floating ? current.lastDockArea : current.area,
+            lastDockCrossSpan:
+            current.area == DockArea.floating ? current.lastDockCrossSpan : current.crossSpan,
           );
-        }).toList(growable: false),
+        },
       );
-
-      _commitGroups(next);
     }
 
     emit(
@@ -611,24 +629,31 @@ class DockPanelCubit extends Cubit<DockPanelState> {
 
     final current = group.floatingSize;
 
-    final next = Size(
-      (current.width + details.delta.dx)
-          .clamp(
-        DockPanelConfig.minFloatingWidth,
-        DockPanelConfig.maxFloatingWidth,
-      )
-          .toDouble(),
-      (current.height + details.delta.dy)
-          .clamp(
-        DockPanelConfig.minFloatingHeight,
-        DockPanelConfig.maxFloatingHeight,
-      )
-          .toDouble(),
+    final unclamped = Size(
+      current.width + details.delta.dx,
+      current.height + details.delta.dy,
     );
 
-    _updateGroupLocal(
-      groupId,
-          (currentGroup) => currentGroup.copyWith(floatingSize: next),
+    final nextSize = DockPanelLogic.clampFloatingSize(
+      desired: unclamped,
+      workspaceSize: state.workspaceSize,
+    );
+
+    final nextOffset = DockPanelLogic.clampFloatingOffset(
+      desired: group.floatingOffset,
+      floatingSize: nextSize,
+      workspaceSize: state.workspaceSize,
+    );
+
+    _updateGroups(
+      commit: false,
+      transform: (currentGroup) {
+        if (currentGroup.id != groupId) return currentGroup;
+        return currentGroup.copyWith(
+          floatingSize: nextSize,
+          floatingOffset: nextOffset,
+        );
+      },
     );
   }
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 class LayerExhibition extends StatefulWidget {
   final String modeLabelText;
@@ -75,7 +75,7 @@ class _LayerExhibitionState extends State<LayerExhibition> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  DropDownButtonChange(
+                  DropDownChange(
                     controller: _modeCtrl,
                     labelText: widget.modeLabelText,
                     width: double.infinity,

@@ -8,7 +8,7 @@ import 'package:sipged/_widgets/charts/horizontal_bars/horizontal_bars.dart';
 import 'package:sipged/_widgets/charts/lines/line_chart_changed.dart';
 import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/section_title.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 import 'package:sipged/_utils/theme/sipged_theme.dart';
 
@@ -288,7 +288,7 @@ class _AccidentDashboardPanelState extends State<AccidentDashboardPanel> {
                             children: [
                               SizedBox(
                                 width: 140,
-                                child: DropDownButtonChange(
+                                child: DropDownChange(
                                   controller: _yearCtrl,
                                   labelText: 'Ano',
                                   items: years,
@@ -308,7 +308,7 @@ class _AccidentDashboardPanelState extends State<AccidentDashboardPanel> {
                               ),
                               SizedBox(
                                 width: 160,
-                                child: DropDownButtonChange(
+                                child: DropDownChange(
                                   controller: _monthCtrl,
                                   labelText: 'Mês',
                                   items: months,
@@ -329,7 +329,7 @@ class _AccidentDashboardPanelState extends State<AccidentDashboardPanel> {
                               ),
                               SizedBox(
                                 width: 210,
-                                child: DropDownButtonChange(
+                                child: DropDownChange(
                                   controller: _cityCtrl,
                                   labelText: 'Cidade',
                                   items: cities,

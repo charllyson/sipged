@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Layout / Overlays / Notificações
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
@@ -241,7 +241,7 @@ class _EditalJulgamentoPageState extends State<EditalJulgamentoPage>
                 child: Scaffold(
                   body: Stack(
                     children: [
-                      const BackgroundClean(),
+                      const BackgroundChange(),
                       SingleChildScrollView(
                         key: const PageStorageKey('edital-scroll'),
                         controller: _scrollCtrl,

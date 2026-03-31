@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -122,21 +122,21 @@ class _LaneRegularizationPaymentFormState
                         ),
                       ],
                     ),
-                    DropDownButtonChange(
+                    DropDownChange(
                       width: w,
                       enabled: controller.isEditable,
                       labelText: 'Tipo de Indenização',
                       items: LaneRegularizationData.indemnityTypeItems,
                       controller: controller.indemnityTypeCtrl,
                     ),
-                    DropDownButtonChange(
+                    DropDownChange(
                       width: w,
                       enabled: controller.isEditable,
                       labelText: 'Forma de Pagamento',
                       items: LaneRegularizationData.paymentFormItems,
                       controller: controller.paymentFormCtrl,
                     ),
-                    CustomDateField(
+                    DateFieldChange(
                       width: w,
                       enabled: controller.isEditable,
                       controller: controller.paymentDateCtrl,
@@ -207,7 +207,7 @@ class _LaneRegularizationPaymentFormState
                     ),
 
                     // Pós-pagamento
-                    CustomDateField(
+                    DateFieldChange(
                       width: w,
                       enabled: controller.isEditable,
                       controller: controller.possessionDateCtrl,
@@ -215,7 +215,7 @@ class _LaneRegularizationPaymentFormState
                       labelText: 'Imissão de Posse',
                       onChanged: (_) {},
                     ),
-                    CustomDateField(
+                    DateFieldChange(
                       width: w,
                       enabled: controller.isEditable,
                       controller: controller.evictionDateCtrl,
@@ -223,7 +223,7 @@ class _LaneRegularizationPaymentFormState
                       labelText: 'Desocupação',
                       onChanged: (_) {},
                     ),
-                    CustomDateField(
+                    DateFieldChange(
                       width: w,
                       enabled: controller.isEditable,
                       controller: controller.registryUpdateDateCtrl,

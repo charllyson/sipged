@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 
 // contrato
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
@@ -31,7 +31,7 @@ class PlanningRightWayPropertyPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const BackgroundClean(),
+        const BackgroundChange(),
         ListView(
           children: [
             const SizedBox(height: 12),

@@ -50,11 +50,7 @@ class GeoNetworkMapHitTest {
   static bool _hitMarker(FeatureHitEntry entry, LatLng tap, double zoom) {
     final toleranceMeters = zoom >= 14 ? 20.0 : zoom >= 10 ? 60.0 : 120.0;
 
-    if (!_boundsMayContain(
-      entry.markerBounds,
-      tap,
-      toleranceMeters,
-    )) {
+    if (!_boundsMayContain(entry.markerBounds, tap, toleranceMeters)) {
       return false;
     }
 
@@ -148,11 +144,12 @@ class GeoNetworkMapHitTest {
       final xj = polygon[j].longitude;
       final yj = polygon[j].latitude;
 
-      final intersect = ((yi > point.latitude) != (yj > point.latitude)) &&
-          (point.longitude <
-              (xj - xi) * (point.latitude - yi) /
-                  ((yj - yi) == 0 ? 0.0000001 : (yj - yi)) +
-                  xi);
+      final intersect =
+          ((yi > point.latitude) != (yj > point.latitude)) &&
+              (point.longitude <
+                  (xj - xi) * (point.latitude - yi) /
+                      ((yj - yi) == 0 ? 0.0000001 : (yj - yi)) +
+                      xi);
 
       if (intersect) inside = !inside;
       j = i;

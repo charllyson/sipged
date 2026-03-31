@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_field.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_property.dart';
+import 'package:sipged/_widgets/resize/resize_data.dart';
 
 class TabPropertyBinding extends StatefulWidget {
   const TabPropertyBinding({
@@ -13,7 +13,7 @@ class TabPropertyBinding extends StatefulWidget {
     required this.onBindingDropped,
   });
 
-  final GeoWorkspaceData item;
+  final ResizeData item;
   final GeoWorkspaceDataProperty property;
   final Map<String, List<GeoFeatureData>> featuresByLayer;
   final ValueChanged<GeoWorkspaceDataFieldDrag> onBindingDropped;

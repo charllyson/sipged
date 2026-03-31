@@ -21,7 +21,7 @@ import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 // ===== Widgets / UI
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 // ===== Utils
@@ -214,7 +214,7 @@ class _DfdPageState extends State<DfdPage>
               child: Scaffold(
                 body: Stack(
                   children: [
-                    const BackgroundClean(),
+                    const BackgroundChange(),
                     SingleChildScrollView(
                       key: const PageStorageKey('dfd-scroll'),
                       controller: _scrollController,

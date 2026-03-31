@@ -4,7 +4,7 @@ import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railway_data.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 
 class ActiveRailwaysDetails extends StatefulWidget {
   final ActiveRailwayData fer;

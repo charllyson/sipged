@@ -6,7 +6,7 @@ import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_state.d
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 
-import 'package:sipged/_widgets/cards/summary/expandable_card.dart';
+import 'package:sipged/_widgets/cards/expandable/expandable_card.dart';
 import 'package:sipged/_widgets/layout/responsive_section/responsive_section_row.dart';
 
 class GeneralDashboardSummary extends StatelessWidget {

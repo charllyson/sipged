@@ -12,7 +12,7 @@ import 'package:sipged/_widgets/pdf/pdf_preview.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 // ✅ input usado no rename
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 
 class SideListBox extends StatefulWidget {
   final String title;

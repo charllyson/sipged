@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_multi_formatter/formatters/currency_input_formatter.dart';
 import 'package:flutter_multi_formatter/formatters/money_input_enums.dart';
 
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 
 // ✅ novo (substitui mask_class.dart)
 import 'package:sipged/_utils/mask/sipged_masks.dart';

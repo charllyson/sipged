@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
@@ -19,7 +19,7 @@ class HomeBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const BackgroundClean(),
+        const BackgroundChange(),
         const SoftBubbles(),
         BlocBuilder<UserBloc, UserState>(
           builder: (context, state) {

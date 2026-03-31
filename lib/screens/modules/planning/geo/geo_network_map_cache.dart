@@ -8,8 +8,29 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data_simple.
 class GeoNetworkMapCache {
   GeoNetworkMapCache._();
 
+  /// Bucket mais "grosso" para elementos estáticos de mapa
+  /// (polygons / polylines / hit test).
+  ///
+  /// Exemplo:
+  /// 10.12 -> 10.0
+  /// 10.26 -> 10.5
+  static double staticZoomBucket(double zoom) {
+    return (zoom * 2).round() / 2.0;
+  }
+
+  /// Bucket um pouco mais sensível para markers e labels.
+  ///
+  /// Exemplo:
+  /// 10.12 -> 10.0
+  /// 10.18 -> 10.25
+  /// 10.36 -> 10.25 / 10.5
+  static double markerZoomBucket(double zoom) {
+    return (zoom * 4).round() / 4.0;
+  }
+
+  /// Mantido por compatibilidade, caso algum ponto do projeto ainda use.
   static double zoomBucket(double zoom) {
-    return (zoom * 10).round() / 10.0;
+    return markerZoomBucket(zoom);
   }
 
   static int pointsSignature(List<LatLng> points) {
@@ -24,7 +45,10 @@ class GeoNetworkMapCache {
     final out = <String, List<GeoFeatureData>>{};
 
     for (final feature in features) {
-      (out[feature.layerId] ??= <GeoFeatureData>[]).add(feature);
+      final layerId = (feature.layerId ?? '').trim();
+      if (layerId.isEmpty) continue;
+
+      (out[layerId] ??= <GeoFeatureData>[]).add(feature);
     }
 
     return out;
@@ -139,6 +163,38 @@ class GeoNetworkMapCache {
     ]);
   }
 
+  static int featureStaticSignature(GeoFeatureData f) {
+    return Object.hashAll([
+      f.selectionKey,
+      f.layerId,
+      f.geometryType,
+      f.markerPoints.length,
+      f.lineParts.length,
+      f.polygonRings.length,
+      Object.hashAll(
+        f.editedProperties.entries.map((e) => Object.hash(e.key, e.value)),
+      ),
+      Object.hashAll(
+        f.originalProperties.entries.map((e) => Object.hash(e.key, e.value)),
+      ),
+    ]);
+  }
+
+  static int featureMarkerSignature(GeoFeatureData f) {
+    return Object.hashAll([
+      f.selectionKey,
+      f.layerId,
+      f.geometryType,
+      f.markerPoints.length,
+      Object.hashAll(
+        f.editedProperties.entries.map((e) => Object.hash(e.key, e.value)),
+      ),
+      Object.hashAll(
+        f.originalProperties.entries.map((e) => Object.hash(e.key, e.value)),
+      ),
+    ]);
+  }
+
   static int computeStaticVisualSignature({
     required double zoomBucket,
     required String? selectedFeatureKey,
@@ -150,19 +206,11 @@ class GeoNetworkMapCache {
     required List<LatLng> distanceMeasurementPoints,
   }) {
     return Object.hashAll([
+      'STATIC',
       zoomBucket,
       selectedFeatureKey,
       features.length,
-      ...features.map(
-            (f) => Object.hash(
-          f.selectionKey,
-          f.layerId,
-          f.markerPoints.length,
-          f.lineParts.length,
-          f.polygonRings.length,
-          f.properties.toString(),
-        ),
-      ),
+      ...features.map(featureStaticSignature),
       layersById.length,
       ...layersById.entries.map(
             (e) => Object.hash(e.key, layerVisualSignature(e.value)),
@@ -189,17 +237,11 @@ class GeoNetworkMapCache {
     required List<LatLng> distanceMeasurementPoints,
   }) {
     return Object.hashAll([
+      'MARKERS',
       zoomBucket,
       selectedFeatureKey,
       features.length,
-      ...features.map(
-            (f) => Object.hash(
-          f.selectionKey,
-          f.layerId,
-          f.markerPoints.length,
-          f.properties.toString(),
-        ),
-      ),
+      ...features.map(featureMarkerSignature),
       layersById.length,
       ...layersById.entries.map(
             (e) => Object.hash(e.key, layerVisualSignature(e.value)),

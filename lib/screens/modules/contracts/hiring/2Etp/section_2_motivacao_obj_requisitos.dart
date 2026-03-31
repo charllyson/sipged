@@ -1,18 +1,18 @@
 // lib/screens/modules/contracts/hiring/2Etp/section_2_motivacao_obj_requisitos.dart
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
 
-class SectionMotivacaoObjRequisitos extends StatefulWidget
+class SectionMotivationObj extends StatefulWidget
     with SipGedValidation {
   final EtpData data;
   final bool isEditable;
   final void Function(EtpData updated) onChanged;
 
-  SectionMotivacaoObjRequisitos({
+  SectionMotivationObj({
     super.key,
     required this.data,
     required this.isEditable,
@@ -20,12 +20,12 @@ class SectionMotivacaoObjRequisitos extends StatefulWidget
   });
 
   @override
-  State<SectionMotivacaoObjRequisitos> createState() =>
-      _SectionMotivacaoObjRequisitosState();
+  State<SectionMotivationObj> createState() =>
+      _SectionMotivationObjState();
 }
 
-class _SectionMotivacaoObjRequisitosState
-    extends State<SectionMotivacaoObjRequisitos> {
+class _SectionMotivationObjState
+    extends State<SectionMotivationObj> {
   late final TextEditingController _motivacaoCtrl;
   late final TextEditingController _objetivosCtrl;
   late final TextEditingController _requisitosCtrl;
@@ -41,7 +41,7 @@ class _SectionMotivacaoObjRequisitosState
 
   @override
   void didUpdateWidget(
-      covariant SectionMotivacaoObjRequisitos oldWidget) {
+      covariant SectionMotivationObj oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       void sync(TextEditingController c, String? value) {

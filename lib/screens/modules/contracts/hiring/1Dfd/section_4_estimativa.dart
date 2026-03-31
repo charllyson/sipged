@@ -6,8 +6,8 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -189,7 +189,7 @@ class _SectionEstimativaState extends State<SectionEstimativa>
               children: [
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     key: ValueKey('funding-${widget.data.orgaoDemandante}-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Fonte de recurso',
@@ -210,7 +210,7 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                 ),
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     key: ValueKey('programs-${widget.data.orgaoDemandante}-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Programa de trabalho / Ação',
@@ -240,7 +240,7 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                 ),
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     key: ValueKey('expense-${widget.data.orgaoDemandante}-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Natureza da despesa (ND)',

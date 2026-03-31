@@ -1,6 +1,4 @@
 import 'dart:math' as math;
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:latlong2/latlong.dart';
@@ -30,6 +28,19 @@ class GeoNetworkMapLayers {
   }) {
     final out = <fm.Marker>[];
 
+    final int maxLabels;
+    if (zoom < 8.5) {
+      maxLabels = 80;
+    } else if (zoom < 10.0) {
+      maxLabels = 160;
+    } else if (zoom < 11.5) {
+      maxLabels = 280;
+    } else if (zoom < 13.0) {
+      maxLabels = 450;
+    } else {
+      maxLabels = 800;
+    }
+
     for (final layerId in orderedActiveLayerIds) {
       final layer = layersById[layerId];
       if (layer == null) continue;
@@ -38,6 +49,15 @@ class GeoNetworkMapLayers {
       if (features == null || features.isEmpty) continue;
 
       for (final feature in features) {
+        if (out.length >= maxLabels) break;
+
+        if (feature.isPolygonFamily && zoom < 9.0) {
+          continue;
+        }
+        if (feature.isLineFamily && zoom < 8.5) {
+          continue;
+        }
+
         final labels = resolveLabelsForFeature(
           layer: layer,
           feature: feature,
@@ -52,6 +72,14 @@ class GeoNetworkMapLayers {
         final isSelected = selectedFeatureKey == feature.selectionKey;
 
         for (final label in labels) {
+          if (out.length >= maxLabels) break;
+
+          if (label.type == LayerSimpleSymbolType.textLayer) {
+            final properties = _featureProperties(feature);
+            final text = _resolveLabelText(label, properties).trim();
+            if (text.isEmpty) continue;
+          }
+
           final markerSize = _labelMarkerSize(label);
 
           out.add(
@@ -79,6 +107,8 @@ class GeoNetworkMapLayers {
           );
         }
       }
+
+      if (out.length >= maxLabels) break;
     }
 
     return out;
@@ -95,12 +125,14 @@ class GeoNetworkMapLayers {
       return layer.effectiveLabelLayers;
     }
 
+    final properties = _featureProperties(feature);
+
     for (final rule in layer.ruleBasedLabels) {
       if (!rule.enabled) continue;
       if (rule.minZoom != null && zoom < rule.minZoom!) continue;
       if (rule.maxZoom != null && zoom > rule.maxZoom!) continue;
 
-      final matched = _matchesLabelRule(rule, feature.properties);
+      final matched = _matchesLabelRule(rule, properties);
       if (matched) {
         return [rule.style];
       }
@@ -148,9 +180,11 @@ class GeoNetworkMapLayers {
     required bool isSelected,
     required double zoom,
   }) {
+    final properties = _featureProperties(feature);
+
     switch (label.type) {
       case LayerSimpleSymbolType.textLayer:
-        final text = _resolveLabelText(label, feature.properties);
+        final text = _resolveLabelText(label, properties);
         if (text.trim().isEmpty) {
           return const SizedBox.shrink();
         }
@@ -352,7 +386,8 @@ class GeoNetworkMapLayers {
       for (final feature in layerFeatures) {
         if (!feature.isPolygonFamily) continue;
 
-        final layer = layersById[feature.layerId];
+        final featureLayerId = (feature.layerId ?? '').trim();
+        final layer = layersById[featureLayerId];
         final symbols = resolveSymbolsForFeature(
           layer: layer,
           feature: feature,
@@ -445,8 +480,7 @@ class GeoNetworkMapLayers {
       if (draftPolygon == null || draftPolygon.isEmpty) continue;
 
       final layer = layersById[layerId];
-      final symbols = (layer?.effectiveSymbolLayers ??
-          const <GeoLayersDataSimple>[])
+      final symbols = (layer?.effectiveSymbolLayers ?? const <GeoLayersDataSimple>[])
           .where((e) => e.enabled)
           .toList(growable: false);
 
@@ -523,7 +557,8 @@ class GeoNetworkMapLayers {
       for (final feature in layerFeatures) {
         if (!feature.isLineFamily) continue;
 
-        final layer = layersById[feature.layerId];
+        final featureLayerId = (feature.layerId ?? '').trim();
+        final layer = layersById[featureLayerId];
         final symbols = resolveSymbolsForFeature(
           layer: layer,
           feature: feature,
@@ -621,8 +656,7 @@ class GeoNetworkMapLayers {
       final draftLine = temporaryLineLayers[layerId];
       if (draftLine != null && draftLine.length >= 2) {
         final layer = layersById[layerId];
-        final symbols = (layer?.effectiveSymbolLayers ??
-            const <GeoLayersDataSimple>[])
+        final symbols = (layer?.effectiveSymbolLayers ?? const <GeoLayersDataSimple>[])
             .where((e) => e.enabled)
             .toList(growable: false);
 
@@ -646,8 +680,7 @@ class GeoNetworkMapLayers {
           );
         } else {
           for (final symbol in symbols.reversed) {
-            final baseWidth =
-            symbol.strokeWidth <= 0 ? 4.0 : symbol.strokeWidth;
+            final baseWidth = symbol.strokeWidth <= 0 ? 4.0 : symbol.strokeWidth;
             final width = _adaptStrokeWidth(
               baseWidth: baseWidth,
               zoom: zoom,
@@ -690,8 +723,7 @@ class GeoNetworkMapLayers {
       final draftPolygon = temporaryPolygonLayers[layerId];
       if (draftPolygon != null && draftPolygon.length >= 2) {
         final layer = layersById[layerId];
-        final symbols = (layer?.effectiveSymbolLayers ??
-            const <GeoLayersDataSimple>[])
+        final symbols = (layer?.effectiveSymbolLayers ?? const <GeoLayersDataSimple>[])
             .where((e) => e.enabled)
             .toList(growable: false);
 
@@ -719,8 +751,7 @@ class GeoNetworkMapLayers {
           );
         } else {
           for (final symbol in symbols.reversed) {
-            final baseWidth =
-            symbol.strokeWidth <= 0 ? 3.0 : symbol.strokeWidth;
+            final baseWidth = symbol.strokeWidth <= 0 ? 3.0 : symbol.strokeWidth;
             final width = _adaptStrokeWidth(
               baseWidth: baseWidth,
               zoom: zoom,
@@ -777,7 +808,6 @@ class GeoNetworkMapLayers {
     required Map<String, List<LatLng>> temporaryPointLayers,
     required Map<String, List<LatLng>> temporaryPolygonLayers,
     required List<LatLng> distanceMeasurementPoints,
-    required void Function(GeoFeatureData feature) onFeatureTap,
   }) {
     final out = <fm.Marker>[];
 
@@ -788,7 +818,8 @@ class GeoNetworkMapLayers {
       for (final feature in layerFeatures) {
         if (!feature.isPointFamily) continue;
 
-        final layer = layersById[feature.layerId];
+        final featureLayerId = (feature.layerId ?? '').trim();
+        final layer = layersById[featureLayerId];
         final isSelected = selectedFeatureKey == feature.selectionKey;
 
         final symbols = resolveSymbolsForFeature(
@@ -813,8 +844,7 @@ class GeoNetworkMapLayers {
               point: point,
               width: markerWidth,
               height: markerHeight,
-              child: GestureDetector(
-                onTap: () => onFeatureTap(feature),
+              child: IgnorePointer(
                 child: Center(
                   child: SizedBox(
                     width: markerWidth,
@@ -848,134 +878,6 @@ class GeoNetworkMapLayers {
       }
     }
 
-    for (final layerId in orderedActiveLayerIds) {
-      final points = temporaryPointLayers[layerId];
-      if (points != null && points.isNotEmpty) {
-        final layer = layersById[layerId];
-        final symbols = (layer?.effectiveSymbolLayers ??
-            const <GeoLayersDataSimple>[])
-            .where((e) => e.enabled)
-            .toList(growable: false);
-
-        final maxWidth = symbols.isEmpty
-            ? 42.0
-            : symbols.map((e) => e.width).fold(0.0, math.max);
-        final maxHeight = symbols.isEmpty
-            ? 42.0
-            : symbols.map((e) => e.height).fold(0.0, math.max);
-
-        final markerWidth = (maxWidth + 18).clamp(42.0, 140.0);
-        final markerHeight = (maxHeight + 18).clamp(42.0, 140.0);
-
-        for (final point in points) {
-          out.add(
-            fm.Marker(
-              point: point,
-              width: markerWidth,
-              height: markerHeight,
-              child: IgnorePointer(
-                child: Center(
-                  child: SizedBox(
-                    width: markerWidth,
-                    height: markerHeight,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          width: markerWidth * 0.62,
-                          height: markerHeight * 0.62,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.orange.withValues(alpha: 0.14),
-                          ),
-                        ),
-                        ...symbols.reversed.map(
-                              (symbol) => buildSymbolWidget(
-                            symbol: symbol,
-                            isSelected: false,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-      }
-
-      final polygonVertices = temporaryPolygonLayers[layerId];
-      if (polygonVertices != null && polygonVertices.isNotEmpty) {
-        final layer = layersById[layerId];
-        final color = layer?.displayColor ?? Colors.orange;
-
-        for (final point in polygonVertices) {
-          out.add(
-            fm.Marker(
-              point: point,
-              width: 20,
-              height: 20,
-              child: IgnorePointer(
-                child: Center(
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-      }
-    }
-
-    for (int i = 0; i < distanceMeasurementPoints.length; i++) {
-      final point = distanceMeasurementPoints[i];
-
-      out.add(
-        fm.Marker(
-          point: point,
-          width: 28,
-          height: 28,
-          child: IgnorePointer(
-            child: Center(
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: _measureColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '${i + 1}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     return out;
   }
 
@@ -990,12 +892,14 @@ class GeoNetworkMapLayers {
       return layer.effectiveSymbolLayers;
     }
 
+    final properties = _featureProperties(feature);
+
     for (final rule in layer.ruleBasedSymbols) {
       if (!rule.enabled) continue;
       if (rule.minZoom != null && zoom < rule.minZoom!) continue;
       if (rule.maxZoom != null && zoom > rule.maxZoom!) continue;
 
-      final matched = _matchesRule(rule, feature.properties);
+      final matched = _matchesRule(rule, properties);
 
       if (matched) {
         return rule.effectiveSymbolLayers(
@@ -1039,6 +943,13 @@ class GeoNetworkMapLayers {
       case LayerRuleOperator.isNotEmpty:
         return left.isNotEmpty;
     }
+  }
+
+  static Map<String, dynamic> _featureProperties(GeoFeatureData feature) {
+    final out = <String, dynamic>{};
+    out.addAll(feature.originalProperties);
+    out.addAll(feature.editedProperties);
+    return out;
   }
 
   static dynamic _readPropertyValue(

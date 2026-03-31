@@ -6,8 +6,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
@@ -416,7 +416,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
                         // LICITANTE como dropdown (companiesBodies)
                         SizedBox(
                           width: w4,
-                          child: DropDownButtonChange(
+                          child: DropDownChange(
                             controller: p.licitanteCtrl,
                             labelText: 'Licitante',
                             enabled: isEditable,
@@ -467,7 +467,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
 
                         SizedBox(
                           width: w4,
-                          child: DropDownButtonChange(
+                          child: DropDownChange(
                             enabled: isEditable,
                             labelText: 'Status',
                             controller: p.statusCtrl,

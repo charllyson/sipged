@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart'
-    show DropDownButtonChange;
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart'
+    show DropDownChange;
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
@@ -168,7 +168,7 @@ class _SectionDivulgacaoRecebimentoState
                 ),
                 SizedBox(
                   width: w4,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: isEditable,
                     labelText: 'Modalidade',
                     controller: _modalidadeCtrl,
@@ -185,7 +185,7 @@ class _SectionDivulgacaoRecebimentoState
                 ),
                 SizedBox(
                   width: w4,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: isEditable,
                     labelText: 'Critério de julgamento',
                     controller: _criterioCtrl,
@@ -202,7 +202,7 @@ class _SectionDivulgacaoRecebimentoState
                 ),
                 SizedBox(
                   width: w4,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _dataPublicacaoCtrl,
                     labelText: 'Data publicação',
                     enabled: isEditable,
@@ -216,7 +216,7 @@ class _SectionDivulgacaoRecebimentoState
                 ),
                 SizedBox(
                   width: w4,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _prazoImpugnacaoCtrl,
                     labelText: 'Prazo impugnação',
                     enabled: isEditable,
@@ -248,7 +248,7 @@ class _SectionDivulgacaoRecebimentoState
                 ),
                 SizedBox(
                   width: w4,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _prazoPropostasCtrl,
                     labelText: 'Limite para propostas dd/mm/aaaa hh:mm',
                     enabled: isEditable,

@@ -1,12 +1,12 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 
 class GeoMapCubit extends Cubit<GeoMapState> {
   GeoMapCubit({
@@ -267,22 +267,94 @@ class GeoMapCubit extends Cubit<GeoMapState> {
     return null;
   }
 
-  Future<GeoLayersData> ensureEditablePointLayer(
+  String? _activeEditingLayerIdFor(LayerGeometryKind kind) {
+    switch (kind) {
+      case LayerGeometryKind.point:
+        return state.activeEditingPointLayerId;
+      case LayerGeometryKind.line:
+        return state.activeEditingLineLayerId;
+      case LayerGeometryKind.polygon:
+        return state.activeEditingPolygonLayerId;
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        return null;
+    }
+  }
+
+  Map<String, List<LatLng>> _draftsFor(LayerGeometryKind kind) {
+    switch (kind) {
+      case LayerGeometryKind.point:
+        return state.draftPointLayers;
+      case LayerGeometryKind.line:
+        return state.draftLineLayers;
+      case LayerGeometryKind.polygon:
+        return state.draftPolygonLayers;
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        return const <String, List<LatLng>>{};
+    }
+  }
+
+  GeoMapState _copyWithDraftsFor(
+      LayerGeometryKind kind,
+      Map<String, List<LatLng>> drafts,
+      ) {
+    switch (kind) {
+      case LayerGeometryKind.point:
+        return state.copyWith(draftPointLayers: drafts);
+      case LayerGeometryKind.line:
+        return state.copyWith(draftLineLayers: drafts);
+      case LayerGeometryKind.polygon:
+        return state.copyWith(draftPolygonLayers: drafts);
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        return state;
+    }
+  }
+
+  GeoLayersData _createTemporaryLayer(
+      LayerGeometryKind kind,
+      List<GeoLayersData> currentTree,
+      ) {
+    switch (kind) {
+      case LayerGeometryKind.point:
+        return GeoLayersData.temporaryPointLayer(
+          id: generateTempLayerId('tmp_point_layer'),
+          sequence: nextTemporaryLayerSequence(currentTree, kind),
+        );
+      case LayerGeometryKind.line:
+        return GeoLayersData.temporaryLineLayer(
+          id: generateTempLayerId('tmp_line_layer'),
+          sequence: nextTemporaryLayerSequence(currentTree, kind),
+        );
+      case LayerGeometryKind.polygon:
+        return GeoLayersData.temporaryPolygonLayer(
+          id: generateTempLayerId('tmp_polygon_layer'),
+          sequence: nextTemporaryLayerSequence(currentTree, kind),
+        );
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        throw UnsupportedError('Geometria não suportada para edição.');
+    }
+  }
+
+  Future<GeoLayersData> _ensureEditableLayer(
+      LayerGeometryKind kind,
       List<GeoLayersData> currentTree,
       ) async {
-    if (state.activeEditingPointLayerId != null) {
-      final existing =
-      _layersCubit.findNodeById(state.activeEditingPointLayerId!, tree: currentTree);
+    final activeId = _activeEditingLayerIdFor(kind);
+    if (activeId != null) {
+      final existing = _layersCubit.findNodeById(activeId, tree: currentTree);
       if (existing != null && !existing.isGroup) {
         emit(state.copyWith(selectedLayerPanelItemId: existing.id));
         return existing;
       }
     }
 
-    if (isSelectedLeafMatchingGeometry(currentTree, LayerGeometryKind.point)) {
+    if (isSelectedLeafMatchingGeometry(currentTree, kind)) {
       final selected = selectedLeafLayer(currentTree)!;
 
-      final nextDrafts = Map<String, List<LatLng>>.from(state.draftPointLayers);
+      final nextDrafts = Map<String, List<LatLng>>.from(_draftsFor(kind));
       nextDrafts.putIfAbsent(selected.id, () => <LatLng>[]);
 
       final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
@@ -290,27 +362,38 @@ class GeoMapCubit extends Cubit<GeoMapState> {
 
       await ensureLayerActiveForEditing(selected, currentTree);
 
-      emit(
-        state.copyWith(
-          activeEditingPointLayerId: selected.id,
-          selectedLayerPanelItemId: selected.id,
-          draftPointLayers: nextDrafts,
-          draftOwnedTemporaryLayerIds: nextOwned,
-        ),
+      var nextState = _copyWithDraftsFor(kind, nextDrafts);
+      nextState = nextState.copyWith(
+        draftOwnedTemporaryLayerIds: nextOwned,
+        selectedLayerPanelItemId: selected.id,
       );
 
+      switch (kind) {
+        case LayerGeometryKind.point:
+          nextState = nextState.copyWith(activeEditingPointLayerId: selected.id);
+          break;
+        case LayerGeometryKind.line:
+          nextState = nextState.copyWith(activeEditingLineLayerId: selected.id);
+          break;
+        case LayerGeometryKind.polygon:
+          nextState =
+              nextState.copyWith(activeEditingPolygonLayerId: selected.id);
+          break;
+        case LayerGeometryKind.mixed:
+        case LayerGeometryKind.unknown:
+          break;
+      }
+
+      emit(nextState);
       return selected;
     }
 
-    final newLayer = GeoLayersData.temporaryPointLayer(
-      id: generateTempLayerId('tmp_point_layer'),
-      sequence: nextTemporaryLayerSequence(currentTree, LayerGeometryKind.point),
-    );
+    final newLayer = _createTemporaryLayer(kind, currentTree);
 
     final nextTree = insertNewLayerRespectingSelection(currentTree, newLayer);
     await persistTree(nextTree);
 
-    final nextDrafts = Map<String, List<LatLng>>.from(state.draftPointLayers)
+    final nextDrafts = Map<String, List<LatLng>>.from(_draftsFor(kind))
       ..[newLayer.id] = <LatLng>[];
 
     final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
@@ -320,156 +403,64 @@ class GeoMapCubit extends Cubit<GeoMapState> {
       _layersCubit.toggleLayer(newLayer.id, true);
     }
 
-    emit(
-      state.copyWith(
-        activeEditingPointLayerId: newLayer.id,
-        selectedLayerPanelItemId: newLayer.id,
-        draftPointLayers: nextDrafts,
-        draftOwnedTemporaryLayerIds: nextOwned,
-      ),
+    var nextState = _copyWithDraftsFor(kind, nextDrafts);
+    nextState = nextState.copyWith(
+      draftOwnedTemporaryLayerIds: nextOwned,
+      selectedLayerPanelItemId: newLayer.id,
     );
 
+    switch (kind) {
+      case LayerGeometryKind.point:
+        nextState = nextState.copyWith(activeEditingPointLayerId: newLayer.id);
+        break;
+      case LayerGeometryKind.line:
+        nextState = nextState.copyWith(activeEditingLineLayerId: newLayer.id);
+        break;
+      case LayerGeometryKind.polygon:
+        nextState = nextState.copyWith(activeEditingPolygonLayerId: newLayer.id);
+        break;
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        break;
+    }
+
+    emit(nextState);
     return newLayer;
+  }
+
+  void _appendDraftVertex(
+      LayerGeometryKind kind,
+      GeoLayersData layer,
+      LatLng latLng,
+      ) {
+    final nextDrafts = Map<String, List<LatLng>>.from(_draftsFor(kind));
+    final list = List<LatLng>.from(nextDrafts[layer.id] ?? const []);
+    list.add(latLng);
+    nextDrafts[layer.id] = list;
+
+    final nextState = _copyWithDraftsFor(kind, nextDrafts).copyWith(
+      selectedLayerPanelItemId: layer.id,
+    );
+
+    emit(nextState);
+  }
+
+  Future<GeoLayersData> ensureEditablePointLayer(
+      List<GeoLayersData> currentTree,
+      ) async {
+    return _ensureEditableLayer(LayerGeometryKind.point, currentTree);
   }
 
   Future<GeoLayersData> ensureEditableLineLayer(
       List<GeoLayersData> currentTree,
       ) async {
-    if (state.activeEditingLineLayerId != null) {
-      final existing =
-      _layersCubit.findNodeById(state.activeEditingLineLayerId!, tree: currentTree);
-      if (existing != null && !existing.isGroup) {
-        emit(state.copyWith(selectedLayerPanelItemId: existing.id));
-        return existing;
-      }
-    }
-
-    if (isSelectedLeafMatchingGeometry(currentTree, LayerGeometryKind.line)) {
-      final selected = selectedLeafLayer(currentTree)!;
-
-      final nextDrafts = Map<String, List<LatLng>>.from(state.draftLineLayers);
-      nextDrafts.putIfAbsent(selected.id, () => <LatLng>[]);
-
-      final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
-        ..remove(selected.id);
-
-      await ensureLayerActiveForEditing(selected, currentTree);
-
-      emit(
-        state.copyWith(
-          activeEditingLineLayerId: selected.id,
-          selectedLayerPanelItemId: selected.id,
-          draftLineLayers: nextDrafts,
-          draftOwnedTemporaryLayerIds: nextOwned,
-        ),
-      );
-
-      return selected;
-    }
-
-    final newLayer = GeoLayersData.temporaryLineLayer(
-      id: generateTempLayerId('tmp_line_layer'),
-      sequence: nextTemporaryLayerSequence(currentTree, LayerGeometryKind.line),
-    );
-
-    final nextTree = insertNewLayerRespectingSelection(currentTree, newLayer);
-    await persistTree(nextTree);
-
-    final nextDrafts = Map<String, List<LatLng>>.from(state.draftLineLayers)
-      ..[newLayer.id] = <LatLng>[];
-
-    final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
-      ..add(newLayer.id);
-
-    if (!_layersCubit.state.activeLayerIds.contains(newLayer.id)) {
-      _layersCubit.toggleLayer(newLayer.id, true);
-    }
-
-    emit(
-      state.copyWith(
-        activeEditingLineLayerId: newLayer.id,
-        selectedLayerPanelItemId: newLayer.id,
-        draftLineLayers: nextDrafts,
-        draftOwnedTemporaryLayerIds: nextOwned,
-      ),
-    );
-
-    return newLayer;
+    return _ensureEditableLayer(LayerGeometryKind.line, currentTree);
   }
 
   Future<GeoLayersData> ensureEditablePolygonLayer(
       List<GeoLayersData> currentTree,
       ) async {
-    if (state.activeEditingPolygonLayerId != null) {
-      final existing = _layersCubit.findNodeById(
-        state.activeEditingPolygonLayerId!,
-        tree: currentTree,
-      );
-      if (existing != null && !existing.isGroup) {
-        emit(state.copyWith(selectedLayerPanelItemId: existing.id));
-        return existing;
-      }
-    }
-
-    if (isSelectedLeafMatchingGeometry(
-      currentTree,
-      LayerGeometryKind.polygon,
-    )) {
-      final selected = selectedLeafLayer(currentTree)!;
-
-      final nextDrafts =
-      Map<String, List<LatLng>>.from(state.draftPolygonLayers);
-      nextDrafts.putIfAbsent(selected.id, () => <LatLng>[]);
-
-      final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
-        ..remove(selected.id);
-
-      await ensureLayerActiveForEditing(selected, currentTree);
-
-      emit(
-        state.copyWith(
-          activeEditingPolygonLayerId: selected.id,
-          selectedLayerPanelItemId: selected.id,
-          draftPolygonLayers: nextDrafts,
-          draftOwnedTemporaryLayerIds: nextOwned,
-        ),
-      );
-
-      return selected;
-    }
-
-    final newLayer = GeoLayersData.temporaryPolygonLayer(
-      id: generateTempLayerId('tmp_polygon_layer'),
-      sequence: nextTemporaryLayerSequence(
-        currentTree,
-        LayerGeometryKind.polygon,
-      ),
-    );
-
-    final nextTree = insertNewLayerRespectingSelection(currentTree, newLayer);
-    await persistTree(nextTree);
-
-    final nextDrafts =
-    Map<String, List<LatLng>>.from(state.draftPolygonLayers)
-      ..[newLayer.id] = <LatLng>[];
-
-    final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
-      ..add(newLayer.id);
-
-    if (!_layersCubit.state.activeLayerIds.contains(newLayer.id)) {
-      _layersCubit.toggleLayer(newLayer.id, true);
-    }
-
-    emit(
-      state.copyWith(
-        activeEditingPolygonLayerId: newLayer.id,
-        selectedLayerPanelItemId: newLayer.id,
-        draftPolygonLayers: nextDrafts,
-        draftOwnedTemporaryLayerIds: nextOwned,
-      ),
-    );
-
-    return newLayer;
+    return _ensureEditableLayer(LayerGeometryKind.polygon, currentTree);
   }
 
   Future<String?> handleMapBackgroundTap(
@@ -490,19 +481,11 @@ class GeoMapCubit extends Cubit<GeoMapState> {
         return 'Conclua ou cancele a edição atual antes de iniciar pontos.';
       }
 
-      final editableLayer = await ensureEditablePointLayer(currentTree);
-      final nextDrafts = Map<String, List<LatLng>>.from(state.draftPointLayers);
-      final list = List<LatLng>.from(nextDrafts[editableLayer.id] ?? const []);
-      list.add(latLng);
-      nextDrafts[editableLayer.id] = list;
-
-      emit(
-        state.copyWith(
-          draftPointLayers: nextDrafts,
-          selectedLayerPanelItemId: editableLayer.id,
-        ),
+      final editableLayer = await _ensureEditableLayer(
+        LayerGeometryKind.point,
+        currentTree,
       );
-
+      _appendDraftVertex(LayerGeometryKind.point, editableLayer, latLng);
       showPanel('group_vectorizacao');
       return null;
     }
@@ -512,19 +495,11 @@ class GeoMapCubit extends Cubit<GeoMapState> {
         return 'Conclua ou cancele a edição atual antes de iniciar linhas.';
       }
 
-      final editableLayer = await ensureEditableLineLayer(currentTree);
-      final nextDrafts = Map<String, List<LatLng>>.from(state.draftLineLayers);
-      final list = List<LatLng>.from(nextDrafts[editableLayer.id] ?? const []);
-      list.add(latLng);
-      nextDrafts[editableLayer.id] = list;
-
-      emit(
-        state.copyWith(
-          draftLineLayers: nextDrafts,
-          selectedLayerPanelItemId: editableLayer.id,
-        ),
+      final editableLayer = await _ensureEditableLayer(
+        LayerGeometryKind.line,
+        currentTree,
       );
-
+      _appendDraftVertex(LayerGeometryKind.line, editableLayer, latLng);
       showPanel('group_vectorizacao');
       return null;
     }
@@ -534,20 +509,11 @@ class GeoMapCubit extends Cubit<GeoMapState> {
         return 'Conclua ou cancele a edição atual antes de iniciar polígonos.';
       }
 
-      final editableLayer = await ensureEditablePolygonLayer(currentTree);
-      final nextDrafts =
-      Map<String, List<LatLng>>.from(state.draftPolygonLayers);
-      final list = List<LatLng>.from(nextDrafts[editableLayer.id] ?? const []);
-      list.add(latLng);
-      nextDrafts[editableLayer.id] = list;
-
-      emit(
-        state.copyWith(
-          draftPolygonLayers: nextDrafts,
-          selectedLayerPanelItemId: editableLayer.id,
-        ),
+      final editableLayer = await _ensureEditableLayer(
+        LayerGeometryKind.polygon,
+        currentTree,
       );
-
+      _appendDraftVertex(LayerGeometryKind.polygon, editableLayer, latLng);
       showPanel('group_vectorizacao');
       return null;
     }
@@ -555,23 +521,52 @@ class GeoMapCubit extends Cubit<GeoMapState> {
     return null;
   }
 
-  Future<bool> finalizeCurrentPointEditing() async {
-    final draftId = state.activeEditingPointLayerId;
+  Future<bool> _finalizeCurrentEditing(LayerGeometryKind kind) async {
+    final draftId = _activeEditingLayerIdFor(kind);
     if (draftId == null) return true;
 
-    final points = List<LatLng>.from(state.draftPointLayers[draftId] ?? const []);
-    if (points.isEmpty) return false;
+    final drafts = _draftsFor(kind);
+    final vertices = List<LatLng>.from(drafts[draftId] ?? const []);
+
+    final minimumVertices = switch (kind) {
+      LayerGeometryKind.point => 1,
+      LayerGeometryKind.line => 2,
+      LayerGeometryKind.polygon => 3,
+      LayerGeometryKind.mixed || LayerGeometryKind.unknown => 999999,
+    };
+
+    if (vertices.length < minimumVertices) return false;
 
     final currentTree = _layersCubit.state.tree;
     final layer = _layersCubit.findNodeById(draftId, tree: currentTree);
-
     if (layer == null || layer.isGroup) return false;
 
-    await _featureCubit.addPointFeaturesBatch(
-      layer: layer,
-      points: points,
-      commonProperties: {'title': layer.title},
-    );
+    switch (kind) {
+      case LayerGeometryKind.point:
+        await _featureCubit.addPointFeaturesBatch(
+          layer: layer,
+          points: vertices,
+          commonProperties: {'title': layer.title},
+        );
+        break;
+      case LayerGeometryKind.line:
+        await _featureCubit.addLineFeaturesBatch(
+          layer: layer,
+          lines: [vertices],
+          commonProperties: {'title': layer.title},
+        );
+        break;
+      case LayerGeometryKind.polygon:
+        await _featureCubit.addPolygonFeaturesBatch(
+          layer: layer,
+          polygons: [vertices],
+          commonProperties: {'title': layer.title},
+        );
+        break;
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        return false;
+    }
 
     if (state.draftOwnedTemporaryLayerIds.contains(layer.id)) {
       await _layersCubit.updateNodeById(
@@ -579,202 +574,128 @@ class GeoMapCubit extends Cubit<GeoMapState> {
             (old) => old.copyWith(isTemporary: false, supportsConnect: true),
       );
 
-      await _layersCubit.refreshAllLayerData(_layersCubit.state.tree, force: true);
+      await _layersCubit.refreshAllLayerData(
+        _layersCubit.state.tree,
+        force: true,
+      );
     }
 
-    final nextDrafts = Map<String, List<LatLng>>.from(state.draftPointLayers)
-      ..remove(draftId);
+    final nextDrafts = Map<String, List<LatLng>>.from(drafts)..remove(draftId);
 
     final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
       ..remove(layer.id);
 
-    emit(
-      state.copyWith(
-        draftPointLayers: nextDrafts,
-        draftOwnedTemporaryLayerIds: nextOwned,
-        selectedLayerPanelItemId: layer.id,
-        clearActiveEditingPointLayerId: true,
-      ),
-    );
+    GeoMapState nextState;
+    switch (kind) {
+      case LayerGeometryKind.point:
+        nextState = state.copyWith(
+          draftPointLayers: nextDrafts,
+          draftOwnedTemporaryLayerIds: nextOwned,
+          selectedLayerPanelItemId: layer.id,
+          clearActiveEditingPointLayerId: true,
+        );
+        break;
+      case LayerGeometryKind.line:
+        nextState = state.copyWith(
+          draftLineLayers: nextDrafts,
+          draftOwnedTemporaryLayerIds: nextOwned,
+          selectedLayerPanelItemId: layer.id,
+          clearActiveEditingLineLayerId: true,
+        );
+        break;
+      case LayerGeometryKind.polygon:
+        nextState = state.copyWith(
+          draftPolygonLayers: nextDrafts,
+          draftOwnedTemporaryLayerIds: nextOwned,
+          selectedLayerPanelItemId: layer.id,
+          clearActiveEditingPolygonLayerId: true,
+        );
+        break;
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        return false;
+    }
 
+    emit(nextState);
     return true;
+  }
+
+  Future<bool> finalizeCurrentPointEditing() async {
+    return _finalizeCurrentEditing(LayerGeometryKind.point);
   }
 
   Future<bool> finalizeCurrentLineEditing() async {
-    final draftId = state.activeEditingLineLayerId;
-    if (draftId == null) return true;
-
-    final vertices = List<LatLng>.from(state.draftLineLayers[draftId] ?? const []);
-    if (vertices.length < 2) return false;
-
-    final currentTree = _layersCubit.state.tree;
-    final layer = _layersCubit.findNodeById(draftId, tree: currentTree);
-
-    if (layer == null || layer.isGroup) return false;
-
-    await _featureCubit.addLineFeaturesBatch(
-      layer: layer,
-      lines: [vertices],
-      commonProperties: {'title': layer.title},
-    );
-
-    if (state.draftOwnedTemporaryLayerIds.contains(layer.id)) {
-      await _layersCubit.updateNodeById(
-        layer.id,
-            (old) => old.copyWith(isTemporary: false, supportsConnect: true),
-      );
-
-      await _layersCubit.refreshAllLayerData(_layersCubit.state.tree, force: true);
-    }
-
-    final nextDrafts = Map<String, List<LatLng>>.from(state.draftLineLayers)
-      ..remove(draftId);
-
-    final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
-      ..remove(layer.id);
-
-    emit(
-      state.copyWith(
-        draftLineLayers: nextDrafts,
-        draftOwnedTemporaryLayerIds: nextOwned,
-        selectedLayerPanelItemId: layer.id,
-        clearActiveEditingLineLayerId: true,
-      ),
-    );
-
-    return true;
+    return _finalizeCurrentEditing(LayerGeometryKind.line);
   }
 
   Future<bool> finalizeCurrentPolygonEditing() async {
-    final draftId = state.activeEditingPolygonLayerId;
-    if (draftId == null) return true;
+    return _finalizeCurrentEditing(LayerGeometryKind.polygon);
+  }
 
-    final vertices =
-    List<LatLng>.from(state.draftPolygonLayers[draftId] ?? const []);
-    if (vertices.length < 3) return false;
+  Future<void> _cancelCurrentEditing(LayerGeometryKind kind) async {
+    final draftId = _activeEditingLayerIdFor(kind);
+    if (draftId == null) return;
 
-    final currentTree = _layersCubit.state.tree;
-    final layer = _layersCubit.findNodeById(draftId, tree: currentTree);
+    final wasTemporary = state.draftOwnedTemporaryLayerIds.contains(draftId);
 
-    if (layer == null || layer.isGroup) return false;
-
-    await _featureCubit.addPolygonFeaturesBatch(
-      layer: layer,
-      polygons: [vertices],
-      commonProperties: {'title': layer.title},
-    );
-
-    if (state.draftOwnedTemporaryLayerIds.contains(layer.id)) {
-      await _layersCubit.updateNodeById(
-        layer.id,
-            (old) => old.copyWith(isTemporary: false, supportsConnect: true),
-      );
-
-      await _layersCubit.refreshAllLayerData(_layersCubit.state.tree, force: true);
+    if (wasTemporary) {
+      await _layersCubit.removeNode(draftId);
+      _featureCubit.unloadLayer(draftId);
     }
 
-    final nextDrafts =
-    Map<String, List<LatLng>>.from(state.draftPolygonLayers)
+    final nextDrafts = Map<String, List<LatLng>>.from(_draftsFor(kind))
       ..remove(draftId);
 
     final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
-      ..remove(layer.id);
+      ..remove(draftId);
 
-    emit(
-      state.copyWith(
-        draftPolygonLayers: nextDrafts,
-        draftOwnedTemporaryLayerIds: nextOwned,
-        selectedLayerPanelItemId: layer.id,
-        clearActiveEditingPolygonLayerId: true,
-      ),
-    );
+    GeoMapState nextState;
+    switch (kind) {
+      case LayerGeometryKind.point:
+        nextState = state.copyWith(
+          draftPointLayers: nextDrafts,
+          draftOwnedTemporaryLayerIds: nextOwned,
+          clearActiveEditingPointLayerId: true,
+          clearSelectedLayerPanelItem:
+          wasTemporary && state.selectedLayerPanelItemId == draftId,
+        );
+        break;
+      case LayerGeometryKind.line:
+        nextState = state.copyWith(
+          draftLineLayers: nextDrafts,
+          draftOwnedTemporaryLayerIds: nextOwned,
+          clearActiveEditingLineLayerId: true,
+          clearSelectedLayerPanelItem:
+          wasTemporary && state.selectedLayerPanelItemId == draftId,
+        );
+        break;
+      case LayerGeometryKind.polygon:
+        nextState = state.copyWith(
+          draftPolygonLayers: nextDrafts,
+          draftOwnedTemporaryLayerIds: nextOwned,
+          clearActiveEditingPolygonLayerId: true,
+          clearSelectedLayerPanelItem:
+          wasTemporary && state.selectedLayerPanelItemId == draftId,
+        );
+        break;
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        return;
+    }
 
-    return true;
+    emit(nextState);
   }
 
   Future<void> cancelCurrentPointEditing() async {
-    final draftId = state.activeEditingPointLayerId;
-    if (draftId == null) return;
-
-    final wasTemporary = state.draftOwnedTemporaryLayerIds.contains(draftId);
-
-    if (wasTemporary) {
-      await _layersCubit.removeNode(draftId);
-      _featureCubit.unloadLayer(draftId);
-    }
-
-    final nextDrafts = Map<String, List<LatLng>>.from(state.draftPointLayers)
-      ..remove(draftId);
-
-    final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
-      ..remove(draftId);
-
-    emit(
-      state.copyWith(
-        draftPointLayers: nextDrafts,
-        draftOwnedTemporaryLayerIds: nextOwned,
-        clearActiveEditingPointLayerId: true,
-        clearSelectedLayerPanelItem:
-        wasTemporary && state.selectedLayerPanelItemId == draftId,
-      ),
-    );
+    await _cancelCurrentEditing(LayerGeometryKind.point);
   }
 
   Future<void> cancelCurrentLineEditing() async {
-    final draftId = state.activeEditingLineLayerId;
-    if (draftId == null) return;
-
-    final wasTemporary = state.draftOwnedTemporaryLayerIds.contains(draftId);
-
-    if (wasTemporary) {
-      await _layersCubit.removeNode(draftId);
-      _featureCubit.unloadLayer(draftId);
-    }
-
-    final nextDrafts = Map<String, List<LatLng>>.from(state.draftLineLayers)
-      ..remove(draftId);
-
-    final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
-      ..remove(draftId);
-
-    emit(
-      state.copyWith(
-        draftLineLayers: nextDrafts,
-        draftOwnedTemporaryLayerIds: nextOwned,
-        clearActiveEditingLineLayerId: true,
-        clearSelectedLayerPanelItem:
-        wasTemporary && state.selectedLayerPanelItemId == draftId,
-      ),
-    );
+    await _cancelCurrentEditing(LayerGeometryKind.line);
   }
 
   Future<void> cancelCurrentPolygonEditing() async {
-    final draftId = state.activeEditingPolygonLayerId;
-    if (draftId == null) return;
-
-    final wasTemporary = state.draftOwnedTemporaryLayerIds.contains(draftId);
-
-    if (wasTemporary) {
-      await _layersCubit.removeNode(draftId);
-      _featureCubit.unloadLayer(draftId);
-    }
-
-    final nextDrafts =
-    Map<String, List<LatLng>>.from(state.draftPolygonLayers)
-      ..remove(draftId);
-
-    final nextOwned = Set<String>.from(state.draftOwnedTemporaryLayerIds)
-      ..remove(draftId);
-
-    emit(
-      state.copyWith(
-        draftPolygonLayers: nextDrafts,
-        draftOwnedTemporaryLayerIds: nextOwned,
-        clearActiveEditingPolygonLayerId: true,
-        clearSelectedLayerPanelItem:
-        wasTemporary && state.selectedLayerPanelItemId == draftId,
-      ),
-    );
+    await _cancelCurrentEditing(LayerGeometryKind.polygon);
   }
 
   Future<void> createLayer(List<GeoLayersData> currentTree) async {
@@ -849,10 +770,7 @@ class GeoMapCubit extends Cubit<GeoMapState> {
 
     final allNodeIds = allNodes.map((e) => e.id).toSet();
 
-    final leafIds = allNodes
-        .where((e) => !e.isGroup)
-        .map((e) => e.id)
-        .toSet();
+    final leafIds = allNodes.where((e) => !e.isGroup).map((e) => e.id).toSet();
 
     final nextPointDrafts = Map<String, List<LatLng>>.from(state.draftPointLayers)
       ..removeWhere((key, _) => !leafIds.contains(key));
@@ -889,34 +807,16 @@ class GeoMapCubit extends Cubit<GeoMapState> {
   }
 
   Map<String, List<LatLng>> buildVisiblePointDrafts(Set<String> activeLayerIds) {
-    final result = <String, List<LatLng>>{};
-    for (final entry in state.draftPointLayers.entries) {
-      if (activeLayerIds.contains(entry.key) && entry.value.isNotEmpty) {
-        result[entry.key] = entry.value;
-      }
-    }
-    return result;
+    return state.buildVisibleDrafts(LayerGeometryKind.point, activeLayerIds);
   }
 
   Map<String, List<LatLng>> buildVisibleLineDrafts(Set<String> activeLayerIds) {
-    final result = <String, List<LatLng>>{};
-    for (final entry in state.draftLineLayers.entries) {
-      if (activeLayerIds.contains(entry.key) && entry.value.isNotEmpty) {
-        result[entry.key] = entry.value;
-      }
-    }
-    return result;
+    return state.buildVisibleDrafts(LayerGeometryKind.line, activeLayerIds);
   }
 
   Map<String, List<LatLng>> buildVisiblePolygonDrafts(
       Set<String> activeLayerIds,
       ) {
-    final result = <String, List<LatLng>>{};
-    for (final entry in state.draftPolygonLayers.entries) {
-      if (activeLayerIds.contains(entry.key) && entry.value.isNotEmpty) {
-        result[entry.key] = entry.value;
-      }
-    }
-    return result;
+    return state.buildVisibleDrafts(LayerGeometryKind.polygon, activeLayerIds);
   }
 }

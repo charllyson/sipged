@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
@@ -264,7 +264,7 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                       children: [
                         SizedBox(
                           width: w(4),
-                          child: CustomDateField(
+                          child: DateFieldChange(
                             controller: _dateCtrl,
                             labelText: 'Data da inspeção',
                             initialValue: _date,
@@ -306,7 +306,7 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                         ),
                         SizedBox(
                           width: w(4),
-                          child: CustomDateField(
+                          child: DateFieldChange(
                             controller: _nextDateCtrl,
                             labelText: 'Próxima inspeção (opcional)',
                             initialValue: _nextDate,

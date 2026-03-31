@@ -225,7 +225,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
               children: [
                 SizedBox(
                   width: inputW(3),
-                  child: YesNoDrop(
+                  child: DropDownYesNoDrop(
                     labelText: 'ETP/Estudos preliminares anexos?',
                     enabled: widget.isEditable,
                     value: d.etpAnexo,
@@ -234,7 +234,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
                 ),
                 SizedBox(
                   width: inputW(3),
-                  child: YesNoDrop(
+                  child: DropDownYesNoDrop(
                     labelText: 'Projeto básico/executivo disponível?',
                     enabled: widget.isEditable,
                     value: d.projetoBasico,
@@ -243,7 +243,7 @@ class _SectionDocumentosState extends State<SectionDocumentos> {
                 ),
                 SizedBox(
                   width: inputW(3),
-                  child: YesNoDrop(
+                  child: DropDownYesNoDrop(
                     labelText: 'Termo de Referência/Matriz de riscos?',
                     enabled: widget.isEditable,
                     value: d.termoMatrizRiscos,

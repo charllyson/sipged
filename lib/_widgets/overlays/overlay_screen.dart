@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/cards/progress/progress_card.dart';
+import 'package:sipged/_widgets/overlays/progress_card.dart';
 import 'package:sipged/_widgets/overlays/animated_scale_fade.dart';
 
 class OverlayScreen extends StatelessWidget {

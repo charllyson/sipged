@@ -4,8 +4,8 @@ import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
@@ -162,7 +162,7 @@ class ReportMeasurementFormSection extends StatelessWidget {
               isEditable: isEditable,
               mask: SipGedMasks.processo,
             ),
-            CustomDateField(
+            DateFieldChange(
               width: inputsWidth,
               enabled: isEditable,
               controller: dateController,

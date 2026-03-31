@@ -11,7 +11,7 @@ import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_data.da
 import 'package:sipged/_blocs/modules/operation/phys_fin/physics_finance_store.dart';
 
 // SIGED deps
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 // Cubit de cronograma rodoviário
@@ -320,7 +320,7 @@ class _SchedulePhysicalFinancialWidgetState
     return Scaffold(
       body: Stack(
         children: [
-          const BackgroundClean(),
+          const BackgroundChange(),
           BlocBuilder<ScheduleRoadCubit, ScheduleRoadState>(
             buildWhen: (a, b) =>
             a.services != b.services ||

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -20,20 +21,76 @@ enum GeoFeatureGeometryFamily {
   unknown,
 }
 
+enum TypeFieldGeoJson {
+  string,
+  integer,
+  double_,
+  boolean,
+  datetime,
+}
+
+class ImportColumnMeta extends Equatable {
+  final String name;
+  final bool selected;
+  final TypeFieldGeoJson type;
+
+  const ImportColumnMeta({
+    required this.name,
+    required this.selected,
+    required this.type,
+  });
+
+  ImportColumnMeta copyWith({
+    String? name,
+    bool? selected,
+    TypeFieldGeoJson? type,
+  }) {
+    return ImportColumnMeta(
+      name: name ?? this.name,
+      selected: selected ?? this.selected,
+      type: type ?? this.type,
+    );
+  }
+
+  @override
+  List<Object?> get props => [name, selected, type];
+}
+
+class GeoFeatureParsedGeometry {
+  final List<LatLng> markerPoints;
+  final List<List<LatLng>> lineParts;
+  final List<List<LatLng>> polygonRings;
+
+  const GeoFeatureParsedGeometry({
+    this.markerPoints = const [],
+    this.lineParts = const [],
+    this.polygonRings = const [],
+  });
+}
+
 class GeoFeatureData extends Equatable {
-  final String id;
-  final String layerId;
-  final Map<String, dynamic> properties;
+  final String? id;
+  final String? layerId;
+
+  final Map<String, dynamic> originalProperties;
+  final Map<String, dynamic> editedProperties;
+  final Map<String, TypeFieldGeoJson> columnTypes;
+  final bool selected;
+
   final GeoFeatureGeometryType geometryType;
   final Map<String, dynamic> rawGeometry;
+
   final List<LatLng> markerPoints;
   final List<List<LatLng>> lineParts;
   final List<List<LatLng>> polygonRings;
 
   const GeoFeatureData({
-    required this.id,
-    required this.layerId,
-    required this.properties,
+    this.id,
+    this.layerId,
+    required this.originalProperties,
+    required this.editedProperties,
+    required this.columnTypes,
+    required this.selected,
     required this.geometryType,
     required this.rawGeometry,
     this.markerPoints = const [],
@@ -41,7 +98,117 @@ class GeoFeatureData extends Equatable {
     this.polygonRings = const [],
   });
 
-  String get selectionKey => '$layerId::$id';
+  factory GeoFeatureData.fromFirestore({
+    required String docId,
+    required String layerId,
+    required Map<String, dynamic> map,
+    bool selected = false,
+  }) {
+    final rawStoredGeometry = Map<String, dynamic>.from(
+      (map['geometry'] as Map?) ?? const <String, dynamic>{},
+    );
+
+    final normalizedGeometry = normalizeFirestoreGeometry(rawStoredGeometry);
+    final geometryType = mapGeoJsonType(
+      (normalizedGeometry['type'] ?? map['geometryType'] ?? '').toString(),
+    );
+
+    final parsed = parseGeometry(
+      geometryType: geometryType,
+      geometry: normalizedGeometry,
+    );
+
+    final props = resolveProperties(map);
+    final columnTypes = {
+      for (final entry in props.entries) entry.key: inferFieldType(entry.value),
+    };
+
+    return GeoFeatureData(
+      id: docId,
+      layerId: layerId,
+      originalProperties: props,
+      editedProperties: Map<String, dynamic>.from(props),
+      columnTypes: columnTypes,
+      selected: selected,
+      geometryType: geometryType,
+      rawGeometry: normalizedGeometry,
+      markerPoints: parsed.markerPoints,
+      lineParts: parsed.lineParts,
+      polygonRings: parsed.polygonRings,
+    );
+  }
+
+  factory GeoFeatureData.fromImportedRawFeature(
+      Map<String, dynamic> rawFeature, {
+        bool selected = true,
+      }) {
+    final props = resolveProperties(rawFeature);
+    final geometry = Map<String, dynamic>.from(
+      (rawFeature['geometry'] as Map?) ?? const <String, dynamic>{},
+    );
+
+    final geometryType =
+    mapGeoJsonType((geometry['type'] ?? '').toString());
+
+    final parsed = parseGeometry(
+      geometryType: geometryType,
+      geometry: geometry,
+    );
+
+    final allKeys = props.keys.toList()..sort();
+
+    final edited = <String, dynamic>{
+      for (final key in allKeys) key: props[key],
+    };
+
+    final columnTypes = <String, TypeFieldGeoJson>{
+      for (final key in allKeys) key: inferFieldType(props[key]),
+    };
+
+    return GeoFeatureData(
+      id: null,
+      layerId: null,
+      originalProperties: props,
+      editedProperties: edited,
+      columnTypes: columnTypes,
+      selected: selected,
+      geometryType: geometryType,
+      rawGeometry: geometry,
+      markerPoints: parsed.markerPoints,
+      lineParts: parsed.lineParts,
+      polygonRings: parsed.polygonRings,
+    );
+  }
+
+  GeoFeatureData copyWith({
+    String? id,
+    String? layerId,
+    Map<String, dynamic>? originalProperties,
+    Map<String, dynamic>? editedProperties,
+    Map<String, TypeFieldGeoJson>? columnTypes,
+    bool? selected,
+    GeoFeatureGeometryType? geometryType,
+    Map<String, dynamic>? rawGeometry,
+    List<LatLng>? markerPoints,
+    List<List<LatLng>>? lineParts,
+    List<List<LatLng>>? polygonRings,
+  }) {
+    return GeoFeatureData(
+      id: id ?? this.id,
+      layerId: layerId ?? this.layerId,
+      originalProperties: originalProperties ?? this.originalProperties,
+      editedProperties: editedProperties ?? this.editedProperties,
+      columnTypes: columnTypes ?? this.columnTypes,
+      selected: selected ?? this.selected,
+      geometryType: geometryType ?? this.geometryType,
+      rawGeometry: rawGeometry ?? this.rawGeometry,
+      markerPoints: markerPoints ?? this.markerPoints,
+      lineParts: lineParts ?? this.lineParts,
+      polygonRings: polygonRings ?? this.polygonRings,
+    );
+  }
+
+  String get selectionKey => '${layerId ?? ''}::${id ?? ''}';
 
   String get title {
     const candidateKeys = [
@@ -58,13 +225,13 @@ class GeoFeatureData extends Equatable {
     ];
 
     for (final key in candidateKeys) {
-      final value = properties[key];
+      final value = editedProperties[key] ?? originalProperties[key];
       if (value != null && value.toString().trim().isNotEmpty) {
         return value.toString().trim();
       }
     }
 
-    return id;
+    return (id != null && id!.trim().isNotEmpty) ? id! : 'Feature';
   }
 
   GeoFeatureGeometryFamily get geometryFamily {
@@ -88,10 +255,13 @@ class GeoFeatureData extends Equatable {
 
   bool get isPointFamily => geometryFamily == GeoFeatureGeometryFamily.point;
   bool get isLineFamily => geometryFamily == GeoFeatureGeometryFamily.line;
-  bool get isPolygonFamily => geometryFamily == GeoFeatureGeometryFamily.polygon;
+  bool get isPolygonFamily =>
+      geometryFamily == GeoFeatureGeometryFamily.polygon;
 
   bool get hasGeometry =>
-      markerPoints.isNotEmpty || lineParts.isNotEmpty || polygonRings.isNotEmpty;
+      markerPoints.isNotEmpty ||
+          lineParts.isNotEmpty ||
+          polygonRings.isNotEmpty;
 
   LatLng? get center {
     if (markerPoints.isNotEmpty) return markerPoints.first;
@@ -109,49 +279,20 @@ class GeoFeatureData extends Equatable {
     return null;
   }
 
+  String get geometryTypeName => geometryTypeToGeoJsonName(geometryType);
+
   Map<String, dynamic> toFirestoreMap() {
     return {
-      'editor': properties,
-      'geometryType': geometryType.name,
+      'id': id,
+      'layerId': layerId,
+      'editor': editedProperties,
+      'geometryType': geometryTypeName,
       'geometry': rawGeometry,
       'searchTitle': title,
-      'layerId': layerId,
     };
   }
 
-  factory GeoFeatureData.fromFirestore({
-    required String docId,
-    required String layerId,
-    required Map<String, dynamic> map,
-  }) {
-    final rawStoredGeometry = Map<String, dynamic>.from(
-      (map['geometry'] as Map?) ?? const <String, dynamic>{},
-    );
-
-    final geometry = _normalizeFirestoreGeometry(rawStoredGeometry);
-    final typeStr = (geometry['type'] ?? map['geometryType'] ?? '').toString();
-    final resolvedType = _mapGeoJsonType(typeStr);
-
-    final properties = _resolveProperties(map);
-
-    final parsed = _parseGeometry(
-      geometryType: resolvedType,
-      geometry: geometry,
-    );
-
-    return GeoFeatureData(
-      id: docId,
-      layerId: layerId,
-      properties: properties,
-      geometryType: resolvedType,
-      rawGeometry: geometry,
-      markerPoints: parsed.markerPoints,
-      lineParts: parsed.lineParts,
-      polygonRings: parsed.polygonRings,
-    );
-  }
-
-  static Map<String, dynamic> _resolveProperties(Map<String, dynamic> map) {
+  static Map<String, dynamic> resolveProperties(Map<String, dynamic> map) {
     final editor = map['editor'];
     if (editor is Map && editor.isNotEmpty) {
       return Map<String, dynamic>.from(editor);
@@ -192,49 +333,7 @@ class GeoFeatureData extends Equatable {
     return fallback;
   }
 
-  static Map<String, dynamic> _normalizeFirestoreGeometry(
-      Map<String, dynamic> geometry,
-      ) {
-    final type = (geometry['type'] ?? '').toString();
-    final coords = geometry['coordinates'];
-
-    switch (type) {
-      case 'Point':
-        return {
-          'type': 'Point',
-          'coordinates': _decodePoint(coords),
-        };
-      case 'MultiPoint':
-        return {
-          'type': 'MultiPoint',
-          'coordinates': _decodePointList(coords),
-        };
-      case 'LineString':
-        return {
-          'type': 'LineString',
-          'coordinates': _decodePointList(coords),
-        };
-      case 'MultiLineString':
-        return {
-          'type': 'MultiLineString',
-          'coordinates': _decodeLineList(coords),
-        };
-      case 'Polygon':
-        return {
-          'type': 'Polygon',
-          'coordinates': _decodeRingList(coords),
-        };
-      case 'MultiPolygon':
-        return {
-          'type': 'MultiPolygon',
-          'coordinates': _decodePolygonList(coords),
-        };
-      default:
-        return geometry;
-    }
-  }
-
-  static GeoFeatureGeometryType _mapGeoJsonType(String raw) {
+  static GeoFeatureGeometryType mapGeoJsonType(String raw) {
     switch (raw.toLowerCase()) {
       case 'point':
         return GeoFeatureGeometryType.point;
@@ -253,7 +352,28 @@ class GeoFeatureData extends Equatable {
     }
   }
 
-  static _ParsedGeometry _parseGeometry({
+  static String geometryTypeToGeoJsonName(
+      GeoFeatureGeometryType geometryType,
+      ) {
+    switch (geometryType) {
+      case GeoFeatureGeometryType.point:
+        return 'Point';
+      case GeoFeatureGeometryType.multiPoint:
+        return 'MultiPoint';
+      case GeoFeatureGeometryType.lineString:
+        return 'LineString';
+      case GeoFeatureGeometryType.multiLineString:
+        return 'MultiLineString';
+      case GeoFeatureGeometryType.polygon:
+        return 'Polygon';
+      case GeoFeatureGeometryType.multiPolygon:
+        return 'MultiPolygon';
+      case GeoFeatureGeometryType.unknown:
+        return 'Unknown';
+    }
+  }
+
+  static GeoFeatureParsedGeometry parseGeometry({
     required GeoFeatureGeometryType geometryType,
     required Map<String, dynamic> geometry,
   }) {
@@ -262,7 +382,7 @@ class GeoFeatureData extends Equatable {
     switch (geometryType) {
       case GeoFeatureGeometryType.point:
         final p = _latLngFromDynamic(coords);
-        return _ParsedGeometry(
+        return GeoFeatureParsedGeometry(
           markerPoints: p == null ? const [] : [p],
         );
 
@@ -274,11 +394,11 @@ class GeoFeatureData extends Equatable {
             if (p != null) pts.add(p);
           }
         }
-        return _ParsedGeometry(markerPoints: pts);
+        return GeoFeatureParsedGeometry(markerPoints: pts);
 
       case GeoFeatureGeometryType.lineString:
         final line = _latLngList(coords);
-        return _ParsedGeometry(
+        return GeoFeatureParsedGeometry(
           lineParts: line.isEmpty ? const [] : [line],
         );
 
@@ -290,7 +410,7 @@ class GeoFeatureData extends Equatable {
             if (parsed.isNotEmpty) lines.add(parsed);
           }
         }
-        return _ParsedGeometry(lineParts: lines);
+        return GeoFeatureParsedGeometry(lineParts: lines);
 
       case GeoFeatureGeometryType.polygon:
         final rings = <List<LatLng>>[];
@@ -300,7 +420,7 @@ class GeoFeatureData extends Equatable {
             if (parsed.length >= 3) rings.add(parsed);
           }
         }
-        return _ParsedGeometry(polygonRings: rings);
+        return GeoFeatureParsedGeometry(polygonRings: rings);
 
       case GeoFeatureGeometryType.multiPolygon:
         final rings = <List<LatLng>>[];
@@ -314,11 +434,173 @@ class GeoFeatureData extends Equatable {
             }
           }
         }
-        return _ParsedGeometry(polygonRings: rings);
+        return GeoFeatureParsedGeometry(polygonRings: rings);
 
       case GeoFeatureGeometryType.unknown:
-        return const _ParsedGeometry();
+        return const GeoFeatureParsedGeometry();
     }
+  }
+
+  static Map<String, dynamic> normalizeFirestoreGeometry(
+      Map<String, dynamic> geometry,
+      ) {
+    final type = (geometry['type'] ?? '').toString();
+    final coords = geometry['coordinates'];
+
+    switch (type) {
+      case 'Point':
+        return {
+          'type': 'Point',
+          'coordinates': _decodePoint(coords),
+        };
+
+      case 'MultiPoint':
+        return {
+          'type': 'MultiPoint',
+          'coordinates': _decodePointList(coords),
+        };
+
+      case 'LineString':
+        return {
+          'type': 'LineString',
+          'coordinates': _decodePointList(coords),
+        };
+
+      case 'MultiLineString':
+        return {
+          'type': 'MultiLineString',
+          'coordinates': _decodeLineList(coords),
+        };
+
+      case 'Polygon':
+        return {
+          'type': 'Polygon',
+          'coordinates': _decodeRingList(coords),
+        };
+
+      case 'MultiPolygon':
+        return {
+          'type': 'MultiPolygon',
+          'coordinates': _decodePolygonList(coords),
+        };
+
+      default:
+        return geometry;
+    }
+  }
+
+  static Map<String, dynamic> encodeGeometryForFirestore(
+      Map<String, dynamic> geometry,
+      ) {
+    final type = (geometry['type'] ?? '').toString();
+    final coords = geometry['coordinates'];
+
+    switch (type) {
+      case 'Point':
+        return {
+          'type': 'Point',
+          'coordinates': _encodePoint(coords),
+        };
+
+      case 'MultiPoint':
+        return {
+          'type': 'MultiPoint',
+          'coordinates': _encodePointList(coords),
+        };
+
+      case 'LineString':
+        return {
+          'type': 'LineString',
+          'coordinates': _encodePointList(coords),
+        };
+
+      case 'MultiLineString':
+        return {
+          'type': 'MultiLineString',
+          'coordinates': _encodeLineList(coords),
+        };
+
+      case 'Polygon':
+        return {
+          'type': 'Polygon',
+          'coordinates': _encodeRingList(coords),
+        };
+
+      case 'MultiPolygon':
+        return {
+          'type': 'MultiPolygon',
+          'coordinates': _encodePolygonList(coords),
+        };
+
+      default:
+        return geometry;
+    }
+  }
+
+  static TypeFieldGeoJson inferFieldType(dynamic value) {
+    if (value == null) return TypeFieldGeoJson.string;
+    if (value is bool) return TypeFieldGeoJson.boolean;
+    if (value is int) return TypeFieldGeoJson.integer;
+    if (value is double || value is num) return TypeFieldGeoJson.double_;
+    if (value is DateTime || value is Timestamp) {
+      return TypeFieldGeoJson.datetime;
+    }
+
+    if (value is String) {
+      final v = value.trim();
+      if (v.isEmpty) return TypeFieldGeoJson.string;
+
+      final lower = v.toLowerCase();
+
+      if (lower == 'true' ||
+          lower == 'false' ||
+          lower == 'sim' ||
+          lower == 'não' ||
+          lower == 'nao') {
+        return TypeFieldGeoJson.boolean;
+      }
+
+      if (int.tryParse(v) != null) return TypeFieldGeoJson.integer;
+      if (double.tryParse(v.replaceAll(',', '.')) != null) {
+        return TypeFieldGeoJson.double_;
+      }
+      if (DateTime.tryParse(v) != null) return TypeFieldGeoJson.datetime;
+    }
+
+    return TypeFieldGeoJson.string;
+  }
+
+  static TypeFieldGeoJson mergeInferredType(
+      TypeFieldGeoJson? current,
+      TypeFieldGeoJson next,
+      ) {
+    if (current == null) return next;
+    if (current == next) return current;
+
+    if ((current == TypeFieldGeoJson.integer &&
+        next == TypeFieldGeoJson.double_) ||
+        (current == TypeFieldGeoJson.double_ &&
+            next == TypeFieldGeoJson.integer)) {
+      return TypeFieldGeoJson.double_;
+    }
+
+    return TypeFieldGeoJson.string;
+  }
+
+  static double? toDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString().replaceAll(',', '.'));
+  }
+
+  static LatLng? _latLngFromDynamic(dynamic raw) {
+    if (raw is! List || raw.length < 2) return null;
+
+    final lng = toDouble(raw[0]);
+    final lat = toDouble(raw[1]);
+
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
   }
 
   static List<LatLng> _latLngList(dynamic raw) {
@@ -330,22 +612,6 @@ class GeoFeatureData extends Equatable {
       if (p != null) out.add(p);
     }
     return out;
-  }
-
-  static LatLng? _latLngFromDynamic(dynamic raw) {
-    if (raw is! List || raw.length < 2) return null;
-
-    final lng = _toDouble(raw[0]);
-    final lat = _toDouble(raw[1]);
-
-    if (lat == null || lng == null) return null;
-    return LatLng(lat, lng);
-  }
-
-  static double? _toDouble(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v.toString().replaceAll(',', '.'));
   }
 
   static LatLng _centerFromPoints(List<LatLng> points) {
@@ -367,14 +633,66 @@ class GeoFeatureData extends Equatable {
     );
   }
 
+  static Map<String, dynamic>? _encodePoint(dynamic raw) {
+    if (raw is! List || raw.length < 2) return null;
+
+    final lng = toDouble(raw[0]);
+    final lat = toDouble(raw[1]);
+    if (lat == null || lng == null) return null;
+
+    return {'lng': lng, 'lat': lat};
+  }
+
+  static List<Map<String, dynamic>> _encodePointList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <Map<String, dynamic>>[];
+    for (final item in raw) {
+      final p = _encodePoint(item);
+      if (p != null) out.add(p);
+    }
+    return out;
+  }
+
+  static List<Map<String, dynamic>> _encodeLineList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <Map<String, dynamic>>[];
+    for (final line in raw) {
+      out.add({'points': _encodePointList(line)});
+    }
+    return out;
+  }
+
+  static List<Map<String, dynamic>> _encodeRingList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <Map<String, dynamic>>[];
+    for (final ring in raw) {
+      out.add({'ring': _encodePointList(ring)});
+    }
+    return out;
+  }
+
+  static List<Map<String, dynamic>> _encodePolygonList(dynamic raw) {
+    if (raw is! List) return const [];
+
+    final out = <Map<String, dynamic>>[];
+    for (final polygon in raw) {
+      out.add({'rings': _encodeRingList(polygon)});
+    }
+    return out;
+  }
+
   static List<dynamic> _decodePoint(dynamic raw) {
     if (raw is Map) {
-      final lng = _toDouble(raw['lng']);
-      final lat = _toDouble(raw['lat']);
+      final lng = toDouble(raw['lng']);
+      final lat = toDouble(raw['lat']);
       if (lat != null && lng != null) {
         return [lng, lat];
       }
     }
+
     if (raw is List) return raw;
     return const [];
   }
@@ -436,23 +754,14 @@ class GeoFeatureData extends Equatable {
   List<Object?> get props => [
     id,
     layerId,
-    properties,
+    originalProperties,
+    editedProperties,
+    columnTypes,
+    selected,
     geometryType,
     rawGeometry,
     markerPoints,
     lineParts,
     polygonRings,
   ];
-}
-
-class _ParsedGeometry {
-  final List<LatLng> markerPoints;
-  final List<List<LatLng>> lineParts;
-  final List<List<LatLng>> polygonRings;
-
-  const _ParsedGeometry({
-    this.markerPoints = const [],
-    this.lineParts = const [],
-    this.polygonRings = const [],
-  });
 }

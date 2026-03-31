@@ -6,7 +6,6 @@ class LayerPanelGroupRow extends StatelessWidget {
   final GeoLayersData group;
   final int depth;
   final double rowHeight;
-  final double trailingActionSlot;
   final bool isExpanded;
   final bool isSelected;
   final bool hoveringInside;
@@ -20,7 +19,6 @@ class LayerPanelGroupRow extends StatelessWidget {
     required this.group,
     required this.depth,
     required this.rowHeight,
-    required this.trailingActionSlot,
     required this.isExpanded,
     required this.isSelected,
     required this.hoveringInside,
@@ -93,14 +91,16 @@ class LayerPanelGroupRow extends StatelessWidget {
                   ),
                 ),
                 SizedBox(
-                  width: trailingActionSlot,
+                  width: 28,
                   child: IconButton(
                     iconSize: 18,
                     padding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
                     onPressed: onToggleExpand,
                     icon: Icon(
-                      isExpanded ? Icons.keyboard_arrow_down : Icons.chevron_right,
+                      isExpanded
+                          ? Icons.keyboard_arrow_down
+                          : Icons.chevron_right,
                       color: iconColor,
                     ),
                   ),

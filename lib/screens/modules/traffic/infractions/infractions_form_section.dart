@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_multi_formatter/flutter_multi_formatter.dart';
 
 import '../../../../_widgets/layout/responsive_utils.dart';
-import '../../../../_widgets/input/custom_date_field.dart';
-import '../../../../_widgets/input/custom_text_field.dart';
+import '../../../../_widgets/input/date_field_change.dart';
+import '../../../../_widgets/input/text_field_change.dart';
 
 class InfractionsFormSection extends StatelessWidget {
   final bool isEditable;
@@ -199,7 +199,7 @@ class InfractionsFormSection extends StatelessWidget {
           ),
           _gridItem(
             fieldW,
-            CustomDateField(
+            DateFieldChange(
               enabled: isEditable,
               controller: dateCtrl,
               labelText: 'Data da infração',

@@ -1,8 +1,8 @@
 // lib/screens/modules/contracts/hiring/2Etp/section_7_documentos_equipe.dart
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart'
-    show DropDownButtonChange;
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart'
+    show DropDownChange;
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
@@ -97,7 +97,7 @@ class _SectionDocumentosEquipeState extends State<SectionDocumentosEquipe> {
               children: [
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Levantamentos de campo',
                     controller: _levantamentosCtrl,
@@ -107,7 +107,7 @@ class _SectionDocumentosEquipeState extends State<SectionDocumentosEquipe> {
                 ),
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Projeto básico/executivo existente?',
                     controller: _projetoExistenteCtrl,

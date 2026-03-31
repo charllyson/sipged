@@ -16,7 +16,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // ===== Widgets / UI
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 // ===== Seções
@@ -191,7 +191,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                 child: Scaffold(
                   body: Stack(
                     children: [
-                      const BackgroundClean(),
+                      const BackgroundChange(),
                       SingleChildScrollView(
                         key: const PageStorageKey('habilitacao-scroll'),
                         controller: _scrollController,
@@ -240,7 +240,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                             const SizedBox(height: 12),
 
                             // 5) Licitação / Adesão
-                            SectionLicitacao(
+                            SectionLicitation(
                               data: _formData,
                               isEditable: _isEditable,
                               onChanged: (updated) {
@@ -250,7 +250,7 @@ class _HabilitacaoPageState extends State<HabilitacaoPage>
                             const SizedBox(height: 12),
 
                             // 6) Consolidação / Parecer
-                            SectionConsolidacao(
+                            SectionConsolidation(
                               data: _formData,
                               isEditable: _isEditable,
                               onChanged: (updated) {

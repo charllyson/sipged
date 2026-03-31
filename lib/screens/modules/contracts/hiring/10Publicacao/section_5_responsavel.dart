@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -73,7 +73,7 @@ class _SectionResponsavelState extends State<SectionResponsavel>
               children: [
                 SizedBox(
                   width: w5,
-                  child: CustomAutoComplete<UserData>(
+                  child: AutoCompleteChange<UserData>(
                     label: 'Responsável pela publicação',
                     controller: _responsavelCtrl,
                     allList: users,

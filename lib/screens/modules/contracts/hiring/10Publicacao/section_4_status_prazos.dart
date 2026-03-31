@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart'
-    show DropDownButtonChange;
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart'
+    show DropDownChange;
 import 'package:sipged/_widgets/input/drop_down_yes_no.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -90,7 +90,7 @@ class _SectionStatusPrazosState extends State<SectionStatusPrazos> {
                     children: [
                       SizedBox(
                         width: w2,
-                        child: DropDownButtonChange(
+                        child: DropDownChange(
                           enabled: widget.isEditable,
                           labelText: 'Status',
                           controller: _statusCtrl,
@@ -105,7 +105,7 @@ class _SectionStatusPrazosState extends State<SectionStatusPrazos> {
                       const SizedBox(height: 12),
                       SizedBox(
                         width: w2,
-                        child: YesNoDrop(
+                        child: DropDownYesNoDrop(
                           enabled: widget.isEditable,
                           labelText: 'Prazo legal atendido?',
                           value: _prazoLegalCtrl.text,

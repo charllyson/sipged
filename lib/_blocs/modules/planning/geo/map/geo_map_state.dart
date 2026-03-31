@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 
 class GeoMapState extends Equatable {
   final List<DockPanelData> panelGroups;
@@ -102,6 +103,50 @@ class GeoMapState extends Equatable {
       default:
         return SystemMouseCursors.basic;
     }
+  }
+
+  String? activeEditingLayerIdFor(LayerGeometryKind kind) {
+    switch (kind) {
+      case LayerGeometryKind.point:
+        return activeEditingPointLayerId;
+      case LayerGeometryKind.line:
+        return activeEditingLineLayerId;
+      case LayerGeometryKind.polygon:
+        return activeEditingPolygonLayerId;
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        return null;
+    }
+  }
+
+  Map<String, List<LatLng>> draftsFor(LayerGeometryKind kind) {
+    switch (kind) {
+      case LayerGeometryKind.point:
+        return draftPointLayers;
+      case LayerGeometryKind.line:
+        return draftLineLayers;
+      case LayerGeometryKind.polygon:
+        return draftPolygonLayers;
+      case LayerGeometryKind.mixed:
+      case LayerGeometryKind.unknown:
+        return const <String, List<LatLng>>{};
+    }
+  }
+
+  Map<String, List<LatLng>> buildVisibleDrafts(
+      LayerGeometryKind kind,
+      Set<String> activeLayerIds,
+      ) {
+    final source = draftsFor(kind);
+    final out = <String, List<LatLng>>{};
+
+    for (final entry in source.entries) {
+      if (activeLayerIds.contains(entry.key) && entry.value.isNotEmpty) {
+        out[entry.key] = entry.value;
+      }
+    }
+
+    return out;
   }
 
   GeoMapState copyWith({

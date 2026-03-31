@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_widgets/geo/properties/menu/share/rules/layer_rule_data.dart';
 import 'package:sipged/_widgets/geo/properties/menu/share/rules/layer_rule_core.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 class LayerRuleEditor extends StatefulWidget {
   final LayerRuleData value;
@@ -144,7 +144,7 @@ class _LayerRuleEditorState extends State<LayerRuleEditor> {
               children: [
                 SizedBox(
                   width: fieldWidth,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     controller: _fieldCtrl,
                     labelText: 'Campo',
                     width: double.infinity,
@@ -157,7 +157,7 @@ class _LayerRuleEditorState extends State<LayerRuleEditor> {
                 ),
                 SizedBox(
                   width: fieldWidth,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     controller: _operatorCtrl,
                     labelText: 'Operador',
                     width: double.infinity,

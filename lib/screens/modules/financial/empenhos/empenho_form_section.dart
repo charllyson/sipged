@@ -10,10 +10,10 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
@@ -235,7 +235,7 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                 runSpacing: 12,
                 children: [
                   // CONTRATANTE
-                  DropDownButtonChange(
+                  DropDownChange(
                     width: inputsWidth,
                     labelText: 'Contratante',
                     controller: _companyCtrl,
@@ -304,7 +304,7 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                   ),
 
                   // FONTE DE RECURSO
-                  DropDownButtonChange(
+                  DropDownChange(
                     key: ValueKey(
                       'funding-$_companyNonce-${st.companyId ?? "none"}',
                     ),
@@ -419,7 +419,7 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                   ),
 
                   // DATA
-                  CustomDateField(
+                  DateFieldChange(
                     width: inputsWidth,
                     controller: _dateCtrl,
                     labelText: 'Data do empenho',
@@ -429,7 +429,7 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                   ),
 
                   // DEMANDA (id+label)
-                  CustomAutoComplete<DfdData>(
+                  AutoCompleteChange<DfdData>(
                     controller: _demandaCtrl,
                     label: 'Creditar em',
                     hint: _loadingDfds ? 'Carregando demandas…' : 'Digite para buscar',

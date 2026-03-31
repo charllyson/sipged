@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/charts/gauges/gauge_chart_change.dart';
 import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
@@ -24,7 +24,7 @@ class ActiveRailwaysPanel extends StatelessWidget {
 
     return Stack(
       children: [
-        BackgroundClean(),
+        BackgroundChange(),
         Column(
           children: [
             Expanded(

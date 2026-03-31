@@ -9,8 +9,8 @@ import 'package:sipged/_utils/number_field.dart';
 import 'package:sipged/_widgets/geo/properties/menu/share/layer_type/layer_type_section.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/text_change_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/text_change_data_style.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 class SymbologyForm extends StatefulWidget {
   final LayerGeometryKind geometryKind;
@@ -257,7 +257,7 @@ class _SymbologyFormState extends State<SymbologyForm> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropDownButtonChange(
+            DropDownChange(
               controller: _symbolTypeCtrl,
               labelText: 'Tipo da camada',
               width: double.infinity,
@@ -440,7 +440,7 @@ class _SymbologyFormState extends State<SymbologyForm> {
                 ],
               ),
               const SizedBox(height: 12),
-              DropDownButtonChange(
+              DropDownChange(
                 controller: _strokePatternCtrl,
                 labelText: _isLineFamily
                     ? 'Padrão da linha'
@@ -456,7 +456,7 @@ class _SymbologyFormState extends State<SymbologyForm> {
                 },
               ),
               const SizedBox(height: 12),
-              DropDownButtonChange(
+              DropDownChange(
                 controller: _strokeJoinCtrl,
                 labelText: 'Estilo da união',
                 width: double.infinity,
@@ -470,7 +470,7 @@ class _SymbologyFormState extends State<SymbologyForm> {
                 },
               ),
               const SizedBox(height: 12),
-              DropDownButtonChange(
+              DropDownChange(
                 controller: _strokeCapCtrl,
                 labelText: 'Estilo da cobertura',
                 width: double.infinity,

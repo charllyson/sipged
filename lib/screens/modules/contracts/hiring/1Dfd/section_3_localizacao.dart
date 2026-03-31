@@ -7,8 +7,8 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
@@ -247,7 +247,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
               children: [
                 SizedBox(
                   width: w5,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     key: ValueKey('uf-${d.uf}'),
                     width: w5,
                     labelText: 'UF',
@@ -265,7 +265,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                 ),
                 SizedBox(
                   width: w5,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     key: ValueKey('mun-${d.municipio}-${_ufSelecionada ?? ""}'),
                     width: w5,
                     labelText: 'Município (principal)',
@@ -281,7 +281,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                 ),
                 SizedBox(
                   width: w5,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     key: ValueKey('regions-${widget.data.orgaoDemandante}-${_companyId ?? "none"}'),
                     width: w5,
                     labelText: 'Região/Área',

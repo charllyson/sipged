@@ -66,7 +66,7 @@ class ToolboxContent extends StatelessWidget {
               ToolboxActionItem(
                 id: 'tool_measure_distance',
                 tooltip: 'Medir Distância',
-                icon: Icons.route_outlined,
+                icon: Icons.straighten_outlined,
                 onTap: () => onToolSelected(
                   'Ferramenta "Medir distância" selecionada.',
                 ),

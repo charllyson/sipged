@@ -10,7 +10,7 @@ import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measur
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 
-import 'package:sipged/_widgets/chip/build_value_chip.dart';
+import 'package:sipged/_widgets/cards/chip/chip_card.dart';
 import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
 
 class GeneralDashboardList extends StatelessWidget {
@@ -156,17 +156,17 @@ class GeneralDashboardList extends StatelessWidget {
                             ),
                             backgroundColor: Colors.grey.shade100,
                           ),
-                          BuildValueChip(
+                          ChipCard(
                             'Medição',
                             valorReport,
                             Icons.bar_chart,
                           ),
-                          BuildValueChip(
+                          ChipCard(
                             'Reajuste',
                             valorAdjustment,
                             Icons.trending_up,
                           ),
-                          BuildValueChip(
+                          ChipCard(
                             'Revisão',
                             valorRevision,
                             Icons.change_circle,

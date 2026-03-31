@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_field.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_property.dart';
 import 'package:sipged/_widgets/geo/visualizations/property/tab_property_binding.dart';
@@ -9,6 +8,7 @@ import 'package:sipged/_widgets/geo/visualizations/property/tab_property_number.
 import 'package:sipged/_widgets/geo/visualizations/property/tab_property_select.dart';
 import 'package:sipged/_widgets/geo/visualizations/property/tab_property_string_list.dart';
 import 'package:sipged/_widgets/geo/visualizations/property/tab_property_text.dart';
+import 'package:sipged/_widgets/resize/resize_data.dart';
 
 class TabPropertyVisualization extends StatelessWidget {
   const TabPropertyVisualization({
@@ -22,7 +22,7 @@ class TabPropertyVisualization extends StatelessWidget {
   });
 
   final String itemId;
-  final GeoWorkspaceData item;
+  final ResizeData item;
   final GeoWorkspaceDataProperty property;
   final Map<String, List<GeoFeatureData>> featuresByLayer;
   final ValueChanged<GeoWorkspaceDataProperty> onPropertyChanged;

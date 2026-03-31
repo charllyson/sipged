@@ -11,10 +11,12 @@ import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_table.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_state.dart';
+import 'package:sipged/_widgets/overlays/guides_lines/guide_lines_data.dart';
+import 'package:sipged/_widgets/resize/resize_data.dart';
 
 class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
   GeoWorkspaceCubit({
-    required List<GeoWorkspaceData> initialItems,
+    required List<ResizeData> initialItems,
     required Map<String, List<GeoFeatureData>> initialFeaturesByLayer,
     required this.repository,
     this.snapThreshold = 10.0,
@@ -30,14 +32,14 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
   final double snapThreshold;
   final double panelPadding;
 
-  void syncExternalItems(List<GeoWorkspaceData> items) {
+  void syncExternalItems(List<ResizeData> items) {
     final normalized = _normalizeItemsForPanel(items, state.panelSize);
 
     if (listEquals(normalized, state.items)) return;
 
     final selectedId = state.selectedItemId;
-    final stillExists = selectedId != null &&
-        normalized.any((item) => item.id == selectedId);
+    final stillExists =
+        selectedId != null && normalized.any((item) => item.id == selectedId);
 
     emit(
       state.copyWith(
@@ -92,9 +94,8 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
   }
 
   void removeItemLocal(String itemId) {
-    final nextItems = state.items
-        .where((item) => item.id != itemId)
-        .toList(growable: false);
+    final nextItems =
+    state.items.where((item) => item.id != itemId).toList(growable: false);
 
     final wasSelected = state.selectedItemId == itemId;
 
@@ -107,7 +108,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     );
   }
 
-  GeoWorkspaceResolvedRect moveItemLive({
+  GuideLinesResolvedRect moveItemLive({
     required String itemId,
     required Rect desiredRect,
   }) {
@@ -125,7 +126,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     return resolved;
   }
 
-  GeoWorkspaceResolvedRect moveItemCommit({
+  GuideLinesResolvedRect moveItemCommit({
     required String itemId,
     required Rect desiredRect,
   }) {
@@ -143,10 +144,10 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     return resolved;
   }
 
-  GeoWorkspaceResolvedRect resizeItemLive({
+  GuideLinesResolvedRect resizeItemLive({
     required String itemId,
     required Rect desiredRect,
-    required GeoWorkspaceResizeHandle handle,
+    required ResizeHandle handle,
   }) {
     final resolved = _resolveResizeSnap(
       itemId: itemId,
@@ -163,10 +164,10 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     return resolved;
   }
 
-  GeoWorkspaceResolvedRect resizeItemCommit({
+  GuideLinesResolvedRect resizeItemCommit({
     required String itemId,
     required Rect desiredRect,
-    required GeoWorkspaceResizeHandle handle,
+    required ResizeHandle handle,
   }) {
     final resolved = _resolveResizeSnap(
       itemId: itemId,
@@ -183,21 +184,21 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     return resolved;
   }
 
-  GeoWorkspaceDataChart resolveBarVertical(GeoWorkspaceData item) {
+  GeoWorkspaceDataChart resolveBarVertical(ResizeData item) {
     return _resolveGroupedChart(
       item: item,
       titleKey: 'chartTitle',
     );
   }
 
-  GeoWorkspaceDataChart resolveDonut(GeoWorkspaceData item) {
+  GeoWorkspaceDataChart resolveDonut(ResizeData item) {
     return _resolveGroupedChart(
       item: item,
       titleKey: 'chartTitle',
     );
   }
 
-  GeoWorkspaceDataChart resolveLine(GeoWorkspaceData item) {
+  GeoWorkspaceDataChart resolveLine(ResizeData item) {
     return _resolveGroupedChart(
       item: item,
       titleKey: 'chartTitle',
@@ -205,7 +206,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     );
   }
 
-  GeoWorkspaceDataCard resolveCard(GeoWorkspaceData item) {
+  GeoWorkspaceDataCard resolveCard(ResizeData item) {
     return _resolveMetricCard(
       item: item,
       titleKey: 'title',
@@ -213,24 +214,18 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     );
   }
 
-  GeoWorkspaceDataCard resolveKpi(GeoWorkspaceData item) {
-    return _resolveMetricCard(
-      item: item,
-      titleKey: 'title',
-      subtitleKey: 'variation',
-    );
-  }
-
-  GeoWorkspaceDataTable resolveTable(GeoWorkspaceData item) {
+  GeoWorkspaceDataTable resolveTable(ResizeData item) {
     final sourceBinding = item.getBindingProperty('source');
 
     final sourceLayerId = _resolveSourceLayerId(
       sourceBinding: sourceBinding,
-      bindings: item.properties.map((e) => e.bindingValue).toList(growable: false),
+      bindings:
+      item.properties.map((e) => e.bindingValue).toList(growable: false),
     );
 
     final title = item.getNullableTextProperty('title');
-    final columns = item.getNullableStringListProperty('columns') ?? const <String>[];
+    final columns =
+        item.getNullableStringListProperty('columns') ?? const <String>[];
 
     if (sourceLayerId == null || sourceLayerId.isEmpty) {
       return GeoWorkspaceDataTable(
@@ -240,7 +235,8 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
       );
     }
 
-    final features = state.featuresByLayer[sourceLayerId] ?? const <GeoFeatureData>[];
+    final features =
+        state.featuresByLayer[sourceLayerId] ?? const <GeoFeatureData>[];
     if (features.isEmpty || columns.isEmpty) {
       return GeoWorkspaceDataTable(
         title: title,
@@ -253,12 +249,14 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
 
     for (final feature in features.take(100)) {
       final map = <String, String>{};
+
       for (final column in columns) {
-        final raw = feature.properties[column];
-        map[column] = raw?.toString().trim().isNotEmpty == true
-            ? raw.toString().trim()
-            : '-';
+        final raw = _featureValue(feature, column);
+        final text = raw?.toString().trim();
+
+        map[column] = (text != null && text.isNotEmpty) ? text : '-';
       }
+
       rows.add(map);
     }
 
@@ -272,7 +270,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
   void _updateItemRectLocal({
     required String itemId,
     required Rect rect,
-    required GeoWorkspaceGuideLines? guides,
+    required GuideLinesData? guides,
   }) {
     var changed = false;
 
@@ -301,12 +299,12 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     );
   }
 
-  List<GeoWorkspaceData> _normalizeItemsForPanel(
-      List<GeoWorkspaceData> items,
+  List<ResizeData> _normalizeItemsForPanel(
+      List<ResizeData> items,
       Size panelSize,
       ) {
     if (panelSize.isEmpty) {
-      return List<GeoWorkspaceData>.from(items);
+      return List<ResizeData>.from(items);
     }
 
     return items.map((item) {
@@ -344,7 +342,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     return true;
   }
 
-  GeoWorkspaceResolvedRect _resolveMoveSnap({
+  GuideLinesResolvedRect _resolveMoveSnap({
     required String itemId,
     required Rect desiredRect,
   }) {
@@ -455,10 +453,10 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
       panelSize: panelSize,
     );
 
-    return GeoWorkspaceResolvedRect(
+    return GuideLinesResolvedRect(
       rect: clamped,
       guides: (snappedGuideX != null || snappedGuideY != null)
-          ? GeoWorkspaceGuideLines(
+          ? GuideLinesData(
         vertical: snappedGuideX,
         horizontal: snappedGuideY,
       )
@@ -466,10 +464,10 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     );
   }
 
-  GeoWorkspaceResolvedRect _resolveResizeSnap({
+  GuideLinesResolvedRect _resolveResizeSnap({
     required String itemId,
     required Rect desiredRect,
-    required GeoWorkspaceResizeHandle handle,
+    required ResizeHandle handle,
   }) {
     final panelSize = state.panelSize;
 
@@ -588,31 +586,31 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     }
 
     switch (handle) {
-      case GeoWorkspaceResizeHandle.right:
+      case ResizeHandle.right:
         snapX(false, false, true);
         break;
-      case GeoWorkspaceResizeHandle.bottom:
+      case ResizeHandle.bottom:
         snapY(false, false, true);
         break;
-      case GeoWorkspaceResizeHandle.bottomRight:
+      case ResizeHandle.bottomRight:
         snapX(false, false, true);
         snapY(false, false, true);
         break;
-      case GeoWorkspaceResizeHandle.left:
+      case ResizeHandle.left:
         snapX(true, false, false);
         break;
-      case GeoWorkspaceResizeHandle.top:
+      case ResizeHandle.top:
         snapY(true, false, false);
         break;
-      case GeoWorkspaceResizeHandle.topLeft:
+      case ResizeHandle.topLeft:
         snapX(true, false, false);
         snapY(true, false, false);
         break;
-      case GeoWorkspaceResizeHandle.topRight:
+      case ResizeHandle.topRight:
         snapX(false, false, true);
         snapY(true, false, false);
         break;
-      case GeoWorkspaceResizeHandle.bottomLeft:
+      case ResizeHandle.bottomLeft:
         snapX(true, false, false);
         snapY(false, false, true);
         break;
@@ -623,10 +621,10 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
       panelSize: panelSize,
     );
 
-    return GeoWorkspaceResolvedRect(
+    return GuideLinesResolvedRect(
       rect: normalized,
       guides: (snappedGuideX != null || snappedGuideY != null)
-          ? GeoWorkspaceGuideLines(
+          ? GuideLinesData(
         vertical: snappedGuideX,
         horizontal: snappedGuideY,
       )
@@ -655,8 +653,8 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
       bottom = tmp;
     }
 
-    final minW = GeoWorkspaceData.minSize.width;
-    final minH = GeoWorkspaceData.minSize.height;
+    final minW = ResizeData.minSize.width;
+    final minH = ResizeData.minSize.height;
 
     if ((right - left) < minW) {
       right = left + minW;
@@ -686,12 +684,12 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     required Size panelSize,
   }) {
     final width = rect.width.clamp(
-      GeoWorkspaceData.minSize.width,
-      math.max(GeoWorkspaceData.minSize.width, panelSize.width),
+      ResizeData.minSize.width,
+      math.max(ResizeData.minSize.width, panelSize.width),
     );
     final height = rect.height.clamp(
-      GeoWorkspaceData.minSize.height,
-      math.max(GeoWorkspaceData.minSize.height, panelSize.height),
+      ResizeData.minSize.height,
+      math.max(ResizeData.minSize.height, panelSize.height),
     );
 
     final maxX = math.max(panelPadding, panelSize.width - width);
@@ -706,7 +704,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
   }
 
   GeoWorkspaceDataChart _resolveGroupedChart({
-    required GeoWorkspaceData item,
+    required ResizeData item,
     required String titleKey,
     String fallbackSort = 'none',
   }) {
@@ -729,7 +727,8 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
       );
     }
 
-    final features = state.featuresByLayer[sourceLayerId] ?? const <GeoFeatureData>[];
+    final features =
+        state.featuresByLayer[sourceLayerId] ?? const <GeoFeatureData>[];
     if (features.isEmpty) {
       return GeoWorkspaceDataChart(
         title: title,
@@ -740,7 +739,8 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
 
     final labelField = labelBinding?.fieldName?.trim();
     final valueField = valueBinding?.fieldName?.trim();
-    final aggregation = item.getNullableSelectedProperty('aggregation') ?? 'Soma';
+    final aggregation =
+        item.getNullableSelectedProperty('aggregation') ?? 'Soma';
     final sortType = item.getNullableSelectedProperty('sortType') ?? fallbackSort;
 
     if (labelField == null || labelField.isEmpty) {
@@ -785,7 +785,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
   }
 
   GeoWorkspaceDataCard _resolveMetricCard({
-    required GeoWorkspaceData item,
+    required ResizeData item,
     required String titleKey,
     required String subtitleKey,
   }) {
@@ -807,7 +807,8 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
       );
     }
 
-    final features = state.featuresByLayer[sourceLayerId] ?? const <GeoFeatureData>[];
+    final features =
+        state.featuresByLayer[sourceLayerId] ?? const <GeoFeatureData>[];
     if (features.isEmpty) {
       return GeoWorkspaceDataCard(
         title: item.getNullableTextProperty(titleKey),
@@ -819,7 +820,8 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
 
     final labelField = labelBinding?.fieldName?.trim();
     final valueField = valueBinding?.fieldName?.trim();
-    final aggregation = item.getNullableSelectedProperty('aggregation') ?? 'Contagem';
+    final aggregation =
+        item.getNullableSelectedProperty('aggregation') ?? 'Contagem';
 
     String? resolvedLabel;
     if (labelField != null && labelField.isNotEmpty) {
@@ -873,7 +875,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     final grouped = <String, List<double>>{};
 
     for (final feature in features) {
-      final rawLabel = feature.properties[labelField];
+      final rawLabel = _featureValue(feature, labelField);
       final label = _normalizeLabel(rawLabel);
 
       if (aggregation == 'Contagem') {
@@ -884,7 +886,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
 
       if (valueField == null || valueField.isEmpty) continue;
 
-      final value = _toDouble(feature.properties[valueField]);
+      final value = _toDouble(_featureValue(feature, valueField));
       if (value == null) continue;
 
       grouped.putIfAbsent(label, () => <double>[]);
@@ -944,7 +946,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     }
 
     final values = features
-        .map((e) => _toDouble(e.properties[valueField]))
+        .map((feature) => _toDouble(_featureValue(feature, valueField)))
         .whereType<double>()
         .toList(growable: false);
 
@@ -966,7 +968,7 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
       String field,
       ) {
     for (final feature in features) {
-      final raw = feature.properties[field];
+      final raw = _featureValue(feature, field);
       if (raw == null) continue;
 
       final text = raw.toString().trim();
@@ -974,6 +976,13 @@ class GeoWorkspaceCubit extends Cubit<GeoWorkspaceState> {
     }
 
     return null;
+  }
+
+  dynamic _featureValue(GeoFeatureData feature, String field) {
+    if (feature.editedProperties.containsKey(field)) {
+      return feature.editedProperties[field];
+    }
+    return feature.originalProperties[field];
   }
 
   String _normalizeLabel(dynamic raw) {

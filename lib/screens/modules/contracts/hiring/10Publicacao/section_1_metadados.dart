@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart'
-    show DropDownButtonChange;
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart'
+    show DropDownChange;
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -112,7 +112,7 @@ class _SectionMetadadosExtratoState extends State<SectionMetadadosExtrato>
                     children: [
                       SizedBox(
                         width: w2,
-                        child: DropDownButtonChange(
+                        child: DropDownChange(
                           enabled: widget.isEditable,
                           labelText: 'Tipo de extrato',
                           controller: _tipoExtratoCtrl,

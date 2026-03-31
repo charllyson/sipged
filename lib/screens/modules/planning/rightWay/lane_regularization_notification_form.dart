@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/planning/highway_domain/lane_regularization_controller.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -90,7 +90,7 @@ class _LaneRegularizationNotificationFormState
                       enabled: controller.isEditable,
                       labelText: 'Nº do DUP',
                     ),
-                    CustomDateField(
+                    DateFieldChange(
                       width: w,
                       enabled: controller.isEditable,
                       controller: controller.dupDateCtrl,
@@ -104,7 +104,7 @@ class _LaneRegularizationNotificationFormState
                       enabled: controller.isEditable,
                       labelText: 'DO/Seção/Página',
                     ),
-                    CustomDateField(
+                    DateFieldChange(
                       width: w,
                       enabled: controller.isEditable,
                       controller: controller.doPublicationDateCtrl,
@@ -118,7 +118,7 @@ class _LaneRegularizationNotificationFormState
                       enabled: controller.isEditable,
                       labelText: 'AR (Aviso de Recebimento)',
                     ),
-                    CustomDateField(
+                    DateFieldChange(
                       width: w,
                       enabled: controller.isEditable,
                       controller: controller.notifDateCtrl,
@@ -126,7 +126,7 @@ class _LaneRegularizationNotificationFormState
                       labelText: 'Data de Notificação',
                       onChanged: (_) {},
                     ),
-                    CustomDateField(
+                    DateFieldChange(
                       width: w,
                       enabled: controller.isEditable,
                       controller: controller.inspDateCtrl,

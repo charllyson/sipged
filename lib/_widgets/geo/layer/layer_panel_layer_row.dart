@@ -1,47 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_widgets/geo/layer/layer_action.dart';
 import 'package:sipged/_widgets/geo/layer/layer_symbol_stack_preview.dart';
 
 class LayerPanelLayerRow extends StatelessWidget {
   final GeoLayersData layer;
   final int depth;
   final double rowHeight;
-  final double trailingActionSlot;
   final bool isActive;
   final bool isSelected;
-  final bool canConnect;
-  final LayerActionVisual visual;
+  final bool hasData;
   final VoidCallback onTap;
   final ValueChanged<bool> onToggleLayer;
-  final VoidCallback onActionTap;
-  final VoidCallback onActionTapDown;
 
   const LayerPanelLayerRow({
     super.key,
     required this.layer,
     required this.depth,
     required this.rowHeight,
-    required this.trailingActionSlot,
     required this.isActive,
     required this.isSelected,
-    required this.canConnect,
-    required this.visual,
+    required this.hasData,
     required this.onTap,
     required this.onToggleLayer,
-    required this.onActionTap,
-    required this.onActionTapDown,
   });
 
   @override
   Widget build(BuildContext context) {
     final bgColor = isSelected ? const Color(0xFF1976D2) : Colors.transparent;
     final textColor = isSelected ? Colors.white : Colors.black87;
-
-    final actionIconColor = isSelected
-        ? Colors.white
-        : (visual.hasData ? Colors.blue : Colors.grey.shade500);
-
     final primaryCheckboxColor = Theme.of(context).colorScheme.primary;
 
     return InkWell(
@@ -77,10 +63,11 @@ class LayerPanelLayerRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 RepaintBoundary(
-                  child: LayerSymbolStackPreview(
+                  child: LayerMiniPreview(
                     layer: layer,
                     isSelected: isSelected,
                     isActive: isActive,
+                    hasData: hasData,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -94,26 +81,6 @@ class LayerPanelLayerRow extends StatelessWidget {
                       fontWeight: FontWeight.normal,
                     ),
                   ),
-                ),
-                SizedBox(
-                  width: trailingActionSlot,
-                  child: canConnect
-                      ? Tooltip(
-                    message: visual.tooltip,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTapDown: (_) => onActionTapDown(),
-                      onTap: onActionTap,
-                      child: Center(
-                        child: Icon(
-                          visual.icon,
-                          size: 18,
-                          color: actionIconColor,
-                        ),
-                      ),
-                    ),
-                  )
-                      : const SizedBox.shrink(),
                 ),
               ],
             ),

@@ -1,13 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data.dart';
+import 'package:sipged/_widgets/overlays/guides_lines/guide_lines_data.dart';
+import 'package:sipged/_widgets/resize/resize_data.dart';
 
 @immutable
 class GeoWorkspaceState {
-  final List<GeoWorkspaceData> items;
+  final List<ResizeData> items;
   final String? selectedItemId;
-  final GeoWorkspaceGuideLines? guides;
+  final GuideLinesData? guides;
   final Map<String, List<GeoFeatureData>> featuresByLayer;
   final Size panelSize;
   final int dataVersion;
@@ -22,11 +23,11 @@ class GeoWorkspaceState {
   });
 
   factory GeoWorkspaceState.initial({
-    List<GeoWorkspaceData> items = const [],
+    List<ResizeData> items = const [],
     Map<String, List<GeoFeatureData>> featuresByLayer = const {},
   }) {
     return GeoWorkspaceState(
-      items: List<GeoWorkspaceData>.from(items),
+      items: List<ResizeData>.from(items),
       selectedItemId: null,
       guides: null,
       featuresByLayer: Map<String, List<GeoFeatureData>>.from(featuresByLayer),
@@ -36,10 +37,10 @@ class GeoWorkspaceState {
   }
 
   GeoWorkspaceState copyWith({
-    List<GeoWorkspaceData>? items,
+    List<ResizeData>? items,
     String? selectedItemId,
     bool clearSelectedItem = false,
-    GeoWorkspaceGuideLines? guides,
+    GuideLinesData? guides,
     bool clearGuides = false,
     Map<String, List<GeoFeatureData>>? featuresByLayer,
     Size? panelSize,
@@ -60,14 +61,14 @@ class GeoWorkspaceState {
 
   List<String> get itemIds => items.map((e) => e.id).toList(growable: false);
 
-  GeoWorkspaceData? itemByIdOrNull(String id) {
+  ResizeData? itemByIdOrNull(String id) {
     for (final item in items) {
       if (item.id == id) return item;
     }
     return null;
   }
 
-  GeoWorkspaceData? get selectedItem {
+  ResizeData? get selectedItem {
     final id = selectedItemId;
     if (id == null) return null;
     return itemByIdOrNull(id);

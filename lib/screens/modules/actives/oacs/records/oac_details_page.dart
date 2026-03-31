@@ -5,10 +5,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
@@ -401,7 +401,7 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                             labelText: 'Município',
                             width: w(4),
                           ),
-                          DropDownButtonChange(
+                          DropDownChange(
                             controller: _regionCtrl,
                             labelText: 'Região',
                             items: st.regionLabels,
@@ -582,7 +582,7 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                           ),
                           SizedBox(
                             width: w(4),
-                            child: CustomDateField(
+                            child: DateFieldChange(
                               controller: _dtImplantacaoCtrl,
                               labelText: 'Data implantação',
                               initialValue: _dtImplantacao,
@@ -591,7 +591,7 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                           ),
                           SizedBox(
                             width: w(4),
-                            child: CustomDateField(
+                            child: DateFieldChange(
                               controller: _dtUltimaInspecaoCtrl,
                               labelText: 'Última inspeção',
                               initialValue: _dtUltimaInspecao,
@@ -600,7 +600,7 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                           ),
                           SizedBox(
                             width: w(4),
-                            child: CustomDateField(
+                            child: DateFieldChange(
                               controller: _dtUltimaManutCtrl,
                               labelText: 'Última manutenção',
                               initialValue: _dtUltimaManut,
@@ -609,7 +609,7 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                           ),
                           SizedBox(
                             width: w(4),
-                            child: CustomDateField(
+                            child: DateFieldChange(
                               controller: _dtProximaInspecaoCtrl,
                               labelText: 'Próxima inspeção',
                               initialValue: _dtProximaInspecao,
@@ -633,7 +633,7 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                         children: [
                           SizedBox(
                             width: w(3),
-                            child: CustomAutoComplete<UserData>(
+                            child: AutoCompleteChange<UserData>(
                               label: 'Criado por',
                               controller: _createdByCtrl,
                               allList: allUsers,
@@ -648,7 +648,7 @@ class _OacDetailsPageState extends State<OacDetailsPage> {
                           ),
                           SizedBox(
                             width: w(3),
-                            child: CustomAutoComplete<UserData>(
+                            child: AutoCompleteChange<UserData>(
                               label: 'Atualizado por',
                               controller: _updatedByCtrl,
                               allList: allUsers,

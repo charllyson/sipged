@@ -1,9 +1,9 @@
 // lib/screens/modules/contracts/hiring/11Arquivamento/section_6_reabertura.dart
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart'
-    show DropDownButtonChange;
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart'
+    show DropDownChange;
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -87,7 +87,7 @@ class _SectionReaberturaTAState extends State<SectionReaberturaTA> {
               children: [
                 SizedBox(
                   width: w2,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Condição de reabertura',
                     controller: _condicaoCtrl,

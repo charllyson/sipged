@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_state.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_state.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'package:sipged/_widgets/windows/window_dialog.dart';
 
@@ -48,7 +48,7 @@ class _AttributesTableState extends State<AttributesTable> {
     });
 
     Future.microtask(() {
-      final cubit = context.read<GeoAttributesCubit>();
+      final cubit = context.read<GeoFeatureCubit>();
       if (widget.mode == AttributesTableMode.firestore) {
         cubit.startFromFirestore(widget.collectionPath);
       } else {
@@ -70,10 +70,10 @@ class _AttributesTableState extends State<AttributesTable> {
             ? 'Tabela de atributos (${widget.collectionPath})'
             : 'Importar (${widget.collectionPath})');
 
-    return BlocListener<GeoAttributesCubit, GeoAttributesState>(
+    return BlocListener<GeoFeatureCubit, GeoFeatureState>(
       listener: (context, state) {
         if (widget.mode == AttributesTableMode.importFile &&
-            state.status == GeoAttributesStatus.success) {
+            state.importStatus == GeoFeatureImportStatus.success) {
           Navigator.of(context).pop(true);
         }
       },
@@ -84,12 +84,13 @@ class _AttributesTableState extends State<AttributesTable> {
         onClose: () => Navigator.of(context).pop(false),
         child: SizedBox(
           height: 760,
-          child: BlocBuilder<GeoAttributesCubit, GeoAttributesState>(
+          child: BlocBuilder<GeoFeatureCubit, GeoFeatureState>(
             builder: (context, state) {
               final isLoading =
-                  state.status == GeoAttributesStatus.pickingFile ||
-                      state.status == GeoAttributesStatus.loadingFirestore ||
-                      state.status == GeoAttributesStatus.idle;
+                  state.importStatus == GeoFeatureImportStatus.pickingFile ||
+                      state.importStatus ==
+                          GeoFeatureImportStatus.loadingFirestore ||
+                      state.importStatus == GeoFeatureImportStatus.idle;
 
               if (isLoading) {
                 return _center(
@@ -99,21 +100,22 @@ class _AttributesTableState extends State<AttributesTable> {
                 );
               }
 
-              if (state.status == GeoAttributesStatus.failure) {
+              if (state.importStatus == GeoFeatureImportStatus.failure) {
                 return _error(state.error);
               }
 
-              if (state.features.isEmpty) {
+              if (state.importFeatures.isEmpty) {
                 return _center('Nenhuma feição encontrada.');
               }
 
-              final columns = state.columns;
+              final columns = state.importColumns;
               final selectedColumnNames = columns
                   .where((c) => c.selected)
                   .map((c) => c.name)
                   .toList(growable: false);
 
-              final hasGeometry = state.features.any((f) => f.hasGeometry);
+              final hasGeometry =
+              state.importFeatures.any((feature) => feature.hasGeometry);
 
               final tableColumns = <String>[
                 ...selectedColumnNames,
@@ -128,7 +130,7 @@ class _AttributesTableState extends State<AttributesTable> {
                 query: _searchCtrl.text,
               );
 
-              final total = state.features.length;
+              final total = state.importFeatures.length;
               final filteredTotal = filteredIndexes.length;
 
               final pageData = _pageSlice(filteredIndexes, filteredTotal);
@@ -136,9 +138,9 @@ class _AttributesTableState extends State<AttributesTable> {
               final currentPage = pageData.$2;
               final totalPages = pageData.$3;
 
-              final geometryTypes = state.features
-                  .map((e) => e.geometryType.trim())
-                  .where((e) => e.isNotEmpty)
+              final geometryTypes = state.importFeatures
+                  .map((e) => e.geometryTypeName.trim())
+                  .where((e) => e.isNotEmpty && e != 'Unknown')
                   .toSet()
                   .toList()
                 ..sort();
@@ -182,8 +184,8 @@ class _AttributesTableState extends State<AttributesTable> {
                       ),
                     ],
                   ),
-                  if (state.status == GeoAttributesStatus.saving ||
-                      state.status == GeoAttributesStatus.deleting)
+                  if (state.importStatus == GeoFeatureImportStatus.saving ||
+                      state.importStatus == GeoFeatureImportStatus.deleting)
                     Positioned.fill(
                       child: _overlaySaving(state),
                     ),
@@ -198,14 +200,14 @@ class _AttributesTableState extends State<AttributesTable> {
 
   Widget _topBar(
       BuildContext context, {
-        required GeoAttributesState state,
+        required GeoFeatureState state,
         required String tipo,
         required int total,
         required int filteredTotal,
         required int selectedColumns,
         required bool hasGeometry,
       }) {
-    final cubit = context.read<GeoAttributesCubit>();
+    final cubit = context.read<GeoFeatureCubit>();
 
     final desc = widget.description ??
         (widget.mode == AttributesTableMode.firestore
@@ -278,25 +280,25 @@ class _AttributesTableState extends State<AttributesTable> {
                   ],
                   onSelected: (v) {
                     if (v == 'select_all_cols') {
-                      for (int i = 0; i < state.columns.length; i++) {
+                      for (int i = 0; i < state.importColumns.length; i++) {
                         cubit.toggleColumnSelection(i, true);
                       }
                     }
 
                     if (v == 'unselect_all_cols') {
-                      for (int i = 0; i < state.columns.length; i++) {
+                      for (int i = 0; i < state.importColumns.length; i++) {
                         cubit.toggleColumnSelection(i, false);
                       }
                     }
 
                     if (v == 'select_all_rows') {
-                      for (int i = 0; i < state.features.length; i++) {
+                      for (int i = 0; i < state.importFeatures.length; i++) {
                         cubit.toggleRowSelection(i, true);
                       }
                     }
 
                     if (v == 'unselect_all_rows') {
-                      for (int i = 0; i < state.features.length; i++) {
+                      for (int i = 0; i < state.importFeatures.length; i++) {
                         cubit.toggleRowSelection(i, false);
                       }
                     }
@@ -337,7 +339,7 @@ class _AttributesTableState extends State<AttributesTable> {
 
   Widget _tableQgisLike(
       BuildContext context, {
-        required GeoAttributesState state,
+        required GeoFeatureState state,
         required List<String> tableColumns,
         required List<int> rowIndexes,
         required bool hasGeometry,
@@ -346,7 +348,7 @@ class _AttributesTableState extends State<AttributesTable> {
       return _center('Nenhum registro para exibir nesta página.');
     }
 
-    final cubit = context.read<GeoAttributesCubit>();
+    final cubit = context.read<GeoFeatureCubit>();
 
     final dataColumns = <DataColumn>[
       const DataColumn(label: Text('Sel')),
@@ -356,8 +358,8 @@ class _AttributesTableState extends State<AttributesTable> {
           return const DataColumn(label: Text('geom'));
         }
 
-        final idx = state.columns.indexWhere((c) => c.name == col);
-        final columnMeta = idx >= 0 ? state.columns[idx] : null;
+        final idx = state.importColumns.indexWhere((c) => c.name == col);
+        final columnMeta = idx >= 0 ? state.importColumns[idx] : null;
 
         return DataColumn(
           label: Row(
@@ -413,13 +415,13 @@ class _AttributesTableState extends State<AttributesTable> {
     final rows = <DataRow>[];
 
     for (final featureIndex in rowIndexes) {
-      final f = state.features[featureIndex];
-      final props = f.editedProperties;
+      final feature = state.importFeatures[featureIndex];
+      final props = feature.editedProperties;
 
       final cells = <DataCell>[
         DataCell(
           Checkbox(
-            value: f.selected,
+            value: feature.selected,
             onChanged: (v) => cubit.toggleRowSelection(featureIndex, v ?? false),
             visualDensity: VisualDensity.compact,
           ),
@@ -429,26 +431,34 @@ class _AttributesTableState extends State<AttributesTable> {
 
       for (final col in tableColumns) {
         if (col == '_geometry_preview_') {
-          if (!hasGeometry || !f.hasGeometry) {
+          if (!hasGeometry || !feature.hasGeometry) {
             cells.add(const DataCell(Text('')));
           } else {
-            final partsCount = f.geometryParts.length;
-            final ptsCount = f.geometryPoints.length;
-            final geometryType = f.geometryType.trim();
+            final pointsCount = feature.markerPoints.length;
+            final linePartsCount = feature.lineParts.length;
+            final polygonRingsCount = feature.polygonRings.length;
+            final geometryType = feature.geometryTypeName.trim();
 
             String label;
-            if (geometryType.isNotEmpty) {
+            if (geometryType.isNotEmpty && geometryType != 'Unknown') {
               label = geometryType;
-            } else if (partsCount > 1) {
-              label = '$partsCount partes';
-            } else if (ptsCount > 0) {
-              label = '$ptsCount pts';
+            } else if (polygonRingsCount > 0) {
+              label = '$polygonRingsCount anéis';
+            } else if (linePartsCount > 0) {
+              label = '$linePartsCount partes';
+            } else if (pointsCount > 0) {
+              label = '$pointsCount pts';
             } else {
               label = 'geom';
             }
 
-            if (ptsCount > 0) {
-              label += ' [$ptsCount pts]';
+            final totalPts = pointsCount +
+                feature.lineParts.fold<int>(0, (sum, part) => sum + part.length) +
+                feature.polygonRings
+                    .fold<int>(0, (sum, ring) => sum + ring.length);
+
+            if (totalPts > 0) {
+              label += ' [$totalPts pts]';
             }
 
             cells.add(DataCell(Text(label)));
@@ -456,8 +466,8 @@ class _AttributesTableState extends State<AttributesTable> {
           continue;
         }
 
-        final v = props[col];
-        cells.add(DataCell(Text(_stringifyCell(v))));
+        final value = props[col];
+        cells.add(DataCell(Text(_stringifyCell(value))));
       }
 
       rows.add(DataRow(cells: cells));
@@ -549,26 +559,26 @@ class _AttributesTableState extends State<AttributesTable> {
     );
   }
 
-  String _stringifyCell(dynamic v) {
-    if (v == null) return '';
-    if (v is num || v is bool) return v.toString();
-    if (v is DateTime) return v.toIso8601String();
-    if (v is String) return v;
-    if (v is List) return '[${v.length}]';
-    if (v is Map) return '{...}';
-    return v.toString();
+  String _stringifyCell(dynamic value) {
+    if (value == null) return '';
+    if (value is num || value is bool) return value.toString();
+    if (value is DateTime) return value.toIso8601String();
+    if (value is String) return value;
+    if (value is List) return '[${value.length}]';
+    if (value is Map) return '{...}';
+    return value.toString();
   }
 
   Widget _bottomBar(
       BuildContext context, {
-        required GeoAttributesState state,
+        required GeoFeatureState state,
         required int filteredTotal,
         required int currentPage,
         required int totalPages,
       }) {
-    final cubit = context.read<GeoAttributesCubit>();
-    final isBusy = state.status == GeoAttributesStatus.saving ||
-        state.status == GeoAttributesStatus.deleting;
+    final cubit = context.read<GeoFeatureCubit>();
+    final isBusy = state.importStatus == GeoFeatureImportStatus.saving ||
+        state.importStatus == GeoFeatureImportStatus.deleting;
 
     return Card(
       elevation: 0,
@@ -624,7 +634,7 @@ class _AttributesTableState extends State<AttributesTable> {
               ),
               const SizedBox(width: 10),
               FilledButton.icon(
-                onPressed: (isBusy || !state.hasAnySelected)
+                onPressed: (isBusy || !state.hasAnyImportedSelected)
                     ? null
                     : cubit.deleteSelectedFromFirestore,
                 icon: const Icon(Icons.delete_outline),
@@ -634,7 +644,7 @@ class _AttributesTableState extends State<AttributesTable> {
               ),
             ] else ...[
               FilledButton.icon(
-                onPressed: isBusy ? null : cubit.saveAllFields,
+                onPressed: isBusy ? null : cubit.saveImportedFeatures,
                 icon: const Icon(Icons.cloud_upload_outlined),
                 label: const Text('Importar para o Firebase'),
               ),
@@ -646,27 +656,27 @@ class _AttributesTableState extends State<AttributesTable> {
   }
 
   List<int> _applySearchFilter({
-    required GeoAttributesState state,
+    required GeoFeatureState state,
     required List<String> columnsForSearch,
     required String query,
   }) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) {
-      return List<int>.generate(state.features.length, (i) => i);
+      return List<int>.generate(state.importFeatures.length, (i) => i);
     }
 
     final out = <int>[];
 
-    for (int i = 0; i < state.features.length; i++) {
-      final f = state.features[i];
-      final props = f.editedProperties;
+    for (int i = 0; i < state.importFeatures.length; i++) {
+      final feature = state.importFeatures[i];
+      final props = feature.editedProperties;
 
       bool match = false;
       for (final col in columnsForSearch) {
-        final v = props[col];
-        if (v == null) continue;
+        final value = props[col];
+        if (value == null) continue;
 
-        if (v.toString().toLowerCase().contains(q)) {
+        if (value.toString().toLowerCase().contains(q)) {
           match = true;
           break;
         }
@@ -739,14 +749,15 @@ class _AttributesTableState extends State<AttributesTable> {
     );
   }
 
-  Widget _overlaySaving(GeoAttributesState state) {
-    final progresso = (state.progress.clamp(0.0, 1.0) * 100).toStringAsFixed(1);
+  Widget _overlaySaving(GeoFeatureState state) {
+    final progresso =
+    (state.importProgress.clamp(0.0, 1.0) * 100).toStringAsFixed(1);
 
-    final msg = state.status == GeoAttributesStatus.deleting
+    final msg = state.importStatus == GeoFeatureImportStatus.deleting
         ? 'Excluindo no Firebase...'
         : 'Salvando no Firebase...';
 
-    final isIndeterminate = state.progress <= 0.0;
+    final isIndeterminate = state.importProgress <= 0.0;
 
     return Container(
       color: Colors.black54,
@@ -768,7 +779,7 @@ class _AttributesTableState extends State<AttributesTable> {
                   SizedBox(
                     width: 260,
                     child: LinearProgressIndicator(
-                      value: isIndeterminate ? null : state.progress,
+                      value: isIndeterminate ? null : state.importProgress,
                       backgroundColor: Colors.grey.shade300,
                       minHeight: 6,
                     ),

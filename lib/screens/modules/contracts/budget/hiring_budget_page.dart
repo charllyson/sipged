@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
@@ -128,7 +128,7 @@ class _HiringBudgetPageState extends State<HiringBudgetPage> {
           ),
           body: Stack(
             children: [
-              const Positioned.fill(child: BackgroundClean()),
+              const Positioned.fill(child: BackgroundChange()),
 
               Positioned.fill(
                 child: MagicTableChanged(

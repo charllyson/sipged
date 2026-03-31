@@ -12,10 +12,10 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 
@@ -289,7 +289,7 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             labelText: 'Rodovia',
                             width: w(4),
                           ),
-                          DropDownButtonChange(
+                          DropDownChange(
                             controller: _regionCtrl,
                             labelText: 'Região',
                             items: st.regionLabels,
@@ -430,7 +430,7 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                           ),
                           SizedBox(
                             width: w(3),
-                            child: CustomDateField(
+                            child: DateFieldChange(
                               controller: _lastDateInterventionCtrl,
                               labelText: 'Última intervenção',
                               initialValue: _lastDateIntervention,
@@ -450,7 +450,7 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                         children: [
                           SizedBox(
                             width: w(3),
-                            child: CustomAutoComplete<UserData>(
+                            child: AutoCompleteChange<UserData>(
                               label: 'Criado por',
                               controller: _createdByCtrl,
                               allList: allUsers,
@@ -465,7 +465,7 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                           ),
                           SizedBox(
                             width: w(3),
-                            child: CustomAutoComplete<UserData>(
+                            child: AutoCompleteChange<UserData>(
                               label: 'Atualizado por',
                               controller: _updatedByCtrl,
                               allList: allUsers,

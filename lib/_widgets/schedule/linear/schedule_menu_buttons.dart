@@ -1,7 +1,7 @@
 // lib/_widgets/schedule/schedule_menu_buttons.dart
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
-import 'package:sipged/_widgets/buttons/button_flutuante_hover.dart';
+import 'package:sipged/_widgets/buttons/button_float_hover.dart';
 
 class ScheduleMenuButtons extends StatefulWidget {
   const ScheduleMenuButtons({
@@ -144,7 +144,7 @@ class _ServiceButton extends StatelessWidget {
               ),
           ],
         ),
-        child: BotaoFlutuanteHover(
+        child: ButtonFloatHover(
           icon: option.icon,
           label: option.label,
           color: background,
@@ -162,7 +162,7 @@ class _ToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BotaoFlutuanteHover(
+    return ButtonFloatHover(
       icon: expanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
       label: expanded ? 'Recolher' : 'Serviços',
       color: Colors.black.withValues(alpha: 0.12),

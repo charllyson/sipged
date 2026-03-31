@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
@@ -469,7 +469,7 @@ class _RoleDropdownState extends State<_RoleDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    return DropDownButtonChange(
+    return DropDownChange(
       labelText: 'Tipo de Usuário:',
       items: roles.UserProfile.values
           .map((r) => roles.UserRoleCodec.label(r))

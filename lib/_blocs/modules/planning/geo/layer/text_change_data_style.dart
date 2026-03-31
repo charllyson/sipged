@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/text_change_data.dart';
 import 'package:sipged/_utils/number_field.dart';
 import 'package:sipged/_widgets/draw/colors/colors_change_catalog.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 class TextChangeDataStyle extends StatefulWidget {
   final TextChangeData value;
@@ -109,7 +109,7 @@ class _TextChangeDataStyleState extends State<TextChangeDataStyle> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DropDownButtonChange(
+          DropDownChange(
             controller: _textCtrl,
             labelText: widget.textLabel,
             width: double.infinity,
@@ -198,7 +198,7 @@ class _TextChangeDataStyleState extends State<TextChangeDataStyle> {
                 ),
                 SizedBox(
                   width: fieldWidth,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     controller: _fontWeightCtrl,
                     labelText: 'Peso da fonte',
                     width: double.infinity,

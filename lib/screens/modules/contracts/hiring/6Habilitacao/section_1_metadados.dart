@@ -6,9 +6,9 @@ import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
@@ -137,7 +137,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
                 // ✅ Responsável pela checagem (genérico)
                 SizedBox(
                   width: w4,
-                  child: CustomAutoComplete<UserData>(
+                  child: AutoCompleteChange<UserData>(
                     label: 'Responsável pela checagem',
                     controller: _responsavelNomeCtrl,
                     allList: users,

@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
-import 'package:sipged/screens/menus/menu_list_page.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_state.dart';
@@ -75,7 +74,7 @@ class GatePage extends StatelessWidget {
 
               return BlocBuilder<SetupCubit, SetupState>(
                 builder: (context, setupState) {
-                  final base = MenuListPage();
+                  final base = GeoNetworkPage();
                   final bool needsSetup = kForceInitialSetupOverlay || setupState.companies.isEmpty;
 
                   if (!needsSetup) return base;

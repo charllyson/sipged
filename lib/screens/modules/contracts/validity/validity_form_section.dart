@@ -8,8 +8,8 @@ import 'package:sipged/_blocs/modules/contracts/validity/validity_data.dart';
 import 'package:sipged/_blocs/modules/contracts/validity/validity_state.dart';
 import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
@@ -166,7 +166,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
           spacing: 12,
           runSpacing: 12,
           children: [
-            DropDownButtonChange(
+            DropDownChange(
               width: inputWidth,
               labelText: 'Ordem',
               items: state.orderNumberOptions,
@@ -177,7 +177,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
                 widget.onChangedOrderNumber(value);
               },
             ),
-            DropDownButtonChange(
+            DropDownChange(
               width: inputWidth,
               labelText: 'Tipo da ordem',
               items: state.availableOrderTypes,
@@ -188,7 +188,7 @@ class _ValidityFormSectionState extends State<ValidityFormSection> {
                 widget.onChangedOrderType(value);
               },
             ),
-            CustomDateField(
+            DateFieldChange(
               width: inputWidth,
               controller: _orderDateCtrl,
               initialValue: selectedValidity?.orderdate,

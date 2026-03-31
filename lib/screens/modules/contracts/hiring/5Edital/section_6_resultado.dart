@@ -6,11 +6,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 // System
@@ -130,7 +130,7 @@ class _SectionResultadoState extends State<SectionResultado> {
         d.vencedor.trim().isNotEmpty && d.highlightWinner == true;
 
     final baseBg =
-    isDark ? cs.surfaceVariant.withValues(alpha: 0.6) : Colors.grey.shade100;
+    isDark ? cs.surfaceContainerHighest.withValues(alpha: 0.6) : Colors.grey.shade100;
     final baseBorder = cs.outlineVariant;
 
     final winnerBg = Colors.green.shade50;
@@ -236,7 +236,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                     // VENCEDOR como DropDownButtonChange (companiesBodies)
                     SizedBox(
                       width: w4,
-                      child: DropDownButtonChange(
+                      child: DropDownChange(
                         controller: _vencedorCtrl,
                         labelText: 'Vencedor',
                         enabled: isEditable,
@@ -286,7 +286,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                     ),
                     SizedBox(
                       width: w4,
-                      child: CustomDateField(
+                      child: DateFieldChange(
                         controller: _dataResultadoCtrl,
                         labelText: 'Data do resultado',
                         enabled: isEditable,
@@ -300,7 +300,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                     ),
                     SizedBox(
                       width: w4,
-                      child: CustomDateField(
+                      child: DateFieldChange(
                         controller: _adjudicacaoDataCtrl,
                         labelText: 'Data da adjudicação',
                         enabled: isEditable,
@@ -314,7 +314,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                     ),
                     SizedBox(
                       width: w4,
-                      child: CustomDateField(
+                      child: DateFieldChange(
                         controller: _homologacaoDataCtrl,
                         labelText: 'Data da homologação',
                         enabled: isEditable,

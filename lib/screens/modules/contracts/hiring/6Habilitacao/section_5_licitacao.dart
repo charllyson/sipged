@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
@@ -9,12 +9,12 @@ import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 
-class SectionLicitacao extends StatefulWidget with SipGedValidation {
+class SectionLicitation extends StatefulWidget with SipGedValidation {
   final HabilitacaoData data;
   final bool isEditable;
   final void Function(HabilitacaoData updated) onChanged;
 
-  SectionLicitacao({
+  SectionLicitation({
     super.key,
     required this.data,
     required this.isEditable,
@@ -22,10 +22,10 @@ class SectionLicitacao extends StatefulWidget with SipGedValidation {
   });
 
   @override
-  State<SectionLicitacao> createState() => _SectionLicitacaoState();
+  State<SectionLicitation> createState() => _SectionLicitationState();
 }
 
-class _SectionLicitacaoState extends State<SectionLicitacao> {
+class _SectionLicitationState extends State<SectionLicitation> {
   late final TextEditingController _modalidadeCtrl;
   late final TextEditingController _numeroProcessoCtrl;
   late final TextEditingController _ataSessaoCtrl;
@@ -52,7 +52,7 @@ class _SectionLicitacaoState extends State<SectionLicitacao> {
   }
 
   @override
-  void didUpdateWidget(covariant SectionLicitacao oldWidget) {
+  void didUpdateWidget(covariant SectionLicitation oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
@@ -110,7 +110,7 @@ class _SectionLicitacaoState extends State<SectionLicitacao> {
               children: [
                 SizedBox(
                   width: w6,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Modalidade do processo',
                     controller: _modalidadeCtrl,

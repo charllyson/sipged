@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sipged/_services/files/dxf/dxf_selection_overlay.dart';
-import 'package:sipged/_widgets/input/in_line_text_box.dart';
+import 'package:sipged/_widgets/input/text_field_in_line.dart';
 
 // Base/UI
-import 'package:sipged/_widgets/background/background_cleaner.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/schedule/modal/type.dart';
 import 'package:sipged/_widgets/schedule/civil/schedule_civil_controller.dart';
 
@@ -734,7 +734,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                   Positioned(
                     left: _editingAnchor!.dx,
                     top: _editingAnchor!.dy,
-                    child: InlineTextBox(
+                    child: TextFieldInline(
                       controller: _textEditCtrl,
                       focusNode: _textEditFocus,
                       style: ctrl.defaultTextStyle,
@@ -1058,7 +1058,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
           return Scaffold(
             body: Stack(
               children: [
-                const BackgroundClean(),
+                const BackgroundChange(),
                 ScheduleCivilBoard(
                   showBoard: true,
                   contentPadding: 24,
@@ -1083,7 +1083,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
         return Scaffold(
           body: Stack(
             children: [
-              const BackgroundClean(),
+              const BackgroundChange(),
               ScheduleCivilBoard(
                 showBoard: true,
                 contentPadding: 0,

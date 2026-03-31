@@ -6,10 +6,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
@@ -123,7 +123,7 @@ class _SectionIdentificacaoEtpState extends State<SectionIdentificacaoEtp>
                 ),
                 SizedBox(
                   width: w4,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _dataElaboracaoCtrl,
                     enabled: widget.isEditable,
                     labelText: 'Data de elaboração',
@@ -137,7 +137,7 @@ class _SectionIdentificacaoEtpState extends State<SectionIdentificacaoEtp>
                 // ✅ Responsável técnico (agora genérico)
                 SizedBox(
                   width: w4,
-                  child: CustomAutoComplete<UserData>(
+                  child: AutoCompleteChange<UserData>(
                     label: 'Responsável técnico',
                     controller: _responsavelNomeCtrl,
                     allList: users,

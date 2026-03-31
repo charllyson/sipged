@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import '../../../../../_widgets/layout/responsive_utils.dart';
-import '../../../../../_widgets/input/custom_date_field.dart';
-import '../../../../../_widgets/input/custom_text_field.dart';
-import '../../../../../_widgets/input/drop_down_botton_change.dart';
+import '../../../../../_widgets/input/date_field_change.dart';
+import '../../../../../_widgets/input/text_field_change.dart';
+import '../../../../../_widgets/input/drop_down_change.dart';
 import '../../../../../_blocs/modules/transit/accidents/accidents_data.dart';
 
 class AccidentsFormSection extends StatefulWidget {
@@ -430,7 +430,7 @@ class _AccidentsFormSectionState extends State<AccidentsFormSection> {
             ),
             _gridItem(
               w2,
-              CustomDateField(
+              DateFieldChange(
                 enabled: widget.isEditable,
                 controller: _dateCtrl,
                 labelText: 'Data do acidente',
@@ -442,7 +442,7 @@ class _AccidentsFormSectionState extends State<AccidentsFormSection> {
             ),
             _gridItem(
               w2,
-              DropDownButtonChange(
+              DropDownChange(
                 validator: (v) => (v == null || v.isEmpty) ? 'Campo obrigatório' : null,
                 enabled: widget.isEditable,
                 labelText: 'Tipo de acidente',

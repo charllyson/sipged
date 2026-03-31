@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_state.dart';
-import 'package:sipged/_widgets/cards/glass/glass_card.dart';
+import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 
 class PopUpStatusBar extends StatelessWidget {
   final GeoMapState editorState;
@@ -73,9 +73,11 @@ class PopUpStatusBar extends StatelessWidget {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1200),
-          child: GlassCard(
+          child: BasicCard(
+            isDark: isDark,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: 16,
+            useGlassEffect: true,
             blurSigmaX: 14,
             blurSigmaY: 14,
             backgroundColor: isDark
@@ -396,12 +398,16 @@ class _StatusInlineChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.30),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.10)
+            : Colors.white.withValues(alpha: 0.30),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: accentColor.withValues(alpha: 0.10),
@@ -414,7 +420,7 @@ class _StatusInlineChip extends StatelessWidget {
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: const Color(0xFF1F2937),
+          color: isDark ? Colors.white : const Color(0xFF1F2937),
         ),
       ),
     );
@@ -472,6 +478,8 @@ class _CloseStatusButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Tooltip(
       message: 'Fechar',
       child: Material(
@@ -479,14 +487,14 @@ class _CloseStatusButton extends StatelessWidget {
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(8),
-          child: const SizedBox(
+          child: SizedBox(
             width: 28,
             height: 28,
             child: Center(
               child: Icon(
                 Icons.close_rounded,
                 size: 18,
-                color: Color(0xFF111827),
+                color: isDark ? Colors.white : const Color(0xFF111827),
               ),
             ),
           ),

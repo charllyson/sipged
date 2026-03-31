@@ -1,21 +1,21 @@
 // lib/screens/modules/contracts/hiring/2Etp/section_3_alternativas_solucao.dart
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart'
-    show DropDownButtonChange;
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart'
+    show DropDownChange;
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
 
-class SectionAlternativasSolucao extends StatefulWidget
+class SectionAlternativeSolution extends StatefulWidget
     with SipGedValidation {
   final EtpData data;
   final bool isEditable;
   final void Function(EtpData updated) onChanged;
 
-  SectionAlternativasSolucao({
+  SectionAlternativeSolution({
     super.key,
     required this.data,
     required this.isEditable,
@@ -23,12 +23,12 @@ class SectionAlternativasSolucao extends StatefulWidget
   });
 
   @override
-  State<SectionAlternativasSolucao> createState() =>
-      _SectionAlternativasSolucaoState();
+  State<SectionAlternativeSolution> createState() =>
+      _SectionAlternativeSolutionState();
 }
 
-class _SectionAlternativasSolucaoState
-    extends State<SectionAlternativasSolucao> {
+class _SectionAlternativeSolutionState
+    extends State<SectionAlternativeSolution> {
   late final TextEditingController _solucaoCtrl;
   late final TextEditingController _complexidadeCtrl;
   late final TextEditingController _nivelRiscoCtrl;
@@ -47,7 +47,7 @@ class _SectionAlternativasSolucaoState
 
   @override
   void didUpdateWidget(
-      covariant SectionAlternativasSolucao oldWidget) {
+      covariant SectionAlternativeSolution oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       void sync(TextEditingController c, String? v) {
@@ -100,7 +100,7 @@ class _SectionAlternativasSolucaoState
               children: [
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Solução recomendada',
                     controller: _solucaoCtrl,
@@ -111,7 +111,7 @@ class _SectionAlternativasSolucaoState
                 ),
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Complexidade',
                     controller: _complexidadeCtrl,
@@ -122,7 +122,7 @@ class _SectionAlternativasSolucaoState
                 ),
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Risco preliminar',
                     controller: _nivelRiscoCtrl,

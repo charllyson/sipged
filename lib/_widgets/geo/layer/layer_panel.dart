@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
-import 'package:sipged/_widgets/geo/layer/layer_action.dart';
 import 'package:sipged/_widgets/geo/layer/layer_panel_draggable_node.dart';
 import 'package:sipged/_widgets/geo/layer/layer_panel_group_row.dart';
 import 'package:sipged/_widgets/geo/layer/layer_panel_insert_target.dart';
@@ -58,11 +57,9 @@ class LayerPanel extends StatefulWidget {
 
 class _LayerPanelState extends State<LayerPanel> {
   static const double rowHeight = 30;
-  static const double trailingActionSlot = 28;
 
   late Set<String> _expandedGroupIds;
   String? _internalSelectedId;
-  bool _suppressRowTapOnce = false;
 
   String? get _effectiveSelectedId => widget.selectedId ?? _internalSelectedId;
 
@@ -193,52 +190,8 @@ class _LayerPanelState extends State<LayerPanel> {
 
   bool _hasData(String id) => widget.hasDataByLayer[id] == true;
 
-  bool _supportsConnect(GeoLayersData layer) {
-    if (layer.isGroup) return false;
-    if (widget.onConnectLayer == null && widget.onOpenTable == null) return false;
-
-    final supportsConnect = widget.supportsConnect;
-    if (supportsConnect != null) {
-      return supportsConnect(layer);
-    }
-
-    return layer.supportsConnect && !layer.isGroup;
-  }
-
-  void _handleRowTapSelect(String id) {
-    if (_suppressRowTapOnce) {
-      _suppressRowTapOnce = false;
-      return;
-    }
-    _selectItem(id);
-  }
-
-  void _handleLayerActionTap(GeoLayersData layer) {
-    _suppressRowTapOnce = true;
-
-    final hasData = _hasData(layer.id);
-
-    if (hasData) {
-      _selectItem(layer.id);
-      widget.onOpenTable?.call(layer.id);
-      return;
-    }
-
-    widget.onConnectLayer?.call(layer.id);
-  }
-
-  LayerActionVisual _resolveLayerActionVisual(GeoLayersData layer) {
-    final hasData = _hasData(layer.id);
-
-    return LayerActionVisual(
-      hasData: hasData,
-      icon: hasData ? Icons.table_view : Icons.cloud_upload_outlined,
-      tooltip: hasData ? 'Abrir tabela de atributos' : 'Importar dados',
-    );
-  }
-
-  List<_TreeRenderEntry> _buildVisibleEntries(List<GeoLayersData> nodes) {
-    final result = <_TreeRenderEntry>[];
+  List<TreeRenderEntry> _buildVisibleEntries(List<GeoLayersData> nodes) {
+    final result = <TreeRenderEntry>[];
 
     void walk(
         List<GeoLayersData> entries, {
@@ -247,7 +200,7 @@ class _LayerPanelState extends State<LayerPanel> {
         }) {
       for (var i = 0; i <= entries.length; i++) {
         result.add(
-          _TreeRenderEntry.insert(
+          TreeRenderEntry.insert(
             parentId: parentId,
             targetIndex: i,
             depth: depth,
@@ -258,7 +211,7 @@ class _LayerPanelState extends State<LayerPanel> {
 
         final entry = entries[i];
         result.add(
-          _TreeRenderEntry.node(
+          TreeRenderEntry.node(
             entry: entry,
             depth: depth,
           ),
@@ -362,14 +315,13 @@ class _LayerPanelState extends State<LayerPanel> {
             group: entry,
             depth: depth,
             rowHeight: rowHeight,
-            trailingActionSlot: trailingActionSlot,
             isExpanded: _expandedGroupIds.contains(entry.id),
             isSelected: _effectiveSelectedId == entry.id,
             hoveringInside: hoveringInside,
             checkboxValue: _areAllChildrenActive(entry)
                 ? true
                 : (_hasAnyChildActive(entry) ? null : false),
-            onTap: () => _handleRowTapSelect(entry.id),
+            onTap: () => _selectItem(entry.id),
             onToggleExpand: () => _toggleGroupExpand(entry.id),
             onToggleGroupVisibility: () {
               final shouldEnable = !_areAllChildrenActive(entry);
@@ -383,35 +335,27 @@ class _LayerPanelState extends State<LayerPanel> {
       );
     }
 
-    final visual = _resolveLayerActionVisual(entry);
-
     return LayerPanelLayerRow(
       layer: entry,
       depth: depth,
       rowHeight: rowHeight,
-      trailingActionSlot: trailingActionSlot,
       isActive: widget.activeLayerIds.contains(entry.id),
       isSelected: _effectiveSelectedId == entry.id,
-      canConnect: _supportsConnect(entry),
-      visual: visual,
-      onTap: () => _handleRowTapSelect(entry.id),
+      hasData: _hasData(entry.id),
+      onTap: () => _selectItem(entry.id),
       onToggleLayer: (value) => widget.onToggleLayer(entry.id, value),
-      onActionTap: () => _handleLayerActionTap(entry),
-      onActionTapDown: () {
-        _suppressRowTapOnce = true;
-      },
     );
   }
 }
 
-class _TreeRenderEntry {
+class TreeRenderEntry {
   final GeoLayersData? entry;
   final int depth;
   final String? parentId;
   final int? targetIndex;
   final bool isInsertTarget;
 
-  const _TreeRenderEntry._({
+  const TreeRenderEntry._({
     required this.entry,
     required this.depth,
     required this.parentId,
@@ -419,7 +363,7 @@ class _TreeRenderEntry {
     required this.isInsertTarget,
   });
 
-  const _TreeRenderEntry.node({
+  const TreeRenderEntry.node({
     required GeoLayersData entry,
     required int depth,
   }) : this._(
@@ -430,7 +374,7 @@ class _TreeRenderEntry {
     isInsertTarget: false,
   );
 
-  const _TreeRenderEntry.insert({
+  const TreeRenderEntry.insert({
     required String? parentId,
     required int targetIndex,
     required int depth,

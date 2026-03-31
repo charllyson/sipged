@@ -9,11 +9,11 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 // ===== Dados / Inputs
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart'
-    show DropDownButtonChange;
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart'
+    show DropDownChange;
 
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
@@ -120,7 +120,7 @@ class _SectionDecisaoAutoridadeTAState
                     children: [
                       SizedBox(
                         width: w2,
-                        child: CustomAutoComplete<UserData>(
+                        child: AutoCompleteChange<UserData>(
                           label: 'Autoridade competente',
                           controller: _autoridadeCtrl,
                           allList: users,
@@ -139,7 +139,7 @@ class _SectionDecisaoAutoridadeTAState
                       const SizedBox(height: 12),
                       SizedBox(
                         width: w2,
-                        child: DropDownButtonChange(
+                        child: DropDownChange(
                           enabled: widget.isEditable,
                           labelText: 'Decisão',
                           controller: _decisaoCtrl,
@@ -153,7 +153,7 @@ class _SectionDecisaoAutoridadeTAState
                       const SizedBox(height: 12),
                       SizedBox(
                         width: w2,
-                        child: CustomDateField(
+                        child: DateFieldChange(
                           controller: _dataDecisaoCtrl,
                           labelText: 'Data da decisão',
                           enabled: widget.isEditable,

@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // Layout / Inputs / Widgets
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
@@ -182,7 +182,7 @@ class _DotacaoPageState extends State<DotacaoPage>
                 child: Scaffold(
                   body: Stack(
                     children: [
-                      const BackgroundClean(),
+                      const BackgroundChange(),
                       SingleChildScrollView(
                         key: const PageStorageKey('dotacao-scroll'),
                         controller: _scrollController,

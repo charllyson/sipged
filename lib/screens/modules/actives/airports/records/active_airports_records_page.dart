@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 
 // BLoC de usuário (mantido como está por enquanto)
@@ -89,7 +89,7 @@ class _ActiveAirportRecordsPageState extends State<ActiveAirportRecordsPage> {
 
             return Stack(
               children: [
-                const BackgroundClean(),
+                const BackgroundChange(),
                 Column(
                   children: [
                     const UpBar(),

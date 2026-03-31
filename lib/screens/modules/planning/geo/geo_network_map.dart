@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -53,7 +56,12 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
   static const String _tileUrl =
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
+  static const double _viewportPaddingFactor = 0.20;
+  static const double _minViewportPadDegrees = 0.0025;
+
   bool _mapReady = false;
+  bool _cacheReady = false;
+
   double _lastKnownZoom = 7.0;
   LatLng _lastKnownCenter = const LatLng(-9.6658, -35.7353);
 
@@ -63,42 +71,82 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
   double _lastStaticZoomBucket = -999.0;
 
   Map<String, List<GeoFeatureData>> _featuresByLayer = const {};
+  List<GeoFeatureData> _visibleFeatures = const [];
+
   List<Polygon> _cachedPolygons = const [];
   List<Polyline> _cachedPolylines = const [];
   List<Marker> _cachedMarkers = const [];
   List<Marker> _cachedLabelMarkers = const [];
   List<FeatureHitEntry> _cachedHitEntries = const [];
 
+  final Map<String, _FeatureBoundsCacheEntry> _featureBoundsCache =
+  <String, _FeatureBoundsCacheEntry>{};
+
+  Timer? _cameraDebounce;
+
   @override
   void initState() {
     super.initState();
     _controller = MapController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refreshAllCaches(immediateSetState: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _cameraDebounce?.cancel();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(covariant GeoNetworkMap oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final nextBucket = GeoNetworkMapCache.zoomBucket(_effectiveZoom);
+    if (!identical(oldWidget.features, widget.features)) {
+      _featureBoundsCache.clear();
+    }
 
-    if ((nextBucket != _lastMarkerZoomBucket ||
-        nextBucket != _lastStaticZoomBucket) &&
-        mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        setState(() {
-          _ensureStaticCache();
-          _ensureMarkerCache();
-        });
-      });
+    final shouldRefreshStatic =
+        !identical(oldWidget.features, widget.features) ||
+            !mapEquals(oldWidget.layersById, widget.layersById) ||
+            !listEquals(
+              oldWidget.orderedActiveLayerIds,
+              widget.orderedActiveLayerIds,
+            ) ||
+            oldWidget.selectedFeatureKey != widget.selectedFeatureKey ||
+            !mapEquals(
+              oldWidget.temporaryLineLayers,
+              widget.temporaryLineLayers,
+            ) ||
+            !mapEquals(
+              oldWidget.temporaryPolygonLayers,
+              widget.temporaryPolygonLayers,
+            ) ||
+            !listEquals(
+              oldWidget.distanceMeasurementPoints,
+              widget.distanceMeasurementPoints,
+            );
+
+    final shouldRefreshMarkers =
+        shouldRefreshStatic ||
+            !mapEquals(
+              oldWidget.temporaryPointLayers,
+              widget.temporaryPointLayers,
+            );
+
+    if (shouldRefreshStatic || shouldRefreshMarkers) {
+      _scheduleCacheRefresh(immediate: true);
     }
   }
 
   void _handleMapReady() {
     if (!mounted) return;
-
     _mapReady = true;
     widget.onControllerReady(_controller);
+    _scheduleCacheRefresh(immediate: true);
   }
 
   double get _effectiveZoom {
@@ -123,18 +171,66 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
     return _lastKnownCenter;
   }
 
-  void _ensureStaticCache() {
-    final bucket = GeoNetworkMapCache.zoomBucket(_effectiveZoom);
+  LatLngBoundsLite? get _effectiveViewportBounds {
+    if (_mapReady) {
+      try {
+        final bounds = _controller.camera.visibleBounds;
 
-    final signature = GeoNetworkMapCache.computeStaticVisualSignature(
-      zoomBucket: bucket,
-      selectedFeatureKey: widget.selectedFeatureKey,
-      features: widget.features,
-      layersById: widget.layersById,
-      orderedActiveLayerIds: widget.orderedActiveLayerIds,
-      temporaryLineLayers: widget.temporaryLineLayers,
-      temporaryPolygonLayers: widget.temporaryPolygonLayers,
-      distanceMeasurementPoints: widget.distanceMeasurementPoints,
+        return LatLngBoundsLite(
+          minLat: bounds.south,
+          maxLat: bounds.north,
+          minLng: bounds.west,
+          maxLng: bounds.east,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  void _scheduleCacheRefresh({bool immediate = false}) {
+    _cameraDebounce?.cancel();
+
+    if (immediate) {
+      _refreshAllCaches(immediateSetState: true);
+      return;
+    }
+
+    _cameraDebounce = Timer(const Duration(milliseconds: 90), () {
+      if (!mounted) return;
+      _refreshAllCaches(immediateSetState: true);
+    });
+  }
+
+  void _refreshAllCaches({required bool immediateSetState}) {
+    _ensureStaticCache();
+    _ensureMarkerCache();
+
+    _cacheReady = true;
+
+    if (immediateSetState && mounted) {
+      setState(() {});
+    }
+  }
+
+  void _ensureStaticCache() {
+    final bucket = GeoNetworkMapCache.staticZoomBucket(_effectiveZoom);
+    final viewportBounds = _expandedViewportBounds();
+    final viewportSignature = _viewportSignature(viewportBounds);
+
+    final signature = Object.hash(
+      viewportSignature,
+      GeoNetworkMapCache.computeStaticVisualSignature(
+        zoomBucket: bucket,
+        selectedFeatureKey: widget.selectedFeatureKey,
+        features: widget.features,
+        layersById: widget.layersById,
+        orderedActiveLayerIds: widget.orderedActiveLayerIds,
+        temporaryLineLayers: widget.temporaryLineLayers,
+        temporaryPolygonLayers: widget.temporaryPolygonLayers,
+        distanceMeasurementPoints: widget.distanceMeasurementPoints,
+      ),
     );
 
     if (signature == _lastStaticVisualSignature &&
@@ -142,10 +238,11 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       return;
     }
 
-    _lastStaticZoomBucket = bucket;
     _lastStaticVisualSignature = signature;
-    _featuresByLayer = GeoNetworkMapCache.groupFeaturesByLayer(widget.features);
+    _lastStaticZoomBucket = bucket;
 
+    _visibleFeatures = _collectVisibleFeatures(viewportBounds);
+    _featuresByLayer = GeoNetworkMapCache.groupFeaturesByLayer(_visibleFeatures);
     _cachedPolygons = GeoNetworkMapLayers.buildPolygons(
       zoom: bucket,
       featuresByLayer: _featuresByLayer,
@@ -173,17 +270,22 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
   }
 
   void _ensureMarkerCache() {
-    final bucket = GeoNetworkMapCache.zoomBucket(_effectiveZoom);
+    final bucket = GeoNetworkMapCache.markerZoomBucket(_effectiveZoom);
+    final viewportBounds = _expandedViewportBounds();
+    final viewportSignature = _viewportSignature(viewportBounds);
 
-    final signature = GeoNetworkMapCache.computeMarkerVisualSignature(
-      zoomBucket: bucket,
-      selectedFeatureKey: widget.selectedFeatureKey,
-      features: widget.features,
-      layersById: widget.layersById,
-      orderedActiveLayerIds: widget.orderedActiveLayerIds,
-      temporaryPointLayers: widget.temporaryPointLayers,
-      temporaryPolygonLayers: widget.temporaryPolygonLayers,
-      distanceMeasurementPoints: widget.distanceMeasurementPoints,
+    final signature = Object.hash(
+      viewportSignature,
+      GeoNetworkMapCache.computeMarkerVisualSignature(
+        zoomBucket: bucket,
+        selectedFeatureKey: widget.selectedFeatureKey,
+        features: widget.features,
+        layersById: widget.layersById,
+        orderedActiveLayerIds: widget.orderedActiveLayerIds,
+        temporaryPointLayers: widget.temporaryPointLayers,
+        temporaryPolygonLayers: widget.temporaryPolygonLayers,
+        distanceMeasurementPoints: widget.distanceMeasurementPoints,
+      ),
     );
 
     if (signature == _lastMarkerVisualSignature &&
@@ -191,8 +293,13 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       return;
     }
 
-    _lastMarkerZoomBucket = bucket;
     _lastMarkerVisualSignature = signature;
+    _lastMarkerZoomBucket = bucket;
+
+    if (_featuresByLayer.isEmpty && widget.features.isNotEmpty) {
+      _visibleFeatures = _collectVisibleFeatures(viewportBounds);
+      _featuresByLayer = GeoNetworkMapCache.groupFeaturesByLayer(_visibleFeatures);
+    }
 
     _cachedMarkers = GeoNetworkMapLayers.buildMarkers(
       zoom: bucket,
@@ -203,7 +310,6 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       temporaryPointLayers: widget.temporaryPointLayers,
       temporaryPolygonLayers: widget.temporaryPolygonLayers,
       distanceMeasurementPoints: widget.distanceMeasurementPoints,
-      onFeatureTap: widget.onFeatureTap,
     );
 
     _cachedLabelMarkers = GeoNetworkMapLayers.buildLabelMarkers(
@@ -223,11 +329,160 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
     );
   }
 
+  List<GeoFeatureData> _collectVisibleFeatures(LatLngBoundsLite? viewport) {
+    if (viewport == null) {
+      return widget.features;
+    }
+
+    final out = <GeoFeatureData>[];
+
+    for (final feature in widget.features) {
+      final bounds = _featureBoundsFor(feature);
+      if (bounds == null) continue;
+
+      if (_boundsIntersect(bounds, viewport)) {
+        out.add(feature);
+      }
+    }
+
+    return out;
+  }
+
+  LatLngBoundsLite? _expandedViewportBounds() {
+    final raw = _effectiveViewportBounds;
+    if (raw == null) return null;
+
+    final latSpan = (raw.maxLat - raw.minLat).abs();
+    final lngSpan = (raw.maxLng - raw.minLng).abs();
+
+    final latPad = (latSpan * _viewportPaddingFactor)
+        .clamp(_minViewportPadDegrees, 90.0);
+    final lngPad = (lngSpan * _viewportPaddingFactor)
+        .clamp(_minViewportPadDegrees, 180.0);
+
+    return LatLngBoundsLite(
+      minLat: raw.minLat - latPad,
+      maxLat: raw.maxLat + latPad,
+      minLng: raw.minLng - lngPad,
+      maxLng: raw.maxLng + lngPad,
+    );
+  }
+
+  int _viewportSignature(LatLngBoundsLite? bounds) {
+    if (bounds == null) return 0;
+
+    return Object.hash(
+      bounds.minLat.toStringAsFixed(5),
+      bounds.maxLat.toStringAsFixed(5),
+      bounds.minLng.toStringAsFixed(5),
+      bounds.maxLng.toStringAsFixed(5),
+    );
+  }
+
+  bool _boundsIntersect(LatLngBoundsLite a, LatLngBoundsLite b) {
+    if (a.maxLat < b.minLat) return false;
+    if (a.minLat > b.maxLat) return false;
+    if (a.maxLng < b.minLng) return false;
+    if (a.minLng > b.maxLng) return false;
+    return true;
+  }
+
+  LatLngBoundsLite? _featureBoundsFor(GeoFeatureData feature) {
+    final cacheKey = feature.selectionKey;
+    final signature = _featureGeometrySignature(feature);
+
+    final cached = _featureBoundsCache[cacheKey];
+    if (cached != null && cached.signature == signature) {
+      return cached.bounds;
+    }
+
+    LatLngBoundsLite? bounds;
+
+    void includePoint(LatLng p) {
+      if (bounds == null) {
+        bounds = LatLngBoundsLite(
+          minLat: p.latitude,
+          maxLat: p.latitude,
+          minLng: p.longitude,
+          maxLng: p.longitude,
+        );
+      } else {
+        bounds = LatLngBoundsLite(
+          minLat: mathMin(bounds!.minLat, p.latitude),
+          maxLat: mathMax(bounds!.maxLat, p.latitude),
+          minLng: mathMin(bounds!.minLng, p.longitude),
+          maxLng: mathMax(bounds!.maxLng, p.longitude),
+        );
+      }
+    }
+
+    for (final p in feature.markerPoints) {
+      includePoint(p);
+    }
+
+    for (final part in feature.lineParts) {
+      for (final p in part) {
+        includePoint(p);
+      }
+    }
+
+    for (final ring in feature.polygonRings) {
+      for (final p in ring) {
+        includePoint(p);
+      }
+    }
+
+    _featureBoundsCache[cacheKey] = _FeatureBoundsCacheEntry(
+      signature: signature,
+      bounds: bounds,
+    );
+
+    return bounds;
+  }
+
+  int _featureGeometrySignature(GeoFeatureData feature) {
+    return Object.hashAll([
+      feature.selectionKey,
+      feature.geometryType,
+      feature.markerPoints.length,
+      feature.lineParts.length,
+      feature.polygonRings.length,
+      Object.hashAll(
+        feature.markerPoints.map(
+              (p) => Object.hash(
+            p.latitude.toStringAsFixed(6),
+            p.longitude.toStringAsFixed(6),
+          ),
+        ),
+      ),
+      Object.hashAll(
+        feature.lineParts.expand(
+              (part) => part.map(
+                (p) => Object.hash(
+              p.latitude.toStringAsFixed(6),
+              p.longitude.toStringAsFixed(6),
+            ),
+          ),
+        ),
+      ),
+      Object.hashAll(
+        feature.polygonRings.expand(
+              (ring) => ring.map(
+                (p) => Object.hash(
+              p.latitude.toStringAsFixed(6),
+              p.longitude.toStringAsFixed(6),
+            ),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  double mathMin(double a, double b) => a < b ? a : b;
+  double mathMax(double a, double b) => a > b ? a : b;
+
   @override
   Widget build(BuildContext context) {
-    _ensureStaticCache();
-    _ensureMarkerCache();
-
     return Stack(
       clipBehavior: Clip.hardEdge,
       children: [
@@ -245,27 +500,17 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
                   if (consumed) return;
 
                   final hit = _findFeatureAt(latLng, _effectiveZoom);
-
-                  if (hit != null) {
-                    widget.onFeatureTap(hit);
-                    return;
-                  }
-
-                  widget.onFeatureTap(null);
+                  widget.onFeatureTap(hit);
                 },
                 onPositionChanged: (camera, hasGesture) {
                   _lastKnownCenter = camera.center;
                   _lastKnownZoom = camera.zoom;
                   widget.onCameraChanged?.call(camera.center, camera.zoom);
 
-                  final nextBucket = GeoNetworkMapCache.zoomBucket(camera.zoom);
-                  if ((nextBucket != _lastMarkerZoomBucket ||
-                      nextBucket != _lastStaticZoomBucket) &&
-                      mounted) {
-                    setState(() {
-                      _ensureStaticCache();
-                      _ensureMarkerCache();
-                    });
+                  if (hasGesture) {
+                    _scheduleCacheRefresh(immediate: false);
+                  } else {
+                    _scheduleCacheRefresh(immediate: true);
                   }
                 },
               ),
@@ -275,13 +520,13 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
                   userAgentPackageName: 'com.openai.sipged',
                   panBuffer: 1,
                 ),
-                if (_cachedPolygons.isNotEmpty)
+                if (_cacheReady && _cachedPolygons.isNotEmpty)
                   PolygonLayer(polygons: _cachedPolygons),
-                if (_cachedPolylines.isNotEmpty)
+                if (_cacheReady && _cachedPolylines.isNotEmpty)
                   PolylineLayer(polylines: _cachedPolylines),
-                if (_cachedMarkers.isNotEmpty)
+                if (_cacheReady && _cachedMarkers.isNotEmpty)
                   MarkerLayer(markers: _cachedMarkers),
-                if (_cachedLabelMarkers.isNotEmpty)
+                if (_cacheReady && _cachedLabelMarkers.isNotEmpty)
                   MarkerLayer(markers: _cachedLabelMarkers),
               ],
             ),
@@ -300,11 +545,10 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
                     heroTag: 'geo_zoom_in',
                     onPressed: !_mapReady
                         ? null
-                        : () {
-                      final center = _effectiveCenter;
-                      final zoom = _effectiveZoom;
-                      _controller.move(center, zoom + 1);
-                    },
+                        : () => _controller.move(
+                      _effectiveCenter,
+                      _effectiveZoom + 1,
+                    ),
                     child: const Icon(Icons.add),
                   ),
                   const SizedBox(height: 8),
@@ -312,11 +556,10 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
                     heroTag: 'geo_zoom_out',
                     onPressed: !_mapReady
                         ? null
-                        : () {
-                      final center = _effectiveCenter;
-                      final zoom = _effectiveZoom;
-                      _controller.move(center, zoom - 1);
-                    },
+                        : () => _controller.move(
+                      _effectiveCenter,
+                      _effectiveZoom - 1,
+                    ),
                     child: const Icon(Icons.remove),
                   ),
                 ],
@@ -327,4 +570,14 @@ class _GeoNetworkMapState extends State<GeoNetworkMap> {
       ],
     );
   }
+}
+
+class _FeatureBoundsCacheEntry {
+  final int signature;
+  final LatLngBoundsLite? bounds;
+
+  const _FeatureBoundsCacheEntry({
+    required this.signature,
+    required this.bounds,
+  });
 }

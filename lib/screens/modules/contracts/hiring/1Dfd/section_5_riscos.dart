@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -157,7 +157,7 @@ class _SectionRiscosState extends State<SectionRiscos> {
                 ),
                 SizedBox(
                   width: w4,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Prioridade',
                     controller: _prioridadeCtrl,
@@ -173,7 +173,7 @@ class _SectionRiscosState extends State<SectionRiscos> {
                 ),
                 SizedBox(
                   width: w4,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _dataLimiteCtrl,
                     enabled: widget.isEditable,
                     labelText: 'Data limite/urgência (se houver)',

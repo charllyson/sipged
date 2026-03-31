@@ -1,6 +1,6 @@
 // lib/_widgets/modals/parts/comment_field.dart
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 
 class ScheduleCommentField extends StatelessWidget {
   final TextEditingController controller;

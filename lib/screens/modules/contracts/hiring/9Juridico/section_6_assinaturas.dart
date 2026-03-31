@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -92,7 +92,7 @@ class _SectionAssinaturasState extends State<SectionAssinaturas> {
               children: [
                 SizedBox(
                   width: w2,
-                  child: CustomAutoComplete<UserData>(
+                  child: AutoCompleteChange<UserData>(
                     label: 'Autoridade que aprovou o parecer',
                     controller: _autoridadeNomeCtrl,
                     allList: users,

@@ -9,8 +9,8 @@ import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_utils/formats/sipged_format_money.dart';
 import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
@@ -270,7 +270,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
               children: [
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Tipo de contratação',
                     controller: _tipoContratacaoCtrl,
@@ -284,7 +284,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                 ),
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Tipo de obra',
                     controller: _tipoObraCtrl,
@@ -298,7 +298,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                 ),
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     key: ValueKey('roads-$_roadsNonce-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Rodovia',

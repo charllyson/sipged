@@ -1,6 +1,6 @@
 // lib/screens/modules/actives/oaes/active_oaes_map_cesium.dart
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 
 import 'package:sipged/_widgets/map/map_box/map_mapbox_layer.dart';
 import 'package:sipged/_services/map/map_box/mapbox_data.dart';
@@ -25,7 +25,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
         !state.initialized) {
       return Stack(
         children: [
-          BackgroundClean(),
+          BackgroundChange(),
           const Center(child: CircularProgressIndicator()),
         ],
       );
@@ -47,7 +47,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       final nota = d.score?.toDouble() ?? 0;
       final Color notaColor = ActiveOaesData.getColorByNota(nota);
       final colorHex =
-          '#${notaColor.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+          '#${notaColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
 
       return MapboxData(
         lon: m.point.longitude,
@@ -67,7 +67,7 @@ class ActiveOaesMapMapbox extends StatelessWidget {
 
     return Stack(
       children: [
-        BackgroundClean(),
+        BackgroundChange(),
         MapBoxChanged(
           markers: mapboxMarkers,
           zoom: 1.7,

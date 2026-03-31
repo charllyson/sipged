@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 // ✅ novo (remove mask_class.dart)
 import 'package:sipged/_utils/mask/sipged_masks.dart';
@@ -216,7 +216,7 @@ class _SectionLancesState extends State<SectionLances> {
                       children: [
                         SizedBox(
                           width: w3,
-                          child: DropDownButtonChange(
+                          child: DropDownChange(
                             controller: l.licitanteCtrl,
                             labelText: 'Licitante',
                             enabled: isEditable,
@@ -255,7 +255,7 @@ class _SectionLancesState extends State<SectionLances> {
 
                         SizedBox(
                           width: w3,
-                          child: CustomDateField(
+                          child: DateFieldChange(
                             controller: l.dataHoraCtrl,
                             labelText: 'Data/Hora',
                             enabled: isEditable,

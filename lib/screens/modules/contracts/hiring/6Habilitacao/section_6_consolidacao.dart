@@ -3,21 +3,21 @@ import 'package:flutter/services.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 
-class SectionConsolidacao extends StatefulWidget with SipGedValidation {
+class SectionConsolidation extends StatefulWidget with SipGedValidation {
   final HabilitacaoData data;
   final bool isEditable;
   final void Function(HabilitacaoData updated) onChanged;
 
-  SectionConsolidacao({
+  SectionConsolidation({
     super.key,
     required this.data,
     required this.isEditable,
@@ -25,10 +25,10 @@ class SectionConsolidacao extends StatefulWidget with SipGedValidation {
   });
 
   @override
-  State<SectionConsolidacao> createState() => _SectionConsolidacaoState();
+  State<SectionConsolidation> createState() => _SectionConsolidationState();
 }
 
-class _SectionConsolidacaoState extends State<SectionConsolidacao> {
+class _SectionConsolidationState extends State<SectionConsolidation> {
   late final TextEditingController _situacaoCtrl;
   late final TextEditingController _dataConclusaoCtrl;
   late final TextEditingController _parecerCtrl;
@@ -47,7 +47,7 @@ class _SectionConsolidacaoState extends State<SectionConsolidacao> {
   }
 
   @override
-  void didUpdateWidget(covariant SectionConsolidacao oldWidget) {
+  void didUpdateWidget(covariant SectionConsolidation oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
@@ -96,7 +96,7 @@ class _SectionConsolidacaoState extends State<SectionConsolidacao> {
               children: [
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Situação da habilitação',
                     controller: _situacaoCtrl,
@@ -110,7 +110,7 @@ class _SectionConsolidacaoState extends State<SectionConsolidacao> {
                 ),
                 SizedBox(
                   width: w3,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _dataConclusaoCtrl,
                     labelText: 'Data da conclusão',
                     enabled: widget.isEditable,

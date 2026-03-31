@@ -9,7 +9,7 @@ import 'package:brasil_fields/brasil_fields.dart';
 import 'package:sipged/_blocs/system/setup/setup_region_map.dart';
 
 import 'package:sipged/_widgets/windows/window_dialog.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_utils/formats/mask_class.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';

@@ -11,7 +11,7 @@ import 'package:sipged/_utils/geometry/sipged_geo_math.dart';
 import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/map/tooltip/tooltip_overlay.dart';
 
 /// Abre um dialog com mapa IBGE para selecionar múltiplos municípios.
@@ -307,7 +307,7 @@ class _RegionMunicipiosSelectorBodyState
                     top: 10,
                     child: SizedBox(
                       width: 200,
-                      child: DropDownButtonChange(
+                      child: DropDownChange(
                         controller: _ufCtrl,
                         labelText: 'Estado',
                         items: ufItems,

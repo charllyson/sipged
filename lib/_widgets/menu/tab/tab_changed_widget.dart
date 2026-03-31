@@ -4,7 +4,7 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 
@@ -150,7 +150,7 @@ class _TabChangedWidgetState extends State<TabChangedWidget> {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            const BackgroundClean(),
+            const BackgroundChange(),
 
             // Conteúdo abaixo da UpBar
             Padding(

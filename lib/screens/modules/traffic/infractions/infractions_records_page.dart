@@ -6,7 +6,7 @@ import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 import '../../../../_blocs/modules/transit/infractions/infractions_bloc.dart';
-import '../../../../_widgets/background/background_cleaner.dart';
+import '../../../../_widgets/background/background_change.dart';
 import '../../../../_blocs/modules/transit/infractions/infractions_controller.dart';
 
 // SEÇÕES
@@ -47,7 +47,7 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            const BackgroundClean(),
+            const BackgroundChange(),
             Column(
               children: [
                 Expanded(

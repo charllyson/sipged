@@ -39,30 +39,34 @@ class ToolboxPanel extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth.isFinite
+        final panelWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
-            : 320.0;
+            : 220.0;
 
-        final resolvedButtonSize = _resolveButtonSize(maxWidth);
-        final resolvedIconSize = iconSize ?? _resolveIconSize(resolvedButtonSize);
+        final effectivePanelWidth = math.max(120.0, panelWidth);
 
-        final effectiveButtonSize = buttonSize ?? resolvedButtonSize;
+        final resolvedButtonSize =
+            buttonSize ?? _resolveButtonSize(effectivePanelWidth);
 
-        final availableWidthForGrid = math.max(
+        final resolvedIconSize =
+            iconSize ?? _resolveIconSize(resolvedButtonSize);
+
+        final availableWidth = math.max(
           0.0,
-          maxWidth - padding.horizontal,
+          effectivePanelWidth - padding.horizontal,
         );
 
         final columns = _resolveColumnCount(
-          availableWidth: availableWidthForGrid,
-          buttonSize: effectiveButtonSize,
+          availableWidth: availableWidth,
+          buttonSize: resolvedButtonSize,
           spacing: spacing,
           itemCount: allActions.length,
         );
 
         final contentWidth = _resolveContentWidth(
+          availableWidth: availableWidth,
           columns: columns,
-          buttonSize: effectiveButtonSize,
+          buttonSize: resolvedButtonSize,
           spacing: spacing,
         );
 
@@ -71,23 +75,27 @@ class ToolboxPanel extends StatelessWidget {
             alignment: Alignment.topLeft,
             child: SingleChildScrollView(
               padding: padding,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: contentWidth,
-                  maxWidth: contentWidth,
-                ),
+              child: SizedBox(
+                width: contentWidth,
                 child: Wrap(
+                  alignment: WrapAlignment.start,
+                  runAlignment: WrapAlignment.start,
+                  crossAxisAlignment: WrapCrossAlignment.start,
                   spacing: spacing,
                   runSpacing: runSpacing,
                   children: allActions
                       .map(
-                        (action) => ToolboxIconButton(
-                      key: ValueKey(action.id),
-                      action: action,
-                      selectedToolId: selectedToolId,
-                      onSelected: onSelected,
-                      iconSize: resolvedIconSize,
-                      buttonSize: effectiveButtonSize,
+                        (action) => SizedBox(
+                      width: resolvedButtonSize,
+                      height: resolvedButtonSize,
+                      child: ToolboxIconButton(
+                        key: ValueKey(action.id),
+                        action: action,
+                        selectedToolId: selectedToolId,
+                        onSelected: onSelected,
+                        iconSize: resolvedIconSize,
+                        buttonSize: resolvedButtonSize,
+                      ),
                     ),
                   )
                       .toList(growable: false),
@@ -101,13 +109,15 @@ class ToolboxPanel extends StatelessWidget {
   }
 
   double _resolveButtonSize(double maxWidth) {
-    if (maxWidth <= 180) return 34;
-    if (maxWidth <= 240) return 36;
+    if (maxWidth <= 160) return 32;
+    if (maxWidth <= 200) return 34;
+    if (maxWidth <= 260) return 36;
     if (maxWidth <= 320) return 38;
     return 40;
   }
 
   double _resolveIconSize(double buttonSize) {
+    if (buttonSize <= 32) return 17;
     if (buttonSize <= 34) return 18;
     if (buttonSize <= 36) return 19;
     return 20;
@@ -119,20 +129,24 @@ class ToolboxPanel extends StatelessWidget {
     required double spacing,
     required int itemCount,
   }) {
+    if (itemCount <= 0) return 1;
+
     final footprint = buttonSize + spacing;
     if (footprint <= 0) return 1;
 
     final rawCount = ((availableWidth + spacing) / footprint).floor();
-    final clamped = rawCount.clamp(1, math.max(1, itemCount)).toInt();
-    return clamped;
+    return rawCount.clamp(1, itemCount);
   }
 
   double _resolveContentWidth({
+    required double availableWidth,
     required int columns,
     required double buttonSize,
     required double spacing,
   }) {
-    if (columns <= 1) return buttonSize;
-    return (columns * buttonSize) + ((columns - 1) * spacing);
+    final rawWidth =
+        (columns * buttonSize) + ((columns > 1 ? columns - 1 : 0) * spacing);
+
+    return rawWidth.clamp(buttonSize, availableWidth);
   }
 }

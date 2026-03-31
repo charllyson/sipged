@@ -7,8 +7,8 @@ import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/images/logos/sisgeo_logo.dart';
-import 'package:sipged/_widgets/input/custom_icon_button.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/icon_button_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 // 🔔 Notificações centralizadas
@@ -265,7 +265,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               keyboardType: TextInputType.emailAddress,
               enabled: !_loading,
               suffix: _hasEmail
-                  ? CustomIconButton(
+                  ? IconButtonChange(
                 radius: 28,
                 iconData: Icons.clear,
                 onTap: _loading

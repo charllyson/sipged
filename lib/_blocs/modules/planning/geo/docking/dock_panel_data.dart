@@ -16,6 +16,8 @@ enum DockCrossSpan {
 }
 
 class DockPanelData {
+  static const Object _sentinel = Object();
+
   final String id;
   final String title;
   final DockArea area;
@@ -78,6 +80,8 @@ class DockPanelData {
     this.storedFloatingSize = const Size(360, 420),
   });
 
+  bool get hasItems => items.isNotEmpty;
+
   DockPanelDataItem? get activeItem {
     if (items.isEmpty) return null;
     if (activeItemId == null) return items.first;
@@ -89,13 +93,15 @@ class DockPanelData {
     return items.first;
   }
 
+  bool get hasRenderableItem => activeItem != null;
+
   DockPanelData copyWith({
     String? id,
     String? title,
     DockArea? area,
     DockCrossSpan? crossSpan,
     List<DockPanelDataItem>? items,
-    String? activeItemId,
+    Object? activeItemId = _sentinel,
     bool? visible,
     bool? collapsed,
     Offset? floatingOffset,
@@ -106,8 +112,8 @@ class DockPanelData {
     Color? accentColor,
     bool? shrinkWrapOnMainAxis,
     bool? minimized,
-    DockArea? lastDockArea,
-    DockCrossSpan? lastDockCrossSpan,
+    Object? lastDockArea = _sentinel,
+    Object? lastDockCrossSpan = _sentinel,
     bool? floatingAsDialog,
     bool? restoreToFloatingOnDialogClose,
     Offset? storedFloatingOffset,
@@ -119,7 +125,8 @@ class DockPanelData {
       area: area ?? this.area,
       crossSpan: crossSpan ?? this.crossSpan,
       items: items ?? this.items,
-      activeItemId: activeItemId ?? this.activeItemId,
+      activeItemId:
+      identical(activeItemId, _sentinel) ? this.activeItemId : activeItemId as String?,
       visible: visible ?? this.visible,
       collapsed: collapsed ?? this.collapsed,
       floatingOffset: floatingOffset ?? this.floatingOffset,
@@ -131,8 +138,11 @@ class DockPanelData {
       shrinkWrapOnMainAxis:
       shrinkWrapOnMainAxis ?? this.shrinkWrapOnMainAxis,
       minimized: minimized ?? this.minimized,
-      lastDockArea: lastDockArea ?? this.lastDockArea,
-      lastDockCrossSpan: lastDockCrossSpan ?? this.lastDockCrossSpan,
+      lastDockArea:
+      identical(lastDockArea, _sentinel) ? this.lastDockArea : lastDockArea as DockArea?,
+      lastDockCrossSpan: identical(lastDockCrossSpan, _sentinel)
+          ? this.lastDockCrossSpan
+          : lastDockCrossSpan as DockCrossSpan?,
       floatingAsDialog: floatingAsDialog ?? this.floatingAsDialog,
       restoreToFloatingOnDialogClose:
       restoreToFloatingOnDialogClose ?? this.restoreToFloatingOnDialogClose,

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/charts/gauges/gauge_chart_change.dart';
 import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';
 import 'package:sipged/_widgets/charts/bars/bar_chart_changed.dart';
@@ -24,7 +24,7 @@ class ActiveOaesPanel extends StatelessWidget {
 
     return Stack(
       children: [
-        const BackgroundClean(),
+        const BackgroundChange(),
         Column(
           children: [
             Expanded(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/screens/modules/actives/oaes/records/list_oaes_page.dart';
 import 'package:sipged/screens/modules/actives/oaes/records/tab_bar_oaes_page.dart';
@@ -74,7 +74,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
             ),
             body: Stack(
               children: [
-                BackgroundClean(),
+                BackgroundChange(),
                 Center(
                     child: Text('Carregando OAE\'s...')),
               ],
@@ -141,7 +141,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
           ),
           body: Stack(
             children: [
-              const BackgroundClean(),
+              const BackgroundChange(),
               SingleChildScrollView(
                 child: ListOaesPage(
                   oaes: oaes,

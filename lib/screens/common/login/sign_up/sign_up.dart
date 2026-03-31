@@ -5,8 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_utils/formats/sipged_format_numbers.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
@@ -237,7 +237,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                                 inputFormatters: [CpfInputFormatter()],
                               ),
 
-                              CustomDateField(
+                              DateFieldChange(
                                 validator: validateDateToBirthday,
                                 onSaved: (v) => widget.userData.dateToBirthday = v,
                                 labelText: 'Data de nascimento',

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 
@@ -108,28 +108,28 @@ class _LaneRegularizationPropertyFormState
                   spacing: 12,
                   runSpacing: 12,
                   children: [
-                    DropDownButtonChange(
+                    DropDownChange(
                       width: w,
                       enabled: controller.isEditable,
                       labelText: 'Etapa (pipeline)',
                       items: LaneRegularizationData.stageItems,
                       controller: controller.stageCtrl,
                     ),
-                    DropDownButtonChange(
+                    DropDownChange(
                       width: w,
                       enabled: controller.isEditable,
                       labelText: 'Status *',
                       items: LaneRegularizationData.statusItems,
                       controller: controller.statusCtrl,
                     ),
-                    DropDownButtonChange(
+                    DropDownChange(
                       width: w,
                       enabled: controller.isEditable,
                       labelText: 'Tipo do Imóvel',
                       items: LaneRegularizationData.typeItems,
                       controller: controller.typeCtrl,
                     ),
-                    DropDownButtonChange(
+                    DropDownChange(
                       width: w,
                       enabled: controller.isEditable,
                       labelText: 'Situação da Negociação',
@@ -154,7 +154,7 @@ class _LaneRegularizationPropertyFormState
                     ),
                     _input(context, controller.roadNameCtrl, 'Rodovia/Trecho',
                         width: w),
-                    DropDownButtonChange(
+                    DropDownChange(
                       width: w,
                       enabled: controller.isEditable,
                       labelText: 'Lado da Via',

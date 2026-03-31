@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
@@ -118,7 +118,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
                 ),
                 SizedBox(
                   width: w4,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _dataCtrl,
                     labelText: 'Data do parecer',
                     enabled: widget.isEditable,
@@ -144,7 +144,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
                 // ✅ Parecerista (genérico)
                 SizedBox(
                   width: w4,
-                  child: CustomAutoComplete<UserData>(
+                  child: AutoCompleteChange<UserData>(
                     label: 'Parecerista',
                     controller: _pareceristaNomeCtrl,
                     allList: users,

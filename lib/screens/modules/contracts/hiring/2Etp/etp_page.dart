@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
@@ -174,7 +174,7 @@ class _EtpPageState extends State<EtpPage>
                 child: Scaffold(
                   body: Stack(
                     children: [
-                      const BackgroundClean(),
+                      const BackgroundChange(),
                       SingleChildScrollView(
                         key: const PageStorageKey('etp-scroll'),
                         controller: _scrollController,
@@ -190,7 +190,7 @@ class _EtpPageState extends State<EtpPage>
                               },
                             ),
                             const SizedBox(height: 12),
-                            SectionMotivacaoObjRequisitos(
+                            SectionMotivationObj(
                               data: _formData,
                               isEditable: !widget.readOnly,
                               onChanged: (updated) {
@@ -198,7 +198,7 @@ class _EtpPageState extends State<EtpPage>
                               },
                             ),
                             const SizedBox(height: 12),
-                            SectionAlternativasSolucao(
+                            SectionAlternativeSolution(
                               data: _formData,
                               isEditable: !widget.readOnly,
                               onChanged: (updated) {

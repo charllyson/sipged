@@ -5,12 +5,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
@@ -127,7 +127,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
                 ),
                 SizedBox(
                   width: w5,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _dataAberturaCtrl,
                     labelText: 'Data de abertura',
                     enabled: widget.isEditable,
@@ -140,7 +140,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
                 ),
                 SizedBox(
                   width: w5,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _dataEncerramentoCtrl,
                     labelText: 'Data de encerramento',
                     enabled: widget.isEditable,
@@ -155,7 +155,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
                 // ✅ Responsável pela pesquisa (genérico)
                 SizedBox(
                   width: w5,
-                  child: CustomAutoComplete<UserData>(
+                  child: AutoCompleteChange<UserData>(
                     label: 'Responsável pela pesquisa',
                     controller: _responsavelCtrl,
                     enabled: widget.isEditable,
@@ -180,7 +180,7 @@ class _SectionMetadadosState extends State<SectionMetadados>
 
                 SizedBox(
                   width: w5,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Metodologia',
                     controller: _metodologiaCtrl,

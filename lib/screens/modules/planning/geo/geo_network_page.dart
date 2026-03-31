@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
@@ -14,16 +13,16 @@ import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/geo_map_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/map/geo_map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/geo_toolbox_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_field.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/geo_workspace_data_property.dart';
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
-import 'package:sipged/_widgets/docking/dock_panel_workspace.dart';
 import 'package:sipged/_widgets/geo/attributes/layer/attribute_panel.dart';
+import 'package:sipged/_widgets/geo/docking/dock_panel_workspace.dart';
 import 'package:sipged/_widgets/geo/layer/layer_panel.dart';
 import 'package:sipged/_widgets/geo/properties/dialog/layer_properties_dialog.dart';
 import 'package:sipged/_widgets/geo/status/pop_up_status_bar.dart';
@@ -34,7 +33,8 @@ import 'package:sipged/_widgets/geo/visualizations/property/tab_property_panel.d
 import 'package:sipged/_widgets/geo/workspace/geo_workspace_panel.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
-import 'package:sipged/screens/modules/planning/geo/geo_network_layer.dart';
+import 'package:sipged/_widgets/geo/attributes/import/attribute_import_feature.dart';
+import 'package:sipged/_widgets/resize/resize_data.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_map.dart';
 
 class GeoNetworkPage extends StatelessWidget {
@@ -46,7 +46,6 @@ class GeoNetworkPage extends StatelessWidget {
 
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => GeoAttributesCubit()),
         BlocProvider(create: (_) => GeoToolboxCubit()),
         BlocProvider(
           create: (_) => GeoLayersCubit(
@@ -81,7 +80,7 @@ class _PlanningNetworkView extends StatefulWidget {
 class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
   MapController? controller;
 
-  final List<GeoWorkspaceData> _workspaceItems = [];
+  final List<ResizeData> _workspaceItems = [];
   int _workspaceCounter = 0;
 
   String? _selectedCatalogItemId;
@@ -90,14 +89,14 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
   bool _statusDismissed = false;
   String _lastStatusIdentity = '';
 
-  GeoWorkspaceData? get _selectedWorkspaceItem {
+  ResizeData? get _selectedWorkspaceItem {
     for (final item in _workspaceItems) {
       if (item.id == _selectedWorkspaceItemId) return item;
     }
     return null;
   }
 
-  Object _workspaceItemToken(GeoWorkspaceData item) {
+  Object _workspaceItemToken(ResizeData item) {
     return Object.hash(
       item.id,
       item.title,
@@ -136,7 +135,9 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                 f.selectionKey,
                 f.geometryType,
                 Object.hashAll(
-                  f.properties.entries.map((e) => Object.hash(e.key, e.value)),
+                  _mergedFeatureProperties(f)
+                      .entries
+                      .map((e) => Object.hash(e.key, e.value)),
                 ),
               ),
             ),
@@ -144,6 +145,13 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
         );
       }),
     );
+  }
+
+  Map<String, dynamic> _mergedFeatureProperties(GeoFeatureData feature) {
+    final out = <String, dynamic>{};
+    out.addAll(feature.originalProperties);
+    out.addAll(feature.editedProperties);
+    return out;
   }
 
   Future<GeoLayersData?> _askEditLayerData({
@@ -192,7 +200,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
     final isAlreadyActive = layersCubit.state.activeLayerIds.contains(layer.id);
 
-    await GeoNetworkLayer.handleConnectLayer(
+    await AttributeImportFeature.handleConnectLayer(
       context,
       layer: layer,
       shouldLoadOnMap: isAlreadyActive,
@@ -245,7 +253,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
     if (!mounted) return;
 
-    await GeoNetworkLayer.openFirestoreTable(
+    await AttributeImportFeature.openFirestoreTable(
       context,
       layer: layer,
     );
@@ -258,7 +266,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     );
   }
 
-  GeoWorkspaceData _buildWorkspaceItemFromCatalog({
+  ResizeData _buildWorkspaceItemFromCatalog({
     required TabWidgetsCatalog catalogItem,
     required Offset localOffset,
   }) {
@@ -267,7 +275,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
       throw Exception('Tipo não implementado: ${catalogItem.id}');
     }
 
-    return GeoWorkspaceData(
+    return ResizeData(
       id: 'workspace_item_${_workspaceCounter++}',
       title: catalogItem.title,
       type: type,
@@ -287,7 +295,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     );
 
     setState(() {
-      final nextItems = <GeoWorkspaceData>[
+      final nextItems = <ResizeData>[
         ..._workspaceItems,
         newItem,
       ];
@@ -318,7 +326,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     if (updated == current) return;
 
     setState(() {
-      final nextItems = List<GeoWorkspaceData>.from(_workspaceItems);
+      final nextItems = List<ResizeData>.from(_workspaceItems);
       nextItems[index] = updated;
 
       _workspaceItems
@@ -332,7 +340,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     if (removedIndex < 0) return;
 
     setState(() {
-      final nextItems = List<GeoWorkspaceData>.from(_workspaceItems)
+      final nextItems = List<ResizeData>.from(_workspaceItems)
         ..removeAt(removedIndex);
 
       _workspaceItems
@@ -354,7 +362,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     });
   }
 
-  void _handleWorkspaceItemSelected(GeoWorkspaceData? item) {
+  void _handleWorkspaceItemSelected(ResizeData? item) {
     final nextWorkspaceId = item?.id;
     final nextCatalogId = item?.catalogItemId;
 
@@ -382,7 +390,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     if (updated == current) return;
 
     setState(() {
-      final nextItems = List<GeoWorkspaceData>.from(_workspaceItems);
+      final nextItems = List<ResizeData>.from(_workspaceItems);
       nextItems[index] = updated;
 
       _workspaceItems
@@ -440,7 +448,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
 
     if (updatedItem != currentItem) {
       setState(() {
-        final nextItems = List<GeoWorkspaceData>.from(_workspaceItems);
+        final nextItems = List<ResizeData>.from(_workspaceItems);
         nextItems[itemIndex] = updatedItem;
 
         _workspaceItems
@@ -511,13 +519,74 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
     return rightIndexes[rightIndexes.length - 1];
   }
 
+  int _findFirstRightInsertIndex(List<DockPanelData> groups) {
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i].area == DockArea.right) return i;
+    }
+    return groups.length;
+  }
+
   List<DockPanelData> _ensureDefaultGroups(List<DockPanelData> source) {
     final next = <DockPanelData>[...source];
 
-    final hasVisualizations = next.any((e) => e.id == 'group_visualizacoes');
+    final hasFerramentas = next.any((e) => e.id == 'group_ferramentas');
+    final hasAtributos = next.any((e) => e.id == 'group_atributos');
+    final hasVisualizacoes = next.any((e) => e.id == 'group_visualizacoes');
     final hasWorkspace = next.any((e) => e.id == 'group_area_trabalho');
 
-    if (!hasVisualizations) {
+    if (!hasFerramentas) {
+      next.insert(
+        _findFirstRightInsertIndex(next),
+        const DockPanelData(
+          id: 'group_ferramentas',
+          title: 'Ferramentas',
+          area: DockArea.right,
+          crossSpan: DockCrossSpan.inner,
+          visible: true,
+          dockWeight: 0.70,
+          icon: Icons.handyman_outlined,
+          shrinkWrapOnMainAxis: true,
+          items: [
+            DockPanelDataItem(
+              id: 'tools_main',
+              title: 'Ferramentas',
+              icon: Icons.handyman_outlined,
+              contentPadding: EdgeInsets.zero,
+              child: SizedBox.shrink(),
+            ),
+          ],
+          activeItemId: 'tools_main',
+        ),
+      );
+    }
+
+    if (!hasAtributos) {
+      next.insert(
+        _findSecondFromRightInsertIndex(next),
+        const DockPanelData(
+          id: 'group_atributos',
+          title: 'Atributos',
+          area: DockArea.right,
+          crossSpan: DockCrossSpan.inner,
+          visible: true,
+          dockWeight: 1.0,
+          icon: Icons.info_outline,
+          shrinkWrapOnMainAxis: false,
+          items: [
+            DockPanelDataItem(
+              id: 'feature_attributes',
+              title: 'Feição',
+              icon: Icons.info_outline,
+              contentPadding: EdgeInsets.all(8),
+              child: SizedBox.shrink(),
+            ),
+          ],
+          activeItemId: 'feature_attributes',
+        ),
+      );
+    }
+
+    if (!hasVisualizacoes) {
       const visualizationsGroup = DockPanelData(
         id: 'group_visualizacoes',
         title: 'Visualizações',
@@ -579,11 +648,8 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
   List<DockPanelData> _composePanelGroups({
     required BuildContext context,
     required GeoMapState editorState,
-    required List<GeoLayersData> currentTree,
+    required GeoMapData mapData,
     required GeoFeatureState genericState,
-    required Map<String, GeoLayersData> layersById,
-    required Set<String> activeLayerIds,
-    required Map<String, bool> hasDataByLayer,
     required GeoToolboxState measurementState,
   }) {
     final editorCubit = context.read<GeoMapCubit>();
@@ -631,9 +697,9 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                       _showSnack(context, error);
                     },
                     selectedLayerGeometryKind:
-                    editorCubit.selectedLayerGeometryKind(currentTree),
+                    editorCubit.selectedLayerGeometryKind(mapData.currentTree),
                     selectedItemIsGroup:
-                    editorCubit.selectedItemIsGroup(currentTree),
+                    editorCubit.selectedItemIsGroup(mapData.currentTree),
                     pointEditingActive:
                     editorState.activeEditingPointLayerId != null,
                     lineEditingActive:
@@ -650,7 +716,7 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
         case 'group_vectorizacao':
           return group.copyWith(
             shrinkWrapOnMainAxis: false,
-            dockExtent: 260,
+            dockExtent: 240,
             items: [
               DockPanelDataItem(
                 id: 'layers_tree',
@@ -658,61 +724,66 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                 icon: Icons.account_tree_outlined,
                 contentPadding: EdgeInsets.zero,
                 contentToken: Object.hash(
-                  currentTree.length,
-                  Object.hashAll(currentTree),
-                  activeLayerIds.length,
-                  Object.hashAll(activeLayerIds),
+                  mapData.currentTree.length,
+                  Object.hashAll(mapData.currentTree),
+                  mapData.activeLayerIds.length,
+                  Object.hashAll(mapData.activeLayerIds),
                   editorState.selectedLayerPanelItemId,
                   editorState.activeEditingPointLayerId,
                   editorState.activeEditingLineLayerId,
                   editorState.activeEditingPolygonLayerId,
                   Object.hashAll(
-                    hasDataByLayer.entries.map((e) => Object.hash(e.key, e.value)),
+                    mapData.hasDataByLayer.entries
+                        .map((e) => Object.hash(e.key, e.value)),
                   ),
                 ),
                 child: RepaintBoundary(
                   child: LayerPanel(
                     key: ValueKey(
                       'layers_panel_'
-                          '${currentTree.length}_'
-                          '${activeLayerIds.length}_'
+                          '${mapData.currentTree.length}_'
+                          '${mapData.activeLayerIds.length}_'
                           '${editorState.selectedLayerPanelItemId ?? 'none'}_'
                           '${editorState.activeEditingPointLayerId ?? 'none'}_'
                           '${editorState.activeEditingLineLayerId ?? 'none'}_'
                           '${editorState.activeEditingPolygonLayerId ?? 'none'}_'
-                          '${Object.hashAll(hasDataByLayer.entries.map((e) => Object.hash(e.key, e.value)))}',
+                          '${Object.hashAll(mapData.hasDataByLayer.entries.map((e) => Object.hash(e.key, e.value)))}',
                     ),
-                    layers: currentTree,
-                    activeLayerIds: activeLayerIds,
+                    layers: mapData.currentTree,
+                    activeLayerIds: mapData.activeLayerIds,
                     selectedId: editorState.selectedLayerPanelItemId,
                     onSelectedChanged: (id) {
                       context.read<GeoFeatureCubit>().clearSelection();
                       editorCubit.selectLayerPanelItem(id);
                     },
                     onToggleLayer: (id, active) =>
-                        editorCubit.toggleLayer(id, active, currentTree),
-                    hasDataByLayer: hasDataByLayer,
+                        editorCubit.toggleLayer(id, active, mapData.currentTree),
+                    hasDataByLayer: mapData.hasDataByLayer,
                     supportsConnect: (layer) =>
                     layer.supportsConnect && !layer.isGroup,
-                    onMoveUp: (id) => editorCubit.moveLayerUp(id, currentTree),
+                    onMoveUp: (id) =>
+                        editorCubit.moveLayerUp(id, mapData.currentTree),
                     onMoveDown: (id) =>
-                        editorCubit.moveLayerDown(id, currentTree),
+                        editorCubit.moveLayerDown(id, mapData.currentTree),
                     onCreateEmptyGroup: () =>
-                        editorCubit.createEmptyGroup(currentTree),
-                    onCreateLayer: () => editorCubit.createLayer(currentTree),
+                        editorCubit.createEmptyGroup(mapData.currentTree),
+                    onCreateLayer: () =>
+                        editorCubit.createLayer(mapData.currentTree),
                     onDropItem: (draggedId, targetParentId, targetIndex) =>
                         editorCubit.dropItem(
                           draggedId,
                           targetParentId,
                           targetIndex,
-                          currentTree,
+                          mapData.currentTree,
                         ),
-                    onRenameSelected: (id) => _editSelectedItem(id, currentTree),
+                    onRenameSelected: (id) =>
+                        _editSelectedItem(id, mapData.currentTree),
                     onRemoveSelected: (id) =>
-                        editorCubit.removeSelectedItem(id, currentTree),
-                    onConnectLayer: (id) => _handleConnectLayer(id, currentTree),
+                        editorCubit.removeSelectedItem(id, mapData.currentTree),
+                    onConnectLayer: (id) =>
+                        _handleConnectLayer(id, mapData.currentTree),
                     onOpenTable: (id) =>
-                        _openLayerTable(context, id, currentTree),
+                        _openLayerTable(context, id, mapData.currentTree),
                   ),
                 ),
               ),
@@ -736,6 +807,11 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                           (e) => Object.hash(e.key, Object.hashAll(e.value)),
                     ),
                   ),
+                  Object.hashAll(
+                    mapData.hasDataByLayer.entries.map(
+                          (e) => Object.hash(e.key, e.value),
+                    ),
+                  ),
                 ),
                 child: RepaintBoundary(
                   child: AttributePanel(
@@ -743,12 +819,57 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                       'attributes_panel_'
                           '${genericState.selected?.feature.selectionKey ?? 'none'}_'
                           '${editorState.selectedLayerPanelItemId ?? 'none'}_'
-                          '${Object.hashAll(genericState.availableFieldsByLayer.entries.map((e) => Object.hash(e.key, Object.hashAll(e.value))))}',
+                          '${Object.hashAll(genericState.availableFieldsByLayer.entries.map((e) => Object.hash(e.key, Object.hashAll(e.value))))}_'
+                          '${Object.hashAll(mapData.hasDataByLayer.entries.map((e) => Object.hash(e.key, e.value)))}',
                     ),
                     genericState: genericState,
-                    layersById: layersById,
+                    layersById: mapData.layersById,
                     selectedLayerId: editorState.selectedLayerPanelItemId,
                     availableFieldsByLayer: genericState.availableFieldsByLayer,
+                    hasDataByLayer: mapData.hasDataByLayer,
+                    onImportLayer: (layer) async {
+                      await AttributeImportFeature.openImportDialog(
+                        context,
+                        layer: layer,
+                      );
+
+                      if (!mounted) return;
+
+                      final shouldLoadOnMap =
+                      mapData.activeLayerIds.contains(layer.id);
+
+                      await AttributeImportFeature.reloadLayerAfterImport(
+                        context,
+                        layer: layer,
+                        shouldLoadOnMap: shouldLoadOnMap,
+                      );
+
+                      if (!mounted) return;
+
+                      await context.read<GeoLayersCubit>().refreshLayerData(
+                        layer,
+                        force: true,
+                      );
+
+                      if (!mounted) return;
+
+                      await context.read<GeoFeatureCubit>().ensureLayerFieldNames(
+                        layer,
+                        force: true,
+                      );
+
+                      await context.read<GeoFeatureCubit>().ensureLayerLoaded(
+                        layer,
+                        force: true,
+                      );
+                    },
+                    onOpenTable: (layer) async {
+                      await _openLayerTable(
+                        context,
+                        layer.id,
+                        mapData.currentTree,
+                      );
+                    },
                   ),
                 ),
               ),
@@ -811,14 +932,15 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                         itemId,
                         propertyKey,
                         data,
-                        currentTree,
+                        mapData.currentTree,
                       );
                     },
                   ),
                 ),
               ),
             ],
-            activeItemId: group.activeItemId ?? 'catalogo_visualizacoes_itens',
+            activeItemId:
+            group.activeItemId ?? 'catalogo_visualizacoes_itens',
           );
 
         case 'group_area_trabalho':
@@ -939,48 +1061,30 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
         builder: (context) {
           final layersState = context.select((GeoLayersCubit c) => c.state);
           final editorState = context.select((GeoMapCubit c) => c.state);
-          final measurementState = context.select((GeoToolboxCubit c) => c.state);
+          final measurementState =
+          context.select((GeoToolboxCubit c) => c.state);
           final genericState = context.select((GeoFeatureCubit c) => c.state);
 
-          final currentTree = layersState.tree;
-          final activeLayerIds = layersState.activeLayerIds;
-          final hasDataByLayer = layersState.hasDataByLayer;
           final layersCubit = context.read<GeoLayersCubit>();
           final editorCubit = context.read<GeoMapCubit>();
+          final featureCubit = context.read<GeoFeatureCubit>();
 
-          final allNodes = layersCubit.flattenAllNodes(tree: currentTree);
-
-          final layersById = <String, GeoLayersData>{
-            for (final e in allNodes.where((e) => !e.isGroup)) e.id: e,
-          };
-
-          final orderedLeafIdsTopToBottom = layersCubit
-              .flattenOrderedLeafIds(tree: currentTree)
-              .where(activeLayerIds.contains)
-              .toList(growable: false);
-
-          final orderedForMap = orderedLeafIdsTopToBottom.reversed.toList();
-
-          final visibleFeatures = <GeoFeatureData>[];
-          for (final layerId in orderedForMap) {
-            visibleFeatures.addAll(
-              genericState.featuresByLayer[layerId] ?? const <GeoFeatureData>[],
-            );
-          }
-
-          final activePointLayer =
-          editorCubit.getActiveDraftPointLayer(currentTree);
-          final activeLineLayer =
-          editorCubit.getActiveDraftLineLayer(currentTree);
-          final activePolygonLayer =
-          editorCubit.getActiveDraftPolygonLayer(currentTree);
+          final mapData = GeoMapData.fromStates(
+            layersCubit: layersCubit,
+            mapCubit: editorCubit,
+            featureCubit: featureCubit,
+            layersState: layersState,
+            mapState: editorState,
+            featureState: genericState,
+            toolboxState: measurementState,
+          );
 
           final statusIdentity = _buildStatusIdentity(
             editorState: editorState,
             measurementState: measurementState,
-            activePointLayer: activePointLayer,
-            activeLineLayer: activeLineLayer,
-            activePolygonLayer: activePolygonLayer,
+            activePointLayer: mapData.activePointLayer,
+            activeLineLayer: mapData.activeLineLayer,
+            activePolygonLayer: mapData.activePolygonLayer,
           );
 
           if (_lastStatusIdentity != statusIdentity) {
@@ -988,77 +1092,71 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
             _statusDismissed = false;
           }
 
-          final isLoading = genericState.isAnyLoading ||
-              layersState.isSaving ||
-              layersState.isRefreshingLayerData;
+          final map = SizedBox.expand(
+            child: RepaintBoundary(
+              child: GeoNetworkMap(
+                features: mapData.visibleFeatures,
+                layersById: mapData.layersById,
+                orderedActiveLayerIds: mapData.orderedActiveLayerIdsForMap,
+                selectedFeatureKey: mapData.selectedFeatureKey,
+                loading: mapData.isLoading,
+                onControllerReady: (c) => controller = c,
+                onCameraChanged: (_, _) {},
+                cursor: editorState.mapCursor,
+                temporaryPointLayers: mapData.visiblePointDrafts,
+                temporaryLineLayers: mapData.visibleLineDrafts,
+                temporaryPolygonLayers: mapData.visiblePolygonDrafts,
+                distanceMeasurementPoints: measurementState.points,
+                onBackgroundTap: (latLng) {
+                  editorCubit
+                      .handleMapBackgroundTap(latLng, mapData.currentTree)
+                      .then(
+                        (error) {
+                      if (!mounted) return;
+                      if (error != null) _showSnack(context, error);
+                    },
+                  );
 
-          final map = RepaintBoundary(
-            child: GeoNetworkMap(
-              features: visibleFeatures,
-              layersById: layersById,
-              orderedActiveLayerIds: orderedForMap,
-              selectedFeatureKey: genericState.selected?.feature.selectionKey,
-              loading: isLoading,
-              onControllerReady: (c) => controller = c,
-              onCameraChanged: (_, _) {},
-              cursor: editorState.mapCursor,
-              temporaryPointLayers:
-              editorCubit.buildVisiblePointDrafts(activeLayerIds),
-              temporaryLineLayers:
-              editorCubit.buildVisibleLineDrafts(activeLayerIds),
-              temporaryPolygonLayers:
-              editorCubit.buildVisiblePolygonDrafts(activeLayerIds),
-              distanceMeasurementPoints: measurementState.points,
-              onBackgroundTap: (latLng) {
-                editorCubit.handleMapBackgroundTap(latLng, currentTree).then(
-                      (error) {
-                    if (!mounted) return;
-                    if (error != null) _showSnack(context, error);
-                  },
-                );
+                  return editorState.isPointToolSelected ||
+                      editorState.isLineToolSelected ||
+                      editorState.isPolygonToolSelected ||
+                      editorState.isMeasureDistanceToolSelected ||
+                      editorState.isMeasureAreaToolSelected;
+                },
+                onFeatureTap: (feature) {
+                  if (feature == null) {
+                    context.read<GeoFeatureCubit>().clearSelection();
+                    return;
+                  }
 
-                return editorState.isPointToolSelected ||
-                    editorState.isLineToolSelected ||
-                    editorState.isPolygonToolSelected ||
-                    editorState.isMeasureDistanceToolSelected ||
-                    editorState.isMeasureAreaToolSelected;
-              },
-              onFeatureTap: (feature) {
-                if (feature == null) {
-                  context.read<GeoFeatureCubit>().clearSelection();
-                  return;
-                }
+                  final featureLayerId = (feature.layerId ?? '').trim();
+                  if (featureLayerId.isEmpty) {
+                    context.read<GeoFeatureCubit>().clearSelection();
+                    return;
+                  }
 
-                context.read<GeoFeatureCubit>().selectFeature(
-                  layerId: feature.layerId,
-                  feature: feature,
-                );
+                  context.read<GeoFeatureCubit>().selectFeature(
+                    layerId: featureLayerId,
+                    feature: feature,
+                  );
 
-                context.read<GeoMapCubit>().selectLayerPanelItem(feature.layerId);
-                context.read<GeoMapCubit>().showPanel('group_atributos');
-              },
+                  context.read<GeoMapCubit>().selectLayerPanelItem(featureLayerId);
+                  context.read<GeoMapCubit>().showPanel('group_atributos');
+                },
+              ),
             ),
           );
 
           final panelGroups = _composePanelGroups(
             context: context,
             editorState: editorState,
-            currentTree: currentTree,
+            mapData: mapData,
             genericState: genericState,
-            layersById: layersById,
-            activeLayerIds: activeLayerIds,
-            hasDataByLayer: hasDataByLayer,
             measurementState: measurementState,
           );
 
-          final showFloatingStatus = !_statusDismissed &&
-              PopUpStatusBar.shouldShow(
-                editorState: editorState,
-                measurementState: measurementState,
-                activePointLayer: activePointLayer,
-                activeLineLayer: activeLineLayer,
-                activePolygonLayer: activePolygonLayer,
-              );
+          final showFloatingStatus =
+              !_statusDismissed && mapData.showFloatingStatus;
 
           return Scaffold(
             appBar: PreferredSize(
@@ -1072,16 +1170,21 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
               ),
             ),
             body: ScreenLock(
-              locked: isLoading,
+              locked: mapData.isLoading,
               message: 'Carregando dados do mapa',
               icon: Icons.map_outlined,
               child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  const BackgroundClean(),
-                  DockPanelWorkspace(
-                    groups: panelGroups,
-                    onChanged: context.read<GeoMapCubit>().updatePanels,
-                    child: map,
+                  const Positioned.fill(
+                    child: BackgroundChange(),
+                  ),
+                  Positioned.fill(
+                    child: DockPanelWorkspace(
+                      groups: panelGroups,
+                      onChanged: context.read<GeoMapCubit>().updatePanels,
+                      child: map,
+                    ),
                   ),
                   if (showFloatingStatus)
                     Positioned(
@@ -1102,11 +1205,12 @@ class _PlanningNetworkViewState extends State<_PlanningNetworkView> {
                                 child: PopUpStatusBar(
                                   editorState: editorState,
                                   measurementState: measurementState,
-                                  activePointLayer: activePointLayer,
-                                  activeLineLayer: activeLineLayer,
-                                  activePolygonLayer: activePolygonLayer,
-                                  onUndoDistanceMeasurementPoint: () =>
-                                      context.read<GeoToolboxCubit>().removeLastPoint(),
+                                  activePointLayer: mapData.activePointLayer,
+                                  activeLineLayer: mapData.activeLineLayer,
+                                  activePolygonLayer: mapData.activePolygonLayer,
+                                  onUndoDistanceMeasurementPoint: () => context
+                                      .read<GeoToolboxCubit>()
+                                      .removeLastPoint(),
                                   onClearDistanceMeasurement: () =>
                                       context.read<GeoToolboxCubit>().clear(),
                                   onFinishDistanceMeasurement: () {

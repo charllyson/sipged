@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
@@ -95,7 +95,7 @@ class _ActiveRailwaysRecordsPageState
 
             return Stack(
               children: [
-                const BackgroundClean(),
+                const BackgroundChange(),
                 Column(
                   children: [
                     const UpBar(showPhotoMenu: true),

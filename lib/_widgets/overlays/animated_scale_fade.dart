@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 class AnimatedScaleFade extends StatelessWidget {
   final Widget child;
   final Duration duration;

@@ -1,11 +1,11 @@
 // lib/screens/operation/hiring/1Dfd/dfd_sections/drop_down_yes_no.dart
 import 'package:flutter/material.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
-class YesNoDrop extends StatelessWidget with SipGedValidation {
+class DropDownYesNoDrop extends StatelessWidget with SipGedValidation {
 
-  YesNoDrop({
+  DropDownYesNoDrop({
     super.key,
     required this.labelText,
     required this.value,
@@ -20,7 +20,7 @@ class YesNoDrop extends StatelessWidget with SipGedValidation {
 
   @override
   Widget build(BuildContext context) {
-    return DropDownButtonChange(
+    return DropDownChange(
       enabled: enabled,
       labelText: labelText,
       controller: TextEditingController(text: value),

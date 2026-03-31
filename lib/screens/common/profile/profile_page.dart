@@ -13,9 +13,9 @@ import 'package:sipged/_blocs/system/user/user_event.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
 class UserProfilePage extends StatefulWidget {
@@ -247,7 +247,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
           ),
           body: Stack(
             children: [
-              const BackgroundClean(),
+              const BackgroundChange(),
               Column(
                 children: [
                   _header(user),

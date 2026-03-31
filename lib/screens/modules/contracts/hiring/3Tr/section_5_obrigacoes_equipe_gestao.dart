@@ -1,11 +1,11 @@
 // lib/screens/modules/contracts/hiring/3Tr/section_5_obrigacoes_equipe_gestao.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
@@ -127,7 +127,7 @@ class _SectionObrigacoesEquipeGestaoState
                     children: [
                       SizedBox(
                         width: w3,
-                        child: DropDownButtonChange(
+                        child: DropDownChange(
                           enabled: widget.isEditable,
                           labelText: 'Equipe mínima exigida',
                           controller: _equipeMinimaCtrl,
@@ -148,7 +148,7 @@ class _SectionObrigacoesEquipeGestaoState
                       // ✅ Fiscal (genérico)
                       SizedBox(
                         width: w3,
-                        child: CustomAutoComplete<UserData>(
+                        child: AutoCompleteChange<UserData>(
                           label: 'Fiscal do contrato (indicativo)',
                           controller: _fiscalCtrl,
                           enabled: widget.isEditable,
@@ -170,7 +170,7 @@ class _SectionObrigacoesEquipeGestaoState
                       // ✅ Gestor (genérico)
                       SizedBox(
                         width: w3,
-                        child: CustomAutoComplete<UserData>(
+                        child: AutoCompleteChange<UserData>(
                           label: 'Gestor do contrato (indicativo)',
                           controller: _gestorCtrl,
                           enabled: widget.isEditable,

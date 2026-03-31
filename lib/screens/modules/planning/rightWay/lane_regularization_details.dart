@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sipged/_utils/formats/sipged_format_dates.dart';
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -401,7 +401,7 @@ class _LaneRegularizationDetailsPanelState
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const BackgroundClean(), // (se o seu widget chama BackgroundClean, ajuste aqui)
+        const BackgroundChange(), // (se o seu widget chama BackgroundClean, ajuste aqui)
         StreamBuilder<LaneRegularizationData?>(
           stream: _propStream(),
           builder: (ctx, snap) {

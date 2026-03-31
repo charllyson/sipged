@@ -132,8 +132,6 @@ extension GeoWorkspaceWidgetTypeMapper on GeoWorkspaceWidgetType {
         return 'chart_line';
       case GeoWorkspaceWidgetType.card:
         return 'widget_card';
-      case GeoWorkspaceWidgetType.kpi:
-        return 'widget_kpi';
       case GeoWorkspaceWidgetType.table:
         return 'widget_table';
     }
@@ -149,8 +147,6 @@ extension GeoWorkspaceWidgetTypeMapper on GeoWorkspaceWidgetType {
         return 'Linha';
       case GeoWorkspaceWidgetType.card:
         return 'Card resumo';
-      case GeoWorkspaceWidgetType.kpi:
-        return 'KPI';
       case GeoWorkspaceWidgetType.table:
         return 'Tabela';
     }
@@ -166,8 +162,6 @@ extension GeoWorkspaceWidgetTypeMapper on GeoWorkspaceWidgetType {
         return const Size(420, 280);
       case GeoWorkspaceWidgetType.card:
         return const Size(260, 140);
-      case GeoWorkspaceWidgetType.kpi:
-        return const Size(240, 140);
       case GeoWorkspaceWidgetType.table:
         return const Size(520, 300);
     }
@@ -183,8 +177,6 @@ extension GeoWorkspaceWidgetTypeMapper on GeoWorkspaceWidgetType {
         return GeoWorkspaceWidgetType.line;
       case 'widget_card':
         return GeoWorkspaceWidgetType.card;
-      case 'widget_kpi':
-        return GeoWorkspaceWidgetType.kpi;
       case 'widget_table':
         return GeoWorkspaceWidgetType.table;
       default:
@@ -333,41 +325,6 @@ extension GeoWorkspaceWidgetTypeMapper on GeoWorkspaceWidgetType {
           GeoWorkspaceDataProperty(
             key: 'subtitle',
             label: 'Subtítulo',
-            type: GeoWorkspacePropertyType.text,
-          ),
-        ];
-
-      case GeoWorkspaceWidgetType.kpi:
-        return const [
-          GeoWorkspaceDataProperty(
-            key: 'label',
-            label: 'Label',
-            type: GeoWorkspacePropertyType.binding,
-            hint: 'Arraste o campo de descrição',
-            acceptsDrop: true,
-          ),
-          GeoWorkspaceDataProperty(
-            key: 'value',
-            label: 'Value',
-            type: GeoWorkspacePropertyType.binding,
-            hint: 'Arraste o campo principal',
-            acceptsDrop: true,
-          ),
-          GeoWorkspaceDataProperty(
-            key: 'aggregation',
-            label: 'Agregação',
-            type: GeoWorkspacePropertyType.select,
-            selectedValue: 'Contagem',
-            options: ['Contagem', 'Soma', 'Média', 'Máximo', 'Mínimo'],
-          ),
-          GeoWorkspaceDataProperty(
-            key: 'title',
-            label: 'Título do KPI',
-            type: GeoWorkspacePropertyType.text,
-          ),
-          GeoWorkspaceDataProperty(
-            key: 'variation',
-            label: 'Variação',
             type: GeoWorkspacePropertyType.text,
           ),
         ];

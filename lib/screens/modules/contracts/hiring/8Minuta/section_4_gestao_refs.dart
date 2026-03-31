@@ -1,12 +1,12 @@
 // lib/screens/modules/contracts/hiring/8Minuta/section_4_gestao_refs.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ necessário para context.select
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart'
-    show DropDownButtonChange;
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart'
+    show DropDownChange;
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
@@ -119,7 +119,7 @@ class _SectionGestaoRefsState extends State<SectionGestaoRefs> {
                 // ✅ Gestor (genérico)
                 SizedBox(
                   width: w4,
-                  child: CustomAutoComplete<UserData>(
+                  child: AutoCompleteChange<UserData>(
                     label: 'Gestor do contrato (definido no processo)',
                     controller: _gestorNomeCtrl,
                     allList: users,
@@ -139,7 +139,7 @@ class _SectionGestaoRefsState extends State<SectionGestaoRefs> {
                 // ✅ Fiscal (genérico)
                 SizedBox(
                   width: w4,
-                  child: CustomAutoComplete<UserData>(
+                  child: AutoCompleteChange<UserData>(
                     label: 'Fiscal do contrato (definido no processo)',
                     controller: _fiscalNomeCtrl,
                     allList: users,
@@ -158,7 +158,7 @@ class _SectionGestaoRefsState extends State<SectionGestaoRefs> {
 
                 SizedBox(
                   width: w4,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     labelText: 'Regime de execução (referência TR)',
                     enabled: widget.isEditable,
                     controller: _regimeExecCtrl,

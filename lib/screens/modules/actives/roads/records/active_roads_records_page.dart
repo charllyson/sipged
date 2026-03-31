@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Import do Cubit genérico de importação
-import 'package:sipged/_blocs/modules/planning/geo/attributes/geo_attributes_cubit.dart';
-
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
@@ -17,7 +14,6 @@ import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
 import 'package:sipged/screens/modules/actives/roads/records/list_roads_page.dart';
-import 'package:sipged/screens/modules/actives/roads/records/roads_vector_import_dialog.dart';
 
 import 'tab_bar_roads_page.dart';
 
@@ -93,7 +89,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
             ),
             body: Stack(
               children: [
-                BackgroundClean(),
+                BackgroundChange(),
                 Center(child: Text('Carregando rodovias...')),
               ],
             ),
@@ -156,29 +152,11 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
                 child: BackCircleButton(),
               ),
               showPhotoMenu: true,
-              actions: [
-                IconButton(
-                  tooltip: 'Importar rodovias (GeoJSON/KML/KMZ)',
-                  icon: const Icon(Icons.upload_file, color: Colors.white),
-                  onPressed: () async {
-                    await showDialog<bool>(
-                      context: context,
-                      barrierDismissible: true,
-                      builder: (ctx) {
-                        return BlocProvider(
-                          create: (_) => GeoAttributesCubit(),
-                          child: const RoadsVectorImportDialog(),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ],
             ),
           ),
           body: Stack(
             children: [
-              const BackgroundClean(),
+              const BackgroundChange(),
               SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12.0),

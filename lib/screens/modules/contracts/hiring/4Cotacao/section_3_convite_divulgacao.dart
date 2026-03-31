@@ -1,10 +1,10 @@
 // lib/screens/modules/contracts/hiring/4Cotacao/section_3_convite_divulgacao.dart
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
 
@@ -93,7 +93,7 @@ class _SectionConviteDivulgacaoState extends State<SectionConviteDivulgacao> {
               children: [
                 SizedBox(
                   width: w3,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Meio de divulgação',
                     controller: _meioDivulgacaoCtrl,
@@ -106,7 +106,7 @@ class _SectionConviteDivulgacaoState extends State<SectionConviteDivulgacao> {
                 ),
                 SizedBox(
                   width: w3,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _prazoRespostaCtrl,
                     labelText: 'Prazo para resposta (dd/mm/aaaa hh:mm)',
                     enabled: widget.isEditable,

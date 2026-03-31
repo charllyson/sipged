@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_data.dart';
@@ -101,7 +101,7 @@ class _SectionEmpenhoState extends State<SectionEmpenho> {
               children: [
                 SizedBox(
                   width: w4,
-                  child: DropDownButtonChange(
+                  child: DropDownChange(
                     enabled: widget.isEditable,
                     labelText: 'Modalidade de Empenho',
                     controller: _empenhoModalidadeCtrl,

@@ -7,8 +7,8 @@ import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shapes_change_catalog.dart';
 import 'package:sipged/_utils/number_field.dart';
 import 'package:sipged/_widgets/geo/properties/menu/share/layer_type/layer_type_section.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 class LabelsForm extends StatefulWidget {
   final LayerGeometryKind geometryKind;
@@ -161,7 +161,7 @@ class _LabelsFormState extends State<LabelsForm> {
         const SizedBox(height: 12),
         SizedBox(
           width: isSmall ? constraints.maxWidth : 320,
-          child: DropDownButtonChange(
+          child: DropDownChange(
             controller: _fieldCtrl,
             labelText: 'Campo do rótulo',
             width: double.infinity,
@@ -198,7 +198,7 @@ class _LabelsFormState extends State<LabelsForm> {
             ),
             SizedBox(
               width: fieldWidth,
-              child: DropDownButtonChange(
+              child: DropDownChange(
                 controller: weightCtrl,
                 labelText: 'Peso da fonte',
                 width: double.infinity,
@@ -405,7 +405,7 @@ class _LabelsFormState extends State<LabelsForm> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropDownButtonChange(
+            DropDownChange(
               controller: _typeCtrl,
               labelText: 'Tipo da camada',
               width: double.infinity,

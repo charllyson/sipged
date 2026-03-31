@@ -9,7 +9,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import 'package:sipged/_widgets/background/background_cleaner.dart';
+import 'package:sipged/_widgets/background/background_change.dart';
 import 'package:sipged/_widgets/print/label_bitmap.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
@@ -770,7 +770,7 @@ class _AccidentsRecordsNetworkPageInnerState
           backgroundColor: Colors.white,
           body: Stack(
             children: [
-              const BackgroundClean(),
+              const BackgroundChange(),
               LayoutBuilder(
                 builder: (context, c) {
                   final left = _buildLeftPanel(state);

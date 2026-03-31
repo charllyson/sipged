@@ -9,11 +9,11 @@ import 'package:sipged/_utils/validates/sipged_validation.dart';
 // ✅ novo (substitui mask_class.dart)
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 
-import 'package:sipged/_widgets/input/custom_auto_complete.dart';
-import 'package:sipged/_widgets/input/custom_date_field.dart';
+import 'package:sipged/_widgets/input/auto_complete_change.dart';
+import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
 
 class SectionAprovacao extends StatefulWidget {
   final bool isEditable;
@@ -216,7 +216,7 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
               children: [
                 SizedBox(
                   width: w3,
-                  child: CustomAutoComplete<UserData>(
+                  child: AutoCompleteChange<UserData>(
                     label: 'Autoridade aprovadora',
                     controller: _autoridadeCtrl,
                     allList: _usersWithSelf,
@@ -253,7 +253,7 @@ class _SectionAprovacaoState extends State<SectionAprovacao>
 
                 SizedBox(
                   width: w3,
-                  child: CustomDateField(
+                  child: DateFieldChange(
                     controller: _dataAprovacaoCtrl,
                     enabled: widget.isEditable,
                     labelText: 'Data da aprovação',

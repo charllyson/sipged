@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/buttons/toolbar_icon_button.dart';
 
 class LayerPanelTopToolbar extends StatelessWidget {
   final String? selectedId;
@@ -34,38 +35,38 @@ class LayerPanelTopToolbar extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _ToolbarIconButton(
+                ToolbarIconButton(
                   icon: Icons.add,
                   tooltip: 'Criar camada',
                   onTap: onCreateLayer,
                 ),
-                _ToolbarIconButton(
+                ToolbarIconButton(
                   icon: Icons.remove_circle_outline,
                   tooltip: 'Remover item',
                   onTap: selectedId == null
                       ? null
                       : () => onRemoveSelected?.call(selectedId),
                 ),
-                _ToolbarIconButton(
+                ToolbarIconButton(
                   icon: Icons.create_new_folder_outlined,
                   tooltip: 'Criar grupo',
                   onTap: onCreateEmptyGroup,
                 ),
-                _ToolbarIconButton(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Editar',
+                ToolbarIconButton(
+                  icon: Icons.settings,
+                  tooltip: 'Configurações',
                   onTap: selectedId == null
                       ? null
                       : () => onRenameSelected?.call(selectedId),
                 ),
-                _ToolbarIconButton(
+                ToolbarIconButton(
                   icon: Icons.arrow_downward_outlined,
                   tooltip: 'Mover para baixo',
                   onTap: selectedId == null
                       ? null
                       : () => onMoveDown?.call(selectedId),
                 ),
-                _ToolbarIconButton(
+                ToolbarIconButton(
                   icon: Icons.arrow_upward_outlined,
                   tooltip: 'Mover para cima',
                   onTap: selectedId == null
@@ -73,42 +74,6 @@ class LayerPanelTopToolbar extends StatelessWidget {
                       : () => onMoveUp?.call(selectedId),
                 ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ToolbarIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onTap;
-
-  const _ToolbarIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = onTap == null ? Colors.grey.shade400 : Colors.grey.shade800;
-
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Tooltip(
-        message: tooltip,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-            child: Icon(
-              icon,
-              size: 18,
-              color: color,
             ),
           ),
         ),

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/docking/dock_panel_logic.dart';
+import 'package:sipged/_widgets/geo/docking/dock_panel_logic.dart';
 
 @immutable
 class DockPanelState {
@@ -70,12 +70,9 @@ class DockPanelState {
       lastDragLocalPosition: clearLastDragLocalPosition
           ? null
           : (lastDragLocalPosition ?? this.lastDragLocalPosition),
-      isDockExtentResizing:
-      isDockExtentResizing ?? this.isDockExtentResizing,
-      isDockWeightResizing:
-      isDockWeightResizing ?? this.isDockWeightResizing,
-      isFloatingResizing:
-      isFloatingResizing ?? this.isFloatingResizing,
+      isDockExtentResizing: isDockExtentResizing ?? this.isDockExtentResizing,
+      isDockWeightResizing: isDockWeightResizing ?? this.isDockWeightResizing,
+      isFloatingResizing: isFloatingResizing ?? this.isFloatingResizing,
       workspaceSize: workspaceSize ?? this.workspaceSize,
     );
   }
@@ -83,9 +80,8 @@ class DockPanelState {
   List<DockPanelData> get visibleGroups =>
       workingGroups.where((g) => g.visible).toList(growable: false);
 
-  List<DockPanelData> get layoutGroups => workingGroups
-      .where((g) => g.visible && !g.collapsed)
-      .toList(growable: false);
+  List<DockPanelData> get layoutGroups =>
+      workingGroups.where((g) => g.visible && !g.collapsed).toList(growable: false);
 
   List<DockPanelData> groupsInArea(
       DockArea area, {
@@ -114,13 +110,11 @@ class DockPanelState {
       .toList(growable: false);
 
   bool get preserveLayoutDuringExternalSync =>
-      isDragging ||
-          isDockExtentResizing ||
-          isDockWeightResizing ||
-          isFloatingResizing;
+      isDragging || isDockExtentResizing || isDockWeightResizing || isFloatingResizing;
 
-  DockPanelData groupById(String id) =>
-      workingGroups.firstWhere((g) => g.id == id);
+  bool get hasDialogPanel => floatingGroups.any((g) => g.floatingAsDialog);
+
+  DockPanelData groupById(String id) => workingGroups.firstWhere((g) => g.id == id);
 
   double resolvedDockExtent(DockArea area) {
     return DockPanelLogic.resolvedDockExtentForArea(

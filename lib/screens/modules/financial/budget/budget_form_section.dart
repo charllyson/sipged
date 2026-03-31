@@ -6,8 +6,8 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
-import 'package:sipged/_widgets/input/custom_text_field.dart';
-import 'package:sipged/_widgets/input/drop_down_botton_change.dart';
+import 'package:sipged/_widgets/input/text_field_change.dart';
+import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 
@@ -155,7 +155,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                 runSpacing: 12,
                 children: [
                   // CONTRATANTE (Órgão)
-                  DropDownButtonChange(
+                  DropDownChange(
                     width: inputsWidth,
                     labelText: 'Contratante',
                     controller: _companyCtrl,
@@ -220,7 +220,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                   ),
 
                   // FONTE DE RECURSO
-                  DropDownButtonChange(
+                  DropDownChange(
                     showSpecialAlways: true,
                     key: ValueKey(
                       'budget-funding-$_companyNonce-${st.companyId ?? "none"}',
