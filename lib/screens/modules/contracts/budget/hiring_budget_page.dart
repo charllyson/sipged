@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/table/magic/magic_adapter.dart';
 
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';

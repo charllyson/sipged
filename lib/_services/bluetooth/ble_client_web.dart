@@ -4,15 +4,12 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter_web_bluetooth/flutter_web_bluetooth.dart' as fwb;
-import 'package:flutter_web_bluetooth/js_web_bluetooth.dart' as js;
 
 import 'ble_client_iface.dart';
 
 class _WebClient implements LabelBleClient {
   fwb.BluetoothDevice? _dev;
-
-  // ✅ tipo correto vem do js_web_bluetooth
-  js.WebBluetoothRemoteGATTCharacteristic? _ch;
+  fwb.BluetoothCharacteristic? _ch;
 
   bool _supportsWriteWithResponse = false;
   bool _supportsWriteWithoutResponse = false;
@@ -32,42 +29,61 @@ class _WebClient implements LabelBleClient {
       optionalServices: _knownServices,
     );
 
-    _dev = await fwb.FlutterWebBluetooth.instance.requestDevice(opts);
-    final gatt = await _dev!.gatt!.connect();
+    final dev = await fwb.FlutterWebBluetooth.instance.requestDevice(opts);
+    await dev.connect();
 
-    final services = await gatt.getPrimaryServices();
+    final services = await dev.discoverServices();
+
+    fwb.BluetoothCharacteristic? writableChar;
+    bool supportsWriteWithResponse = false;
+    bool supportsWriteWithoutResponse = false;
+
     for (final svc in services) {
       final chars = await svc.getCharacteristics();
+
       for (final c in chars) {
-        final p = c.properties; // síncrono
+        final p = c.properties;
+
         if (p.write || p.writeWithoutResponse) {
-          _ch = c; // c é WebBluetoothRemoteGATTCharacteristic
-          _supportsWriteWithResponse = p.write;
-          _supportsWriteWithoutResponse = p.writeWithoutResponse;
+          writableChar = c;
+          supportsWriteWithResponse = p.write;
+          supportsWriteWithoutResponse = p.writeWithoutResponse;
           break;
         }
       }
-      if (_ch != null) break;
+
+      if (writableChar != null) break;
     }
 
-    if (_ch == null) {
+    if (writableChar == null) {
+      try {
+        dev.disconnect();
+      } catch (_) {}
+
       throw StateError(
         'Não encontrei característica de escrita neste dispositivo BLE.',
       );
     }
+
+    _dev = dev;
+    _ch = writableChar;
+    _supportsWriteWithResponse = supportsWriteWithResponse;
+    _supportsWriteWithoutResponse = supportsWriteWithoutResponse;
   }
 
   @override
   Future<void> writeAll(Uint8List data, {int chunk = 180}) async {
     final ch = _ch;
-    if (ch == null) throw StateError('BLE não conectado.');
+    if (ch == null) {
+      throw StateError('BLE não conectado.');
+    }
 
-    // Web BLE costuma ser estável em ~180-200 bytes por write
+    // Web BLE costuma ficar mais estável entre ~180 e 200 bytes por write.
     final step = math.max(1, math.min(chunk, 200));
 
     for (int i = 0; i < data.length; i += step) {
       final end = math.min(i + step, data.length);
-      final slice = data.sublist(i, end);
+      final slice = Uint8List.sublistView(data, i, end);
 
       if (_supportsWriteWithResponse) {
         await ch.writeValueWithResponse(slice);
@@ -84,9 +100,15 @@ class _WebClient implements LabelBleClient {
   @override
   Future<void> disconnect() async {
     try {
-      final gatt = _dev?.gatt;
-      if (gatt != null) gatt.disconnect();
-    } catch (_) {}
+      _dev?.disconnect();
+    } catch (_) {
+      // ignora
+    } finally {
+      _dev = null;
+      _ch = null;
+      _supportsWriteWithResponse = false;
+      _supportsWriteWithoutResponse = false;
+    }
   }
 }
 

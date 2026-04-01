@@ -2,13 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/module/module_data.dart'; // MenuItem + PagesData
 import 'package:sipged/screens/common/home/hero_header.dart';
-import 'package:sipged/_widgets/draw/soft_bubbles.dart';
+import 'package:sipged/_widgets/draw/background/soft_bubbles.dart';
 import 'package:sipged/screens/common/home/themed_actions_grid.dart'; // tipos do drawer
 
 class HomeBody extends StatelessWidget {

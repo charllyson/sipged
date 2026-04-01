@@ -13,7 +13,7 @@ import 'package:sipged/_blocs/system/user/user_event.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';

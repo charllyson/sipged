@@ -21,7 +21,7 @@ import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 // ===== Widgets / UI
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 // ===== Utils

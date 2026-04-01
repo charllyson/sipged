@@ -10,7 +10,7 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
 // Layout / Inputs / Widgets
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';

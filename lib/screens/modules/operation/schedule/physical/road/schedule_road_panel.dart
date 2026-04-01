@@ -8,7 +8,7 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 
 // Pie
 import 'package:sipged/_widgets/charts/donut/donut_chart_changed.dart';

@@ -35,10 +35,10 @@ class SwitchChange extends StatefulWidget {
       this.onChanged,});
 
   @override
-  _RollingSwitchState createState() => _RollingSwitchState();
+  _SwitchChangeState createState() => _SwitchChangeState();
 }
 
-class _RollingSwitchState extends State<SwitchChange>
+class _SwitchChangeState extends State<SwitchChange>
     with SingleTickerProviderStateMixin {
   AnimationController? animationController;
   Animation<double>? animation;

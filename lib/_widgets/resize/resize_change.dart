@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/buttons/float_action_button.dart';
-import 'package:sipged/_widgets/geo/workspace/geo_workspace_widgets.dart';
-import 'package:sipged/_widgets/resize/resize_data.dart';
+import 'package:sipged/screens/modules/planning/geo/workspace/workspace_widgets.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 
 class ResizeChange extends StatefulWidget {
   const ResizeChange({
@@ -17,7 +17,7 @@ class ResizeChange extends StatefulWidget {
     required this.onRemove,
   });
 
-  final ResizeData item;
+  final WorkspaceData item;
   final int dataVersion;
   final bool selected;
   final VoidCallback onSelected;
@@ -246,7 +246,7 @@ class _ResizeChangeState extends State<ResizeChange> {
                   child: RepaintBoundary(
                     child: KeyedSubtree(
                       key: sizeKey,
-                      child: GeoWorkspaceWidgets(
+                      child: WorkspaceWidgets(
                         item: widget.item,
                         size: widget.item.size,
                       ),

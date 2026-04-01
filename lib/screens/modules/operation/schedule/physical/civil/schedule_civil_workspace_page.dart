@@ -9,7 +9,7 @@ import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 
 // Toolbox de desenho
 import 'package:sipged/_widgets/schedule/civil/schedule_civil_controller.dart';

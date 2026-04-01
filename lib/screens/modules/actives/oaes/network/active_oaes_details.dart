@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_repository.dart';
 import 'package:sipged/screens/modules/actives/oaes/card_3d.dart';
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/map/markers/marker_changed_data.dart';

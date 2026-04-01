@@ -7,7 +7,7 @@ import 'package:sipged/_services/files/dxf/dxf_selection_overlay.dart';
 import 'package:sipged/_widgets/input/text_field_in_line.dart';
 
 // Base/UI
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/schedule/modal/type.dart';
 import 'package:sipged/_widgets/schedule/civil/schedule_civil_controller.dart';

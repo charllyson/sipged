@@ -3,19 +3,18 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter_web_bluetooth/flutter_web_bluetooth.dart' as fwb;
-import 'package:flutter_web_bluetooth/js_web_bluetooth.dart' as js;
 
 import 'ble_transport_iface.dart';
 
 class _WebTransport implements LabelBleTransport {
   fwb.BluetoothDevice? _dev;
-  js.WebBluetoothRemoteGATTCharacteristic? _ch;
+  fwb.BluetoothCharacteristic? _ch;
 
   bool _supportsWriteWithResponse = false;
   bool _supportsWriteWithoutResponse = false;
 
   @override
-  bool get isConnected => _ch != null;
+  bool get isConnected => _dev != null && _ch != null;
 
   @override
   String? get deviceLabel {
@@ -36,37 +35,49 @@ class _WebTransport implements LabelBleTransport {
 
   @override
   Future<void> connect() async {
-    _dev = null;
-    _ch = null;
-    _supportsWriteWithResponse = false;
-    _supportsWriteWithoutResponse = false;
+    await disconnect();
 
     final opts = fwb.RequestOptionsBuilder.acceptAllDevices(
       optionalServices: _knownServices,
     );
 
-    _dev = await fwb.FlutterWebBluetooth.instance.requestDevice(opts);
-    final gatt = await _dev!.gatt!.connect();
+    final dev = await fwb.FlutterWebBluetooth.instance.requestDevice(opts);
+    await dev.connect();
 
-    final services = await gatt.getPrimaryServices();
+    final services = await dev.discoverServices();
+
+    fwb.BluetoothCharacteristic? writableChar;
+    bool supportsWriteWithResponse = false;
+    bool supportsWriteWithoutResponse = false;
 
     for (final svc in services) {
       final chars = await svc.getCharacteristics();
+
       for (final c in chars) {
-        final p = c.properties; // síncrono
+        final p = c.properties;
         if (p.write || p.writeWithoutResponse) {
-          _ch = c; // js.WebBluetoothRemoteGATTCharacteristic
-          _supportsWriteWithResponse = p.write;
-          _supportsWriteWithoutResponse = p.writeWithoutResponse;
+          writableChar = c;
+          supportsWriteWithResponse = p.write;
+          supportsWriteWithoutResponse = p.writeWithoutResponse;
           break;
         }
       }
-      if (_ch != null) break;
+
+      if (writableChar != null) break;
     }
 
-    if (_ch == null) {
+    if (writableChar == null) {
+      try {
+        dev.disconnect();
+      } catch (_) {}
+
       throw StateError('Não encontrei characteristic de escrita neste BLE.');
     }
+
+    _dev = dev;
+    _ch = writableChar;
+    _supportsWriteWithResponse = supportsWriteWithResponse;
+    _supportsWriteWithoutResponse = supportsWriteWithoutResponse;
   }
 
   @override
@@ -76,15 +87,17 @@ class _WebTransport implements LabelBleTransport {
         int delayMs = 8,
       }) async {
     final ch = _ch;
-    if (ch == null) throw StateError('BLE não conectado.');
+    if (ch == null) {
+      throw StateError('BLE não conectado.');
+    }
 
-    // Chrome costuma ser estável ~180-200. Vamos limitar.
+    // Chrome/Web BLE costuma ficar mais estável perto de 180–200 bytes.
     final step = math.max(1, math.min(chunk, 200));
     final wait = Duration(milliseconds: math.max(0, delayMs));
 
     for (int i = 0; i < data.length; i += step) {
       final end = math.min(i + step, data.length);
-      final slice = data.sublist(i, end);
+      final slice = Uint8List.sublistView(data, i, end);
 
       if (_supportsWriteWithResponse) {
         await ch.writeValueWithResponse(slice);
@@ -94,18 +107,24 @@ class _WebTransport implements LabelBleTransport {
         throw StateError('Characteristic não suporta escrita.');
       }
 
-      if (delayMs > 0) await Future.delayed(wait);
+      if (delayMs > 0) {
+        await Future.delayed(wait);
+      }
     }
   }
 
   @override
   Future<void> disconnect() async {
     try {
-      final gatt = _dev?.gatt;
-      if (gatt != null) gatt.disconnect();
-    } catch (_) {}
-    _dev = null;
-    _ch = null;
+      _dev?.disconnect();
+    } catch (_) {
+      // ignora
+    } finally {
+      _dev = null;
+      _ch = null;
+      _supportsWriteWithResponse = false;
+      _supportsWriteWithoutResponse = false;
+    }
   }
 }
 

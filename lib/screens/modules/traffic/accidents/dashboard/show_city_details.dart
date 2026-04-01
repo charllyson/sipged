@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 
 class ShowCityDetails extends StatelessWidget {
   const ShowCityDetails({

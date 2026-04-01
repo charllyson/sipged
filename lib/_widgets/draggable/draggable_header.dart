@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
+import 'package:sipged/_widgets/docking/dock_panel_header.dart';
 import 'package:sipged/_widgets/draggable/light_weight_drag_feedback.dart';
-import 'package:sipged/_widgets/geo/docking/dock_panel_header.dart';
 
 class DraggableHeader extends StatelessWidget {
   final DockPanelData group;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/geo/docking/dock_panel_config.dart';
+import 'package:sipged/_widgets/docking/dock_panel_config.dart';
 
 class DragPlaceholder extends StatelessWidget {
   final Color accent;

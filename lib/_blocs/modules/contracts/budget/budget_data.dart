@@ -154,8 +154,13 @@ class BudgetData {
     }
   }
 
-  BudgetItem? itemByCode(String code) =>
-      items.firstWhere((it) => it.code == code, orElse: () => null as BudgetItem);
+  BudgetItem? itemByCode(String code) {
+    try {
+      return items.firstWhere((it) => it.code == code);
+    } catch (_) {
+      return null;
+    }
+  }
 
   Iterable<BudgetItem> itemsUnderSection(BudgetSection s) sync* {
     // Convenção simples: itens que aparecem após a seção até a próxima seção.

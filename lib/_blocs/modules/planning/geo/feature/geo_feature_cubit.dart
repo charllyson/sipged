@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'geo_feature_data.dart';
 import 'geo_feature_repository.dart';
 import 'geo_feature_state.dart';
-import '../layer/geo_layers_data.dart';
+import '../layer/layer_data.dart';
 
 class GeoFeatureCubit extends Cubit<GeoFeatureState> {
   GeoFeatureCubit({
@@ -16,7 +16,7 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
   final GeoFeatureRepository _repository;
 
   Future<void> ensureLayerLoaded(
-      GeoLayersData layer, {
+      LayerData layer, {
         bool force = false,
       }) async {
     final path = (layer.effectiveCollectionPath ?? '').trim();
@@ -89,7 +89,7 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
   }
 
   Future<List<String>> ensureLayerFieldNames(
-      GeoLayersData layer, {
+      LayerData layer, {
         bool force = false,
       }) async {
     final path = (layer.effectiveCollectionPath ?? '').trim();
@@ -127,12 +127,12 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
     }
   }
 
-  Future<void> reloadLayer(GeoLayersData layer) async {
+  Future<void> reloadLayer(LayerData layer) async {
     await ensureLayerLoaded(layer, force: true);
   }
 
   Future<void> addPointFeaturesBatch({
-    required GeoLayersData layer,
+    required LayerData layer,
     required List<LatLng> points,
     Map<String, dynamic> commonProperties = const {},
   }) async {
@@ -172,7 +172,7 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
   }
 
   Future<void> addLineFeaturesBatch({
-    required GeoLayersData layer,
+    required LayerData layer,
     required List<List<LatLng>> lines,
     Map<String, dynamic> commonProperties = const {},
   }) async {
@@ -214,7 +214,7 @@ class GeoFeatureCubit extends Cubit<GeoFeatureState> {
   }
 
   Future<void> addPolygonFeaturesBatch({
-    required GeoLayersData layer,
+    required LayerData layer,
     required List<List<LatLng>> polygons,
     Map<String, dynamic> commonProperties = const {},
   }) async {

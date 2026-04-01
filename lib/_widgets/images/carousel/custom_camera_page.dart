@@ -118,7 +118,7 @@ class _CustomCameraPageState extends State<CustomCameraPage>
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Falha ao iniciar a câmera'),
-          subtitle: Text('${e.description ?? e.code}'),
+          subtitle: Text(e.description ?? e.code),
           type: AppNotificationType.error,
           leadingLabel: const Text('Câmera'),
           duration: const Duration(seconds: 6),
@@ -162,7 +162,7 @@ class _CustomCameraPageState extends State<CustomCameraPage>
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Falha ao capturar'),
-          subtitle: Text('${e.description ?? e.code}'),
+          subtitle: Text(e.description ?? e.code),
           type: AppNotificationType.error,
           leadingLabel: const Text('Câmera'),
           duration: const Duration(seconds: 6),

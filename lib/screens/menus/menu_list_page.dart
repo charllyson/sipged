@@ -20,7 +20,6 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_rep
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 
 // ===== UI / Serviços =====
-import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';

@@ -7,7 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Overlay / layout
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 

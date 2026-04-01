@@ -8,7 +8,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/list/resume/list_resumed.dart';
 import 'package:sipged/_widgets/cards/expandable/expandable_card.dart';
 import 'package:sipged/_widgets/texts/divider_text.dart';

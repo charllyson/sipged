@@ -17,7 +17,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_state.da
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // ===== Widgets / UI
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
 // ===== Seções

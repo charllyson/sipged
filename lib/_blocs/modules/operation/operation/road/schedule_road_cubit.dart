@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -142,15 +141,6 @@ class ScheduleRoadCubit extends Cubit<ScheduleRoadState> {
       return 'em_andamento';
     }
     return 'a_iniciar';
-  }
-
-  void _setBusy(String? reason, {bool saving = false}) {
-    emit(
-      state.copyWith(
-        busyReason: reason,
-        savingOrImporting: saving,
-      ),
-    );
   }
 
   Future<void> warmup({

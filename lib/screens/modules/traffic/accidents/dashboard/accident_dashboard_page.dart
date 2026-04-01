@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 

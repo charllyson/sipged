@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/contract_add_button.dart';
 import 'package:sipged/_widgets/search/search_widget.dart';
 import 'package:sipged/_widgets/user/user_greeting.dart';

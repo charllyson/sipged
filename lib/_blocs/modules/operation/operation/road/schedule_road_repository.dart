@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -569,7 +568,7 @@ class ScheduleRoadRepository {
       'status': norm,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      if (takenMs != null) 'takenAtMs': takenMs,
+      'takenAtMs': ?takenMs,
     };
 
     DocumentReference<Map<String, dynamic>>? docRef;
@@ -675,7 +674,7 @@ class ScheduleRoadRepository {
           'fotos_meta': FieldValue.arrayUnion(uploadedMetas),
           'updatedAt': FieldValue.serverTimestamp(),
           'updatedBy': currentUserId,
-          if (takenMs != null) 'takenAtMs': takenMs,
+          'takenAtMs': ?takenMs,
         });
       }
     }
@@ -718,7 +717,7 @@ class ScheduleRoadRepository {
           'fotos_meta': FieldValue.arrayRemove(metasToRemove),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        if (takenMs != null) 'takenAtMs': takenMs,
+        'takenAtMs': ?takenMs,
       });
     }
 
@@ -730,7 +729,7 @@ class ScheduleRoadRepository {
         'fotos_meta': FieldValue.delete(),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': currentUserId,
-        if (takenMs != null) 'takenAtMs': takenMs,
+        'takenAtMs': ?takenMs,
       });
 
       clearContractCache(contractId);
@@ -779,7 +778,7 @@ class ScheduleRoadRepository {
       'fotos_meta': metasAll,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': currentUserId,
-      if (takenMs != null) 'takenAtMs': takenMs,
+      'takenAtMs': ?takenMs,
     });
 
     clearContractCache(contractId);
@@ -850,7 +849,7 @@ class ScheduleRoadRepository {
 
     grid.forEach((k, row) {
       final r = List<double>.from(
-        row.map((e) => e is num ? e.toDouble() : 0.0),
+        row.map((e) => e.toDouble()),
         growable: false,
       );
 
@@ -928,7 +927,7 @@ class ScheduleRoadRepository {
 
     final base = <String, dynamic>{
       'contractId': contractId,
-      if (summarySubjectContract != null) 'summarySubjectContract': summarySubjectContract,
+      'summarySubjectContract': ?summarySubjectContract,
       if (data.geometryType != null) 'geometryType': data.geometryType,
       if (data.multiLine != null) 'multiLine': _toMultiList(data.multiLine),
       if (data.points != null) 'points': _toPoints(data.points),
@@ -1042,7 +1041,7 @@ class ScheduleRoadRepository {
 
     final base = <String, dynamic>{
       'contractId': contractId,
-      if (summarySubjectContract != null) 'summarySubjectContract': summarySubjectContract,
+      'summarySubjectContract': ?summarySubjectContract,
       if (meta.geometryType != null) 'geometryType': meta.geometryType,
       if (meta.multiLine != null) 'multiLine': _toMultiList(meta.multiLine),
       if (meta.points != null) 'points': _toPoints(meta.points),

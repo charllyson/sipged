@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/geo/docking/dock_panel_logic.dart';
+import 'package:sipged/_widgets/docking/dock_panel_logic.dart';
 
 @immutable
 class DockPanelState {

@@ -21,7 +21,7 @@ import 'package:sipged/_blocs/modules/contracts/validity/validity_repository.dar
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
 // ===== Widgets / Seções auxiliares =====
-import 'package:sipged/_widgets/background/background_change.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';

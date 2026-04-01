@@ -2,10 +2,10 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/layer/geo_layers_data.dart';
+import 'package:sipged/_widgets/draw/shapes/shapes_catalog.dart';
 
 class ShapePainter extends CustomPainter {
-  final LayerSimpleMarkerShapeType shape;
+  final LayerShapeType shape;
   final Color fillColor;
   final Color strokeColor;
   final double strokeWidth;
@@ -35,15 +35,16 @@ class ShapePainter extends CustomPainter {
     final stroke = Paint()
       ..color = strokeColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
+      ..strokeWidth = strokeWidth
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
 
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
     final path = _buildPath(rect, shape);
 
-    // Algumas geometrias devem ser desenhadas apenas como traço.
-    if (shape == LayerSimpleMarkerShapeType.line ||
-        shape == LayerSimpleMarkerShapeType.arc ||
-        shape == LayerSimpleMarkerShapeType.cross) {
+    if (shape == LayerShapeType.line ||
+        shape == LayerShapeType.arc ||
+        shape == LayerShapeType.cross) {
       canvas.drawPath(path, stroke);
     } else {
       canvas.drawPath(path, fill);
@@ -55,7 +56,7 @@ class ShapePainter extends CustomPainter {
     canvas.restore();
   }
 
-  ui.Path _buildPath(Rect rect, LayerSimpleMarkerShapeType shape) {
+  ui.Path _buildPath(Rect rect, LayerShapeType shape) {
     final w = rect.width;
     final h = rect.height;
     final l = rect.left;
@@ -66,10 +67,10 @@ class ShapePainter extends CustomPainter {
     final cy = rect.center.dy;
 
     switch (shape) {
-      case LayerSimpleMarkerShapeType.square:
+      case LayerShapeType.square:
         return ui.Path()..addRect(rect);
 
-      case LayerSimpleMarkerShapeType.rectangle:
+      case LayerShapeType.rectangle:
         return ui.Path()
           ..addRect(
             Rect.fromCenter(
@@ -79,13 +80,13 @@ class ShapePainter extends CustomPainter {
             ),
           );
 
-      case LayerSimpleMarkerShapeType.roundedSquare:
+      case LayerShapeType.roundedSquare:
         return ui.Path()
           ..addRRect(
             RRect.fromRectAndRadius(rect, const Radius.circular(6)),
           );
 
-      case LayerSimpleMarkerShapeType.trapezoid:
+      case LayerShapeType.trapezoid:
         return ui.Path()
           ..moveTo(l + w * 0.18, t + h * 0.28)
           ..lineTo(r - w * 0.18, t + h * 0.28)
@@ -93,7 +94,7 @@ class ShapePainter extends CustomPainter {
           ..lineTo(l + w * 0.06, b - h * 0.08)
           ..close();
 
-      case LayerSimpleMarkerShapeType.parallelogram:
+      case LayerShapeType.parallelogram:
         return ui.Path()
           ..moveTo(l + w * 0.22, t + h * 0.18)
           ..lineTo(r - w * 0.02, t + h * 0.18)
@@ -101,7 +102,7 @@ class ShapePainter extends CustomPainter {
           ..lineTo(l, b - h * 0.12)
           ..close();
 
-      case LayerSimpleMarkerShapeType.diamond:
+      case LayerShapeType.diamond:
         return ui.Path()
           ..moveTo(cx, t)
           ..lineTo(r, cy)
@@ -109,39 +110,39 @@ class ShapePainter extends CustomPainter {
           ..lineTo(l, cy)
           ..close();
 
-      case LayerSimpleMarkerShapeType.pentagon:
+      case LayerShapeType.pentagon:
         return _regularPolygon(rect, 5);
 
-      case LayerSimpleMarkerShapeType.hexagon:
+      case LayerShapeType.hexagon:
         return _regularPolygon(rect, 6);
 
-      case LayerSimpleMarkerShapeType.octagon:
+      case LayerShapeType.octagon:
         return _regularPolygon(rect, 8);
 
-      case LayerSimpleMarkerShapeType.decagon:
+      case LayerShapeType.decagon:
         return _regularPolygon(rect, 10);
 
-      case LayerSimpleMarkerShapeType.triangle:
+      case LayerShapeType.triangle:
         return ui.Path()
           ..moveTo(cx, t)
           ..lineTo(r, b)
           ..lineTo(l, b)
           ..close();
 
-      case LayerSimpleMarkerShapeType.rightTriangle:
+      case LayerShapeType.rightTriangle:
         return ui.Path()
           ..moveTo(l, b)
           ..lineTo(r, b)
           ..lineTo(l, t)
           ..close();
 
-      case LayerSimpleMarkerShapeType.star4:
+      case LayerShapeType.star4:
         return _star(rect, 4, innerFactor: 0.42);
 
-      case LayerSimpleMarkerShapeType.star5:
+      case LayerShapeType.star5:
         return _star(rect, 5, innerFactor: 0.45);
 
-      case LayerSimpleMarkerShapeType.heart:
+      case LayerShapeType.heart:
         return ui.Path()
           ..moveTo(cx, b)
           ..cubicTo(
@@ -162,7 +163,7 @@ class ShapePainter extends CustomPainter {
           )
           ..close();
 
-      case LayerSimpleMarkerShapeType.arrow:
+      case LayerShapeType.arrow:
         return ui.Path()
           ..moveTo(cx, t)
           ..lineTo(r, h * 0.34)
@@ -173,10 +174,10 @@ class ShapePainter extends CustomPainter {
           ..lineTo(l, h * 0.34)
           ..close();
 
-      case LayerSimpleMarkerShapeType.circle:
+      case LayerShapeType.circle:
         return ui.Path()..addOval(rect);
 
-      case LayerSimpleMarkerShapeType.plus:
+      case LayerShapeType.plus:
         return ui.Path()
           ..addRect(
             Rect.fromCenter(
@@ -193,19 +194,19 @@ class ShapePainter extends CustomPainter {
             ),
           );
 
-      case LayerSimpleMarkerShapeType.cross:
+      case LayerShapeType.cross:
         return ui.Path()
           ..moveTo(l, t)
           ..lineTo(r, b)
           ..moveTo(r, t)
           ..lineTo(l, b);
 
-      case LayerSimpleMarkerShapeType.line:
+      case LayerShapeType.line:
         return ui.Path()
           ..moveTo(cx, t)
           ..lineTo(cx, b);
 
-      case LayerSimpleMarkerShapeType.arc:
+      case LayerShapeType.arc:
         return ui.Path()
           ..addArc(
             Rect.fromCenter(
@@ -217,7 +218,7 @@ class ShapePainter extends CustomPainter {
             math.pi * 0.78,
           );
 
-      case LayerSimpleMarkerShapeType.semicircle:
+      case LayerShapeType.semicircle:
         return ui.Path()
           ..moveTo(l, cy)
           ..arcTo(
@@ -229,7 +230,7 @@ class ShapePainter extends CustomPainter {
           ..lineTo(r, cy)
           ..close();
 
-      case LayerSimpleMarkerShapeType.quarterCircle:
+      case LayerShapeType.quarterCircle:
         return ui.Path()
           ..moveTo(l, b)
           ..lineTo(l, t)
@@ -241,6 +242,9 @@ class ShapePainter extends CustomPainter {
           )
           ..lineTo(l, b)
           ..close();
+
+      case LayerShapeType.shield:
+        return _shield(rect);
     }
   }
 
@@ -286,6 +290,104 @@ class ShapePainter extends CustomPainter {
         path.lineTo(x, y);
       }
     }
+
+    path.close();
+    return path;
+  }
+
+  ui.Path _shield(Rect rect) {
+    final w = rect.width;
+    final h = rect.height;
+    final l = rect.left;
+    final t = rect.top;
+    final r = rect.right;
+    final b = rect.bottom;
+    final cx = rect.center.dx;
+
+    final path = ui.Path();
+
+    // Começa no topo esquerdo
+    path.moveTo(l + w * 0.06, t + h * 0.28);
+
+    // 1ª elevação do topo
+    path.cubicTo(
+      l + w * 0.10,
+      t + h * 0.12,
+      l + w * 0.22,
+      t + h * 0.08,
+      l + w * 0.30,
+      t + h * 0.14,
+    );
+
+    // Vale antes do pico central
+    path.cubicTo(
+      l + w * 0.36,
+      t + h * 0.18,
+      l + w * 0.42,
+      t + h * 0.18,
+      cx,
+      t + h * 0.08,
+    );
+
+    // Vale à direita do pico central
+    path.cubicTo(
+      r - w * 0.42,
+      t + h * 0.18,
+      r - w * 0.36,
+      t + h * 0.18,
+      r - w * 0.30,
+      t + h * 0.14,
+    );
+
+    // 2ª elevação lateral direita
+    path.cubicTo(
+      r - w * 0.22,
+      t + h * 0.08,
+      r - w * 0.10,
+      t + h * 0.12,
+      r - w * 0.06,
+      t + h * 0.28,
+    );
+
+    // Lateral direita abrindo
+    path.cubicTo(
+      r - w * 0.01,
+      t + h * 0.42,
+      r - w * 0.04,
+      t + h * 0.70,
+      r - w * 0.15,
+      b - h * 0.16,
+    );
+
+    // Curva até a ponta inferior
+    path.cubicTo(
+      r - w * 0.28,
+      b - h * 0.05,
+      cx + w * 0.12,
+      b - h * 0.02,
+      cx,
+      b,
+    );
+
+    // Curva saindo da ponta inferior
+    path.cubicTo(
+      cx - w * 0.12,
+      b - h * 0.02,
+      l + w * 0.28,
+      b - h * 0.05,
+      l + w * 0.15,
+      b - h * 0.16,
+    );
+
+    // Lateral esquerda subindo
+    path.cubicTo(
+      l + w * 0.04,
+      t + h * 0.70,
+      l + w * 0.01,
+      t + h * 0.42,
+      l + w * 0.06,
+      t + h * 0.28,
+    );
 
     path.close();
     return path;
