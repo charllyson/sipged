@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-class FieldDrag extends StatelessWidget {
+class DraggableField extends StatelessWidget {
   final String sourceLabel;
   final String fieldName;
   final dynamic fieldValue;
 
-  const FieldDrag({super.key,
+  const DraggableField({super.key,
     required this.sourceLabel,
     required this.fieldName,
     this.fieldValue,

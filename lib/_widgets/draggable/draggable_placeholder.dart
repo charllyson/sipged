@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/docking/dock_panel_config.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_config.dart';
 
-class DragPlaceholder extends StatelessWidget {
+class DraggablePlaceholder extends StatelessWidget {
   final Color accent;
 
-  const DragPlaceholder({super.key, required this.accent});
+  const DraggablePlaceholder({super.key, required this.accent});
 
   @override
   Widget build(BuildContext context) {

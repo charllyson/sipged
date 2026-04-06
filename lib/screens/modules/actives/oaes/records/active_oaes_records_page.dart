@@ -62,15 +62,12 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
         if (!st.initialized ||
             st.loadStatus == ActiveOaesLoadStatus.loading) {
           return const Scaffold(
-            appBar: PreferredSize(
-              preferredSize: Size.fromHeight(72),
-              child: UpBar(
-                leading: Padding(
-                  padding: EdgeInsets.only(left: 12.0),
-                  child: BackCircleButton(),
-                ),
-                showPhotoMenu: true,
+            appBar: UpBar(
+              leading: Padding(
+                padding: EdgeInsets.only(left: 12.0),
+                child: BackCircleButton(),
               ),
+              showPhotoMenu: true,
             ),
             body: Stack(
               children: [
@@ -130,13 +127,10 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
         }
 
         return Scaffold(
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(72),
-            child: UpBar(
-              leading: const Padding(
-                padding: EdgeInsets.only(left: 12.0),
-                child: BackCircleButton(),
-              ),
+          appBar: UpBar(
+            leading: const Padding(
+              padding: EdgeInsets.only(left: 12.0),
+              child: BackCircleButton(),
             ),
           ),
           body: Stack(

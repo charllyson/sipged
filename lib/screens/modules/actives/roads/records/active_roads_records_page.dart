@@ -77,15 +77,12 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
         if (!st.initialized ||
             st.loadStatus == ActiveRoadsLoadStatus.loading) {
           return const Scaffold(
-            appBar: PreferredSize(
-              preferredSize: Size.fromHeight(72),
-              child: UpBar(
-                leading: Padding(
-                  padding: EdgeInsets.only(left: 12.0),
-                  child: BackCircleButton(),
-                ),
-                showPhotoMenu: true,
+            appBar: UpBar(
+              leading: Padding(
+                padding: EdgeInsets.only(left: 12.0),
+                child: BackCircleButton(),
               ),
+              showPhotoMenu: true,
             ),
             body: Stack(
               children: [
@@ -144,15 +141,12 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
         }
 
         return Scaffold(
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(72),
-            child: UpBar(
-              leading: const Padding(
-                padding: EdgeInsets.only(left: 12.0),
-                child: BackCircleButton(),
-              ),
-              showPhotoMenu: true,
+          appBar: UpBar(
+            leading: const Padding(
+              padding: EdgeInsets.only(left: 12.0),
+              child: BackCircleButton(),
             ),
+            showPhotoMenu: true,
           ),
           body: Stack(
             children: [

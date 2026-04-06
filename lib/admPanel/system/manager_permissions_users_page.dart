@@ -104,13 +104,7 @@ class _ManagerPermissionsUsersPageState
             (state.loadUsersError?.isNotEmpty ?? false)) {
           return Scaffold(
             backgroundColor: Colors.white,
-            appBar: PreferredSize(
-              preferredSize: const Size.fromHeight(72),
-              child: Padding(
-                padding: const EdgeInsets.only(left: 12.0),
-                child: const UpBar(leading: BackCircleButton()),
-              ),
-            ),
+            appBar: const UpBar(leading: BackCircleButton()),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -142,13 +136,7 @@ class _ManagerPermissionsUsersPageState
         if (users.isEmpty) {
           return Scaffold(
             backgroundColor: Colors.white,
-            appBar: PreferredSize(
-              preferredSize: const Size.fromHeight(72),
-              child: Padding(
-                padding: const EdgeInsets.only(left: 12.0),
-                child: const UpBar(leading: BackCircleButton()),
-              ),
-            ),
+            appBar: const UpBar(leading: BackCircleButton()),
             body: const Center(
                 child: Text('Nenhum usuário encontrado.')),
           );
@@ -158,13 +146,10 @@ class _ManagerPermissionsUsersPageState
         final groups = ModuleData.permissionModulesByDrawerGroup();
 
         return Scaffold(
-          appBar: const PreferredSize(
-            preferredSize: Size.fromHeight(72),
-            child: UpBar(
-              leading: Padding(
-                padding: EdgeInsets.only(left: 12.0),
-                child: BackCircleButton(),
-              ),
+          appBar: UpBar(
+            leading: Padding(
+              padding: EdgeInsets.only(left: 12.0),
+              child: BackCircleButton(),
             ),
           ),
           backgroundColor: Colors.white,

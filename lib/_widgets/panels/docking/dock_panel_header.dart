@@ -7,6 +7,7 @@ class DockPanelHeader extends StatelessWidget {
   final bool isFloating;
   final VoidCallback onToggleFloating;
   final VoidCallback onHide;
+  final VoidCallback? onMinimize;
 
   const DockPanelHeader({
     super.key,
@@ -15,14 +16,29 @@ class DockPanelHeader extends StatelessWidget {
     required this.isFloating,
     required this.onToggleFloating,
     required this.onHide,
+    this.onMinimize,
   });
 
   bool get _canCollapseToRail {
-    if (group.area == DockArea.left || group.area == DockArea.right) return true;
-    if (group.lastDockArea == DockArea.left || group.lastDockArea == DockArea.right) {
+    if (group.floatingAsDialog) return false;
+
+    if (group.area == DockArea.left || group.area == DockArea.right) {
       return true;
     }
-    return !group.floatingAsDialog;
+
+    if (group.lastDockArea == DockArea.left ||
+        group.lastDockArea == DockArea.right) {
+      return true;
+    }
+
+    return false;
+  }
+
+  bool get _showMinimizeButton {
+    return !isFloating &&
+        !group.floatingAsDialog &&
+        group.id == 'group_area_trabalho' &&
+        group.visible;
   }
 
   IconData _collapseIcon() {
@@ -43,7 +59,8 @@ class DockPanelHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final headerColor = isDark ? const Color(0xFF2A2F3A) : const Color(0xFFF2F3F5);
+    final headerColor =
+    isDark ? const Color(0xFF2A2F3A) : const Color(0xFFF2F3F5);
 
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.08)
@@ -53,14 +70,15 @@ class DockPanelHeader extends StatelessWidget {
         ? Colors.white.withValues(alpha: 0.90)
         : Colors.black.withValues(alpha: 0.85);
 
-    final buttonColor = isDark
-        ? Colors.white.withValues(alpha: 0.75)
-        : Colors.black54;
+    final buttonColor =
+    isDark ? Colors.white.withValues(alpha: 0.75) : Colors.black54;
 
     final isExpandedView = group.floatingAsDialog;
 
     return MouseRegion(
-      cursor: group.floatingAsDialog ? SystemMouseCursors.basic : SystemMouseCursors.grab,
+      cursor: group.floatingAsDialog
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.grab,
       child: Container(
         height: 30,
         padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -89,6 +107,17 @@ class DockPanelHeader extends StatelessWidget {
                 ),
               ),
             ),
+            if (_showMinimizeButton && onMinimize != null)
+              IconButton(
+                tooltip: 'Minimizar',
+                visualDensity: VisualDensity.compact,
+                onPressed: onMinimize,
+                icon: Icon(
+                  Icons.remove,
+                  size: 18,
+                  color: buttonColor,
+                ),
+              ),
             IconButton(
               tooltip: isExpandedView ? 'Fechar' : 'Ampliar',
               visualDensity: VisualDensity.compact,

@@ -5,11 +5,11 @@ import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_cubit.dart
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_state.dart';
-import 'package:sipged/_widgets/docking/dock_panel_floating.dart';
-import 'package:sipged/_widgets/docking/dock_panel_group.dart';
-import 'package:sipged/_widgets/docking/dock_panel_layout.dart';
-import 'package:sipged/_widgets/docking/dock_panel_side_rail.dart';
-import 'package:sipged/_widgets/docking/dock_panel_snap_overlay.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_floating.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_group.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_layout.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_side_rail.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_snap_overlay.dart';
 
 class DockPanelWorkspace extends StatefulWidget {
   final Widget child;
@@ -156,6 +156,8 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
             '${group.id}_'
             '${group.floatingAsDialog}_'
             '${group.collapsed}_'
+            '${group.visible}_'
+            '${group.minimized}_'
             '${group.activeItemId}_'
             '${group.items.length}_'
             '${activeToken ?? 'no_token'}',
@@ -165,7 +167,18 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
         isFloating: isFloating,
         isDragging: isGroupDragging,
         onToggleFloating: () => _cubit.toggleFloating(group.id),
-        onHide: () => _cubit.collapseToRail(group.id),
+        onHide: () {
+          final isSideArea =
+              group.area == DockArea.left || group.area == DockArea.right;
+
+          if (isSideArea) {
+            _cubit.collapseToRail(group.id);
+            return;
+          }
+
+          _cubit.setGroupVisible(group.id, false);
+        },
+        onMinimize: () => _cubit.setGroupVisible(group.id, false),
         onTabSelected: (itemId) => _cubit.setGroupActiveItem(group.id, itemId),
         onDragStarted: () => _cubit.startDrag(group.id),
         onDragUpdate: (details) {

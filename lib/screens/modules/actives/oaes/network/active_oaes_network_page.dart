@@ -280,26 +280,23 @@ class _ActiveOAEsNetworkPageState extends State<ActiveOAEsNetworkPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(74),
-        child: UpBar(
-          showPhotoMenu: true,
-          actions: [
-            IconButton(
-              tooltip: 'Limpar filtros',
-              icon: const Icon(Icons.filter_alt_off, color: Colors.white),
-              onPressed: _clearFilters,
+      appBar: UpBar(
+        showPhotoMenu: true,
+        actions: [
+          IconButton(
+            tooltip: 'Limpar filtros',
+            icon: const Icon(Icons.filter_alt_off, color: Colors.white),
+            onPressed: _clearFilters,
+          ),
+          IconButton(
+            tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
+            icon: Icon(
+              _showPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+              color: Colors.white,
             ),
-            IconButton(
-              tooltip: _showPanel ? 'Ocultar painel' : 'Mostrar painel',
-              icon: Icon(
-                _showPanel ? Icons.view_sidebar : Icons.view_sidebar_outlined,
-                color: Colors.white,
-              ),
-              onPressed: _togglePanelVisibility,
-            ),
-          ],
-        ),
+            onPressed: _togglePanelVisibility,
+          ),
+        ],
       ),
       body: BlocBuilder<ActiveOaesCubit, ActiveOaesState>(
         // 🔥 Rebuilda mapa + painel apenas quando dados/filtros realmente mudam

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/docking/dock_panel_config.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_config.dart';
 
 class DockPanelLogic {
   DockPanelLogic._();
@@ -34,7 +34,9 @@ class DockPanelLogic {
       DockArea area,
       List<DockPanelData> source,
       ) {
-    return hasCollapsedRailForArea(area, source) ? DockPanelConfig.sideRailWidth : 0.0;
+    return hasCollapsedRailForArea(area, source)
+        ? DockPanelConfig.sideRailWidth
+        : 0.0;
   }
 
   static List<DockPanelData> mergeIncomingGroups({
@@ -133,21 +135,11 @@ class DockPanelLogic {
     }).toList(growable: false);
   }
 
-  static double resolvedDockExtentForArea(
-      DockArea area,
-      List<DockPanelData> source,
-      ) {
-    final groups =
-    source.where((g) => occupiesLayout(g) && g.area == area).toList(growable: false);
-
-    if (groups.isEmpty) return 0;
-
+  static double _clampDockExtent(DockArea area, double extent) {
     switch (area) {
       case DockArea.left:
       case DockArea.right:
-        return groups
-            .map((e) => e.dockExtent)
-            .reduce(math.max)
+        return extent
             .clamp(
           DockPanelConfig.minDockSideExtent,
           DockPanelConfig.maxDockSideExtent,
@@ -156,9 +148,7 @@ class DockPanelLogic {
 
       case DockArea.top:
       case DockArea.bottom:
-        return groups
-            .map((e) => e.dockExtent)
-            .reduce(math.max)
+        return extent
             .clamp(
           DockPanelConfig.minDockTopBottomExtent,
           DockPanelConfig.maxDockTopBottomExtent,
@@ -166,8 +156,31 @@ class DockPanelLogic {
             .toDouble();
 
       case DockArea.floating:
-        return 0;
+        return 0.0;
     }
+  }
+
+  static double resolvedDockExtentForArea(
+      DockArea area,
+      List<DockPanelData> source,
+      ) {
+    final groups = source
+        .where((g) => occupiesLayout(g) && g.area == area)
+        .toList(growable: false);
+
+    if (groups.isEmpty) return 0;
+
+    final expandedGroups = groups.where((g) => !g.minimized).toList(growable: false);
+
+    if (expandedGroups.isEmpty) {
+      return DockPanelConfig.minimizedHeaderExtent;
+    }
+
+    final maxExtent = expandedGroups
+        .map((e) => e.dockExtent)
+        .reduce(math.max);
+
+    return _clampDockExtent(area, maxExtent);
   }
 
   static DockCrossSpan resolvedCrossSpanForArea(
@@ -412,8 +425,9 @@ class DockPanelLogic {
     switch (area) {
       case DockArea.left:
         final top = span == DockCrossSpan.full ? 0.0 : occupiedTop;
-        final bottom =
-        span == DockCrossSpan.full ? workspaceSize.height : workspaceSize.height - occupiedBottom;
+        final bottom = span == DockCrossSpan.full
+            ? workspaceSize.height
+            : workspaceSize.height - occupiedBottom;
 
         return Rect.fromLTRB(
           leftRailWidth,
@@ -424,8 +438,9 @@ class DockPanelLogic {
 
       case DockArea.right:
         final top = span == DockCrossSpan.full ? 0.0 : occupiedTop;
-        final bottom =
-        span == DockCrossSpan.full ? workspaceSize.height : workspaceSize.height - occupiedBottom;
+        final bottom = span == DockCrossSpan.full
+            ? workspaceSize.height
+            : workspaceSize.height - occupiedBottom;
 
         return Rect.fromLTRB(
           workspaceSize.width - rightRailWidth - rightWidth,
@@ -479,14 +494,17 @@ class DockPanelLogic {
     final hasTopDock = hasVisibleArea(DockArea.top, source);
     final hasBottomDock = hasVisibleArea(DockArea.bottom, source);
 
-    final leftDockExtent = hasLeftDock ? resolvedDockExtentForArea(DockArea.left, source) : 0.0;
+    final leftDockExtent =
+    hasLeftDock ? resolvedDockExtentForArea(DockArea.left, source) : 0.0;
     final rightDockExtent =
     hasRightDock ? resolvedDockExtentForArea(DockArea.right, source) : 0.0;
-    final topDockExtent = hasTopDock ? resolvedDockExtentForArea(DockArea.top, source) : 0.0;
+    final topDockExtent =
+    hasTopDock ? resolvedDockExtentForArea(DockArea.top, source) : 0.0;
     final bottomDockExtent =
     hasBottomDock ? resolvedDockExtentForArea(DockArea.bottom, source) : 0.0;
 
-    final leftRailInset = hasLeftDock ? reservedRailInsetForArea(DockArea.left, source) : 0.0;
+    final leftRailInset =
+    hasLeftDock ? reservedRailInsetForArea(DockArea.left, source) : 0.0;
 
     final rightRailInset =
     hasRightDock ? reservedRailInsetForArea(DockArea.right, source) : 0.0;

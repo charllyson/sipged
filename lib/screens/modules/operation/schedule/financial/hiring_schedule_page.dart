@@ -12,14 +12,12 @@ class HiringSchedulePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(72),
-          child: UpBar(
-            leading: Padding(
-              padding: const EdgeInsets.only(left: 12.0),
-              child: const BackCircleButton(),
-            ),
-          )),
+      appBar: UpBar(
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12.0),
+          child: const BackCircleButton(),
+        ),
+      ),
       body: SchedulePhysicalFinancialWidget(
         contractData: contract,
         chronogramMode: false,

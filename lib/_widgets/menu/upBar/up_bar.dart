@@ -3,36 +3,48 @@ import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
 import 'package:sipged/_widgets/menu/upBar/tight.dart';
 
 class UpBar extends StatelessWidget implements PreferredSizeWidget {
-  // Alturas das linhas
   final double titleHeight;
   final double subtitleHeight;
 
-  // Conteúdos
-  final List<Widget>? titleWidgets;     // linha 1 (sem wrap)
-  final List<Widget>? subtitleWidgets;  // linha 2 (sem wrap)
+  final List<Widget>? titleWidgets;
+  final List<Widget>? subtitleWidgets;
 
-  // Layout/itens fixos
+  /// Botão principal da esquerda (menu principal, voltar, etc.)
   final Widget? leading;
+
+  /// Botões adicionais à esquerda, exibidos logo após o slot do leading.
+  final List<Widget> leadingActions;
+
+  /// Ações da direita.
   final List<Widget> actions;
+
   final bool showPhotoMenu;
   final Widget? photoMenu;
 
-  // Espaçamentos
   final double itemsSpacing;
   final double sideGap;
 
-  // Estilo de fundo
   final BoxDecoration? decoration;
   final List<Color> backgroundBar;
 
-  // Linha branca inferior
   final bool showBottomBorder;
   final Color bottomBorderColor;
   final double bottomBorderWidth;
 
-  // Safe area
   final bool includeSafeTop;
   final double safeTopFallback;
+
+  /// Largura do slot reservado ao leading.
+  final double leadingSlotWidth;
+
+  /// Espaço entre o leading e os botões adicionais à esquerda.
+  final double gapAfterLeading;
+
+  /// Largura reservada para cada ação lateral.
+  final double actionSlotWidth;
+
+  /// Espaçamento entre ações laterais.
+  final double actionSpacing;
 
   const UpBar({
     super.key,
@@ -41,6 +53,7 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
     this.titleWidgets,
     this.subtitleWidgets = const [],
     this.leading,
+    this.leadingActions = const [],
     this.actions = const [],
     this.showPhotoMenu = true,
     this.photoMenu,
@@ -53,40 +66,116 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
     this.bottomBorderWidth = 1.0,
     this.includeSafeTop = true,
     this.safeTopFallback = 0,
+    this.leadingSlotWidth = 60.0,
+    this.gapAfterLeading = 8.0,
+    this.actionSlotWidth = 40.0,
+    this.actionSpacing = 12.0,
   });
 
-  double totalHeight(BuildContext context) {
-    final safeTop = includeSafeTop ? MediaQuery.of(context).padding.top : 0.0;
-    final sub = (subtitleWidgets?.isNotEmpty ?? false) ? subtitleHeight : 0.0;
-    return safeTop + titleHeight + sub;
+  bool get _hasSubtitle => (subtitleWidgets?.isNotEmpty ?? false);
+
+  /// Regra inteligente:
+  /// - se existe leading, reserva o slot;
+  /// - se não existe leading, mas existem leadingActions, também reserva;
+  /// - caso contrário, não reserva.
+  bool get _shouldReserveLeadingSlot =>
+      leading != null || leadingActions.isNotEmpty;
+
+  double _windowTopPaddingRaw() {
+    if (!includeSafeTop) return 0.0;
+
+    try {
+      final dispatcher = WidgetsBinding.instance.platformDispatcher;
+      if (dispatcher.views.isEmpty) return safeTopFallback;
+
+      final view = dispatcher.views.first;
+      final paddingTop = view.padding.top / view.devicePixelRatio;
+
+      if (paddingTop.isFinite && paddingTop >= 0) {
+        return paddingTop;
+      }
+    } catch (_) {}
+
+    return safeTopFallback;
   }
 
+  double _devicePixelRatio() {
+    try {
+      final dispatcher = WidgetsBinding.instance.platformDispatcher;
+      if (dispatcher.views.isEmpty) return 1.0;
+      return dispatcher.views.first.devicePixelRatio;
+    } catch (_) {
+      return 1.0;
+    }
+  }
+
+  double _snapToPhysicalPixel(double value) {
+    final dpr = _devicePixelRatio();
+    if (dpr <= 0) return value;
+    return (value * dpr).roundToDouble() / dpr;
+  }
+
+  double _safeTop() => _snapToPhysicalPixel(_windowTopPaddingRaw());
+
+  double _contentHeight() =>
+      titleHeight + (_hasSubtitle ? subtitleHeight : 0.0);
+
+  double _totalHeight() => _safeTop() + _contentHeight();
+
+  double totalHeight(BuildContext context) => _totalHeight();
+
   @override
-  Size get preferredSize {
-    final sub = (subtitleWidgets?.isNotEmpty ?? false) ? subtitleHeight : 0.0;
-    return Size.fromHeight(safeTopFallback + titleHeight + sub);
+  Size get preferredSize => Size.fromHeight(_totalHeight());
+
+  double _reservedLeftWidth() {
+    double width = sideGap;
+
+    if (_shouldReserveLeadingSlot) {
+      width += leadingSlotWidth;
+    }
+
+    if (_shouldReserveLeadingSlot && leadingActions.isNotEmpty) {
+      width += gapAfterLeading;
+    }
+
+    if (leadingActions.isNotEmpty) {
+      width += leadingActions.length * actionSlotWidth;
+
+      if (leadingActions.length > 1) {
+        width += (leadingActions.length - 1) * actionSpacing;
+      }
+    }
+
+    return width;
+  }
+
+  double _reservedRightWidth() {
+    double width = sideGap;
+
+    if (actions.isNotEmpty) {
+      width += actions.length * actionSlotWidth;
+
+      if (actions.length > 1) {
+        width += (actions.length - 1) * actionSpacing;
+      }
+    }
+
+    if (actions.isNotEmpty && showPhotoMenu) {
+      width += 8.0;
+    }
+
+    if (showPhotoMenu) {
+      width += actionSlotWidth;
+    }
+
+    return width;
   }
 
   @override
   Widget build(BuildContext context) {
-    final safeTop = includeSafeTop ? MediaQuery.of(context).padding.top : 0.0;
-
-    // Tamanhos “reservados” para os lados
-    const double kIconSlot = 40.0; // largura “bruta” de um ícone
-    const double kGapAfterLeading = 34.0;
-
-    final double leadingW =
-    leading != null ? kIconSlot + kGapAfterLeading : sideGap;
-
-    final double avatarW = showPhotoMenu ? kIconSlot + 8.0 : 0.0;
-    final double actionsW =
-    actions.isNotEmpty ? actions.length * (kIconSlot + 12.0) : 0.0;
-
-    final double rightW = avatarW + actionsW + sideGap;
-
-    // 👉 AGORA: padding assimétrico
-    final double leftPad = leadingW;
-    final double rightPad = rightW;
+    final double safeTop = _safeTop();
+    final double leftPad = _reservedLeftWidth();
+    final double rightPad = _reservedRightWidth();
 
     final bg = decoration ??
         BoxDecoration(
@@ -107,104 +196,133 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
 
     return Material(
       color: Colors.transparent,
-      child: Container(
-        decoration: bg,
-        padding: EdgeInsets.only(top: safeTop),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ---------------- Linha 1: título ----------------
-            SizedBox(
-              height: titleHeight,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Centro — título (usa todo o espaço restante, com scroll horizontal se precisar)
-                  Padding(
-                    padding:
-                    EdgeInsets.only(left: leftPad, right: rightPad),
-                    child: ClipRect(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minWidth: constraints.maxWidth,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: _withSpacing(
-                                  titleWidgets ?? const [],
-                                  itemsSpacing,
+      child: SizedBox(
+        height: _totalHeight(),
+        child: DecoratedBox(
+          decoration: bg,
+          child: Padding(
+            padding: EdgeInsets.only(top: safeTop),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: titleHeight,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.only(
+                          left: leftPad,
+                          right: rightPad,
+                        ),
+                        child: ClipRect(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                physics: const BouncingScrollPhysics(),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minWidth: constraints.maxWidth,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: _withSpacing(
+                                      titleWidgets ?? const [],
+                                      itemsSpacing,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  // Esquerda — leading
-                  if (leading != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Tight(child: leading!),
-                    ),
-
-                  // Direita — actions + foto
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (actions.isNotEmpty)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: _withSpacing(actions, 12),
+                              );
+                            },
                           ),
-                        if (actions.isNotEmpty) const SizedBox(width: 8),
-                        if (showPhotoMenu)
-                          Tight(child: photoMenu ?? const PopUpPhotoMenu()),
-                        SizedBox(width: sideGap),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                        ),
+                      ),
 
-            // ---------------- Linha 2: subtítulo ----------------
-            if (subtitleWidgets!.isNotEmpty)
-              SizedBox(
-                height: subtitleHeight,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: 12,
-                    right: 12,
-                    bottom: 2,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: EdgeInsets.only(left: sideGap),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_shouldReserveLeadingSlot)
+                                SizedBox(
+                                  width: leadingSlotWidth,
+                                  child: leading != null
+                                      ? Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Tight(child: leading!),
+                                  )
+                                      : const SizedBox.shrink(),
+                                ),
+                              if (_shouldReserveLeadingSlot &&
+                                  leadingActions.isNotEmpty)
+                                SizedBox(width: gapAfterLeading),
+                              if (leadingActions.isNotEmpty)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: _withSpacing(
+                                    leadingActions,
+                                    actionSpacing,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: EdgeInsets.only(right: sideGap),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (actions.isNotEmpty)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children:
+                                  _withSpacing(actions, actionSpacing),
+                                ),
+                              if (actions.isNotEmpty && showPhotoMenu)
+                                const SizedBox(width: 8),
+                              if (showPhotoMenu)
+                                Tight(
+                                  child: photoMenu ?? const PopUpPhotoMenu(),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    // 🔥 NÃO usa mais OneLineRow aqui para não dar FittedBox/shrink
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: _withSpacing(
-                          subtitleWidgets ?? const [],
-                          itemsSpacing,
+                ),
+                if (_hasSubtitle)
+                  SizedBox(
+                    height: subtitleHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 12, right: 12),
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: _withSpacing(
+                              subtitleWidgets ?? const [],
+                              itemsSpacing,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -215,7 +333,9 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
     final out = <Widget>[];
     for (var i = 0; i < items.length; i++) {
       out.add(items[i]);
-      if (i < items.length - 1) out.add(SizedBox(width: spacing));
+      if (i < items.length - 1) {
+        out.add(SizedBox(width: spacing));
+      }
     }
     return out;
   }

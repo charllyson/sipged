@@ -97,10 +97,7 @@ class _AccidentDashboardPageState extends State<AccidentDashboardPage> {
         ),
       ],
       child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(72),
-          child: UpBar(),
-        ),
+        appBar: UpBar(),
         body: Stack(
           children: [
             const BackgroundChange(),

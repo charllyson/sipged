@@ -72,13 +72,10 @@ class _SpecificDashboardPageState extends State<SpecificDashboardPage> {
         ),
       ],
       child: Scaffold(
-        appBar: const PreferredSize(
-          preferredSize: Size.fromHeight(72),
-          child: UpBar(
-            leading: Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
-            ),
+        appBar: UpBar(
+          leading: Padding(
+            padding: EdgeInsets.only(left: 12.0),
+            child: BackCircleButton(),
           ),
         ),
         body: Stack(

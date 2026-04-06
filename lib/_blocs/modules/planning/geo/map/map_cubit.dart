@@ -18,6 +18,8 @@ class MapCubit extends Cubit<MapState> {
         _toolboxCubit = toolboxCubit,
         super(MapState.initial());
 
+  static const String workspacePanelGroupId = 'group_area_trabalho';
+
   final LayerCubit _layersCubit;
   final GeoFeatureCubit _featureCubit;
   final ToolboxCubit _toolboxCubit;
@@ -26,31 +28,49 @@ class MapCubit extends Cubit<MapState> {
     emit(state.copyWith(panelGroups: groups));
   }
 
-  void selectLayerPanelItem(String id) {
-    if (state.selectedLayerPanelItemId == id) return;
-    emit(state.copyWith(selectedLayerPanelItemId: id));
+  void _updatePanelGroupById(
+      String groupId,
+      DockPanelData Function(DockPanelData current) transform,
+      ) {
+    final index = state.panelGroups.indexWhere((g) => g.id == groupId);
+    if (index < 0) return;
+
+    final current = state.panelGroups[index];
+    final updated = transform(current);
+
+    if (updated == current) return;
+
+    final next = List<DockPanelData>.from(state.panelGroups);
+    next[index] = updated;
+    emit(state.copyWith(panelGroups: next));
   }
 
-  void showPanel(String groupId) {
-    emit(
-      state.copyWith(
-        panelGroups: state.panelGroups.map((group) {
-          if (group.id != groupId) return group;
-          return group.copyWith(visible: true);
-        }).toList(growable: false),
+  void setPanelVisibility(String groupId, bool visible) {
+    _updatePanelGroupById(
+      groupId,
+          (group) => group.copyWith(
+        visible: visible,
+        minimized: !visible,
+        collapsed: false,
       ),
     );
   }
 
   void togglePanelVisibility(String groupId) {
-    emit(
-      state.copyWith(
-        panelGroups: state.panelGroups.map((group) {
-          if (group.id != groupId) return group;
-          return group.copyWith(visible: !group.visible);
-        }).toList(growable: false),
-      ),
-    );
+    final index = state.panelGroups.indexWhere((g) => g.id == groupId);
+    if (index < 0) return;
+
+    final group = state.panelGroups[index];
+    setPanelVisibility(groupId, !group.visible);
+  }
+
+  void toggleWorkspacePanelVisibility() {
+    togglePanelVisibility(workspacePanelGroupId);
+  }
+
+  void selectLayerPanelItem(String id) {
+    if (state.selectedLayerPanelItemId == id) return;
+    emit(state.copyWith(selectedLayerPanelItemId: id));
   }
 
   Future<String?> selectTool(String? id) async {
@@ -445,21 +465,15 @@ class MapCubit extends Cubit<MapState> {
     emit(nextState);
   }
 
-  Future<LayerData> ensureEditablePointLayer(
-      List<LayerData> currentTree,
-      ) async {
+  Future<LayerData> ensureEditablePointLayer(List<LayerData> currentTree) async {
     return _ensureEditableLayer(LayerGeometryKind.point, currentTree);
   }
 
-  Future<LayerData> ensureEditableLineLayer(
-      List<LayerData> currentTree,
-      ) async {
+  Future<LayerData> ensureEditableLineLayer(List<LayerData> currentTree) async {
     return _ensureEditableLayer(LayerGeometryKind.line, currentTree);
   }
 
-  Future<LayerData> ensureEditablePolygonLayer(
-      List<LayerData> currentTree,
-      ) async {
+  Future<LayerData> ensureEditablePolygonLayer(List<LayerData> currentTree) async {
     return _ensureEditableLayer(LayerGeometryKind.polygon, currentTree);
   }
 
@@ -486,7 +500,6 @@ class MapCubit extends Cubit<MapState> {
         currentTree,
       );
       _appendDraftVertex(LayerGeometryKind.point, editableLayer, latLng);
-      showPanel('group_vectorizacao');
       return null;
     }
 
@@ -500,7 +513,6 @@ class MapCubit extends Cubit<MapState> {
         currentTree,
       );
       _appendDraftVertex(LayerGeometryKind.line, editableLayer, latLng);
-      showPanel('group_vectorizacao');
       return null;
     }
 
@@ -514,7 +526,6 @@ class MapCubit extends Cubit<MapState> {
         currentTree,
       );
       _appendDraftVertex(LayerGeometryKind.polygon, editableLayer, latLng);
-      showPanel('group_vectorizacao');
       return null;
     }
 
@@ -700,12 +711,10 @@ class MapCubit extends Cubit<MapState> {
 
   Future<void> createLayer(List<LayerData> currentTree) async {
     await _layersCubit.createLayer();
-    showPanel('group_vectorizacao');
   }
 
   Future<void> createEmptyGroup(List<LayerData> currentTree) async {
     await _layersCubit.createEmptyGroup();
-    showPanel('group_vectorizacao');
   }
 
   Future<void> moveLayerUp(String id, List<LayerData> currentTree) async {
@@ -769,7 +778,6 @@ class MapCubit extends Cubit<MapState> {
     final allNodes = _layersCubit.flattenAllNodes(tree: tree);
 
     final allNodeIds = allNodes.map((e) => e.id).toSet();
-
     final leafIds = allNodes.where((e) => !e.isGroup).map((e) => e.id).toSet();
 
     final nextPointDrafts = Map<String, List<LatLng>>.from(state.draftPointLayers)

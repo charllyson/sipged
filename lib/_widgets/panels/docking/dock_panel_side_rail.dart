@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
-import 'package:sipged/_widgets/docking/dock_panel_config.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_config.dart';
 
 class DockPanelSideRail extends StatelessWidget {
   final DockArea side;

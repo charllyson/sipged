@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/docking/dock_panel_config.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_config.dart';
 
 class DockPanelSplitter extends StatelessWidget {
   final Axis axis;

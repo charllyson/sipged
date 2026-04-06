@@ -99,25 +99,22 @@ class _PlanningRightWayWorkspacePageState
     return BlocProvider<PlanningHighwayDomainBloc>(
       create: (_) => PlanningHighwayDomainBloc(),
       child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(74),
-          child: UpBar(
-            leading: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: const [SizedBox(width: 12), BackCircleButton(), SizedBox(width: 12)],
-            ),
-            actions: [
-              IconButton(
-                tooltip: _panelOpen ? 'Ocultar painel' : 'Mostrar painel',
-                icon: Icon(
-                  _panelOpen ? Icons.view_sidebar : Icons.view_sidebar_outlined,
-                  color: Colors.white,
-                ),
-                onPressed: _togglePanel,
-              ),
-            ],
+        appBar: UpBar(
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: const [SizedBox(width: 12), BackCircleButton(), SizedBox(width: 12)],
           ),
+          actions: [
+            IconButton(
+              tooltip: _panelOpen ? 'Ocultar painel' : 'Mostrar painel',
+              icon: Icon(
+                _panelOpen ? Icons.view_sidebar : Icons.view_sidebar_outlined,
+                color: Colors.white,
+              ),
+              onPressed: _togglePanel,
+            ),
+          ],
         ),
         bottomNavigationBar: const FootBar(),
         body: SplitLayout(

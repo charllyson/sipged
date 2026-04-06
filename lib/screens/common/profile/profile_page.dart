@@ -235,15 +235,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
         }
 
         return Scaffold(
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(72),
-            child: UpBar(
-              leading: const Padding(
-                padding: EdgeInsets.only(left: 12.0),
-                child: BackCircleButton(),
-              ),
-              photoMenu: const SizedBox.shrink(),
+          appBar: UpBar(
+            leading: const Padding(
+              padding: EdgeInsets.only(left: 12.0),
+              child: BackCircleButton(),
             ),
+            photoMenu: const SizedBox.shrink(),
           ),
           body: Stack(
             children: [

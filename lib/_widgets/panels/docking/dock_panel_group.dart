@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/docking/dock_panel_body.dart';
-import 'package:sipged/_widgets/docking/dock_panel_tabs.dart';
-import 'package:sipged/_widgets/draggable/drag_placeholder.dart';
 import 'package:sipged/_widgets/draggable/draggable_header.dart';
+import 'package:sipged/_widgets/draggable/draggable_placeholder.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_body.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_tabs.dart';
 import 'package:sipged/_widgets/resize/resize_handle.dart';
 
 class DockPanelGroup extends StatelessWidget {
@@ -15,6 +15,7 @@ class DockPanelGroup extends StatelessWidget {
 
   final VoidCallback onToggleFloating;
   final VoidCallback onHide;
+  final VoidCallback? onMinimize;
   final ValueChanged<String> onTabSelected;
 
   final VoidCallback onDragStarted;
@@ -32,6 +33,7 @@ class DockPanelGroup extends StatelessWidget {
     required this.isDragging,
     required this.onToggleFloating,
     required this.onHide,
+    this.onMinimize,
     required this.onTabSelected,
     required this.onDragStarted,
     required this.onDragUpdate,
@@ -144,11 +146,12 @@ class DockPanelGroup extends StatelessWidget {
           isFloating: isFloating,
           onToggleFloating: onToggleFloating,
           onHide: onHide,
+          onMinimize: onMinimize,
           onDragStarted: onDragStarted,
           onDragUpdate: onDragUpdate,
           onDragEnd: onDragEnd,
         ),
-        Expanded(child: DragPlaceholder(accent: accent)),
+        Expanded(child: DraggablePlaceholder(accent: accent)),
       ],
     )
         : Column(
@@ -162,6 +165,7 @@ class DockPanelGroup extends StatelessWidget {
           isFloating: isFloating,
           onToggleFloating: onToggleFloating,
           onHide: onHide,
+          onMinimize: onMinimize,
           onDragStarted: onDragStarted,
           onDragUpdate: onDragUpdate,
           onDragEnd: onDragEnd,
@@ -193,7 +197,8 @@ class _EmptyDockPanelContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textColor = theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.55);
+    final textColor =
+    theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.55);
 
     return Container(
       width: double.infinity,

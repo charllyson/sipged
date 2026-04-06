@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/docking/dock_panel_splitter.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_splitter.dart';
 
 class DockPanelArea extends StatelessWidget {
   final List<DockPanelData> groups;
@@ -29,17 +29,17 @@ class DockPanelArea extends StatelessWidget {
     required this.buildGroupCard,
   });
 
+  bool get _isSideArea => area == DockArea.left || area == DockArea.right;
+
+  Axis get _splitAxis => _isSideArea ? Axis.vertical : Axis.horizontal;
+
   @override
   Widget build(BuildContext context) {
     if (groups.isEmpty) return const SizedBox.shrink();
 
-    final isSideArea = area == DockArea.left || area == DockArea.right;
-    final splitAxis = isSideArea ? Axis.vertical : Axis.horizontal;
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        final totalPixels =
-        isSideArea ? constraints.maxHeight : constraints.maxWidth;
+        final totalPixels = _isSideArea ? constraints.maxHeight : constraints.maxWidth;
 
         if (!totalPixels.isFinite || totalPixels <= 0) {
           return const SizedBox.shrink();
@@ -49,12 +49,13 @@ class DockPanelArea extends StatelessWidget {
           0.0,
               (sum, item) => sum + item.dockWeight,
         );
-        final safeTotalWeight = totalWeight <= 0 ? 1.0 : totalWeight;
 
+        final safeTotalWeight = totalWeight <= 0 ? 1.0 : totalWeight;
         final children = <Widget>[];
 
         for (var i = 0; i < groups.length; i++) {
           final group = groups[i];
+          final shouldShrinkWrap = group.shrinkWrapOnMainAxis || group.minimized;
 
           final flex = math.max(
             1,
@@ -65,9 +66,6 @@ class DockPanelArea extends StatelessWidget {
             width: double.infinity,
             child: buildGroupCard(group),
           );
-
-          final shouldShrinkWrap =
-              group.shrinkWrapOnMainAxis || group.minimized;
 
           children.add(
             shouldShrinkWrap
@@ -81,11 +79,10 @@ class DockPanelArea extends StatelessWidget {
           if (i < groups.length - 1) {
             children.add(
               DockPanelSplitter(
-                axis: splitAxis,
+                axis: _splitAxis,
                 onPanStart: (_) => onResizeWeightsStart(),
                 onPanUpdate: (details) {
-                  final delta =
-                  isSideArea ? details.delta.dy : details.delta.dx;
+                  final delta = _isSideArea ? details.delta.dy : details.delta.dx;
                   onResizeWeights(i, delta, totalPixels);
                 },
                 onPanEnd: (_) => onResizeWeightsEnd(),
@@ -95,7 +92,7 @@ class DockPanelArea extends StatelessWidget {
         }
 
         return Flex(
-          direction: isSideArea ? Axis.vertical : Axis.horizontal,
+          direction: _isSideArea ? Axis.vertical : Axis.horizontal,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: children,
         );

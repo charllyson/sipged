@@ -69,21 +69,18 @@ class _ScheduleCivilWorkspacePageState extends State<ScheduleCivilWorkspacePage>
       // DXF não tem páginas → inicializa sempre com página 0
       create: (_) => CivilScheduleBloc()..add(CivilWarmupRequested(widget.contractId, initialPage: 0)),
       child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(74),
-          child: UpBar(
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
-            ),
-            actions: [
-              IconButton(
-                tooltip: _panelOpen ? 'Ocultar painel' : 'Mostrar painel',
-                icon: Icon(_panelOpen ? Icons.view_sidebar : Icons.view_sidebar_outlined, color: Colors.white),
-                onPressed: _togglePanel,
-              ),
-            ],
+        appBar: UpBar(
+          leading: const Padding(
+            padding: EdgeInsets.only(left: 12.0),
+            child: BackCircleButton(),
           ),
+          actions: [
+            IconButton(
+              tooltip: _panelOpen ? 'Ocultar painel' : 'Mostrar painel',
+              icon: Icon(_panelOpen ? Icons.view_sidebar : Icons.view_sidebar_outlined, color: Colors.white),
+              onPressed: _togglePanel,
+            ),
+          ],
         ),
 
         bottomNavigationBar: const FootBar(),

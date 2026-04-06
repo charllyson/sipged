@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/docking/dock_panel_area.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_area.dart';
 
 class DockPanelTopBottom extends StatelessWidget {
   final List<DockPanelData> groups;

@@ -602,36 +602,33 @@ class _CreateDetailedReportPageState extends State<CreateDetailedReportPage> {
     ));
 
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(72),
-        child: UpBar(
-          leading: const Padding(
-            padding: EdgeInsets.only(left: 12),
-            child: BackCircleButton(icon: Icons.close),
-          ),
-          titleWidgets: [Text(widget.titulo)],
-          actions: [
-            IconButton(
-              tooltip: 'Pré-visualizar PDF',
-              onPressed: () async {
-                final bytes = await buildPdfBytes(
-                  ctrl: _ctrl,
-                  contractData: widget.contractData,
-                  measurement: widget.measurement,
-                );
-                await launchPdfPreview(
-                  context,
-                  bytes,
-                  fileName: 'Boletim_Medicao.pdf',
-                );
-              },
-              icon: const Icon(
-                Icons.picture_as_pdf_outlined,
-                color: Colors.white,
-              ),
-            ),
-          ],
+      appBar: UpBar(
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: BackCircleButton(icon: Icons.close),
         ),
+        titleWidgets: [Text(widget.titulo)],
+        actions: [
+          IconButton(
+            tooltip: 'Pré-visualizar PDF',
+            onPressed: () async {
+              final bytes = await buildPdfBytes(
+                ctrl: _ctrl,
+                contractData: widget.contractData,
+                measurement: widget.measurement,
+              );
+              await launchPdfPreview(
+                context,
+                bytes,
+                fileName: 'Boletim_Medicao.pdf',
+              );
+            },
+            icon: const Icon(
+              Icons.picture_as_pdf_outlined,
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
       body: Stack(
         children: [

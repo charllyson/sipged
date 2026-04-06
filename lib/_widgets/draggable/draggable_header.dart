@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/docking/dock_panel_header.dart';
-import 'package:sipged/_widgets/draggable/light_weight_drag_feedback.dart';
+import 'package:sipged/_widgets/draggable/draggable_feedback.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_header.dart';
 
 class DraggableHeader extends StatelessWidget {
   final DockPanelData group;
@@ -9,17 +9,20 @@ class DraggableHeader extends StatelessWidget {
   final bool isFloating;
   final VoidCallback onToggleFloating;
   final VoidCallback onHide;
+  final VoidCallback? onMinimize;
 
   final VoidCallback onDragStarted;
   final void Function(DragUpdateDetails details) onDragUpdate;
   final void Function(DraggableDetails details) onDragEnd;
 
-  const DraggableHeader({super.key,
+  const DraggableHeader({
+    super.key,
     required this.group,
     required this.accent,
     required this.isFloating,
     required this.onToggleFloating,
     required this.onHide,
+    this.onMinimize,
     required this.onDragStarted,
     required this.onDragUpdate,
     required this.onDragEnd,
@@ -33,6 +36,7 @@ class DraggableHeader extends StatelessWidget {
       isFloating: isFloating,
       onToggleFloating: onToggleFloating,
       onHide: onHide,
+      onMinimize: onMinimize,
     );
 
     if (group.floatingAsDialog) {
@@ -43,7 +47,7 @@ class DraggableHeader extends StatelessWidget {
       data: DockDragPayload(groupId: group.id),
       dragAnchorStrategy: pointerDragAnchorStrategy,
       rootOverlay: true,
-      feedback: LightweightDragFeedback(group: group, accent: accent),
+      feedback: DraggableFeedback(group: group, accent: accent),
       childWhenDragging: const SizedBox.shrink(),
       onDragStarted: onDragStarted,
       onDragUpdate: onDragUpdate,

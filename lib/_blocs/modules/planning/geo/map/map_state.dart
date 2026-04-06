@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 
 class MapState extends Equatable {
@@ -37,40 +38,25 @@ class MapState extends Equatable {
     return const MapState(
       panelGroups: [
         DockPanelData(
-          id: 'group_vectorizacao',
-          title: 'Vetorização',
-          area: DockArea.left,
+          id: 'group_area_trabalho',
+          title: 'Área de trabalho',
+          area: DockArea.bottom,
           crossSpan: DockCrossSpan.full,
-          dockExtent: 300,
-          dockWeight: 1.3,
-          floatingOffset: Offset(40, 110),
-          floatingSize: Size(380, 520),
-          icon: Icons.layers_outlined,
-          items: [],
-        ),
-        DockPanelData(
-          id: 'group_ferramentas',
-          title: 'Ferramentas',
-          area: DockArea.right,
-          crossSpan: DockCrossSpan.full,
-          dockExtent: 320,
-          dockWeight: 0.9,
-          floatingOffset: Offset(20, 110),
-          floatingSize: Size(300, 380),
-          icon: Icons.handyman_outlined,
-          items: [],
-        ),
-        DockPanelData(
-          id: 'group_atributos',
-          title: 'Atributos',
-          area: DockArea.right,
-          crossSpan: DockCrossSpan.full,
-          dockExtent: 380,
-          dockWeight: 1.1,
-          floatingOffset: Offset(520, 110),
-          floatingSize: Size(420, 460),
-          icon: Icons.table_rows_outlined,
-          items: [],
+          visible: true,
+          dockExtent: 260,
+          dockWeight: 1.0,
+          icon: Icons.space_dashboard_outlined,
+          shrinkWrapOnMainAxis: false,
+          items: [
+            DockPanelDataItem(
+              id: 'workspace_area_main',
+              title: 'Área de trabalho',
+              icon: Icons.space_dashboard_outlined,
+              contentPadding: EdgeInsets.zero,
+              child: SizedBox.shrink(),
+            ),
+          ],
+          activeItemId: 'workspace_area_main',
         ),
       ],
     );

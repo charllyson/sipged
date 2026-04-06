@@ -14,35 +14,32 @@ Future<void> launchPdfPreview(
   await Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(72),
-          child: UpBar(
-            leading: Padding(
-              padding: const EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
-            ),
-            titleWidgets: [
-              Text(fileName)
-            ],
-            actions: [
-              IconButton(
-                tooltip: 'Compartilhar',
-                icon: const Icon(Icons.ios_share),
-                onPressed: () => Printing.sharePdf(
-                  bytes: bytes,
-                  filename: fileName,
-                ),
-              ),
-              IconButton(
-                tooltip: 'Imprimir',
-                icon: const Icon(Icons.print),
-                onPressed: () => Printing.layoutPdf(
-                  onLayout: (_) async => bytes,
-                  name: fileName,
-                ),
-              ),
-            ]
+        appBar: UpBar(
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 12.0),
+            child: BackCircleButton(),
           ),
+          titleWidgets: [
+            Text(fileName)
+          ],
+          actions: [
+            IconButton(
+              tooltip: 'Compartilhar',
+              icon: const Icon(Icons.ios_share),
+              onPressed: () => Printing.sharePdf(
+                bytes: bytes,
+                filename: fileName,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Imprimir',
+              icon: const Icon(Icons.print),
+              onPressed: () => Printing.layoutPdf(
+                onLayout: (_) async => bytes,
+                name: fileName,
+              ),
+            ),
+          ]
         ),
         body: PdfPreview(
           build: (format) async => bytes,

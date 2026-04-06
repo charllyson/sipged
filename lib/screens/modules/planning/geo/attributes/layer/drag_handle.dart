@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data_drag.dart';
-import 'package:sipged/_widgets/draggable/field_drag.dart';
+import 'package:sipged/_widgets/draggable/draggable_field.dart';
 
 class DragHandle extends StatelessWidget {
   final AttributeDataDrag dragData;
@@ -39,7 +39,7 @@ class DragHandle extends StatelessWidget {
         onDragStarted: () => onDragStateChanged(true),
         onDragEnd: (_) => onDragStateChanged(false),
         onDraggableCanceled: (_, _) => onDragStateChanged(false),
-        feedback: FieldDrag(
+        feedback: DraggableField(
           sourceLabel: dragData.sourceLabel,
           fieldName: dragData.fieldName,
           fieldValue: dragData.fieldValue,

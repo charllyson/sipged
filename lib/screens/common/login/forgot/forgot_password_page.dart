@@ -143,14 +143,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(72),
-        child: UpBar(
-          showPhotoMenu: false,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 10),
-            child: BackCircleButton(),
-          ),
+      appBar: UpBar(
+        showPhotoMenu: false,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 10),
+          child: BackCircleButton(),
         ),
       ),
       body: Container(

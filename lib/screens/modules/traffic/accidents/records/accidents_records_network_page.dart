@@ -736,36 +736,33 @@ class _AccidentsRecordsNetworkPageInnerState
       },
       builder: (context, state) {
         return Scaffold(
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(72),
-            child: UpBar(
-              actions: [
-                IconButton(
-                  tooltip: 'Formulário',
-                  icon: Icon(
-                    _showForm ? Icons.description : Icons.description_outlined,
-                    color: Colors.white,
-                  ),
-                  onPressed: () => setState(() => _showForm = !_showForm),
+          appBar: UpBar(
+            actions: [
+              IconButton(
+                tooltip: 'Formulário',
+                icon: Icon(
+                  _showForm ? Icons.description : Icons.description_outlined,
+                  color: Colors.white,
                 ),
-                IconButton(
-                  tooltip: 'Tabela',
-                  icon: Icon(
-                    _showTable ? Icons.table_chart : Icons.table_chart_outlined,
-                    color: Colors.white,
-                  ),
-                  onPressed: () => setState(() => _showTable = !_showTable),
+                onPressed: () => setState(() => _showForm = !_showForm),
+              ),
+              IconButton(
+                tooltip: 'Tabela',
+                icon: Icon(
+                  _showTable ? Icons.table_chart : Icons.table_chart_outlined,
+                  color: Colors.white,
                 ),
-                IconButton(
-                  tooltip: 'Mapa',
-                  icon: Icon(
-                    _showMap ? Icons.map : Icons.map_outlined,
-                    color: Colors.white,
-                  ),
-                  onPressed: () => setState(() => _showMap = !_showMap),
+                onPressed: () => setState(() => _showTable = !_showTable),
+              ),
+              IconButton(
+                tooltip: 'Mapa',
+                icon: Icon(
+                  _showMap ? Icons.map : Icons.map_outlined,
+                  color: Colors.white,
                 ),
-              ],
-            ),
+                onPressed: () => setState(() => _showMap = !_showMap),
+              ),
+            ],
           ),
           backgroundColor: Colors.white,
           body: Stack(
