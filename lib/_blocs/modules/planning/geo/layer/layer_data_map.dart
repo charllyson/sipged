@@ -94,6 +94,7 @@ class LayerDataMap extends Equatable {
     final isLoading = featureState.isAnyLoading ||
         featureState.isImportBusy ||
         layersState.isSaving ||
+        layersState.isDeleting ||
         layersState.isRefreshingLayerData;
 
     final showFloatingStatus = StatusBar.shouldShow(

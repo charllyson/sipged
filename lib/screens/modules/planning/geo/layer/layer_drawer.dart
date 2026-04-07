@@ -31,8 +31,10 @@ class LayerDrawer extends StatelessWidget {
   final void Function(String id, bool active) onToggleLayer;
   final ValueChanged<String> onMoveUp;
   final ValueChanged<String> onMoveDown;
-  final VoidCallback onCreateEmptyGroup;
-  final VoidCallback onCreateLayer;
+  final Future<void> Function(String? parentId, int? targetIndex)
+  onCreateEmptyGroup;
+  final Future<void> Function(String? parentId, int? targetIndex)
+  onCreateLayer;
   final void Function(String draggedId, String? targetParentId, int targetIndex)
   onDropItem;
   final ValueChanged<String> onRenameSelected;
@@ -82,7 +84,7 @@ class LayerDrawer extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      SizedBox(width: 60),
+                      const SizedBox(width: 60),
                       const Icon(
                         Icons.layers_outlined,
                         size: 16,

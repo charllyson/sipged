@@ -47,47 +47,25 @@ class _AttributeTileState extends State<AttributeTile> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (dragData != null)
-                DragHandle(
-                  dragData: dragData,
-                  onDragStateChanged: (dragging) {
-                    if (!mounted) return;
-                    setState(() => _dragging = dragging);
-                  },
-                )
-              else
-                Container(
-                  width: 40,
-                  height: 40,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.drag_indicator_rounded,
-                    size: 18,
-                    color: theme.colorScheme.primary.withValues(alpha: 0.35),
-                  ),
-                ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        widget.value.isEmpty ? '-' : widget.value,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      widget.value.isEmpty ? '-' : widget.value,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
               ),
             ],

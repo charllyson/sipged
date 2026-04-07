@@ -75,6 +75,58 @@ class LayerRepository {
     return snap.docs.isNotEmpty;
   }
 
+  Future<void> deleteLayerCollection({
+    required String collectionPath,
+    int pageSize = 300,
+    int batchSize = 300,
+  }) async {
+    final path = collectionPath.trim();
+    if (path.isEmpty) return;
+
+    final collection = _firestore.collection(path);
+
+    while (true) {
+      final snap = await collection.limit(pageSize).get();
+      if (snap.docs.isEmpty) break;
+
+      for (int i = 0; i < snap.docs.length; i += batchSize) {
+        final slice = snap.docs.skip(i).take(batchSize).toList(growable: false);
+        final batch = _firestore.batch();
+
+        for (final doc in slice) {
+          batch.delete(doc.reference);
+        }
+
+        await batch.commit();
+      }
+    }
+  }
+
+  Future<void> deleteLayersData(
+      List<LayerData> layers, {
+        int pageSize = 300,
+        int batchSize = 300,
+      }) async {
+    final uniquePaths = <String>{};
+
+    for (final layer in layers) {
+      if (layer.isGroup) continue;
+
+      final path = (layer.effectiveCollectionPath ?? '').trim();
+      if (path.isNotEmpty) {
+        uniquePaths.add(path);
+      }
+    }
+
+    for (final path in uniquePaths) {
+      await deleteLayerCollection(
+        collectionPath: path,
+        pageSize: pageSize,
+        batchSize: batchSize,
+      );
+    }
+  }
+
   List<LayerData> _sanitizeTree(List<LayerData> nodes) {
     return nodes
         .where((node) => !_isLegacyBaseLayer(node))

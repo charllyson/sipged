@@ -75,7 +75,7 @@ class GatePage extends StatelessWidget {
 
               return BlocBuilder<SetupCubit, SetupState>(
                 builder: (context, setupState) {
-                  final base = MenuListPage();
+                  final base = GeoNetworkPage();
                   final bool needsSetup = kForceInitialSetupOverlay || setupState.companies.isEmpty;
                   if (!needsSetup) return base;
                   return Stack(

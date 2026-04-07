@@ -16,8 +16,9 @@ class LayerPanel extends StatefulWidget {
   final void Function(String id)? onOpenTable;
   final void Function(String id)? onRemoveSelected;
 
-  final VoidCallback? onCreateLayer;
-  final VoidCallback? onCreateEmptyGroup;
+  final Future<void> Function(String? parentId, int? targetIndex)? onCreateLayer;
+  final Future<void> Function(String? parentId, int? targetIndex)?
+  onCreateEmptyGroup;
 
   final Map<String, bool> hasDataByLayer;
   final bool Function(LayerData layer)? supportsConnect;
@@ -132,6 +133,125 @@ class _LayerPanelState extends State<LayerPanel> {
     return false;
   }
 
+  List<int>? _findPathById(
+      List<LayerData> nodes,
+      String id, [
+        List<int> current = const [],
+      ]) {
+    for (int i = 0; i < nodes.length; i++) {
+      final path = [...current, i];
+      final node = nodes[i];
+
+      if (node.id == id) return path;
+
+      if (node.isGroup && node.children.isNotEmpty) {
+        final found = _findPathById(node.children, id, path);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
+  LayerData? _getNodeByPath(
+      List<LayerData> tree,
+      List<int> path,
+      ) {
+    if (path.isEmpty) return null;
+
+    List<LayerData> current = tree;
+    LayerData? node;
+
+    for (int i = 0; i < path.length; i++) {
+      final index = path[i];
+      if (index < 0 || index >= current.length) return null;
+
+      node = current[index];
+      if (i < path.length - 1) {
+        current = node.children;
+      }
+    }
+
+    return node;
+  }
+
+  Future<void> _handleCreateLayer() async {
+    final selectedId = _effectiveSelectedId;
+
+    if (selectedId == null) {
+      await widget.onCreateLayer?.call(null, null);
+      return;
+    }
+
+    final path = _findPathById(widget.layers, selectedId);
+    if (path == null || path.isEmpty) {
+      await widget.onCreateLayer?.call(null, null);
+      return;
+    }
+
+    final selectedNode = _getNodeByPath(widget.layers, path);
+    if (selectedNode == null) {
+      await widget.onCreateLayer?.call(null, null);
+      return;
+    }
+
+    if (selectedNode.isGroup) {
+      await widget.onCreateLayer?.call(
+        selectedNode.id,
+        selectedNode.children.length,
+      );
+      return;
+    }
+
+    final parentPath = path.sublist(0, path.length - 1);
+    final selectedIndex = path.last;
+    final parentNode =
+    parentPath.isEmpty ? null : _getNodeByPath(widget.layers, parentPath);
+
+    await widget.onCreateLayer?.call(
+      parentNode?.id,
+      selectedIndex + 1,
+    );
+  }
+
+  Future<void> _handleCreateEmptyGroup() async {
+    final selectedId = _effectiveSelectedId;
+
+    if (selectedId == null) {
+      await widget.onCreateEmptyGroup?.call(null, null);
+      return;
+    }
+
+    final path = _findPathById(widget.layers, selectedId);
+    if (path == null || path.isEmpty) {
+      await widget.onCreateEmptyGroup?.call(null, null);
+      return;
+    }
+
+    final selectedNode = _getNodeByPath(widget.layers, path);
+    if (selectedNode == null) {
+      await widget.onCreateEmptyGroup?.call(null, null);
+      return;
+    }
+
+    if (selectedNode.isGroup) {
+      await widget.onCreateEmptyGroup?.call(
+        selectedNode.id,
+        selectedNode.children.length,
+      );
+      return;
+    }
+
+    final parentPath = path.sublist(0, path.length - 1);
+    final selectedIndex = path.last;
+    final parentNode =
+    parentPath.isEmpty ? null : _getNodeByPath(widget.layers, parentPath);
+
+    await widget.onCreateEmptyGroup?.call(
+      parentNode?.id,
+      selectedIndex + 1,
+    );
+  }
+
   void _toggleGroupExpand(String groupId) {
     setState(() {
       if (_expandedGroupIds.contains(groupId)) {
@@ -243,8 +363,8 @@ class _LayerPanelState extends State<LayerPanel> {
         children: [
           LayerToolbar(
             selectedId: _effectiveSelectedId,
-            onCreateLayer: widget.onCreateLayer,
-            onCreateEmptyGroup: widget.onCreateEmptyGroup,
+            onCreateLayer: _handleCreateLayer,
+            onCreateEmptyGroup: _handleCreateEmptyGroup,
             onRemoveSelected: widget.onRemoveSelected,
             onRenameSelected: widget.onRenameSelected,
             onMoveDown: widget.onMoveDown,

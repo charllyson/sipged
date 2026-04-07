@@ -8,6 +8,7 @@ class LayerState extends Equatable {
 
   final bool isLoading;
   final bool isSaving;
+  final bool isDeleting;
   final bool isRefreshingLayerData;
   final bool loaded;
 
@@ -19,6 +20,7 @@ class LayerState extends Equatable {
     this.hasDataByLayer = const <String, bool>{},
     this.isLoading = false,
     this.isSaving = false,
+    this.isDeleting = false,
     this.isRefreshingLayerData = false,
     this.error,
     this.loaded = false,
@@ -32,6 +34,7 @@ class LayerState extends Equatable {
     Map<String, bool>? hasDataByLayer,
     bool? isLoading,
     bool? isSaving,
+    bool? isDeleting,
     bool? isRefreshingLayerData,
     String? error,
     bool? loaded,
@@ -43,6 +46,7 @@ class LayerState extends Equatable {
       hasDataByLayer: hasDataByLayer ?? this.hasDataByLayer,
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
+      isDeleting: isDeleting ?? this.isDeleting,
       isRefreshingLayerData:
       isRefreshingLayerData ?? this.isRefreshingLayerData,
       error: clearError ? null : (error ?? this.error),
@@ -57,6 +61,7 @@ class LayerState extends Equatable {
     hasDataByLayer,
     isLoading,
     isSaving,
+    isDeleting,
     isRefreshingLayerData,
     error,
     loaded,

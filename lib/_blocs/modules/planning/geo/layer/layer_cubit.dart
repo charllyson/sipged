@@ -374,22 +374,52 @@ class LayerCubit extends Cubit<LayerState> {
   }
 
   Future<void> removeNode(String id) async {
+    final currentNode = findNodeById(id);
+    if (currentNode == null) return;
+
+    final removedLeafLayers = _collectLeafLayers(currentNode);
     final nextTree = _cloneTree(state.tree);
     final removed = _removeNodeById(nextTree, id);
     if (!removed) return;
 
-    final nextActive = Set<String>.from(state.activeLayerIds)..remove(id);
-    final nextHasData = Map<String, bool>.from(state.hasDataByLayer)..remove(id);
-
     emit(
       state.copyWith(
-        activeLayerIds: Set<String>.unmodifiable(nextActive),
-        hasDataByLayer: Map<String, bool>.unmodifiable(nextHasData),
+        isDeleting: true,
         clearError: true,
       ),
     );
 
-    await saveTree(nextTree);
+    try {
+      await _repository.deleteLayersData(removedLeafLayers);
+
+      _clearCacheForLayers(removedLeafLayers);
+
+      final removedIds = removedLeafLayers.map((e) => e.id).toSet();
+
+      final nextActive = Set<String>.from(state.activeLayerIds)
+        ..removeWhere(removedIds.contains);
+
+      final nextHasData = Map<String, bool>.from(state.hasDataByLayer)
+        ..removeWhere((key, _) => removedIds.contains(key));
+
+      emit(
+        state.copyWith(
+          activeLayerIds: Set<String>.unmodifiable(nextActive),
+          hasDataByLayer: Map<String, bool>.unmodifiable(nextHasData),
+          isDeleting: false,
+          clearError: true,
+        ),
+      );
+
+      await saveTree(nextTree);
+    } catch (e) {
+      emit(
+        state.copyWith(
+          isDeleting: false,
+          error: e.toString(),
+        ),
+      );
+    }
   }
 
   Future<bool> _resolvePath(String path, {bool force = false}) async {
@@ -700,5 +730,35 @@ class LayerCubit extends Cubit<LayerState> {
 
     targetList.insert(adjustedIndex, draggedNode);
     return true;
+  }
+
+  List<LayerData> _collectLeafLayers(LayerData node) {
+    if (!node.isGroup) return [node];
+
+    final result = <LayerData>[];
+
+    void walk(LayerData current) {
+      if (!current.isGroup) {
+        result.add(current);
+        return;
+      }
+
+      for (final child in current.children) {
+        walk(child);
+      }
+    }
+
+    walk(node);
+    return result;
+  }
+
+  void _clearCacheForLayers(List<LayerData> layers) {
+    for (final layer in layers) {
+      final path = (layer.effectiveCollectionPath ?? '').trim();
+      if (path.isEmpty) continue;
+
+      _hasDataCacheByPath.remove(path);
+      _inFlightByPath.remove(path);
+    }
   }
 }

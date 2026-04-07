@@ -884,12 +884,19 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                 id,
                 mapData.currentTree,
               ),
-              onCreateEmptyGroup: () => context.read<MapCubit>().createEmptyGroup(
-                mapData.currentTree,
-              ),
-              onCreateLayer: () => context.read<MapCubit>().createLayer(
-                mapData.currentTree,
-              ),
+              onCreateLayer: (parentId, targetIndex) async {
+                await context.read<LayerCubit>().createLayer(
+                  parentId: parentId,
+                  targetIndex: targetIndex,
+                );
+              },
+
+              onCreateEmptyGroup: (parentId, targetIndex) async {
+                await context.read<LayerCubit>().createEmptyGroup(
+                  parentId: parentId,
+                  targetIndex: targetIndex,
+                );
+              },
               onDropItem: (draggedId, targetParentId, targetIndex) =>
                   context.read<MapCubit>().dropItem(
                     draggedId,
