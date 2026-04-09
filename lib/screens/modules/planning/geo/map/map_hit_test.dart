@@ -1,8 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
-import 'package:sipged/_utils/debug/sipged_perf.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 
 class MapHitTest {
   MapHitTest._();
@@ -14,40 +13,23 @@ class MapHitTest {
 
   static List<FeatureHitEntry> buildHitEntries({
     required List<String> orderedActiveLayerIds,
-    required Map<String, List<GeoFeatureData>> featuresByLayer,
+    required Map<String, List<FeatureData>> featuresByLayer,
   }) {
-    return SipgedPerf.traceSync(
-      'MapHitTest.buildHitEntries',
-          () {
-        final entries = <FeatureHitEntry>[];
+    final entries = <FeatureHitEntry>[];
 
-        for (final layerId in orderedActiveLayerIds.reversed) {
-          final layerFeatures = featuresByLayer[layerId];
-          if (layerFeatures == null || layerFeatures.isEmpty) continue;
+    for (final layerId in orderedActiveLayerIds.reversed) {
+      final layerFeatures = featuresByLayer[layerId];
+      if (layerFeatures == null || layerFeatures.isEmpty) continue;
 
-          for (final feature in layerFeatures) {
-            entries.add(_entryForFeature(feature));
-          }
-        }
+      for (final feature in layerFeatures) {
+        entries.add(_entryForFeature(feature));
+      }
+    }
 
-        return entries;
-      },
-      warnMs: 8,
-      data: {
-        'activeLayers': orderedActiveLayerIds.length,
-        'featureLayers': featuresByLayer.length,
-        'totalFeatures': featuresByLayer.values.fold<int>(
-          0,
-              (sum, list) => sum + list.length,
-        ),
-      },
-      resultData: (result) => {
-        'entries': result.length,
-      },
-    );
+    return entries;
   }
 
-  static FeatureHitEntry _entryForFeature(GeoFeatureData feature) {
+  static FeatureHitEntry _entryForFeature(FeatureData feature) {
     final signature = _featureGeometrySignature(feature);
     final cached = _entryCache[feature];
 
@@ -70,7 +52,7 @@ class MapHitTest {
     return entry;
   }
 
-  static int _featureGeometrySignature(GeoFeatureData feature) {
+  static int _featureGeometrySignature(FeatureData feature) {
     LatLng? firstMarker;
     LatLng? lastMarker;
     if (feature.markerPoints.isNotEmpty) {
@@ -105,17 +87,14 @@ class MapHitTest {
       feature.markerPoints.length,
       feature.lineParts.length,
       feature.polygonRings.length,
-
       firstMarker?.latitude.toStringAsFixed(6),
       firstMarker?.longitude.toStringAsFixed(6),
       lastMarker?.latitude.toStringAsFixed(6),
       lastMarker?.longitude.toStringAsFixed(6),
-
       firstLinePoint?.latitude.toStringAsFixed(6),
       firstLinePoint?.longitude.toStringAsFixed(6),
       lastLinePoint?.latitude.toStringAsFixed(6),
       lastLinePoint?.longitude.toStringAsFixed(6),
-
       firstPolygonPoint?.latitude.toStringAsFixed(6),
       firstPolygonPoint?.longitude.toStringAsFixed(6),
       lastPolygonPoint?.latitude.toStringAsFixed(6),
@@ -123,34 +102,18 @@ class MapHitTest {
     ]);
   }
 
-  static GeoFeatureData? findFeatureAt({
+  static FeatureData? findFeatureAt({
     required LatLng tap,
     required double zoom,
     required List<FeatureHitEntry> entries,
   }) {
-    return SipgedPerf.traceSync(
-      'MapHitTest.findFeatureAt',
-          () {
-        for (final entry in entries) {
-          if (_hitMarker(entry, tap, zoom)) return entry.feature;
-          if (_hitLine(entry, tap, zoom)) return entry.feature;
-          if (_hitPolygon(entry, tap)) return entry.feature;
-        }
+    for (final entry in entries) {
+      if (_hitMarker(entry, tap, zoom)) return entry.feature;
+      if (_hitLine(entry, tap, zoom)) return entry.feature;
+      if (_hitPolygon(entry, tap)) return entry.feature;
+    }
 
-        return null;
-      },
-      warnMs: 6,
-      data: {
-        'zoom': zoom.toStringAsFixed(2),
-        'entries': entries.length,
-        'tapLat': tap.latitude.toStringAsFixed(6),
-        'tapLng': tap.longitude.toStringAsFixed(6),
-      },
-      resultData: (result) => {
-        'hit': result != null,
-        'featureKey': result?.selectionKey,
-      },
-    );
+    return null;
   }
 
   static bool _hitMarker(FeatureHitEntry entry, LatLng tap, double zoom) {
@@ -319,7 +282,7 @@ class MapHitTest {
 }
 
 class FeatureHitEntry {
-  final GeoFeatureData feature;
+  final FeatureData feature;
   final LatLngBoundsLite? markerBounds;
   final LatLngBoundsLite? lineBounds;
   final LatLngBoundsLite? polygonBounds;

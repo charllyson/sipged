@@ -1,9 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
 
 class MapState extends Equatable {
   final List<DockPanelData> panelGroups;
@@ -48,7 +47,7 @@ class MapState extends Equatable {
           icon: Icons.space_dashboard_outlined,
           shrinkWrapOnMainAxis: false,
           items: [
-            DockPanelDataItem(
+            DockPanelData(
               id: 'workspace_area_main',
               title: 'Área de trabalho',
               icon: Icons.space_dashboard_outlined,

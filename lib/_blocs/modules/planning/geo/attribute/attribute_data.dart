@@ -78,6 +78,32 @@ class AttributeData {
     return '${fieldValues.length} valor(es) • ex: $sample';
   }
 
+  Map<String, dynamic> toMap() {
+    return {
+      'sourceId': sourceId,
+      'sourceLabel': sourceLabel,
+      'fieldName': fieldName,
+      'aggregation': aggregation,
+      'fieldValue': fieldValue,
+      'fieldValues': fieldValues,
+    };
+  }
+
+  factory AttributeData.fromMap(Map<String, dynamic>? map) {
+    if (map == null) return const AttributeData();
+
+    return AttributeData(
+      sourceId: map['sourceId']?.toString(),
+      sourceLabel: map['sourceLabel']?.toString(),
+      fieldName: map['fieldName']?.toString(),
+      aggregation: map['aggregation']?.toString(),
+      fieldValue: map['fieldValue'],
+      fieldValues: map['fieldValues'] is List
+          ? List<dynamic>.from(map['fieldValues'] as List)
+          : const [],
+    );
+  }
+
   @override
   bool operator ==(Object other) {
     return other is AttributeData &&

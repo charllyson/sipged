@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_state.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_state.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_side.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_top_bottom.dart';
 

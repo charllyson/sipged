@@ -3,8 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_state.dart';
-import 'package:sipged/_utils/debug/sipged_perf.dart';
+import 'package:sipged/_widgets/resize/resize_handle.dart';
 import 'package:sipged/_widgets/resize/resize_change.dart';
+import 'package:sipged/screens/modules/planning/geo/workspace/workspace_widgets.dart';
 
 class WorkspaceItem extends StatelessWidget {
   const WorkspaceItem({
@@ -33,81 +34,78 @@ class WorkspaceItem extends StatelessWidget {
         );
       },
       builder: (context, view) {
-        return SipgedPerf.traceSync(
-          'WorkspaceItem.build',
-              () {
-            if (view == null) return const SizedBox.shrink();
+        if (view == null) return const SizedBox.shrink();
 
-            final item = view.item;
+        final item = view.item;
 
-            return Positioned(
-              left: item.offset.dx,
-              top: item.offset.dy,
-              width: item.size.width,
-              height: item.size.height,
-              child: RepaintBoundary(
-                child: ResizeChange(
-                  item: item,
-                  dataVersion: view.dataVersion,
-                  selected: view.selected,
-                  onSelected: () {
-                    context.read<WorkspaceCubit>().selectItem(item.id);
-                  },
-                  onMoveLive: (desiredRect) {
-                    context.read<WorkspaceCubit>().moveItemLive(
-                      itemId: item.id,
-                      desiredRect: desiredRect,
-                    );
-                  },
-                  onMoveEnd: (finalRect) {
-                    final resolved =
-                    context.read<WorkspaceCubit>().moveItemCommit(
-                      itemId: item.id,
-                      desiredRect: finalRect,
-                    );
+        final contentKey =
+            '${item.id}_${item.type.name}_${item.size.width}_${item.size.height}_${item.properties.hashCode}_${view.dataVersion}';
 
-                    onItemChanged(
-                      item.id,
-                      resolved.rect.topLeft,
-                      resolved.rect.size,
-                    );
-                  },
-                  onResizeLive: (handle, desiredRect) {
-                    context.read<WorkspaceCubit>().resizeItemLive(
-                      itemId: item.id,
-                      desiredRect: desiredRect,
-                      handle: handle,
-                    );
-                  },
-                  onResizeEnd: (handle, finalRect) {
-                    final resolved =
-                    context.read<WorkspaceCubit>().resizeItemCommit(
-                      itemId: item.id,
-                      desiredRect: finalRect,
-                      handle: handle,
-                    );
-
-                    onItemChanged(
-                      item.id,
-                      resolved.rect.topLeft,
-                      resolved.rect.size,
-                    );
-                  },
-                  onRemove: () {
-                    context.read<WorkspaceCubit>().removeItemLocal(item.id);
-                    onItemRemoved(item.id);
-                  },
-                ),
+        return Positioned(
+          left: item.offset.dx,
+          top: item.offset.dy,
+          width: item.size.width,
+          height: item.size.height,
+          child: RepaintBoundary(
+            child: ResizeChange(
+              offset: item.offset,
+              size: item.size,
+              selected: view.selected,
+              contentKey: contentKey,
+              allowDiagonalResize: false,
+              child: WorkspaceWidgets(
+                item: item,
+                size: item.size,
               ),
-            );
-          },
-          warnMs: 8,
-          data: {
-            'itemId': itemId,
-            'hasView': view != null,
-            'selected': view?.selected,
-            'dataVersion': view?.dataVersion,
-          },
+              onSelected: () {
+                context.read<WorkspaceCubit>().selectItem(item.id);
+              },
+              onMoveLive: (desiredRect) {
+                context.read<WorkspaceCubit>().moveItemLive(
+                  itemId: item.id,
+                  desiredRect: desiredRect,
+                );
+              },
+              onMoveEnd: (finalRect) {
+                final resolved =
+                context.read<WorkspaceCubit>().moveItemCommit(
+                  itemId: item.id,
+                  desiredRect: finalRect,
+                );
+
+                onItemChanged(
+                  item.id,
+                  resolved.rect.topLeft,
+                  resolved.rect.size,
+                );
+              },
+              onResizeLive: (ResizeHandle handle, Rect desiredRect) {
+                context.read<WorkspaceCubit>().resizeItemLive(
+                  itemId: item.id,
+                  desiredRect: desiredRect,
+                  handle: handle,
+                );
+              },
+              onResizeEnd: (ResizeHandle handle, Rect finalRect) {
+                final resolved =
+                context.read<WorkspaceCubit>().resizeItemCommit(
+                  itemId: item.id,
+                  desiredRect: finalRect,
+                  handle: handle,
+                );
+
+                onItemChanged(
+                  item.id,
+                  resolved.rect.topLeft,
+                  resolved.rect.size,
+                );
+              },
+              onRemove: () {
+                context.read<WorkspaceCubit>().removeItemLocal(item.id);
+                onItemRemoved(item.id);
+              },
+            ),
+          ),
         );
       },
     );

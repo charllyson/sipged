@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/map/map_cubit.dart';
@@ -24,14 +24,14 @@ class GeoNetworkPage extends StatelessWidget {
           )..load(),
         ),
         BlocProvider(
-          create: (_) => GeoFeatureCubit(
-            repository: GeoFeatureRepository(),
+          create: (_) => FeatureCubit(
+            repository: FeatureRepository(),
           ),
         ),
         BlocProvider(
           create: (context) => MapCubit(
             layersCubit: context.read<LayerCubit>(),
-            featureCubit: context.read<GeoFeatureCubit>(),
+            featureCubit: context.read<FeatureCubit>(),
             toolboxCubit: context.read<ToolboxCubit>(),
           ),
         ),

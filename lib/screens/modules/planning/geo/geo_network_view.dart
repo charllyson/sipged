@@ -3,13 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data_drag.dart';
-import 'package:sipged/_blocs/modules/planning/geo/catalog/component/component_data_catalog.dart';
-import 'package:sipged/_blocs/modules/planning/geo/catalog/property/component_data_property.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_map.dart';
@@ -19,7 +15,7 @@ import 'package:sipged/_blocs/modules/planning/geo/map/map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
-
+import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
@@ -28,14 +24,14 @@ import 'package:sipged/_widgets/panels/docking/dock_panel_workspace.dart';
 import 'package:sipged/_widgets/panels/push/push_panel_data.dart';
 import 'package:sipged/_widgets/panels/push/push_panels.dart';
 import 'package:sipged/_widgets/panels/push/push_panels_controller.dart';
-import 'package:sipged/screens/modules/planning/geo/attributes/geo_atributos_panel.dart';
-import 'package:sipged/screens/modules/planning/geo/attributes/import/attribute_import_feature.dart';
-import 'package:sipged/screens/modules/planning/geo/catalog/geo_visualizacoes_panel.dart';
+import 'package:sipged/screens/modules/planning/geo/attribute/attribute_panel.dart';
+import 'package:sipged/screens/modules/planning/geo/attribute/attribute_table.dart';
+import 'package:sipged/screens/modules/planning/geo/catalog/catalog_panel.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_drawer.dart';
 import 'package:sipged/screens/modules/planning/geo/map/map_change.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/dialog/layer_properties_dialog.dart';
 import 'package:sipged/screens/modules/planning/geo/status/status_bar.dart';
-import 'package:sipged/screens/modules/planning/geo/toolbox/geo_ferramentas_panel.dart';
+import 'package:sipged/screens/modules/planning/geo/toolbox/toolbox_panel.dart';
 import 'package:sipged/screens/modules/planning/geo/workspace/workspace_panel.dart';
 
 class GeoNetworkView extends StatefulWidget {
@@ -178,7 +174,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
     required BuildContext context,
     required LayerData current,
   }) async {
-    final geoFeatureCubit = context.read<GeoFeatureCubit>();
+    final geoFeatureCubit = context.read<FeatureCubit>();
     final availableFields = await geoFeatureCubit.ensureLayerFieldNames(current);
 
     if (!context.mounted) return null;
@@ -209,6 +205,69 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
     await layersCubit.updateNodeById(id, (_) => edited);
   }
 
+  Future<void> _openImportDialog(
+      BuildContext context, {
+        required LayerData layer,
+      }) async {
+    final featureCubit = context.read<FeatureCubit>();
+    final path = layer.effectiveCollectionPath ?? '';
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => BlocProvider.value(
+        value: featureCubit,
+        child: AttributeTable(
+          mode: AttributeTableMode.importFile,
+          collectionPath: path,
+          targetFields: const [],
+          title: 'Importar ${layer.title}',
+          description:
+          'Importe GeoJSON / KML / KMZ. Após salvar, as feições desta camada serão gravadas no Firebase dentro da coleção principal geo e poderão ser desenhadas dinamicamente no mapa.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openFirestoreTableDialog(
+      BuildContext context, {
+        required LayerData layer,
+      }) async {
+    final featureCubit = context.read<FeatureCubit>();
+    final path = layer.effectiveCollectionPath ?? '';
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => BlocProvider.value(
+        value: featureCubit,
+        child: AttributeTable(
+          mode: AttributeTableMode.firestore,
+          collectionPath: path,
+          targetFields: const [],
+          title: 'Tabela de atributos - ${layer.title}',
+          description:
+          'Visualização dinâmica do Firebase. Cada documento é uma feição geográfica desta camada.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _reloadLayerAfterImport(
+      BuildContext context, {
+        required LayerData layer,
+        required bool shouldLoadOnMap,
+      }) async {
+    await context.read<LayerCubit>().refreshLayerData(
+      layer,
+      force: true,
+    );
+
+    if (shouldLoadOnMap) {
+      await context.read<FeatureCubit>().reloadLayer(layer);
+    }
+  }
+
   Future<void> _handleConnectLayer(
       String rawId,
       List<LayerData> currentTree,
@@ -216,11 +275,30 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
     final layersCubit = context.read<LayerCubit>();
     final layer = layersCubit.findNodeById(rawId, tree: currentTree);
 
-    if (layer == null || layer.isGroup) return;
+    if (layer == null || layer.isGroup || !layer.supportsConnect) return;
+
+    final path = (layer.effectiveCollectionPath ?? '').trim();
+    if (path.isEmpty) return;
 
     final isAlreadyActive = layersCubit.state.activeLayerIds.contains(layer.id);
+    final hasData = layersCubit.state.hasDataByLayer[layer.id] == true;
 
-    await AttributeImportFeature.handleConnectLayer(
+    if (hasData) {
+      await _openFirestoreTableDialog(
+        context,
+        layer: layer,
+      );
+      return;
+    }
+
+    await _openImportDialog(
+      context,
+      layer: layer,
+    );
+
+    if (!mounted) return;
+
+    await _reloadLayerAfterImport(
       context,
       layer: layer,
       shouldLoadOnMap: isAlreadyActive,
@@ -237,8 +315,8 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       layersCubit.toggleLayer(layer.id, true);
     }
 
-    await context.read<GeoFeatureCubit>().ensureLayerLoaded(layer, force: true);
-    await context.read<GeoFeatureCubit>().ensureLayerFieldNames(
+    await context.read<FeatureCubit>().ensureLayerLoaded(layer, force: true);
+    await context.read<FeatureCubit>().ensureLayerFieldNames(
       layer,
       force: true,
     );
@@ -261,19 +339,19 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       layersCubit.toggleLayer(layer.id, true);
     }
 
-    await context.read<GeoFeatureCubit>().ensureLayerLoaded(
+    await context.read<FeatureCubit>().ensureLayerLoaded(
       layer,
       force: true,
     );
 
-    await context.read<GeoFeatureCubit>().ensureLayerFieldNames(
+    await context.read<FeatureCubit>().ensureLayerFieldNames(
       layer,
       force: false,
     );
 
     if (!mounted) return;
 
-    await AttributeImportFeature.openFirestoreTable(
+    await _openFirestoreTableDialog(
       context,
       layer: layer,
     );
@@ -287,17 +365,18 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
   }
 
   WorkspaceData _buildWorkspaceItemFromCatalog({
-    required ComponentDataCatalog catalogItem,
+    required CatalogData catalogItem,
     required Offset localOffset,
   }) {
-    final type = ComponentTypeMapper.fromCatalogItemId(catalogItem.id);
+    final catalogId = catalogItem.id ?? '';
+    final type = ComponentTypeMapper.fromCatalogItemId(catalogId);
     if (type == null) {
-      throw Exception('Tipo não implementado: ${catalogItem.id}');
+      throw Exception('Tipo não implementado: $catalogId');
     }
 
     return WorkspaceData(
       id: 'workspace_item_${_workspaceCounter++}',
-      title: catalogItem.title,
+      title: catalogItem.title ?? type.defaultTitle,
       type: type,
       offset: localOffset,
       size: type.defaultSize,
@@ -306,7 +385,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
   }
 
   void _handleWorkspaceCatalogDrop(
-      ComponentDataCatalog item,
+      CatalogData item,
       Offset localOffset,
       ) {
     final newItem = _buildWorkspaceItemFromCatalog(
@@ -390,13 +469,16 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
 
   void _handleWorkspacePropertyChanged(
       String itemId,
-      ComponentDataProperty property,
+      CatalogData property,
       ) {
     final index = _workspaceItems.indexWhere((e) => e.id == itemId);
     if (index < 0) return;
 
     final current = _workspaceItems[index];
-    final updated = current.copyWithUpdatedProperty(property.key, property);
+    final propertyKey = property.key;
+    if (propertyKey == null || propertyKey.isEmpty) return;
+
+    final updated = current.copyWithUpdatedProperty(propertyKey, property);
 
     if (updated == current) return;
 
@@ -414,7 +496,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
   Future<void> _handleWorkspaceBindingDropped(
       String itemId,
       String propertyKey,
-      AttributeDataDrag data,
+      AttributeData data,
       List<LayerData> currentTree,
       ) async {
     final itemIndex = _workspaceItems.indexWhere((e) => e.id == itemId);
@@ -431,6 +513,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
             fieldName: data.fieldName,
             aggregation: data.aggregation,
             fieldValue: data.fieldValue,
+            fieldValues: data.fieldValues,
           ),
         );
       }
@@ -438,8 +521,10 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       if (property.key == 'source') {
         final currentBinding = property.bindingValue;
         final currentSourceId = currentBinding?.sourceId?.trim() ?? '';
+        final newSourceId = data.sourceId?.trim() ?? '';
 
-        if (currentSourceId.isEmpty || currentSourceId != data.sourceId) {
+        if (newSourceId.isNotEmpty &&
+            (currentSourceId.isEmpty || currentSourceId != newSourceId)) {
           return property.copyWith(
             bindingValue: AttributeData(
               sourceId: data.sourceId,
@@ -467,10 +552,13 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       });
     }
 
-    final layersCubit = context.read<LayerCubit>();
-    final featureCubit = context.read<GeoFeatureCubit>();
+    final sourceId = data.sourceId?.trim() ?? '';
+    if (sourceId.isEmpty) return;
 
-    final layer = layersCubit.findNodeById(data.sourceId, tree: currentTree);
+    final layersCubit = context.read<LayerCubit>();
+    final featureCubit = context.read<FeatureCubit>();
+
+    final layer = layersCubit.findNodeById(sourceId, tree: currentTree);
     if (layer == null || layer.isGroup) return;
 
     await featureCubit.ensureLayerFieldNames(layer, force: false);
@@ -512,7 +600,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
 
   List<DockPanelData> _composeWorkspaceDockGroups({
     required MapState editorState,
-    required GeoFeatureState genericState,
+    required FeatureState genericState,
   }) {
     final existing = editorState.panelGroups
         .where((group) => group.id == _workspaceGroupId)
@@ -531,7 +619,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       icon: Icons.space_dashboard_outlined,
       shrinkWrapOnMainAxis: false,
       items: [
-        DockPanelDataItem(
+        DockPanelData(
           id: 'workspace_area_main',
           title: 'Área de trabalho',
           icon: Icons.space_dashboard_outlined,
@@ -548,7 +636,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       base.copyWith(
         shrinkWrapOnMainAxis: false,
         items: [
-          DockPanelDataItem(
+          DockPanelData(
             id: 'workspace_area_main',
             title: 'Área de trabalho',
             icon: Icons.space_dashboard_outlined,
@@ -590,9 +678,8 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       radius: 19,
       outlined: true,
       onPressed: onTap,
-      backgroundColor: active
-          ? Colors.white
-          : Colors.grey.withValues(alpha: 0.1),
+      backgroundColor:
+      active ? Colors.white : Colors.grey.withValues(alpha: 0.1),
       iconColor: active ? const Color(0xFF3F3F46) : Colors.grey,
       borderColor: active ? Colors.white : Colors.grey,
     );
@@ -618,7 +705,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       ),
       _buildActionButton(
         icon: Icons.dashboard_customize_outlined,
-        tooltip: 'Visualizações',
+        tooltip: 'Catálogo',
         active: _isPushPanelOpen(_panelVisualizacoesId),
         onTap: () => _togglePushPanel(_panelVisualizacoesId),
       ),
@@ -661,7 +748,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
             }
           },
         ),
-        BlocListener<GeoFeatureCubit, GeoFeatureState>(
+        BlocListener<FeatureCubit, FeatureState>(
           listenWhen: (p, c) =>
           p.error != c.error || p.selected != c.selected,
           listener: (context, state) {
@@ -670,7 +757,9 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
             }
 
             if (state.selected != null) {
-              context.read<MapCubit>().selectLayerPanelItem(state.selected!.layerId);
+              context
+                  .read<MapCubit>()
+                  .selectLayerPanelItem(state.selected!.layerId);
               _openPushPanel(_panelAtributosId);
             }
           },
@@ -687,12 +776,12 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
 
             if (layer == null || layer.isGroup) return;
 
-            await context.read<GeoFeatureCubit>().ensureLayerFieldNames(
+            await context.read<FeatureCubit>().ensureLayerFieldNames(
               layer,
               force: false,
             );
 
-            await context.read<GeoFeatureCubit>().ensureLayerLoaded(
+            await context.read<FeatureCubit>().ensureLayerLoaded(
               layer,
               force: false,
             );
@@ -704,11 +793,11 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
           final layersState = context.select((LayerCubit c) => c.state);
           final editorState = context.select((MapCubit c) => c.state);
           final measurementState = context.select((ToolboxCubit c) => c.state);
-          final genericState = context.select((GeoFeatureCubit c) => c.state);
+          final genericState = context.select((FeatureCubit c) => c.state);
 
           final layersCubit = context.read<LayerCubit>();
           final editorCubit = context.read<MapCubit>();
-          final featureCubit = context.read<GeoFeatureCubit>();
+          final featureCubit = context.read<FeatureCubit>();
 
           final mapData = LayerDataMap.fromStates(
             layersCubit: layersCubit,
@@ -764,17 +853,17 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                 },
                 onFeatureTap: (feature) {
                   if (feature == null) {
-                    context.read<GeoFeatureCubit>().clearSelection();
+                    context.read<FeatureCubit>().clearSelection();
                     return;
                   }
 
                   final featureLayerId = (feature.layerId ?? '').trim();
                   if (featureLayerId.isEmpty) {
-                    context.read<GeoFeatureCubit>().clearSelection();
+                    context.read<FeatureCubit>().clearSelection();
                     return;
                   }
 
-                  context.read<GeoFeatureCubit>().selectFeature(
+                  context.read<FeatureCubit>().selectFeature(
                     layerId: featureLayerId,
                     feature: feature,
                   );
@@ -868,7 +957,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
               mapData: mapData,
               editorState: editorState,
               onSelectedChanged: (id) {
-                context.read<GeoFeatureCubit>().clearSelection();
+                context.read<FeatureCubit>().clearSelection();
                 context.read<MapCubit>().selectLayerPanelItem(id);
               },
               onToggleLayer: (id, active) => context.read<MapCubit>().toggleLayer(
@@ -890,7 +979,6 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                   targetIndex: targetIndex,
                 );
               },
-
               onCreateEmptyGroup: (parentId, targetIndex) async {
                 await context.read<LayerCubit>().createEmptyGroup(
                   parentId: parentId,
@@ -905,10 +993,11 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                     mapData.currentTree,
                   ),
               onRenameSelected: (id) => _editSelectedItem(id, mapData.currentTree),
-              onRemoveSelected: (id) => context.read<MapCubit>().removeSelectedItem(
-                id,
-                mapData.currentTree,
-              ),
+              onRemoveSelected: (id) =>
+                  context.read<MapCubit>().removeSelectedItem(
+                    id,
+                    mapData.currentTree,
+                  ),
               onConnectLayer: (id) => _handleConnectLayer(id, mapData.currentTree),
               onOpenTable: (id) => _openLayerTable(context, id, mapData.currentTree),
             ),
@@ -947,7 +1036,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                         ),
                         const PushPanelData(
                           id: _panelVisualizacoesId,
-                          title: 'Visualizações',
+                          title: 'Catálogo',
                           icon: Icons.dashboard_customize_outlined,
                         ),
                         const PushPanelData(
@@ -962,28 +1051,31 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                               mapData: mapData,
                               editorState: editorState,
                               measurementState: measurementState,
-                              onShowMessage: (message) => _showSnack(context, message),
+                              onShowMessage: (message) =>
+                                  _showSnack(context, message),
                             ),
                           );
                         }
 
                         if (panel.id == _panelVisualizacoesId) {
                           return panel.copyWith(
-                            child: GeoVisualizacoesPanel(
+                            child: CatalogPanel(
                               selectedCatalogItemId: _selectedCatalogItemId,
                               selectedWorkspaceItem: _selectedWorkspaceItem,
                               workspaceItemsToken: _workspaceItemsToken(),
-                              selectedWorkspaceToken: _selectedWorkspaceItemToken(),
+                              selectedWorkspaceToken:
+                              _selectedWorkspaceItemToken(),
                               onCatalogItemTap: (item) {
-                                if (_selectedCatalogItemId != item.id) {
+                                final itemId = item.id;
+                                if (_selectedCatalogItemId != itemId) {
                                   setState(() {
-                                    _selectedCatalogItemId = item.id;
+                                    _selectedCatalogItemId = itemId;
                                   });
                                 }
 
                                 _showSnack(
                                   context,
-                                  'Arraste "${item.title}" para a área de trabalho',
+                                  'Arraste "${item.title ?? ''}" para a área de trabalho',
                                 );
                               },
                               onPropertyChanged: _handleWorkspacePropertyChanged,
@@ -1000,7 +1092,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                         }
 
                         return panel.copyWith(
-                          child: GeoAtributosPanel(
+                          child: AttributePanel(
                             mapData: mapData,
                             editorState: editorState,
                             genericState: genericState,

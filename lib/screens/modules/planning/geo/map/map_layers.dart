@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' as fm;
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_simple.dart';
-import 'package:sipged/_utils/debug/sipged_perf.dart';
 import 'package:sipged/_widgets/draw/icons/icons_change_catalog.dart';
 import 'package:sipged/_widgets/draw/shapes/shape_painter.dart';
 
@@ -28,116 +27,102 @@ class MapLayers {
 
   static List<fm.Marker> buildLabelMarkers({
     required double zoom,
-    required Map<String, List<GeoFeatureData>> featuresByLayer,
+    required Map<String, List<FeatureData>> featuresByLayer,
     required List<String> orderedActiveLayerIds,
     required Map<String, LayerData> layersById,
     required String? selectedFeatureKey,
   }) {
-    return SipgedPerf.traceSync(
-      'MapLayers.buildLabelMarkers',
-          () {
-        if (orderedActiveLayerIds.isEmpty || featuresByLayer.isEmpty) {
-          return const <fm.Marker>[];
-        }
+    if (orderedActiveLayerIds.isEmpty || featuresByLayer.isEmpty) {
+      return const <fm.Marker>[];
+    }
 
-        final out = <fm.Marker>[];
+    final out = <fm.Marker>[];
 
-        final int maxLabels;
-        if (zoom < 8.5) {
-          maxLabels = 80;
-        } else if (zoom < 10.0) {
-          maxLabels = 160;
-        } else if (zoom < 11.5) {
-          maxLabels = 280;
-        } else if (zoom < 13.0) {
-          maxLabels = 450;
-        } else {
-          maxLabels = 800;
-        }
+    final int maxLabels;
+    if (zoom < 8.5) {
+      maxLabels = 80;
+    } else if (zoom < 10.0) {
+      maxLabels = 160;
+    } else if (zoom < 11.5) {
+      maxLabels = 280;
+    } else if (zoom < 13.0) {
+      maxLabels = 450;
+    } else {
+      maxLabels = 800;
+    }
 
-        for (final layerId in orderedActiveLayerIds) {
-          final layer = layersById[layerId];
-          if (layer == null) continue;
+    for (final layerId in orderedActiveLayerIds) {
+      final layer = layersById[layerId];
+      if (layer == null) continue;
 
-          final features = featuresByLayer[layerId];
-          if (features == null || features.isEmpty) continue;
+      final features = featuresByLayer[layerId];
+      if (features == null || features.isEmpty) continue;
 
-          for (final feature in features) {
-            if (out.length >= maxLabels) break;
+      for (final feature in features) {
+        if (out.length >= maxLabels) break;
 
-            if (feature.isPolygonFamily && zoom < 9.0) continue;
-            if (feature.isLineFamily && zoom < 8.5) continue;
+        if (feature.isPolygonFamily && zoom < 9.0) continue;
+        if (feature.isLineFamily && zoom < 8.5) continue;
 
-            final anchor = _labelAnchorForFeature(feature);
-            if (anchor == null) continue;
+        final anchor = _labelAnchorForFeature(feature);
+        if (anchor == null) continue;
 
-            final labels = resolveLabelsForFeature(
-              layer: layer,
-              feature: feature,
-              zoom: zoom,
-            ).where((e) => e.enabled).toList(growable: false);
+        final labels = resolveLabelsForFeature(
+          layer: layer,
+          feature: feature,
+          zoom: zoom,
+        ).where((e) => e.enabled).toList(growable: false);
 
-            if (labels.isEmpty) continue;
+        if (labels.isEmpty) continue;
 
-            final properties = _featureProperties(feature);
-            final isSelected = selectedFeatureKey == feature.selectionKey;
+        final properties = _featureProperties(feature);
+        final isSelected = selectedFeatureKey == feature.selectionKey;
 
-            for (final label in labels) {
-              if (out.length >= maxLabels) break;
+        for (final label in labels) {
+          if (out.length >= maxLabels) break;
 
-              if (label.type == LayerSimpleSymbolType.textLayer) {
-                final text = _resolveLabelText(label, properties).trim();
-                if (text.isEmpty) continue;
-              }
+          if (label.type == LayerSimpleSymbolType.textLayer) {
+            final text = _resolveLabelText(label, properties).trim();
+            if (text.isEmpty) continue;
+          }
 
-              final markerSize = _labelMarkerSize(label);
+          final markerSize = _labelMarkerSize(label);
 
-              out.add(
-                fm.Marker(
-                  point: anchor,
-                  width: markerSize.width,
-                  height: markerSize.height,
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Transform.translate(
-                        offset: Offset(
-                          label.offsetX,
-                          label.offsetY - label.geometryOffset,
-                        ),
-                        child: _buildLabelWidget(
-                          label: label,
-                          properties: properties,
-                          isSelected: isSelected,
-                          zoom: zoom,
-                        ),
-                      ),
+          out.add(
+            fm.Marker(
+              point: anchor,
+              width: markerSize.width,
+              height: markerSize.height,
+              child: IgnorePointer(
+                child: Center(
+                  child: Transform.translate(
+                    offset: Offset(
+                      label.offsetX,
+                      label.offsetY - label.geometryOffset,
+                    ),
+                    child: _buildLabelWidget(
+                      label: label,
+                      properties: properties,
+                      isSelected: isSelected,
+                      zoom: zoom,
                     ),
                   ),
                 ),
-              );
-            }
-          }
-
-          if (out.length >= maxLabels) break;
+              ),
+            ),
+          );
         }
+      }
 
-        return out;
-      },
-      warnMs: 10,
-      data: {
-        'zoom': zoom.toStringAsFixed(2),
-        'activeLayers': orderedActiveLayerIds.length,
-        'selectedFeature': selectedFeatureKey != null,
-      },
-      resultData: (result) => {
-        'labelsBuilt': result.length,
-      },
-    );
+      if (out.length >= maxLabels) break;
+    }
+
+    return out;
   }
 
   static List<LayerDataLabel> resolveLabelsForFeature({
     required LayerData? layer,
-    required GeoFeatureData feature,
+    required FeatureData feature,
     required double zoom,
   }) {
     if (layer == null) return const [];
@@ -287,7 +272,7 @@ class MapLayers {
     }
   }
 
-  static LatLng? _labelAnchorForFeature(GeoFeatureData feature) {
+  static LatLng? _labelAnchorForFeature(FeatureData feature) {
     final signature = _featureAnchorSignature(feature);
     final cached = _featureAnchorCache[feature];
 
@@ -319,7 +304,7 @@ class MapLayers {
     return anchor;
   }
 
-  static int _featureAnchorSignature(GeoFeatureData feature) {
+  static int _featureAnchorSignature(FeatureData feature) {
     LatLng? firstMarker;
     LatLng? lastMarker;
     if (feature.markerPoints.isNotEmpty) {
@@ -354,17 +339,14 @@ class MapLayers {
       feature.markerPoints.length,
       feature.lineParts.length,
       feature.polygonRings.length,
-
       firstMarker?.latitude.toStringAsFixed(6),
       firstMarker?.longitude.toStringAsFixed(6),
       lastMarker?.latitude.toStringAsFixed(6),
       lastMarker?.longitude.toStringAsFixed(6),
-
       firstLinePoint?.latitude.toStringAsFixed(6),
       firstLinePoint?.longitude.toStringAsFixed(6),
       lastLinePoint?.latitude.toStringAsFixed(6),
       lastLinePoint?.longitude.toStringAsFixed(6),
-
       firstPolygonPoint?.latitude.toStringAsFixed(6),
       firstPolygonPoint?.longitude.toStringAsFixed(6),
       lastPolygonPoint?.latitude.toStringAsFixed(6),
@@ -453,191 +435,176 @@ class MapLayers {
 
   static List<fm.Polygon> buildPolygons({
     required double zoom,
-    required Map<String, List<GeoFeatureData>> featuresByLayer,
+    required Map<String, List<FeatureData>> featuresByLayer,
     required List<String> orderedActiveLayerIds,
     required Map<String, LayerData> layersById,
     required String? selectedFeatureKey,
     required Map<String, List<LatLng>> temporaryPolygonLayers,
   }) {
-    return SipgedPerf.traceSync(
-      'MapLayers.buildPolygons',
-          () {
-        final out = <fm.Polygon>[];
+    final out = <fm.Polygon>[];
 
-        for (final layerId in orderedActiveLayerIds) {
-          final layerFeatures = featuresByLayer[layerId];
-          if (layerFeatures == null || layerFeatures.isEmpty) continue;
+    for (final layerId in orderedActiveLayerIds) {
+      final layerFeatures = featuresByLayer[layerId];
+      if (layerFeatures == null || layerFeatures.isEmpty) continue;
 
-          for (final feature in layerFeatures) {
-            if (!feature.isPolygonFamily) continue;
+      for (final feature in layerFeatures) {
+        if (!feature.isPolygonFamily) continue;
 
-            final featureLayerId = (feature.layerId ?? '').trim();
-            final layer = layersById[featureLayerId];
-            final symbols = resolveSymbolsForFeature(
-              layer: layer,
-              feature: feature,
-              zoom: zoom,
-            ).where((e) => e.enabled).toList(growable: false);
+        final featureLayerId = (feature.layerId ?? '').trim();
+        final layer = layersById[featureLayerId];
+        final symbols = resolveSymbolsForFeature(
+          layer: layer,
+          feature: feature,
+          zoom: zoom,
+        ).where((e) => e.enabled).toList(growable: false);
 
-            final isSelected = selectedFeatureKey == feature.selectionKey;
+        final isSelected = selectedFeatureKey == feature.selectionKey;
 
-            if (symbols.isEmpty) {
-              final fallbackFill = layer?.displayColor ?? Colors.blue;
-              final fallbackBorderWidth = _adaptStrokeWidth(
-                baseWidth: 1.2,
-                zoom: zoom,
-                min: 0.8,
-                max: 3.2,
-              );
+        if (symbols.isEmpty) {
+          final fallbackFill = layer?.displayColor ?? Colors.blue;
+          final fallbackBorderWidth = _adaptStrokeWidth(
+            baseWidth: 1.2,
+            zoom: zoom,
+            min: 0.8,
+            max: 3.2,
+          );
 
-              for (final ring in feature.polygonRings) {
-                if (ring.length < 3) continue;
+          for (final ring in feature.polygonRings) {
+            if (ring.length < 3) continue;
 
-                out.add(
-                  fm.Polygon(
-                    points: ring,
-                    color: isSelected
-                        ? fallbackFill.withValues(alpha: 0.45)
-                        : fallbackFill.withValues(alpha: 0.22),
-                    borderColor: isSelected ? Colors.black : fallbackFill,
-                    borderStrokeWidth: isSelected
-                        ? math.max(
-                      _adaptStrokeWidth(
-                        baseWidth: 3.0,
-                        zoom: zoom,
-                        min: 1.8,
-                        max: 4.5,
-                      ),
-                      fallbackBorderWidth + 0.8,
-                    )
-                        : fallbackBorderWidth,
-                    pattern: const fm.StrokePattern.solid(),
-                    strokeCap: StrokeCap.butt,
-                    strokeJoin: StrokeJoin.miter,
-                  ),
-                );
-              }
-              continue;
-            }
-
-            for (final symbol in symbols.reversed) {
-              final fillColor = symbol.fillColor;
-              final borderColor = isSelected ? Colors.black : symbol.strokeColor;
-
-              final baseBorderWidth =
-              symbol.strokeWidth <= 0 ? 1.2 : symbol.strokeWidth;
-              final effectiveBorderWidth = _adaptStrokeWidth(
-                baseWidth:
-                isSelected ? (baseBorderWidth + 0.8) : baseBorderWidth,
-                zoom: zoom,
-                min: isSelected ? 1.8 : 0.8,
-                max: isSelected ? 5.0 : 4.0,
-              );
-
-              final pattern = _resolveFlutterStrokePattern(
-                symbol: symbol,
-                zoom: zoom,
-                scaledStrokeWidth: effectiveBorderWidth,
-              );
-
-              for (final ring in feature.polygonRings) {
-                if (ring.length < 3) continue;
-
-                out.add(
-                  fm.Polygon(
-                    points: ring,
-                    color: isSelected
-                        ? fillColor.withValues(alpha: 0.45)
-                        : fillColor.withValues(alpha: 0.22),
-                    borderColor: borderColor,
-                    borderStrokeWidth: effectiveBorderWidth,
-                    pattern: pattern,
-                    strokeCap: symbol.uiStrokeCap,
-                    strokeJoin: symbol.uiStrokeJoin,
-                  ),
-                );
-              }
-            }
-          }
-        }
-
-        for (final layerId in orderedActiveLayerIds) {
-          final draftPolygon = temporaryPolygonLayers[layerId];
-          if (draftPolygon == null || draftPolygon.isEmpty) continue;
-
-          final layer = layersById[layerId];
-          final symbols = (layer?.effectiveSymbolLayers ?? const <LayerDataSimple>[])
-              .where((e) => e.enabled)
-              .toList(growable: false);
-
-          if (draftPolygon.length >= 3) {
-            if (symbols.isEmpty) {
-              final color = layer?.displayColor ?? Colors.orange;
-
-              out.add(
-                fm.Polygon(
-                  points: draftPolygon,
-                  color: color.withValues(alpha: 0.22),
-                  borderColor: color.withValues(alpha: 0.95),
-                  borderStrokeWidth: _adaptStrokeWidth(
-                    baseWidth: 2.5,
+            out.add(
+              fm.Polygon(
+                points: ring,
+                color: isSelected
+                    ? fallbackFill.withValues(alpha: 0.45)
+                    : fallbackFill.withValues(alpha: 0.22),
+                borderColor: isSelected ? Colors.black : fallbackFill,
+                borderStrokeWidth: isSelected
+                    ? math.max(
+                  _adaptStrokeWidth(
+                    baseWidth: 3.0,
                     zoom: zoom,
-                    min: 1.0,
-                    max: 4.0,
+                    min: 1.8,
+                    max: 4.5,
                   ),
-                  pattern: const fm.StrokePattern.solid(),
-                  strokeCap: StrokeCap.butt,
-                  strokeJoin: StrokeJoin.miter,
-                ),
-              );
-            } else {
-              for (final symbol in symbols.reversed) {
-                final baseBorderWidth =
-                symbol.strokeWidth <= 0 ? 2.5 : symbol.strokeWidth;
-                final borderWidth = _adaptStrokeWidth(
-                  baseWidth: baseBorderWidth,
-                  zoom: zoom,
-                  min: 1.0,
-                  max: 4.5,
-                );
-
-                out.add(
-                  fm.Polygon(
-                    points: draftPolygon,
-                    color: symbol.fillColor.withValues(alpha: 0.22),
-                    borderColor: symbol.strokeColor.withValues(alpha: 0.95),
-                    borderStrokeWidth: borderWidth,
-                    pattern: _resolveFlutterStrokePattern(
-                      symbol: symbol,
-                      zoom: zoom,
-                      scaledStrokeWidth: borderWidth,
-                    ),
-                    strokeCap: symbol.uiStrokeCap,
-                    strokeJoin: symbol.uiStrokeJoin,
-                  ),
-                );
-              }
-            }
+                  fallbackBorderWidth + 0.8,
+                )
+                    : fallbackBorderWidth,
+                pattern: const fm.StrokePattern.solid(),
+                strokeCap: StrokeCap.butt,
+                strokeJoin: StrokeJoin.miter,
+              ),
+            );
           }
+          continue;
         }
 
-        return out;
-      },
-      warnMs: 10,
-      data: {
-        'zoom': zoom.toStringAsFixed(2),
-        'activeLayers': orderedActiveLayerIds.length,
-        'tempPolygonLayers': temporaryPolygonLayers.length,
-      },
-      resultData: (result) => {
-        'polygonsBuilt': result.length,
-      },
-    );
+        for (final symbol in symbols.reversed) {
+          final fillColor = symbol.fillColor;
+          final borderColor = isSelected ? Colors.black : symbol.strokeColor;
+
+          final baseBorderWidth =
+          symbol.strokeWidth <= 0 ? 1.2 : symbol.strokeWidth;
+          final effectiveBorderWidth = _adaptStrokeWidth(
+            baseWidth: isSelected ? (baseBorderWidth + 0.8) : baseBorderWidth,
+            zoom: zoom,
+            min: isSelected ? 1.8 : 0.8,
+            max: isSelected ? 5.0 : 4.0,
+          );
+
+          final pattern = _resolveFlutterStrokePattern(
+            symbol: symbol,
+            zoom: zoom,
+            scaledStrokeWidth: effectiveBorderWidth,
+          );
+
+          for (final ring in feature.polygonRings) {
+            if (ring.length < 3) continue;
+
+            out.add(
+              fm.Polygon(
+                points: ring,
+                color: isSelected
+                    ? fillColor.withValues(alpha: 0.45)
+                    : fillColor.withValues(alpha: 0.22),
+                borderColor: borderColor,
+                borderStrokeWidth: effectiveBorderWidth,
+                pattern: pattern,
+                strokeCap: symbol.uiStrokeCap,
+                strokeJoin: symbol.uiStrokeJoin,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    for (final layerId in orderedActiveLayerIds) {
+      final draftPolygon = temporaryPolygonLayers[layerId];
+      if (draftPolygon == null || draftPolygon.isEmpty) continue;
+
+      final layer = layersById[layerId];
+      final symbols = (layer?.effectiveSymbolLayers ?? const <LayerDataSimple>[])
+          .where((e) => e.enabled)
+          .toList(growable: false);
+
+      if (draftPolygon.length >= 3) {
+        if (symbols.isEmpty) {
+          final color = layer?.displayColor ?? Colors.orange;
+
+          out.add(
+            fm.Polygon(
+              points: draftPolygon,
+              color: color.withValues(alpha: 0.22),
+              borderColor: color.withValues(alpha: 0.95),
+              borderStrokeWidth: _adaptStrokeWidth(
+                baseWidth: 2.5,
+                zoom: zoom,
+                min: 1.0,
+                max: 4.0,
+              ),
+              pattern: const fm.StrokePattern.solid(),
+              strokeCap: StrokeCap.butt,
+              strokeJoin: StrokeJoin.miter,
+            ),
+          );
+        } else {
+          for (final symbol in symbols.reversed) {
+            final baseBorderWidth =
+            symbol.strokeWidth <= 0 ? 2.5 : symbol.strokeWidth;
+            final borderWidth = _adaptStrokeWidth(
+              baseWidth: baseBorderWidth,
+              zoom: zoom,
+              min: 1.0,
+              max: 4.5,
+            );
+
+            out.add(
+              fm.Polygon(
+                points: draftPolygon,
+                color: symbol.fillColor.withValues(alpha: 0.22),
+                borderColor: symbol.strokeColor.withValues(alpha: 0.95),
+                borderStrokeWidth: borderWidth,
+                pattern: _resolveFlutterStrokePattern(
+                  symbol: symbol,
+                  zoom: zoom,
+                  scaledStrokeWidth: borderWidth,
+                ),
+                strokeCap: symbol.uiStrokeCap,
+                strokeJoin: symbol.uiStrokeJoin,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    return out;
   }
 
   static List<fm.Polyline> buildPolylines({
     required double zoom,
-    required Map<String, List<GeoFeatureData>> featuresByLayer,
+    required Map<String, List<FeatureData>> featuresByLayer,
     required List<String> orderedActiveLayerIds,
     required Map<String, LayerData> layersById,
     required String? selectedFeatureKey,
@@ -645,279 +612,260 @@ class MapLayers {
     required Map<String, List<LatLng>> temporaryPolygonLayers,
     required List<LatLng> distanceMeasurementPoints,
   }) {
-    return SipgedPerf.traceSync(
-      'MapLayers.buildPolylines',
-          () {
-        final out = <fm.Polyline>[];
+    final out = <fm.Polyline>[];
 
-        for (final layerId in orderedActiveLayerIds) {
-          final layerFeatures = featuresByLayer[layerId];
-          if (layerFeatures == null || layerFeatures.isEmpty) continue;
+    for (final layerId in orderedActiveLayerIds) {
+      final layerFeatures = featuresByLayer[layerId];
+      if (layerFeatures == null || layerFeatures.isEmpty) continue;
 
-          for (final feature in layerFeatures) {
-            if (!feature.isLineFamily) continue;
+      for (final feature in layerFeatures) {
+        if (!feature.isLineFamily) continue;
 
-            final featureLayerId = (feature.layerId ?? '').trim();
-            final layer = layersById[featureLayerId];
-            final symbols = resolveSymbolsForFeature(
-              layer: layer,
-              feature: feature,
+        final featureLayerId = (feature.layerId ?? '').trim();
+        final layer = layersById[featureLayerId];
+        final symbols = resolveSymbolsForFeature(
+          layer: layer,
+          feature: feature,
+          zoom: zoom,
+        ).where((e) => e.enabled).toList(growable: false);
+
+        final isSelected = selectedFeatureKey == feature.selectionKey;
+
+        if (symbols.isEmpty) {
+          final fallbackColor = layer?.displayColor ?? Colors.blue;
+          final fallbackWidth = _adaptStrokeWidth(
+            baseWidth: 3.0,
+            zoom: zoom,
+            min: 1.1,
+            max: 6.0,
+          );
+
+          for (final line in feature.lineParts) {
+            if (line.length < 2) continue;
+
+            out.add(
+              fm.Polyline(
+                points: line,
+                color: isSelected ? Colors.black : fallbackColor,
+                strokeWidth: isSelected
+                    ? math.max(
+                  _adaptStrokeWidth(
+                    baseWidth: 5.0,
+                    zoom: zoom,
+                    min: 2.0,
+                    max: 7.0,
+                  ),
+                  fallbackWidth + 0.8,
+                )
+                    : fallbackWidth,
+                pattern: const fm.StrokePattern.solid(),
+                strokeCap: StrokeCap.butt,
+                strokeJoin: StrokeJoin.miter,
+              ),
+            );
+          }
+          continue;
+        }
+
+        for (final symbol in symbols.reversed) {
+          final baseWidth = symbol.strokeWidth <= 0 ? 3.0 : symbol.strokeWidth;
+          final effectiveWidth = _adaptStrokeWidth(
+            baseWidth: isSelected ? (baseWidth + 1.0) : baseWidth,
+            zoom: zoom,
+            min: isSelected ? 2.0 : 1.0,
+            max: isSelected ? 7.5 : 6.5,
+          );
+
+          final effectiveOffsetPixels = _adaptOffsetPixels(
+            baseOffsetPixels: symbol.offset,
+            baseStrokeWidth: baseWidth,
+            zoom: zoom,
+          );
+
+          final color = isSelected ? Colors.black : symbol.strokeColor;
+
+          final pattern = _resolveFlutterStrokePattern(
+            symbol: symbol,
+            zoom: zoom,
+            scaledStrokeWidth: effectiveWidth,
+          );
+
+          for (final line in feature.lineParts) {
+            if (line.length < 2) continue;
+
+            final renderedLine = effectiveOffsetPixels.abs() > 0.0001
+                ? _offsetPolylineByScreenPixels(
+              points: line,
+              offsetPixels: effectiveOffsetPixels,
               zoom: zoom,
-            ).where((e) => e.enabled).toList(growable: false);
+            )
+                : line;
 
-            final isSelected = selectedFeatureKey == feature.selectionKey;
-
-            if (symbols.isEmpty) {
-              final fallbackColor = layer?.displayColor ?? Colors.blue;
-              final fallbackWidth = _adaptStrokeWidth(
-                baseWidth: 3.0,
-                zoom: zoom,
-                min: 1.1,
-                max: 6.0,
-              );
-
-              for (final line in feature.lineParts) {
-                if (line.length < 2) continue;
-
-                out.add(
-                  fm.Polyline(
-                    points: line,
-                    color: isSelected ? Colors.black : fallbackColor,
-                    strokeWidth: isSelected
-                        ? math.max(
-                      _adaptStrokeWidth(
-                        baseWidth: 5.0,
-                        zoom: zoom,
-                        min: 2.0,
-                        max: 7.0,
-                      ),
-                      fallbackWidth + 0.8,
-                    )
-                        : fallbackWidth,
-                    pattern: const fm.StrokePattern.solid(),
-                    strokeCap: StrokeCap.butt,
-                    strokeJoin: StrokeJoin.miter,
-                  ),
-                );
-              }
-              continue;
-            }
-
-            for (final symbol in symbols.reversed) {
-              final baseWidth =
-              symbol.strokeWidth <= 0 ? 3.0 : symbol.strokeWidth;
-              final effectiveWidth = _adaptStrokeWidth(
-                baseWidth: isSelected ? (baseWidth + 1.0) : baseWidth,
-                zoom: zoom,
-                min: isSelected ? 2.0 : 1.0,
-                max: isSelected ? 7.5 : 6.5,
-              );
-
-              final effectiveOffsetPixels = _adaptOffsetPixels(
-                baseOffsetPixels: symbol.offset,
-                baseStrokeWidth: baseWidth,
-                zoom: zoom,
-              );
-
-              final color = isSelected ? Colors.black : symbol.strokeColor;
-
-              final pattern = _resolveFlutterStrokePattern(
-                symbol: symbol,
-                zoom: zoom,
-                scaledStrokeWidth: effectiveWidth,
-              );
-
-              for (final line in feature.lineParts) {
-                if (line.length < 2) continue;
-
-                final renderedLine = effectiveOffsetPixels.abs() > 0.0001
-                    ? _offsetPolylineByScreenPixels(
-                  points: line,
-                  offsetPixels: effectiveOffsetPixels,
-                  zoom: zoom,
-                )
-                    : line;
-
-                out.add(
-                  fm.Polyline(
-                    points: renderedLine,
-                    color: color,
-                    strokeWidth: effectiveWidth,
-                    pattern: pattern,
-                    strokeCap: symbol.uiStrokeCap,
-                    strokeJoin: symbol.uiStrokeJoin,
-                  ),
-                );
-              }
-            }
+            out.add(
+              fm.Polyline(
+                points: renderedLine,
+                color: color,
+                strokeWidth: effectiveWidth,
+                pattern: pattern,
+                strokeCap: symbol.uiStrokeCap,
+                strokeJoin: symbol.uiStrokeJoin,
+              ),
+            );
           }
         }
+      }
+    }
 
-        for (final layerId in orderedActiveLayerIds) {
-          final draftLine = temporaryLineLayers[layerId];
-          if (draftLine != null && draftLine.length >= 2) {
-            final layer = layersById[layerId];
-            final symbols = (layer?.effectiveSymbolLayers ?? const <LayerDataSimple>[])
-                .where((e) => e.enabled)
-                .toList(growable: false);
+    for (final layerId in orderedActiveLayerIds) {
+      final draftLine = temporaryLineLayers[layerId];
+      if (draftLine != null && draftLine.length >= 2) {
+        final layer = layersById[layerId];
+        final symbols = (layer?.effectiveSymbolLayers ?? const <LayerDataSimple>[])
+            .where((e) => e.enabled)
+            .toList(growable: false);
 
-            if (symbols.isEmpty) {
-              final color = layer?.displayColor ?? Colors.orange;
+        if (symbols.isEmpty) {
+          final color = layer?.displayColor ?? Colors.orange;
 
-              out.add(
-                fm.Polyline(
-                  points: draftLine,
-                  color: color.withValues(alpha: 0.95),
-                  strokeWidth: _adaptStrokeWidth(
-                    baseWidth: 4.0,
-                    zoom: zoom,
-                    min: 1.2,
-                    max: 6.0,
-                  ),
-                  pattern: const fm.StrokePattern.solid(),
-                  strokeCap: StrokeCap.butt,
-                  strokeJoin: StrokeJoin.miter,
-                ),
-              );
-            } else {
-              for (final symbol in symbols.reversed) {
-                final baseWidth =
-                symbol.strokeWidth <= 0 ? 4.0 : symbol.strokeWidth;
-                final width = _adaptStrokeWidth(
-                  baseWidth: baseWidth,
-                  zoom: zoom,
-                  min: 1.2,
-                  max: 6.5,
-                );
-
-                final effectiveOffsetPixels = _adaptOffsetPixels(
-                  baseOffsetPixels: symbol.offset,
-                  baseStrokeWidth: baseWidth,
-                  zoom: zoom,
-                );
-
-                final renderedDraftLine = effectiveOffsetPixels.abs() > 0.0001
-                    ? _offsetPolylineByScreenPixels(
-                  points: draftLine,
-                  offsetPixels: effectiveOffsetPixels,
-                  zoom: zoom,
-                )
-                    : draftLine;
-
-                out.add(
-                  fm.Polyline(
-                    points: renderedDraftLine,
-                    color: symbol.strokeColor.withValues(alpha: 0.95),
-                    strokeWidth: width,
-                    pattern: _resolveFlutterStrokePattern(
-                      symbol: symbol,
-                      zoom: zoom,
-                      scaledStrokeWidth: width,
-                    ),
-                    strokeCap: symbol.uiStrokeCap,
-                    strokeJoin: symbol.uiStrokeJoin,
-                  ),
-                );
-              }
-            }
-          }
-
-          final draftPolygon = temporaryPolygonLayers[layerId];
-          if (draftPolygon != null && draftPolygon.length >= 2) {
-            final layer = layersById[layerId];
-            final symbols = (layer?.effectiveSymbolLayers ?? const <LayerDataSimple>[])
-                .where((e) => e.enabled)
-                .toList(growable: false);
-
-            final previewPoints = draftPolygon.length >= 3
-                ? [...draftPolygon, draftPolygon.first]
-                : draftPolygon;
-
-            if (symbols.isEmpty) {
-              final color = layer?.displayColor ?? Colors.orange;
-
-              out.add(
-                fm.Polyline(
-                  points: previewPoints,
-                  color: color.withValues(alpha: 0.95),
-                  strokeWidth: _adaptStrokeWidth(
-                    baseWidth: 3.0,
-                    zoom: zoom,
-                    min: 1.0,
-                    max: 5.0,
-                  ),
-                  pattern: const fm.StrokePattern.solid(),
-                  strokeCap: StrokeCap.butt,
-                  strokeJoin: StrokeJoin.miter,
-                ),
-              );
-            } else {
-              for (final symbol in symbols.reversed) {
-                final baseWidth =
-                symbol.strokeWidth <= 0 ? 3.0 : symbol.strokeWidth;
-                final width = _adaptStrokeWidth(
-                  baseWidth: baseWidth,
-                  zoom: zoom,
-                  min: 1.0,
-                  max: 5.0,
-                );
-
-                out.add(
-                  fm.Polyline(
-                    points: previewPoints,
-                    color: symbol.strokeColor.withValues(alpha: 0.95),
-                    strokeWidth: width,
-                    pattern: _resolveFlutterStrokePattern(
-                      symbol: symbol,
-                      zoom: zoom,
-                      scaledStrokeWidth: width,
-                    ),
-                    strokeCap: symbol.uiStrokeCap,
-                    strokeJoin: symbol.uiStrokeJoin,
-                  ),
-                );
-              }
-            }
-          }
-        }
-
-        if (distanceMeasurementPoints.length >= 2) {
           out.add(
             fm.Polyline(
-              points: distanceMeasurementPoints,
-              color: _measureColor,
+              points: draftLine,
+              color: color.withValues(alpha: 0.95),
               strokeWidth: _adaptStrokeWidth(
                 baseWidth: 4.0,
                 zoom: zoom,
-                min: 2.0,
+                min: 1.2,
                 max: 6.0,
               ),
               pattern: const fm.StrokePattern.solid(),
-              strokeCap: StrokeCap.round,
-              strokeJoin: StrokeJoin.round,
+              strokeCap: StrokeCap.butt,
+              strokeJoin: StrokeJoin.miter,
             ),
           );
-        }
+        } else {
+          for (final symbol in symbols.reversed) {
+            final baseWidth = symbol.strokeWidth <= 0 ? 4.0 : symbol.strokeWidth;
+            final width = _adaptStrokeWidth(
+              baseWidth: baseWidth,
+              zoom: zoom,
+              min: 1.2,
+              max: 6.5,
+            );
 
-        return out;
-      },
-      warnMs: 10,
-      data: {
-        'zoom': zoom.toStringAsFixed(2),
-        'activeLayers': orderedActiveLayerIds.length,
-        'tempLineLayers': temporaryLineLayers.length,
-        'tempPolygonLayers': temporaryPolygonLayers.length,
-        'measurePoints': distanceMeasurementPoints.length,
-      },
-      resultData: (result) => {
-        'polylinesBuilt': result.length,
-      },
-    );
+            final effectiveOffsetPixels = _adaptOffsetPixels(
+              baseOffsetPixels: symbol.offset,
+              baseStrokeWidth: baseWidth,
+              zoom: zoom,
+            );
+
+            final renderedDraftLine = effectiveOffsetPixels.abs() > 0.0001
+                ? _offsetPolylineByScreenPixels(
+              points: draftLine,
+              offsetPixels: effectiveOffsetPixels,
+              zoom: zoom,
+            )
+                : draftLine;
+
+            out.add(
+              fm.Polyline(
+                points: renderedDraftLine,
+                color: symbol.strokeColor.withValues(alpha: 0.95),
+                strokeWidth: width,
+                pattern: _resolveFlutterStrokePattern(
+                  symbol: symbol,
+                  zoom: zoom,
+                  scaledStrokeWidth: width,
+                ),
+                strokeCap: symbol.uiStrokeCap,
+                strokeJoin: symbol.uiStrokeJoin,
+              ),
+            );
+          }
+        }
+      }
+
+      final draftPolygon = temporaryPolygonLayers[layerId];
+      if (draftPolygon != null && draftPolygon.length >= 2) {
+        final layer = layersById[layerId];
+        final symbols = (layer?.effectiveSymbolLayers ?? const <LayerDataSimple>[])
+            .where((e) => e.enabled)
+            .toList(growable: false);
+
+        final previewPoints = draftPolygon.length >= 3
+            ? [...draftPolygon, draftPolygon.first]
+            : draftPolygon;
+
+        if (symbols.isEmpty) {
+          final color = layer?.displayColor ?? Colors.orange;
+
+          out.add(
+            fm.Polyline(
+              points: previewPoints,
+              color: color.withValues(alpha: 0.95),
+              strokeWidth: _adaptStrokeWidth(
+                baseWidth: 3.0,
+                zoom: zoom,
+                min: 1.0,
+                max: 5.0,
+              ),
+              pattern: const fm.StrokePattern.solid(),
+              strokeCap: StrokeCap.butt,
+              strokeJoin: StrokeJoin.miter,
+            ),
+          );
+        } else {
+          for (final symbol in symbols.reversed) {
+            final baseWidth = symbol.strokeWidth <= 0 ? 3.0 : symbol.strokeWidth;
+            final width = _adaptStrokeWidth(
+              baseWidth: baseWidth,
+              zoom: zoom,
+              min: 1.0,
+              max: 5.0,
+            );
+
+            out.add(
+              fm.Polyline(
+                points: previewPoints,
+                color: symbol.strokeColor.withValues(alpha: 0.95),
+                strokeWidth: width,
+                pattern: _resolveFlutterStrokePattern(
+                  symbol: symbol,
+                  zoom: zoom,
+                  scaledStrokeWidth: width,
+                ),
+                strokeCap: symbol.uiStrokeCap,
+                strokeJoin: symbol.uiStrokeJoin,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    if (distanceMeasurementPoints.length >= 2) {
+      out.add(
+        fm.Polyline(
+          points: distanceMeasurementPoints,
+          color: _measureColor,
+          strokeWidth: _adaptStrokeWidth(
+            baseWidth: 4.0,
+            zoom: zoom,
+            min: 2.0,
+            max: 6.0,
+          ),
+          pattern: const fm.StrokePattern.solid(),
+          strokeCap: StrokeCap.round,
+          strokeJoin: StrokeJoin.round,
+        ),
+      );
+    }
+
+    return out;
   }
 
   static List<fm.Marker> buildMarkers({
     required double zoom,
-    required Map<String, List<GeoFeatureData>> featuresByLayer,
+    required Map<String, List<FeatureData>> featuresByLayer,
     required List<String> orderedActiveLayerIds,
     required Map<String, LayerData> layersById,
     required String? selectedFeatureKey,
@@ -925,95 +873,81 @@ class MapLayers {
     required Map<String, List<LatLng>> temporaryPolygonLayers,
     required List<LatLng> distanceMeasurementPoints,
   }) {
-    return SipgedPerf.traceSync(
-      'MapLayers.buildMarkers',
-          () {
-        final out = <fm.Marker>[];
+    final out = <fm.Marker>[];
 
-        for (final layerId in orderedActiveLayerIds) {
-          final layerFeatures = featuresByLayer[layerId];
-          if (layerFeatures == null || layerFeatures.isEmpty) continue;
+    for (final layerId in orderedActiveLayerIds) {
+      final layerFeatures = featuresByLayer[layerId];
+      if (layerFeatures == null || layerFeatures.isEmpty) continue;
 
-          for (final feature in layerFeatures) {
-            if (!feature.isPointFamily) continue;
+      for (final feature in layerFeatures) {
+        if (!feature.isPointFamily) continue;
 
-            final featureLayerId = (feature.layerId ?? '').trim();
-            final layer = layersById[featureLayerId];
-            final isSelected = selectedFeatureKey == feature.selectionKey;
+        final featureLayerId = (feature.layerId ?? '').trim();
+        final layer = layersById[featureLayerId];
+        final isSelected = selectedFeatureKey == feature.selectionKey;
 
-            final symbols = resolveSymbolsForFeature(
-              layer: layer,
-              feature: feature,
-              zoom: zoom,
-            ).where((e) => e.enabled).toList(growable: false);
+        final symbols = resolveSymbolsForFeature(
+          layer: layer,
+          feature: feature,
+          zoom: zoom,
+        ).where((e) => e.enabled).toList(growable: false);
 
-            final maxWidth = symbols.isEmpty
-                ? 42.0
-                : symbols.map((e) => e.width).fold(0.0, math.max);
-            final maxHeight = symbols.isEmpty
-                ? 42.0
-                : symbols.map((e) => e.height).fold(0.0, math.max);
+        final maxWidth = symbols.isEmpty
+            ? 42.0
+            : symbols.map((e) => e.width).fold(0.0, math.max);
+        final maxHeight = symbols.isEmpty
+            ? 42.0
+            : symbols.map((e) => e.height).fold(0.0, math.max);
 
-            final markerWidth = (maxWidth + 18).clamp(42.0, 140.0);
-            final markerHeight = (maxHeight + 18).clamp(42.0, 140.0);
+        final markerWidth = (maxWidth + 18).clamp(42.0, 140.0);
+        final markerHeight = (maxHeight + 18).clamp(42.0, 140.0);
 
-            for (final point in feature.markerPoints) {
-              out.add(
-                fm.Marker(
-                  point: point,
-                  width: markerWidth,
-                  height: markerHeight,
-                  child: IgnorePointer(
-                    child: Center(
-                      child: SizedBox(
-                        width: markerWidth,
-                        height: markerHeight,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            if (isSelected)
-                              Container(
-                                width: markerWidth * 0.60,
-                                height: markerHeight * 0.60,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.black.withValues(alpha: 0.10),
-                                ),
-                              ),
-                            ...symbols.reversed.map(
-                                  (symbol) => buildSymbolWidget(
-                                symbol: symbol,
-                                isSelected: isSelected,
-                              ),
+        for (final point in feature.markerPoints) {
+          out.add(
+            fm.Marker(
+              point: point,
+              width: markerWidth,
+              height: markerHeight,
+              child: IgnorePointer(
+                child: Center(
+                  child: SizedBox(
+                    width: markerWidth,
+                    height: markerHeight,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (isSelected)
+                          Container(
+                            width: markerWidth * 0.60,
+                            height: markerHeight * 0.60,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.black.withValues(alpha: 0.10),
                             ),
-                          ],
+                          ),
+                        ...symbols.reversed.map(
+                              (symbol) => buildSymbolWidget(
+                            symbol: symbol,
+                            isSelected: isSelected,
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
-              );
-            }
-          }
+              ),
+            ),
+          );
         }
+      }
+    }
 
-        return out;
-      },
-      warnMs: 10,
-      data: {
-        'zoom': zoom.toStringAsFixed(2),
-        'activeLayers': orderedActiveLayerIds.length,
-        'selectedFeature': selectedFeatureKey != null,
-      },
-      resultData: (result) => {
-        'markersBuilt': result.length,
-      },
-    );
+    return out;
   }
 
   static List<LayerDataSimple> resolveSymbolsForFeature({
     required LayerData? layer,
-    required GeoFeatureData feature,
+    required FeatureData feature,
     required double zoom,
   }) {
     if (layer == null) return const [];
@@ -1075,7 +1009,7 @@ class MapLayers {
     }
   }
 
-  static Map<String, dynamic> _featureProperties(GeoFeatureData feature) {
+  static Map<String, dynamic> _featureProperties(FeatureData feature) {
     final cached = _featurePropertiesCache[feature];
     if (cached != null) return cached;
 
@@ -1216,51 +1150,39 @@ class MapLayers {
       return points;
     }
 
-    return SipgedPerf.traceSync(
-      'MapLayers._offsetPolylineByScreenPixels',
-          () {
-        final out = <LatLng>[];
-        final averageLatitude =
-            points.map((e) => e.latitude).reduce((a, b) => a + b) /
-                points.length;
-        final metersPerPixel = _metersPerPixel(averageLatitude, zoom);
-        final offsetMeters = offsetPixels * metersPerPixel;
+    final out = <LatLng>[];
+    final averageLatitude =
+        points.map((e) => e.latitude).reduce((a, b) => a + b) / points.length;
+    final metersPerPixel = _metersPerPixel(averageLatitude, zoom);
+    final offsetMeters = offsetPixels * metersPerPixel;
 
-        for (int i = 0; i < points.length; i++) {
-          final current = points[i];
+    for (int i = 0; i < points.length; i++) {
+      final current = points[i];
 
-          LatLng? prev;
-          LatLng? next;
+      LatLng? prev;
+      LatLng? next;
 
-          if (i > 0) prev = points[i - 1];
-          if (i < points.length - 1) next = points[i + 1];
+      if (i > 0) prev = points[i - 1];
+      if (i < points.length - 1) next = points[i + 1];
 
-          if (prev == null && next == null) {
-            out.add(current);
-            continue;
-          }
+      if (prev == null && next == null) {
+        out.add(current);
+        continue;
+      }
 
-          final dir = _averageDirection(prev, current, next);
-          final normal = _leftNormal(dir.dx, dir.dy);
+      final dir = _averageDirection(prev, current, next);
+      final normal = _leftNormal(dir.dx, dir.dy);
 
-          out.add(
-            _movePointMeters(
-              current,
-              eastMeters: normal.dx * offsetMeters,
-              northMeters: normal.dy * offsetMeters,
-            ),
-          );
-        }
+      out.add(
+        _movePointMeters(
+          current,
+          eastMeters: normal.dx * offsetMeters,
+          northMeters: normal.dy * offsetMeters,
+        ),
+      );
+    }
 
-        return out;
-      },
-      warnMs: 6,
-      data: {
-        'points': points.length,
-        'offsetPixels': offsetPixels.toStringAsFixed(2),
-        'zoom': zoom.toStringAsFixed(2),
-      },
-    );
+    return out;
   }
 
   static double _visualScaleForZoom(double zoom) {

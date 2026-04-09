@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/screens/modules/planning/geo/toolbox/toolbox_action_item.dart';
-import 'package:sipged/screens/modules/planning/geo/toolbox/toolbox_panel.dart';
+import 'package:sipged/screens/modules/planning/geo/toolbox/toolbox_buttons.dart';
 
 class ToolboxContent extends StatelessWidget {
   final void Function(String message) onToolSelected;
@@ -138,7 +138,7 @@ class ToolboxContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ToolboxPanel(
+    return ToolboxButtons(
       sections: sections ?? _defaultSections(),
       selectedToolId: selectedToolId,
       onSelected: onSelectedTool,

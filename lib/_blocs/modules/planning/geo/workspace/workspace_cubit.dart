@@ -3,18 +3,18 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/planning/geo/catalog/property/component_data_property.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_state.dart';
-import 'package:sipged/_utils/debug/sipged_perf.dart';
 import 'package:sipged/_widgets/overlays/guides_lines/guide_lines_data.dart';
+import 'package:sipged/_widgets/resize/resize_handle.dart';
 
 class WorkspaceCubit extends Cubit<WorkspaceState> {
   WorkspaceCubit({
     required List<WorkspaceData> initialItems,
-    required Map<String, List<GeoFeatureData>> initialFeaturesByLayer,
+    required Map<String, List<FeatureData>> initialFeaturesByLayer,
     required this.repository,
     this.snapThreshold = 10.0,
     this.panelPadding = 0.0,
@@ -26,111 +26,67 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
       ),
       featuresByLayer: initialFeaturesByLayer,
     ),
-  ) {
-    SipgedPerf.log(
-      'WorkspaceCubit.init',
-      data: {
-        'initialItems': initialItems.length,
-        'initialLayers': initialFeaturesByLayer.length,
-      },
-    );
-  }
+  );
 
   final WorkspaceRepository repository;
   final double snapThreshold;
   final double panelPadding;
 
   void syncExternalItems(List<WorkspaceData> items) {
-    SipgedPerf.traceSync(
-      'WorkspaceCubit.syncExternalItems',
-          () {
-        final normalized = _normalizeItemsForPanel(items, state.panelSize);
-        final resolved = repository.resolveAllItems(
-          items: normalized,
-          featuresByLayer: state.featuresByLayer,
-          activeFilter: state.activeFilter,
-        );
+    final normalized = _normalizeItemsForPanel(items, state.panelSize);
+    final resolved = repository.resolveAllItems(
+      items: normalized,
+      featuresByLayer: state.featuresByLayer,
+      activeFilter: state.activeFilter,
+    );
 
-        if (listEquals(resolved, state.items)) return;
+    if (listEquals(resolved, state.items)) return;
 
-        final selectedId = state.selectedItemId;
-        final stillExists =
-            selectedId != null && resolved.any((item) => item.id == selectedId);
+    final selectedId = state.selectedItemId;
+    final stillExists =
+        selectedId != null && resolved.any((item) => item.id == selectedId);
 
-        final activeFilter = state.activeFilter;
-        final filterStillExists = activeFilter != null &&
-            resolved.any((item) => item.id == activeFilter.sourceItemId);
+    final activeFilter = state.activeFilter;
+    final filterStillExists = activeFilter != null &&
+        resolved.any((item) => item.id == activeFilter.sourceItemId);
 
-        emit(
-          state.copyWith(
-            items: resolved,
-            clearSelectedItem: !stillExists,
-            clearActiveFilter: !filterStillExists,
-          ),
-        );
-      },
-      warnMs: 8,
-      data: {
-        'incomingItems': items.length,
-        'currentItems': state.items.length,
-        'panelW': state.panelSize.width,
-        'panelH': state.panelSize.height,
-      },
+    emit(
+      state.copyWith(
+        items: resolved,
+        clearSelectedItem: !stillExists,
+        clearActiveFilter: !filterStillExists,
+      ),
     );
   }
 
-  void syncExternalFeatures(Map<String, List<GeoFeatureData>> featuresByLayer) {
-    SipgedPerf.traceSync(
-      'WorkspaceCubit.syncExternalFeatures',
-          () {
-        if (_sameFeaturesMap(state.featuresByLayer, featuresByLayer)) return;
+  void syncExternalFeatures(Map<String, List<FeatureData>> featuresByLayer) {
+    if (_sameFeaturesMap(state.featuresByLayer, featuresByLayer)) return;
 
-        final resolvedItems = repository.resolveAllItems(
-          items: state.items,
-          featuresByLayer: featuresByLayer,
-          activeFilter: state.activeFilter,
-        );
+    final resolvedItems = repository.resolveAllItems(
+      items: state.items,
+      featuresByLayer: featuresByLayer,
+      activeFilter: state.activeFilter,
+    );
 
-        emit(
-          state.copyWith(
-            items: resolvedItems,
-            featuresByLayer:
-            Map<String, List<GeoFeatureData>>.from(featuresByLayer),
-            dataVersion: state.dataVersion + 1,
-          ),
-        );
-      },
-      warnMs: 10,
-      data: {
-        'layers': featuresByLayer.length,
-        'items': state.items.length,
-      },
+    emit(
+      state.copyWith(
+        items: resolvedItems,
+        featuresByLayer: Map<String, List<FeatureData>>.from(featuresByLayer),
+        dataVersion: state.dataVersion + 1,
+      ),
     );
   }
 
   void setPanelSize(Size size) {
-    SipgedPerf.traceSync(
-      'WorkspaceCubit.setPanelSize',
-          () {
-        if (size == state.panelSize) return;
+    if (size == state.panelSize) return;
 
-        final normalizedItems = _normalizeItemsForPanel(state.items, size);
+    final normalizedItems = _normalizeItemsForPanel(state.items, size);
 
-        emit(
-          state.copyWith(
-            panelSize: size,
-            items: normalizedItems,
-          ),
-        );
-      },
-      warnMs: 6,
-      data: {
-        'oldW': state.panelSize.width,
-        'oldH': state.panelSize.height,
-        'newW': size.width,
-        'newH': size.height,
-        'items': state.items.length,
-      },
+    emit(
+      state.copyWith(
+        panelSize: size,
+        items: normalizedItems,
+      ),
     );
   }
 
@@ -155,30 +111,20 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
   }
 
   void clearActiveFilter() {
-    SipgedPerf.traceSync(
-      'WorkspaceCubit.clearActiveFilter',
-          () {
-        if (state.activeFilter == null) return;
+    if (state.activeFilter == null) return;
 
-        final resolvedItems = repository.resolveAllItems(
-          items: state.items,
-          featuresByLayer: state.featuresByLayer,
-          activeFilter: null,
-        );
+    final resolvedItems = repository.resolveAllItems(
+      items: state.items,
+      featuresByLayer: state.featuresByLayer,
+      activeFilter: null,
+    );
 
-        emit(
-          state.copyWith(
-            items: resolvedItems,
-            clearActiveFilter: true,
-            dataVersion: state.dataVersion + 1,
-          ),
-        );
-      },
-      warnMs: 8,
-      data: {
-        'items': state.items.length,
-        'layers': state.featuresByLayer.length,
-      },
+    emit(
+      state.copyWith(
+        items: resolvedItems,
+        clearActiveFilter: true,
+        dataVersion: state.dataVersion + 1,
+      ),
     );
   }
 
@@ -187,74 +133,53 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     required String label,
     required double? value,
   }) {
-    SipgedPerf.traceSync(
-      'WorkspaceCubit.toggleBarFilter',
-          () {
-        final item = state.itemByIdOrNull(itemId);
-        if (item == null) return;
-        if (item.type != ComponentType.barVertical) return;
+    final item = state.itemByIdOrNull(itemId);
+    if (item == null) return;
+    if (item.type != CatalogType.barVertical) return;
 
-        final nextFilter = repository.toggleBarFilter(
-          item: item,
-          label: label,
-          value: value,
-          currentFilter: state.activeFilter,
-        );
+    final nextFilter = repository.toggleBarFilter(
+      item: item,
+      label: label,
+      value: value,
+      currentFilter: state.activeFilter,
+    );
 
-        final resolvedItems = repository.resolveAllItems(
-          items: state.items,
-          featuresByLayer: state.featuresByLayer,
-          activeFilter: nextFilter,
-        );
+    final resolvedItems = repository.resolveAllItems(
+      items: state.items,
+      featuresByLayer: state.featuresByLayer,
+      activeFilter: nextFilter,
+    );
 
-        emit(
-          state.copyWith(
-            items: resolvedItems,
-            activeFilter: nextFilter,
-            dataVersion: state.dataVersion + 1,
-          ),
-        );
-      },
-      warnMs: 8,
-      data: {
-        'itemId': itemId,
-        'label': label,
-        'items': state.items.length,
-      },
+    emit(
+      state.copyWith(
+        items: resolvedItems,
+        activeFilter: nextFilter,
+        dataVersion: state.dataVersion + 1,
+      ),
     );
   }
 
   void removeItemLocal(String itemId) {
-    SipgedPerf.traceSync(
-      'WorkspaceCubit.removeItemLocal',
-          () {
-        final nextItems =
-        state.items.where((item) => item.id != itemId).toList(growable: false);
+    final nextItems =
+    state.items.where((item) => item.id != itemId).toList(growable: false);
 
-        final wasSelected = state.selectedItemId == itemId;
-        final shouldClearFilter = state.activeFilter?.sourceItemId == itemId;
+    final wasSelected = state.selectedItemId == itemId;
+    final shouldClearFilter = state.activeFilter?.sourceItemId == itemId;
 
-        final resolvedItems = repository.resolveAllItems(
-          items: nextItems,
-          featuresByLayer: state.featuresByLayer,
-          activeFilter: shouldClearFilter ? null : state.activeFilter,
-        );
+    final resolvedItems = repository.resolveAllItems(
+      items: nextItems,
+      featuresByLayer: state.featuresByLayer,
+      activeFilter: shouldClearFilter ? null : state.activeFilter,
+    );
 
-        emit(
-          state.copyWith(
-            items: resolvedItems,
-            clearSelectedItem: wasSelected,
-            clearGuides: true,
-            clearActiveFilter: shouldClearFilter,
-            dataVersion: state.dataVersion + 1,
-          ),
-        );
-      },
-      warnMs: 6,
-      data: {
-        'itemId': itemId,
-        'itemsBefore': state.items.length,
-      },
+    emit(
+      state.copyWith(
+        items: resolvedItems,
+        clearSelectedItem: wasSelected,
+        clearGuides: true,
+        clearActiveFilter: shouldClearFilter,
+        dataVersion: state.dataVersion + 1,
+      ),
     );
   }
 
@@ -262,68 +187,36 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     required String itemId,
     required Rect desiredRect,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceCubit.moveItemLive',
-          () {
-        final resolved = _resolveMoveSnap(
-          itemId: itemId,
-          desiredRect: desiredRect,
-        );
-
-        _updateItemRectLocal(
-          itemId: itemId,
-          rect: resolved.rect,
-          guides: resolved.guides,
-        );
-
-        return resolved;
-      },
-      warnMs: 12,
-      data: {
-        'itemId': itemId,
-        'items': state.items.length,
-      },
-      resultData: (result) => {
-        'left': result.rect.left,
-        'top': result.rect.top,
-        'w': result.rect.width,
-        'h': result.rect.height,
-        'hasGuides': result.guides != null,
-      },
+    final resolved = _resolveMoveSnap(
+      itemId: itemId,
+      desiredRect: desiredRect,
     );
+
+    _updateItemRectLocal(
+      itemId: itemId,
+      rect: resolved.rect,
+      guides: resolved.guides,
+    );
+
+    return resolved;
   }
 
   GuideLinesResolvedRect moveItemCommit({
     required String itemId,
     required Rect desiredRect,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceCubit.moveItemCommit',
-          () {
-        final resolved = _resolveMoveSnap(
-          itemId: itemId,
-          desiredRect: desiredRect,
-        );
-
-        _updateItemRectLocal(
-          itemId: itemId,
-          rect: resolved.rect,
-          guides: null,
-        );
-
-        return resolved;
-      },
-      warnMs: 8,
-      data: {
-        'itemId': itemId,
-      },
-      resultData: (result) => {
-        'left': result.rect.left,
-        'top': result.rect.top,
-        'w': result.rect.width,
-        'h': result.rect.height,
-      },
+    final resolved = _resolveMoveSnap(
+      itemId: itemId,
+      desiredRect: desiredRect,
     );
+
+    _updateItemRectLocal(
+      itemId: itemId,
+      rect: resolved.rect,
+      guides: null,
+    );
+
+    return resolved;
   }
 
   GuideLinesResolvedRect resizeItemLive({
@@ -331,37 +224,19 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     required Rect desiredRect,
     required ResizeHandle handle,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceCubit.resizeItemLive',
-          () {
-        final resolved = _resolveResizeSnap(
-          itemId: itemId,
-          desiredRect: desiredRect,
-          handle: handle,
-        );
-
-        _updateItemRectLocal(
-          itemId: itemId,
-          rect: resolved.rect,
-          guides: resolved.guides,
-        );
-
-        return resolved;
-      },
-      warnMs: 12,
-      data: {
-        'itemId': itemId,
-        'handle': handle.name,
-        'items': state.items.length,
-      },
-      resultData: (result) => {
-        'left': result.rect.left,
-        'top': result.rect.top,
-        'w': result.rect.width,
-        'h': result.rect.height,
-        'hasGuides': result.guides != null,
-      },
+    final resolved = _resolveResizeSnap(
+      itemId: itemId,
+      desiredRect: desiredRect,
+      handle: handle,
     );
+
+    _updateItemRectLocal(
+      itemId: itemId,
+      rect: resolved.rect,
+      guides: resolved.guides,
+    );
+
+    return resolved;
   }
 
   GuideLinesResolvedRect resizeItemCommit({
@@ -369,35 +244,19 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     required Rect desiredRect,
     required ResizeHandle handle,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceCubit.resizeItemCommit',
-          () {
-        final resolved = _resolveResizeSnap(
-          itemId: itemId,
-          desiredRect: desiredRect,
-          handle: handle,
-        );
-
-        _updateItemRectLocal(
-          itemId: itemId,
-          rect: resolved.rect,
-          guides: null,
-        );
-
-        return resolved;
-      },
-      warnMs: 8,
-      data: {
-        'itemId': itemId,
-        'handle': handle.name,
-      },
-      resultData: (result) => {
-        'left': result.rect.left,
-        'top': result.rect.top,
-        'w': result.rect.width,
-        'h': result.rect.height,
-      },
+    final resolved = _resolveResizeSnap(
+      itemId: itemId,
+      desiredRect: desiredRect,
+      handle: handle,
     );
+
+    _updateItemRectLocal(
+      itemId: itemId,
+      rect: resolved.rect,
+      guides: null,
+    );
+
+    return resolved;
   }
 
   void _updateItemRectLocal({
@@ -436,46 +295,35 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
       List<WorkspaceData> items,
       Size panelSize,
       ) {
-    return SipgedPerf.traceSync(
-      'WorkspaceCubit._normalizeItemsForPanel',
-          () {
-        if (panelSize.isEmpty) {
-          return List<WorkspaceData>.from(items);
-        }
+    if (panelSize.isEmpty) {
+      return List<WorkspaceData>.from(items);
+    }
 
-        return items.map((item) {
-          final rect = clampRect(
-            rect: Rect.fromLTWH(
-              item.offset.dx,
-              item.offset.dy,
-              item.size.width,
-              item.size.height,
-            ),
-            panelSize: panelSize,
-          );
+    return items.map((item) {
+      final rect = clampRect(
+        rect: Rect.fromLTWH(
+          item.offset.dx,
+          item.offset.dy,
+          item.size.width,
+          item.size.height,
+        ),
+        panelSize: panelSize,
+      );
 
-          if (rect.topLeft == item.offset && rect.size == item.size) {
-            return item;
-          }
+      if (rect.topLeft == item.offset && rect.size == item.size) {
+        return item;
+      }
 
-          return item.copyWith(
-            offset: rect.topLeft,
-            size: rect.size,
-          );
-        }).toList(growable: false);
-      },
-      warnMs: 8,
-      data: {
-        'items': items.length,
-        'panelW': panelSize.width,
-        'panelH': panelSize.height,
-      },
-    );
+      return item.copyWith(
+        offset: rect.topLeft,
+        size: rect.size,
+      );
+    }).toList(growable: false);
   }
 
   bool _sameFeaturesMap(
-      Map<String, List<GeoFeatureData>> a,
-      Map<String, List<GeoFeatureData>> b,
+      Map<String, List<FeatureData>> a,
+      Map<String, List<FeatureData>> b,
       ) {
     if (identical(a, b)) return true;
     if (a.length != b.length) return false;
@@ -494,132 +342,121 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     required String itemId,
     required Rect desiredRect,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceCubit._resolveMoveSnap',
-          () {
-        final panelSize = state.panelSize;
+    final panelSize = state.panelSize;
 
-        final candidatesX = <double>{
-          panelPadding,
-          panelSize.width / 2,
-          math.max(panelPadding, panelSize.width - panelPadding),
-        };
+    final candidatesX = <double>{
+      panelPadding,
+      panelSize.width / 2,
+      math.max(panelPadding, panelSize.width - panelPadding),
+    };
 
-        final candidatesY = <double>{
-          panelPadding,
-          panelSize.height / 2,
-          math.max(panelPadding, panelSize.height - panelPadding),
-        };
+    final candidatesY = <double>{
+      panelPadding,
+      panelSize.height / 2,
+      math.max(panelPadding, panelSize.height - panelPadding),
+    };
 
-        for (final item in state.items) {
-          if (item.id == itemId) continue;
+    for (final item in state.items) {
+      if (item.id == itemId) continue;
 
-          final rect = Rect.fromLTWH(
-            item.offset.dx,
-            item.offset.dy,
-            item.size.width,
-            item.size.height,
-          );
+      final rect = Rect.fromLTWH(
+        item.offset.dx,
+        item.offset.dy,
+        item.size.width,
+        item.size.height,
+      );
 
-          candidatesX.addAll([rect.left, rect.center.dx, rect.right]);
-          candidatesY.addAll([rect.top, rect.center.dy, rect.bottom]);
-        }
+      candidatesX.addAll([rect.left, rect.center.dx, rect.right]);
+      candidatesY.addAll([rect.top, rect.center.dy, rect.bottom]);
+    }
 
-        double left = desiredRect.left;
-        double top = desiredRect.top;
-        final width = desiredRect.width;
-        final height = desiredRect.height;
+    double left = desiredRect.left;
+    double top = desiredRect.top;
+    final width = desiredRect.width;
+    final height = desiredRect.height;
 
-        final itemXPoints = {
-          GeoWorkspaceSnapEdge.left: desiredRect.left,
-          GeoWorkspaceSnapEdge.centerX: desiredRect.center.dx,
-          GeoWorkspaceSnapEdge.right: desiredRect.right,
-        };
+    final itemXPoints = {
+      WorkspaceSnapEdge.left: desiredRect.left,
+      WorkspaceSnapEdge.centerX: desiredRect.center.dx,
+      WorkspaceSnapEdge.right: desiredRect.right,
+    };
 
-        final itemYPoints = {
-          GeoWorkspaceSnapEdge.top: desiredRect.top,
-          GeoWorkspaceSnapEdge.centerY: desiredRect.center.dy,
-          GeoWorkspaceSnapEdge.bottom: desiredRect.bottom,
-        };
+    final itemYPoints = {
+      WorkspaceSnapEdge.top: desiredRect.top,
+      WorkspaceSnapEdge.centerY: desiredRect.center.dy,
+      WorkspaceSnapEdge.bottom: desiredRect.bottom,
+    };
 
-        double? snappedGuideX;
-        double? snappedGuideY;
-        double bestDx = snapThreshold + 1;
-        double bestDy = snapThreshold + 1;
+    double? snappedGuideX;
+    double? snappedGuideY;
+    double bestDx = snapThreshold + 1;
+    double bestDy = snapThreshold + 1;
 
-        for (final entry in itemXPoints.entries) {
-          for (final candidate in candidatesX) {
-            final diff = (entry.value - candidate).abs();
-            if (diff < bestDx && diff <= snapThreshold) {
-              bestDx = diff;
-              snappedGuideX = candidate;
+    for (final entry in itemXPoints.entries) {
+      for (final candidate in candidatesX) {
+        final diff = (entry.value - candidate).abs();
+        if (diff < bestDx && diff <= snapThreshold) {
+          bestDx = diff;
+          snappedGuideX = candidate;
 
-              switch (entry.key) {
-                case GeoWorkspaceSnapEdge.left:
-                  left = candidate;
-                  break;
-                case GeoWorkspaceSnapEdge.centerX:
-                  left = candidate - (width / 2);
-                  break;
-                case GeoWorkspaceSnapEdge.right:
-                  left = candidate - width;
-                  break;
-                case GeoWorkspaceSnapEdge.top:
-                case GeoWorkspaceSnapEdge.centerY:
-                case GeoWorkspaceSnapEdge.bottom:
-                  break;
-              }
-            }
+          switch (entry.key) {
+            case WorkspaceSnapEdge.left:
+              left = candidate;
+              break;
+            case WorkspaceSnapEdge.centerX:
+              left = candidate - (width / 2);
+              break;
+            case WorkspaceSnapEdge.right:
+              left = candidate - width;
+              break;
+            case WorkspaceSnapEdge.top:
+            case WorkspaceSnapEdge.centerY:
+            case WorkspaceSnapEdge.bottom:
+              break;
           }
         }
+      }
+    }
 
-        for (final entry in itemYPoints.entries) {
-          for (final candidate in candidatesY) {
-            final diff = (entry.value - candidate).abs();
-            if (diff < bestDy && diff <= snapThreshold) {
-              bestDy = diff;
-              snappedGuideY = candidate;
+    for (final entry in itemYPoints.entries) {
+      for (final candidate in candidatesY) {
+        final diff = (entry.value - candidate).abs();
+        if (diff < bestDy && diff <= snapThreshold) {
+          bestDy = diff;
+          snappedGuideY = candidate;
 
-              switch (entry.key) {
-                case GeoWorkspaceSnapEdge.top:
-                  top = candidate;
-                  break;
-                case GeoWorkspaceSnapEdge.centerY:
-                  top = candidate - (height / 2);
-                  break;
-                case GeoWorkspaceSnapEdge.bottom:
-                  top = candidate - height;
-                  break;
-                case GeoWorkspaceSnapEdge.left:
-                case GeoWorkspaceSnapEdge.centerX:
-                case GeoWorkspaceSnapEdge.right:
-                  break;
-              }
-            }
+          switch (entry.key) {
+            case WorkspaceSnapEdge.top:
+              top = candidate;
+              break;
+            case WorkspaceSnapEdge.centerY:
+              top = candidate - (height / 2);
+              break;
+            case WorkspaceSnapEdge.bottom:
+              top = candidate - height;
+              break;
+            case WorkspaceSnapEdge.left:
+            case WorkspaceSnapEdge.centerX:
+            case WorkspaceSnapEdge.right:
+              break;
           }
         }
+      }
+    }
 
-        final clamped = clampRect(
-          rect: Rect.fromLTWH(left, top, width, height),
-          panelSize: panelSize,
-        );
+    final clamped = clampRect(
+      rect: Rect.fromLTWH(left, top, width, height),
+      panelSize: panelSize,
+    );
 
-        return GuideLinesResolvedRect(
-          rect: clamped,
-          guides: (snappedGuideX != null || snappedGuideY != null)
-              ? GuideLinesData(
-            vertical: snappedGuideX,
-            horizontal: snappedGuideY,
-          )
-              : null,
-        );
-      },
-      warnMs: 10,
-      data: {
-        'itemId': itemId,
-        'items': state.items.length,
-        'snapThreshold': snapThreshold,
-      },
+    return GuideLinesResolvedRect(
+      rect: clamped,
+      guides: (snappedGuideX != null || snappedGuideY != null)
+          ? GuideLinesData(
+        vertical: snappedGuideX,
+        horizontal: snappedGuideY,
+      )
+          : null,
     );
   }
 
@@ -628,178 +465,166 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     required Rect desiredRect,
     required ResizeHandle handle,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceCubit._resolveResizeSnap',
-          () {
-        final panelSize = state.panelSize;
+    final panelSize = state.panelSize;
 
-        final candidatesX = <double>{
-          panelPadding,
-          panelSize.width / 2,
-          math.max(panelPadding, panelSize.width - panelPadding),
-        };
+    final candidatesX = <double>{
+      panelPadding,
+      panelSize.width / 2,
+      math.max(panelPadding, panelSize.width - panelPadding),
+    };
 
-        final candidatesY = <double>{
-          panelPadding,
-          panelSize.height / 2,
-          math.max(panelPadding, panelSize.height - panelPadding),
-        };
+    final candidatesY = <double>{
+      panelPadding,
+      panelSize.height / 2,
+      math.max(panelPadding, panelSize.height - panelPadding),
+    };
 
-        for (final item in state.items) {
-          if (item.id == itemId) continue;
+    for (final item in state.items) {
+      if (item.id == itemId) continue;
 
-          final rect = Rect.fromLTWH(
-            item.offset.dx,
-            item.offset.dy,
-            item.size.width,
-            item.size.height,
-          );
+      final rect = Rect.fromLTWH(
+        item.offset.dx,
+        item.offset.dy,
+        item.size.width,
+        item.size.height,
+      );
 
-          candidatesX.addAll([rect.left, rect.center.dx, rect.right]);
-          candidatesY.addAll([rect.top, rect.center.dy, rect.bottom]);
-        }
+      candidatesX.addAll([rect.left, rect.center.dx, rect.right]);
+      candidatesY.addAll([rect.top, rect.center.dy, rect.bottom]);
+    }
 
-        double left = desiredRect.left;
-        double top = desiredRect.top;
-        double right = desiredRect.right;
-        double bottom = desiredRect.bottom;
+    double left = desiredRect.left;
+    double top = desiredRect.top;
+    double right = desiredRect.right;
+    double bottom = desiredRect.bottom;
 
-        double? snappedGuideX;
-        double? snappedGuideY;
+    double? snappedGuideX;
+    double? snappedGuideY;
 
-        void snapX(bool useLeft, bool useCenter, bool useRight) {
-          double best = snapThreshold + 1;
+    void snapX(bool useLeft, bool useCenter, bool useRight) {
+      double best = snapThreshold + 1;
 
-          if (useLeft) {
-            for (final candidate in candidatesX) {
-              final diff = (left - candidate).abs();
-              if (diff < best && diff <= snapThreshold) {
-                best = diff;
-                left = candidate;
-                snappedGuideX = candidate;
-              }
-            }
-          }
-
-          if (useCenter) {
-            final center = (left + right) / 2;
-            for (final candidate in candidatesX) {
-              final diff = (center - candidate).abs();
-              if (diff < best && diff <= snapThreshold) {
-                best = diff;
-                final half = (right - left) / 2;
-                left = candidate - half;
-                right = candidate + half;
-                snappedGuideX = candidate;
-              }
-            }
-          }
-
-          if (useRight) {
-            for (final candidate in candidatesX) {
-              final diff = (right - candidate).abs();
-              if (diff < best && diff <= snapThreshold) {
-                best = diff;
-                right = candidate;
-                snappedGuideX = candidate;
-              }
-            }
+      if (useLeft) {
+        for (final candidate in candidatesX) {
+          final diff = (left - candidate).abs();
+          if (diff < best && diff <= snapThreshold) {
+            best = diff;
+            left = candidate;
+            snappedGuideX = candidate;
           }
         }
+      }
 
-        void snapY(bool useTop, bool useCenter, bool useBottom) {
-          double best = snapThreshold + 1;
-
-          if (useTop) {
-            for (final candidate in candidatesY) {
-              final diff = (top - candidate).abs();
-              if (diff < best && diff <= snapThreshold) {
-                best = diff;
-                top = candidate;
-                snappedGuideY = candidate;
-              }
-            }
-          }
-
-          if (useCenter) {
-            final center = (top + bottom) / 2;
-            for (final candidate in candidatesY) {
-              final diff = (center - candidate).abs();
-              if (diff < best && diff <= snapThreshold) {
-                best = diff;
-                final half = (bottom - top) / 2;
-                top = candidate - half;
-                bottom = candidate + half;
-                snappedGuideY = candidate;
-              }
-            }
-          }
-
-          if (useBottom) {
-            for (final candidate in candidatesY) {
-              final diff = (bottom - candidate).abs();
-              if (diff < best && diff <= snapThreshold) {
-                best = diff;
-                bottom = candidate;
-                snappedGuideY = candidate;
-              }
-            }
+      if (useCenter) {
+        final center = (left + right) / 2;
+        for (final candidate in candidatesX) {
+          final diff = (center - candidate).abs();
+          if (diff < best && diff <= snapThreshold) {
+            best = diff;
+            final half = (right - left) / 2;
+            left = candidate - half;
+            right = candidate + half;
+            snappedGuideX = candidate;
           }
         }
+      }
 
-        switch (handle) {
-          case ResizeHandle.right:
-            snapX(false, false, true);
-            break;
-          case ResizeHandle.bottom:
-            snapY(false, false, true);
-            break;
-          case ResizeHandle.bottomRight:
-            snapX(false, false, true);
-            snapY(false, false, true);
-            break;
-          case ResizeHandle.left:
-            snapX(true, false, false);
-            break;
-          case ResizeHandle.top:
-            snapY(true, false, false);
-            break;
-          case ResizeHandle.topLeft:
-            snapX(true, false, false);
-            snapY(true, false, false);
-            break;
-          case ResizeHandle.topRight:
-            snapX(false, false, true);
-            snapY(true, false, false);
-            break;
-          case ResizeHandle.bottomLeft:
-            snapX(true, false, false);
-            snapY(false, false, true);
-            break;
+      if (useRight) {
+        for (final candidate in candidatesX) {
+          final diff = (right - candidate).abs();
+          if (diff < best && diff <= snapThreshold) {
+            best = diff;
+            right = candidate;
+            snappedGuideX = candidate;
+          }
         }
+      }
+    }
 
-        final normalized = normalizeResizeRect(
-          rect: Rect.fromLTRB(left, top, right, bottom),
-          panelSize: panelSize,
-        );
+    void snapY(bool useTop, bool useCenter, bool useBottom) {
+      double best = snapThreshold + 1;
 
-        return GuideLinesResolvedRect(
-          rect: normalized,
-          guides: (snappedGuideX != null || snappedGuideY != null)
-              ? GuideLinesData(
-            vertical: snappedGuideX,
-            horizontal: snappedGuideY,
-          )
-              : null,
-        );
-      },
-      warnMs: 10,
-      data: {
-        'itemId': itemId,
-        'handle': handle.name,
-        'items': state.items.length,
-        'snapThreshold': snapThreshold,
-      },
+      if (useTop) {
+        for (final candidate in candidatesY) {
+          final diff = (top - candidate).abs();
+          if (diff < best && diff <= snapThreshold) {
+            best = diff;
+            top = candidate;
+            snappedGuideY = candidate;
+          }
+        }
+      }
+
+      if (useCenter) {
+        final center = (top + bottom) / 2;
+        for (final candidate in candidatesY) {
+          final diff = (center - candidate).abs();
+          if (diff < best && diff <= snapThreshold) {
+            best = diff;
+            final half = (bottom - top) / 2;
+            top = candidate - half;
+            bottom = candidate + half;
+            snappedGuideY = candidate;
+          }
+        }
+      }
+
+      if (useBottom) {
+        for (final candidate in candidatesY) {
+          final diff = (bottom - candidate).abs();
+          if (diff < best && diff <= snapThreshold) {
+            best = diff;
+            bottom = candidate;
+            snappedGuideY = candidate;
+          }
+        }
+      }
+    }
+
+    switch (handle) {
+      case ResizeHandle.right:
+        snapX(false, false, true);
+        break;
+      case ResizeHandle.bottom:
+        snapY(false, false, true);
+        break;
+      case ResizeHandle.bottomRight:
+        snapX(false, false, true);
+        snapY(false, false, true);
+        break;
+      case ResizeHandle.left:
+        snapX(true, false, false);
+        break;
+      case ResizeHandle.top:
+        snapY(true, false, false);
+        break;
+      case ResizeHandle.topLeft:
+        snapX(true, false, false);
+        snapY(true, false, false);
+        break;
+      case ResizeHandle.topRight:
+        snapX(false, false, true);
+        snapY(true, false, false);
+        break;
+      case ResizeHandle.bottomLeft:
+        snapX(true, false, false);
+        snapY(false, false, true);
+        break;
+    }
+
+    final normalized = normalizeResizeRect(
+      rect: Rect.fromLTRB(left, top, right, bottom),
+      panelSize: panelSize,
+    );
+
+    return GuideLinesResolvedRect(
+      rect: normalized,
+      guides: (snappedGuideX != null || snappedGuideY != null)
+          ? GuideLinesData(
+        vertical: snappedGuideX,
+        horizontal: snappedGuideY,
+      )
+          : null,
     );
   }
 

@@ -2,27 +2,25 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/catalog/property/component_data_property.dart';
+import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 
-enum ResizeHandle {
+enum WorkspaceSnapEdge {
   left,
+  centerX,
   right,
   top,
+  centerY,
   bottom,
-  topLeft,
-  topRight,
-  bottomLeft,
-  bottomRight,
 }
 
 @immutable
 class WorkspaceData {
   final String id;
   final String title;
-  final ComponentType type;
+  final CatalogType type;
   final Offset offset;
   final Size size;
-  final List<ComponentDataProperty> properties;
+  final List<CatalogData> properties;
 
   final String? resolvedTitle;
   final String? resolvedSubtitle;
@@ -51,7 +49,7 @@ class WorkspaceData {
 
   String get catalogItemId => type.catalogItemId;
 
-  ComponentDataProperty? propertyByKey(String key) {
+  CatalogData? propertyByKey(String key) {
     for (final property in properties) {
       if (property.key == key) return property;
     }
@@ -129,10 +127,10 @@ class WorkspaceData {
   WorkspaceData copyWith({
     String? id,
     String? title,
-    ComponentType? type,
+    CatalogType? type,
     Offset? offset,
     Size? size,
-    List<ComponentDataProperty>? properties,
+    List<CatalogData>? properties,
     Object? resolvedTitle = _sentinel,
     Object? resolvedSubtitle = _sentinel,
     Object? resolvedLabel = _sentinel,
@@ -170,7 +168,7 @@ class WorkspaceData {
 
   WorkspaceData copyWithUpdatedProperty(
       String propertyKey,
-      ComponentDataProperty updatedProperty,
+      CatalogData updatedProperty,
       ) {
     var changed = false;
 

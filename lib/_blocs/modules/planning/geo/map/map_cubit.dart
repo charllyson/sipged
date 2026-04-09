@@ -1,8 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/map/map_state.dart';
@@ -11,7 +11,7 @@ import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_cubit.dart';
 class MapCubit extends Cubit<MapState> {
   MapCubit({
     required LayerCubit layersCubit,
-    required GeoFeatureCubit featureCubit,
+    required FeatureCubit featureCubit,
     required ToolboxCubit toolboxCubit,
   })  : _layersCubit = layersCubit,
         _featureCubit = featureCubit,
@@ -21,7 +21,7 @@ class MapCubit extends Cubit<MapState> {
   static const String workspacePanelGroupId = 'group_area_trabalho';
 
   final LayerCubit _layersCubit;
-  final GeoFeatureCubit _featureCubit;
+  final FeatureCubit _featureCubit;
   final ToolboxCubit _toolboxCubit;
 
   void updatePanels(List<DockPanelData> groups) {

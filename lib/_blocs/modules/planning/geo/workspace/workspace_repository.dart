@@ -1,101 +1,78 @@
 import 'dart:math' as math;
 
-import 'package:sipged/_blocs/modules/planning/geo/catalog/property/component_data_property.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_interaction_filter.dart';
-import 'package:sipged/_utils/debug/sipged_perf.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
 
 class WorkspaceRepository {
   const WorkspaceRepository();
 
   List<WorkspaceData> resolveAllItems({
     required List<WorkspaceData> items,
-    required Map<String, List<GeoFeatureData>> featuresByLayer,
-    WorkspaceInteractionFilter? activeFilter,
+    required Map<String, List<FeatureData>> featuresByLayer,
+    WorkspaceFilter? activeFilter,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceRepository.resolveAllItems',
-          () {
-        if (items.isEmpty) return const <WorkspaceData>[];
+    if (items.isEmpty) return const <WorkspaceData>[];
 
-        return items
-            .map(
-              (item) => resolveItem(
-            item: item,
-            featuresByLayer: featuresByLayer,
-            activeFilter: activeFilter,
-          ),
-        )
-            .toList(growable: false);
-      },
-      warnMs: 8,
-      data: {
-        'items': items.length,
-        'layers': featuresByLayer.length,
-        'hasFilter': activeFilter != null,
-      },
-    );
+    return items
+        .map(
+          (item) => resolveItem(
+        item: item,
+        featuresByLayer: featuresByLayer,
+        activeFilter: activeFilter,
+      ),
+    )
+        .toList(growable: false);
   }
 
   WorkspaceData resolveItem({
     required WorkspaceData item,
-    required Map<String, List<GeoFeatureData>> featuresByLayer,
-    WorkspaceInteractionFilter? activeFilter,
+    required Map<String, List<FeatureData>> featuresByLayer,
+    WorkspaceFilter? activeFilter,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceRepository.resolveItem.${item.type.name}',
-          () {
-        switch (item.type) {
-          case ComponentType.barVertical:
-            return _resolveGroupedChart(
-              item: item,
-              featuresByLayer: featuresByLayer,
-              activeFilter: activeFilter,
-              titleKey: 'chartTitle',
-            );
+    switch (item.type) {
+      case CatalogType.barVertical:
+        return _resolveGroupedChart(
+          item: item,
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
+          titleKey: 'chartTitle',
+        );
 
-          case ComponentType.donut:
-            return _resolveGroupedChart(
-              item: item,
-              featuresByLayer: featuresByLayer,
-              activeFilter: activeFilter,
-              titleKey: 'chartTitle',
-            );
+      case CatalogType.donut:
+        return _resolveGroupedChart(
+          item: item,
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
+          titleKey: 'chartTitle',
+        );
 
-          case ComponentType.line:
-            return _resolveGroupedChart(
-              item: item,
-              featuresByLayer: featuresByLayer,
-              activeFilter: activeFilter,
-              titleKey: 'chartTitle',
-              fallbackSort: 'labelAZ',
-            );
+      case CatalogType.line:
+        return _resolveGroupedChart(
+          item: item,
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
+          titleKey: 'chartTitle',
+          fallbackSort: 'labelAZ',
+        );
 
-          case ComponentType.card:
-            return _resolveMetricCard(
-              item: item,
-              featuresByLayer: featuresByLayer,
-              activeFilter: activeFilter,
-              titleKey: 'title',
-              subtitleKey: 'subtitle',
-            );
-        }
-      },
-      warnMs: 6,
-      data: {
-        'itemId': item.id,
-        'type': item.type.name,
-        'sourceLayerId': item.sourceLayerId,
-      },
-    );
+      case CatalogType.card:
+        return _resolveMetricCard(
+          item: item,
+          featuresByLayer: featuresByLayer,
+          activeFilter: activeFilter,
+          titleKey: 'title',
+          subtitleKey: 'subtitle',
+        );
+    }
   }
 
-  WorkspaceInteractionFilter? toggleBarFilter({
+  WorkspaceFilter? toggleBarFilter({
     required WorkspaceData item,
     required String label,
     required double? value,
-    WorkspaceInteractionFilter? currentFilter,
+    WorkspaceFilter? currentFilter,
   }) {
     final sourceLayerId = item.sourceLayerId;
     final sourceField = item.getBindingFieldName('labelField');
@@ -120,7 +97,7 @@ class WorkspaceRepository {
       return null;
     }
 
-    return WorkspaceInteractionFilter(
+    return WorkspaceFilter(
       sourceItemId: item.id,
       sourceLayerId: sourceLayerId,
       sourceField: sourceField,
@@ -129,293 +106,237 @@ class WorkspaceRepository {
     );
   }
 
-  List<GeoFeatureData> applyFilterToItemFeatures({
+  List<FeatureData> applyFilterToItemFeatures({
     required WorkspaceData item,
-    required List<GeoFeatureData> features,
-    WorkspaceInteractionFilter? activeFilter,
+    required List<FeatureData> features,
+    WorkspaceFilter? activeFilter,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceRepository.applyFilterToItemFeatures',
-          () {
-        if (activeFilter == null) return features;
+    if (activeFilter == null) return features;
 
-        final itemSourceLayerId = item.sourceLayerId;
-        if (itemSourceLayerId == null || itemSourceLayerId.isEmpty) {
-          return features;
-        }
+    final itemSourceLayerId = item.sourceLayerId;
+    if (itemSourceLayerId == null || itemSourceLayerId.isEmpty) {
+      return features;
+    }
 
-        if (item.id == activeFilter.sourceItemId) {
-          return features;
-        }
+    if (item.id == activeFilter.sourceItemId) {
+      return features;
+    }
 
-        if (itemSourceLayerId != activeFilter.sourceLayerId) {
-          return features;
-        }
+    if (itemSourceLayerId != activeFilter.sourceLayerId) {
+      return features;
+    }
 
-        return features.where((feature) {
-          final raw = _featureValue(feature, activeFilter.sourceField);
-          final current = _normalizeLabel(raw);
-          return current == activeFilter.label;
-        }).toList(growable: false);
-      },
-      warnMs: 8,
-      data: {
-        'itemId': item.id,
-        'features': features.length,
-        'hasFilter': activeFilter != null,
-      },
-      resultData: (result) => {
-        'filteredFeatures': result.length,
-      },
-    );
+    return features.where((feature) {
+      final raw = _featureValue(feature, activeFilter.sourceField);
+      final current = _normalizeLabel(raw);
+      return current == activeFilter.label;
+    }).toList(growable: false);
   }
 
   WorkspaceData _resolveGroupedChart({
     required WorkspaceData item,
-    required Map<String, List<GeoFeatureData>> featuresByLayer,
-    required WorkspaceInteractionFilter? activeFilter,
+    required Map<String, List<FeatureData>> featuresByLayer,
+    required WorkspaceFilter? activeFilter,
     required String titleKey,
     String fallbackSort = 'none',
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceRepository._resolveGroupedChart',
-          () {
-        final sourceLayerId = item.sourceLayerId;
-        final title = item.getNullableTextProperty(titleKey);
+    final sourceLayerId = item.sourceLayerId;
+    final title = item.getNullableTextProperty(titleKey);
 
-        if (sourceLayerId == null || sourceLayerId.isEmpty) {
-          return item.copyWithResolvedData(
-            title: title,
-            labels: null,
-            values: null,
-          );
-        }
+    if (sourceLayerId == null || sourceLayerId.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: null,
+        values: null,
+      );
+    }
 
-        final allFeatures =
-            featuresByLayer[sourceLayerId] ?? const <GeoFeatureData>[];
-        if (allFeatures.isEmpty) {
-          return item.copyWithResolvedData(
-            title: title,
-            labels: null,
-            values: null,
-          );
-        }
+    final allFeatures = featuresByLayer[sourceLayerId] ?? const <FeatureData>[];
+    if (allFeatures.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: null,
+        values: null,
+      );
+    }
 
-        final filteredFeatures = applyFilterToItemFeatures(
-          item: item,
-          features: allFeatures,
-          activeFilter: activeFilter,
-        );
+    final filteredFeatures = applyFilterToItemFeatures(
+      item: item,
+      features: allFeatures,
+      activeFilter: activeFilter,
+    );
 
-        if (filteredFeatures.isEmpty) {
-          return item.copyWithResolvedData(
-            title: title,
-            labels: const <String>[],
-            values: const <double>[],
-          );
-        }
+    if (filteredFeatures.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: const <String>[],
+        values: const <double>[],
+      );
+    }
 
-        final labelField = item.getBindingFieldName('labelField');
-        final valueField = item.getBindingFieldName('valueField');
-        final aggregation =
-            item.getNullableSelectedProperty('aggregation') ?? 'Soma';
-        final sortType =
-            item.getNullableSelectedProperty('sortType') ?? fallbackSort;
+    final labelField = item.getBindingFieldName('labelField');
+    final valueField = item.getBindingFieldName('valueField');
+    final aggregation = item.getNullableSelectedProperty('aggregation') ?? 'Soma';
+    final sortType = item.getNullableSelectedProperty('sortType') ?? fallbackSort;
 
-        if (labelField == null || labelField.isEmpty) {
-          return item.copyWithResolvedData(
-            title: title,
-            labels: null,
-            values: null,
-          );
-        }
+    if (labelField == null || labelField.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: null,
+        values: null,
+      );
+    }
 
-        if (aggregation != 'Contagem' &&
-            (valueField == null || valueField.isEmpty)) {
-          return item.copyWithResolvedData(
-            title: title,
-            labels: null,
-            values: null,
-          );
-        }
+    if (aggregation != 'Contagem' && (valueField == null || valueField.isEmpty)) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: null,
+        values: null,
+      );
+    }
 
-        final rows = _groupAndAggregate(
-          features: filteredFeatures,
-          labelField: labelField,
-          valueField: valueField,
-          aggregation: aggregation,
-        );
+    final rows = _groupAndAggregate(
+      features: filteredFeatures,
+      labelField: labelField,
+      valueField: valueField,
+      aggregation: aggregation,
+    );
 
-        if (rows.isEmpty) {
-          return item.copyWithResolvedData(
-            title: title,
-            labels: const <String>[],
-            values: const <double>[],
-          );
-        }
+    if (rows.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        labels: const <String>[],
+        values: const <double>[],
+      );
+    }
 
-        final sorted = _sortRows(rows, sortType);
+    final sorted = _sortRows(rows, sortType);
 
-        return item.copyWithResolvedData(
-          title: title,
-          labels: sorted.map((e) => e.label).toList(growable: false),
-          values: sorted.map((e) => e.value).toList(growable: false),
-        );
-      },
-      warnMs: 8,
-      data: {
-        'itemId': item.id,
-        'sourceLayerId': item.sourceLayerId,
-        'type': item.type.name,
-      },
+    return item.copyWithResolvedData(
+      title: title,
+      labels: sorted.map((e) => e.label).toList(growable: false),
+      values: sorted.map((e) => e.value).toList(growable: false),
     );
   }
 
   WorkspaceData _resolveMetricCard({
     required WorkspaceData item,
-    required Map<String, List<GeoFeatureData>> featuresByLayer,
-    required WorkspaceInteractionFilter? activeFilter,
+    required Map<String, List<FeatureData>> featuresByLayer,
+    required WorkspaceFilter? activeFilter,
     required String titleKey,
     required String subtitleKey,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceRepository._resolveMetricCard',
-          () {
-        final sourceLayerId = item.sourceLayerId;
-        final title = item.getNullableTextProperty(titleKey);
-        final baseSubtitle = item.getNullableTextProperty(subtitleKey);
+    final sourceLayerId = item.sourceLayerId;
+    final title = item.getNullableTextProperty(titleKey);
+    final baseSubtitle = item.getNullableTextProperty(subtitleKey);
 
-        if (sourceLayerId == null || sourceLayerId.isEmpty) {
-          return item.copyWithResolvedData(
-            title: title,
-            subtitle: baseSubtitle,
-            label: null,
-            value: null,
-          );
-        }
+    if (sourceLayerId == null || sourceLayerId.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        subtitle: baseSubtitle,
+        label: null,
+        value: null,
+      );
+    }
 
-        final allFeatures =
-            featuresByLayer[sourceLayerId] ?? const <GeoFeatureData>[];
-        if (allFeatures.isEmpty) {
-          return item.copyWithResolvedData(
-            title: title,
-            subtitle: baseSubtitle,
-            label: null,
-            value: null,
-          );
-        }
+    final allFeatures = featuresByLayer[sourceLayerId] ?? const <FeatureData>[];
+    if (allFeatures.isEmpty) {
+      return item.copyWithResolvedData(
+        title: title,
+        subtitle: baseSubtitle,
+        label: null,
+        value: null,
+      );
+    }
 
-        final filteredFeatures = applyFilterToItemFeatures(
-          item: item,
-          features: allFeatures,
-          activeFilter: activeFilter,
-        );
+    final filteredFeatures = applyFilterToItemFeatures(
+      item: item,
+      features: allFeatures,
+      activeFilter: activeFilter,
+    );
 
-        final labelField = item.getBindingFieldName('label');
-        final valueField = item.getBindingFieldName('value');
-        final aggregation =
-            item.getNullableSelectedProperty('aggregation') ?? 'Contagem';
+    final labelField = item.getBindingFieldName('label');
+    final valueField = item.getBindingFieldName('value');
+    final aggregation = item.getNullableSelectedProperty('aggregation') ?? 'Contagem';
 
-        String? resolvedLabel;
-        if (labelField != null && labelField.isNotEmpty) {
-          resolvedLabel = _firstNonEmptyValue(filteredFeatures, labelField);
-        }
+    String? resolvedLabel;
+    if (labelField != null && labelField.isNotEmpty) {
+      resolvedLabel = _firstNonEmptyValue(filteredFeatures, labelField);
+    }
 
-        String? resolvedValue;
-        if (aggregation == 'Contagem') {
-          resolvedValue = filteredFeatures.length.toString();
-        } else if (valueField != null && valueField.isNotEmpty) {
-          resolvedValue = _aggregateSingleField(
-            features: filteredFeatures,
-            valueField: valueField,
-            aggregation: aggregation,
-          );
-        }
+    String? resolvedValue;
+    if (aggregation == 'Contagem') {
+      resolvedValue = filteredFeatures.length.toString();
+    } else if (valueField != null && valueField.isNotEmpty) {
+      resolvedValue = _aggregateSingleField(
+        features: filteredFeatures,
+        valueField: valueField,
+        aggregation: aggregation,
+      );
+    }
 
-        String? subtitle = baseSubtitle;
-        if (activeFilter != null &&
-            item.id != activeFilter.sourceItemId &&
-            item.sourceLayerId == activeFilter.sourceLayerId) {
-          final info = 'Filtro: ${activeFilter.label}';
-          subtitle = (baseSubtitle == null || baseSubtitle.trim().isEmpty)
-              ? info
-              : '$baseSubtitle • $info';
-        }
+    String? subtitle = baseSubtitle;
+    if (activeFilter != null &&
+        item.id != activeFilter.sourceItemId &&
+        item.sourceLayerId == activeFilter.sourceLayerId) {
+      final info = 'Filtro: ${activeFilter.label}';
+      subtitle = (baseSubtitle == null || baseSubtitle.trim().isEmpty)
+          ? info
+          : '$baseSubtitle • $info';
+    }
 
-        return item.copyWithResolvedData(
-          title: title,
-          subtitle: subtitle,
-          label: resolvedLabel,
-          value: resolvedValue,
-        );
-      },
-      warnMs: 8,
-      data: {
-        'itemId': item.id,
-        'sourceLayerId': item.sourceLayerId,
-      },
+    return item.copyWithResolvedData(
+      title: title,
+      subtitle: subtitle,
+      label: resolvedLabel,
+      value: resolvedValue,
     );
   }
 
   List<_GroupedRow> _groupAndAggregate({
-    required List<GeoFeatureData> features,
+    required List<FeatureData> features,
     required String labelField,
     required String? valueField,
     required String aggregation,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceRepository._groupAndAggregate',
-          () {
-        final grouped = <String, List<double>>{};
+    final grouped = <String, List<double>>{};
 
-        for (final feature in features) {
-          final rawLabel = _featureValue(feature, labelField);
-          final label = _normalizeLabel(rawLabel);
+    for (final feature in features) {
+      final rawLabel = _featureValue(feature, labelField);
+      final label = _normalizeLabel(rawLabel);
 
-          if (aggregation == 'Contagem') {
-            grouped.putIfAbsent(label, () => <double>[]);
-            grouped[label]!.add(1);
-            continue;
-          }
+      if (aggregation == 'Contagem') {
+        grouped.putIfAbsent(label, () => <double>[]);
+        grouped[label]!.add(1);
+        continue;
+      }
 
-          if (valueField == null || valueField.isEmpty) continue;
+      if (valueField == null || valueField.isEmpty) continue;
 
-          final value = _toDouble(_featureValue(feature, valueField));
-          if (value == null) continue;
+      final value = _toDouble(_featureValue(feature, valueField));
+      if (value == null) continue;
 
-          grouped.putIfAbsent(label, () => <double>[]);
-          grouped[label]!.add(value);
-        }
+      grouped.putIfAbsent(label, () => <double>[]);
+      grouped[label]!.add(value);
+    }
 
-        final result = <_GroupedRow>[];
+    final result = <_GroupedRow>[];
 
-        grouped.forEach((label, values) {
-          if (values.isEmpty) return;
+    grouped.forEach((label, values) {
+      if (values.isEmpty) return;
 
-          final resolvedValue = switch (aggregation) {
-            'Média' => values.reduce((a, b) => a + b) / values.length,
-            'Máximo' => values.reduce(math.max),
-            'Mínimo' => values.reduce(math.min),
-            'Contagem' => values.length.toDouble(),
-            _ => values.reduce((a, b) => a + b),
-          };
+      final resolvedValue = switch (aggregation) {
+        'Média' => values.reduce((a, b) => a + b) / values.length,
+        'Máximo' => values.reduce(math.max),
+        'Mínimo' => values.reduce(math.min),
+        'Contagem' => values.length.toDouble(),
+        _ => values.reduce((a, b) => a + b),
+      };
 
-          result.add(_GroupedRow(label: label, value: resolvedValue));
-        });
+      result.add(_GroupedRow(label: label, value: resolvedValue));
+    });
 
-        return result;
-      },
-      warnMs: 8,
-      data: {
-        'features': features.length,
-        'labelField': labelField,
-        'valueField': valueField,
-        'aggregation': aggregation,
-      },
-      resultData: (result) => {
-        'groups': result.length,
-      },
-    );
+    return result;
   }
 
   List<_GroupedRow> _sortRows(List<_GroupedRow> rows, String sortType) {
@@ -443,45 +364,34 @@ class WorkspaceRepository {
   }
 
   String? _aggregateSingleField({
-    required List<GeoFeatureData> features,
+    required List<FeatureData> features,
     required String valueField,
     required String aggregation,
   }) {
-    return SipgedPerf.traceSync(
-      'WorkspaceRepository._aggregateSingleField',
-          () {
-        if (aggregation == 'Contagem') {
-          return features.length.toString();
-        }
+    if (aggregation == 'Contagem') {
+      return features.length.toString();
+    }
 
-        final values = features
-            .map((feature) => _toDouble(_featureValue(feature, valueField)))
-            .whereType<double>()
-            .toList(growable: false);
+    final values = features
+        .map((feature) => _toDouble(_featureValue(feature, valueField)))
+        .whereType<double>()
+        .toList(growable: false);
 
-        if (values.isEmpty) return null;
+    if (values.isEmpty) return null;
 
-        final result = switch (aggregation) {
-          'Média' => values.reduce((a, b) => a + b) / values.length,
-          'Máximo' => values.reduce(math.max),
-          'Mínimo' => values.reduce(math.min),
-          _ => values.reduce((a, b) => a + b),
-        };
+    final result = switch (aggregation) {
+      'Média' => values.reduce((a, b) => a + b) / values.length,
+      'Máximo' => values.reduce(math.max),
+      'Mínimo' => values.reduce(math.min),
+      _ => values.reduce((a, b) => a + b),
+    };
 
-        final isInteger = result == result.truncateToDouble();
-        return isInteger ? result.toStringAsFixed(0) : result.toStringAsFixed(2);
-      },
-      warnMs: 8,
-      data: {
-        'features': features.length,
-        'valueField': valueField,
-        'aggregation': aggregation,
-      },
-    );
+    final isInteger = result == result.truncateToDouble();
+    return isInteger ? result.toStringAsFixed(0) : result.toStringAsFixed(2);
   }
 
   String? _firstNonEmptyValue(
-      List<GeoFeatureData> features,
+      List<FeatureData> features,
       String field,
       ) {
     for (final feature in features) {
@@ -495,7 +405,7 @@ class WorkspaceRepository {
     return null;
   }
 
-  dynamic _featureValue(GeoFeatureData feature, String field) {
+  dynamic _featureValue(FeatureData feature, String field) {
     if (feature.editedProperties.containsKey(field)) {
       return feature.editedProperties[field];
     }

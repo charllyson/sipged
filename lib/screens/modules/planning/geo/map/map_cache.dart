@@ -1,10 +1,9 @@
 import 'package:latlong2/latlong.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_rule.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_simple.dart';
-import 'package:sipged/_utils/debug/sipged_perf.dart';
 
 class MapCache {
   MapCache._();
@@ -42,31 +41,19 @@ class MapCache {
     );
   }
 
-  static Map<String, List<GeoFeatureData>> groupFeaturesByLayer(
-      List<GeoFeatureData> features,
+  static Map<String, List<FeatureData>> groupFeaturesByLayer(
+      List<FeatureData> features,
       ) {
-    return SipgedPerf.traceSync(
-      'MapCache.groupFeaturesByLayer',
-          () {
-        final out = <String, List<GeoFeatureData>>{};
+    final out = <String, List<FeatureData>>{};
 
-        for (final feature in features) {
-          final layerId = (feature.layerId ?? '').trim();
-          if (layerId.isEmpty) continue;
+    for (final feature in features) {
+      final layerId = (feature.layerId ?? '').trim();
+      if (layerId.isEmpty) continue;
 
-          (out[layerId] ??= <GeoFeatureData>[]).add(feature);
-        }
+      (out[layerId] ??= <FeatureData>[]).add(feature);
+    }
 
-        return out;
-      },
-      warnMs: 8,
-      data: {
-        'features': features.length,
-      },
-      resultData: (result) => {
-        'layers': result.length,
-      },
-    );
+    return out;
   }
 
   static int layerVisualSignature(LayerData layer) {
@@ -190,7 +177,7 @@ class MapCache {
     ]);
   }
 
-  static int featureStaticSignature(GeoFeatureData f) {
+  static int featureStaticSignature(FeatureData f) {
     return Object.hash(
       f.selectionKey,
       f.layerId,
@@ -203,7 +190,7 @@ class MapCache {
     );
   }
 
-  static int featureMarkerSignature(GeoFeatureData f) {
+  static int featureMarkerSignature(FeatureData f) {
     return Object.hash(
       f.selectionKey,
       f.layerId,
@@ -214,7 +201,7 @@ class MapCache {
     );
   }
 
-  static int _featureStaticListSignature(List<GeoFeatureData> features) {
+  static int _featureStaticListSignature(List<FeatureData> features) {
     final cached = _featureStaticListSignatureCache[features];
     if (cached != null) return cached;
 
@@ -229,7 +216,7 @@ class MapCache {
     return signature;
   }
 
-  static int _featureMarkerListSignature(List<GeoFeatureData> features) {
+  static int _featureMarkerListSignature(List<FeatureData> features) {
     final cached = _featureMarkerListSignatureCache[features];
     if (cached != null) return cached;
 
@@ -260,90 +247,66 @@ class MapCache {
   static int computeStaticVisualSignature({
     required double zoomBucket,
     required String? selectedFeatureKey,
-    required List<GeoFeatureData> features,
+    required List<FeatureData> features,
     required Map<String, LayerData> layersById,
     required List<String> orderedActiveLayerIds,
     required Map<String, List<LatLng>> temporaryLineLayers,
     required Map<String, List<LatLng>> temporaryPolygonLayers,
     required List<LatLng> distanceMeasurementPoints,
   }) {
-    return SipgedPerf.traceSync(
-      'MapCache.computeStaticVisualSignature',
-          () {
-        final featureSig = _featureStaticListSignature(features);
-        final activeLayersSig = _activeLayersVisualSignature(
-          layersById: layersById,
-          orderedActiveLayerIds: orderedActiveLayerIds,
-        );
-
-        return Object.hashAll([
-          'STATIC',
-          zoomBucket,
-          selectedFeatureKey,
-          orderedActiveLayerIds.length,
-          activeLayersSig,
-          featureSig,
-          ...temporaryLineLayers.entries.map(
-                (e) => Object.hash(e.key, pointsSignature(e.value)),
-          ),
-          ...temporaryPolygonLayers.entries.map(
-                (e) => Object.hash(e.key, pointsSignature(e.value)),
-          ),
-          pointsSignature(distanceMeasurementPoints),
-        ]);
-      },
-      warnMs: 8,
-      data: {
-        'zoomBucket': zoomBucket,
-        'features': features.length,
-        'activeLayers': orderedActiveLayerIds.length,
-        'layers': layersById.length,
-      },
+    final featureSig = _featureStaticListSignature(features);
+    final activeLayersSig = _activeLayersVisualSignature(
+      layersById: layersById,
+      orderedActiveLayerIds: orderedActiveLayerIds,
     );
+
+    return Object.hashAll([
+      'STATIC',
+      zoomBucket,
+      selectedFeatureKey,
+      orderedActiveLayerIds.length,
+      activeLayersSig,
+      featureSig,
+      ...temporaryLineLayers.entries.map(
+            (e) => Object.hash(e.key, pointsSignature(e.value)),
+      ),
+      ...temporaryPolygonLayers.entries.map(
+            (e) => Object.hash(e.key, pointsSignature(e.value)),
+      ),
+      pointsSignature(distanceMeasurementPoints),
+    ]);
   }
 
   static int computeMarkerVisualSignature({
     required double zoomBucket,
     required String? selectedFeatureKey,
-    required List<GeoFeatureData> features,
+    required List<FeatureData> features,
     required Map<String, LayerData> layersById,
     required List<String> orderedActiveLayerIds,
     required Map<String, List<LatLng>> temporaryPointLayers,
     required Map<String, List<LatLng>> temporaryPolygonLayers,
     required List<LatLng> distanceMeasurementPoints,
   }) {
-    return SipgedPerf.traceSync(
-      'MapCache.computeMarkerVisualSignature',
-          () {
-        final featureSig = _featureMarkerListSignature(features);
-        final activeLayersSig = _activeLayersVisualSignature(
-          layersById: layersById,
-          orderedActiveLayerIds: orderedActiveLayerIds,
-        );
-
-        return Object.hashAll([
-          'MARKERS',
-          zoomBucket,
-          selectedFeatureKey,
-          orderedActiveLayerIds.length,
-          activeLayersSig,
-          featureSig,
-          ...temporaryPointLayers.entries.map(
-                (e) => Object.hash(e.key, pointsSignature(e.value)),
-          ),
-          ...temporaryPolygonLayers.entries.map(
-                (e) => Object.hash(e.key, pointsSignature(e.value)),
-          ),
-          pointsSignature(distanceMeasurementPoints),
-        ]);
-      },
-      warnMs: 8,
-      data: {
-        'zoomBucket': zoomBucket,
-        'features': features.length,
-        'activeLayers': orderedActiveLayerIds.length,
-        'layers': layersById.length,
-      },
+    final featureSig = _featureMarkerListSignature(features);
+    final activeLayersSig = _activeLayersVisualSignature(
+      layersById: layersById,
+      orderedActiveLayerIds: orderedActiveLayerIds,
     );
+
+    return Object.hashAll([
+      'MARKERS',
+      zoomBucket,
+      selectedFeatureKey,
+      orderedActiveLayerIds.length,
+      activeLayersSig,
+      featureSig,
+      ...temporaryPointLayers.entries.map(
+            (e) => Object.hash(e.key, pointsSignature(e.value)),
+      ),
+      ...temporaryPolygonLayers.entries.map(
+            (e) => Object.hash(e.key, pointsSignature(e.value)),
+      ),
+      pointsSignature(distanceMeasurementPoints),
+    ]);
   }
 }

@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_splitter.dart';
 
 class DockPanelArea extends StatelessWidget {

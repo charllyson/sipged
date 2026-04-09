@@ -1,10 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data_item.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_state.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_cubit.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_state.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_floating.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_group.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_layout.dart';
@@ -89,8 +87,8 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   }
 
   bool _sameItemsMetadata(
-      List<DockPanelDataItem> a,
-      List<DockPanelDataItem> b,
+      List<DockPanelData> a,
+      List<DockPanelData> b,
       ) {
     if (a.length != b.length) return false;
 

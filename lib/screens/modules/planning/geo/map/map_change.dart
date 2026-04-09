@@ -5,9 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/_utils/debug/sipged_perf.dart';
 import 'package:sipged/screens/modules/planning/geo/map/map_cache.dart';
 import 'package:sipged/screens/modules/planning/geo/map/map_hit_test.dart';
 import 'package:sipged/screens/modules/planning/geo/map/map_layers.dart';
@@ -31,10 +30,10 @@ class MapChange extends StatefulWidget {
     this.cursor = SystemMouseCursors.basic,
   });
 
-  final List<GeoFeatureData> features;
+  final List<FeatureData> features;
   final Map<String, LayerData> layersById;
   final List<String> orderedActiveLayerIds;
-  final void Function(GeoFeatureData? feature) onFeatureTap;
+  final void Function(FeatureData? feature) onFeatureTap;
   final void Function(MapController controller) onControllerReady;
   final void Function(LatLng center, double zoom)? onCameraChanged;
   final String? selectedFeatureKey;
@@ -74,9 +73,9 @@ class _MapChangeState extends State<MapChange> {
   double _lastStaticZoomBucket = -999.0;
   int _lastVisibleViewportSignature = -1;
 
-  Map<String, List<GeoFeatureData>> _allFeaturesByLayer = const {};
-  Map<String, List<GeoFeatureData>> _featuresByLayer = const {};
-  List<GeoFeatureData> _visibleFeatures = const [];
+  Map<String, List<FeatureData>> _allFeaturesByLayer = const {};
+  Map<String, List<FeatureData>> _featuresByLayer = const {};
+  List<FeatureData> _visibleFeatures = const [];
 
   List<Polygon> _cachedPolygons = const [];
   List<Polyline> _cachedPolylines = const [];
@@ -87,9 +86,9 @@ class _MapChangeState extends State<MapChange> {
   final Map<String, _FeatureBoundsCacheEntry> _featureBoundsCache =
   <String, _FeatureBoundsCacheEntry>{};
 
-  List<GeoFeatureData>? _lastVisibleFeaturesSourceRef;
-  List<GeoFeatureData>? _lastFeaturesByLayerVisibleRef;
-  List<GeoFeatureData>? _lastAllFeaturesSourceRef;
+  List<FeatureData>? _lastVisibleFeaturesSourceRef;
+  List<FeatureData>? _lastFeaturesByLayerVisibleRef;
+  List<FeatureData>? _lastAllFeaturesSourceRef;
 
   Timer? _cameraDebounce;
 
@@ -234,130 +233,110 @@ class _MapChangeState extends State<MapChange> {
   }
 
   bool _ensureStaticCache() {
-    return SipgedPerf.traceSync(
-      'MapChange._ensureStaticCache',
-          () {
-        final bucket = MapCache.staticZoomBucket(_effectiveZoom);
-        final viewportBounds = _expandedViewportBounds();
-        final viewportSignature = _viewportSignature(viewportBounds);
+    final bucket = MapCache.staticZoomBucket(_effectiveZoom);
+    final viewportBounds = _expandedViewportBounds();
+    final viewportSignature = _viewportSignature(viewportBounds);
 
-        final signature = Object.hash(
-          viewportSignature,
-          MapCache.computeStaticVisualSignature(
-            zoomBucket: bucket,
-            selectedFeatureKey: widget.selectedFeatureKey,
-            features: widget.features,
-            layersById: widget.layersById,
-            orderedActiveLayerIds: widget.orderedActiveLayerIds,
-            temporaryLineLayers: widget.temporaryLineLayers,
-            temporaryPolygonLayers: widget.temporaryPolygonLayers,
-            distanceMeasurementPoints: widget.distanceMeasurementPoints,
-          ),
-        );
-
-        if (signature == _lastStaticVisualSignature &&
-            bucket == _lastStaticZoomBucket) {
-          return false;
-        }
-
-        _lastStaticVisualSignature = signature;
-        _lastStaticZoomBucket = bucket;
-
-        _ensureVisibleFeatures(viewportBounds, viewportSignature);
-        _ensureFeaturesByLayer();
-
-        _cachedPolygons = MapLayers.buildPolygons(
-          zoom: bucket,
-          featuresByLayer: _featuresByLayer,
-          orderedActiveLayerIds: widget.orderedActiveLayerIds,
-          layersById: widget.layersById,
-          selectedFeatureKey: widget.selectedFeatureKey,
-          temporaryPolygonLayers: widget.temporaryPolygonLayers,
-        );
-
-        _cachedPolylines = MapLayers.buildPolylines(
-          zoom: bucket,
-          featuresByLayer: _featuresByLayer,
-          orderedActiveLayerIds: widget.orderedActiveLayerIds,
-          layersById: widget.layersById,
-          selectedFeatureKey: widget.selectedFeatureKey,
-          temporaryLineLayers: widget.temporaryLineLayers,
-          temporaryPolygonLayers: widget.temporaryPolygonLayers,
-          distanceMeasurementPoints: widget.distanceMeasurementPoints,
-        );
-
-        _ensureHitEntries();
-
-        return true;
-      },
-      warnMs: 8,
-      data: {
-        'features': widget.features.length,
-        'activeLayers': widget.orderedActiveLayerIds.length,
-      },
+    final signature = Object.hash(
+      viewportSignature,
+      MapCache.computeStaticVisualSignature(
+        zoomBucket: bucket,
+        selectedFeatureKey: widget.selectedFeatureKey,
+        features: widget.features,
+        layersById: widget.layersById,
+        orderedActiveLayerIds: widget.orderedActiveLayerIds,
+        temporaryLineLayers: widget.temporaryLineLayers,
+        temporaryPolygonLayers: widget.temporaryPolygonLayers,
+        distanceMeasurementPoints: widget.distanceMeasurementPoints,
+      ),
     );
+
+    if (signature == _lastStaticVisualSignature &&
+        bucket == _lastStaticZoomBucket) {
+      return false;
+    }
+
+    _lastStaticVisualSignature = signature;
+    _lastStaticZoomBucket = bucket;
+
+    _ensureVisibleFeatures(viewportBounds, viewportSignature);
+    _ensureFeaturesByLayer();
+
+    _cachedPolygons = MapLayers.buildPolygons(
+      zoom: bucket,
+      featuresByLayer: _featuresByLayer,
+      orderedActiveLayerIds: widget.orderedActiveLayerIds,
+      layersById: widget.layersById,
+      selectedFeatureKey: widget.selectedFeatureKey,
+      temporaryPolygonLayers: widget.temporaryPolygonLayers,
+    );
+
+    _cachedPolylines = MapLayers.buildPolylines(
+      zoom: bucket,
+      featuresByLayer: _featuresByLayer,
+      orderedActiveLayerIds: widget.orderedActiveLayerIds,
+      layersById: widget.layersById,
+      selectedFeatureKey: widget.selectedFeatureKey,
+      temporaryLineLayers: widget.temporaryLineLayers,
+      temporaryPolygonLayers: widget.temporaryPolygonLayers,
+      distanceMeasurementPoints: widget.distanceMeasurementPoints,
+    );
+
+    _ensureHitEntries();
+
+    return true;
   }
 
   bool _ensureMarkerCache() {
-    return SipgedPerf.traceSync(
-      'MapChange._ensureMarkerCache',
-          () {
-        final bucket = MapCache.markerZoomBucket(_effectiveZoom);
-        final viewportBounds = _expandedViewportBounds();
-        final viewportSignature = _viewportSignature(viewportBounds);
+    final bucket = MapCache.markerZoomBucket(_effectiveZoom);
+    final viewportBounds = _expandedViewportBounds();
+    final viewportSignature = _viewportSignature(viewportBounds);
 
-        final signature = Object.hash(
-          viewportSignature,
-          MapCache.computeMarkerVisualSignature(
-            zoomBucket: bucket,
-            selectedFeatureKey: widget.selectedFeatureKey,
-            features: widget.features,
-            layersById: widget.layersById,
-            orderedActiveLayerIds: widget.orderedActiveLayerIds,
-            temporaryPointLayers: widget.temporaryPointLayers,
-            temporaryPolygonLayers: widget.temporaryPolygonLayers,
-            distanceMeasurementPoints: widget.distanceMeasurementPoints,
-          ),
-        );
-
-        if (signature == _lastMarkerVisualSignature &&
-            bucket == _lastMarkerZoomBucket) {
-          return false;
-        }
-
-        _lastMarkerVisualSignature = signature;
-        _lastMarkerZoomBucket = bucket;
-
-        _ensureVisibleFeatures(viewportBounds, viewportSignature);
-        _ensureFeaturesByLayer();
-
-        _cachedMarkers = MapLayers.buildMarkers(
-          zoom: bucket,
-          featuresByLayer: _featuresByLayer,
-          orderedActiveLayerIds: widget.orderedActiveLayerIds,
-          layersById: widget.layersById,
-          selectedFeatureKey: widget.selectedFeatureKey,
-          temporaryPointLayers: widget.temporaryPointLayers,
-          temporaryPolygonLayers: widget.temporaryPolygonLayers,
-          distanceMeasurementPoints: widget.distanceMeasurementPoints,
-        );
-
-        _cachedLabelMarkers = MapLayers.buildLabelMarkers(
-          zoom: bucket,
-          featuresByLayer: _featuresByLayer,
-          orderedActiveLayerIds: widget.orderedActiveLayerIds,
-          layersById: widget.layersById,
-          selectedFeatureKey: widget.selectedFeatureKey,
-        );
-
-        return true;
-      },
-      warnMs: 8,
-      data: {
-        'features': widget.features.length,
-        'activeLayers': widget.orderedActiveLayerIds.length,
-      },
+    final signature = Object.hash(
+      viewportSignature,
+      MapCache.computeMarkerVisualSignature(
+        zoomBucket: bucket,
+        selectedFeatureKey: widget.selectedFeatureKey,
+        features: widget.features,
+        layersById: widget.layersById,
+        orderedActiveLayerIds: widget.orderedActiveLayerIds,
+        temporaryPointLayers: widget.temporaryPointLayers,
+        temporaryPolygonLayers: widget.temporaryPolygonLayers,
+        distanceMeasurementPoints: widget.distanceMeasurementPoints,
+      ),
     );
+
+    if (signature == _lastMarkerVisualSignature &&
+        bucket == _lastMarkerZoomBucket) {
+      return false;
+    }
+
+    _lastMarkerVisualSignature = signature;
+    _lastMarkerZoomBucket = bucket;
+
+    _ensureVisibleFeatures(viewportBounds, viewportSignature);
+    _ensureFeaturesByLayer();
+
+    _cachedMarkers = MapLayers.buildMarkers(
+      zoom: bucket,
+      featuresByLayer: _featuresByLayer,
+      orderedActiveLayerIds: widget.orderedActiveLayerIds,
+      layersById: widget.layersById,
+      selectedFeatureKey: widget.selectedFeatureKey,
+      temporaryPointLayers: widget.temporaryPointLayers,
+      temporaryPolygonLayers: widget.temporaryPolygonLayers,
+      distanceMeasurementPoints: widget.distanceMeasurementPoints,
+    );
+
+    _cachedLabelMarkers = MapLayers.buildLabelMarkers(
+      zoom: bucket,
+      featuresByLayer: _featuresByLayer,
+      orderedActiveLayerIds: widget.orderedActiveLayerIds,
+      layersById: widget.layersById,
+      selectedFeatureKey: widget.selectedFeatureKey,
+    );
+
+    return true;
   }
 
   void _ensureAllFeaturesByLayer() {
@@ -412,7 +391,7 @@ class _MapChangeState extends State<MapChange> {
     );
   }
 
-  GeoFeatureData? _findFeatureAt(LatLng tap, double zoom) {
+  FeatureData? _findFeatureAt(LatLng tap, double zoom) {
     return MapHitTest.findFeatureAt(
       tap: tap,
       zoom: zoom,
@@ -420,42 +399,29 @@ class _MapChangeState extends State<MapChange> {
     );
   }
 
-  List<GeoFeatureData> _collectVisibleFeatures(LatLngBoundsLite? viewport) {
-    return SipgedPerf.traceSync(
-      'MapChange._collectVisibleFeatures',
-          () {
-        final out = <GeoFeatureData>[];
+  List<FeatureData> _collectVisibleFeatures(LatLngBoundsLite? viewport) {
+    final out = <FeatureData>[];
 
-        for (final layerId in widget.orderedActiveLayerIds) {
-          final layerFeatures = _allFeaturesByLayer[layerId];
-          if (layerFeatures == null || layerFeatures.isEmpty) continue;
+    for (final layerId in widget.orderedActiveLayerIds) {
+      final layerFeatures = _allFeaturesByLayer[layerId];
+      if (layerFeatures == null || layerFeatures.isEmpty) continue;
 
-          if (viewport == null) {
-            out.addAll(layerFeatures);
-            continue;
-          }
+      if (viewport == null) {
+        out.addAll(layerFeatures);
+        continue;
+      }
 
-          for (final feature in layerFeatures) {
-            final bounds = _featureBoundsFor(feature);
-            if (bounds == null) continue;
+      for (final feature in layerFeatures) {
+        final bounds = _featureBoundsFor(feature);
+        if (bounds == null) continue;
 
-            if (_boundsIntersect(bounds, viewport)) {
-              out.add(feature);
-            }
-          }
+        if (_boundsIntersect(bounds, viewport)) {
+          out.add(feature);
         }
+      }
+    }
 
-        return out;
-      },
-      warnMs: 8,
-      data: {
-        'features': widget.features.length,
-        'activeLayers': widget.orderedActiveLayerIds.length,
-      },
-      resultData: (result) => {
-        'visibleFeatures': result.length,
-      },
-    );
+    return out;
   }
 
   LatLngBoundsLite? _expandedViewportBounds() {
@@ -497,7 +463,7 @@ class _MapChangeState extends State<MapChange> {
     return true;
   }
 
-  LatLngBoundsLite? _featureBoundsFor(GeoFeatureData feature) {
+  LatLngBoundsLite? _featureBoundsFor(FeatureData feature) {
     final cacheKey = feature.selectionKey;
     final signature = _featureGeometrySignature(feature);
 
@@ -550,7 +516,7 @@ class _MapChangeState extends State<MapChange> {
     return bounds;
   }
 
-  int _featureGeometrySignature(GeoFeatureData feature) {
+  int _featureGeometrySignature(FeatureData feature) {
     LatLng? firstMarker;
     LatLng? lastMarker;
     if (feature.markerPoints.isNotEmpty) {
@@ -585,17 +551,14 @@ class _MapChangeState extends State<MapChange> {
       feature.markerPoints.length,
       feature.lineParts.length,
       feature.polygonRings.length,
-
       firstMarker?.latitude.toStringAsFixed(6),
       firstMarker?.longitude.toStringAsFixed(6),
       lastMarker?.latitude.toStringAsFixed(6),
       lastMarker?.longitude.toStringAsFixed(6),
-
       firstLinePoint?.latitude.toStringAsFixed(6),
       firstLinePoint?.longitude.toStringAsFixed(6),
       lastLinePoint?.latitude.toStringAsFixed(6),
       lastLinePoint?.longitude.toStringAsFixed(6),
-
       firstPolygonPoint?.latitude.toStringAsFixed(6),
       firstPolygonPoint?.longitude.toStringAsFixed(6),
       lastPolygonPoint?.latitude.toStringAsFixed(6),

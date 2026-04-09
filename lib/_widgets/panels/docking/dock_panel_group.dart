@@ -1,12 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/draggable/draggable_header.dart';
 import 'package:sipged/_widgets/draggable/draggable_placeholder.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_body.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_tabs.dart';
-import 'package:sipged/_widgets/resize/resize_handle.dart';
+import 'package:sipged/_widgets/resize/resize_handle_widget.dart';
 
 class DockPanelGroup extends StatelessWidget {
   final DockPanelData group;
@@ -104,7 +104,7 @@ class DockPanelGroup extends StatelessWidget {
             ),
           ),
         if (showResizeHandle)
-          ResizeHandle(
+          ResizeHandleWidget(
             onPanStart: onResizeStart,
             onPanUpdate: onResizeUpdate,
             onPanEnd: onResizeEnd,

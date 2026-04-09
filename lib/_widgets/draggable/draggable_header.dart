@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/draggable/draggable_feedback.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_header.dart';
 

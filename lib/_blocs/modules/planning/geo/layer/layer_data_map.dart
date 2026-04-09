@@ -1,9 +1,9 @@
 import 'package:equatable/equatable.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_state.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_state.dart';
@@ -21,7 +21,7 @@ class LayerDataMap extends Equatable {
   final List<String> orderedLeafIdsTopToBottom;
   final List<String> orderedActiveLayerIdsForMap;
 
-  final List<GeoFeatureData> visibleFeatures;
+  final List<FeatureData> visibleFeatures;
   final String? selectedFeatureKey;
 
   final LayerData? activePointLayer;
@@ -57,10 +57,10 @@ class LayerDataMap extends Equatable {
   factory LayerDataMap.fromStates({
     required LayerCubit layersCubit,
     required MapCubit mapCubit,
-    required GeoFeatureCubit featureCubit,
+    required FeatureCubit featureCubit,
     required LayerState layersState,
     required MapState mapState,
-    required GeoFeatureState featureState,
+    required FeatureState featureState,
     required ToolboxState toolboxState,
   }) {
     final currentTree = layersState.tree;
@@ -80,10 +80,10 @@ class LayerDataMap extends Equatable {
     final orderedActiveLayerIdsForMap =
     orderedLeafIdsTopToBottom.reversed.toList(growable: false);
 
-    final visibleFeatures = <GeoFeatureData>[];
+    final visibleFeatures = <FeatureData>[];
     for (final layerId in orderedActiveLayerIdsForMap) {
       visibleFeatures.addAll(
-        featureState.featuresByLayer[layerId] ?? const <GeoFeatureData>[],
+        featureState.featuresByLayer[layerId] ?? const <FeatureData>[],
       );
     }
 

@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_widgets/buttons/float_action_button.dart';
-import 'package:sipged/screens/modules/planning/geo/workspace/workspace_widgets.dart';
-import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
+import 'package:sipged/_widgets/resize/resize_handle.dart';
 
 class ResizeChange extends StatefulWidget {
   const ResizeChange({
     super.key,
-    required this.item,
-    required this.dataVersion,
+    required this.offset,
+    required this.size,
     required this.selected,
     required this.onSelected,
     required this.onMoveLive,
@@ -15,17 +14,57 @@ class ResizeChange extends StatefulWidget {
     required this.onResizeLive,
     required this.onResizeEnd,
     required this.onRemove,
+    required this.child,
+    this.contentKey,
+    this.borderRadius = 8,
+    this.showMoveButton = true,
+    this.showRemoveButton = true,
+    this.showResizeHandles = true,
+    this.allowDiagonalResize = true,
+    this.moveTooltip = 'Mover',
+    this.removeTooltip = 'Remover',
+    this.resizeTooltip = 'Redimensionar',
+    this.moveIcon = Icons.open_with,
+    this.removeIcon = Icons.close,
+    this.handleSize = 20,
+    this.handleIconSize = 12,
+    this.actionButtonOffset = const EdgeInsets.all(8),
   });
 
-  final WorkspaceData item;
-  final int dataVersion;
+  final Offset offset;
+  final Size size;
+
   final bool selected;
   final VoidCallback onSelected;
+
   final ValueChanged<Rect> onMoveLive;
   final ValueChanged<Rect> onMoveEnd;
+
   final void Function(ResizeHandle handle, Rect rect) onResizeLive;
   final void Function(ResizeHandle handle, Rect rect) onResizeEnd;
+
   final VoidCallback onRemove;
+
+  final Widget child;
+  final Object? contentKey;
+
+  final double borderRadius;
+
+  final bool showMoveButton;
+  final bool showRemoveButton;
+  final bool showResizeHandles;
+  final bool allowDiagonalResize;
+
+  final String moveTooltip;
+  final String removeTooltip;
+  final String resizeTooltip;
+
+  final IconData moveIcon;
+  final IconData removeIcon;
+
+  final double handleSize;
+  final double handleIconSize;
+  final EdgeInsets actionButtonOffset;
 
   @override
   State<ResizeChange> createState() => _ResizeChangeState();
@@ -39,10 +78,10 @@ class _ResizeChangeState extends State<ResizeChange> {
   bool get _showControls => _hovered || widget.selected;
 
   Rect get _currentRect => Rect.fromLTWH(
-    widget.item.offset.dx,
-    widget.item.offset.dy,
-    widget.item.size.width,
-    widget.item.size.height,
+    widget.offset.dx,
+    widget.offset.dy,
+    widget.size.width,
+    widget.size.height,
   );
 
   void _onMoveStart() {
@@ -188,7 +227,7 @@ class _ResizeChangeState extends State<ResizeChange> {
     final primary = Theme.of(context).colorScheme.primary;
 
     return FloatActionButton(
-      tooltip: 'Redimensionar',
+      tooltip: widget.resizeTooltip,
       icon: _iconForResizeHandle(handle),
       cursor: cursor,
       iconColor: primary,
@@ -196,8 +235,8 @@ class _ResizeChangeState extends State<ResizeChange> {
       borderHoverColor: primary.withValues(alpha: 0.95),
       backgroundColor: Colors.white.withValues(alpha: 0.96),
       hoverBackgroundColor: primary,
-      size: 20,
-      iconSize: 12,
+      size: widget.handleSize,
+      iconSize: widget.handleIconSize,
       borderRadius: 6,
       shadowColor: Colors.black.withValues(alpha: 0.12),
       shadowBlurRadius: 6,
@@ -211,10 +250,6 @@ class _ResizeChangeState extends State<ResizeChange> {
 
   @override
   Widget build(BuildContext context) {
-    final sizeKey = ValueKey(
-      '${widget.item.id}_${widget.item.type.name}_${widget.item.size.width}_${widget.item.size.height}_${widget.item.properties.hashCode}_${widget.dataVersion}',
-    );
-
     final primary = Theme.of(context).colorScheme.primary;
 
     return MouseRegion(
@@ -230,7 +265,7 @@ class _ResizeChangeState extends State<ResizeChange> {
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(widget.borderRadius),
                   boxShadow: widget.selected
                       ? [
                     BoxShadow(
@@ -242,15 +277,14 @@ class _ResizeChangeState extends State<ResizeChange> {
                       : null,
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(widget.borderRadius),
                   child: RepaintBoundary(
-                    child: KeyedSubtree(
-                      key: sizeKey,
-                      child: WorkspaceWidgets(
-                        item: widget.item,
-                        size: widget.item.size,
-                      ),
-                    ),
+                    child: widget.contentKey != null
+                        ? KeyedSubtree(
+                      key: ValueKey(widget.contentKey),
+                      child: widget.child,
+                    )
+                        : widget.child,
                   ),
                 ),
               ),
@@ -267,18 +301,18 @@ class _ResizeChangeState extends State<ResizeChange> {
                             : primary.withValues(alpha: 0.45),
                         width: widget.selected ? 2 : 1.5,
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(widget.borderRadius),
                     ),
                   ),
                 ),
               ),
-            if (_showControls)
+            if (_showControls && widget.showMoveButton)
               Positioned(
-                top: 8,
-                left: 8,
+                top: widget.actionButtonOffset.top,
+                left: widget.actionButtonOffset.left,
                 child: FloatActionButton(
-                  tooltip: 'Mover widget',
-                  icon: Icons.open_with,
+                  tooltip: widget.moveTooltip,
+                  icon: widget.moveIcon,
                   cursor: SystemMouseCursors.move,
                   iconColor: primary,
                   borderColor: primary.withValues(alpha: 0.22),
@@ -289,13 +323,13 @@ class _ResizeChangeState extends State<ResizeChange> {
                   onPanEnd: (_) => _onMoveEnd(),
                 ),
               ),
-            if (_showControls)
+            if (_showControls && widget.showRemoveButton)
               Positioned(
-                top: 8,
-                right: 8,
+                top: widget.actionButtonOffset.top,
+                right: widget.actionButtonOffset.right,
                 child: FloatActionButton(
-                  tooltip: 'Remover',
-                  icon: Icons.close,
+                  tooltip: widget.removeTooltip,
+                  icon: widget.removeIcon,
                   cursor: SystemMouseCursors.click,
                   iconColor: Colors.black87,
                   borderColor: Colors.black.withValues(alpha: 0.10),
@@ -303,22 +337,24 @@ class _ResizeChangeState extends State<ResizeChange> {
                   onTap: widget.onRemove,
                 ),
               ),
-            if (_showControls) ...[
-              _buildResizeHandle(
-                handle: ResizeHandle.topLeft,
-                alignment: Alignment.topLeft,
-                cursor: SystemMouseCursors.resizeUpLeftDownRight,
-              ),
+            if (_showControls && widget.showResizeHandles) ...[
+              if (widget.allowDiagonalResize)
+                _buildResizeHandle(
+                  handle: ResizeHandle.topLeft,
+                  alignment: Alignment.topLeft,
+                  cursor: SystemMouseCursors.resizeUpLeftDownRight,
+                ),
               _buildResizeHandle(
                 handle: ResizeHandle.top,
                 alignment: Alignment.topCenter,
                 cursor: SystemMouseCursors.resizeUpDown,
               ),
-              _buildResizeHandle(
-                handle: ResizeHandle.topRight,
-                alignment: Alignment.topRight,
-                cursor: SystemMouseCursors.resizeUpRightDownLeft,
-              ),
+              if (widget.allowDiagonalResize)
+                _buildResizeHandle(
+                  handle: ResizeHandle.topRight,
+                  alignment: Alignment.topRight,
+                  cursor: SystemMouseCursors.resizeUpRightDownLeft,
+                ),
               _buildResizeHandle(
                 handle: ResizeHandle.left,
                 alignment: Alignment.centerLeft,
@@ -329,21 +365,23 @@ class _ResizeChangeState extends State<ResizeChange> {
                 alignment: Alignment.centerRight,
                 cursor: SystemMouseCursors.resizeLeftRight,
               ),
-              _buildResizeHandle(
-                handle: ResizeHandle.bottomLeft,
-                alignment: Alignment.bottomLeft,
-                cursor: SystemMouseCursors.resizeUpRightDownLeft,
-              ),
+              if (widget.allowDiagonalResize)
+                _buildResizeHandle(
+                  handle: ResizeHandle.bottomLeft,
+                  alignment: Alignment.bottomLeft,
+                  cursor: SystemMouseCursors.resizeUpRightDownLeft,
+                ),
               _buildResizeHandle(
                 handle: ResizeHandle.bottom,
                 alignment: Alignment.bottomCenter,
                 cursor: SystemMouseCursors.resizeUpDown,
               ),
-              _buildResizeHandle(
-                handle: ResizeHandle.bottomRight,
-                alignment: Alignment.bottomRight,
-                cursor: SystemMouseCursors.resizeUpLeftDownRight,
-              ),
+              if (widget.allowDiagonalResize)
+                _buildResizeHandle(
+                  handle: ResizeHandle.bottomRight,
+                  alignment: Alignment.bottomRight,
+                  cursor: SystemMouseCursors.resizeUpLeftDownRight,
+                ),
             ],
           ],
         ),

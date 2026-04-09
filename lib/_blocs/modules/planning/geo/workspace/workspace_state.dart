@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/geo_feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_interaction_filter.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
 import 'package:sipged/_widgets/overlays/guides_lines/guide_lines_data.dart';
 
 @immutable
@@ -10,10 +10,10 @@ class WorkspaceState {
   final List<WorkspaceData> items;
   final String? selectedItemId;
   final GuideLinesData? guides;
-  final Map<String, List<GeoFeatureData>> featuresByLayer;
+  final Map<String, List<FeatureData>> featuresByLayer;
   final Size panelSize;
   final int dataVersion;
-  final WorkspaceInteractionFilter? activeFilter;
+  final WorkspaceFilter? activeFilter;
 
   const WorkspaceState({
     required this.items,
@@ -27,13 +27,13 @@ class WorkspaceState {
 
   factory WorkspaceState.initial({
     List<WorkspaceData> items = const [],
-    Map<String, List<GeoFeatureData>> featuresByLayer = const {},
+    Map<String, List<FeatureData>> featuresByLayer = const {},
   }) {
     return WorkspaceState(
       items: List<WorkspaceData>.from(items),
       selectedItemId: null,
       guides: null,
-      featuresByLayer: Map<String, List<GeoFeatureData>>.from(featuresByLayer),
+      featuresByLayer: Map<String, List<FeatureData>>.from(featuresByLayer),
       panelSize: Size.zero,
       dataVersion: 0,
       activeFilter: null,
@@ -46,10 +46,10 @@ class WorkspaceState {
     bool clearSelectedItem = false,
     GuideLinesData? guides,
     bool clearGuides = false,
-    Map<String, List<GeoFeatureData>>? featuresByLayer,
+    Map<String, List<FeatureData>>? featuresByLayer,
     Size? panelSize,
     int? dataVersion,
-    WorkspaceInteractionFilter? activeFilter,
+    WorkspaceFilter? activeFilter,
     bool clearActiveFilter = false,
   }) {
     return WorkspaceState(
