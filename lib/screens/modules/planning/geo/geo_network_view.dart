@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -47,6 +49,9 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
   static const String _panelAtributosId = 'push_panel_atributos';
   static const String _workspaceGroupId = 'group_area_trabalho';
 
+  static const double _workspaceAutoPadding = 16;
+  static const double _workspaceAutoGap = 16;
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final PushPanelsController _pushPanelsController = PushPanelsController();
 
@@ -57,12 +62,15 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
 
   String? _selectedCatalogItemId;
   String? _selectedWorkspaceItemId;
+  CatalogData? _pendingCatalogPlacement;
 
   bool _statusDismissed = false;
   String _lastStatusIdentity = '';
 
   List<WorkspaceData>? _lastWorkspaceItemsRef;
   Object? _lastWorkspaceItemsToken;
+
+  Size _workspacePanelSize = Size.zero;
 
   @override
   void initState() {
@@ -163,6 +171,15 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
     _lastWorkspaceItemsRef = _workspaceItems;
     _lastWorkspaceItemsToken = token;
     return token;
+  }
+
+  Object _workspaceViewToken() {
+    return Object.hash(
+      _workspaceItemsToken(),
+      _pendingCatalogPlacement?.id,
+      _selectedWorkspaceItemId,
+      _selectedCatalogItemId,
+    );
   }
 
   Object _selectedWorkspaceItemToken() {
@@ -364,27 +381,116 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
     );
   }
 
+  void _handleWorkspacePanelSizeChanged(Size size) {
+    if (_workspacePanelSize == size) return;
+
+    setState(() {
+      _workspacePanelSize = size;
+    });
+  }
+
+  Offset _findAutomaticPlacementOffset(CatalogData catalogItem) {
+    final type = ComponentTypeMapper.fromCatalogItemId(catalogItem.id);
+    if (type == null) {
+      return const Offset(100, 100);
+    }
+
+    final itemSize = type.defaultSize;
+
+    final panelSize =
+    (_workspacePanelSize.width > 0 && _workspacePanelSize.height > 0)
+        ? _workspacePanelSize
+        : const Size(1200, 320);
+
+    final maxLeft = math.max(
+      _workspaceAutoPadding,
+      panelSize.width - itemSize.width - _workspaceAutoPadding,
+    );
+
+    final maxTop = math.max(
+      _workspaceAutoPadding,
+      panelSize.height - itemSize.height - _workspaceAutoPadding,
+    );
+
+    final existingRects = _workspaceItems
+        .map(
+          (e) => Rect.fromLTWH(
+        e.offset.dx,
+        e.offset.dy,
+        e.size.width,
+        e.size.height,
+      ),
+    )
+        .toList(growable: false);
+
+    bool overlaps(Rect candidate) {
+      final candidateWithGap = candidate.inflate(_workspaceAutoGap / 2);
+      for (final rect in existingRects) {
+        if (rect.overlaps(candidateWithGap)) return true;
+      }
+      return false;
+    }
+
+    for (double top = _workspaceAutoPadding;
+    top <= maxTop;
+    top += itemSize.height + _workspaceAutoGap) {
+      for (double left = _workspaceAutoPadding;
+      left <= maxLeft;
+      left += itemSize.width + _workspaceAutoGap) {
+        final candidate = Rect.fromLTWH(
+          left,
+          top,
+          itemSize.width,
+          itemSize.height,
+        );
+
+        if (!overlaps(candidate)) {
+          return candidate.center;
+        }
+      }
+    }
+
+    final fallbackLeft = (_workspaceAutoPadding + (_workspaceItems.length * 28))
+        .clamp(_workspaceAutoPadding, maxLeft)
+        .toDouble();
+
+    final fallbackTop = (_workspaceAutoPadding + (_workspaceItems.length * 20))
+        .clamp(_workspaceAutoPadding, maxTop)
+        .toDouble();
+
+    return Offset(
+      fallbackLeft + (itemSize.width / 2),
+      fallbackTop + (itemSize.height / 2),
+    );
+  }
+
   WorkspaceData _buildWorkspaceItemFromCatalog({
     required CatalogData catalogItem,
     required Offset localOffset,
   }) {
-    final catalogId = catalogItem.id ?? '';
+    final catalogId = catalogItem.id;
     final type = ComponentTypeMapper.fromCatalogItemId(catalogId);
     if (type == null) {
       throw Exception('Tipo não implementado: $catalogId');
     }
 
+    final size = type.defaultSize;
+    final centeredOffset = Offset(
+      localOffset.dx - (size.width / 2),
+      localOffset.dy - (size.height / 2),
+    );
+
     return WorkspaceData(
       id: 'workspace_item_${_workspaceCounter++}',
-      title: catalogItem.title ?? type.defaultTitle,
+      title: catalogItem.title,
       type: type,
-      offset: localOffset,
-      size: type.defaultSize,
+      offset: centeredOffset,
+      size: size,
       properties: type.defaultProperties,
     );
   }
 
-  void _handleWorkspaceCatalogDrop(
+  void _insertCatalogItemAt(
       CatalogData item,
       Offset localOffset,
       ) {
@@ -399,9 +505,35 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
         newItem,
       ];
 
+      _pendingCatalogPlacement = null;
       _selectedCatalogItemId = newItem.catalogItemId;
       _selectedWorkspaceItemId = newItem.id;
     });
+  }
+
+  void _handleWorkspaceCatalogDrop(
+      CatalogData item,
+      Offset localOffset,
+      ) {
+    _insertCatalogItemAt(item, localOffset);
+  }
+
+  void _handleWorkspaceCatalogPlacementByClick(
+      CatalogData item,
+      Offset localOffset,
+      ) {
+    _insertCatalogItemAt(item, localOffset);
+  }
+
+  void _handleCatalogItemTap(CatalogData item) {
+    final localOffset = _findAutomaticPlacementOffset(item);
+
+    _insertCatalogItemAt(item, localOffset);
+
+    _showSnack(
+      context,
+      '"${item.title}" adicionado à área de trabalho',
+    );
   }
 
   void _handleWorkspaceItemChanged(
@@ -446,9 +578,25 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
           _selectedWorkspaceItemId = fallback.id;
           _selectedCatalogItemId = fallback.catalogItemId;
         }
-      } else if (_workspaceItems.isEmpty) {
+      } else if (_workspaceItems.isEmpty && _pendingCatalogPlacement == null) {
         _selectedCatalogItemId = null;
       }
+    });
+  }
+
+  void _handleWorkspaceSelectionCatalogChanged(String? catalogItemId) {
+    setState(() {
+      if (_selectedWorkspaceItem != null) {
+        _selectedCatalogItemId = _selectedWorkspaceItem!.catalogItemId;
+        return;
+      }
+
+      if (_pendingCatalogPlacement != null) {
+        _selectedCatalogItemId = _pendingCatalogPlacement!.id;
+        return;
+      }
+
+      _selectedCatalogItemId = catalogItemId;
     });
   }
 
@@ -457,13 +605,15 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
     final nextCatalogId = item?.catalogItemId;
 
     if (_selectedWorkspaceItemId == nextWorkspaceId &&
-        _selectedCatalogItemId == nextCatalogId) {
+        _selectedCatalogItemId == nextCatalogId &&
+        _pendingCatalogPlacement == null) {
       return;
     }
 
     setState(() {
       _selectedWorkspaceItemId = nextWorkspaceId;
       _selectedCatalogItemId = nextCatalogId;
+      _pendingCatalogPlacement = null;
     });
   }
 
@@ -630,7 +780,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
       activeItemId: 'workspace_area_main',
     );
 
-    final workspaceToken = _workspaceItemsToken();
+    final workspaceToken = _workspaceViewToken();
 
     return [
       base.copyWith(
@@ -647,16 +797,17 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                 key: ValueKey('workspace_panel_$workspaceToken'),
                 items: _workspaceItems,
                 featuresByLayer: genericState.featuresByLayer,
+                pendingCatalogItem: _pendingCatalogPlacement,
+                selectedWorkspaceItemId: _selectedWorkspaceItemId,
                 onCatalogItemDropped: _handleWorkspaceCatalogDrop,
+                onCatalogItemPlacedByClick:
+                _handleWorkspaceCatalogPlacementByClick,
                 onItemChanged: _handleWorkspaceItemChanged,
                 onItemRemoved: _handleWorkspaceItemRemoved,
-                onSelectedCatalogItemChanged: (catalogItemId) {
-                  if (_selectedCatalogItemId == catalogItemId) return;
-                  setState(() {
-                    _selectedCatalogItemId = catalogItemId;
-                  });
-                },
+                onSelectedCatalogItemChanged:
+                _handleWorkspaceSelectionCatalogChanged,
                 onSelectedWorkspaceItemChanged: _handleWorkspaceItemSelected,
+                onPanelSizeChanged: _handleWorkspacePanelSizeChanged,
               ),
             ),
           ),
@@ -749,8 +900,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
           },
         ),
         BlocListener<FeatureCubit, FeatureState>(
-          listenWhen: (p, c) =>
-          p.error != c.error || p.selected != c.selected,
+          listenWhen: (p, c) => p.error != c.error || p.selected != c.selected,
           listener: (context, state) {
             if (state.error != null && state.error!.trim().isNotEmpty) {
               _showSnack(context, state.error!);
@@ -993,13 +1143,13 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                     mapData.currentTree,
                   ),
               onRenameSelected: (id) => _editSelectedItem(id, mapData.currentTree),
-              onRemoveSelected: (id) =>
-                  context.read<MapCubit>().removeSelectedItem(
-                    id,
-                    mapData.currentTree,
-                  ),
+              onRemoveSelected: (id) => context.read<MapCubit>().removeSelectedItem(
+                id,
+                mapData.currentTree,
+              ),
               onConnectLayer: (id) => _handleConnectLayer(id, mapData.currentTree),
-              onOpenTable: (id) => _openLayerTable(context, id, mapData.currentTree),
+              onOpenTable: (id) =>
+                  _openLayerTable(context, id, mapData.currentTree),
             ),
             endDrawerEnableOpenDragGesture: true,
             appBar: UpBar(
@@ -1065,19 +1215,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                               workspaceItemsToken: _workspaceItemsToken(),
                               selectedWorkspaceToken:
                               _selectedWorkspaceItemToken(),
-                              onCatalogItemTap: (item) {
-                                final itemId = item.id;
-                                if (_selectedCatalogItemId != itemId) {
-                                  setState(() {
-                                    _selectedCatalogItemId = itemId;
-                                  });
-                                }
-
-                                _showSnack(
-                                  context,
-                                  'Arraste "${item.title ?? ''}" para a área de trabalho',
-                                );
-                              },
+                              onCatalogItemTap: _handleCatalogItemTap,
                               onPropertyChanged: _handleWorkspacePropertyChanged,
                               onBindingDropped: (itemId, propertyKey, data) {
                                 _handleWorkspaceBindingDropped(

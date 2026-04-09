@@ -27,6 +27,10 @@ class CatalogPanel extends StatelessWidget {
   final void Function(String itemId, String propertyKey, AttributeData data)
   onBindingDropped;
 
+  String? get _effectiveSelectedCatalogItemId {
+    return selectedWorkspaceItem?.catalogItemId ?? selectedCatalogItemId;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -47,7 +51,7 @@ class CatalogPanel extends StatelessWidget {
                 RepaintBoundary(
                   child: _PanelBody(
                     child: _CatalogItemsTab(
-                      selectedCatalogItemId: selectedCatalogItemId,
+                      selectedCatalogItemId: _effectiveSelectedCatalogItemId,
                       onCatalogItemTap: onCatalogItemTap,
                     ),
                   ),

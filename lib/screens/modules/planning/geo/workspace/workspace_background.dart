@@ -7,39 +7,82 @@ class WorkspaceBackground extends StatelessWidget {
   const WorkspaceBackground({
     super.key,
     required this.receiving,
+    required this.onTapBackground,
+    this.pendingPlacementTitle,
   });
 
   final bool receiving;
+  final ValueChanged<TapDownDetails> onTapBackground;
+  final String? pendingPlacementTitle;
+
+  bool get _isPlacementMode =>
+      pendingPlacementTitle != null && pendingPlacementTitle!.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
     return BlocSelector<WorkspaceCubit, WorkspaceState, bool>(
       selector: (state) => state.hasItems,
       builder: (context, hasItems) {
+        final theme = Theme.of(context);
+
+        String message;
+        if (receiving) {
+          message = 'Solte aqui para adicionar ao dashboard';
+        } else if (_isPlacementMode) {
+          message = 'Clique para posicionar "${pendingPlacementTitle!}"';
+        } else {
+          message = 'Arraste visualizações para esta área';
+        }
+
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => context.read<WorkspaceCubit>().clearSelection(),
+          onTapDown: onTapBackground,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 100),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(
-                color: receiving
-                    ? Theme.of(context)
-                    .colorScheme
-                    .primary
-                    .withValues(alpha: 0.35)
+                color: receiving || _isPlacementMode
+                    ? theme.colorScheme.primary.withValues(alpha: 0.35)
                     : Colors.transparent,
                 width: 2,
               ),
             ),
             child: hasItems
-                ? null
+                ? (_isPlacementMode
+                ? Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary
+                        .withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: theme.colorScheme.primary
+                          .withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Text(
+                    message,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.black.withValues(alpha: 0.70),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            )
+                : null)
                 : Center(
               child: Text(
-                receiving
-                    ? 'Solte aqui para adicionar ao dashboard'
-                    : 'Arraste visualizações para esta área',
+                message,
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.black.withValues(alpha: 0.55),

@@ -53,7 +53,7 @@ class _CatalogCardState extends State<CatalogCard> {
     final icon = widget.item.icon ?? Icons.widgets_outlined;
 
     return MouseRegion(
-      cursor: SystemMouseCursors.grab,
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Tooltip(
