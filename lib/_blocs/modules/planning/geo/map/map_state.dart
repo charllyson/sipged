@@ -1,10 +1,10 @@
-import 'package:equatable/equatable.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
 
-class MapState extends Equatable {
+class MapState {
   final List<DockPanelData> panelGroups;
 
   final String? selectedToolId;
@@ -127,11 +127,11 @@ class MapState extends Equatable {
 
     for (final entry in source.entries) {
       if (activeLayerIds.contains(entry.key) && entry.value.isNotEmpty) {
-        out[entry.key] = entry.value;
+        out[entry.key] = List<LatLng>.unmodifiable(entry.value);
       }
     }
 
-    return out;
+    return Map<String, List<LatLng>>.unmodifiable(out);
   }
 
   MapState copyWith({
@@ -152,7 +152,9 @@ class MapState extends Equatable {
     Map<String, List<LatLng>>? draftPolygonLayers,
   }) {
     return MapState(
-      panelGroups: panelGroups ?? this.panelGroups,
+      panelGroups: panelGroups == null
+          ? this.panelGroups
+          : List<DockPanelData>.unmodifiable(panelGroups),
       selectedToolId:
       clearSelectedTool ? null : (selectedToolId ?? this.selectedToolId),
       selectedLayerPanelItemId: clearSelectedLayerPanelItem
@@ -167,25 +169,61 @@ class MapState extends Equatable {
       activeEditingPolygonLayerId: clearActiveEditingPolygonLayerId
           ? null
           : (activeEditingPolygonLayerId ?? this.activeEditingPolygonLayerId),
-      draftOwnedTemporaryLayerIds:
-      draftOwnedTemporaryLayerIds ?? this.draftOwnedTemporaryLayerIds,
-      draftPointLayers: draftPointLayers ?? this.draftPointLayers,
-      draftLineLayers: draftLineLayers ?? this.draftLineLayers,
-      draftPolygonLayers: draftPolygonLayers ?? this.draftPolygonLayers,
+      draftOwnedTemporaryLayerIds: draftOwnedTemporaryLayerIds == null
+          ? this.draftOwnedTemporaryLayerIds
+          : Set<String>.unmodifiable(draftOwnedTemporaryLayerIds),
+      draftPointLayers: draftPointLayers == null
+          ? this.draftPointLayers
+          : _freezeDrafts(draftPointLayers),
+      draftLineLayers: draftLineLayers == null
+          ? this.draftLineLayers
+          : _freezeDrafts(draftLineLayers),
+      draftPolygonLayers: draftPolygonLayers == null
+          ? this.draftPolygonLayers
+          : _freezeDrafts(draftPolygonLayers),
     );
   }
 
+  static Map<String, List<LatLng>> _freezeDrafts(
+      Map<String, List<LatLng>> source,
+      ) {
+    return Map<String, List<LatLng>>.unmodifiable({
+      for (final entry in source.entries)
+        entry.key: List<LatLng>.unmodifiable(entry.value),
+    });
+  }
+
+  static const DeepCollectionEquality _deepEq = DeepCollectionEquality();
+
   @override
-  List<Object?> get props => [
-    panelGroups,
+  bool operator ==(Object other) {
+    return other is MapState &&
+        _deepEq.equals(other.panelGroups, panelGroups) &&
+        other.selectedToolId == selectedToolId &&
+        other.selectedLayerPanelItemId == selectedLayerPanelItemId &&
+        other.activeEditingPointLayerId == activeEditingPointLayerId &&
+        other.activeEditingLineLayerId == activeEditingLineLayerId &&
+        other.activeEditingPolygonLayerId == activeEditingPolygonLayerId &&
+        _deepEq.equals(
+          other.draftOwnedTemporaryLayerIds,
+          draftOwnedTemporaryLayerIds,
+        ) &&
+        _deepEq.equals(other.draftPointLayers, draftPointLayers) &&
+        _deepEq.equals(other.draftLineLayers, draftLineLayers) &&
+        _deepEq.equals(other.draftPolygonLayers, draftPolygonLayers);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    _deepEq.hash(panelGroups),
     selectedToolId,
     selectedLayerPanelItemId,
     activeEditingPointLayerId,
     activeEditingLineLayerId,
     activeEditingPolygonLayerId,
-    draftOwnedTemporaryLayerIds,
-    draftPointLayers,
-    draftLineLayers,
-    draftPolygonLayers,
-  ];
+    _deepEq.hash(draftOwnedTemporaryLayerIds),
+    _deepEq.hash(draftPointLayers),
+    _deepEq.hash(draftLineLayers),
+    _deepEq.hash(draftPolygonLayers),
+  );
 }

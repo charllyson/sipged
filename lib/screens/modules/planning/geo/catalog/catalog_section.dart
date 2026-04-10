@@ -59,17 +59,23 @@ class CatalogSection extends StatelessWidget {
 
             return Draggable<CatalogData>(
               data: item,
+              maxSimultaneousDrags: 1,
+              rootOverlay: true,
               feedback: Material(
                 color: Colors.transparent,
-                child: CatalogCard(
-                  item: item,
-                  selected: true,
-                  isDragging: true,
+                child: IgnorePointer(
+                  child: CatalogCard(
+                    item: item,
+                    selected: true,
+                    isDragging: true,
+                  ),
                 ),
               ),
               childWhenDragging: Opacity(
                 opacity: 0.30,
-                child: IgnorePointer(child: card),
+                child: IgnorePointer(
+                  child: card,
+                ),
               ),
               child: card,
             );

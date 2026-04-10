@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:equatable/equatable.dart';
+import 'package:collection/collection.dart';
 import 'package:latlong2/latlong.dart';
 
 enum FeatureGeometryType {
@@ -29,7 +29,7 @@ enum TypeFieldGeoJson {
   datetime,
 }
 
-class ImportColumnMeta extends Equatable {
+class ImportColumnMeta {
   final String name;
   final bool selected;
   final TypeFieldGeoJson type;
@@ -52,8 +52,18 @@ class ImportColumnMeta extends Equatable {
     );
   }
 
+  static const _eq = DeepCollectionEquality();
+
   @override
-  List<Object?> get props => [name, selected, type];
+  bool operator ==(Object other) {
+    return other is ImportColumnMeta &&
+        other.name == name &&
+        other.selected == selected &&
+        other.type == type;
+  }
+
+  @override
+  int get hashCode => Object.hash(name, selected, type);
 }
 
 class FeatureParsedGeometry {
@@ -68,7 +78,7 @@ class FeatureParsedGeometry {
   });
 }
 
-class FeatureData extends Equatable {
+class FeatureData {
   final String? id;
   final String? layerId;
 
@@ -118,23 +128,29 @@ class FeatureData extends Equatable {
       geometry: normalizedGeometry,
     );
 
-    final props = resolveProperties(map);
-    final columnTypes = {
+    final props = Map<String, dynamic>.unmodifiable(resolveProperties(map));
+    final columnTypes = Map<String, TypeFieldGeoJson>.unmodifiable({
       for (final entry in props.entries) entry.key: inferFieldType(entry.value),
-    };
+    });
 
     return FeatureData(
       id: docId,
       layerId: layerId,
       originalProperties: props,
-      editedProperties: Map<String, dynamic>.from(props),
+      editedProperties: Map<String, dynamic>.unmodifiable(
+        Map<String, dynamic>.from(props),
+      ),
       columnTypes: columnTypes,
       selected: selected,
       geometryType: geometryType,
-      rawGeometry: normalizedGeometry,
-      markerPoints: parsed.markerPoints,
-      lineParts: parsed.lineParts,
-      polygonRings: parsed.polygonRings,
+      rawGeometry: Map<String, dynamic>.unmodifiable(normalizedGeometry),
+      markerPoints: List<LatLng>.unmodifiable(parsed.markerPoints),
+      lineParts: List<List<LatLng>>.unmodifiable(
+        parsed.lineParts.map(List<LatLng>.unmodifiable),
+      ),
+      polygonRings: List<List<LatLng>>.unmodifiable(
+        parsed.polygonRings.map(List<LatLng>.unmodifiable),
+      ),
     );
   }
 
@@ -147,8 +163,7 @@ class FeatureData extends Equatable {
       (rawFeature['geometry'] as Map?) ?? const <String, dynamic>{},
     );
 
-    final geometryType =
-    mapGeoJsonType((geometry['type'] ?? '').toString());
+    final geometryType = mapGeoJsonType((geometry['type'] ?? '').toString());
 
     final parsed = parseGeometry(
       geometryType: geometryType,
@@ -168,15 +183,19 @@ class FeatureData extends Equatable {
     return FeatureData(
       id: null,
       layerId: null,
-      originalProperties: props,
-      editedProperties: edited,
-      columnTypes: columnTypes,
+      originalProperties: Map<String, dynamic>.unmodifiable(props),
+      editedProperties: Map<String, dynamic>.unmodifiable(edited),
+      columnTypes: Map<String, TypeFieldGeoJson>.unmodifiable(columnTypes),
       selected: selected,
       geometryType: geometryType,
-      rawGeometry: geometry,
-      markerPoints: parsed.markerPoints,
-      lineParts: parsed.lineParts,
-      polygonRings: parsed.polygonRings,
+      rawGeometry: Map<String, dynamic>.unmodifiable(geometry),
+      markerPoints: List<LatLng>.unmodifiable(parsed.markerPoints),
+      lineParts: List<List<LatLng>>.unmodifiable(
+        parsed.lineParts.map(List<LatLng>.unmodifiable),
+      ),
+      polygonRings: List<List<LatLng>>.unmodifiable(
+        parsed.polygonRings.map(List<LatLng>.unmodifiable),
+      ),
     );
   }
 
@@ -196,15 +215,33 @@ class FeatureData extends Equatable {
     return FeatureData(
       id: id ?? this.id,
       layerId: layerId ?? this.layerId,
-      originalProperties: originalProperties ?? this.originalProperties,
-      editedProperties: editedProperties ?? this.editedProperties,
-      columnTypes: columnTypes ?? this.columnTypes,
+      originalProperties: originalProperties == null
+          ? this.originalProperties
+          : Map<String, dynamic>.unmodifiable(originalProperties),
+      editedProperties: editedProperties == null
+          ? this.editedProperties
+          : Map<String, dynamic>.unmodifiable(editedProperties),
+      columnTypes: columnTypes == null
+          ? this.columnTypes
+          : Map<String, TypeFieldGeoJson>.unmodifiable(columnTypes),
       selected: selected ?? this.selected,
       geometryType: geometryType ?? this.geometryType,
-      rawGeometry: rawGeometry ?? this.rawGeometry,
-      markerPoints: markerPoints ?? this.markerPoints,
-      lineParts: lineParts ?? this.lineParts,
-      polygonRings: polygonRings ?? this.polygonRings,
+      rawGeometry: rawGeometry == null
+          ? this.rawGeometry
+          : Map<String, dynamic>.unmodifiable(rawGeometry),
+      markerPoints: markerPoints == null
+          ? this.markerPoints
+          : List<LatLng>.unmodifiable(markerPoints),
+      lineParts: lineParts == null
+          ? this.lineParts
+          : List<List<LatLng>>.unmodifiable(
+        lineParts.map(List<LatLng>.unmodifiable),
+      ),
+      polygonRings: polygonRings == null
+          ? this.polygonRings
+          : List<List<LatLng>>.unmodifiable(
+        polygonRings.map(List<LatLng>.unmodifiable),
+      ),
     );
   }
 
@@ -239,15 +276,12 @@ class FeatureData extends Equatable {
       case FeatureGeometryType.point:
       case FeatureGeometryType.multiPoint:
         return FeatureGeometryFamily.point;
-
       case FeatureGeometryType.lineString:
       case FeatureGeometryType.multiLineString:
         return FeatureGeometryFamily.line;
-
       case FeatureGeometryType.polygon:
       case FeatureGeometryType.multiPolygon:
         return FeatureGeometryFamily.polygon;
-
       case FeatureGeometryType.unknown:
         return FeatureGeometryFamily.unknown;
     }
@@ -255,8 +289,7 @@ class FeatureData extends Equatable {
 
   bool get isPointFamily => geometryFamily == FeatureGeometryFamily.point;
   bool get isLineFamily => geometryFamily == FeatureGeometryFamily.line;
-  bool get isPolygonFamily =>
-      geometryFamily == FeatureGeometryFamily.polygon;
+  bool get isPolygonFamily => geometryFamily == FeatureGeometryFamily.polygon;
 
   bool get hasGeometry =>
       markerPoints.isNotEmpty ||
@@ -453,37 +486,31 @@ class FeatureData extends Equatable {
           'type': 'Point',
           'coordinates': _decodePoint(coords),
         };
-
       case 'MultiPoint':
         return {
           'type': 'MultiPoint',
           'coordinates': _decodePointList(coords),
         };
-
       case 'LineString':
         return {
           'type': 'LineString',
           'coordinates': _decodePointList(coords),
         };
-
       case 'MultiLineString':
         return {
           'type': 'MultiLineString',
           'coordinates': _decodeLineList(coords),
         };
-
       case 'Polygon':
         return {
           'type': 'Polygon',
           'coordinates': _decodeRingList(coords),
         };
-
       case 'MultiPolygon':
         return {
           'type': 'MultiPolygon',
           'coordinates': _decodePolygonList(coords),
         };
-
       default:
         return geometry;
     }
@@ -501,37 +528,31 @@ class FeatureData extends Equatable {
           'type': 'Point',
           'coordinates': _encodePoint(coords),
         };
-
       case 'MultiPoint':
         return {
           'type': 'MultiPoint',
           'coordinates': _encodePointList(coords),
         };
-
       case 'LineString':
         return {
           'type': 'LineString',
           'coordinates': _encodePointList(coords),
         };
-
       case 'MultiLineString':
         return {
           'type': 'MultiLineString',
           'coordinates': _encodeLineList(coords),
         };
-
       case 'Polygon':
         return {
           'type': 'Polygon',
           'coordinates': _encodeRingList(coords),
         };
-
       case 'MultiPolygon':
         return {
           'type': 'MultiPolygon',
           'coordinates': _encodePolygonList(coords),
         };
-
       default:
         return geometry;
     }
@@ -750,18 +771,36 @@ class FeatureData extends Equatable {
     return out;
   }
 
+  static const _deepEq = DeepCollectionEquality();
+
   @override
-  List<Object?> get props => [
+  bool operator ==(Object other) {
+    return other is FeatureData &&
+        other.id == id &&
+        other.layerId == layerId &&
+        _deepEq.equals(other.originalProperties, originalProperties) &&
+        _deepEq.equals(other.editedProperties, editedProperties) &&
+        _deepEq.equals(other.columnTypes, columnTypes) &&
+        other.selected == selected &&
+        other.geometryType == geometryType &&
+        _deepEq.equals(other.rawGeometry, rawGeometry) &&
+        _deepEq.equals(other.markerPoints, markerPoints) &&
+        _deepEq.equals(other.lineParts, lineParts) &&
+        _deepEq.equals(other.polygonRings, polygonRings);
+  }
+
+  @override
+  int get hashCode => Object.hash(
     id,
     layerId,
-    originalProperties,
-    editedProperties,
-    columnTypes,
+    _deepEq.hash(originalProperties),
+    _deepEq.hash(editedProperties),
+    _deepEq.hash(columnTypes),
     selected,
     geometryType,
-    rawGeometry,
-    markerPoints,
-    lineParts,
-    polygonRings,
-  ];
+    _deepEq.hash(rawGeometry),
+    _deepEq.hash(markerPoints),
+    _deepEq.hash(lineParts),
+    _deepEq.hash(polygonRings),
+  );
 }

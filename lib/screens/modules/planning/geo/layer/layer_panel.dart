@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_draggable.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_group.dart';
-import 'package:sipged/screens/modules/planning/geo/layer/layer_target.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_row.dart';
+import 'package:sipged/screens/modules/planning/geo/layer/layer_target.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_toolbar.dart';
 
 class LayerPanel extends StatefulWidget {
@@ -56,13 +56,20 @@ class LayerPanel extends StatefulWidget {
   State<LayerPanel> createState() => _LayerPanelState();
 }
 
-class _LayerPanelState extends State<LayerPanel> {
+class _LayerPanelState extends State<LayerPanel>
+    with AutomaticKeepAliveClientMixin {
   static const double rowHeight = 30;
 
   late Set<String> _expandedGroupIds;
   String? _internalSelectedId;
 
+  Object? _lastVisibleEntriesKey;
+  List<TreeRenderEntry> _lastVisibleEntries = const [];
+
   String? get _effectiveSelectedId => widget.selectedId ?? _internalSelectedId;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -75,32 +82,30 @@ class _LayerPanelState extends State<LayerPanel> {
   void didUpdateWidget(covariant LayerPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    var shouldRebuild = false;
+    bool shouldSetState = false;
 
     final selectedId = _effectiveSelectedId;
-    if (selectedId != null) {
-      final stillExists = _existsLayerWithId(widget.layers, selectedId);
-      if (!stillExists && widget.selectedId == null) {
-        _internalSelectedId = null;
-        shouldRebuild = true;
-      }
+    if (selectedId != null &&
+        !_existsLayerWithId(widget.layers, selectedId) &&
+        widget.selectedId == null) {
+      _internalSelectedId = null;
+      shouldSetState = true;
     }
 
-    final allGroupsNow = _collectAllGroupIds(widget.layers);
-    final beforeLength = _expandedGroupIds.length;
-    _expandedGroupIds.addAll(allGroupsNow);
-
-    if (_expandedGroupIds.length != beforeLength) {
-      shouldRebuild = true;
+    final currentGroups = _collectAllGroupIds(widget.layers);
+    final addedGroups = currentGroups.difference(_expandedGroupIds);
+    if (addedGroups.isNotEmpty) {
+      _expandedGroupIds = {..._expandedGroupIds, ...addedGroups};
+      shouldSetState = true;
     }
 
     if (widget.selectedId != oldWidget.selectedId &&
         widget.selectedId != _internalSelectedId) {
       _internalSelectedId = widget.selectedId;
-      shouldRebuild = true;
+      shouldSetState = true;
     }
 
-    if (shouldRebuild && mounted) {
+    if (shouldSetState && mounted) {
       setState(() {});
     }
   }
@@ -112,9 +117,7 @@ class _LayerPanelState extends State<LayerPanel> {
       for (final n in list) {
         if (n.isGroup) {
           ids.add(n.id);
-          if (n.children.isNotEmpty) {
-            walk(n.children);
-          }
+          if (n.children.isNotEmpty) walk(n.children);
         }
       }
     }
@@ -166,9 +169,7 @@ class _LayerPanelState extends State<LayerPanel> {
       if (index < 0 || index >= current.length) return null;
 
       node = current[index];
-      if (i < path.length - 1) {
-        current = node.children;
-      }
+      if (i < path.length - 1) current = node.children;
     }
 
     return node;
@@ -207,10 +208,7 @@ class _LayerPanelState extends State<LayerPanel> {
     final parentNode =
     parentPath.isEmpty ? null : _getNodeByPath(widget.layers, parentPath);
 
-    await widget.onCreateLayer?.call(
-      parentNode?.id,
-      selectedIndex + 1,
-    );
+    await widget.onCreateLayer?.call(parentNode?.id, selectedIndex + 1);
   }
 
   Future<void> _handleCreateEmptyGroup() async {
@@ -246,10 +244,7 @@ class _LayerPanelState extends State<LayerPanel> {
     final parentNode =
     parentPath.isEmpty ? null : _getNodeByPath(widget.layers, parentPath);
 
-    await widget.onCreateEmptyGroup?.call(
-      parentNode?.id,
-      selectedIndex + 1,
-    );
+    await widget.onCreateEmptyGroup?.call(parentNode?.id, selectedIndex + 1);
   }
 
   void _toggleGroupExpand(String groupId) {
@@ -275,9 +270,7 @@ class _LayerPanelState extends State<LayerPanel> {
   }
 
   bool _areAllChildrenActive(LayerData node) {
-    if (!node.isGroup) {
-      return widget.activeLayerIds.contains(node.id);
-    }
+    if (!node.isGroup) return widget.activeLayerIds.contains(node.id);
     if (node.children.isEmpty) return false;
 
     for (final child in node.children) {
@@ -287,9 +280,7 @@ class _LayerPanelState extends State<LayerPanel> {
   }
 
   bool _hasAnyChildActive(LayerData node) {
-    if (!node.isGroup) {
-      return widget.activeLayerIds.contains(node.id);
-    }
+    if (!node.isGroup) return widget.activeLayerIds.contains(node.id);
     if (node.children.isEmpty) return false;
 
     for (final child in node.children) {
@@ -311,6 +302,15 @@ class _LayerPanelState extends State<LayerPanel> {
   bool _hasData(String id) => widget.hasDataByLayer[id] == true;
 
   List<TreeRenderEntry> _buildVisibleEntries(List<LayerData> nodes) {
+    final cacheKey = Object.hash(
+      nodes,
+      Object.hashAll(_expandedGroupIds),
+    );
+
+    if (_lastVisibleEntriesKey == cacheKey) {
+      return _lastVisibleEntries;
+    }
+
     final result = <TreeRenderEntry>[];
 
     void walk(
@@ -348,11 +348,16 @@ class _LayerPanelState extends State<LayerPanel> {
     }
 
     walk(nodes, depth: 0, parentId: null);
-    return result;
+
+    _lastVisibleEntriesKey = cacheKey;
+    _lastVisibleEntries = List<TreeRenderEntry>.unmodifiable(result);
+    return _lastVisibleEntries;
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     final theme = Theme.of(context);
     final visibleEntries = _buildVisibleEntries(widget.layers);
 

@@ -1,12 +1,151 @@
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_filter.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_scope_data.dart';
 
 class WorkspaceRepository {
-  const WorkspaceRepository();
+  WorkspaceRepository({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
+
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+
+  DocumentReference<Map<String, dynamic>> get _workspaceRootDoc =>
+      _firestore.collection('geo').doc('workspace');
+
+  DocumentReference<Map<String, dynamic>> _scopeDocRef(
+      WorkspaceScopeData scope,
+      ) {
+    return _workspaceRootDoc
+        .collection(scope.collectionName)
+        .doc(scope.documentId);
+  }
+
+  String _scopePath(WorkspaceScopeData scope) {
+    return 'geo/workspace/${scope.collectionName}/${scope.documentId}';
+  }
+
+  Future<List<WorkspaceData>> loadWorkspace({
+    required WorkspaceScopeData scope,
+  }) async {
+    final snap = await _scopeDocRef(scope).get();
+    if (!snap.exists) return const <WorkspaceData>[];
+
+    final data = snap.data() ?? const <String, dynamic>{};
+    final rawItems = (data['items'] as List?) ?? const [];
+
+    return rawItems
+        .whereType<Map>()
+        .map((e) => WorkspaceData.fromMap(Map<String, dynamic>.from(e)))
+        .toList(growable: false);
+  }
+
+  Future<void> saveWorkspace({
+    required WorkspaceScopeData scope,
+    required List<WorkspaceData> items,
+  }) async {
+    final uid = _auth.currentUser?.uid ?? '';
+    final scopeRef = _scopeDocRef(scope);
+    final rootRef = _workspaceRootDoc;
+
+    final cleanItems = items
+        .map((e) => e.copyWithoutResolvedData().toMap())
+        .toList(growable: false);
+
+    await _firestore.runTransaction((transaction) async {
+      final rootSnap = await transaction.get(rootRef);
+      final scopeSnap = await transaction.get(scopeRef);
+
+      final rootData = rootSnap.data() ?? const <String, dynamic>{};
+
+      final totalGeneralScopes =
+          (rootData['totalGeneralScopes'] as num?)?.toInt() ?? 0;
+      final totalLayerScopes =
+          (rootData['totalLayerScopes'] as num?)?.toInt() ?? 0;
+      final totalGroupScopes =
+          (rootData['totalGroupScopes'] as num?)?.toInt() ?? 0;
+
+      var nextGeneral = totalGeneralScopes;
+      var nextLayer = totalLayerScopes;
+      var nextGroup = totalGroupScopes;
+
+      final isNewScopeDoc = !scopeSnap.exists;
+
+      if (isNewScopeDoc) {
+        switch (scope.type) {
+          case WorkspaceScopeType.general:
+            nextGeneral += 1;
+            break;
+          case WorkspaceScopeType.layer:
+            nextLayer += 1;
+            break;
+          case WorkspaceScopeType.group:
+            nextGroup += 1;
+            break;
+        }
+      }
+
+      final totalScopes = nextGeneral + nextLayer + nextGroup;
+
+      final rootPayload = <String, dynamic>{
+        'module': 'geo_workspace',
+        'version': 1,
+        'structureVersion': 1,
+        'description':
+        'Metadados e auditoria das áreas de trabalho do módulo GEO.',
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': uid,
+        'lastScopeType': scope.type.name,
+        'lastScopeId': scope.documentId,
+        'lastScopePath': _scopePath(scope),
+        'totalScopes': totalScopes,
+        'totalGeneralScopes': nextGeneral,
+        'totalLayerScopes': nextLayer,
+        'totalGroupScopes': nextGroup,
+      };
+
+      if (!rootSnap.exists) {
+        rootPayload['createdAt'] = FieldValue.serverTimestamp();
+        rootPayload['createdBy'] = uid;
+      }
+
+      transaction.set(
+        rootRef,
+        rootPayload,
+        SetOptions(merge: true),
+      );
+
+      final scopePayload = <String, dynamic>{
+        'scope': scope.toMap(),
+        'scopeType': scope.type.name,
+        'scopeId': scope.documentId,
+        'scopePath': _scopePath(scope),
+        'itemCount': cleanItems.length,
+        'items': cleanItems,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': uid,
+      };
+
+      if (!scopeSnap.exists) {
+        scopePayload['createdAt'] = FieldValue.serverTimestamp();
+        scopePayload['createdBy'] = uid;
+      }
+
+      transaction.set(
+        scopeRef,
+        scopePayload,
+        SetOptions(merge: true),
+      );
+    });
+  }
 
   List<WorkspaceData> resolveAllItems({
     required List<WorkspaceData> items,
@@ -257,7 +396,8 @@ class WorkspaceRepository {
 
     final labelField = item.getBindingFieldName('label');
     final valueField = item.getBindingFieldName('value');
-    final aggregation = item.getNullableSelectedProperty('aggregation') ?? 'Contagem';
+    final aggregation =
+        item.getNullableSelectedProperty('aggregation') ?? 'Contagem';
 
     String? resolvedLabel;
     if (labelField != null && labelField.isNotEmpty) {

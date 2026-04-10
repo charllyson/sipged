@@ -34,6 +34,7 @@ class LayerDataMap extends Equatable {
 
   final bool isLoading;
   final bool showFloatingStatus;
+  final int hasDataSignature;
 
   const LayerDataMap({
     required this.currentTree,
@@ -52,6 +53,7 @@ class LayerDataMap extends Equatable {
     required this.visiblePolygonDrafts,
     required this.isLoading,
     required this.showFloatingStatus,
+    required this.hasDataSignature,
   });
 
   factory LayerDataMap.fromStates({
@@ -67,7 +69,6 @@ class LayerDataMap extends Equatable {
     final activeLayerIds = layersState.activeLayerIds;
 
     final allNodes = layersCubit.flattenAllNodes(tree: currentTree);
-
     final layersById = <String, LayerData>{
       for (final node in allNodes.where((e) => !e.isGroup)) node.id: node,
     };
@@ -82,9 +83,10 @@ class LayerDataMap extends Equatable {
 
     final visibleFeatures = <FeatureData>[];
     for (final layerId in orderedActiveLayerIdsForMap) {
-      visibleFeatures.addAll(
-        featureState.featuresByLayer[layerId] ?? const <FeatureData>[],
-      );
+      final features = featureState.featuresByLayer[layerId];
+      if (features != null && features.isNotEmpty) {
+        visibleFeatures.addAll(features);
+      }
     }
 
     final activePointLayer = mapCubit.getActiveDraftPointLayer(currentTree);
@@ -105,6 +107,11 @@ class LayerDataMap extends Equatable {
       activePolygonLayer: activePolygonLayer,
     );
 
+    final hasDataSignature = Object.hashAll(
+      layersState.hasDataByLayer.entries
+          .map((e) => Object.hash(e.key, e.value)),
+    );
+
     return LayerDataMap(
       currentTree: currentTree,
       activeLayerIds: activeLayerIds,
@@ -122,6 +129,7 @@ class LayerDataMap extends Equatable {
       visiblePolygonDrafts: mapCubit.buildVisiblePolygonDrafts(activeLayerIds),
       isLoading: isLoading,
       showFloatingStatus: showFloatingStatus,
+      hasDataSignature: hasDataSignature,
     );
   }
 
@@ -143,5 +151,6 @@ class LayerDataMap extends Equatable {
     visiblePolygonDrafts,
     isLoading,
     showFloatingStatus,
+    hasDataSignature,
   ];
 }

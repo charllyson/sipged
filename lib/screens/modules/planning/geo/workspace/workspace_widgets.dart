@@ -63,8 +63,7 @@ class WorkspaceWidgets extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
 
-    return BlocSelector<WorkspaceCubit, WorkspaceState,
-        WorkspaceFilter?>(
+    return BlocSelector<WorkspaceCubit, WorkspaceState, WorkspaceFilter?>(
       selector: (state) => state.activeFilter,
       builder: (context, activeFilter) {
         final selectedBarIndex = _selectedBarIndex(activeFilter);
@@ -90,8 +89,7 @@ class WorkspaceWidgets extends StatelessWidget {
                   expandToMaxWidth: true,
                   widthGraphic: size.width,
                   heightGraphic: size.height,
-                  widthBar:
-                  item.getNullableNumberProperty('widthBar') ?? 34,
+                  widthBar: item.getNullableNumberProperty('widthBar') ?? 34,
                   widthTitleBar:
                   item.getNullableNumberProperty('widthTitleBar') ?? 60,
                 ),

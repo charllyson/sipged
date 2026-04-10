@@ -13,8 +13,6 @@ class WorkspaceCanvas extends StatefulWidget {
     super.key,
     required this.onCatalogItemDropped,
     required this.onCatalogItemPlacedByClick,
-    required this.onItemChanged,
-    required this.onItemRemoved,
     this.pendingCatalogItem,
     this.onPanelSizeChanged,
   });
@@ -22,9 +20,6 @@ class WorkspaceCanvas extends StatefulWidget {
   final void Function(CatalogData item, Offset localOffset) onCatalogItemDropped;
   final void Function(CatalogData item, Offset localOffset)
   onCatalogItemPlacedByClick;
-  final void Function(String itemId, Offset newOffset, Size newSize)
-  onItemChanged;
-  final void Function(String itemId) onItemRemoved;
   final CatalogData? pendingCatalogItem;
   final ValueChanged<Size>? onPanelSizeChanged;
 
@@ -95,7 +90,10 @@ class _WorkspaceCanvasState extends State<WorkspaceCanvas> {
             _reportPanelSize(panelSize);
 
             return DragTarget<CatalogData>(
-              onWillAcceptWithDetails: (details) => details.data.id.isNotEmpty,
+              onWillAcceptWithDetails: (details) {
+                final data = details.data;
+                return data.id.trim().isNotEmpty;
+              },
               onAcceptWithDetails: (details) {
                 final renderBox =
                 _stackKey.currentContext?.findRenderObject() as RenderBox?;
@@ -133,11 +131,8 @@ class _WorkspaceCanvasState extends State<WorkspaceCanvas> {
                         ),
                       ),
                     ),
-                    Positioned.fill(
-                      child: WorkspaceItem(
-                        onItemChanged: widget.onItemChanged,
-                        onItemRemoved: widget.onItemRemoved,
-                      ),
+                    const Positioned.fill(
+                      child: WorkspaceItem(),
                     ),
                   ],
                 );

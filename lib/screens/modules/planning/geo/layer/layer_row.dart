@@ -38,7 +38,7 @@ class LayerRow extends StatelessWidget {
           color: bgColor,
           child: Padding(
             padding: EdgeInsets.only(
-              left: 8.0 + depth,
+              left: 8.0 + (depth * 16.0),
               right: 8.0,
             ),
             child: Row(

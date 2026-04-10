@@ -1,4 +1,4 @@
-import 'package:equatable/equatable.dart';
+import 'package:collection/collection.dart';
 
 import 'feature_data.dart';
 
@@ -13,7 +13,7 @@ enum FeatureImportStatus {
   failure,
 }
 
-class LayerSelection extends Equatable {
+class LayerSelection {
   final String layerId;
   final FeatureData feature;
 
@@ -23,10 +23,17 @@ class LayerSelection extends Equatable {
   });
 
   @override
-  List<Object?> get props => [layerId, feature];
+  bool operator ==(Object other) {
+    return other is LayerSelection &&
+        other.layerId == layerId &&
+        other.feature == feature;
+  }
+
+  @override
+  int get hashCode => Object.hash(layerId, feature);
 }
 
-class FeatureState extends Equatable {
+class FeatureState {
   final Map<String, List<FeatureData>> featuresByLayer;
   final Map<String, bool> loadingByLayer;
   final Map<String, bool> loadedByLayer;
@@ -96,8 +103,9 @@ class FeatureState extends Equatable {
       importStatus: clearImportSession
           ? FeatureImportStatus.idle
           : (importStatus ?? this.importStatus),
-      importCollectionPath:
-      clearImportSession ? null : (importCollectionPath ?? this.importCollectionPath),
+      importCollectionPath: clearImportSession
+          ? null
+          : (importCollectionPath ?? this.importCollectionPath),
       importFeatures:
       clearImportSession ? const [] : (importFeatures ?? this.importFeatures),
       importColumns:
@@ -110,19 +118,38 @@ class FeatureState extends Equatable {
     );
   }
 
+  static const _deepEq = DeepCollectionEquality();
+
   @override
-  List<Object?> get props => [
-    featuresByLayer,
-    loadingByLayer,
-    loadedByLayer,
-    availableFieldsByLayer,
+  bool operator ==(Object other) {
+    return other is FeatureState &&
+        _deepEq.equals(other.featuresByLayer, featuresByLayer) &&
+        _deepEq.equals(other.loadingByLayer, loadingByLayer) &&
+        _deepEq.equals(other.loadedByLayer, loadedByLayer) &&
+        _deepEq.equals(other.availableFieldsByLayer, availableFieldsByLayer) &&
+        other.error == error &&
+        other.selected == selected &&
+        other.importStatus == importStatus &&
+        other.importCollectionPath == importCollectionPath &&
+        _deepEq.equals(other.importFeatures, importFeatures) &&
+        _deepEq.equals(other.importColumns, importColumns) &&
+        other.importProgress == importProgress &&
+        _deepEq.equals(other.importFieldMapping, importFieldMapping);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    _deepEq.hash(featuresByLayer),
+    _deepEq.hash(loadingByLayer),
+    _deepEq.hash(loadedByLayer),
+    _deepEq.hash(availableFieldsByLayer),
     error,
     selected,
     importStatus,
     importCollectionPath,
-    importFeatures,
-    importColumns,
+    _deepEq.hash(importFeatures),
+    _deepEq.hash(importColumns),
     importProgress,
-    importFieldMapping,
-  ];
+    _deepEq.hash(importFieldMapping),
+  );
 }

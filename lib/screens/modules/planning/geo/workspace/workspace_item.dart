@@ -8,15 +8,7 @@ import 'package:sipged/_widgets/resize/resize_handle.dart';
 import 'package:sipged/screens/modules/planning/geo/workspace/workspace_widgets.dart';
 
 class WorkspaceItem extends StatelessWidget {
-  const WorkspaceItem({
-    super.key,
-    required this.onItemChanged,
-    required this.onItemRemoved,
-  });
-
-  final void Function(String itemId, Offset newOffset, Size newSize)
-  onItemChanged;
-  final void Function(String itemId) onItemRemoved;
+  const WorkspaceItem({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,8 +21,6 @@ class WorkspaceItem extends StatelessWidget {
                 (itemId) => _WorkspaceItemNode(
               key: ValueKey(itemId),
               itemId: itemId,
-              onItemChanged: onItemChanged,
-              onItemRemoved: onItemRemoved,
             ),
           )
               .toList(growable: false),
@@ -44,14 +34,45 @@ class _WorkspaceItemNode extends StatelessWidget {
   const _WorkspaceItemNode({
     super.key,
     required this.itemId,
-    required this.onItemChanged,
-    required this.onItemRemoved,
   });
 
   final String itemId;
-  final void Function(String itemId, Offset newOffset, Size newSize)
-  onItemChanged;
-  final void Function(String itemId) onItemRemoved;
+
+  Object _buildVisualContentToken(WorkspaceData item, int dataVersion) {
+    return Object.hash(
+      item.id,
+      item.title,
+      item.type,
+      dataVersion,
+
+      item.resolvedTitle,
+      item.resolvedSubtitle,
+      item.resolvedLabel,
+      item.resolvedValue,
+
+      Object.hashAll(item.resolvedLabels ?? const <String>[]),
+      Object.hashAll(item.resolvedValues ?? const <double>[]),
+
+      item.properties.length,
+      Object.hashAll(
+        item.properties.map(
+              (p) => Object.hash(
+            p.key,
+            p.type,
+            p.textValue,
+            p.numberValue,
+            p.selectedValue,
+            p.bindingValue?.sourceId,
+            p.bindingValue?.sourceLabel,
+            p.bindingValue?.fieldName,
+            p.bindingValue?.aggregation,
+            p.bindingValue?.fieldValue,
+            Object.hashAll(p.bindingValue?.fieldValues ?? const []),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,8 +93,11 @@ class _WorkspaceItemNode extends StatelessWidget {
         final item = view.item;
         final cubit = context.read<WorkspaceCubit>();
 
+        // Importante:
+        // muda quando o conteúdo visual muda,
+        // mas NÃO muda por offset/size durante o drag.
         final contentKey =
-            '${item.id}_${item.type.name}_${item.size.width}_${item.size.height}_${item.properties.hashCode}_${view.dataVersion}';
+        _buildVisualContentToken(item, view.dataVersion).toString();
 
         return Positioned(
           left: item.offset.dx,
@@ -101,15 +125,9 @@ class _WorkspaceItemNode extends StatelessWidget {
                 );
               },
               onMoveEnd: (finalRect) {
-                final resolved = cubit.moveItemCommit(
+                cubit.moveItemCommit(
                   itemId: item.id,
                   desiredRect: finalRect,
-                );
-
-                onItemChanged(
-                  item.id,
-                  resolved.rect.topLeft,
-                  resolved.rect.size,
                 );
               },
               onResizeLive: (ResizeHandle handle, Rect desiredRect) {
@@ -120,21 +138,14 @@ class _WorkspaceItemNode extends StatelessWidget {
                 );
               },
               onResizeEnd: (ResizeHandle handle, Rect finalRect) {
-                final resolved = cubit.resizeItemCommit(
+                cubit.resizeItemCommit(
                   itemId: item.id,
                   desiredRect: finalRect,
                   handle: handle,
                 );
-
-                onItemChanged(
-                  item.id,
-                  resolved.rect.topLeft,
-                  resolved.rect.size,
-                );
               },
               onRemove: () {
-                cubit.removeItemLocal(item.id);
-                onItemRemoved(item.id);
+                cubit.removeItem(item.id);
               },
             ),
           ),

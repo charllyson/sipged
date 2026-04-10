@@ -116,6 +116,73 @@ class CatalogData {
     }
   }
 
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'icon': icon == null
+          ? null
+          : {
+        'codePoint': icon!.codePoint,
+        'fontFamily': icon!.fontFamily,
+        'fontPackage': icon!.fontPackage,
+        'matchTextDirection': icon!.matchTextDirection,
+      },
+      'category': category,
+      'description': description,
+      'key': key,
+      'label': label,
+      'type': type?.name,
+      'hint': hint,
+      'acceptsDrop': acceptsDrop,
+      'textValue': textValue,
+      'numberValue': numberValue,
+      'selectedValue': selectedValue,
+      'options': options,
+      'bindingValue': bindingValue?.toMap(),
+    };
+  }
+
+  factory CatalogData.fromMap(Map<String, dynamic> map) {
+    IconData? parsedIcon;
+    final rawIcon = map['icon'];
+    if (rawIcon is Map<String, dynamic>) {
+      parsedIcon = IconData(
+        rawIcon['codePoint'] as int,
+        fontFamily: rawIcon['fontFamily']?.toString(),
+        fontPackage: rawIcon['fontPackage']?.toString(),
+        matchTextDirection: rawIcon['matchTextDirection'] == true,
+      );
+    }
+
+    return CatalogData(
+      id: map['id']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      icon: parsedIcon,
+      category: map['category']?.toString(),
+      description: map['description']?.toString(),
+      key: map['key']?.toString(),
+      label: map['label']?.toString(),
+      type: map['type'] == null
+          ? null
+          : CatalogPropertyType.values.firstWhere(
+            (e) => e.name == map['type'],
+        orElse: () => CatalogPropertyType.text,
+      ),
+      hint: map['hint']?.toString(),
+      acceptsDrop: map['acceptsDrop'] == true,
+      textValue: map['textValue']?.toString(),
+      numberValue: (map['numberValue'] is num)
+          ? (map['numberValue'] as num).toDouble()
+          : double.tryParse(map['numberValue']?.toString() ?? ''),
+      selectedValue: map['selectedValue']?.toString(),
+      options: (map['options'] as List?)?.map((e) => e.toString()).toList(),
+      bindingValue: map['bindingValue'] is Map<String, dynamic>
+          ? AttributeData.fromMap(map['bindingValue'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+
   @override
   bool operator ==(Object other) {
     return other is CatalogData &&

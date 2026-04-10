@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -7,19 +8,22 @@ import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_repository.dart';
+import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_scope_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_state.dart';
 import 'package:sipged/_widgets/overlays/guides_lines/guide_lines_data.dart';
 import 'package:sipged/_widgets/resize/resize_handle.dart';
 
 class WorkspaceCubit extends Cubit<WorkspaceState> {
   WorkspaceCubit({
-    required List<WorkspaceData> initialItems,
+    required WorkspaceScopeData scope,
     required Map<String, List<FeatureData>> initialFeaturesByLayer,
     required this.repository,
+    List<WorkspaceData> initialItems = const [],
     this.snapThreshold = 10.0,
     this.panelPadding = 0.0,
   }) : super(
     WorkspaceState.initial(
+      scope: scope,
       items: repository.resolveAllItems(
         items: initialItems,
         featuresByLayer: initialFeaturesByLayer,
@@ -32,31 +36,99 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
   final double snapThreshold;
   final double panelPadding;
 
-  void syncExternalItems(List<WorkspaceData> items) {
-    final normalized = _normalizeItemsForPanel(items, state.panelSize);
-    final resolved = repository.resolveAllItems(
-      items: normalized,
-      featuresByLayer: state.featuresByLayer,
-      activeFilter: state.activeFilter,
-    );
+  Timer? _saveDebounce;
+  bool _dirty = false;
+  int _loadRequestId = 0;
 
-    if (listEquals(resolved, state.items)) return;
+  Future<void> loadScope({
+    WorkspaceScopeData? scope,
+    List<WorkspaceData> fallbackItems = const [],
+  }) async {
+    final nextScope = scope ?? state.scope;
+    final changingScope = nextScope != state.scope;
 
-    final selectedId = state.selectedItemId;
-    final stillExists =
-        selectedId != null && resolved.any((item) => item.id == selectedId);
+    if (changingScope) {
+      _saveDebounce?.cancel();
+      await _persistNow();
+    }
 
-    final activeFilter = state.activeFilter;
-    final filterStillExists = activeFilter != null &&
-        resolved.any((item) => item.id == activeFilter.sourceItemId);
+    final requestId = ++_loadRequestId;
+    final versionBeforeLoad = state.dataVersion;
 
     emit(
       state.copyWith(
-        items: resolved,
-        clearSelectedItem: !stillExists,
-        clearActiveFilter: !filterStillExists,
+        scope: nextScope,
+        isLoading: true,
+        clearGuides: true,
+        clearSelectedItem: true,
+        clearActiveFilter: true,
       ),
     );
+
+    try {
+      final persisted = await repository.loadWorkspace(scope: nextScope);
+
+      if (isClosed || requestId != _loadRequestId) return;
+
+      final hasLocalChangesDuringLoad =
+          state.scope == nextScope && state.dataVersion != versionBeforeLoad;
+
+      final usedFallback = !hasLocalChangesDuringLoad &&
+          persisted.isEmpty &&
+          fallbackItems.isNotEmpty;
+
+      final baseItems = hasLocalChangesDuringLoad
+          ? state.items
+          : (persisted.isNotEmpty ? persisted : fallbackItems);
+
+      final normalized = _normalizeItemsForPanel(baseItems, state.panelSize);
+      final resolved = repository.resolveAllItems(
+        items: normalized,
+        featuresByLayer: state.featuresByLayer,
+      );
+
+      emit(
+        state.copyWith(
+          scope: nextScope,
+          items: resolved,
+          isLoading: false,
+          loaded: true,
+          dataVersion: state.dataVersion + 1,
+          clearSelectedItem: true,
+          clearGuides: true,
+          clearActiveFilter: true,
+        ),
+      );
+
+      if (usedFallback) {
+        _schedulePersist();
+      }
+    } catch (_) {
+      if (isClosed || requestId != _loadRequestId) return;
+
+      final normalized = _normalizeItemsForPanel(fallbackItems, state.panelSize);
+      final resolved = repository.resolveAllItems(
+        items: normalized,
+        featuresByLayer: state.featuresByLayer,
+      );
+
+      emit(
+        state.copyWith(
+          scope: nextScope,
+          items: resolved,
+          isLoading: false,
+          loaded: true,
+          dataVersion: state.dataVersion + 1,
+          clearSelectedItem: true,
+          clearGuides: true,
+          clearActiveFilter: true,
+        ),
+      );
+
+      if (fallbackItems.isNotEmpty) {
+        _schedulePersist();
+      }
+    }
   }
 
   void syncExternalFeatures(Map<String, List<FeatureData>> featuresByLayer) {
@@ -81,6 +153,7 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     if (size == state.panelSize) return;
 
     final normalizedItems = _normalizeItemsForPanel(state.items, size);
+    final changed = !listEquals(normalizedItems, state.items);
 
     emit(
       state.copyWith(
@@ -88,6 +161,10 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
         items: normalizedItems,
       ),
     );
+
+    if (changed) {
+      _schedulePersist();
+    }
   }
 
   void selectItem(String itemId) {
@@ -135,7 +212,7 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
   }) {
     final item = state.itemByIdOrNull(itemId);
     if (item == null) return;
-    if (item.type != CatalogType.barVertical) return;
+    if (item.type.name != 'barVertical') return;
 
     final nextFilter = repository.toggleBarFilter(
       item: item,
@@ -159,7 +236,134 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     );
   }
 
-  void removeItemLocal(String itemId) {
+  void addItem(WorkspaceData item) {
+    final normalizedItem = _normalizeItemForPanel(item, state.panelSize);
+
+    final resolvedItems = repository.resolveAllItems(
+      items: [...state.items, normalizedItem],
+      featuresByLayer: state.featuresByLayer,
+      activeFilter: state.activeFilter,
+    );
+
+    emit(
+      state.copyWith(
+        items: resolvedItems,
+        selectedItemId: normalizedItem.id,
+        clearGuides: true,
+        dataVersion: state.dataVersion + 1,
+      ),
+    );
+
+    _schedulePersist();
+  }
+
+  void updateItemGeometry({
+    required String itemId,
+    required Offset offset,
+    required Size size,
+    bool persist = true,
+  }) {
+    final current = state.itemByIdOrNull(itemId);
+    if (current == null) return;
+
+    final updated = _normalizeItemForPanel(
+      current.copyWith(
+        offset: offset,
+        size: size,
+      ),
+      state.panelSize,
+    );
+
+    if (updated == current) return;
+
+    final nextItems = state.items.map((item) {
+      if (item.id != itemId) return item;
+      return updated;
+    }).toList(growable: false);
+
+    final resolved = repository.resolveAllItems(
+      items: nextItems,
+      featuresByLayer: state.featuresByLayer,
+      activeFilter: state.activeFilter,
+    );
+
+    emit(
+      state.copyWith(
+        items: resolved,
+        clearGuides: true,
+        dataVersion: state.dataVersion + 1,
+      ),
+    );
+
+    if (persist) {
+      _schedulePersist();
+    }
+  }
+
+  void updateItemProperty({
+    required String itemId,
+    required String propertyKey,
+    required CatalogData property,
+  }) {
+    final current = state.itemByIdOrNull(itemId);
+    if (current == null) return;
+
+    final updated = current.copyWithUpdatedProperty(propertyKey, property);
+    if (updated == current) return;
+
+    final nextItems = state.items.map((item) {
+      if (item.id != itemId) return item;
+      return updated;
+    }).toList(growable: false);
+
+    final resolved = repository.resolveAllItems(
+      items: nextItems,
+      featuresByLayer: state.featuresByLayer,
+      activeFilter: state.activeFilter,
+    );
+
+    emit(
+      state.copyWith(
+        items: resolved,
+        dataVersion: state.dataVersion + 1,
+      ),
+    );
+
+    _schedulePersist();
+  }
+
+  void updateItemProperties({
+    required String itemId,
+    required List<CatalogData> properties,
+  }) {
+    final current = state.itemByIdOrNull(itemId);
+    if (current == null) return;
+
+    final updated = current.copyWith(properties: properties);
+    if (updated == current) return;
+
+    final nextItems = state.items.map((item) {
+      if (item.id != itemId) return item;
+      return updated;
+    }).toList(growable: false);
+
+    final resolved = repository.resolveAllItems(
+      items: nextItems,
+      featuresByLayer: state.featuresByLayer,
+      activeFilter: state.activeFilter,
+    );
+
+    emit(
+      state.copyWith(
+        items: resolved,
+        dataVersion: state.dataVersion + 1,
+      ),
+    );
+
+    _schedulePersist();
+  }
+
+  void removeItem(String itemId) {
     final nextItems =
     state.items.where((item) => item.id != itemId).toList(growable: false);
 
@@ -181,6 +385,8 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
         dataVersion: state.dataVersion + 1,
       ),
     );
+
+    _schedulePersist();
   }
 
   GuideLinesResolvedRect moveItemLive({
@@ -216,6 +422,7 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
       guides: null,
     );
 
+    _schedulePersist();
     return resolved;
   }
 
@@ -256,6 +463,7 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
       guides: null,
     );
 
+    _schedulePersist();
     return resolved;
   }
 
@@ -291,6 +499,32 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     );
   }
 
+  WorkspaceData _normalizeItemForPanel(
+      WorkspaceData item,
+      Size panelSize,
+      ) {
+    if (panelSize.isEmpty) return item;
+
+    final rect = clampRect(
+      rect: Rect.fromLTWH(
+        item.offset.dx,
+        item.offset.dy,
+        item.size.width,
+        item.size.height,
+      ),
+      panelSize: panelSize,
+    );
+
+    if (rect.topLeft == item.offset && rect.size == item.size) {
+      return item;
+    }
+
+    return item.copyWith(
+      offset: rect.topLeft,
+      size: rect.size,
+    );
+  }
+
   List<WorkspaceData> _normalizeItemsForPanel(
       List<WorkspaceData> items,
       Size panelSize,
@@ -299,26 +533,9 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
       return List<WorkspaceData>.from(items);
     }
 
-    return items.map((item) {
-      final rect = clampRect(
-        rect: Rect.fromLTWH(
-          item.offset.dx,
-          item.offset.dy,
-          item.size.width,
-          item.size.height,
-        ),
-        panelSize: panelSize,
-      );
-
-      if (rect.topLeft == item.offset && rect.size == item.size) {
-        return item;
-      }
-
-      return item.copyWith(
-        offset: rect.topLeft,
-        size: rect.size,
-      );
-    }).toList(growable: false);
+    return items
+        .map((item) => _normalizeItemForPanel(item, panelSize))
+        .toList(growable: false);
   }
 
   bool _sameFeaturesMap(
@@ -336,6 +553,30 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
     }
 
     return true;
+  }
+
+  void _schedulePersist() {
+    _dirty = true;
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 400), _persistNow);
+  }
+
+  Future<void> _persistNow() async {
+    if (!_dirty || isClosed) return;
+    _dirty = false;
+
+    emit(state.copyWith(isSaving: true));
+
+    try {
+      await repository.saveWorkspace(
+        scope: state.scope,
+        items: state.items,
+      );
+    } finally {
+      if (!isClosed) {
+        emit(state.copyWith(isSaving: false));
+      }
+    }
   }
 
   GuideLinesResolvedRect _resolveMoveSnap({
@@ -697,5 +938,12 @@ class WorkspaceCubit extends Cubit<WorkspaceState> {
       width.toDouble(),
       height.toDouble(),
     );
+  }
+
+  @override
+  Future<void> close() async {
+    _saveDebounce?.cancel();
+    await _persistNow();
+    return super.close();
   }
 }

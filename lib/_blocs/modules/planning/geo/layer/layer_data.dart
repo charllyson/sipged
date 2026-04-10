@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_labels.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_rule.dart';
@@ -15,7 +16,6 @@ enum LayerSimpleSymbolType {
   svgMarker,
   simpleMarker,
 }
-
 
 enum LayerRuleOperator {
   equals,
@@ -73,6 +73,7 @@ extension LayerGeometryKindX on LayerGeometryKind {
   }
 }
 
+@immutable
 class LayerData {
   final String id;
   final String title;
@@ -121,7 +122,6 @@ class LayerData {
   String? get effectiveCollectionPath {
     final raw = collectionPath?.trim() ?? '';
     if (raw.isNotEmpty) return raw;
-
     if (isGroup || !supportsConnect) return null;
     return 'geo/catalog/layers/$id/features';
   }
@@ -139,9 +139,7 @@ class LayerData {
     ];
   }
 
-  List<LayerDataLabel> get effectiveLabelLayers {
-    return labelLayers;
-  }
+  List<LayerDataLabel> get effectiveLabelLayers => labelLayers;
 
   LayerDataSimple? get topVisibleSymbol {
     if (rendererType == LayerRendererType.ruleBased) {
@@ -248,18 +246,20 @@ class LayerData {
       'colorValue': colorValue,
       'defaultVisible': defaultVisible,
       'isGroup': isGroup,
-      'children': children.map((e) => e.toMap()).toList(),
+      'children': children.map((e) => e.toMap()).toList(growable: false),
       'collectionPath': collectionPath,
       'geometryKind': geometryKind.name,
       'supportsConnect': supportsConnect,
       'isTemporary': isTemporary,
       'isSystem': isSystem,
       'rendererType': rendererType.name,
-      'symbolLayers': symbolLayers.map((e) => e.toMap()).toList(),
-      'ruleBasedSymbols': ruleBasedSymbols.map((e) => e.toMap()).toList(),
+      'symbolLayers': symbolLayers.map((e) => e.toMap()).toList(growable: false),
+      'ruleBasedSymbols':
+      ruleBasedSymbols.map((e) => e.toMap()).toList(growable: false),
       'labelRendererType': labelRendererType.name,
-      'labelLayers': labelLayers.map((e) => e.toMap()).toList(),
-      'ruleBasedLabels': ruleBasedLabels.map((e) => e.toMap()).toList(),
+      'labelLayers': labelLayers.map((e) => e.toMap()).toList(growable: false),
+      'ruleBasedLabels':
+      ruleBasedLabels.map((e) => e.toMap()).toList(growable: false),
     };
   }
 
@@ -496,4 +496,49 @@ class LayerData {
   static List<LayerData> bootstrapTree() {
     return const [];
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is LayerData &&
+        other.id == id &&
+        other.title == title &&
+        other.iconKey == iconKey &&
+        other.colorValue == colorValue &&
+        other.defaultVisible == defaultVisible &&
+        other.isGroup == isGroup &&
+        listEquals(other.children, children) &&
+        other.collectionPath == collectionPath &&
+        other.geometryKind == geometryKind &&
+        other.supportsConnect == supportsConnect &&
+        other.isTemporary == isTemporary &&
+        other.isSystem == isSystem &&
+        other.rendererType == rendererType &&
+        listEquals(other.symbolLayers, symbolLayers) &&
+        listEquals(other.ruleBasedSymbols, ruleBasedSymbols) &&
+        other.labelRendererType == labelRendererType &&
+        listEquals(other.labelLayers, labelLayers) &&
+        listEquals(other.ruleBasedLabels, ruleBasedLabels);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    iconKey,
+    colorValue,
+    defaultVisible,
+    isGroup,
+    Object.hashAll(children),
+    collectionPath,
+    geometryKind,
+    supportsConnect,
+    isTemporary,
+    isSystem,
+    rendererType,
+    Object.hashAll(symbolLayers),
+    Object.hashAll(ruleBasedSymbols),
+    labelRendererType,
+    Object.hashAll(labelLayers),
+    Object.hashAll(ruleBasedLabels),
+  );
 }

@@ -1,11 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../layer/layer_data.dart';
 import 'feature_data.dart';
 import 'feature_repository.dart';
 import 'feature_state.dart';
-import '../layer/layer_data.dart';
 
 class FeatureCubit extends Cubit<FeatureState> {
   FeatureCubit({
@@ -14,6 +16,43 @@ class FeatureCubit extends Cubit<FeatureState> {
         super(const FeatureState());
 
   final FeatureRepository _repository;
+
+  final Map<String, Future<void>> _inFlightLayerLoads = {};
+  final Map<String, Future<List<String>>> _inFlightFieldLoads = {};
+
+  void _emitIfChanged(FeatureState next) {
+    if (next != state) emit(next);
+  }
+
+  Map<String, bool> _setLoadingFlag(String layerId, bool value) {
+    final next = Map<String, bool>.from(state.loadingByLayer);
+    next[layerId] = value;
+    return Map<String, bool>.unmodifiable(next);
+  }
+
+  Map<String, bool> _setLoadedFlag(String layerId, bool value) {
+    final next = Map<String, bool>.from(state.loadedByLayer);
+    next[layerId] = value;
+    return Map<String, bool>.unmodifiable(next);
+  }
+
+  Map<String, List<FeatureData>> _setFeaturesForLayer(
+      String layerId,
+      List<FeatureData> features,
+      ) {
+    final next = Map<String, List<FeatureData>>.from(state.featuresByLayer);
+    next[layerId] = List<FeatureData>.unmodifiable(features);
+    return Map<String, List<FeatureData>>.unmodifiable(next);
+  }
+
+  Map<String, List<String>> _setAvailableFieldsForLayer(
+      String layerId,
+      List<String> fields,
+      ) {
+    final next = Map<String, List<String>>.from(state.availableFieldsByLayer);
+    next[layerId] = List<String>.unmodifiable(fields);
+    return Map<String, List<String>>.unmodifiable(next);
+  }
 
   Future<void> ensureLayerLoaded(
       LayerData layer, {
@@ -25,17 +64,43 @@ class FeatureCubit extends Cubit<FeatureState> {
     final alreadyLoaded = state.loadedByLayer[layer.id] == true;
     final isLoading = state.loadingByLayer[layer.id] == true;
 
-    if (!force && (alreadyLoaded || isLoading)) return;
+    if (!force && alreadyLoaded) return;
 
-    final loadingMap = Map<String, bool>.from(state.loadingByLayer);
-    loadingMap[layer.id] = true;
+    if (!force) {
+      final inFlight = _inFlightLayerLoads[layer.id];
+      if (inFlight != null) return inFlight;
+      if (isLoading) return;
+    }
 
-    emit(
-      state.copyWith(
-        loadingByLayer: loadingMap,
-        clearError: true,
-      ),
+    final future = _ensureLayerLoadedInternal(
+      layer: layer,
+      path: path,
+      force: force,
     );
+
+    _inFlightLayerLoads[layer.id] = future;
+
+    try {
+      await future;
+    } finally {
+      _inFlightLayerLoads.remove(layer.id);
+    }
+  }
+
+  Future<void> _ensureLayerLoadedInternal({
+    required LayerData layer,
+    required String path,
+    required bool force,
+  }) async {
+    final currentlyLoading = state.loadingByLayer[layer.id] == true;
+    if (!currentlyLoading) {
+      _emitIfChanged(
+        state.copyWith(
+          loadingByLayer: _setLoadingFlag(layer.id, true),
+          clearError: true,
+        ),
+      );
+    }
 
     try {
       final features = await _repository.loadFeatures(
@@ -43,19 +108,13 @@ class FeatureCubit extends Cubit<FeatureState> {
         collectionPath: path,
       );
 
-      final nextFeatures =
-      Map<String, List<FeatureData>>.from(state.featuresByLayer);
-      nextFeatures[layer.id] = features;
-
-      final nextLoading = Map<String, bool>.from(state.loadingByLayer);
-      nextLoading[layer.id] = false;
-
-      final nextLoaded = Map<String, bool>.from(state.loadedByLayer);
-      nextLoaded[layer.id] = true;
-
-      final nextAvailableFields =
-      Map<String, List<String>>.from(state.availableFieldsByLayer);
-      nextAvailableFields[layer.id] = _extractFieldsFromFeatures(features);
+      final nextFeatures = _setFeaturesForLayer(layer.id, features);
+      final nextLoading = _setLoadingFlag(layer.id, false);
+      final nextLoaded = _setLoadedFlag(layer.id, true);
+      final nextAvailableFields = _setAvailableFieldsForLayer(
+        layer.id,
+        _extractFieldsFromFeatures(features),
+      );
 
       final currentSelection = state.selected;
       final shouldClearSelection = currentSelection != null &&
@@ -65,7 +124,7 @@ class FeatureCubit extends Cubit<FeatureState> {
             feature.selectionKey == currentSelection.feature.selectionKey,
           );
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
           featuresByLayer: nextFeatures,
           loadingByLayer: nextLoading,
@@ -76,12 +135,9 @@ class FeatureCubit extends Cubit<FeatureState> {
         ),
       );
     } catch (e) {
-      final nextLoading = Map<String, bool>.from(state.loadingByLayer);
-      nextLoading[layer.id] = false;
-
-      emit(
+      _emitIfChanged(
         state.copyWith(
-          loadingByLayer: nextLoading,
+          loadingByLayer: _setLoadingFlag(layer.id, false),
           error: e.toString(),
         ),
       );
@@ -100,25 +156,51 @@ class FeatureCubit extends Cubit<FeatureState> {
       return cached;
     }
 
+    if (!force) {
+      final inFlight = _inFlightFieldLoads[layer.id];
+      if (inFlight != null) return inFlight;
+    }
+
+    final future = _ensureLayerFieldNamesInternal(
+      layerId: layer.id,
+      path: path,
+    );
+
+    _inFlightFieldLoads[layer.id] = future;
+
+    try {
+      return await future;
+    } finally {
+      _inFlightFieldLoads.remove(layer.id);
+    }
+  }
+
+  Future<List<String>> _ensureLayerFieldNamesInternal({
+    required String layerId,
+    required String path,
+  }) async {
     try {
       final fieldNames = await _repository.loadFieldNames(
         collectionPath: path,
       );
 
-      final nextFields =
-      Map<String, List<String>>.from(state.availableFieldsByLayer);
-      nextFields[layer.id] = fieldNames;
+      final current = state.availableFieldsByLayer[layerId];
+      if (current != null &&
+          current.length == fieldNames.length &&
+          _sameOrderedStrings(current, fieldNames)) {
+        return current;
+      }
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
-          availableFieldsByLayer: nextFields,
+          availableFieldsByLayer: _setAvailableFieldsForLayer(layerId, fieldNames),
           clearError: true,
         ),
       );
 
       return fieldNames;
     } catch (e) {
-      emit(
+      _emitIfChanged(
         state.copyWith(
           error: e.toString(),
         ),
@@ -139,36 +221,18 @@ class FeatureCubit extends Cubit<FeatureState> {
     final path = (layer.effectiveCollectionPath ?? '').trim();
     if (path.isEmpty || layer.isGroup || points.isEmpty) return;
 
-    final loadingMap = Map<String, bool>.from(state.loadingByLayer);
-    loadingMap[layer.id] = true;
-
-    emit(
-      state.copyWith(
-        loadingByLayer: loadingMap,
-        clearError: true,
-      ),
+    await _runLayerMutation(
+      layerId: layer.id,
+      action: () async {
+        await _repository.addPointFeaturesBatch(
+          layerId: layer.id,
+          collectionPath: path,
+          points: points,
+          commonProperties: commonProperties,
+        );
+        await ensureLayerLoaded(layer, force: true);
+      },
     );
-
-    try {
-      await _repository.addPointFeaturesBatch(
-        layerId: layer.id,
-        collectionPath: path,
-        points: points,
-        commonProperties: commonProperties,
-      );
-
-      await ensureLayerLoaded(layer, force: true);
-    } catch (e) {
-      final nextLoading = Map<String, bool>.from(state.loadingByLayer);
-      nextLoading[layer.id] = false;
-
-      emit(
-        state.copyWith(
-          loadingByLayer: nextLoading,
-          error: e.toString(),
-        ),
-      );
-    }
   }
 
   Future<void> addLineFeaturesBatch({
@@ -181,36 +245,18 @@ class FeatureCubit extends Cubit<FeatureState> {
 
     if (path.isEmpty || layer.isGroup || validLines.isEmpty) return;
 
-    final loadingMap = Map<String, bool>.from(state.loadingByLayer);
-    loadingMap[layer.id] = true;
-
-    emit(
-      state.copyWith(
-        loadingByLayer: loadingMap,
-        clearError: true,
-      ),
+    await _runLayerMutation(
+      layerId: layer.id,
+      action: () async {
+        await _repository.addLineFeaturesBatch(
+          layerId: layer.id,
+          collectionPath: path,
+          lines: validLines,
+          commonProperties: commonProperties,
+        );
+        await ensureLayerLoaded(layer, force: true);
+      },
     );
-
-    try {
-      await _repository.addLineFeaturesBatch(
-        layerId: layer.id,
-        collectionPath: path,
-        lines: validLines,
-        commonProperties: commonProperties,
-      );
-
-      await ensureLayerLoaded(layer, force: true);
-    } catch (e) {
-      final nextLoading = Map<String, bool>.from(state.loadingByLayer);
-      nextLoading[layer.id] = false;
-
-      emit(
-        state.copyWith(
-          loadingByLayer: nextLoading,
-          error: e.toString(),
-        ),
-      );
-    }
   }
 
   Future<void> addPolygonFeaturesBatch({
@@ -224,61 +270,77 @@ class FeatureCubit extends Cubit<FeatureState> {
 
     if (path.isEmpty || layer.isGroup || validPolygons.isEmpty) return;
 
-    final loadingMap = Map<String, bool>.from(state.loadingByLayer);
-    loadingMap[layer.id] = true;
-
-    emit(
-      state.copyWith(
-        loadingByLayer: loadingMap,
-        clearError: true,
-      ),
+    await _runLayerMutation(
+      layerId: layer.id,
+      action: () async {
+        await _repository.addPolygonFeaturesBatch(
+          layerId: layer.id,
+          collectionPath: path,
+          polygons: validPolygons,
+          commonProperties: commonProperties,
+        );
+        await ensureLayerLoaded(layer, force: true);
+      },
     );
+  }
 
-    try {
-      await _repository.addPolygonFeaturesBatch(
-        layerId: layer.id,
-        collectionPath: path,
-        polygons: validPolygons,
-        commonProperties: commonProperties,
-      );
-
-      await ensureLayerLoaded(layer, force: true);
-    } catch (e) {
-      final nextLoading = Map<String, bool>.from(state.loadingByLayer);
-      nextLoading[layer.id] = false;
-
-      emit(
+  Future<void> _runLayerMutation({
+    required String layerId,
+    required Future<void> Function() action,
+  }) async {
+    final currentlyLoading = state.loadingByLayer[layerId] == true;
+    if (!currentlyLoading) {
+      _emitIfChanged(
         state.copyWith(
-          loadingByLayer: nextLoading,
-          error: e.toString(),
+          loadingByLayer: _setLoadingFlag(layerId, true),
+          clearError: true,
         ),
       );
     }
+
+    try {
+      await action();
+    } catch (e) {
+      _emitIfChanged(
+        state.copyWith(
+          loadingByLayer: _setLoadingFlag(layerId, false),
+          error: e.toString(),
+        ),
+      );
+      return;
+    }
+
+    _emitIfChanged(
+      state.copyWith(
+        loadingByLayer: _setLoadingFlag(layerId, false),
+        clearError: true,
+      ),
+    );
   }
 
   void unloadLayer(String layerId) {
-    final nextFeatures =
-    Map<String, List<FeatureData>>.from(state.featuresByLayer);
-    nextFeatures.remove(layerId);
+    final nextFeatures = Map<String, List<FeatureData>>.from(state.featuresByLayer)
+      ..remove(layerId);
 
-    final nextLoaded = Map<String, bool>.from(state.loadedByLayer);
-    nextLoaded.remove(layerId);
+    final nextLoaded = Map<String, bool>.from(state.loadedByLayer)
+      ..remove(layerId);
 
-    final nextLoading = Map<String, bool>.from(state.loadingByLayer);
-    nextLoading.remove(layerId);
+    final nextLoading = Map<String, bool>.from(state.loadingByLayer)
+      ..remove(layerId);
 
     final nextAvailableFields =
-    Map<String, List<String>>.from(state.availableFieldsByLayer);
-    nextAvailableFields.remove(layerId);
+    Map<String, List<String>>.from(state.availableFieldsByLayer)
+      ..remove(layerId);
 
     final clearSelection = state.selected?.layerId == layerId;
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
-        featuresByLayer: nextFeatures,
-        loadedByLayer: nextLoaded,
-        loadingByLayer: nextLoading,
-        availableFieldsByLayer: nextAvailableFields,
+        featuresByLayer: Map<String, List<FeatureData>>.unmodifiable(nextFeatures),
+        loadedByLayer: Map<String, bool>.unmodifiable(nextLoaded),
+        loadingByLayer: Map<String, bool>.unmodifiable(nextLoading),
+        availableFieldsByLayer:
+        Map<String, List<String>>.unmodifiable(nextAvailableFields),
         clearSelection: clearSelection,
         clearError: true,
       ),
@@ -286,7 +348,9 @@ class FeatureCubit extends Cubit<FeatureState> {
   }
 
   void clearSelection() {
-    emit(
+    if (state.selected == null && state.error == null) return;
+
+    _emitIfChanged(
       state.copyWith(
         clearSelection: true,
         clearError: true,
@@ -298,19 +362,23 @@ class FeatureCubit extends Cubit<FeatureState> {
     required String layerId,
     required FeatureData feature,
   }) {
-    emit(
+    final nextSelection = LayerSelection(
+      layerId: layerId,
+      feature: feature,
+    );
+
+    if (state.selected == nextSelection && state.error == null) return;
+
+    _emitIfChanged(
       state.copyWith(
-        selected: LayerSelection(
-          layerId: layerId,
-          feature: feature,
-        ),
+        selected: nextSelection,
         clearError: true,
       ),
     );
   }
 
   Future<void> startImport(String collectionPath) async {
-    emit(
+    _emitIfChanged(
       state.copyWith(
         importStatus: FeatureImportStatus.pickingFile,
         importCollectionPath: collectionPath,
@@ -326,7 +394,7 @@ class FeatureCubit extends Cubit<FeatureState> {
       final raw = await _repository.pickAndParseRawFeatures();
       final result = _repository.buildImportedFeatures(raw);
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
           importStatus: FeatureImportStatus.previewReady,
           importFeatures: result.$1,
@@ -341,7 +409,7 @@ class FeatureCubit extends Cubit<FeatureState> {
   }
 
   Future<void> startFromFirestore(String collectionPath) async {
-    emit(
+    _emitIfChanged(
       state.copyWith(
         importStatus: FeatureImportStatus.loadingFirestore,
         importCollectionPath: collectionPath,
@@ -359,7 +427,7 @@ class FeatureCubit extends Cubit<FeatureState> {
         limit: 1500,
       );
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
           importStatus: FeatureImportStatus.previewReady,
           importFeatures: result.$1,
@@ -374,7 +442,16 @@ class FeatureCubit extends Cubit<FeatureState> {
   }
 
   void clearImportSession() {
-    emit(
+    if (state.importStatus == FeatureImportStatus.idle &&
+        state.importCollectionPath == null &&
+        state.importFeatures.isEmpty &&
+        state.importColumns.isEmpty &&
+        state.importFieldMapping.isEmpty &&
+        state.importProgress == 0.0) {
+      return;
+    }
+
+    _emitIfChanged(
       state.copyWith(
         clearImportSession: true,
         clearError: true,
@@ -384,13 +461,14 @@ class FeatureCubit extends Cubit<FeatureState> {
 
   void toggleRowSelection(int index, bool selected) {
     if (index < 0 || index >= state.importFeatures.length) return;
+    if (state.importFeatures[index].selected == selected) return;
 
-    final list = [...state.importFeatures];
+    final list = List<FeatureData>.from(state.importFeatures);
     list[index] = list[index].copyWith(selected: selected);
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
-        importFeatures: list,
+        importFeatures: List<FeatureData>.unmodifiable(list),
         clearError: true,
       ),
     );
@@ -398,13 +476,14 @@ class FeatureCubit extends Cubit<FeatureState> {
 
   void toggleColumnSelection(int index, bool selected) {
     if (index < 0 || index >= state.importColumns.length) return;
+    if (state.importColumns[index].selected == selected) return;
 
-    final cols = [...state.importColumns];
+    final cols = List<ImportColumnMeta>.from(state.importColumns);
     cols[index] = cols[index].copyWith(selected: selected);
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
-        importColumns: cols,
+        importColumns: List<ImportColumnMeta>.unmodifiable(cols),
         clearError: true,
       ),
     );
@@ -416,7 +495,7 @@ class FeatureCubit extends Cubit<FeatureState> {
     final trimmed = newName.trim();
     if (trimmed.isEmpty) return;
 
-    final cols = [...state.importColumns];
+    final cols = List<ImportColumnMeta>.from(state.importColumns);
     final oldName = cols[index].name;
 
     if (trimmed == oldName) return;
@@ -426,7 +505,7 @@ class FeatureCubit extends Cubit<FeatureState> {
     );
 
     if (exists) {
-      emit(
+      _emitIfChanged(
         state.copyWith(
           importStatus: FeatureImportStatus.failure,
           error: 'Já existe uma coluna com o nome "$trimmed".',
@@ -459,11 +538,11 @@ class FeatureCubit extends Cubit<FeatureState> {
     final newMapping = Map<String, String>.from(state.importFieldMapping)
       ..updateAll((_, value) => value == oldName ? trimmed : value);
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
-        importColumns: cols,
-        importFeatures: feats,
-        importFieldMapping: newMapping,
+        importColumns: List<ImportColumnMeta>.unmodifiable(cols),
+        importFeatures: List<FeatureData>.unmodifiable(feats),
+        importFieldMapping: Map<String, String>.unmodifiable(newMapping),
         clearError: true,
       ),
     );
@@ -471,8 +550,9 @@ class FeatureCubit extends Cubit<FeatureState> {
 
   void changeColumnType(int index, TypeFieldGeoJson newType) {
     if (index < 0 || index >= state.importColumns.length) return;
+    if (state.importColumns[index].type == newType) return;
 
-    final cols = [...state.importColumns];
+    final cols = List<ImportColumnMeta>.from(state.importColumns);
     final colName = cols[index].name;
     cols[index] = cols[index].copyWith(type: newType);
 
@@ -482,10 +562,10 @@ class FeatureCubit extends Cubit<FeatureState> {
       return feature.copyWith(columnTypes: newTypes);
     }).toList(growable: false);
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
-        importColumns: cols,
-        importFeatures: feats,
+        importColumns: List<ImportColumnMeta>.unmodifiable(cols),
+        importFeatures: List<FeatureData>.unmodifiable(feats),
         clearError: true,
       ),
     );
@@ -493,17 +573,19 @@ class FeatureCubit extends Cubit<FeatureState> {
 
   void setFieldMapping(String targetField, String? sourceColumn) {
     final map = Map<String, String>.from(state.importFieldMapping);
-
     final value = sourceColumn?.trim();
+
     if (value == null || value.isEmpty) {
+      if (!map.containsKey(targetField)) return;
       map.remove(targetField);
     } else {
+      if (map[targetField] == value) return;
       map[targetField] = value;
     }
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
-        importFieldMapping: map,
+        importFieldMapping: Map<String, String>.unmodifiable(map),
         clearError: true,
       ),
     );
@@ -515,7 +597,7 @@ class FeatureCubit extends Cubit<FeatureState> {
     final path = state.importCollectionPath?.trim();
     if (path == null || path.isEmpty) return;
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
         importStatus: FeatureImportStatus.saving,
         importProgress: 0.0,
@@ -528,7 +610,7 @@ class FeatureCubit extends Cubit<FeatureState> {
       state.importColumns.where((c) => c.selected).toList(growable: false);
 
       if (selectedCols.isEmpty) {
-        emit(
+        _emitIfChanged(
           state.copyWith(
             importStatus: FeatureImportStatus.failure,
             error: 'Nenhuma coluna selecionada para salvar.',
@@ -541,7 +623,7 @@ class FeatureCubit extends Cubit<FeatureState> {
       state.importFeatures.where((f) => f.selected).toList(growable: false);
 
       if (selectedRows.isEmpty) {
-        emit(
+        _emitIfChanged(
           state.copyWith(
             importStatus: FeatureImportStatus.failure,
             error: 'Nenhuma linha selecionada para salvar.',
@@ -575,15 +657,22 @@ class FeatureCubit extends Cubit<FeatureState> {
         );
       }).toList(growable: false);
 
+      double lastProgress = -1;
+
       await _repository.saveFeaturesToCollection(
         collectionPath: path,
         features: prepared,
         onProgress: (progress) {
-          emit(state.copyWith(importProgress: progress));
+          final normalized = progress.clamp(0.0, 1.0);
+          if ((normalized - lastProgress).abs() < 0.01 && normalized < 1.0) {
+            return;
+          }
+          lastProgress = normalized;
+          _emitIfChanged(state.copyWith(importProgress: normalized));
         },
       );
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
           importStatus: FeatureImportStatus.success,
           importProgress: 1.0,
@@ -603,11 +692,13 @@ class FeatureCubit extends Cubit<FeatureState> {
     state.importFeatures.where((f) => f.selected).toList(growable: false);
     if (selected.isEmpty) return;
 
-    final ids =
-    selected.map((f) => f.id).whereType<String>().toList(growable: false);
+    final ids = selected
+        .map((f) => f.id)
+        .whereType<String>()
+        .toList(growable: false);
     if (ids.isEmpty) return;
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
         importStatus: FeatureImportStatus.deleting,
         importProgress: 0.0,
@@ -616,22 +707,30 @@ class FeatureCubit extends Cubit<FeatureState> {
     );
 
     try {
+      double lastProgress = -1;
+
       await _repository.deleteFeaturesFromCollection(
         collectionPath: path,
         docIds: ids,
         onProgress: (progress) {
-          emit(state.copyWith(importProgress: progress));
+          final normalized = progress.clamp(0.0, 1.0);
+          if ((normalized - lastProgress).abs() < 0.01 && normalized < 1.0) {
+            return;
+          }
+          lastProgress = normalized;
+          _emitIfChanged(state.copyWith(importProgress: normalized));
         },
       );
 
+      final idSet = ids.toSet();
       final remaining = state.importFeatures
-          .where((feature) => !ids.contains(feature.id))
+          .where((feature) => !idSet.contains(feature.id))
           .toList(growable: false);
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
           importStatus: FeatureImportStatus.previewReady,
-          importFeatures: remaining,
+          importFeatures: List<FeatureData>.unmodifiable(remaining),
           importProgress: 0.0,
           clearError: true,
         ),
@@ -695,11 +794,21 @@ class FeatureCubit extends Cubit<FeatureState> {
     }
 
     final result = keys.toList()..sort();
-    return result;
+    return List<String>.unmodifiable(result);
+  }
+
+  bool _sameOrderedStrings(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   void _emitFailure(Object error) {
-    emit(
+    _emitIfChanged(
       state.copyWith(
         importStatus: FeatureImportStatus.failure,
         error: error.toString(),

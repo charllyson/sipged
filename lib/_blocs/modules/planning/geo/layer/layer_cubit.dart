@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_repository.dart';
@@ -17,8 +18,12 @@ class LayerCubit extends Cubit<LayerState> {
   int _groupSequence = 1;
   int _layerSequence = 1;
 
+  void _emitIfChanged(LayerState next) {
+    if (next != state) emit(next);
+  }
+
   Future<void> load() async {
-    emit(
+    _emitIfChanged(
       state.copyWith(
         isLoading: true,
         clearError: true,
@@ -27,13 +32,12 @@ class LayerCubit extends Cubit<LayerState> {
 
     try {
       final tree = await _repository.loadTree();
-
       final syncedActiveIds = _syncActiveIdsWithTree(
         currentActiveIds: state.activeLayerIds,
         tree: tree,
       );
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
           tree: List<LayerData>.unmodifiable(tree),
           activeLayerIds: Set<String>.unmodifiable(syncedActiveIds),
@@ -45,7 +49,7 @@ class LayerCubit extends Cubit<LayerState> {
 
       await refreshAllLayerData(tree, force: false);
     } catch (e) {
-      emit(
+      _emitIfChanged(
         state.copyWith(
           isLoading: false,
           error: e.toString(),
@@ -60,10 +64,13 @@ class LayerCubit extends Cubit<LayerState> {
       tree: tree,
     );
 
-    emit(
+    final immutableTree = List<LayerData>.unmodifiable(tree);
+    final immutableActiveIds = Set<String>.unmodifiable(syncedActiveIds);
+
+    _emitIfChanged(
       state.copyWith(
-        tree: List<LayerData>.unmodifiable(tree),
-        activeLayerIds: Set<String>.unmodifiable(syncedActiveIds),
+        tree: immutableTree,
+        activeLayerIds: immutableActiveIds,
         isSaving: true,
         clearError: true,
       ),
@@ -72,10 +79,10 @@ class LayerCubit extends Cubit<LayerState> {
     try {
       await _repository.saveTree(tree);
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
-          tree: List<LayerData>.unmodifiable(tree),
-          activeLayerIds: Set<String>.unmodifiable(syncedActiveIds),
+          tree: immutableTree,
+          activeLayerIds: immutableActiveIds,
           isSaving: false,
           loaded: true,
           clearError: true,
@@ -84,10 +91,10 @@ class LayerCubit extends Cubit<LayerState> {
 
       await refreshAllLayerData(tree, force: false);
     } catch (e) {
-      emit(
+      _emitIfChanged(
         state.copyWith(
-          tree: List<LayerData>.unmodifiable(tree),
-          activeLayerIds: Set<String>.unmodifiable(syncedActiveIds),
+          tree: immutableTree,
+          activeLayerIds: immutableActiveIds,
           isSaving: false,
           error: e.toString(),
         ),
@@ -96,15 +103,17 @@ class LayerCubit extends Cubit<LayerState> {
   }
 
   void toggleLayer(String id, bool isActive) {
-    final next = Set<String>.from(state.activeLayerIds);
+    final isCurrentlyActive = state.activeLayerIds.contains(id);
+    if (isCurrentlyActive == isActive) return;
 
+    final next = Set<String>.from(state.activeLayerIds);
     if (isActive) {
       next.add(id);
     } else {
       next.remove(id);
     }
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
         activeLayerIds: Set<String>.unmodifiable(next),
         clearError: true,
@@ -116,7 +125,7 @@ class LayerCubit extends Cubit<LayerState> {
     final nextActive = Set<String>.from(state.activeLayerIds)..remove(id);
     final nextHasData = Map<String, bool>.from(state.hasDataByLayer)..remove(id);
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
         activeLayerIds: Set<String>.unmodifiable(nextActive),
         hasDataByLayer: Map<String, bool>.unmodifiable(nextHasData),
@@ -132,7 +141,7 @@ class LayerCubit extends Cubit<LayerState> {
     final nextHasData = Map<String, bool>.from(state.hasDataByLayer)
       ..removeWhere((id, _) => !existingIds.contains(id));
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
         activeLayerIds: Set<String>.unmodifiable(nextActive),
         hasDataByLayer: Map<String, bool>.unmodifiable(nextHasData),
@@ -147,7 +156,6 @@ class LayerCubit extends Cubit<LayerState> {
       }) async {
     final path = (layer.effectiveCollectionPath ?? '').trim();
     if (path.isEmpty) return false;
-
     return _resolvePath(path, force: force);
   }
 
@@ -156,7 +164,6 @@ class LayerCubit extends Cubit<LayerState> {
         bool force = false,
       }) async {
     final all = flattenAllNodes(tree: tree);
-
     final result = <String, bool>{};
 
     for (final node in all) {
@@ -171,26 +178,24 @@ class LayerCubit extends Cubit<LayerState> {
       List<LayerData> tree, {
         bool force = false,
       }) async {
-    emit(
-      state.copyWith(
-        isRefreshingLayerData: true,
-        clearError: true,
-      ),
-    );
+    if (!state.isRefreshingLayerData) {
+      _emitIfChanged(
+        state.copyWith(
+          isRefreshingLayerData: true,
+          clearError: true,
+        ),
+      );
+    }
 
     try {
       final flattened = flattenAllNodes(tree: tree)
           .where((item) => !item.isGroup)
           .toList(growable: false);
 
-      final next = <String, bool>{};
-
       final uniquePaths = <String>{};
       for (final layer in flattened) {
         final path = (layer.effectiveCollectionPath ?? '').trim();
-        if (path.isNotEmpty) {
-          uniquePaths.add(path);
-        }
+        if (path.isNotEmpty) uniquePaths.add(path);
       }
 
       final resolvedByPath = <String, bool>{};
@@ -201,12 +206,13 @@ class LayerCubit extends Cubit<LayerState> {
         }),
       );
 
+      final next = <String, bool>{};
       for (final layer in flattened) {
         final path = (layer.effectiveCollectionPath ?? '').trim();
         next[layer.id] = path.isEmpty ? false : (resolvedByPath[path] ?? false);
       }
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
           hasDataByLayer: Map<String, bool>.unmodifiable(next),
           isRefreshingLayerData: false,
@@ -214,7 +220,7 @@ class LayerCubit extends Cubit<LayerState> {
         ),
       );
     } catch (e) {
-      emit(
+      _emitIfChanged(
         state.copyWith(
           isRefreshingLayerData: false,
           error: e.toString(),
@@ -228,12 +234,13 @@ class LayerCubit extends Cubit<LayerState> {
         bool force = false,
       }) async {
     final path = (layer.effectiveCollectionPath ?? '').trim();
+    final current = Map<String, bool>.from(state.hasDataByLayer);
 
     if (path.isEmpty) {
-      final current = Map<String, bool>.from(state.hasDataByLayer);
+      if (current[layer.id] == false) return;
       current[layer.id] = false;
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
           hasDataByLayer: Map<String, bool>.unmodifiable(current),
           clearError: true,
@@ -243,17 +250,19 @@ class LayerCubit extends Cubit<LayerState> {
     }
 
     try {
-      final current = Map<String, bool>.from(state.hasDataByLayer);
-      current[layer.id] = await _resolvePath(path, force: force);
+      final resolved = await _resolvePath(path, force: force);
+      if (current[layer.id] == resolved) return;
 
-      emit(
+      current[layer.id] = resolved;
+
+      _emitIfChanged(
         state.copyWith(
           hasDataByLayer: Map<String, bool>.unmodifiable(current),
           clearError: true,
         ),
       );
     } catch (e) {
-      emit(
+      _emitIfChanged(
         state.copyWith(
           error: e.toString(),
         ),
@@ -382,7 +391,7 @@ class LayerCubit extends Cubit<LayerState> {
     final removed = _removeNodeById(nextTree, id);
     if (!removed) return;
 
-    emit(
+    _emitIfChanged(
       state.copyWith(
         isDeleting: true,
         clearError: true,
@@ -391,18 +400,16 @@ class LayerCubit extends Cubit<LayerState> {
 
     try {
       await _repository.deleteLayersData(removedLeafLayers);
-
       _clearCacheForLayers(removedLeafLayers);
 
       final removedIds = removedLeafLayers.map((e) => e.id).toSet();
-
       final nextActive = Set<String>.from(state.activeLayerIds)
         ..removeWhere(removedIds.contains);
 
       final nextHasData = Map<String, bool>.from(state.hasDataByLayer)
         ..removeWhere((key, _) => removedIds.contains(key));
 
-      emit(
+      _emitIfChanged(
         state.copyWith(
           activeLayerIds: Set<String>.unmodifiable(nextActive),
           hasDataByLayer: Map<String, bool>.unmodifiable(nextHasData),
@@ -413,7 +420,7 @@ class LayerCubit extends Cubit<LayerState> {
 
       await saveTree(nextTree);
     } catch (e) {
-      emit(
+      _emitIfChanged(
         state.copyWith(
           isDeleting: false,
           error: e.toString(),
@@ -429,14 +436,10 @@ class LayerCubit extends Cubit<LayerState> {
     }
 
     final cached = _hasDataCacheByPath[path];
-    if (cached != null) {
-      return cached;
-    }
+    if (cached != null) return cached;
 
-    final existingInFlight = _inFlightByPath[path];
-    if (existingInFlight != null) {
-      return existingInFlight;
-    }
+    final inFlight = _inFlightByPath[path];
+    if (inFlight != null) return inFlight;
 
     final future = _repository.hasData(collectionPath: path).whenComplete(() {
       _inFlightByPath.remove(path);
@@ -462,11 +465,13 @@ class LayerCubit extends Cubit<LayerState> {
   }
 
   List<LayerData> _cloneTree(List<LayerData> source) {
-    return source.map((item) {
-      return item.copyWith(
+    return source
+        .map(
+          (item) => item.copyWith(
         children: _cloneTree(item.children),
-      );
-    }).toList(growable: true);
+      ),
+    )
+        .toList(growable: true);
   }
 
   LayerData? _findNodeById(List<LayerData> nodes, String id) {
@@ -514,9 +519,7 @@ class LayerCubit extends Cubit<LayerState> {
       if (index < 0 || index >= current.length) return null;
 
       node = current[index];
-      if (i < path.length - 1) {
-        current = node.children;
-      }
+      if (i < path.length - 1) current = node.children;
     }
 
     return node;
@@ -548,7 +551,9 @@ class LayerCubit extends Cubit<LayerState> {
       final item = nodes[i];
 
       if (item.id == id) {
-        nodes[i] = updater(item);
+        final next = updater(item);
+        if (next == item) return false;
+        nodes[i] = next;
         return true;
       }
 
@@ -688,7 +693,6 @@ class LayerCubit extends Cubit<LayerState> {
 
     if (targetParentId != null) {
       final targetParentPathBeforeRemoval = _findPathById(tree, targetParentId);
-
       if (targetParentPathBeforeRemoval != null &&
           _pathStartsWith(targetParentPathBeforeRemoval, draggedPath)) {
         return false;
@@ -756,7 +760,6 @@ class LayerCubit extends Cubit<LayerState> {
     for (final layer in layers) {
       final path = (layer.effectiveCollectionPath ?? '').trim();
       if (path.isEmpty) continue;
-
       _hasDataCacheByPath.remove(path);
       _inFlightByPath.remove(path);
     }

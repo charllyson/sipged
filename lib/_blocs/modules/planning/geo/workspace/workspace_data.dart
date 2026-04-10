@@ -211,6 +211,55 @@ class WorkspaceData {
     );
   }
 
+  WorkspaceData copyWithoutResolvedData() {
+    return WorkspaceData(
+      id: id,
+      title: title,
+      type: type,
+      offset: offset,
+      size: size,
+      properties: properties,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'type': type.name,
+      'offsetX': offset.dx,
+      'offsetY': offset.dy,
+      'width': size.width,
+      'height': size.height,
+      'properties': properties.map((e) => e.toMap()).toList(growable: false),
+    };
+  }
+
+  factory WorkspaceData.fromMap(Map<String, dynamic> map) {
+    final rawProperties = (map['properties'] as List?) ?? const [];
+
+    return WorkspaceData(
+      id: (map['id'] ?? '').toString(),
+      title: (map['title'] ?? '').toString(),
+      type: CatalogType.values.firstWhere(
+            (e) => e.name == map['type'],
+        orElse: () => CatalogType.card,
+      ),
+      offset: Offset(
+        (map['offsetX'] as num?)?.toDouble() ?? 0,
+        (map['offsetY'] as num?)?.toDouble() ?? 0,
+      ),
+      size: Size(
+        (map['width'] as num?)?.toDouble() ?? minSize.width,
+        (map['height'] as num?)?.toDouble() ?? minSize.height,
+      ),
+      properties: rawProperties
+          .whereType<Map>()
+          .map((e) => CatalogData.fromMap(Map<String, dynamic>.from(e)))
+          .toList(growable: false),
+    );
+  }
+
   @override
   bool operator ==(Object other) {
     return other is WorkspaceData &&

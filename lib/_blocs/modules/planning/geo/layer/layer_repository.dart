@@ -20,6 +20,7 @@ class LayerRepository {
   DocumentReference<Map<String, dynamic>> get _docRef =>
       _firestore.doc(_docPath);
 
+  // manter o restante igual
   Future<List<LayerData>> loadTree() async {
     final snap = await _docRef.get();
 
@@ -49,7 +50,7 @@ class LayerRepository {
       await saveTree(sanitized);
     }
 
-    return sanitized;
+    return identical(parsed, sanitized) ? parsed : sanitized;
   }
 
   Future<void> saveTree(List<LayerData> tree) async {

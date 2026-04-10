@@ -46,6 +46,17 @@ class LayerDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     const headerHeight = 60.0;
 
+    final panelKey = ValueKey(
+      'layers_panel_drawer_'
+          '${mapData.currentTree.length}_'
+          '${mapData.activeLayerIds.length}_'
+          '${editorState.selectedLayerPanelItemId ?? 'none'}_'
+          '${editorState.activeEditingPointLayerId ?? 'none'}_'
+          '${editorState.activeEditingLineLayerId ?? 'none'}_'
+          '${editorState.activeEditingPolygonLayerId ?? 'none'}_'
+          '${mapData.hasDataSignature}',
+    );
+
     return SafeArea(
       top: true,
       left: false,
@@ -130,16 +141,7 @@ class LayerDrawer extends StatelessWidget {
                     color: Colors.white,
                     child: RepaintBoundary(
                       child: LayerPanel(
-                        key: ValueKey(
-                          'layers_panel_drawer_'
-                              '${mapData.currentTree.length}_'
-                              '${mapData.activeLayerIds.length}_'
-                              '${editorState.selectedLayerPanelItemId ?? 'none'}_'
-                              '${editorState.activeEditingPointLayerId ?? 'none'}_'
-                              '${editorState.activeEditingLineLayerId ?? 'none'}_'
-                              '${editorState.activeEditingPolygonLayerId ?? 'none'}_'
-                              '${Object.hashAll(mapData.hasDataByLayer.entries.map((e) => Object.hash(e.key, e.value)))}',
-                        ),
+                        key: panelKey,
                         layers: mapData.currentTree,
                         activeLayerIds: mapData.activeLayerIds,
                         selectedId: editorState.selectedLayerPanelItemId,

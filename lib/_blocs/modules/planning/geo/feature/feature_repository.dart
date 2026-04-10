@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:archive/archive.dart' as archive;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:extended_image/extended_image.dart' as vector_import_file_reader;
+import 'package:extended_image/extended_image.dart'
+as vector_import_file_reader;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latlong2/latlong.dart';
@@ -55,11 +56,11 @@ class FeatureRepository {
           features.add(feature);
         }
       } catch (_) {
-        // ignora documento inválido
+        // documento inválido é ignorado
       }
     }
 
-    return features;
+    return List<FeatureData>.unmodifiable(features);
   }
 
   Future<List<String>> loadFieldNames({
@@ -89,7 +90,7 @@ class FeatureRepository {
     }
 
     final result = keys.toList()..sort();
-    return result;
+    return List<String>.unmodifiable(result);
   }
 
   Future<List<Map<String, dynamic>>> pickAndParseRawFeatures() async {
@@ -178,7 +179,10 @@ class FeatureRepository {
       );
     }).toList(growable: false);
 
-    return (features, columns);
+    return (
+    List<FeatureData>.unmodifiable(features),
+    List<ImportColumnMeta>.unmodifiable(columns),
+    );
   }
 
   Future<(List<FeatureData>, List<ImportColumnMeta>)>
@@ -260,7 +264,10 @@ class FeatureRepository {
       );
     }).toList(growable: false);
 
-    return (features, columns);
+    return (
+    List<FeatureData>.unmodifiable(features),
+    List<ImportColumnMeta>.unmodifiable(columns),
+    );
   }
 
   Future<void> saveFeaturesToCollection({
@@ -279,9 +286,8 @@ class FeatureRepository {
     onProgress(0.01);
 
     for (int i = 0; i < features.length; i += chunkSize) {
-      final end = (i + chunkSize < features.length)
-          ? i + chunkSize
-          : features.length;
+      final end =
+      (i + chunkSize < features.length) ? i + chunkSize : features.length;
 
       final chunk = features.sublist(i, end);
       final batch = _firestore.batch();
@@ -291,8 +297,7 @@ class FeatureRepository {
         final docRef = isUpdate ? col.doc(feature.id) : col.doc();
 
         final props = Map<String, dynamic>.from(feature.editedProperties);
-        final geometry =
-        FeatureData.encodeGeometryForFirestore(feature.rawGeometry);
+        final geometry = FeatureData.encodeGeometryForFirestore(feature.rawGeometry);
         final searchTitle = _resolveSearchTitle(props, docRef.id);
 
         final data = <String, dynamic>{
@@ -339,9 +344,7 @@ class FeatureRepository {
     onProgress(0.01);
 
     for (int i = 0; i < docIds.length; i += chunkSize) {
-      final end =
-      (i + chunkSize < docIds.length) ? i + chunkSize : docIds.length;
-
+      final end = (i + chunkSize < docIds.length) ? i + chunkSize : docIds.length;
       final chunk = docIds.sublist(i, end);
       final batch = _firestore.batch();
 
@@ -661,7 +664,7 @@ class FeatureRepository {
       });
     }
 
-    return feats;
+    return List<Map<String, dynamic>>.unmodifiable(feats);
   }
 
   List<List<double>> _parseKmlCoordinates(String text) {
