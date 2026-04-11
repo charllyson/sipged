@@ -137,15 +137,12 @@ class WorkspaceWidgets extends StatelessWidget {
           case CatalogType.card:
             return ColoredBox(
               color: isDark ? const Color(0xFF121212) : Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: SimpleCard(
-                  isDark: isDark,
-                  primary: primary,
-                  title: item.resolvedTitle?.trim(),
-                  value: item.resolvedValue?.trim(),
-                  label: _resolveCardLabel(activeFilter),
-                ),
+              child: SimpleCard(
+                isDark: isDark,
+                primary: primary,
+                title: item.resolvedTitle?.trim(),
+                value: item.resolvedValue?.trim(),
+                label: _resolveCardLabel(activeFilter),
               ),
             );
         }

@@ -34,19 +34,21 @@ class WorkspaceBackground extends StatelessWidget {
           message = 'Arraste visualizações para esta área';
         }
 
+        final highlight = receiving || _isPlacementMode;
+
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: onTapBackground,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 100),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(
-                color: receiving || _isPlacementMode
-                    ? theme.colorScheme.primary.withValues(alpha: 0.35)
-                    : Colors.transparent,
+              color: theme.scaffoldBackgroundColor,
+              border: highlight
+                  ? Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.35),
                 width: 2,
-              ),
+              )
+                  : null,
             ),
             child: hasItems
                 ? (_isPlacementMode
@@ -60,19 +62,19 @@ class WorkspaceBackground extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary
-                        .withValues(alpha: 0.08),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: theme.colorScheme.primary
-                          .withValues(alpha: 0.22),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.22),
                     ),
                   ),
                   child: Text(
                     message,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.black.withValues(alpha: 0.70),
+                      color: theme.textTheme.bodyMedium?.color
+                          ?.withValues(alpha: 0.70) ??
+                          Colors.black.withValues(alpha: 0.70),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -85,7 +87,9 @@ class WorkspaceBackground extends StatelessWidget {
                 message,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.black.withValues(alpha: 0.55),
+                  color: theme.textTheme.bodyMedium?.color
+                      ?.withValues(alpha: 0.55) ??
+                      Colors.black.withValues(alpha: 0.55),
                   fontWeight: FontWeight.w500,
                 ),
               ),

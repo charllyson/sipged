@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:sipged/_utils/theme/app_theme.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/screens/common/login/sign_in/sign_in.dart';
 
@@ -15,9 +16,7 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/screens/menus/menu_list_page.dart';
-import 'package:sipged/screens/modules/planning/geo/geo_network_page.dart';
 
-/// 🔧 FLAG TEMPORÁRIA
 const bool kForceInitialSetupOverlay = false;
 
 class GatePage extends StatelessWidget {
@@ -31,6 +30,9 @@ class GatePage extends StatelessWidget {
       title: 'SIPGED',
       debugShowCheckedModeBanner: false,
       locale: const Locale('pt', 'BR'),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.light,
       supportedLocales: const [
         Locale('pt', 'BR'),
         Locale('en', 'US'),
@@ -40,21 +42,28 @@ class GatePage extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      builder: (context, child) => Scaffold(
-        body: NotificationCenterHost(child: child ?? const SizedBox()),
-      ),
+      builder: (context, child) {
+        return Scaffold(
+          body: NotificationCenterHost(
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
       home: BlocBuilder<LoginCubit, LoginState>(
         builder: (context, loginState) {
           final firebaseUser = FirebaseAuth.instance.currentUser;
 
           if (loginState.status == LoginStatus.loading) {
             return const Scaffold(
-              backgroundColor: Colors.white,
-              body: Center(child: Text('Verificando os dados...')),
+              body: Center(
+                child: Text('Verificando os dados...'),
+              ),
             );
           }
 
-          if (firebaseUser == null || loginState.status == LoginStatus.unauthenticated || loginState.status == LoginStatus.failure) {
+          if (firebaseUser == null ||
+              loginState.status == LoginStatus.unauthenticated ||
+              loginState.status == LoginStatus.failure) {
             return const SignIn();
           }
 
@@ -63,8 +72,9 @@ class GatePage extends StatelessWidget {
             builder: (context, userSnapshot) {
               if (userSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
-                  backgroundColor: Colors.white,
-                  body: Center(child: CircularProgressIndicator()),
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
                 );
               }
 
@@ -76,8 +86,11 @@ class GatePage extends StatelessWidget {
               return BlocBuilder<SetupCubit, SetupState>(
                 builder: (context, setupState) {
                   final base = MenuListPage();
-                  final bool needsSetup = kForceInitialSetupOverlay || setupState.companies.isEmpty;
+                  final needsSetup =
+                      kForceInitialSetupOverlay || setupState.companies.isEmpty;
+
                   if (!needsSetup) return base;
+
                   return Stack(
                     children: [
                       base,

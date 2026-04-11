@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 
-class DockPanelSnapOverlay extends StatelessWidget {
+class DockPanelSnap extends StatelessWidget {
   final bool visible;
   final Rect? previewRect;
   final DockArea? snapArea;
   final Color? backgroundOverlayColor;
 
-  const DockPanelSnapOverlay({
+  const DockPanelSnap({
     super.key,
     required this.visible,
     required this.previewRect,

@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 
 class DraggableField extends StatelessWidget {
-  final String sourceLabel;
-  final String fieldName;
-  final dynamic fieldValue;
-
-  const DraggableField({super.key,
+  const DraggableField({
+    super.key,
     required this.sourceLabel,
     required this.fieldName,
     this.fieldValue,
   });
 
+  final String sourceLabel;
+  final String fieldName;
+  final dynamic fieldValue;
+
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final surface = theme.cardColor;
     final valueText = fieldValue?.toString().trim();
 
     return Material(
@@ -22,7 +25,7 @@ class DraggableField extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 260),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: primary.withValues(alpha: 0.45),
@@ -52,10 +55,14 @@ class DraggableField extends StatelessWidget {
                     '$sourceLabel • $fieldName',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: theme.textTheme.bodySmall?.copyWith(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                    ),
+                    ) ??
+                        const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
                   ),
                 ),
               ],
@@ -75,11 +82,16 @@ class DraggableField extends StatelessWidget {
                   valueText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: theme.textTheme.labelSmall?.copyWith(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: primary,
-                  ),
+                  ) ??
+                      TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: primary,
+                      ),
                 ),
               ),
             ],

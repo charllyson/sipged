@@ -1,20 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/draggable/draggable_feedback.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_header.dart';
 
 class DraggableHeader extends StatelessWidget {
-  final DockPanelData group;
-  final Color accent;
-  final bool isFloating;
-  final VoidCallback onToggleFloating;
-  final VoidCallback onHide;
-  final VoidCallback? onMinimize;
-
-  final VoidCallback onDragStarted;
-  final void Function(DragUpdateDetails details) onDragUpdate;
-  final void Function(DraggableDetails details) onDragEnd;
-
   const DraggableHeader({
     super.key,
     required this.group,
@@ -28,6 +17,17 @@ class DraggableHeader extends StatelessWidget {
     required this.onDragEnd,
   });
 
+  final DockPanelData group;
+  final Color accent;
+  final bool isFloating;
+  final VoidCallback onToggleFloating;
+  final VoidCallback onHide;
+  final VoidCallback? onMinimize;
+
+  final VoidCallback onDragStarted;
+  final void Function(DragUpdateDetails details) onDragUpdate;
+  final void Function(DraggableDetails details) onDragEnd;
+
   @override
   Widget build(BuildContext context) {
     final header = DockPanelHeader(
@@ -35,8 +35,6 @@ class DraggableHeader extends StatelessWidget {
       accent: accent,
       isFloating: isFloating,
       onToggleFloating: onToggleFloating,
-      onHide: onHide,
-      onMinimize: onMinimize,
     );
 
     if (group.floatingAsDialog) {
@@ -47,7 +45,10 @@ class DraggableHeader extends StatelessWidget {
       data: DockDragPayload(groupId: group.id),
       dragAnchorStrategy: pointerDragAnchorStrategy,
       rootOverlay: true,
-      feedback: DraggableFeedback(group: group, accent: accent),
+      feedback: DraggableFeedback(
+        group: group,
+        accent: accent,
+      ),
       childWhenDragging: const SizedBox.shrink(),
       onDragStarted: onDragStarted,
       onDragUpdate: onDragUpdate,

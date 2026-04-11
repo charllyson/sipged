@@ -1,7 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_state.dart';
 
 class DockPanelFloating extends StatelessWidget {
   final List<DockPanelData> floatingGroups;
@@ -21,18 +22,26 @@ class DockPanelFloating extends StatelessWidget {
 
     final width = workspaceSize.width;
     final height = workspaceSize.height;
+    final padding = DockPanelState.floatingWorkspacePadding;
 
     return Stack(
       children: floatingGroups.map((group) {
         final size = group.floatingSize;
+
         final offset = (width <= 0 || height <= 0)
             ? group.floatingOffset
             : Offset(
           group.floatingOffset.dx
-              .clamp(0.0, math.max(0.0, width - size.width))
+              .clamp(
+            padding,
+            math.max(padding, width - size.width - padding),
+          )
               .toDouble(),
           group.floatingOffset.dy
-              .clamp(0.0, math.max(0.0, height - size.height))
+              .clamp(
+            padding,
+            math.max(padding, height - size.height - padding),
+          )
               .toDouble(),
         );
 

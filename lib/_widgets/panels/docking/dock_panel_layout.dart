@@ -1,13 +1,16 @@
+import 'dart:math' as math;
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_state.dart';
-import 'package:sipged/_widgets/panels/docking/dock_panel_side.dart';
-import 'package:sipged/_widgets/panels/docking/dock_panel_top_bottom.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_state.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_region.dart';
 
 class DockPanelLayout extends StatelessWidget {
   final DockPanelState state;
   final Widget child;
   final EdgeInsets contentPadding;
+  final Size contentMinSize;
 
   final Widget Function(DockPanelData group, bool isFloating) buildGroupCard;
 
@@ -29,6 +32,7 @@ class DockPanelLayout extends StatelessWidget {
     required this.state,
     required this.child,
     required this.contentPadding,
+    required this.contentMinSize,
     required this.buildGroupCard,
     required this.onSideExtentResizeStart,
     required this.onSideExtentResizeEnd,
@@ -38,134 +42,129 @@ class DockPanelLayout extends StatelessWidget {
     required this.onWeightResize,
   });
 
+  Widget? _buildDockedRegion({
+    required DockArea area,
+    required List<DockPanelData> groups,
+    required Rect? rect,
+    required double extent,
+  }) {
+    if (groups.isEmpty || rect == null) return null;
+
+    return Positioned.fromRect(
+      rect: rect,
+      child: DockPanelRegion(
+        groups: groups,
+        area: area,
+        extent: extent,
+        buildGroupCard: buildGroupCard,
+        onExtentResizeStart: onSideExtentResizeStart,
+        onExtentResizeEnd: onSideExtentResizeEnd,
+        onExtentResize: (delta) => onSideExtentResize(area, delta),
+        onWeightResizeStart: onWeightResizeStart,
+        onWeightResizeEnd: onWeightResizeEnd,
+        onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
+          onWeightResize(
+            groups,
+            leadingIndex,
+            deltaPixels,
+            totalPixels,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildScrollableContent(Rect contentRect) {
+    final viewportWidth = contentRect.width;
+    final viewportHeight = contentRect.height;
+
+    final canvasWidth = math.max(viewportWidth, contentMinSize.width);
+    final canvasHeight = math.max(viewportHeight, contentMinSize.height);
+
+    return RepaintBoundary(
+      child: ClipRect(
+        child: ScrollConfiguration(
+          behavior: const _DockScrollBehavior(),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: SizedBox(
+                width: canvasWidth,
+                height: canvasHeight,
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final leftGroups = state.leftGroups;
-    final rightGroups = state.rightGroups;
-    final topGroups = state.topGroups;
-    final bottomGroups = state.bottomGroups;
-
-    final hasLeft = leftGroups.isNotEmpty;
-    final hasRight = rightGroups.isNotEmpty;
-    final hasTop = topGroups.isNotEmpty;
-    final hasBottom = bottomGroups.isNotEmpty;
-
-    final leftWidth = state.resolvedDockExtent(DockArea.left);
-    final rightWidth = state.resolvedDockExtent(DockArea.right);
-    final topHeight = state.resolvedDockExtent(DockArea.top);
-    final bottomHeight = state.resolvedDockExtent(DockArea.bottom);
-
-    final leftRect = state.resolveDockRectForArea(DockArea.left);
-    final rightRect = state.resolveDockRectForArea(DockArea.right);
-    final topRect = state.resolveDockRectForArea(DockArea.top);
-    final bottomRect = state.resolveDockRectForArea(DockArea.bottom);
-
     final contentRect = state.resolveContentRect(
       contentPadding: contentPadding,
     );
+
+    final dockedRegions = <Widget?>[
+      _buildDockedRegion(
+        area: DockArea.left,
+        groups: state.leftGroups,
+        rect: state.resolveDockRectForArea(DockArea.left),
+        extent: state.resolvedDockExtent(DockArea.left),
+      ),
+      _buildDockedRegion(
+        area: DockArea.right,
+        groups: state.rightGroups,
+        rect: state.resolveDockRectForArea(DockArea.right),
+        extent: state.resolvedDockExtent(DockArea.right),
+      ),
+      _buildDockedRegion(
+        area: DockArea.top,
+        groups: state.topGroups,
+        rect: state.resolveDockRectForArea(DockArea.top),
+        extent: state.resolvedDockExtent(DockArea.top),
+      ),
+      _buildDockedRegion(
+        area: DockArea.bottom,
+        groups: state.bottomGroups,
+        rect: state.resolveDockRectForArea(DockArea.bottom),
+        extent: state.resolvedDockExtent(DockArea.bottom),
+      ),
+    ];
 
     return Stack(
       clipBehavior: Clip.hardEdge,
       children: [
         Positioned.fromRect(
           rect: contentRect,
-          child: RepaintBoundary(
-            child: ClipRect(child: child),
-          ),
+          child: _buildScrollableContent(contentRect),
         ),
-        if (hasLeft && leftRect != null)
-          Positioned.fromRect(
-            rect: leftRect,
-            child: DockPanelSide(
-              groups: leftGroups,
-              area: DockArea.left,
-              extent: leftWidth,
-              buildGroupCard: buildGroupCard,
-              onExtentResizeStart: onSideExtentResizeStart,
-              onExtentResizeEnd: onSideExtentResizeEnd,
-              onExtentResize: (delta) => onSideExtentResize(DockArea.left, delta),
-              onWeightResizeStart: onWeightResizeStart,
-              onWeightResizeEnd: onWeightResizeEnd,
-              onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
-                onWeightResize(
-                  leftGroups,
-                  leadingIndex,
-                  deltaPixels,
-                  totalPixels,
-                );
-              },
-            ),
-          ),
-        if (hasRight && rightRect != null)
-          Positioned.fromRect(
-            rect: rightRect,
-            child: DockPanelSide(
-              groups: rightGroups,
-              area: DockArea.right,
-              extent: rightWidth,
-              buildGroupCard: buildGroupCard,
-              onExtentResizeStart: onSideExtentResizeStart,
-              onExtentResizeEnd: onSideExtentResizeEnd,
-              onExtentResize: (delta) => onSideExtentResize(DockArea.right, delta),
-              onWeightResizeStart: onWeightResizeStart,
-              onWeightResizeEnd: onWeightResizeEnd,
-              onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
-                onWeightResize(
-                  rightGroups,
-                  leadingIndex,
-                  deltaPixels,
-                  totalPixels,
-                );
-              },
-            ),
-          ),
-        if (hasTop && topRect != null)
-          Positioned.fromRect(
-            rect: topRect,
-            child: DockPanelTopBottom(
-              groups: topGroups,
-              area: DockArea.top,
-              extent: topHeight,
-              buildGroupCard: buildGroupCard,
-              onExtentResizeStart: onSideExtentResizeStart,
-              onExtentResizeEnd: onSideExtentResizeEnd,
-              onExtentResize: (delta) => onSideExtentResize(DockArea.top, delta),
-              onWeightResizeStart: onWeightResizeStart,
-              onWeightResizeEnd: onWeightResizeEnd,
-              onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
-                onWeightResize(
-                  topGroups,
-                  leadingIndex,
-                  deltaPixels,
-                  totalPixels,
-                );
-              },
-            ),
-          ),
-        if (hasBottom && bottomRect != null)
-          Positioned.fromRect(
-            rect: bottomRect,
-            child: DockPanelTopBottom(
-              groups: bottomGroups,
-              area: DockArea.bottom,
-              extent: bottomHeight,
-              buildGroupCard: buildGroupCard,
-              onExtentResizeStart: onSideExtentResizeStart,
-              onExtentResizeEnd: onSideExtentResizeEnd,
-              onExtentResize: (delta) => onSideExtentResize(DockArea.bottom, delta),
-              onWeightResizeStart: onWeightResizeStart,
-              onWeightResizeEnd: onWeightResizeEnd,
-              onWeightResize: (leadingIndex, deltaPixels, totalPixels) {
-                onWeightResize(
-                  bottomGroups,
-                  leadingIndex,
-                  deltaPixels,
-                  totalPixels,
-                );
-              },
-            ),
-          ),
+        ...dockedRegions.whereType<Widget>(),
       ],
     );
+  }
+}
+
+class _DockScrollBehavior extends MaterialScrollBehavior {
+  const _DockScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.unknown,
+  };
+
+  @override
+  Widget buildOverscrollIndicator(
+      BuildContext context,
+      Widget child,
+      ScrollableDetails details,
+      ) {
+    return child;
   }
 }

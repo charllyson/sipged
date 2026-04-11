@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/panels/docking/dock_panel_config.dart';
 
 class DockPanelSplitter extends StatelessWidget {
   final Axis axis;
@@ -15,6 +14,8 @@ class DockPanelSplitter extends StatelessWidget {
     required this.onPanEnd,
   });
 
+  static const double _splitterThickness = 6.0;
+
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
@@ -27,8 +28,8 @@ class DockPanelSplitter extends StatelessWidget {
         onPanUpdate: onPanUpdate,
         onPanEnd: onPanEnd,
         child: Container(
-          width: axis == Axis.horizontal ? DockPanelConfig.splitterThickness : null,
-          height: axis == Axis.vertical ? DockPanelConfig.splitterThickness : null,
+          width: axis == Axis.horizontal ? _splitterThickness : null,
+          height: axis == Axis.vertical ? _splitterThickness : null,
           color: Colors.transparent,
           alignment: Alignment.center,
           child: Container(

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,15 +18,15 @@ import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_scope_data.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_workspace.dart';
-import 'package:sipged/_widgets/panels/push/push_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/push/push_panel_data.dart';
 import 'package:sipged/_widgets/panels/push/push_panels.dart';
-import 'package:sipged/_widgets/panels/push/push_panels_controller.dart';
+import 'package:sipged/_blocs/system/panels/push/push_panels_controller.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_panel.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_table.dart';
 import 'package:sipged/screens/modules/planning/geo/catalog/catalog_panel.dart';
@@ -56,8 +54,6 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
   static const String _panelAtributosId = 'push_panel_atributos';
   static const String _workspaceGroupId = 'group_area_trabalho';
 
-  static const double _workspaceAutoPadding = 16;
-  static const double _workspaceAutoGap = 16;
 
   static const List<PushPanelData> _basePanels = [
     PushPanelData(

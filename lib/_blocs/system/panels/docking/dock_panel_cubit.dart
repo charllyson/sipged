@@ -1,10 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_state.dart';
-import 'package:sipged/_widgets/panels/docking/dock_panel_config.dart';
-import 'package:sipged/_widgets/panels/docking/dock_panel_logic.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_state.dart';
 
 class DockPanelCubit extends Cubit<DockPanelState> {
   DockPanelCubit({
@@ -13,7 +13,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     this.snapThickness = 16,
   }) : super(
     DockPanelState.initial(
-      groups: DockPanelLogic.normalizeDockSpans(
+      groups: DockPanelState.normalizeDockSpans(
         List<DockPanelData>.from(initialGroups),
       ),
     ),
@@ -23,8 +23,8 @@ class DockPanelCubit extends Cubit<DockPanelState> {
   final double snapThickness;
 
   void syncFromExternal(List<DockPanelData> groups) {
-    final merged = DockPanelLogic.normalizeDockSpans(
-      DockPanelLogic.mergeIncomingGroups(
+    final merged = DockPanelState.normalizeDockSpans(
+      _mergeIncomingGroups(
         incoming: groups,
         current: state.workingGroups,
         preserveLayout: state.preserveLayoutDuringExternalSync,
@@ -38,7 +38,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
   void setWorkspaceSize(Size size) {
     if (size == state.workspaceSize) return;
 
-    final adaptedGroups = DockPanelLogic.adaptGroupsToWorkspace(
+    final adaptedGroups = DockPanelState.adaptGroupsToWorkspace(
       groups: state.workingGroups,
       workspaceSize: size,
     );
@@ -79,7 +79,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     if (!changed) return;
 
     if (normalize) {
-      next = DockPanelLogic.normalizeDockSpans(
+      next = DockPanelState.normalizeDockSpans(
         next,
         preferredFullArea: preferredFullArea,
       );
@@ -110,18 +110,6 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     _emitGroups(next);
   }
 
-  DockArea _collapseAnchorFor(DockPanelData group) {
-    if (group.area == DockArea.left || group.area == DockArea.right) {
-      return group.area;
-    }
-
-    if (group.lastDockArea == DockArea.left || group.lastDockArea == DockArea.right) {
-      return group.lastDockArea!;
-    }
-
-    return DockArea.right;
-  }
-
   void setGroupVisible(String id, bool visible) {
     _updateGroups(
       commit: true,
@@ -143,91 +131,25 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     );
   }
 
-  void collapseToRail(String groupId) {
-    final current = state.groupById(groupId);
-    final targetArea = _collapseAnchorFor(current);
-
-    _updateGroups(
-      commit: true,
-      normalize: true,
-      transform: (group) {
-        if (group.id != groupId) return group;
-
-        return group.copyWith(
-          area: targetArea,
-          visible: true,
-          collapsed: true,
-          minimized: false,
-          floatingAsDialog: false,
-          restoreToFloatingOnDialogClose: false,
-          lastDockArea: targetArea,
-          lastDockCrossSpan: targetArea == DockArea.left || targetArea == DockArea.right
-              ? group.crossSpan
-              : group.lastDockCrossSpan,
-        );
-      },
-    );
-  }
-
-  void restoreFromRail(String groupId) {
-    final current = state.groupById(groupId);
-    final restoreArea = current.area == DockArea.left || current.area == DockArea.right
-        ? current.area
-        : (current.lastDockArea == DockArea.left || current.lastDockArea == DockArea.right
-        ? current.lastDockArea!
-        : DockArea.right);
-
-    final restoreSpan = current.lastDockCrossSpan ??
-        (restoreArea == DockArea.left || restoreArea == DockArea.right
-            ? DockCrossSpan.inner
-            : DockCrossSpan.full);
-
-    final isCompact = state.workspaceSize.width > 0 && state.workspaceSize.width < 900;
-
-    _updateGroups(
-      commit: true,
-      normalize: true,
-      preferredFullArea: restoreSpan == DockCrossSpan.full ? restoreArea : null,
-      transform: (group) {
-        if (group.id == groupId) {
-          return group.copyWith(
-            area: restoreArea,
-            crossSpan: restoreSpan,
-            visible: true,
-            collapsed: false,
-            minimized: false,
-            floatingAsDialog: false,
-            restoreToFloatingOnDialogClose: false,
-          );
-        }
-
-        if (isCompact &&
-            group.visible &&
-            !group.collapsed &&
-            (group.area == DockArea.left || group.area == DockArea.right)) {
-          return group.copyWith(collapsed: true);
-        }
-
-        return group;
-      },
-    );
-  }
-
   Size _dialogSizeForWorkspace() {
     final width = state.workspaceSize.width;
     final height = state.workspaceSize.height;
 
-    final rawWidth = width * 0.90;
-    final rawHeight = height * 0.90;
+    final rawWidth = width;
+    final rawHeight = height;
 
     final clampedWidth = rawWidth.clamp(
-      DockPanelConfig.minFloatingWidth,
-      width > 0 ? width - 24 : DockPanelConfig.maxFloatingWidth,
+      DockPanelState.minFloatingWidth,
+      width > 0
+          ? math.max(DockPanelState.minFloatingWidth, width - 24)
+          : DockPanelState.maxFloatingWidth,
     );
 
     final clampedHeight = rawHeight.clamp(
-      DockPanelConfig.minFloatingHeight,
-      height > 0 ? height - 24 : DockPanelConfig.maxFloatingHeight,
+      DockPanelState.minFloatingHeight,
+      height > 0
+          ? math.max(DockPanelState.minFloatingHeight, height - 24)
+          : DockPanelState.maxFloatingHeight,
     );
 
     return Size(
@@ -245,7 +167,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
       (height - size.height) / 2,
     );
 
-    return DockPanelLogic.clampFloatingOffset(
+    return DockPanelState.clampFloatingOffset(
       desired: desired,
       floatingSize: size,
       workspaceSize: state.workspaceSize,
@@ -271,8 +193,6 @@ class DockPanelCubit extends Cubit<DockPanelState> {
               floatingOffset: current.storedFloatingOffset,
               floatingSize: current.storedFloatingSize,
               visible: true,
-              collapsed: false,
-              minimized: false,
             );
           },
         );
@@ -292,8 +212,6 @@ class DockPanelCubit extends Cubit<DockPanelState> {
             area: restoreArea,
             crossSpan: restoreSpan,
             visible: true,
-            collapsed: false,
-            minimized: false,
             floatingAsDialog: false,
             restoreToFloatingOnDialogClose: false,
           );
@@ -315,8 +233,6 @@ class DockPanelCubit extends Cubit<DockPanelState> {
             area: DockArea.floating,
             crossSpan: DockCrossSpan.full,
             visible: true,
-            collapsed: false,
-            minimized: false,
             floatingAsDialog: true,
             restoreToFloatingOnDialogClose: true,
             storedFloatingOffset: current.floatingOffset,
@@ -338,8 +254,6 @@ class DockPanelCubit extends Cubit<DockPanelState> {
           area: DockArea.floating,
           crossSpan: DockCrossSpan.full,
           visible: true,
-          collapsed: false,
-          minimized: false,
           floatingAsDialog: true,
           restoreToFloatingOnDialogClose: false,
           lastDockArea: group.area == DockArea.floating ? group.lastDockArea : group.area,
@@ -367,15 +281,12 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     final dx = (local.dx - state.lastDragLocalPosition!.dx).abs();
     final dy = (local.dy - state.lastDragLocalPosition!.dy).abs();
 
-    return dx >= DockPanelConfig.dragUpdateThreshold ||
-        dy >= DockPanelConfig.dragUpdateThreshold;
+    return dx >= DockPanelState.dragUpdateThreshold ||
+        dy >= DockPanelState.dragUpdateThreshold;
   }
 
   void startDrag(String groupId) {
     if (state.isDragging) return;
-
-    final group = state.groupById(groupId);
-    if (group.collapsed) return;
 
     emit(
       state.copyWith(
@@ -388,7 +299,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
   void updateDrag(String groupId, Offset localPosition) {
     if (state.workspaceSize.isEmpty) return;
 
-    final snap = DockPanelLogic.resolveSnapArea(
+    final snap = DockPanelState.resolveSnapArea(
       localPosition: localPosition,
       workspaceSize: state.workspaceSize,
       snapThickness: snapThickness,
@@ -415,7 +326,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     required DockArea targetArea,
     required Offset localPosition,
   }) {
-    return DockPanelLogic.projectDocking(
+    return DockPanelState.projectDocking(
       workingGroups: state.workingGroups,
       groupId: groupId,
       targetArea: targetArea,
@@ -433,7 +344,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
 
     final releaseSnap = state.workspaceSize.isEmpty
         ? null
-        : DockPanelLogic.resolveSnapArea(
+        : DockPanelState.resolveSnapArea(
       localPosition: releaseLocalPosition,
       workspaceSize: state.workspaceSize,
       snapThickness: snapThickness,
@@ -447,7 +358,6 @@ class DockPanelCubit extends Cubit<DockPanelState> {
       ).map((group) {
         if (group.id != groupId) return group;
         return group.copyWith(
-          collapsed: false,
           floatingAsDialog: false,
           restoreToFloatingOnDialogClose: false,
         );
@@ -460,7 +370,7 @@ class DockPanelCubit extends Cubit<DockPanelState> {
         releaseLocalPosition.dy - 18,
       );
 
-      final bounded = DockPanelLogic.clampFloatingOffset(
+      final bounded = DockPanelState.clampFloatingOffset(
         desired: desiredFloatingOffset,
         floatingSize: sourceGroup.floatingSize,
         workspaceSize: state.workspaceSize,
@@ -475,15 +385,14 @@ class DockPanelCubit extends Cubit<DockPanelState> {
           return current.copyWith(
             area: DockArea.floating,
             crossSpan: DockCrossSpan.full,
-            collapsed: false,
             floatingOffset: bounded,
-            minimized: false,
             floatingAsDialog: false,
             restoreToFloatingOnDialogClose: false,
             lastDockArea:
             current.area == DockArea.floating ? current.lastDockArea : current.area,
-            lastDockCrossSpan:
-            current.area == DockArea.floating ? current.lastDockCrossSpan : current.crossSpan,
+            lastDockCrossSpan: current.area == DockArea.floating
+                ? current.lastDockCrossSpan
+                : current.crossSpan,
           );
         },
       );
@@ -520,33 +429,27 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     switch (area) {
       case DockArea.left:
         next = (currentExtent + rawDelta)
-            .clamp(
-          DockPanelConfig.minDockSideExtent,
-          DockPanelConfig.maxDockSideExtent,
-        )
+            .clamp(DockPanelState.minDockSideExtent, DockPanelState.maxDockSideExtent)
             .toDouble();
         break;
       case DockArea.right:
         next = (currentExtent - rawDelta)
-            .clamp(
-          DockPanelConfig.minDockSideExtent,
-          DockPanelConfig.maxDockSideExtent,
-        )
+            .clamp(DockPanelState.minDockSideExtent, DockPanelState.maxDockSideExtent)
             .toDouble();
         break;
       case DockArea.top:
         next = (currentExtent + rawDelta)
             .clamp(
-          DockPanelConfig.minDockTopBottomExtent,
-          DockPanelConfig.maxDockTopBottomExtent,
+          DockPanelState.minDockTopBottomExtent,
+          DockPanelState.maxDockTopBottomExtent,
         )
             .toDouble();
         break;
       case DockArea.bottom:
         next = (currentExtent - rawDelta)
             .clamp(
-          DockPanelConfig.minDockTopBottomExtent,
-          DockPanelConfig.maxDockTopBottomExtent,
+          DockPanelState.minDockTopBottomExtent,
+          DockPanelState.maxDockTopBottomExtent,
         )
             .toDouble();
         break;
@@ -595,20 +498,20 @@ class DockPanelCubit extends Cubit<DockPanelState> {
     var newFirst = first.dockWeight + deltaWeight;
     var newSecond = second.dockWeight - deltaWeight;
 
-    if (newFirst < DockPanelConfig.minDockWeight) {
-      final diff = DockPanelConfig.minDockWeight - newFirst;
+    if (newFirst < DockPanelState.minDockWeight) {
+      final diff = DockPanelState.minDockWeight - newFirst;
       newFirst += diff;
       newSecond -= diff;
     }
 
-    if (newSecond < DockPanelConfig.minDockWeight) {
-      final diff = DockPanelConfig.minDockWeight - newSecond;
+    if (newSecond < DockPanelState.minDockWeight) {
+      final diff = DockPanelState.minDockWeight - newSecond;
       newSecond += diff;
       newFirst -= diff;
     }
 
-    if (newFirst < DockPanelConfig.minDockWeight ||
-        newSecond < DockPanelConfig.minDockWeight) {
+    if (newFirst < DockPanelState.minDockWeight ||
+        newSecond < DockPanelState.minDockWeight) {
       return;
     }
 
@@ -634,12 +537,12 @@ class DockPanelCubit extends Cubit<DockPanelState> {
       current.height + details.delta.dy,
     );
 
-    final nextSize = DockPanelLogic.clampFloatingSize(
+    final nextSize = DockPanelState.clampFloatingSize(
       desired: unclamped,
       workspaceSize: state.workspaceSize,
     );
 
-    final nextOffset = DockPanelLogic.clampFloatingOffset(
+    final nextOffset = DockPanelState.clampFloatingOffset(
       desired: group.floatingOffset,
       floatingSize: nextSize,
       workspaceSize: state.workspaceSize,
@@ -660,5 +563,39 @@ class DockPanelCubit extends Cubit<DockPanelState> {
   void endFloatingResize() {
     onCommit(List<DockPanelData>.from(state.workingGroups));
     emit(state.copyWith(isFloatingResizing: false));
+  }
+
+  static List<DockPanelData> _mergeIncomingGroups({
+    required List<DockPanelData> incoming,
+    required List<DockPanelData> current,
+    required bool preserveLayout,
+  }) {
+    final currentById = <String, DockPanelData>{
+      for (final g in current) g.id: g,
+    };
+
+    return incoming.map((external) {
+      final local = currentById[external.id];
+      if (local == null || !preserveLayout) {
+        return external;
+      }
+
+      return external.copyWith(
+        area: local.area,
+        crossSpan: local.crossSpan,
+        floatingOffset: local.floatingOffset,
+        floatingSize: local.floatingSize,
+        dockExtent: local.dockExtent,
+        dockWeight: local.dockWeight,
+        visible: local.visible,
+        activeItemId: local.activeItemId,
+        floatingAsDialog: local.floatingAsDialog,
+        restoreToFloatingOnDialogClose: local.restoreToFloatingOnDialogClose,
+        storedFloatingOffset: local.storedFloatingOffset,
+        storedFloatingSize: local.storedFloatingSize,
+        lastDockArea: local.lastDockArea,
+        lastDockCrossSpan: local.lastDockCrossSpan,
+      );
+    }).toList(growable: false);
   }
 }

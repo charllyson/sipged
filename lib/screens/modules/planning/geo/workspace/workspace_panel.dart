@@ -27,6 +27,7 @@ class WorkspacePanel extends StatefulWidget {
     this.onSelectedWorkspaceItemChanged,
     this.onPanelSizeChanged,
     this.onItemsChanged,
+    this.canvasMinSize = const Size(1400, 900),
   });
 
   final WorkspaceScopeData scope;
@@ -40,12 +41,15 @@ class WorkspacePanel extends StatefulWidget {
   final ValueChanged<Size>? onPanelSizeChanged;
   final ValueChanged<List<WorkspaceData>>? onItemsChanged;
 
+  /// Tamanho virtual mínimo do canvas da área de trabalho.
+  final Size canvasMinSize;
+
   @override
   WorkspacePanelState createState() => WorkspacePanelState();
 }
 
 class WorkspacePanelState extends State<WorkspacePanel> {
-  static const double _autoPadding = 16;
+  static const double _autoEdgePadding = 0;
   static const double _autoGap = 16;
 
   late final WorkspaceCubit _cubit;
@@ -157,16 +161,16 @@ class WorkspacePanelState extends State<WorkspacePanel> {
 
     final effectivePanel = (panelSize.width > 0 && panelSize.height > 0)
         ? panelSize
-        : const Size(1200, 320);
+        : widget.canvasMinSize;
 
     final maxLeft = math.max(
-      _autoPadding,
-      effectivePanel.width - itemSize.width - _autoPadding,
+      _autoEdgePadding,
+      effectivePanel.width - itemSize.width - _autoEdgePadding,
     );
 
     final maxTop = math.max(
-      _autoPadding,
-      effectivePanel.height - itemSize.height - _autoPadding,
+      _autoEdgePadding,
+      effectivePanel.height - itemSize.height - _autoEdgePadding,
     );
 
     final existingRects = _cubit.state.items
@@ -188,10 +192,10 @@ class WorkspacePanelState extends State<WorkspacePanel> {
       return false;
     }
 
-    for (double top = _autoPadding;
+    for (double top = _autoEdgePadding;
     top <= maxTop;
     top += itemSize.height + _autoGap) {
-      for (double left = _autoPadding;
+      for (double left = _autoEdgePadding;
       left <= maxLeft;
       left += itemSize.width + _autoGap) {
         final candidate = Rect.fromLTWH(
@@ -207,12 +211,12 @@ class WorkspacePanelState extends State<WorkspacePanel> {
       }
     }
 
-    final fallbackLeft = (_autoPadding + (_cubit.state.items.length * 28))
-        .clamp(_autoPadding, maxLeft)
+    final fallbackLeft = (_autoEdgePadding + (_cubit.state.items.length * 28))
+        .clamp(_autoEdgePadding, maxLeft)
         .toDouble();
 
-    final fallbackTop = (_autoPadding + (_cubit.state.items.length * 20))
-        .clamp(_autoPadding, maxTop)
+    final fallbackTop = (_autoEdgePadding + (_cubit.state.items.length * 20))
+        .clamp(_autoEdgePadding, maxTop)
         .toDouble();
 
     return Offset(
@@ -367,6 +371,7 @@ class WorkspacePanelState extends State<WorkspacePanel> {
           onCatalogItemDropped: placeCatalogItemAt,
           onCatalogItemPlacedByClick: placeCatalogItemAt,
           onPanelSizeChanged: widget.onPanelSizeChanged,
+          canvasMinSize: widget.canvasMinSize,
         ),
       ),
     );

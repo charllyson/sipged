@@ -52,7 +52,6 @@ class ImportColumnMeta {
     );
   }
 
-  static const _eq = DeepCollectionEquality();
 
   @override
   bool operator ==(Object other) {

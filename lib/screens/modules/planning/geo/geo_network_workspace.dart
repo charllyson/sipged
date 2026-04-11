@@ -51,35 +51,10 @@ extension _GeoNetworkWorkspace on _GeoNetworkViewState {
     );
   }
 
-  Object _workspaceViewToken() {
-    final scope = _currentWorkspaceScope;
-
-    return Object.hash(
-      _workspaceScopeKey(scope),
-      _workspaceItemsToken(),
-      _pendingCatalogPlacement?.id,
-      _selectedWorkspaceItemId,
-      _selectedCatalogItemId,
-    );
-  }
 
   Object _selectedWorkspaceItemToken() {
     final item = _selectedWorkspaceItem;
     return item?.id ?? 'no_selected_workspace_item';
-  }
-
-  void _handleWorkspaceCatalogDrop(
-      CatalogData item,
-      Offset localOffset,
-      ) {
-    _workspacePanelKey.currentState?.placeCatalogItemAt(item, localOffset);
-  }
-
-  void _handleWorkspaceCatalogPlacementByClick(
-      CatalogData item,
-      Offset localOffset,
-      ) {
-    _workspacePanelKey.currentState?.placeCatalogItemAt(item, localOffset);
   }
 
   void _handleCatalogItemTap(CatalogData item) {

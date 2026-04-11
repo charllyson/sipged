@@ -1,10 +1,10 @@
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 import 'package:sipged/_widgets/draggable/draggable_header.dart';
 import 'package:sipged/_widgets/draggable/draggable_placeholder.dart';
-import 'package:sipged/_widgets/panels/docking/dock_panel_body.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_tabs.dart';
 import 'package:sipged/_widgets/resize/resize_handle_widget.dart';
 
@@ -72,11 +72,11 @@ class DockPanelGroup extends StatelessWidget {
     final showResizeHandle =
         isFloating && !minimized && !group.floatingAsDialog;
 
-    final double bottomReservedSpace =
+    final bottomReservedSpace =
         (showTabs ? _tabsHeight : 0.0) +
             (showResizeHandle ? _resizeHandleReserve : 0.0);
 
-    final Widget contentBody = activeItem != null
+    final contentBody = activeItem != null
         ? Container(
       width: double.infinity,
       padding: activeItem.contentPadding.add(
@@ -90,7 +90,7 @@ class DockPanelGroup extends StatelessWidget {
       bottomReservedSpace: bottomReservedSpace,
     );
 
-    final Widget panelStack = Stack(
+    final panelStack = Stack(
       fit: StackFit.expand,
       children: [
         Positioned.fill(child: contentBody),
@@ -135,7 +135,7 @@ class DockPanelGroup extends StatelessWidget {
       );
     }
 
-    final Widget content = isDragging
+    final content = isDragging
         ? Column(
       mainAxisSize: MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -151,7 +151,9 @@ class DockPanelGroup extends StatelessWidget {
           onDragUpdate: onDragUpdate,
           onDragEnd: onDragEnd,
         ),
-        Expanded(child: DraggablePlaceholder(accent: accent)),
+        Expanded(
+          child: DraggablePlaceholder(accent: accent),
+        ),
       ],
     )
         : Column(
@@ -174,7 +176,7 @@ class DockPanelGroup extends StatelessWidget {
       ],
     );
 
-    return DockPanelBody(
+    return _DockPanelBody(
       isFloating: isFloating,
       fill: fill,
       borderColor: borderColor,
@@ -182,6 +184,59 @@ class DockPanelGroup extends StatelessWidget {
       child: SizedBox(
         width: double.infinity,
         child: content,
+      ),
+    );
+  }
+}
+
+class _DockPanelBody extends StatelessWidget {
+  final Widget child;
+  final bool isFloating;
+  final Color fill;
+  final Color borderColor;
+  final Color shadowColor;
+
+  const _DockPanelBody({
+    required this.child,
+    required this.isFloating,
+    required this.fill,
+    required this.borderColor,
+    required this.shadowColor,
+  });
+
+  static const BorderRadius _panelRadius = BorderRadius.zero;
+
+  BoxDecoration _decoration() {
+    return BoxDecoration(
+      color: fill,
+      borderRadius: _panelRadius,
+      border: Border.all(color: borderColor),
+      boxShadow: [
+        BoxShadow(
+          color: shadowColor,
+          blurRadius: isFloating ? 14 : 8,
+          offset: Offset(0, isFloating ? 8 : 3),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isFloating) {
+      return DecoratedBox(
+        decoration: _decoration(),
+        child: child,
+      );
+    }
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+        child: DecoratedBox(
+          decoration: _decoration(),
+          child: child,
+        ),
       ),
     );
   }

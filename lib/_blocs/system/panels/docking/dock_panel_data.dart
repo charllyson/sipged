@@ -20,33 +20,38 @@ class DockPanelData {
   final String id;
   final String title;
 
-  /// Propriedades de grupo/painel
+  /// Grupo/painel
   final DockArea area;
   final DockCrossSpan crossSpan;
   final List<DockPanelData> items;
   final String? activeItemId;
   final bool visible;
-  final bool collapsed;
+
   final Offset floatingOffset;
   final Size floatingSize;
   final double dockExtent;
   final double dockWeight;
+
   final IconData? icon;
   final Color? accentColor;
   final bool shrinkWrapOnMainAxis;
+
+  /// Mantidos por compatibilidade com código externo.
+  final bool collapsed;
   final bool minimized;
   final DockArea? lastDockArea;
   final DockCrossSpan? lastDockCrossSpan;
+
   final bool floatingAsDialog;
   final bool restoreToFloatingOnDialogClose;
   final Offset storedFloatingOffset;
   final Size storedFloatingSize;
 
-  /// Propriedades de item/aba
+  /// Aba/item
   final Widget? child;
   final EdgeInsetsGeometry contentPadding;
 
-  /// Identifica mudança de conteúdo do painel sem depender da identidade do Widget.
+  /// Token para detectar mudança real de conteúdo.
   final Object? contentToken;
 
   const DockPanelData({
@@ -57,7 +62,6 @@ class DockPanelData {
     this.items = const <DockPanelData>[],
     this.activeItemId,
     this.visible = true,
-    this.collapsed = false,
     this.floatingOffset = const Offset(80, 80),
     this.floatingSize = const Size(360, 420),
     this.dockExtent = 320,
@@ -65,6 +69,7 @@ class DockPanelData {
     this.icon,
     this.accentColor,
     this.shrinkWrapOnMainAxis = false,
+    this.collapsed = false,
     this.minimized = false,
     this.lastDockArea,
     this.lastDockCrossSpan,
@@ -102,7 +107,6 @@ class DockPanelData {
     List<DockPanelData>? items,
     Object? activeItemId = _sentinel,
     bool? visible,
-    bool? collapsed,
     Offset? floatingOffset,
     Size? floatingSize,
     double? dockExtent,
@@ -110,6 +114,7 @@ class DockPanelData {
     IconData? icon,
     Color? accentColor,
     bool? shrinkWrapOnMainAxis,
+    bool? collapsed,
     bool? minimized,
     Object? lastDockArea = _sentinel,
     Object? lastDockCrossSpan = _sentinel,
@@ -131,7 +136,6 @@ class DockPanelData {
           ? this.activeItemId
           : activeItemId as String?,
       visible: visible ?? this.visible,
-      collapsed: collapsed ?? this.collapsed,
       floatingOffset: floatingOffset ?? this.floatingOffset,
       floatingSize: floatingSize ?? this.floatingSize,
       dockExtent: dockExtent ?? this.dockExtent,
@@ -140,6 +144,7 @@ class DockPanelData {
       accentColor: accentColor ?? this.accentColor,
       shrinkWrapOnMainAxis:
       shrinkWrapOnMainAxis ?? this.shrinkWrapOnMainAxis,
+      collapsed: collapsed ?? this.collapsed,
       minimized: minimized ?? this.minimized,
       lastDockArea: identical(lastDockArea, _sentinel)
           ? this.lastDockArea
@@ -149,7 +154,8 @@ class DockPanelData {
           : lastDockCrossSpan as DockCrossSpan?,
       floatingAsDialog: floatingAsDialog ?? this.floatingAsDialog,
       restoreToFloatingOnDialogClose:
-      restoreToFloatingOnDialogClose ?? this.restoreToFloatingOnDialogClose,
+      restoreToFloatingOnDialogClose ??
+          this.restoreToFloatingOnDialogClose,
       storedFloatingOffset: storedFloatingOffset ?? this.storedFloatingOffset,
       storedFloatingSize: storedFloatingSize ?? this.storedFloatingSize,
       child: identical(child, _sentinel) ? this.child : child as Widget?,
@@ -171,7 +177,6 @@ class DockPanelData {
             listEquals(other.items, items) &&
             other.activeItemId == activeItemId &&
             other.visible == visible &&
-            other.collapsed == collapsed &&
             other.floatingOffset == floatingOffset &&
             other.floatingSize == floatingSize &&
             other.dockExtent == dockExtent &&
@@ -179,6 +184,7 @@ class DockPanelData {
             other.icon == icon &&
             other.accentColor == accentColor &&
             other.shrinkWrapOnMainAxis == shrinkWrapOnMainAxis &&
+            other.collapsed == collapsed &&
             other.minimized == minimized &&
             other.lastDockArea == lastDockArea &&
             other.lastDockCrossSpan == lastDockCrossSpan &&
@@ -200,7 +206,6 @@ class DockPanelData {
     Object.hashAll(items),
     activeItemId,
     visible,
-    collapsed,
     floatingOffset,
     floatingSize,
     dockExtent,
@@ -208,6 +213,7 @@ class DockPanelData {
     icon,
     accentColor,
     shrinkWrapOnMainAxis,
+    collapsed,
     minimized,
     lastDockArea,
     lastDockCrossSpan,

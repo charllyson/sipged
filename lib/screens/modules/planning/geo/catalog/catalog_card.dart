@@ -49,7 +49,7 @@ class _CatalogCardState extends State<CatalogCard> {
         ? primary.withValues(alpha: 0.95)
         : primary.withValues(alpha: 0.82);
 
-    final title = widget.item.title ?? '';
+    final title = widget.item.title;
     final icon = widget.item.icon ?? Icons.widgets_outlined;
 
     return MouseRegion(

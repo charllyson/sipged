@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/panels/push/push_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/push/push_panel_data.dart';
 import 'package:sipged/_widgets/panels/push/push_panel_shell.dart';
-import 'package:sipged/_widgets/panels/push/push_panels_controller.dart';
+import 'package:sipged/_blocs/system/panels/push/push_panels_controller.dart';
 
 class PushPanels extends StatefulWidget {
   final Widget child;

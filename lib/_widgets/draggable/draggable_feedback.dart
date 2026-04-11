@@ -1,26 +1,28 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
-import 'package:sipged/_widgets/panels/docking/dock_panel_config.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 
 class DraggableFeedback extends StatelessWidget {
-  final DockPanelData group;
-  final Color accent;
-
-  const DraggableFeedback({super.key,
+  const DraggableFeedback({
+    super.key,
     required this.group,
     required this.accent,
   });
+
+  final DockPanelData group;
+  final Color accent;
+
+  static const BorderRadius _panelRadius = BorderRadius.zero;
 
   double _feedbackWidth() {
     switch (group.area) {
       case DockArea.left:
       case DockArea.right:
-        return group.dockExtent.clamp(220, 520).toDouble();
+        return group.dockExtent.clamp(220.0, 520.0).toDouble();
       case DockArea.top:
       case DockArea.bottom:
-        return math.max(320, group.floatingSize.width);
+        return math.max(320.0, group.floatingSize.width).toDouble();
       case DockArea.floating:
         return group.floatingSize.width;
     }
@@ -28,7 +30,9 @@ class DraggableFeedback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = math.min(280, _feedbackWidth()).toDouble();
+    final theme = Theme.of(context);
+
+    final width = math.min(280.0, _feedbackWidth()).toDouble();
 
     return Material(
       color: Colors.transparent,
@@ -38,8 +42,8 @@ class DraggableFeedback extends StatelessWidget {
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor.withValues(alpha: 0.96),
-            borderRadius: DockPanelConfig.panelRadius,
+            color: theme.cardColor.withValues(alpha: 0.96),
+            borderRadius: _panelRadius,
             border: Border.all(
               color: accent.withValues(alpha: 0.35),
             ),
@@ -63,10 +67,14 @@ class DraggableFeedback extends StatelessWidget {
                   group.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                  ),
+                  ) ??
+                      const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
                 ),
               ),
             ],

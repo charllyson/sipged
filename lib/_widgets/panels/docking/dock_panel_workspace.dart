@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_cubit.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_data.dart';
-import 'package:sipged/_blocs/system/docking/dock_panel_state.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_cubit.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
+import 'package:sipged/_blocs/system/panels/docking/dock_panel_state.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_floating.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_group.dart';
 import 'package:sipged/_widgets/panels/docking/dock_panel_layout.dart';
-import 'package:sipged/_widgets/panels/docking/dock_panel_side_rail.dart';
-import 'package:sipged/_widgets/panels/docking/dock_panel_snap_overlay.dart';
+import 'package:sipged/_widgets/panels/docking/dock_panel_snap.dart';
 
 class DockPanelWorkspace extends StatefulWidget {
   final Widget child;
@@ -17,6 +16,10 @@ class DockPanelWorkspace extends StatefulWidget {
   final double snapThickness;
   final Color? backgroundOverlayColor;
 
+  /// Tamanho mínimo virtual da área de trabalho.
+  /// Em telas menores, a área central passa a ter scroll em vez de comprimir o conteúdo.
+  final Size contentMinSize;
+
   const DockPanelWorkspace({
     super.key,
     required this.child,
@@ -25,6 +28,7 @@ class DockPanelWorkspace extends StatefulWidget {
     this.contentPadding = EdgeInsets.zero,
     this.snapThickness = 16,
     this.backgroundOverlayColor,
+    this.contentMinSize = const Size(1400, 900),
   });
 
   @override
@@ -33,12 +37,17 @@ class DockPanelWorkspace extends StatefulWidget {
 
 class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   final GlobalKey _stackKey = GlobalKey();
-  late final DockPanelCubit _cubit;
+
+  late DockPanelCubit _cubit;
 
   @override
   void initState() {
     super.initState();
-    _cubit = DockPanelCubit(
+    _cubit = _createCubit();
+  }
+
+  DockPanelCubit _createCubit() {
+    return DockPanelCubit(
       initialGroups: widget.groups,
       onCommit: widget.onChanged,
       snapThickness: widget.snapThickness,
@@ -112,6 +121,17 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
   void didUpdateWidget(covariant DockPanelWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    final mustRecreateCubit =
+        oldWidget.snapThickness != widget.snapThickness ||
+            oldWidget.onChanged != widget.onChanged;
+
+    if (mustRecreateCubit) {
+      final oldCubit = _cubit;
+      _cubit = _createCubit();
+      oldCubit.close();
+      return;
+    }
+
     final layoutChanged = !_sameExternalLayout(
       oldWidget.groups,
       widget.groups,
@@ -138,6 +158,25 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
     return group.activeItem?.contentToken;
   }
 
+  Key _groupKey(
+      DockPanelData group,
+      bool isFloating,
+      ) {
+    final activeToken = _activeItemContentToken(group);
+
+    return ValueKey(
+      '${isFloating ? 'float' : 'dock'}_'
+          '${group.id}_'
+          '${group.floatingAsDialog}_'
+          '${group.collapsed}_'
+          '${group.visible}_'
+          '${group.minimized}_'
+          '${group.activeItemId}_'
+          '${group.items.length}_'
+          '${activeToken ?? 'no_token'}',
+    );
+  }
+
   Widget _buildGroupCard(
       DockPanelState state,
       DockPanelData group,
@@ -146,36 +185,14 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
     final isGroupDragging =
         state.isDragging && state.draggingGroupId == group.id;
 
-    final activeToken = _activeItemContentToken(group);
-
     return KeyedSubtree(
-      key: ValueKey(
-        '${isFloating ? 'float' : 'dock'}_'
-            '${group.id}_'
-            '${group.floatingAsDialog}_'
-            '${group.collapsed}_'
-            '${group.visible}_'
-            '${group.minimized}_'
-            '${group.activeItemId}_'
-            '${group.items.length}_'
-            '${activeToken ?? 'no_token'}',
-      ),
+      key: _groupKey(group, isFloating),
       child: DockPanelGroup(
         group: group,
         isFloating: isFloating,
         isDragging: isGroupDragging,
         onToggleFloating: () => _cubit.toggleFloating(group.id),
-        onHide: () {
-          final isSideArea =
-              group.area == DockArea.left || group.area == DockArea.right;
-
-          if (isSideArea) {
-            _cubit.collapseToRail(group.id);
-            return;
-          }
-
-          _cubit.setGroupVisible(group.id, false);
-        },
+        onHide: () => _cubit.setGroupVisible(group.id, false),
         onMinimize: () => _cubit.setGroupVisible(group.id, false),
         onTabSelected: (itemId) => _cubit.setGroupActiveItem(group.id, itemId),
         onDragStarted: () => _cubit.startDrag(group.id),
@@ -191,8 +208,9 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
           );
         },
         onResizeStart: _cubit.startFloatingResize,
-        onResizeUpdate: (details) =>
-            _cubit.resizeFloatingGroup(group.id, details),
+        onResizeUpdate: (details) {
+          _cubit.resizeFloatingGroup(group.id, details);
+        },
         onResizeEnd: (_) => _cubit.endFloatingResize(),
       ),
     );
@@ -200,19 +218,12 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return BlocProvider<DockPanelCubit>.value(
       value: _cubit,
       child: BlocBuilder<DockPanelCubit, DockPanelState>(
         builder: (context, state) {
-          final hasDialogPanel =
-          state.floatingGroups.any((g) => g.floatingAsDialog);
-
-          final leftStandaloneRail =
-              state.collapsedLeftGroups.isNotEmpty && state.leftGroups.isEmpty;
-
-          final rightStandaloneRail =
-              state.collapsedRightGroups.isNotEmpty && state.rightGroups.isEmpty;
-
           return LayoutBuilder(
             builder: (context, constraints) {
               final nextWorkspaceSize = Size(
@@ -220,7 +231,7 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                 constraints.maxHeight.isFinite ? constraints.maxHeight : 0,
               );
 
-              if (_cubit.state.workspaceSize != nextWorkspaceSize) {
+              if (state.workspaceSize != nextWorkspaceSize) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
                   _cubit.setWorkspaceSize(nextWorkspaceSize);
@@ -234,15 +245,19 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                 child: Stack(
                   clipBehavior: Clip.hardEdge,
                   children: [
-                    const Positioned.fill(
-                      child: ColoredBox(color: Colors.white),
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: theme.scaffoldBackgroundColor,
+                      ),
                     ),
                     Positioned.fill(
                       child: DockPanelLayout(
                         state: state,
                         contentPadding: widget.contentPadding,
-                        buildGroupCard: (group, isFloating) =>
-                            _buildGroupCard(state, group, isFloating),
+                        contentMinSize: widget.contentMinSize,
+                        buildGroupCard: (group, isFloating) {
+                          return _buildGroupCard(state, group, isFloating);
+                        },
                         onSideExtentResizeStart: _cubit.startDockExtentResize,
                         onSideExtentResizeEnd: _cubit.endDockExtentResize,
                         onSideExtentResize: _cubit.resizeAreaExtent,
@@ -264,10 +279,10 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                         child: widget.child,
                       ),
                     ),
-                    if (hasDialogPanel)
+                    if (state.hasDialogPanel)
                       Positioned.fill(
                         child: IgnorePointer(
-                          child: Container(
+                          child: ColoredBox(
                             color: Colors.black.withValues(alpha: 0.16),
                           ),
                         ),
@@ -276,40 +291,17 @@ class _DockPanelWorkspaceState extends State<DockPanelWorkspace> {
                       child: DockPanelFloating(
                         floatingGroups: state.floatingGroups,
                         workspaceSize: state.workspaceSize,
-                        buildGroupCard: (group, isFloating) =>
-                            _buildGroupCard(state, group, isFloating),
+                        buildGroupCard: (group, isFloating) {
+                          return _buildGroupCard(state, group, isFloating);
+                        },
                       ),
                     ),
-                    DockPanelSnapOverlay(
+                    DockPanelSnap(
                       visible: state.isDragging,
                       snapArea: state.hoveredSnapArea,
                       previewRect: state.previewRect,
                       backgroundOverlayColor: widget.backgroundOverlayColor,
                     ),
-                    if (state.collapsedLeftGroups.isNotEmpty)
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: DockPanelSideRail(
-                          side: DockArea.left,
-                          groups: state.collapsedLeftGroups,
-                          onGroupTap: _cubit.restoreFromRail,
-                          standalone: leftStandaloneRail,
-                        ),
-                      ),
-                    if (state.collapsedRightGroups.isNotEmpty)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: DockPanelSideRail(
-                          side: DockArea.right,
-                          groups: state.collapsedRightGroups,
-                          onGroupTap: _cubit.restoreFromRail,
-                          standalone: rightStandaloneRail,
-                        ),
-                      ),
                   ],
                 ),
               );
