@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 class GeneralDashboardStyle {
 
   static List<(String, String)> statusMenu = [
-    ('🚜 Demandas em andamento', 'EM ANDAMENTO'),
-    ('⏳ Demandas a iniciar', 'A INICIAR'),
-    ('✅ Demandas concluídas', 'CONCLUÍDO'),
+    ('🚜 Contratos em andamento', 'EM ANDAMENTO'),
+    ('⏳ Contratos a iniciar', 'A INICIAR'),
+    ('✅ Contratos concluídos', 'CONCLUÍDO'),
     ('🔧 Demandas em projeto', 'EM PROJETO'),
-    ('🚫 Demandas paralisadas', 'PARALISADO'),
-    ('❌ Demandas canceladas', 'CANCELADO'),
+    ('🚫 Contratos paralisadas', 'PARALISADO'),
+    ('❌ Contratos canceladas', 'CANCELADO'),
   ];
 
   static Color getColorByStatus(String status) {

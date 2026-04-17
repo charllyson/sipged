@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 import '../../../../_blocs/modules/transit/infractions/infractions_data.dart';
 
 class InfractionsTableSection extends StatelessWidget {
   final List<InfractionsData> listData;
   final InfractionsData? selectedItem;
-
   final void Function(InfractionsData item) onTapItem;
   final void Function(String id) onDelete;
-
-  final int currentPage;
-  final int totalPages;
-  final Future<void> Function(int page) onPageChange;
 
   const InfractionsTableSection({
     super.key,
@@ -19,41 +15,30 @@ class InfractionsTableSection extends StatelessWidget {
     required this.selectedItem,
     required this.onTapItem,
     required this.onDelete,
-    required this.currentPage,
-    required this.totalPages,
-    required this.onPageChange,
   });
 
   @override
   Widget build(BuildContext context) {
     return PagedTableChanged<InfractionsData>(
-      // dados e seleção
       listData: listData,
       getKey: (d) => d.id ?? '',
-      selectedKey: selectedItem?.id,          // mantém a linha “clicada” em verde
-      keepSelectionInternally: false,         // seleção controlada de fora
-
-      // ações
+      selectedKey: selectedItem?.id,
+      keepSelectionInternally: false,
       onTapItem: onTapItem,
       onDelete: (d) {
         final id = d.id;
-        if (id != null && id.isNotEmpty) onDelete(id);
+        if (id != null && id.isNotEmpty) {
+          onDelete(id);
+        }
       },
-
-      // paginação
-      currentPage: currentPage,
-      totalPages: totalPages,
-      onPageChange: (p) async => onPageChange(p),
-
-      // colunas (alinhadas ao seu modelo)
       columns: [
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'AIT',
-          getter: (d) => (d.aitNumber ?? ''),
+          getter: (d) => d.aitNumber ?? '',
           textAlign: TextAlign.center,
           maxWidth: 120,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'DATA',
           getter: (d) {
             final dt = d.dateInfraction;
@@ -66,7 +51,7 @@ class InfractionsTableSection extends StatelessWidget {
           textAlign: TextAlign.center,
           maxWidth: 110,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'HORA',
           getter: (d) {
             final dt = d.dateInfraction;
@@ -78,49 +63,49 @@ class InfractionsTableSection extends StatelessWidget {
           textAlign: TextAlign.center,
           maxWidth: 90,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'CÓDIGO',
-          getter: (d) => (d.codeInfraction ?? ''),
+          getter: (d) => d.codeInfraction ?? '',
           textAlign: TextAlign.center,
           maxWidth: 110,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'DESCRIÇÃO',
-          getter: (d) => (d.descriptionInfraction ?? ''),
+          getter: (d) => d.descriptionInfraction ?? '',
           maxWidth: 260,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'ÓRGÃO',
-          getter: (d) => (d.organCode ?? ''),
+          getter: (d) => d.organCode ?? '',
           textAlign: TextAlign.center,
           maxWidth: 120,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'AUTORIDADE',
-          getter: (d) => (d.organAuthority ?? ''),
+          getter: (d) => d.organAuthority ?? '',
           textAlign: TextAlign.center,
           maxWidth: 160,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'ENDEREÇO',
-          getter: (d) => (d.addressInfraction ?? ''),
+          getter: (d) => d.addressInfraction ?? '',
           maxWidth: 260,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'BAIRRO',
-          getter: (d) => (d.bairro ?? ''),
+          getter: (d) => d.bairro ?? '',
           textAlign: TextAlign.center,
           maxWidth: 140,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'LATITUDE',
-          getter: (d) => (d.latitude ?? '').toString(),
+          getter: (d) => d.latitude?.toString() ?? '',
           textAlign: TextAlign.center,
           maxWidth: 120,
         ),
-        PagedColumnSpec<InfractionsData>(
+        PagedColum<InfractionsData>(
           title: 'LONGITUDE',
-          getter: (d) => (d.longitude ?? '').toString(),
+          getter: (d) => d.longitude?.toString() ?? '',
           textAlign: TextAlign.center,
           maxWidth: 120,
         ),

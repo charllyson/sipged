@@ -17,7 +17,7 @@ class TabBarRoadsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TabChangedWidget(
+    return TabChanged(
       tabs: [
         ContractTabDescriptor(
           label: 'Dados',

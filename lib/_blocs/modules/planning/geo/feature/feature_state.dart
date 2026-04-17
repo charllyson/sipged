@@ -49,6 +49,9 @@ class FeatureState {
   final double importProgress;
   final Map<String, String> importFieldMapping;
 
+  /// Incremente sempre que algo que impacta renderização do mapa mudar.
+  final int visualRevision;
+
   const FeatureState({
     this.featuresByLayer = const {},
     this.loadingByLayer = const {},
@@ -62,6 +65,7 @@ class FeatureState {
     this.importColumns = const [],
     this.importProgress = 0.0,
     this.importFieldMapping = const {},
+    this.visualRevision = 0,
   });
 
   bool get isAnyLoading => loadingByLayer.values.any((e) => e == true);
@@ -88,6 +92,7 @@ class FeatureState {
     List<ImportColumnMeta>? importColumns,
     double? importProgress,
     Map<String, String>? importFieldMapping,
+    int? visualRevision,
     bool clearError = false,
     bool clearSelection = false,
     bool clearImportSession = false,
@@ -115,6 +120,7 @@ class FeatureState {
       importFieldMapping: clearImportSession
           ? const {}
           : (importFieldMapping ?? this.importFieldMapping),
+      visualRevision: visualRevision ?? this.visualRevision,
     );
   }
 
@@ -134,7 +140,8 @@ class FeatureState {
         _deepEq.equals(other.importFeatures, importFeatures) &&
         _deepEq.equals(other.importColumns, importColumns) &&
         other.importProgress == importProgress &&
-        _deepEq.equals(other.importFieldMapping, importFieldMapping);
+        _deepEq.equals(other.importFieldMapping, importFieldMapping) &&
+        other.visualRevision == visualRevision;
   }
 
   @override
@@ -151,5 +158,6 @@ class FeatureState {
     _deepEq.hash(importColumns),
     importProgress,
     _deepEq.hash(importFieldMapping),
+    visualRevision,
   );
 }

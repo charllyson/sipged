@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 
 enum CatalogPropertyType {
   text,
@@ -36,7 +36,7 @@ class CatalogData {
   final double? numberValue;
   final String? selectedValue;
   final List<String>? options;
-  final AttributeData? bindingValue;
+  final FeatureDataBinding? bindingValue;
 
   const CatalogData({
     this.id = '',
@@ -97,7 +97,7 @@ class CatalogData {
       options: options ?? this.options,
       bindingValue: identical(bindingValue, _sentinel)
           ? this.bindingValue
-          : bindingValue as AttributeData?,
+          : bindingValue as FeatureDataBinding?,
     );
   }
 
@@ -178,7 +178,7 @@ class CatalogData {
       selectedValue: map['selectedValue']?.toString(),
       options: (map['options'] as List?)?.map((e) => e.toString()).toList(),
       bindingValue: map['bindingValue'] is Map<String, dynamic>
-          ? AttributeData.fromMap(map['bindingValue'] as Map<String, dynamic>)
+          ? FeatureDataBinding.fromMap(map['bindingValue'] as Map<String, dynamic>)
           : null,
     );
   }

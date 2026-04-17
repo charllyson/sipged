@@ -28,7 +28,7 @@ class TabBarAdditivePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TabChangedWidget(
+    return TabChanged(
       contractData: contractData,
       contractsBloc: contractsBloc,
       initialTabIndex: initialTabIndex,

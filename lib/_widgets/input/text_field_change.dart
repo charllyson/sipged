@@ -10,7 +10,6 @@ class CustomTextField extends StatelessWidget {
     this.valueColor,
 
     // ✅ prefixos (texto ou widget)
-    this.prefix,
     this.prefixText,
     this.prefixStyle,
 
@@ -70,7 +69,6 @@ class CustomTextField extends StatelessWidget {
   final String? hintText;
 
   // ✅ prefixos
-  final Widget? prefix;              // vai para InputDecoration.prefix
   final String? prefixText;          // vai para InputDecoration.prefixText (RECOMENDADO p/ "R$")
   final TextStyle? prefixStyle;      // estilo do prefixText
   final Widget? prefixIcon;          // vai para InputDecoration.prefixIcon (ícone)
@@ -186,27 +184,12 @@ class CustomTextField extends StatelessWidget {
           isDense: isDense,
           isCollapsed: isCollapsed,
           contentPadding: contentPadding ?? const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-
-          // ✅ IMPORTANTE:
-          // Se prefixText existir, não use prefix widget (evita conflitos).
-          prefix: prefixText != null
-              ? null
-              : (prefix != null
-              ? Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: prefix,
-          )
-              : null),
           prefixText: prefixText,
           prefixStyle: prefixText != null ? effectivePrefixTextStyle : null,
-
-          // ✅ ícone de verdade (se usar)
           prefixIcon: prefixIcon,
           prefixIconConstraints: prefixIconConstraints,
-
           suffixIcon: suffix,
           suffixIconConstraints: suffixIconConstraints,
-
           enabledBorder: outlined ? border : InputBorder.none,
           focusedBorder: outlined ? focusedBorder : InputBorder.none,
           errorBorder: outlined ? errorBorder : InputBorder.none,

@@ -52,7 +52,6 @@ class ImportColumnMeta {
     );
   }
 
-
   @override
   bool operator ==(Object other) {
     return other is ImportColumnMeta &&
@@ -244,7 +243,20 @@ class FeatureData {
     );
   }
 
-  String get selectionKey => '${layerId ?? ''}::${id ?? ''}';
+  String get selectionKey {
+    final stableId = id?.trim();
+    if (stableId != null && stableId.isNotEmpty) {
+      return '${layerId ?? '_no_layer'}::$stableId';
+    }
+
+    final fingerprint = Object.hash(
+      geometryType,
+      _deepEq.hash(rawGeometry),
+      _deepEq.hash(editedProperties),
+    );
+
+    return '${layerId ?? '_import'}::$fingerprint';
+  }
 
   String get title {
     const candidateKeys = [
@@ -319,7 +331,7 @@ class FeatureData {
       'layerId': layerId,
       'editor': editedProperties,
       'geometryType': geometryTypeName,
-      'geometry': rawGeometry,
+      'geometry': encodeGeometryForFirestore(rawGeometry),
       'searchTitle': title,
     };
   }

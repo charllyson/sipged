@@ -13,6 +13,8 @@ class FeatureCubit extends Cubit<FeatureState> {
   })  : _repository = repository ?? FeatureRepository(),
         super(const FeatureState());
 
+  static const String importPreviewLayerId = '__import_preview__';
+
   final FeatureRepository _repository;
 
   final Map<String, Future<void>> _inFlightLayerLoads = {};
@@ -21,6 +23,8 @@ class FeatureCubit extends Cubit<FeatureState> {
   void _emitIfChanged(FeatureState next) {
     if (next != state) emit(next);
   }
+
+  int _nextVisualRevision() => state.visualRevision + 1;
 
   Map<String, bool> _setLoadingFlag(String layerId, bool value) {
     final next = Map<String, bool>.from(state.loadingByLayer);
@@ -130,6 +134,7 @@ class FeatureCubit extends Cubit<FeatureState> {
           availableFieldsByLayer: nextAvailableFields,
           clearSelection: shouldClearSelection,
           clearError: true,
+          visualRevision: _nextVisualRevision(),
         ),
       );
     } catch (e) {
@@ -191,7 +196,8 @@ class FeatureCubit extends Cubit<FeatureState> {
 
       _emitIfChanged(
         state.copyWith(
-          availableFieldsByLayer: _setAvailableFieldsForLayer(layerId, fieldNames),
+          availableFieldsByLayer:
+          _setAvailableFieldsForLayer(layerId, fieldNames),
           clearError: true,
         ),
       );
@@ -312,6 +318,7 @@ class FeatureCubit extends Cubit<FeatureState> {
       state.copyWith(
         loadingByLayer: _setLoadingFlag(layerId, false),
         clearError: true,
+        visualRevision: _nextVisualRevision(),
       ),
     );
   }
@@ -341,6 +348,7 @@ class FeatureCubit extends Cubit<FeatureState> {
         Map<String, List<String>>.unmodifiable(nextAvailableFields),
         clearSelection: clearSelection,
         clearError: true,
+        visualRevision: _nextVisualRevision(),
       ),
     );
   }
@@ -375,6 +383,102 @@ class FeatureCubit extends Cubit<FeatureState> {
     );
   }
 
+  void selectImportFeature(FeatureData feature) {
+    selectFeature(
+      layerId: importPreviewLayerId,
+      feature: feature,
+    );
+  }
+
+  void updateSelectedFeatureProperty(String field, dynamic value) {
+    final currentSelection = state.selected;
+    if (currentSelection == null) return;
+
+    final currentFeature = currentSelection.feature;
+    final currentValue = currentFeature.editedProperties[field];
+
+    if (currentValue == value) return;
+
+    final nextEditedProperties =
+    Map<String, dynamic>.from(currentFeature.editedProperties)
+      ..[field] = value;
+
+    final nextColumnTypes =
+    Map<String, TypeFieldGeoJson>.from(currentFeature.columnTypes)
+      ..[field] = FeatureData.inferFieldType(value);
+
+    final updatedFeature = currentFeature.copyWith(
+      editedProperties: nextEditedProperties,
+      columnTypes: nextColumnTypes,
+    );
+
+    final nextSelection = LayerSelection(
+      layerId: currentSelection.layerId,
+      feature: updatedFeature,
+    );
+
+    if (currentSelection.layerId == importPreviewLayerId) {
+      final nextImportFeatures = state.importFeatures
+          .map(
+            (item) => item.selectionKey == currentFeature.selectionKey
+            ? updatedFeature.copyWith(selected: item.selected)
+            : item,
+      )
+          .toList(growable: false);
+
+      final updatedFields = _extractFieldsFromFeatures(nextImportFeatures);
+
+      _emitIfChanged(
+        state.copyWith(
+          selected: nextSelection,
+          importFeatures: List<FeatureData>.unmodifiable(nextImportFeatures),
+          availableFieldsByLayer: _setAvailableFieldsForLayer(
+            importPreviewLayerId,
+            updatedFields,
+          ),
+          clearError: true,
+          visualRevision: _nextVisualRevision(),
+        ),
+      );
+      return;
+    }
+
+    final layerFeatures = state.featuresByLayer[currentSelection.layerId];
+    Map<String, List<FeatureData>> nextFeaturesByLayer = state.featuresByLayer;
+
+    if (layerFeatures != null) {
+      final updatedLayerFeatures = layerFeatures
+          .map(
+            (item) => item.selectionKey == currentFeature.selectionKey
+            ? updatedFeature
+            : item,
+      )
+          .toList(growable: false);
+
+      nextFeaturesByLayer = _setFeaturesForLayer(
+        currentSelection.layerId,
+        updatedLayerFeatures,
+      );
+    }
+
+    final updatedFields = _extractFieldsFromFeatures(
+      nextFeaturesByLayer[currentSelection.layerId] ?? [updatedFeature],
+    );
+
+    _emitIfChanged(
+      state.copyWith(
+        selected: nextSelection,
+        featuresByLayer: nextFeaturesByLayer,
+        availableFieldsByLayer: _setAvailableFieldsForLayer(
+          currentSelection.layerId,
+          updatedFields,
+        ),
+        clearError: true,
+        visualRevision: _nextVisualRevision(),
+      ),
+    );
+  }
+
   Future<void> startImport(String collectionPath) async {
     _emitIfChanged(
       state.copyWith(
@@ -384,6 +488,7 @@ class FeatureCubit extends Cubit<FeatureState> {
         importColumns: const [],
         importFieldMapping: const {},
         importProgress: 0.0,
+        clearSelection: true,
         clearError: true,
       ),
     );
@@ -398,6 +503,7 @@ class FeatureCubit extends Cubit<FeatureState> {
           importFeatures: result.$1,
           importColumns: result.$2,
           importProgress: 0.0,
+          clearSelection: true,
           clearError: true,
         ),
       );
@@ -406,7 +512,10 @@ class FeatureCubit extends Cubit<FeatureState> {
     }
   }
 
-  Future<void> startFromFirestore(String collectionPath) async {
+  Future<void> startFromFirestore(
+      String collectionPath, {
+        String? sourceLayerId,
+      }) async {
     _emitIfChanged(
       state.copyWith(
         importStatus: FeatureImportStatus.loadingFirestore,
@@ -415,6 +524,7 @@ class FeatureCubit extends Cubit<FeatureState> {
         importColumns: const [],
         importFieldMapping: const {},
         importProgress: 0.0,
+        clearSelection: true,
         clearError: true,
       ),
     );
@@ -423,6 +533,7 @@ class FeatureCubit extends Cubit<FeatureState> {
       final result = await _repository.loadFromFirestoreAsImportedFeatures(
         collectionPath: collectionPath,
         limit: 1500,
+        sourceLayerId: sourceLayerId,
       );
 
       _emitIfChanged(
@@ -431,6 +542,7 @@ class FeatureCubit extends Cubit<FeatureState> {
           importFeatures: result.$1,
           importColumns: result.$2,
           importProgress: 0.0,
+          clearSelection: true,
           clearError: true,
         ),
       );
@@ -449,9 +561,13 @@ class FeatureCubit extends Cubit<FeatureState> {
       return;
     }
 
+    final shouldClearSelection =
+        state.selected?.layerId == importPreviewLayerId;
+
     _emitIfChanged(
       state.copyWith(
         clearImportSession: true,
+        clearSelection: shouldClearSelection,
         clearError: true,
       ),
     );
@@ -533,11 +649,29 @@ class FeatureCubit extends Cubit<FeatureState> {
       );
     }).toList(growable: false);
 
-    final newMapping = Map<String, String>.from(state.importFieldMapping)
-      ..updateAll((_, value) => value == oldName ? trimmed : value);
+    final newMapping = Map<String, String>.from(state.importFieldMapping);
+    if (newMapping.containsKey(oldName)) {
+      final target = newMapping.remove(oldName);
+      if (target != null && target.trim().isNotEmpty) {
+        newMapping[trimmed] = target;
+      }
+    }
+
+    LayerSelection? nextSelection = state.selected;
+    if (state.selected?.layerId == importPreviewLayerId) {
+      final selectedFeature = feats.firstWhere(
+            (f) => f.selectionKey == state.selected!.feature.selectionKey,
+        orElse: () => state.selected!.feature,
+      );
+      nextSelection = LayerSelection(
+        layerId: importPreviewLayerId,
+        feature: selectedFeature,
+      );
+    }
 
     _emitIfChanged(
       state.copyWith(
+        selected: nextSelection,
         importColumns: List<ImportColumnMeta>.unmodifiable(cols),
         importFeatures: List<FeatureData>.unmodifiable(feats),
         importFieldMapping: Map<String, String>.unmodifiable(newMapping),
@@ -560,8 +694,21 @@ class FeatureCubit extends Cubit<FeatureState> {
       return feature.copyWith(columnTypes: newTypes);
     }).toList(growable: false);
 
+    LayerSelection? nextSelection = state.selected;
+    if (state.selected?.layerId == importPreviewLayerId) {
+      final selectedFeature = feats.firstWhere(
+            (f) => f.selectionKey == state.selected!.feature.selectionKey,
+        orElse: () => state.selected!.feature,
+      );
+      nextSelection = LayerSelection(
+        layerId: importPreviewLayerId,
+        feature: selectedFeature,
+      );
+    }
+
     _emitIfChanged(
       state.copyWith(
+        selected: nextSelection,
         importColumns: List<ImportColumnMeta>.unmodifiable(cols),
         importFeatures: List<FeatureData>.unmodifiable(feats),
         clearError: true,
@@ -569,16 +716,16 @@ class FeatureCubit extends Cubit<FeatureState> {
     );
   }
 
-  void setFieldMapping(String targetField, String? sourceColumn) {
+  void setFieldMapping(String sourceColumnName, String? targetFieldName) {
     final map = Map<String, String>.from(state.importFieldMapping);
-    final value = sourceColumn?.trim();
+    final value = targetFieldName?.trim();
 
     if (value == null || value.isEmpty) {
-      if (!map.containsKey(targetField)) return;
-      map.remove(targetField);
+      if (!map.containsKey(sourceColumnName)) return;
+      map.remove(sourceColumnName);
     } else {
-      if (map[targetField] == value) return;
-      map[targetField] = value;
+      if (map[sourceColumnName] == value) return;
+      map[sourceColumnName] = value;
     }
 
     _emitIfChanged(
@@ -617,14 +764,26 @@ class FeatureCubit extends Cubit<FeatureState> {
         return;
       }
 
-      final selectedRows =
+      List<FeatureData> selectedRows =
       state.importFeatures.where((f) => f.selected).toList(growable: false);
+
+      if (selectedRows.isEmpty) {
+        final currentSelection = state.selected;
+        if (currentSelection != null &&
+            currentSelection.layerId == importPreviewLayerId) {
+          final selectedFeature = state.importFeatures.firstWhere(
+                (f) => f.selectionKey == currentSelection.feature.selectionKey,
+            orElse: () => currentSelection.feature,
+          );
+          selectedRows = [selectedFeature];
+        }
+      }
 
       if (selectedRows.isEmpty) {
         _emitIfChanged(
           state.copyWith(
             importStatus: FeatureImportStatus.failure,
-            error: 'Nenhuma linha selecionada para salvar.',
+            error: 'Nenhuma linha selecionada ou feição ativa para salvar.',
           ),
         );
         return;
@@ -639,19 +798,26 @@ class FeatureCubit extends Cubit<FeatureState> {
 
       final prepared = selectedRows.map((feature) {
         final newProps = <String, dynamic>{};
+        final newTypes = <String, TypeFieldGeoJson>{};
 
-        for (final colName in selectedColNames) {
-          final rawValue = feature.editedProperties[colName];
-          final type = typeByColumn[colName] ?? TypeFieldGeoJson.string;
-          newProps[colName] = _castValue(rawValue, type);
+        for (final sourceColName in selectedColNames) {
+          final rawValue = feature.editedProperties[sourceColName];
+          final type = typeByColumn[sourceColName] ?? TypeFieldGeoJson.string;
+          final targetField =
+          state.importFieldMapping[sourceColName]?.trim().isNotEmpty == true
+              ? state.importFieldMapping[sourceColName]!.trim()
+              : sourceColName;
+
+          newProps[targetField] = _castValue(rawValue, type);
+          newTypes[targetField] = type;
         }
 
         return feature.copyWith(
           editedProperties: newProps,
-          columnTypes: {
-            for (final colName in selectedColNames)
-              colName: typeByColumn[colName] ?? TypeFieldGeoJson.string,
-          },
+          columnTypes: newTypes,
+          originalProperties: Map<String, dynamic>.unmodifiable(
+            Map<String, dynamic>.from(newProps),
+          ),
         );
       }).toList(growable: false);
 
@@ -670,11 +836,117 @@ class FeatureCubit extends Cubit<FeatureState> {
         },
       );
 
+      final savedById = <String, FeatureData>{};
+      for (final feature in prepared) {
+        final id = feature.id?.trim();
+        final layerId = feature.layerId?.trim();
+        if (id == null || id.isEmpty || layerId == null || layerId.isEmpty) {
+          continue;
+        }
+        savedById['$layerId::$id'] = feature;
+      }
+
+      Map<String, List<FeatureData>> nextFeaturesByLayer = state.featuresByLayer;
+      Map<String, List<String>> nextAvailableFields = state.availableFieldsByLayer;
+      LayerSelection? nextSelection = state.selected;
+
+      if (savedById.isNotEmpty) {
+        final mutableFeaturesByLayer =
+        Map<String, List<FeatureData>>.from(state.featuresByLayer);
+        final mutableFieldsByLayer =
+        Map<String, List<String>>.from(state.availableFieldsByLayer);
+
+        for (final entry in mutableFeaturesByLayer.entries) {
+          final layerId = entry.key;
+          final currentFeatures = entry.value;
+
+          bool changed = false;
+
+          final updatedLayerFeatures = currentFeatures.map((item) {
+            final itemId = item.id?.trim();
+            if (itemId == null || itemId.isEmpty) return item;
+
+            final saved = savedById['$layerId::$itemId'];
+            if (saved == null) return item;
+
+            changed = true;
+
+            return item.copyWith(
+              editedProperties: saved.editedProperties,
+              columnTypes: saved.columnTypes,
+              originalProperties: saved.originalProperties,
+            );
+          }).toList(growable: false);
+
+          if (changed) {
+            mutableFeaturesByLayer[layerId] =
+            List<FeatureData>.unmodifiable(updatedLayerFeatures);
+            mutableFieldsByLayer[layerId] = List<String>.unmodifiable(
+              _extractFieldsFromFeatures(updatedLayerFeatures),
+            );
+          }
+        }
+
+        nextFeaturesByLayer =
+        Map<String, List<FeatureData>>.unmodifiable(mutableFeaturesByLayer);
+        nextAvailableFields =
+        Map<String, List<String>>.unmodifiable(mutableFieldsByLayer);
+
+        final currentSelection = state.selected;
+        if (currentSelection != null &&
+            currentSelection.layerId != importPreviewLayerId) {
+          final selectedId = currentSelection.feature.id?.trim();
+          final selectedLayerId = currentSelection.layerId.trim();
+
+          if (selectedId != null && selectedId.isNotEmpty) {
+            final updatedSelected =
+            nextFeaturesByLayer[selectedLayerId]?.firstWhere(
+                  (f) => (f.id?.trim() ?? '') == selectedId,
+              orElse: () => currentSelection.feature,
+            );
+
+            if (updatedSelected != null) {
+              nextSelection = LayerSelection(
+                layerId: selectedLayerId,
+                feature: updatedSelected,
+              );
+            }
+          }
+        }
+      }
+
+      final refreshedImportFeatures = state.importFeatures.map((item) {
+        final itemId = item.id?.trim();
+        final itemLayerId = item.layerId?.trim();
+
+        if (itemId == null ||
+            itemId.isEmpty ||
+            itemLayerId == null ||
+            itemLayerId.isEmpty) {
+          return item;
+        }
+
+        final saved = savedById['$itemLayerId::$itemId'];
+        if (saved == null) return item;
+
+        return item.copyWith(
+          editedProperties: saved.editedProperties,
+          originalProperties: saved.originalProperties,
+          columnTypes: saved.columnTypes,
+          selected: item.selected,
+        );
+      }).toList(growable: false);
+
       _emitIfChanged(
         state.copyWith(
-          importStatus: FeatureImportStatus.success,
-          importProgress: 1.0,
+          selected: nextSelection,
+          featuresByLayer: nextFeaturesByLayer,
+          availableFieldsByLayer: nextAvailableFields,
+          importStatus: FeatureImportStatus.previewReady,
+          importFeatures: List<FeatureData>.unmodifiable(refreshedImportFeatures),
+          importProgress: 0.0,
           clearError: true,
+          visualRevision: _nextVisualRevision(),
         ),
       );
     } catch (e) {
@@ -690,10 +962,8 @@ class FeatureCubit extends Cubit<FeatureState> {
     state.importFeatures.where((f) => f.selected).toList(growable: false);
     if (selected.isEmpty) return;
 
-    final ids = selected
-        .map((f) => f.id)
-        .whereType<String>()
-        .toList(growable: false);
+    final ids =
+    selected.map((f) => f.id).whereType<String>().toList(growable: false);
     if (ids.isEmpty) return;
 
     _emitIfChanged(
@@ -721,16 +991,47 @@ class FeatureCubit extends Cubit<FeatureState> {
       );
 
       final idSet = ids.toSet();
-      final remaining = state.importFeatures
+
+      final remainingImport = state.importFeatures
           .where((feature) => !idSet.contains(feature.id))
           .toList(growable: false);
+
+      final mutableFeaturesByLayer =
+      Map<String, List<FeatureData>>.from(state.featuresByLayer);
+      final mutableFieldsByLayer =
+      Map<String, List<String>>.from(state.availableFieldsByLayer);
+
+      for (final entry in mutableFeaturesByLayer.entries) {
+        final updated = entry.value
+            .where((feature) => !idSet.contains(feature.id))
+            .toList(growable: false);
+
+        if (updated.length != entry.value.length) {
+          mutableFeaturesByLayer[entry.key] =
+          List<FeatureData>.unmodifiable(updated);
+          mutableFieldsByLayer[entry.key] =
+          List<String>.unmodifiable(_extractFieldsFromFeatures(updated));
+        }
+      }
+
+      final selectedState = state.selected;
+      final shouldClearSelection = selectedState != null &&
+          ((selectedState.layerId == importPreviewLayerId &&
+              idSet.contains(selectedState.feature.id)) ||
+              idSet.contains(selectedState.feature.id));
 
       _emitIfChanged(
         state.copyWith(
           importStatus: FeatureImportStatus.previewReady,
-          importFeatures: List<FeatureData>.unmodifiable(remaining),
+          importFeatures: List<FeatureData>.unmodifiable(remainingImport),
+          featuresByLayer:
+          Map<String, List<FeatureData>>.unmodifiable(mutableFeaturesByLayer),
+          availableFieldsByLayer:
+          Map<String, List<String>>.unmodifiable(mutableFieldsByLayer),
           importProgress: 0.0,
+          clearSelection: shouldClearSelection,
           clearError: true,
+          visualRevision: _nextVisualRevision(),
         ),
       );
     } catch (e) {
@@ -809,6 +1110,7 @@ class FeatureCubit extends Cubit<FeatureState> {
     _emitIfChanged(
       state.copyWith(
         importStatus: FeatureImportStatus.failure,
+        importProgress: 0.0,
         error: error.toString(),
       ),
     );

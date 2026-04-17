@@ -62,7 +62,7 @@ import 'package:sipged/screens/menus/menu_drawer.dart';
 import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_widgets/buttons/float_button_menu.dart';
 
-import 'package:sipged/screens/modules/planning/rightWay/planning_right_way_workspace_page.dart';
+import 'package:sipged/screens/modules/planning/land/land_page.dart';
 
 import 'package:sipged/screens/modules/traffic/accidents/records/accidents_records_network_page.dart';
 import 'package:sipged/screens/modules/traffic/infractions/infractions_dashboard_page.dart';
@@ -441,7 +441,7 @@ class _MenuListPageState extends State<MenuListPage> {
           context.read<ProcessStore>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => PlanningRightWayWorkspacePage(contractData: contract),
+              builder: (_) => LandPage(contractData: contract),
             ),
           );
         }, pageTitle: 'Desapropriações');

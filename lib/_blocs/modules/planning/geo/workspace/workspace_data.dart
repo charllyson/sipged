@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 
 enum WorkspaceSnapEdge {
@@ -80,7 +80,7 @@ class WorkspaceData {
     return propertyByKey(key)?.selectedValue;
   }
 
-  AttributeData? getBindingProperty(String key) {
+  FeatureDataBinding? getBindingProperty(String key) {
     return propertyByKey(key)?.bindingValue;
   }
 

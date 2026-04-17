@@ -1,72 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_widgets/table/paged/paged_colum.dart';
+import 'package:sipged/_widgets/table/paged/paged_pagination_bar.dart';
+import 'package:sipged/_widgets/table/paged/paged_row.dart';
+import 'package:sipged/_widgets/table/paged/paged_table_metrics.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
-/// ===== Especificação de coluna =====
-class PagedColumnSpec<T> {
-  final String title;
-  final String Function(T item)? getter;
-  final Widget Function(T item)? cellBuilder;
-  final TextAlign textAlign;
-  final double? maxWidth;
-
-  const PagedColumnSpec({
-    required this.title,
-    this.getter,
-    this.cellBuilder,
-    this.textAlign = TextAlign.left,
-    this.maxWidth,
-  });
-}
-
-/// ===== Tabela paginada genérica =====
 class PagedTableChanged<T> extends StatefulWidget {
   final List<T> listData;
 
   final String Function(T item)? getKey;
   final String? selectedKey;
   final bool keepSelectionInternally;
+  final bool enableRowTapSelection;
   final void Function(T item)? onTapItem;
   final void Function(T item)? onDelete;
 
-  final List<PagedColumnSpec<T>> columns;
-  final Widget Function(T item)? leadingCell;
-  final String? leadingTitle;
+  final List<PagedColum<T>> columns;
 
   final int? sortColumnIndex;
   final bool sortAscending;
-  final void Function(int columnIndex, bool ascending, String Function(T) getter)? onSort;
+  final void Function(
+      int columnIndex,
+      bool ascending,
+      String Function(T) getter,
+      )? onSort;
 
   final String Function(T item)? groupBy;
   final String? groupLabel;
-
-  final int currentPage;
-  final int totalPages;
-  final Future<void> Function(int page) onPageChange;
 
   final double headingRowHeight;
   final double dataRowMinHeight;
   final double dataRowMaxHeight;
   final EdgeInsetsGeometry cardMargin;
   final double elevation;
-  final bool showCheckboxColumn;
   final Color colorHeadTable;
   final Color colorHeadTableText;
   final String? statusLabel;
+  final double minTableWidth;
+  final double defaultColumnWidth;
+  final double actionsColumnWidth;
+
+  final List<int> rowsPerPageOptions;
+  final int initialRowsPerPage;
+
+  final bool enablePagination;
+  final ValueChanged<PagedTableMetrics>? onMetricsChanged;
 
   const PagedTableChanged({
     super.key,
     required this.listData,
     required this.columns,
-    required this.currentPage,
-    required this.totalPages,
-    required this.onPageChange,
     this.getKey,
     this.selectedKey,
     this.keepSelectionInternally = true,
+    this.enableRowTapSelection = true,
     this.onTapItem,
     this.onDelete,
-    this.leadingCell,
-    this.leadingTitle,
     this.sortColumnIndex,
     this.sortAscending = true,
     this.onSort,
@@ -75,12 +64,18 @@ class PagedTableChanged<T> extends StatefulWidget {
     this.headingRowHeight = 44,
     this.dataRowMinHeight = 40,
     this.dataRowMaxHeight = 60,
-    this.cardMargin = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    this.cardMargin = EdgeInsets.zero,
     this.elevation = 0,
-    this.showCheckboxColumn = false,
     this.colorHeadTable = const Color(0xFF091D68),
     this.colorHeadTableText = Colors.white,
     this.statusLabel,
+    this.minTableWidth = 800,
+    this.defaultColumnWidth = 160,
+    this.actionsColumnWidth = 96,
+    this.rowsPerPageOptions = const [10, 25, 50, 100],
+    this.initialRowsPerPage = 25,
+    this.enablePagination = true,
+    this.onMetricsChanged,
   });
 
   @override
@@ -91,6 +86,51 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
   String? _internalSelectedKey;
   bool _paging = false;
 
+  late int _currentPage;
+  late int _rowsPerPage;
+
+  int? _internalSortColumnIndex;
+  bool _internalSortAscending = false;
+
+  final ScrollController _horizontalCtrl = ScrollController();
+  PagedTableMetrics? _lastMetrics;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _rowsPerPage = widget.rowsPerPageOptions.contains(widget.initialRowsPerPage)
+        ? widget.initialRowsPerPage
+        : widget.rowsPerPageOptions.first;
+
+    _currentPage = 1;
+    _internalSortColumnIndex = widget.sortColumnIndex;
+    _internalSortAscending = widget.sortAscending;
+  }
+
+  @override
+  void didUpdateWidget(covariant PagedTableChanged<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.sortColumnIndex != widget.sortColumnIndex) {
+      _internalSortColumnIndex = widget.sortColumnIndex;
+    }
+    if (oldWidget.sortAscending != widget.sortAscending) {
+      _internalSortAscending = widget.sortAscending;
+    }
+
+    final totalPages = _calculateTotalPages(widget.listData.length);
+    if (_currentPage > totalPages) {
+      _currentPage = totalPages;
+    }
+  }
+
+  @override
+  void dispose() {
+    _horizontalCtrl.dispose();
+    super.dispose();
+  }
+
   String? _keyOf(T item) => widget.getKey?.call(item);
 
   bool _isSelected(T item) {
@@ -98,14 +138,17 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
     final activeKey = widget.keepSelectionInternally
         ? (_internalSelectedKey ?? widget.selectedKey)
         : widget.selectedKey;
+
     return k != null && activeKey != null && k == activeKey;
   }
 
   void _handleTap(T item) {
     final k = _keyOf(item);
+
     if (widget.keepSelectionInternally && k != null) {
       setState(() => _internalSelectedKey = k);
     }
+
     widget.onTapItem?.call(item);
   }
 
@@ -127,6 +170,11 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 8),
                     FilledButton(
                       onPressed: () => Navigator.of(dialogCtx).pop(true),
                       child: const Text('Excluir'),
@@ -145,301 +193,523 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
     }
   }
 
+  int _calculateTotalPages(int totalItems) {
+    if (!widget.enablePagination) return 1;
+    final totalPages = (totalItems / _rowsPerPage).ceil();
+    return totalPages <= 0 ? 1 : totalPages;
+  }
+
   Future<void> _goTo(int page) async {
-    if (_paging || page == widget.currentPage) return;
+    if (!widget.enablePagination) return;
+
+    final totalPages = _calculateTotalPages(widget.listData.length);
+    if (_paging || page == _currentPage || page < 1 || page > totalPages) {
+      return;
+    }
+
     setState(() => _paging = true);
     try {
-      await widget.onPageChange(page);
+      setState(() => _currentPage = page);
     } finally {
-      if (mounted) setState(() => _paging = false);
+      if (mounted) {
+        setState(() => _paging = false);
+      }
     }
   }
 
-  List<_RowChunk<T>> _buildRowChunks(List<T> data) {
-    if (widget.groupBy == null) {
-      return [
-        _RowChunk(type: _RowChunkType.normal, items: data),
+  List<T> _visibleData(List<T> data) {
+    if (!widget.enablePagination) {
+      return List<T>.from(data);
+    }
+
+    final total = data.length;
+    final totalPages = _calculateTotalPages(total);
+
+    if (_currentPage > totalPages) {
+      _currentPage = totalPages;
+    }
+
+    final start = (_currentPage - 1) * _rowsPerPage;
+    final end = (start + _rowsPerPage).clamp(0, total);
+
+    if (start >= total || start < 0) {
+      return <T>[];
+    }
+
+    return data.sublist(start, end);
+  }
+
+  bool get _showGroups => widget.groupBy != null && widget.groupLabel != null;
+
+  String _resolveGroupKey(T item) {
+    final key = widget.groupBy?.call(item).trim() ?? '';
+    return key.isEmpty ? 'Sem grupo' : key;
+  }
+
+  List<PagedRow<T>> _buildRowChunks(List<T> data) {
+    if (!_showGroups) {
+      return <PagedRow<T>>[
+        PagedRow<T>(type: RowType.normal, items: data),
       ];
     }
+
     final map = <String, List<T>>{};
     for (final item in data) {
-      final key = widget.groupBy!(item);
-      map.putIfAbsent(key, () => []).add(item);
+      final key = _resolveGroupKey(item);
+      map.putIfAbsent(key, () => <T>[]).add(item);
     }
-    final chunks = <_RowChunk<T>>[];
+
+    final chunks = <PagedRow<T>>[];
     for (final entry in map.entries) {
-      chunks.add(
-        _RowChunk(type: _RowChunkType.groupHeader, groupKey: entry.key),
-      );
-      chunks.add(
-        _RowChunk(type: _RowChunkType.normal, items: entry.value),
-      );
+      chunks.add(PagedRow<T>(type: RowType.groupHeader, groupKey: entry.key));
+      chunks.add(PagedRow<T>(type: RowType.normal, items: entry.value));
     }
+
     return chunks;
+  }
+
+  void _emitMetrics({
+    required int totalRows,
+    required int visibleRows,
+    required int totalPages,
+  }) {
+    if (widget.onMetricsChanged == null) return;
+
+    final metrics = PagedTableMetrics(
+      totalRows: totalRows,
+      visibleRows: visibleRows,
+      currentPage: widget.enablePagination ? _currentPage : 1,
+      totalPages: widget.enablePagination ? totalPages : 1,
+      rowsPerPage: widget.enablePagination ? _rowsPerPage : totalRows,
+    );
+
+    if (_lastMetrics == metrics) return;
+    _lastMetrics = metrics;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onMetricsChanged?.call(metrics);
+    });
+  }
+
+  void _handleSort(int columnIndex, String Function(T) getter) {
+    bool nextAscending;
+
+    if (_internalSortColumnIndex == columnIndex) {
+      nextAscending = !_internalSortAscending;
+    } else {
+      nextAscending = true;
+    }
+
+    setState(() {
+      _internalSortColumnIndex = columnIndex;
+      _internalSortAscending = nextAscending;
+      _currentPage = 1;
+    });
+
+    widget.onSort?.call(columnIndex, nextAscending, getter);
+  }
+
+  List<T> _sortedData(List<T> source) {
+    final sortIndex = _internalSortColumnIndex;
+    if (sortIndex == null) return List<T>.from(source);
+    if (sortIndex < 0 || sortIndex >= widget.columns.length) {
+      return List<T>.from(source);
+    }
+
+    final column = widget.columns[sortIndex];
+    final getter = column.getter;
+    if (getter == null) return List<T>.from(source);
+
+    final data = List<T>.from(source);
+
+    data.sort((a, b) {
+      final av = getter(a).trim();
+      final bv = getter(b).trim();
+      final result = _smartCompare(av, bv);
+      return _internalSortAscending ? result : -result;
+    });
+
+    return data;
+  }
+
+  int _smartCompare(String? a, String? b) {
+    if (a == null && b == null) return 0;
+    if (a == null) return 1;
+    if (b == null) return -1;
+
+    final aa = a.trim();
+    final bb = b.trim();
+
+    final an = num.tryParse(aa.replaceAll(',', '.'));
+    final bn = num.tryParse(bb.replaceAll(',', '.'));
+    if (an != null && bn != null) {
+      return an.compareTo(bn);
+    }
+
+    DateTime? ad;
+    DateTime? bd;
+
+    try {
+      ad = DateTime.tryParse(aa);
+    } catch (_) {}
+
+    try {
+      bd = DateTime.tryParse(bb);
+    } catch (_) {}
+
+    if (ad != null && bd != null) {
+      return ad.compareTo(bd);
+    }
+
+    return aa.toLowerCase().compareTo(bb.toLowerCase());
+  }
+
+  double _columnWidth(PagedColum<T> column) {
+    return column.width ?? column.maxWidth ?? widget.defaultColumnWidth;
+  }
+
+  double _totalTableWidth(bool hasActions) {
+    double total = 0;
+    for (final column in widget.columns) {
+      total += _columnWidth(column);
+    }
+    if (hasActions) {
+      total += widget.actionsColumnWidth;
+    }
+    return total < widget.minTableWidth ? widget.minTableWidth : total;
   }
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.listData;
-    final chunks = _buildRowChunks(data);
+    final sortedData = _sortedData(widget.listData);
+    final allData = sortedData;
+    final visibleData = _visibleData(allData);
+    final chunks = _buildRowChunks(visibleData);
+    final hasActions = widget.onDelete != null;
+    final totalColumns = widget.columns.length + (hasActions ? 1 : 0);
+    final totalPages = _calculateTotalPages(allData.length);
 
-    final hasLeading = widget.leadingCell != null;
-    final hasActions = widget.onDelete != null || widget.onTapItem != null;
-    final totalColumns =
-        (hasLeading ? 1 : 0) + widget.columns.length + (hasActions ? 1 : 0);
-    final theme = Theme.of(context);
+    _emitMetrics(
+      totalRows: allData.length,
+      visibleRows: visibleData.length,
+      totalPages: totalPages,
+    );
 
-    return Card(
-      color: Colors.white,
-      elevation: widget.elevation,
-      margin: widget.cardMargin,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: LayoutBuilder(
-        builder: (context, cons) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.statusLabel != null)
-                Padding(
-                  padding:
-                  const EdgeInsets.only(top: 12, left: 12, right: 12),
-                  child: Text(
-                    '${widget.statusLabel} - (${data.length}) registros',
-                    style: theme.textTheme.titleMedium,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final parentWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
+
+        final realTableWidth = _totalTableWidth(hasActions);
+        final needsHorizontalScroll = realTableWidth > parentWidth;
+        final renderWidth = needsHorizontalScroll ? realTableWidth : parentWidth;
+
+        final builtColumns = _buildColumns(hasActions, context);
+
+        final builtRows = chunks.expand((chunk) {
+          if (chunk.type == RowType.groupHeader) {
+            return <DataRow>[
+              DataRow(
+                color: WidgetStateProperty.all(
+                  Colors.grey.shade200,
+                ),
+                cells: List<DataCell>.generate(
+                  totalColumns,
+                      (i) {
+                    if (i == 0) {
+                      final label = widget.groupLabel ?? 'Grupo';
+                      final key = chunk.groupKey ?? '';
+                      return DataCell(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Text(
+                            key.isNotEmpty ? '$label: $key' : label,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return const DataCell(SizedBox.shrink());
+                  },
+                ),
+              ),
+            ];
+          }
+
+          return chunk.items!.map((item) {
+            final isSelected = _isSelected(item);
+            final cells = <DataCell>[];
+
+            for (final c in widget.columns) {
+              final width = _columnWidth(c);
+
+              if (c.cellBuilder != null) {
+                cells.add(
+                  DataCell(
+                    SizedBox(
+                      width: width,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: c.cellBuilder!(item),
+                      ),
+                    ),
+                  ),
+                );
+              } else if (c.getter != null) {
+                final value = c.getter!(item);
+                cells.add(
+                  DataCell(
+                    SizedBox(
+                      width: width,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: _cellText(
+                          value,
+                          context: context,
+                          align: c.textAlign,
+                          maxW: c.maxWidth ?? width,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              } else {
+                cells.add(
+                  DataCell(
+                    SizedBox(width: width),
+                  ),
+                );
+              }
+            }
+
+            if (hasActions) {
+              cells.add(
+                DataCell(
+                  SizedBox(
+                    width: widget.actionsColumnWidth,
+                    child: Center(
+                      child: IconButton(
+                        tooltip: 'Excluir',
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                        onPressed: () => _confirmarExclusao(context, item),
+                      ),
+                    ),
                   ),
                 ),
-              if (data.isEmpty)
+              );
+            }
+
+            return DataRow(
+              selected: isSelected,
+              onSelectChanged:
+              widget.enableRowTapSelection ? (_) => _handleTap(item) : null,
+              cells: cells,
+            );
+          });
+        }).toList();
+
+        return Container(
+          margin: widget.cardMargin,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.96),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (allData.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                   child: Text(
                     'Nenhum registro encontrado.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.grey.shade600,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
                 ),
-              if (data.isNotEmpty)
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: cons.maxWidth),
-                    child: DataTableTheme(
-                      data: DataTableThemeData(
-                        headingRowColor:
-                        WidgetStateProperty.all(widget.colorHeadTable),
-                        headingTextStyle: TextStyle(
-                          color: widget.colorHeadTableText,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                        dataRowColor: WidgetStateProperty.resolveWith(
-                              (states) {
-                            if (states.contains(WidgetState.hovered)) {
-                              return Colors.blue.withValues(alpha: 0.05);
-                            }
+              if (allData.isNotEmpty)
+                Scrollbar(
+                  controller: _horizontalCtrl,
+                  thumbVisibility: needsHorizontalScroll,
+                  child: SingleChildScrollView(
+                    controller: _horizontalCtrl,
+                    scrollDirection: Axis.horizontal,
+                    physics: needsHorizontalScroll
+                        ? const ClampingScrollPhysics()
+                        : const NeverScrollableScrollPhysics(),
+                    child: SizedBox(
+                      width: renderWidth,
+                      child: DataTableTheme(
+                        data: DataTableThemeData(
+                          decoration: const BoxDecoration(
+                            color: Colors.transparent,
+                          ),
+                          headingRowColor: WidgetStateProperty.all(
+                            widget.colorHeadTable,
+                          ),
+                          headingTextStyle: TextStyle(
+                            color: widget.colorHeadTableText,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                          dataRowColor: WidgetStateProperty.resolveWith((states) {
                             if (states.contains(WidgetState.selected)) {
                               return const Color(0xFFE1F5FE);
                             }
+                            if (states.contains(WidgetState.hovered)) {
+                              return Colors.blue.withOpacity(0.05);
+                            }
                             return Colors.white;
-                          },
+                          }),
+                          dividerThickness: 1,
+                          dataTextStyle: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                          ),
                         ),
-                        dataTextStyle: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
+                        child: DataTable(
+                          showCheckboxColumn: false,
+                          headingRowHeight: widget.headingRowHeight,
+                          dataRowMinHeight: widget.dataRowMinHeight,
+                          dataRowMaxHeight: widget.dataRowMaxHeight,
+                          horizontalMargin: 0,
+                          columnSpacing: 0,
+                          sortColumnIndex: _internalSortColumnIndex,
+                          sortAscending: _internalSortAscending,
+                          columns: builtColumns,
+                          rows: builtRows,
                         ),
-                      ),
-                      child: DataTable(
-                        showCheckboxColumn: widget.showCheckboxColumn,
-                        headingRowHeight: widget.headingRowHeight,
-                        dataRowMinHeight: widget.dataRowMinHeight,
-                        dataRowMaxHeight: widget.dataRowMaxHeight,
-                        sortColumnIndex: widget.sortColumnIndex,
-                        sortAscending: widget.sortAscending,
-                        columns: _buildColumns(hasLeading, hasActions),
-                        rows: chunks.expand((chunk) {
-                          if (chunk.type == _RowChunkType.groupHeader) {
-                            return [
-                              DataRow(
-                                color: WidgetStateProperty.all(
-                                  Colors.grey.shade200,
-                                ),
-                                cells: List.generate(totalColumns, (i) {
-                                  if (i == 0) {
-                                    return DataCell(
-                                      Text(
-                                        '${widget.groupLabel ?? ''}: ${chunk.groupKey ?? ''}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                  return const DataCell(SizedBox.shrink());
-                                }),
-                              ),
-                            ];
-                          } else {
-                            return chunk.items!.map((item) {
-                              final isSelected = _isSelected(item);
-                              final cells = <DataCell>[];
-
-                              if (hasLeading) {
-                                cells.add(
-                                  DataCell(widget.leadingCell!(item)),
-                                );
-                              }
-
-                              // --- Renderiza cada coluna ---
-                              for (final c in widget.columns) {
-                                if (c.cellBuilder != null) {
-                                  cells.add(
-                                    DataCell(c.cellBuilder!(item)),
-                                  );
-                                } else if (c.getter != null) {
-                                  cells.add(
-                                    DataCell(
-                                      _cellText(
-                                        c.getter!(item),
-                                        context: context,
-                                        align: c.textAlign,
-                                        maxW: c.maxWidth,
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  cells.add(const DataCell(Text('')));
-                                }
-                              }
-
-                              if (hasActions) {
-                                cells.add(
-                                  DataCell(
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (widget.onTapItem != null)
-                                          IconButton(
-                                            tooltip: 'Selecionar',
-                                            icon: const Icon(
-                                              Icons.visibility_outlined,
-                                            ),
-                                            onPressed: () =>
-                                                _handleTap(item),
-                                          ),
-                                        if (widget.onDelete != null)
-                                          IconButton(
-                                            tooltip: 'Excluir',
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                            ),
-                                            onPressed: () =>
-                                                _confirmarExclusao(
-                                                  context,
-                                                  item,
-                                                ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              return DataRow(
-                                selected: isSelected,
-                                onSelectChanged: (_) => _handleTap(item),
-                                cells: cells,
-                              );
-                            });
-                          }
-                        }).toList(),
                       ),
                     ),
                   ),
                 ),
-              const SizedBox(height: 8),
-              _buildPagination(),
+              if (widget.enablePagination)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: PagedPaginationBar(
+                    rowsPerPage: _rowsPerPage,
+                    rowsPerPageOptions: widget.rowsPerPageOptions,
+                    currentPage: _currentPage,
+                    totalPages: totalPages,
+                    visibleRows: visibleData.length,
+                    totalRows: allData.length,
+                    paging: _paging,
+                    onRowsPerPageChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        _rowsPerPage = v;
+                        _currentPage = 1;
+                      });
+                    },
+                    onFirstPage: () => _goTo(1),
+                    onPreviousPage: () => _goTo(_currentPage - 1),
+                    onNextPage: () => _goTo(_currentPage + 1),
+                    onLastPage: () => _goTo(totalPages),
+                  ),
+                ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildPagination() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          Text('Página ${widget.currentPage} de ${widget.totalPages}'),
-          const Spacer(),
-          IconButton(
-            tooltip: 'Primeira',
-            onPressed: (!_paging && widget.currentPage > 1)
-                ? () => _goTo(1)
-                : null,
-            icon: const Icon(Icons.first_page),
-          ),
-          IconButton(
-            tooltip: 'Anterior',
-            onPressed: (!_paging && widget.currentPage > 1)
-                ? () => _goTo(widget.currentPage - 1)
-                : null,
-            icon: const Icon(Icons.chevron_left),
-          ),
-          IconButton(
-            tooltip: 'Próxima',
-            onPressed: (!_paging && widget.currentPage < widget.totalPages)
-                ? () => _goTo(widget.currentPage + 1)
-                : null,
-            icon: const Icon(Icons.chevron_right),
-          ),
-          IconButton(
-            tooltip: 'Última',
-            onPressed: (!_paging && widget.currentPage < widget.totalPages)
-                ? () => _goTo(widget.totalPages)
-                : null,
-            icon: const Icon(Icons.last_page),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<DataColumn> _buildColumns(bool hasLeading, bool hasActions) {
+  List<DataColumn> _buildColumns(bool hasActions, BuildContext context) {
     final cols = <DataColumn>[];
-    if (hasLeading) {
-      cols.add(
-        DataColumn(
-          label: Center(
-            child: Text(widget.leadingTitle ?? ''),
-          ),
-        ),
-      );
-    }
+
     for (var i = 0; i < widget.columns.length; i++) {
       final c = widget.columns[i];
+      final width = _columnWidth(c);
+
       cols.add(
         DataColumn(
-          label: Center(child: Text(c.title)),
-          onSort: (widget.onSort == null || c.getter == null)
+          label: SizedBox(
+            width: width,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: c.headerBuilder != null
+                  ? c.headerBuilder!(context)
+                  : Align(
+                alignment: _getAlignment(c.textAlign),
+                child: Text(
+                  c.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: c.textAlign,
+                ),
+              ),
+            ),
+          ),
+          onSort: c.getter == null
               ? null
               : (columnIndex, ascending) {
-            widget.onSort!.call(columnIndex, ascending, c.getter!);
+            _handleSort(columnIndex, c.getter!);
           },
         ),
       );
     }
+
     if (hasActions) {
       cols.add(
-        const DataColumn(
-          label: Center(child: Text('Ações')),
+        DataColumn(
+          label: SizedBox(
+            width: widget.actionsColumnWidth,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: Center(
+                child: Text(
+                  'Ações',
+                  maxLines: 1,
+                  overflow: TextOverflow.visible,
+                  softWrap: false,
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
+
     return cols;
+  }
+
+  static Alignment _getAlignment(TextAlign align) {
+    switch (align) {
+      case TextAlign.center:
+        return Alignment.center;
+      case TextAlign.right:
+        return Alignment.centerRight;
+      case TextAlign.left:
+      case TextAlign.start:
+      default:
+        return Alignment.centerLeft;
+    }
   }
 
   static Widget _cellText(
@@ -449,16 +719,22 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
         double? maxW,
         int maxLines = 2,
       }) {
-    final style = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      overflow: TextOverflow.ellipsis,
+    final style = Theme.of(context)
+        .textTheme
+        .bodyMedium
+        ?.copyWith(overflow: TextOverflow.ellipsis);
+
+    final inner = Align(
+      alignment: _getAlignment(align),
+      child: Text(
+        text,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+        textAlign: align,
+        style: style,
+      ),
     );
-    final inner = Text(
-      text,
-      maxLines: maxLines,
-      overflow: TextOverflow.ellipsis,
-      textAlign: align,
-      style: style,
-    );
+
     return maxW != null
         ? ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxW),
@@ -466,19 +742,4 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
     )
         : inner;
   }
-}
-
-/// Suporte interno para grupos
-enum _RowChunkType { groupHeader, normal }
-
-class _RowChunk<T> {
-  final _RowChunkType type;
-  final String? groupKey;
-  final List<T>? items;
-
-  _RowChunk({
-    required this.type,
-    this.groupKey,
-    this.items,
-  });
 }

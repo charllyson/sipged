@@ -177,6 +177,31 @@ class MapCache {
     ]);
   }
 
+  static int _propertiesSignature(Map<String, dynamic> props) {
+    if (props.isEmpty) return 0;
+
+    final keys = props.keys.toList()..sort();
+
+    return Object.hashAll(
+      keys.map((key) {
+        final value = props[key];
+        return Object.hash(
+          key,
+          value.runtimeType,
+          value is List
+              ? Object.hashAll(value)
+              : value is Map
+              ? Object.hashAll(
+            (value.keys.toList()..sort()).map(
+                  (k) => Object.hash(k, value[k]),
+            ),
+          )
+              : value,
+        );
+      }),
+    );
+  }
+
   static int featureStaticSignature(FeatureData f) {
     return Object.hash(
       f.selectionKey,
@@ -185,8 +210,8 @@ class MapCache {
       f.markerPoints.length,
       f.lineParts.length,
       f.polygonRings.length,
-      f.originalProperties.length,
-      f.editedProperties.length,
+      _propertiesSignature(f.originalProperties),
+      _propertiesSignature(f.editedProperties),
     );
   }
 
@@ -196,8 +221,10 @@ class MapCache {
       f.layerId,
       f.geometryType,
       f.markerPoints.length,
-      f.originalProperties.length,
-      f.editedProperties.length,
+      f.lineParts.length,
+      f.polygonRings.length,
+      _propertiesSignature(f.originalProperties),
+      _propertiesSignature(f.editedProperties),
     );
   }
 

@@ -1,6 +1,6 @@
-// lib/screens/modules/traffic/accidents/records/accidents_table_section.dart
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
+import 'package:sipged/_widgets/table/paged/paged_colum.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 
 class AccidentsTableSection extends StatelessWidget {
@@ -8,15 +8,8 @@ class AccidentsTableSection extends StatelessWidget {
   final AccidentsData? selectedItem;
   final void Function(AccidentsData item) onTapItem;
   final void Function(String id) onDelete;
-
   final void Function(AccidentsData item) onPrint;
-
-  // ✅ novo: gerar/mostrar QR/link público
   final void Function(AccidentsData item) onPublicLink;
-
-  final int currentPage;
-  final int totalPages;
-  final Future<void> Function(int page) onPageChange;
 
   const AccidentsTableSection({
     super.key,
@@ -24,9 +17,6 @@ class AccidentsTableSection extends StatelessWidget {
     required this.selectedItem,
     required this.onTapItem,
     required this.onDelete,
-    required this.currentPage,
-    required this.totalPages,
-    required this.onPageChange,
     required this.onPrint,
     required this.onPublicLink,
   });
@@ -41,13 +31,12 @@ class AccidentsTableSection extends StatelessWidget {
       onTapItem: onTapItem,
       onDelete: (d) {
         final id = d.id;
-        if (id != null && id.isNotEmpty) onDelete(id);
+        if (id != null && id.isNotEmpty) {
+          onDelete(id);
+        }
       },
-      currentPage: currentPage,
-      totalPages: totalPages,
-      onPageChange: onPageChange,
       columns: [
-        PagedColumnSpec<AccidentsData>(
+        PagedColum<AccidentsData>(
           title: 'QR',
           maxWidth: 56,
           cellBuilder: (d) => IconButton(
@@ -61,7 +50,7 @@ class AccidentsTableSection extends StatelessWidget {
             onPressed: () => onPublicLink(d),
           ),
         ),
-        PagedColumnSpec<AccidentsData>(
+        PagedColum<AccidentsData>(
           title: 'IMPR.',
           maxWidth: 72,
           cellBuilder: (d) => IconButton(
@@ -70,25 +59,32 @@ class AccidentsTableSection extends StatelessWidget {
             onPressed: () => onPrint(d),
           ),
         ),
-        PagedColumnSpec<AccidentsData>(
+        PagedColum<AccidentsData>(
           title: 'ORDEM',
           getter: (d) => (d.order ?? '-').toString(),
           textAlign: TextAlign.center,
           maxWidth: 80,
         ),
-        PagedColumnSpec<AccidentsData>(
+        PagedColum<AccidentsData>(
           title: 'CIDADE',
           getter: (d) => d.city ?? '-',
           maxWidth: 160,
         ),
-        PagedColumnSpec<AccidentsData>(
+        PagedColum<AccidentsData>(
           title: 'TIPO',
           getter: (d) => d.typeOfAccident ?? '-',
           maxWidth: 160,
         ),
-        PagedColumnSpec<AccidentsData>(
+        PagedColum<AccidentsData>(
           title: 'DATA',
-          getter: (d) => d.date?.toString().split(' ').first ?? '-',
+          getter: (d) {
+            final dt = d.date;
+            if (dt == null) return '-';
+            final dd = dt.day.toString().padLeft(2, '0');
+            final mm = dt.month.toString().padLeft(2, '0');
+            final yy = dt.year.toString();
+            return '$dd/$mm/$yy';
+          },
           textAlign: TextAlign.center,
           maxWidth: 120,
         ),

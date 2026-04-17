@@ -21,6 +21,8 @@ class FeatureRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
 
+  static const int _batchChunkSize = 400;
+
   Future<List<FeatureData>> loadFeatures({
     required String layerId,
     required String collectionPath,
@@ -56,7 +58,7 @@ class FeatureRepository {
           features.add(feature);
         }
       } catch (_) {
-        // documento inválido é ignorado
+        // ignora documento inválido
       }
     }
 
@@ -188,6 +190,7 @@ class FeatureRepository {
   Future<(List<FeatureData>, List<ImportColumnMeta>)>
   loadFromFirestoreAsImportedFeatures({
     required String collectionPath,
+    String? sourceLayerId,
     int limit = 2000,
     String orderByField = 'createdAt',
     bool orderDescending = true,
@@ -241,28 +244,44 @@ class FeatureRepository {
     )
         .toList(growable: false);
 
-    final features = docs.map((doc) {
-      final feature = FeatureData.fromFirestore(
-        docId: doc.id,
-        layerId: (doc.data()['layerId'] ?? '').toString(),
-        map: doc.data(),
-        selected: false,
-      );
+    final features = <FeatureData>[];
 
-      final edited = <String, dynamic>{
-        for (final key in sortedKeys) key: feature.editedProperties[key],
-      };
+    for (final doc in docs) {
+      try {
+        final data = doc.data();
 
-      final colTypes = <String, TypeFieldGeoJson>{
-        for (final c in columns) c.name: c.type,
-      };
+        final resolvedLayerId = (sourceLayerId != null &&
+            sourceLayerId.trim().isNotEmpty)
+            ? sourceLayerId.trim()
+            : (data['layerId'] ?? '').toString().trim();
 
-      return feature.copyWith(
-        editedProperties: edited,
-        columnTypes: colTypes,
-        selected: false,
-      );
-    }).toList(growable: false);
+        final feature = FeatureData.fromFirestore(
+          docId: doc.id,
+          layerId: resolvedLayerId,
+          map: data,
+          selected: false,
+        );
+
+        final edited = <String, dynamic>{
+          for (final key in sortedKeys) key: feature.editedProperties[key],
+        };
+
+        final colTypes = <String, TypeFieldGeoJson>{
+          for (final c in columns) c.name: c.type,
+        };
+
+        features.add(
+          feature.copyWith(
+            layerId: resolvedLayerId,
+            editedProperties: edited,
+            columnTypes: colTypes,
+            selected: false,
+          ),
+        );
+      } catch (_) {
+        // ignora documento inválido
+      }
+    }
 
     return (
     List<FeatureData>.unmodifiable(features),
@@ -280,14 +299,13 @@ class FeatureRepository {
     final uid = _auth.currentUser?.uid ?? '';
     final col = _firestore.collection(collectionPath);
 
-    const chunkSize = 20;
     int written = 0;
-
     onProgress(0.01);
 
-    for (int i = 0; i < features.length; i += chunkSize) {
-      final end =
-      (i + chunkSize < features.length) ? i + chunkSize : features.length;
+    for (int i = 0; i < features.length; i += _batchChunkSize) {
+      final end = (i + _batchChunkSize < features.length)
+          ? i + _batchChunkSize
+          : features.length;
 
       final chunk = features.sublist(i, end);
       final batch = _firestore.batch();
@@ -338,13 +356,13 @@ class FeatureRepository {
 
     final col = _firestore.collection(collectionPath);
 
-    const chunkSize = 20;
     int deleted = 0;
-
     onProgress(0.01);
 
-    for (int i = 0; i < docIds.length; i += chunkSize) {
-      final end = (i + chunkSize < docIds.length) ? i + chunkSize : docIds.length;
+    for (int i = 0; i < docIds.length; i += _batchChunkSize) {
+      final end = (i + _batchChunkSize < docIds.length)
+          ? i + _batchChunkSize
+          : docIds.length;
       final chunk = docIds.sublist(i, end);
       final batch = _firestore.batch();
 
@@ -368,34 +386,41 @@ class FeatureRepository {
     if (points.isEmpty) return;
 
     final uid = _auth.currentUser?.uid ?? '';
-    final batch = _firestore.batch();
     final collection = _firestore.collection(collectionPath);
 
-    for (int i = 0; i < points.length; i++) {
-      final point = points[i];
-      final doc = collection.doc();
+    for (int i = 0; i < points.length; i += _batchChunkSize) {
+      final end =
+      (i + _batchChunkSize < points.length) ? i + _batchChunkSize : points.length;
+      final chunk = points.sublist(i, end);
+      final batch = _firestore.batch();
 
-      batch.set(doc, {
-        'id': doc.id,
-        'layerId': layerId,
-        'editor': {
-          ...commonProperties,
-          'draftIndex': i + 1,
-        },
-        'geometryType': 'Point',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [point.longitude, point.latitude],
-        },
-        'searchTitle': '${commonProperties['title'] ?? 'Ponto'} ${i + 1}',
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': uid,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': uid,
-      });
+      for (int j = 0; j < chunk.length; j++) {
+        final globalIndex = i + j;
+        final point = chunk[j];
+        final doc = collection.doc();
+
+        batch.set(doc, {
+          'id': doc.id,
+          'layerId': layerId,
+          'editor': {
+            ...commonProperties,
+            'draftIndex': globalIndex + 1,
+          },
+          'geometryType': 'Point',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [point.longitude, point.latitude],
+          },
+          'searchTitle': '${commonProperties['title'] ?? 'Ponto'} ${globalIndex + 1}',
+          'createdAt': FieldValue.serverTimestamp(),
+          'createdBy': uid,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': uid,
+        });
+      }
+
+      await batch.commit();
     }
-
-    await batch.commit();
   }
 
   Future<void> addLineFeaturesBatch({
@@ -408,36 +433,44 @@ class FeatureRepository {
     if (validLines.isEmpty) return;
 
     final uid = _auth.currentUser?.uid ?? '';
-    final batch = _firestore.batch();
     final collection = _firestore.collection(collectionPath);
 
-    for (int i = 0; i < validLines.length; i++) {
-      final line = validLines[i];
-      final doc = collection.doc();
+    for (int i = 0; i < validLines.length; i += _batchChunkSize) {
+      final end = (i + _batchChunkSize < validLines.length)
+          ? i + _batchChunkSize
+          : validLines.length;
+      final chunk = validLines.sublist(i, end);
+      final batch = _firestore.batch();
 
-      batch.set(doc, {
-        'id': doc.id,
-        'layerId': layerId,
-        'editor': {
-          ...commonProperties,
-          'draftIndex': i + 1,
-        },
-        'geometryType': 'LineString',
-        'geometry': {
-          'type': 'LineString',
-          'coordinates': line
-              .map((p) => [p.longitude, p.latitude])
-              .toList(growable: false),
-        },
-        'searchTitle': '${commonProperties['title'] ?? 'Linha'} ${i + 1}',
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': uid,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': uid,
-      });
+      for (int j = 0; j < chunk.length; j++) {
+        final globalIndex = i + j;
+        final line = chunk[j];
+        final doc = collection.doc();
+
+        batch.set(doc, {
+          'id': doc.id,
+          'layerId': layerId,
+          'editor': {
+            ...commonProperties,
+            'draftIndex': globalIndex + 1,
+          },
+          'geometryType': 'LineString',
+          'geometry': {
+            'type': 'LineString',
+            'coordinates': line
+                .map((p) => [p.longitude, p.latitude])
+                .toList(growable: false),
+          },
+          'searchTitle': '${commonProperties['title'] ?? 'Linha'} ${globalIndex + 1}',
+          'createdAt': FieldValue.serverTimestamp(),
+          'createdBy': uid,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': uid,
+        });
+      }
+
+      await batch.commit();
     }
-
-    await batch.commit();
   }
 
   Future<void> addPolygonFeaturesBatch({
@@ -451,46 +484,55 @@ class FeatureRepository {
     if (validPolygons.isEmpty) return;
 
     final uid = _auth.currentUser?.uid ?? '';
-    final batch = _firestore.batch();
     final collection = _firestore.collection(collectionPath);
 
-    for (int i = 0; i < validPolygons.length; i++) {
-      final polygon = validPolygons[i];
-      final doc = collection.doc();
+    for (int i = 0; i < validPolygons.length; i += _batchChunkSize) {
+      final end = (i + _batchChunkSize < validPolygons.length)
+          ? i + _batchChunkSize
+          : validPolygons.length;
+      final chunk = validPolygons.sublist(i, end);
+      final batch = _firestore.batch();
 
-      final closedRing = List<LatLng>.from(polygon);
-      final first = closedRing.first;
-      final last = closedRing.last;
+      for (int j = 0; j < chunk.length; j++) {
+        final globalIndex = i + j;
+        final polygon = chunk[j];
+        final doc = collection.doc();
 
-      if (first.latitude != last.latitude || first.longitude != last.longitude) {
-        closedRing.add(first);
+        final closedRing = List<LatLng>.from(polygon);
+        final first = closedRing.first;
+        final last = closedRing.last;
+
+        if (first.latitude != last.latitude || first.longitude != last.longitude) {
+          closedRing.add(first);
+        }
+
+        batch.set(doc, {
+          'id': doc.id,
+          'layerId': layerId,
+          'editor': {
+            ...commonProperties,
+            'draftIndex': globalIndex + 1,
+          },
+          'geometryType': 'Polygon',
+          'geometry': {
+            'type': 'Polygon',
+            'coordinates': [
+              closedRing
+                  .map((p) => [p.longitude, p.latitude])
+                  .toList(growable: false),
+            ],
+          },
+          'searchTitle':
+          '${commonProperties['title'] ?? 'Polígono'} ${globalIndex + 1}',
+          'createdAt': FieldValue.serverTimestamp(),
+          'createdBy': uid,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedBy': uid,
+        });
       }
 
-      batch.set(doc, {
-        'id': doc.id,
-        'layerId': layerId,
-        'editor': {
-          ...commonProperties,
-          'draftIndex': i + 1,
-        },
-        'geometryType': 'Polygon',
-        'geometry': {
-          'type': 'Polygon',
-          'coordinates': [
-            closedRing
-                .map((p) => [p.longitude, p.latitude])
-                .toList(growable: false),
-          ],
-        },
-        'searchTitle': '${commonProperties['title'] ?? 'Polígono'} ${i + 1}',
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': uid,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'updatedBy': uid,
-      });
+      await batch.commit();
     }
-
-    await batch.commit();
   }
 
   List<Map<String, dynamic>> _featuresFromGeoJsonBytes(List<int> bytes) {

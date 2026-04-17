@@ -290,7 +290,7 @@ class ModuleData {
           homeColor: Color(0xFF1E40AF),
         ),
         MenuDrawerSubItem(
-          label: 'FAIXA DE DOMÍNIO',
+          label: 'DESAPROPRIAÇÕES',
           menuItem: ModuleItem.planningRightOfWayRecords,
           permissionModule: modPlanningRightWayRecords,
           homeIcon: Icons.signpost_outlined,

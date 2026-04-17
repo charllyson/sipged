@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
@@ -28,9 +28,10 @@ import 'package:sipged/_blocs/system/panels/push/push_panel_data.dart';
 import 'package:sipged/_widgets/panels/push/push_panels.dart';
 import 'package:sipged/_blocs/system/panels/push/push_panels_controller.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_panel.dart';
-import 'package:sipged/screens/modules/planning/geo/attribute/attribute_table.dart';
+import 'package:sipged/screens/modules/planning/geo/attribute/table/attribute_page.dart';
 import 'package:sipged/screens/modules/planning/geo/catalog/catalog_panel.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_drawer.dart';
+import 'package:sipged/screens/modules/planning/geo/map/map_cache.dart';
 import 'package:sipged/screens/modules/planning/geo/map/map_change.dart';
 import 'package:sipged/screens/modules/planning/geo/properties/dialog/layer_properties_dialog.dart';
 import 'package:sipged/screens/modules/planning/geo/status/status_bar.dart';
@@ -373,9 +374,30 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
             _statusDismissed = false;
           }
 
+          final mapVisualDataSignature = Object.hashAll([
+            genericState.visualRevision,
+            mapData.selectedFeatureKey,
+            Object.hashAll(mapData.orderedActiveLayerIdsForMap),
+            Object.hashAll(
+              mapData.orderedActiveLayerIdsForMap.map((layerId) {
+                final layer = mapData.layersById[layerId];
+                final features =
+                    genericState.featuresByLayer[layerId] ?? const <FeatureData>[];
+
+                return Object.hash(
+                  layerId,
+                  layer == null ? 0 : MapCache.layerVisualSignature(layer),
+                  Object.hashAll(features.map(MapCache.featureStaticSignature)),
+                  Object.hashAll(features.map(MapCache.featureMarkerSignature)),
+                );
+              }),
+            ),
+          ]);
+
           final map = SizedBox.expand(
             child: RepaintBoundary(
               child: MapChange(
+                visualDataSignature: mapVisualDataSignature,
                 features: mapData.visibleFeatures,
                 layersById: mapData.layersById,
                 orderedActiveLayerIds: mapData.orderedActiveLayerIdsForMap,

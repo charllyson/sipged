@@ -219,7 +219,7 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
             );
           }
 
-          return TabChangedWidget(
+          return TabChanged(
             contractData: c,
             contractsBloc: widget.contractsBloc,
             initialTabIndex: widget.initialTabIndex,

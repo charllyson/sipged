@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
@@ -8,33 +8,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sipged/_blocs/panels/general_dashboard/general_dashboard_style.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
-import 'package:sipged/_widgets/draw/background/background_change.dart';
-import 'package:sipged/_widgets/buttons/contract_add_button.dart';
-import 'package:sipged/_widgets/search/search_widget.dart';
-import 'package:sipged/_widgets/user/user_greeting.dart';
-import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
-
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_data.dart';
-import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
-
 import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
-import 'list_demand_status.dart';
-
-// 🆕 DFD
+import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-
-// 🆕 EDITAL
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
-
-// 🆕 PUBLICAÇÃO EXTRATO
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
-
-// 🔐 ACL de contratos (novo)
 import 'package:sipged/_blocs/system/permitions/contract_permission.dart';
+import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/buttons/contract_add_button.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
+import 'package:sipged/_widgets/search/search_widget.dart';
+import 'package:sipged/_widgets/user/user_greeting.dart';
+import 'package:sipged/screens/modules/contracts/hiring/tab_bar_hiring_page.dart';
+
+import 'list_demand_status.dart';
 
 typedef DemandNavigationCallback = void Function(
     BuildContext context,
@@ -64,20 +55,14 @@ class _ListDemandPageState extends State<ListDemandPage> {
   bool _loading = false;
   int? _sortColumnIndex;
   bool _isAscending = true;
-
-  /// Evita agendar a primeira carga múltiplas vezes em rebuilds.
   bool _didScheduleInitialLoad = false;
 
-  /// cache dos contratos agrupados por status (chave normalizada)
   final Map<String, List<ProcessData>> _cachedByStatus = {};
-
-  /// chaves de grupos expandidos
   final Set<String> _expandedKeys = {};
   Set<String> _preSearchExpandedSnapshot = {};
 
   Timer? _debounce;
 
-  /// cache ESTRUTURADO por contrato (sem maps de campo soltos)
   final Map<String, DfdData?> _dfdByContractId = {};
   final Map<String, EditalData?> _editalByContractId = {};
   final Map<String, PublicacaoExtratoData?> _pubByContractId = {};
@@ -98,10 +83,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
     super.dispose();
   }
 
-  // ===========================================================================
-  // PREFERÊNCIAS DE EXPANSÃO
-  // ===========================================================================
-
   Future<void> _loadExpandedFromPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -114,38 +95,19 @@ class _ListDemandPageState extends State<ListDemandPage> {
           ..clear()
           ..addAll(saved);
       });
-    } catch (_) {
-      // silencioso: prefs não é crítico
-    }
+    } catch (_) {}
   }
 
   Future<void> _saveExpandedToPrefs() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(_prefsExpandedKey, _expandedKeys.toList());
-    } catch (_) {
-      // silencioso
-    }
+    } catch (_) {}
   }
-
-  // ===========================================================================
-  // HELPERS
-  // ===========================================================================
 
   String? _idToString(Object? id) {
     if (id == null) return null;
     if (id is String) return id;
-    try {
-      final dyn = id as dynamic;
-      final hasId = (() {
-        try {
-          return (dyn as dynamic).id is String;
-        } catch (_) {
-          return false;
-        }
-      })();
-      if (hasId) return (dyn as dynamic).id as String;
-    } catch (_) {}
     return id.toString();
   }
 
@@ -188,7 +150,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
     setState(() => _loading = true);
     try {
       await store.refresh();
-      // limpa caches de DFD/edital/publicação para recarregar no próximo filtro
       _dfdByContractId.clear();
       _editalByContractId.clear();
       _pubByContractId.clear();
@@ -198,17 +159,11 @@ class _ListDemandPageState extends State<ListDemandPage> {
     }
   }
 
-  /// 🔥 Fallback centralizado de status:
-  /// - se DfdData.statusDemanda vier nulo/vazio → "EM PROJETO"
   String _statusKeyFromDfd(DfdData? dfd) {
     final raw = dfd?.statusDemanda ?? '';
     final norm = raw.trim().toUpperCase();
     return norm.isEmpty ? 'EM PROJETO' : norm;
   }
-
-  // ===========================================================================
-  // CARREGAR DFD / EDITAL / PUBLICAÇÃO PARA UMA LISTA DE CONTRATOS
-  // ===========================================================================
 
   Future<void> _ensureDemandDataLoadedForContracts(Set<String> ids) async {
     if (ids.isEmpty) return;
@@ -252,28 +207,42 @@ class _ListDemandPageState extends State<ListDemandPage> {
     }
   }
 
-  // ===========================================================================
-  // ORDENAÇÃO LOCAL (por objeto / descrição)
-  // ===========================================================================
-
   void _applyLocalSortIfAny() {
     if (_sortColumnIndex == null) return;
-
-    // por enquanto só tratamos ordenação pela primeira coluna (nome da obra)
-    final byName = _sortColumnIndex == 0;
-    if (!byName) return;
 
     int cmp(ProcessData a, ProcessData b) {
       final idA = _idToString(a.id);
       final idB = _idToString(b.id);
 
-      final dfdA = idA != null ? _dfdByContractId[idA] : null;
-      final dfdB = idB != null ? _dfdByContractId[idB] : null;
+      switch (_sortColumnIndex) {
+        case 1:
+          final aVal = (_pubByContractId[idA]?.numeroContrato ?? '').toUpperCase();
+          final bVal = (_pubByContractId[idB]?.numeroContrato ?? '').toUpperCase();
+          return aVal.compareTo(bVal);
 
-      final an = (dfdA?.descricaoObjeto ?? '').toUpperCase();
-      final bn = (dfdB?.descricaoObjeto ?? '').toUpperCase();
+        case 2:
+          final aVal = (_dfdByContractId[idA]?.descricaoObjeto ?? '').toUpperCase();
+          final bVal = (_dfdByContractId[idB]?.descricaoObjeto ?? '').toUpperCase();
+          return aVal.compareTo(bVal);
 
-      return an.compareTo(bn);
+        case 3:
+          final aVal = (_dfdByContractId[idA]?.regional ?? '').toUpperCase();
+          final bVal = (_dfdByContractId[idB]?.regional ?? '').toUpperCase();
+          return aVal.compareTo(bVal);
+
+        case 4:
+          final aVal = (_editalByContractId[idA]?.vencedor ?? '').toUpperCase();
+          final bVal = (_editalByContractId[idB]?.vencedor ?? '').toUpperCase();
+          return aVal.compareTo(bVal);
+
+        case 5:
+          final aVal = (_dfdByContractId[idA]?.processoAdministrativo ?? '').toUpperCase();
+          final bVal = (_dfdByContractId[idB]?.processoAdministrativo ?? '').toUpperCase();
+          return aVal.compareTo(bVal);
+
+        default:
+          return 0;
+      }
     }
 
     for (final e in _cachedByStatus.entries) {
@@ -281,24 +250,15 @@ class _ListDemandPageState extends State<ListDemandPage> {
     }
   }
 
-  // ===========================================================================
-  // FILTROS / AGRUPAMENTO (com ACL)
-  // ===========================================================================
-
   Future<void> _applyFilters(ProcessStore store) async {
     setState(() => _loading = true);
     try {
-      final statusFiltro =
-      _statusCtrl.text.isNotEmpty ? _statusCtrl.text : null;
-      final search =
-      _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim();
+      final statusFiltro = _statusCtrl.text.isNotEmpty ? _statusCtrl.text : null;
+      final search = _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim();
 
-      final currentUser =
-          context.read<UserBloc>().state.current;
-
+      final currentUser = context.read<UserBloc>().state.current;
       if (currentUser == null) return;
 
-      // 🔐 APLICA ACL ANTES DE TUDO
       final baseAll = store.all;
       final base = ContractPermissions.filterVisible(
         user: currentUser,
@@ -310,12 +270,10 @@ class _ListDemandPageState extends State<ListDemandPage> {
           if (_idToString(c.id) != null) _idToString(c.id)!,
       };
 
-      // Carrega DFD / Edital / Publicação para todos esses contratos (já filtrados)
       await _ensureDemandDataLoadedForContracts(ids);
 
       Iterable<ProcessData> r = base;
 
-      // 🔹 filtro por status da DEMANDA
       if (statusFiltro != null && statusFiltro.isNotEmpty) {
         final alvo = statusFiltro.trim().toUpperCase();
         r = r.where((c) {
@@ -327,7 +285,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
         });
       }
 
-      // 🔹 filtro de busca textual
       if (search != null && search.isNotEmpty) {
         final s = search.toUpperCase();
 
@@ -353,7 +310,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
       final list = r.toList(growable: false);
 
-      // 🔹 reagrupa por statusDemanda do DFD
       _cachedByStatus.clear();
 
       for (final c in list) {
@@ -367,7 +323,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
       _applyLocalSortIfAny();
 
-      // 🔹 lógica de expansão automática durante busca
       final hasSearch = _searchCtrl.text.trim().isNotEmpty;
       if (hasSearch) {
         if (_preSearchExpandedSnapshot.isEmpty) {
@@ -398,9 +353,7 @@ class _ListDemandPageState extends State<ListDemandPage> {
 
         setState(() {
           _expandedKeys.removeWhere(
-                (k) =>
-            _cachedByStatus.containsKey(k) &&
-                (_cachedByStatus[k]?.isEmpty ?? true),
+                (k) => _cachedByStatus.containsKey(k) && (_cachedByStatus[k]?.isEmpty ?? true),
           );
         });
         await _saveExpandedToPrefs();
@@ -410,14 +363,10 @@ class _ListDemandPageState extends State<ListDemandPage> {
     }
   }
 
-  // ===========================================================================
-  // BUILD
-  // ===========================================================================
-
   @override
   Widget build(BuildContext context) {
     final store = context.watch<ProcessStore>();
-    final User? firebaseUser = FirebaseAuth.instance.currentUser;
+    final fb_auth.User? firebaseUser = fb_auth.FirebaseAuth.instance.currentUser;
 
     final UserData? currentUser =
     context.select<UserBloc, UserData?>((b) => b.state.current);
@@ -429,7 +378,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
       );
     }
 
-    // primeira carga — garante que não é agendada múltiplas vezes
     if (!_didScheduleInitialLoad && !_loading && _cachedByStatus.isEmpty) {
       _didScheduleInitialLoad = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -448,67 +396,64 @@ class _ListDemandPageState extends State<ListDemandPage> {
       body: Stack(
         children: [
           const BackgroundChange(),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        UpBar(
-                          actions: [
-                            SearchAction(
-                              onSearch: (txt) => _onSearchChanged(store, txt),
-                            ),
-                            UserGreeting(firebaseUser: firebaseUser),
-                          ],
-                          titleWidgets: [
-                            Text(widget.pageTitle),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: GeneralDashboardStyle.statusMenu.map((status) {
-                            final label = status.$1;
-                            final rawKey = status.$2;
-                            final k = _norm(rawKey);
-                            final items = _cachedByStatus[k] ?? const <ProcessData>[];
-
-                            return ListDemandStatus(
-                              title: label,
-                              statusKey: k,
-                              items: items,
-                              constraints: constraints, // ✅ obrigatório
-                              sortColumnIndex: _sortColumnIndex,
-                              isAscending: _isAscending,
-                              onSort: (index, _) => _handleSort(index),
-
-                              onDelete: (item) async { // ✅ obrigatório
-                                if (item.id != null && item.id!.isNotEmpty) {
-                                  await store.delete(item.id!);
-                                  await _refresh(store);
-                                }
-                              },
-
-                              onTapItem: widget.onTapItem,
-                              initiallyExpanded: _isExpanded(k),
-                              onExpansionChanged: (open) => _setExpanded(k, open),
-
-                              // 🔥 passa caches já carregados
-                              dfdByContractId: _dfdByContractId,
-                              editalByContractId: _editalByContractId,
-                              pubByContractId: _pubByContractId,
-                            );
-                          }).toList(),
-                        ),
-                      ],
+          SafeArea(
+            top: false,
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                UpBar(
+                  includeSafeTop: true,
+                  actions: [
+                    SearchAction(
+                      onSearch: (txt) => _onSearchChanged(store, txt),
                     ),
+                    UserGreeting(firebaseUser: firebaseUser),
+                  ],
+                  titleWidgets: [
+                    Text(widget.pageTitle),
+                  ],
+                ),
+                Expanded(
+                  child: _loading && _cachedByStatus.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : LayoutBuilder(
+                    builder: (context, constraints) {
+                      return ListView(
+                        children: GeneralDashboardStyle.statusMenu.map((status) {
+                          final label = status.$1;
+                          final rawKey = status.$2;
+                          final k = _norm(rawKey);
+                          final items = _cachedByStatus[k] ?? const <ProcessData>[];
+
+                          return ListDemandStatus(
+                            title: label,
+                            statusKey: k,
+                            items: items,
+                            constraints: constraints,
+                            sortColumnIndex: _sortColumnIndex,
+                            isAscending: _isAscending,
+                            onSort: (index, _) => _handleSort(index),
+                            onDelete: (item) async {
+                              if (item.id != null && item.id!.isNotEmpty) {
+                                await store.delete(item.id!);
+                                await _refresh(store);
+                              }
+                            },
+                            onTapItem: widget.onTapItem,
+                            initiallyExpanded: _isExpanded(k),
+                            onExpansionChanged: (open) => _setExpanded(k, open),
+                            dfdByContractId: _dfdByContractId,
+                            editalByContractId: _editalByContractId,
+                            pubByContractId: _pubByContractId,
+                          );
+                        }).toList(),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
         ],
       ),
@@ -532,7 +477,6 @@ class _ListDemandPageState extends State<ListDemandPage> {
   }
 }
 
-// Corrige import antigo gerado pelo IDE (caso necessário)
 class TabBarHingPage extends TabBarHiringPage {
   const TabBarHingPage({
     super.key,

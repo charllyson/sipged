@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
@@ -278,7 +278,7 @@ class WorkspacePanelState extends State<WorkspacePanel> {
   Future<void> applyBinding(
       String itemId,
       String propertyKey,
-      AttributeData data,
+      FeatureDataBinding data,
       List<LayerData> currentTree,
       ) async {
     final currentItem = _cubit.state.itemByIdOrNull(itemId);
@@ -287,7 +287,7 @@ class WorkspacePanelState extends State<WorkspacePanel> {
     final updatedProperties = currentItem.properties.map((property) {
       if (property.key == propertyKey) {
         return property.copyWith(
-          bindingValue: AttributeData(
+          bindingValue: FeatureDataBinding(
             sourceId: data.sourceId,
             sourceLabel: data.sourceLabel,
             fieldName: data.fieldName,
@@ -306,7 +306,7 @@ class WorkspacePanelState extends State<WorkspacePanel> {
         if (newSourceId.isNotEmpty &&
             (currentSourceId.isEmpty || currentSourceId != newSourceId)) {
           return property.copyWith(
-            bindingValue: AttributeData(
+            bindingValue: FeatureDataBinding(
               sourceId: data.sourceId,
               sourceLabel: data.sourceLabel,
             ),

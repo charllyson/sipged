@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
@@ -14,7 +14,7 @@ import 'package:sipged/screens/modules/planning/geo/attribute/attribute_import.d
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_layer.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_property.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_tile.dart';
-import 'package:sipged/screens/modules/planning/geo/attribute/attribute_table.dart';
+import 'package:sipged/screens/modules/planning/geo/attribute/table/attribute_page.dart';
 
 class AttributePanel extends StatelessWidget {
   const AttributePanel({
@@ -83,7 +83,7 @@ class AttributePanel extends StatelessWidget {
             AttributeTile(
               label: key,
               value: _featureValue(feature, key)?.toString() ?? '',
-              dragData: AttributeData(
+              dragData: FeatureDataBinding(
                 sourceId: featureSelection.layerId,
                 sourceLabel: layer?.title ?? 'Camada',
                 fieldName: key,
@@ -127,7 +127,7 @@ class AttributePanel extends StatelessWidget {
           for (final field in fields)
             AttributeProperty(
               label: field,
-              dragData: AttributeData(
+              dragData: FeatureDataBinding(
                 sourceId: selectedLayer.id,
                 sourceLabel: selectedLayer.title,
                 fieldName: field,
@@ -198,8 +198,8 @@ class AttributePanel extends StatelessWidget {
       barrierDismissible: false,
       builder: (_) => BlocProvider.value(
         value: featureCubit,
-        child: AttributeTable(
-          mode: AttributeTableMode.importFile,
+        child: AttributePage(
+          mode: AttributeMode.importFile,
           collectionPath: path,
           targetFields: const [],
           title: 'Importar ${layer.title}',

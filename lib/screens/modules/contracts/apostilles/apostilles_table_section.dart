@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
 import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 import 'package:sipged/_utils/formats/sipged_format_money.dart';
-
-import 'package:sipged/_widgets/table/simple/simple_table_changed.dart';
 import 'package:sipged/_widgets/overlays/loading_progress.dart';
-import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_data.dart';
+import 'package:sipged/_widgets/table/paged/paged_colum.dart';
+import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 
 class ApostilleTableSection extends StatelessWidget {
   final void Function(ApostillesData) onTapItem;
   final void Function(ApostillesData item) onDelete;
-
   final List<ApostillesData> apostilles;
   final bool isLoading;
-
   final ApostillesData? selectedItem;
 
   const ApostilleTableSection({
@@ -24,59 +22,111 @@ class ApostilleTableSection extends StatelessWidget {
     this.selectedItem,
   });
 
+  String _txt(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return '-';
+    return text;
+  }
+
+  String _date(DateTime? value) {
+    if (value == null) return '-';
+    return SipGedFormatDates.dateToDdMMyyyy(value);
+  }
+
+  String _money(double? value) {
+    if (value == null) return '-';
+    return SipGedFormatMoney.doubleToText(value);
+  }
+
+  String _intText(int? value) {
+    if (value == null) return '-';
+    return value.toString();
+  }
+
+  String _itemKey(ApostillesData item) {
+    final id = (item.id ?? '').trim();
+    if (id.isNotEmpty) return id;
+
+    return [
+      _intText(item.apostilleOrder),
+      _txt(item.apostilleNumberProcess),
+      _date(item.apostilleData),
+      _money(item.apostilleValue),
+    ].join('|');
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading && apostilles.isEmpty) {
       return const LoadingProgress();
-    } else if (!isLoading && apostilles.isEmpty) {
+    }
+
+    if (!isLoading && apostilles.isEmpty) {
       return const Padding(
         padding: EdgeInsets.all(12),
         child: Text('Nenhum apostilamento encontrado.'),
       );
     }
 
-    final data = apostilles;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              const SizedBox(width: 12),
-              ConstrainedBox(
-                constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: SimpleTableChanged<ApostillesData>(
-                  constraints: constraints,
-                  listData: data,
-                  columnTitles: const [
-                    'ORDEM',
-                    'Nº PROCESSO',
-                    'DATA',
-                    'VALOR',
-                  ],
-                  columnGetters: [
-                        (a) => '${a.apostilleOrder ?? '-'}',
-                        (a) => a.apostilleNumberProcess ?? '-',
-                        (a) => SipGedFormatDates.dateToDdMMyyyy(a.apostilleData ?? DateTime.now()),
-                        (a) => SipGedFormatMoney.doubleToText(a.apostilleValue),
-                  ],
-                  onTapItem: onTapItem,
-                  onDelete: (item) => onDelete(item),
-                  selectedItem: selectedItem,
-                  columnWidths: const [100, 200, 150, 200, 56],
-                  columnTextAligns: const [
-                    TextAlign.center,
-                    TextAlign.center,
-                    TextAlign.center,
-                    TextAlign.center,
-                  ],
-                ),
-              ),
-            ],
+    return Stack(
+      children: [
+        PagedTableChanged<ApostillesData>(
+          listData: apostilles,
+          getKey: _itemKey,
+          selectedKey: selectedItem != null ? _itemKey(selectedItem!) : null,
+          keepSelectionInternally: false,
+          enableRowTapSelection: true,
+          enablePagination: false,
+          initialRowsPerPage: 10,
+          rowsPerPageOptions: const [10, 25, 50, 100],
+          sortColumnIndex: 0,
+          sortAscending: true,
+          minTableWidth: 706,
+          defaultColumnWidth: 150,
+          actionsColumnWidth: 56,
+          colorHeadTable: const Color(0xFF091D68),
+          colorHeadTableText: Colors.white,
+          headingRowHeight: 40,
+          dataRowMinHeight: 40,
+          dataRowMaxHeight: 56,
+          onTapItem: onTapItem,
+          onDelete: onDelete,
+          columns: [
+            PagedColum<ApostillesData>(
+              title: 'ORDEM',
+              getter: (a) => _intText(a.apostilleOrder),
+              textAlign: TextAlign.center,
+              width: 100,
+            ),
+            PagedColum<ApostillesData>(
+              title: 'Nº PROCESSO',
+              getter: (a) => _txt(a.apostilleNumberProcess),
+              textAlign: TextAlign.center,
+              width: 200,
+            ),
+            PagedColum<ApostillesData>(
+              title: 'DATA',
+              getter: (a) => _date(a.apostilleData),
+              textAlign: TextAlign.center,
+              width: 150,
+            ),
+            PagedColum<ApostillesData>(
+              title: 'VALOR',
+              getter: (a) => _money(a.apostilleValue),
+              textAlign: TextAlign.center,
+              width: 200,
+            ),
+          ],
+        ),
+        if (isLoading && apostilles.isNotEmpty)
+          Positioned.fill(
+            child: Container(
+              color: Colors.white.withValues(alpha: 0.65),
+              alignment: Alignment.center,
+              child: const LoadingProgress(),
+            ),
           ),
-        );
-      },
+      ],
     );
   }
 }

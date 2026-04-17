@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_draggable.dart';
 
 class AttributeProperty extends StatefulWidget {
   final String label;
-  final AttributeData dragData;
+  final FeatureDataBinding dragData;
 
   const AttributeProperty({
     super.key,

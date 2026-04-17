@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 import 'package:sipged/_widgets/draggable/draggable_field.dart';
 
 class AttributeDraggable extends StatelessWidget {
-  final AttributeData dragData;
+  final FeatureDataBinding dragData;
   final ValueChanged<bool> onDragStateChanged;
 
   const AttributeDraggable({
@@ -33,7 +33,7 @@ class AttributeDraggable extends StatelessWidget {
 
     return MouseRegion(
       cursor: SystemMouseCursors.grab,
-      child: Draggable<AttributeData>(
+      child: Draggable<FeatureDataBinding>(
         data: dragData,
         maxSimultaneousDrags: 1,
         dragAnchorStrategy: pointerDragAnchorStrategy,

@@ -37,7 +37,7 @@ class SearchBox extends StatelessWidget {
           controller: controller,
           textInputAction: TextInputAction.search,
           onSubmitted: onSubmit,
-          prefix: const Icon(Icons.search, size: 20, color: Colors.black54),
+          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.black54),
           suffix: IconButton(
             tooltip: 'Limpar',
             icon: const Icon(Icons.close, size: 18, color: Colors.black45),

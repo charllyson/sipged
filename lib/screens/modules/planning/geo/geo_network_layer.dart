@@ -49,8 +49,8 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
       barrierDismissible: false,
       builder: (_) => BlocProvider.value(
         value: featureCubit,
-        child: AttributeTable(
-          mode: AttributeTableMode.importFile,
+        child: AttributePage(
+          mode: AttributeMode.importFile,
           collectionPath: path,
           targetFields: const [],
           title: 'Importar ${layer.title}',
@@ -73,9 +73,10 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
       barrierDismissible: false,
       builder: (_) => BlocProvider.value(
         value: featureCubit,
-        child: AttributeTable(
-          mode: AttributeTableMode.firestore,
+        child: AttributePage(
+          mode: AttributeMode.firestore,
           collectionPath: path,
+          sourceLayerId: layer.id,
           targetFields: const [],
           title: 'Tabela de atributos - ${layer.title}',
           description:

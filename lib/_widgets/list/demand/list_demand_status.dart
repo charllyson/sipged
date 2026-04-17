@@ -18,19 +18,14 @@ class ListDemandStatus extends StatelessWidget {
     required this.title,
     required this.statusKey,
     required this.items,
-    // props da tabela
     required this.constraints,
     required this.sortColumnIndex,
     required this.isAscending,
     required this.onSort,
     required this.onDelete,
     required this.onTapItem,
-
-    // controle de expansão
     this.initiallyExpanded = false,
     this.onExpansionChanged,
-
-    // caches já carregados
     required this.dfdByContractId,
     required this.editalByContractId,
     required this.pubByContractId,
@@ -50,7 +45,6 @@ class ListDemandStatus extends StatelessWidget {
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
 
-  // 🔥 caches de metadados por contrato
   final Map<String, DfdData?> dfdByContractId;
   final Map<String, EditalData?> editalByContractId;
   final Map<String, PublicacaoExtratoData?> pubByContractId;
@@ -62,52 +56,59 @@ class ListDemandStatus extends StatelessWidget {
     final k = _norm(statusKey);
     final total = items.length;
 
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        key: ValueKey('tile_$k'),
-        initiallyExpanded: initiallyExpanded,
-        maintainState: true,
-        onExpansionChanged: onExpansionChanged,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        childrenPadding: const EdgeInsets.only(bottom: 12),
-        title: Row(
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.blue.withValues(alpha: 0.10),
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      elevation: 0,
+      color: Colors.white.withOpacity(0.82),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: ValueKey('tile_$k'),
+          initiallyExpanded: initiallyExpanded,
+          maintainState: true,
+          onExpansionChanged: onExpansionChanged,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          childrenPadding: const EdgeInsets.only(bottom: 12),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
-              child: Text('$total'),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.blue.withOpacity(0.10),
+                ),
+                child: Text('$total'),
+              ),
+            ],
+          ),
+          children: [
+            ListDemandTable(
+              key: PageStorageKey<String>('table_scroll_$k'),
+              listContractData: items,
+              constraints: constraints,
+              statusLabel: title,
+              statusFilter: k,
+              sortColumnIndex: sortColumnIndex,
+              isAscending: isAscending,
+              onSort: onSort,
+              onDelete: onDelete,
+              onTapItem: onTapItem,
+              dfdByContractId: dfdByContractId,
+              editalByContractId: editalByContractId,
+              pubByContractId: pubByContractId,
             ),
           ],
         ),
-        children: [
-          ListDemandTable(
-            key: PageStorageKey<String>('table_scroll_$k'),
-            listContractData: items,
-            constraints: constraints,
-            statusLabel: title,
-            statusFilter: k,
-            sortColumnIndex: sortColumnIndex,
-            isAscending: isAscending,
-            onSort: onSort,
-            onDelete: onDelete,
-            onTapItem: onTapItem,
-
-            // 🔥 passa os caches para a tabela
-            dfdByContractId: dfdByContractId,
-            editalByContractId: editalByContractId,
-            pubByContractId: pubByContractId,
-          ),
-        ],
       ),
     );
   }

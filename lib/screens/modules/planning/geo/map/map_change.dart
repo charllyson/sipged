@@ -19,6 +19,7 @@ class MapChange extends StatefulWidget {
     required this.orderedActiveLayerIds,
     required this.onFeatureTap,
     required this.onControllerReady,
+    required this.visualDataSignature,
     this.onCameraChanged,
     this.selectedFeatureKey,
     this.loading = false,
@@ -38,6 +39,7 @@ class MapChange extends StatefulWidget {
   final void Function(LatLng center, double zoom)? onCameraChanged;
   final String? selectedFeatureKey;
   final bool loading;
+  final Object visualDataSignature;
 
   final bool Function(LatLng latLng)? onBackgroundTap;
   final Map<String, List<LatLng>> temporaryPointLayers;
@@ -113,19 +115,18 @@ class _MapChangeState extends State<MapChange> {
   void didUpdateWidget(covariant MapChange oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!identical(oldWidget.features, widget.features)) {
-      _featureBoundsCache.clear();
-      _visibleFeatures = const [];
-      _featuresByLayer = const {};
-      _allFeaturesByLayer = const {};
-      _lastVisibleViewportSignature = -1;
-      _lastVisibleFeaturesSourceRef = null;
-      _lastFeaturesByLayerVisibleRef = null;
-      _lastAllFeaturesSourceRef = null;
+    final visualSignatureChanged =
+        oldWidget.visualDataSignature != widget.visualDataSignature;
+
+    final featuresRefChanged = !identical(oldWidget.features, widget.features);
+
+    if (featuresRefChanged || visualSignatureChanged) {
+      _resetFeatureCaches();
     }
 
     final shouldRefreshStatic =
-        !identical(oldWidget.features, widget.features) ||
+        visualSignatureChanged ||
+            featuresRefChanged ||
             !mapEquals(oldWidget.layersById, widget.layersById) ||
             !listEquals(
               oldWidget.orderedActiveLayerIds,
@@ -155,6 +156,33 @@ class _MapChangeState extends State<MapChange> {
     if (shouldRefreshStatic || shouldRefreshMarkers) {
       _scheduleCacheRefresh(immediate: true);
     }
+  }
+
+  void _resetFeatureCaches() {
+    _featureBoundsCache.clear();
+
+    _allFeaturesByLayer = const {};
+    _featuresByLayer = const {};
+    _visibleFeatures = const [];
+
+    _cachedPolygons = const [];
+    _cachedPolylines = const [];
+    _cachedMarkers = const [];
+    _cachedLabelMarkers = const [];
+    _cachedHitEntries = const [];
+
+    _lastVisibleFeaturesSourceRef = null;
+    _lastFeaturesByLayerVisibleRef = null;
+    _lastAllFeaturesSourceRef = null;
+
+    _lastVisibleViewportSignature = -1;
+
+    _lastStaticVisualSignature = 0;
+    _lastMarkerVisualSignature = 0;
+    _lastHitEntriesSignature = 0;
+
+    _lastStaticZoomBucket = -999.0;
+    _lastMarkerZoomBucket = -999.0;
   }
 
   void _handleMapReady() {
@@ -190,7 +218,6 @@ class _MapChangeState extends State<MapChange> {
     if (_mapReady) {
       try {
         final bounds = _controller.camera.visibleBounds;
-
         return LatLngBoundsLite(
           minLat: bounds.south,
           maxLat: bounds.north,
@@ -223,6 +250,7 @@ class _MapChangeState extends State<MapChange> {
     final markerChanged = _ensureMarkerCache();
 
     final changed = staticChanged || markerChanged;
+
     if (changed) {
       _cacheReady = true;
     }
@@ -238,6 +266,7 @@ class _MapChangeState extends State<MapChange> {
     final viewportSignature = _viewportSignature(viewportBounds);
 
     final signature = Object.hash(
+      widget.visualDataSignature,
       viewportSignature,
       MapCache.computeStaticVisualSignature(
         zoomBucket: bucket,
@@ -293,6 +322,7 @@ class _MapChangeState extends State<MapChange> {
     final viewportSignature = _viewportSignature(viewportBounds);
 
     final signature = Object.hash(
+      widget.visualDataSignature,
       viewportSignature,
       MapCache.computeMarkerVisualSignature(
         zoomBucket: bucket,
@@ -376,6 +406,7 @@ class _MapChangeState extends State<MapChange> {
 
   void _ensureHitEntries() {
     final hitSignature = Object.hash(
+      widget.visualDataSignature,
       Object.hashAll(widget.orderedActiveLayerIds),
       identityHashCode(_featuresByLayer),
     );
@@ -385,6 +416,7 @@ class _MapChangeState extends State<MapChange> {
     }
 
     _lastHitEntriesSignature = hitSignature;
+
     _cachedHitEntries = MapHitTest.buildHitEntries(
       orderedActiveLayerIds: widget.orderedActiveLayerIds,
       featuresByLayer: _featuresByLayer,

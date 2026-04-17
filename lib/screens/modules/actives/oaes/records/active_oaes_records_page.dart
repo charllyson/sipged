@@ -127,12 +127,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
         }
 
         return Scaffold(
-          appBar: UpBar(
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
-            ),
-          ),
+          appBar: UpBar(),
           body: Stack(
             children: [
               const BackgroundChange(),

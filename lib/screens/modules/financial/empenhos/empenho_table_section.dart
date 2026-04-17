@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sipged/_blocs/modules/financial/empenhos/empenho_data.dart';
-import 'package:sipged/_widgets/table/simple/simple_table_changed.dart';
+import 'package:sipged/_widgets/table/paged/paged_colum.dart';
+import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 
 class EmpenhoTableSection extends StatelessWidget {
   final List<EmpenhoData> items;
   final EmpenhoData? selected;
   final NumberFormat currency;
-
   final void Function(EmpenhoData e) onSelect;
   final Future<void> Function(EmpenhoData e)? onDelete;
 
@@ -20,50 +20,87 @@ class EmpenhoTableSection extends StatelessWidget {
     this.onDelete,
   });
 
-  String _s(String? v) => (v ?? '').trim();
+  String _s(String? v) {
+    final value = (v ?? '').trim();
+    if (value.isEmpty || value.toLowerCase() == 'null') return '-';
+    return value;
+  }
+
+  String _itemKey(EmpenhoData item) {
+    final id = (item.id ?? '').trim();
+    if (id.isNotEmpty) return id;
+
+    return [
+      _s(item.numero),
+      _s(item.demandLabel),
+      _s(item.companyLabel),
+      _s(item.fundingSourceLabel),
+      DateFormat('dd/MM/yyyy').format(item.date),
+      currency.format(item.empenhadoTotal),
+    ].join('|');
+  }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SimpleTableChanged<EmpenhoData>(
-          constraints: constraints,
-          listData: items,
-          selectedItem: selected,
-          onTapItem: onSelect,
-          onDelete: (e) => onDelete!(e),
-
-          columnTitles: const [
-            'NÚMERO',
-            'CREDITADO EM',
-            'CONTRATANTE',
-            'FONTE',
-            'DATA',
-            'VALOR',
-          ],
-
-          columnGetters: [
-                (e) => e.numero,
-                (e) => _s(e.demandLabel),
-                (e) => _s(e.companyLabel) ,
-                (e) => _s(e.fundingSourceLabel),
-                (e) => DateFormat('dd/MM/yyyy').format(e.date),
-                (e) => currency.format(e.empenhadoTotal),
-          ],
-
-          columnWidths: const [140, 360, 220, 220, 120, 140, 220],
-
-          columnTextAligns: const [
-            TextAlign.center,   // numero
-            TextAlign.left,   // demanda
-            TextAlign.center,   // contratante
-            TextAlign.center,   // fonte
-            TextAlign.center, // data
-            TextAlign.right,  // total
-            TextAlign.center,
-          ],
-        );
-      },
+    return PagedTableChanged<EmpenhoData>(
+      listData: items,
+      getKey: _itemKey,
+      selectedKey: selected != null ? _itemKey(selected!) : null,
+      keepSelectionInternally: false,
+      enableRowTapSelection: true,
+      enablePagination: false,
+      initialRowsPerPage: 10,
+      rowsPerPageOptions: const [10, 25, 50, 100],
+      sortColumnIndex: 0,
+      sortAscending: true,
+      minTableWidth: 1316,
+      defaultColumnWidth: 160,
+      actionsColumnWidth: onDelete != null ? 56 : 0,
+      colorHeadTable: const Color(0xFF091D68),
+      colorHeadTableText: Colors.white,
+      headingRowHeight: 40,
+      dataRowMinHeight: 40,
+      dataRowMaxHeight: 56,
+      onTapItem: onSelect,
+      onDelete: onDelete == null ? null : (e) => onDelete!(e),
+      columns: [
+        PagedColum<EmpenhoData>(
+          title: 'NÚMERO',
+          getter: (e) => _s(e.numero),
+          textAlign: TextAlign.center,
+          width: 140,
+        ),
+        PagedColum<EmpenhoData>(
+          title: 'CREDITADO EM',
+          getter: (e) => _s(e.demandLabel),
+          textAlign: TextAlign.left,
+          width: 360,
+        ),
+        PagedColum<EmpenhoData>(
+          title: 'CONTRATANTE',
+          getter: (e) => _s(e.companyLabel),
+          textAlign: TextAlign.center,
+          width: 220,
+        ),
+        PagedColum<EmpenhoData>(
+          title: 'FONTE',
+          getter: (e) => _s(e.fundingSourceLabel),
+          textAlign: TextAlign.center,
+          width: 220,
+        ),
+        PagedColum<EmpenhoData>(
+          title: 'DATA',
+          getter: (e) => DateFormat('dd/MM/yyyy').format(e.date),
+          textAlign: TextAlign.center,
+          width: 120,
+        ),
+        PagedColum<EmpenhoData>(
+          title: 'VALOR',
+          getter: (e) => currency.format(e.empenhadoTotal),
+          textAlign: TextAlign.right,
+          width: 140,
+        ),
+      ],
     );
   }
 }

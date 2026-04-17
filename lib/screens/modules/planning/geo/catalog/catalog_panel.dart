@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/screens/modules/planning/geo/catalog/catalog_property.dart';
 import 'package:sipged/screens/modules/planning/geo/catalog/catalog_section.dart';
@@ -24,7 +24,7 @@ class CatalogPanel extends StatelessWidget {
   final Object selectedWorkspaceToken;
   final ValueChanged<CatalogData> onCatalogItemTap;
   final void Function(String itemId, CatalogData property) onPropertyChanged;
-  final void Function(String itemId, String propertyKey, AttributeData data)
+  final void Function(String itemId, String propertyKey, FeatureDataBinding data)
   onBindingDropped;
 
   String? get _effectiveSelectedCatalogItemId {
@@ -163,7 +163,7 @@ class _CatalogPropertiesTab extends StatelessWidget {
 
   final WorkspaceData? item;
   final void Function(String itemId, CatalogData property) onPropertyChanged;
-  final void Function(String itemId, String propertyKey, AttributeData data)
+  final void Function(String itemId, String propertyKey, FeatureDataBinding data)
   onBindingDropped;
 
   @override

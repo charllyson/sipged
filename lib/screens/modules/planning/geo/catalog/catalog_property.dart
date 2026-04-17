@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/screens/modules/planning/geo/catalog/catalog_binding.dart';
 import 'package:sipged/screens/modules/planning/geo/catalog/catalog_field.dart';
@@ -17,7 +17,7 @@ class CatalogProperty extends StatelessWidget {
   final WorkspaceData item;
   final CatalogData property;
   final ValueChanged<CatalogData> onPropertyChanged;
-  final ValueChanged<AttributeData> onBindingDropped;
+  final ValueChanged<FeatureDataBinding> onBindingDropped;
 
   @override
   Widget build(BuildContext context) {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 
 class CatalogBinding extends StatefulWidget {
@@ -10,7 +10,7 @@ class CatalogBinding extends StatefulWidget {
   });
 
   final CatalogData property;
-  final ValueChanged<AttributeData> onBindingDropped;
+  final ValueChanged<FeatureDataBinding> onBindingDropped;
 
   @override
   State<CatalogBinding> createState() => _CatalogBindingState();
@@ -32,7 +32,7 @@ class _CatalogBindingState extends State<CatalogBinding> {
         ? binding.displayValue
         : (widget.property.hint ?? 'Arraste um campo aqui');
 
-    return DragTarget<AttributeData>(
+    return DragTarget<FeatureDataBinding>(
       onWillAcceptWithDetails: (_) {
         final accepts = widget.property.acceptsDrop;
         if (accepts && !_dragging) {

@@ -222,9 +222,6 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                   final ok = await confirmDialog(context, 'Deseja apagar esta infração?');
                                   if (ok) await ctrl.deleteInfraction(context, id);
                                 },
-                                currentPage: ctrl.currentPage,
-                                totalPages: ctrl.totalPages,
-                                onPageChange: ctrl.loadPage, // paginação local, sem reset
                               ),
                             ],
                             const SizedBox(height: 12),

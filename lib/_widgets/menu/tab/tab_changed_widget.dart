@@ -63,7 +63,7 @@ required ProcessData contract,
 });
 
 /// Scaffold reutilizável de abas para contratos com barra superior customizável.
-class TabChangedWidget extends StatefulWidget {
+class TabChanged extends StatefulWidget {
   final UserData? userData;
   final ProcessData? contractData;
   final ProcessBloc? contractsBloc;
@@ -96,7 +96,7 @@ class TabChangedWidget extends StatefulWidget {
 
   final String? textBanner;
 
-  const TabChangedWidget({
+  const TabChanged({
     super.key,
     this.userData,
     this.contractData,
@@ -123,10 +123,10 @@ class TabChangedWidget extends StatefulWidget {
   });
 
   @override
-  State<TabChangedWidget> createState() => _TabChangedWidgetState();
+  State<TabChanged> createState() => _TabChangedState();
 }
 
-class _TabChangedWidgetState extends State<TabChangedWidget> {
+class _TabChangedState extends State<TabChanged> {
   late ProcessData? _contractData;
 
   @override

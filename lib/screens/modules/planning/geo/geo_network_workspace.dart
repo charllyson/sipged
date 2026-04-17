@@ -113,7 +113,7 @@ extension _GeoNetworkWorkspace on _GeoNetworkViewState {
   Future<void> _handleWorkspaceBindingDropped(
       String itemId,
       String propertyKey,
-      AttributeData data,
+      FeatureDataBinding data,
       List<LayerData> currentTree,
       ) async {
     await _workspacePanelKey.currentState?.applyBinding(

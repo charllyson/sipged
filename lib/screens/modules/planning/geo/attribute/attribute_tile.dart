@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/attribute/attribute_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
 
 class AttributeTile extends StatefulWidget {
   final String label;
   final String value;
-  final AttributeData? dragData;
+  final FeatureDataBinding? dragData;
 
   const AttributeTile({
     super.key,
@@ -90,7 +90,7 @@ class _AttributeTileState extends State<AttributeTile> {
 }
 
 class _TileDragHandle extends StatelessWidget {
-  final AttributeData dragData;
+  final FeatureDataBinding dragData;
   final ValueChanged<bool> onDragStateChanged;
 
   const _TileDragHandle({
@@ -119,7 +119,7 @@ class _TileDragHandle extends StatelessWidget {
 
     return MouseRegion(
       cursor: SystemMouseCursors.grab,
-      child: LongPressDraggable<AttributeData>(
+      child: LongPressDraggable<FeatureDataBinding>(
         data: dragData,
         maxSimultaneousDrags: 1,
         dragAnchorStrategy: pointerDragAnchorStrategy,

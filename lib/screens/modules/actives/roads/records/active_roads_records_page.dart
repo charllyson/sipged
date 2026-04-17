@@ -77,13 +77,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
         if (!st.initialized ||
             st.loadStatus == ActiveRoadsLoadStatus.loading) {
           return const Scaffold(
-            appBar: UpBar(
-              leading: Padding(
-                padding: EdgeInsets.only(left: 12.0),
-                child: BackCircleButton(),
-              ),
-              showPhotoMenu: true,
-            ),
+            appBar: UpBar(),
             body: Stack(
               children: [
                 BackgroundChange(),
@@ -141,13 +135,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
         }
 
         return Scaffold(
-          appBar: UpBar(
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
-            ),
-            showPhotoMenu: true,
-          ),
+          appBar: UpBar(),
           body: Stack(
             children: [
               const BackgroundChange(),

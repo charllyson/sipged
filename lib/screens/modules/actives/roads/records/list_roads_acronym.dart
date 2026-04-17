@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
-import 'package:sipged/screens/modules/actives/roads/records/active_roads_records_table_section.dart';
+import 'package:sipged/screens/modules/actives/roads/records/active_roads_table.dart';
 
 typedef RoadTapCallback = void Function(ActiveRoadsData road);
 typedef RoadDeleteCallback = void Function(String roadId);

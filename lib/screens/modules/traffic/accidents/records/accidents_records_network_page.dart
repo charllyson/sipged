@@ -1,4 +1,3 @@
-// lib/screens/modules/traffic/accidents/records/accidents_records_network_page.dart
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -14,21 +13,17 @@ import 'package:sipged/_widgets/print/label_bitmap.dart';
 import 'package:sipged/_widgets/layout/split_layout/split_layout.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-// Notificações / dialogs
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
-// ✅ BLE + Bitmap
 import 'package:sipged/_services/bluetooth/ble_client.dart';
 import 'package:sipged/_services/bluetooth/ble_client_iface.dart';
 
-// Cubit do módulo
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_cubit.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_state.dart';
 import 'package:sipged/_blocs/modules/transit/accidents/accidents_data.dart';
 
-// SEÇÕES
 import 'accidents_form_section.dart';
 import 'accidents_selector_dates_section.dart';
 import 'accidents_table_section.dart';
@@ -64,9 +59,6 @@ class _AccidentsRecordsNetworkPageInnerState
   bool _showTable = true;
   bool _showMap = true;
 
-  final ScrollController _tableHCtrl = ScrollController();
-  final ScrollController _tableVCtrl = ScrollController();
-
   MapController? _mapController;
   void Function(LatLng)? _setActivePoint;
 
@@ -92,13 +84,6 @@ class _AccidentsRecordsNetworkPageInnerState
       context.read<AccidentsCubit>().warmup();
       _inited = true;
     });
-  }
-
-  @override
-  void dispose() {
-    _tableHCtrl.dispose();
-    _tableVCtrl.dispose();
-    super.dispose();
   }
 
   bool _isFormValid(AccidentsData d) {
@@ -197,10 +182,6 @@ class _AccidentsRecordsNetworkPageInnerState
     }
   }
 
-  // ===========================================================================
-  // ✅ QR Público (gerar/mostrar)
-  // ===========================================================================
-
   Future<void> _handlePublicReport(AccidentsData item) async {
     try {
       final url = await context.read<AccidentsCubit>().generatePublicReportLink(
@@ -262,7 +243,9 @@ class _AccidentsRecordsNetworkPageInnerState
                           'Deseja revogar o link público deste boletim?',
                         );
                         if (!ok) return;
-                        await context.read<AccidentsCubit>().revokePublicReportLink(item);
+                        await context
+                            .read<AccidentsCubit>()
+                            .revokePublicReportLink(item);
                         if (!mounted) return;
                         Navigator.of(context).pop();
                       },
@@ -296,21 +279,14 @@ class _AccidentsRecordsNetworkPageInnerState
     }
   }
 
-  // ===========================================================================
-  // ✅ PRINT (TSPL BITMAP via BLE)
-  // ===========================================================================
-
   Future<void> _handlePrintLabel(AccidentsData item) async {
-    // ✅ garante link público antes de imprimir (o QR vai ser o link público)
     String publicUrl = '';
     try {
       publicUrl = await context.read<AccidentsCubit>().generatePublicReportLink(
         item,
         expiresIn: const Duration(days: 30),
       );
-    } catch (_) {
-      // fallback: imprime com sipged://...
-    }
+    } catch (_) {}
 
     final texto = _buildLabelText(item);
     final qrData = _buildLabelQrData(item, publicUrlOverride: publicUrl);
@@ -486,7 +462,6 @@ class _AccidentsRecordsNetworkPageInnerState
     final override = (publicUrlOverride ?? '').trim();
     if (override.isNotEmpty) return override;
 
-    // fallback antigo
     final id = (d.id ?? '').trim();
     if (id.isNotEmpty) return 'sipged://accidents/$id';
     final ordem = (d.order ?? '').toString();
@@ -495,17 +470,14 @@ class _AccidentsRecordsNetworkPageInnerState
 
   Widget _buildScrollableTable({
     required BuildContext context,
-    required List<AccidentsData> pageItems,
+    required List<AccidentsData> items,
     required AccidentsState state,
   }) {
-    final tableCore = AccidentsTableSection(
+    return AccidentsTableSection(
       onPublicLink: (item) async => _handlePublicReport(item),
       onPrint: (item) async => _handlePrintLabel(item),
-      listData: pageItems,
+      listData: items,
       selectedItem: _selectedAccident,
-      currentPage: state.currentPage,
-      totalPages: state.totalPages,
-      onPageChange: (p) async => context.read<AccidentsCubit>().changePage(p),
       onTapItem: (item) => _fillFields(item),
       onDelete: (id) async {
         final toDelete = state.view.firstWhere(
@@ -513,48 +485,15 @@ class _AccidentsRecordsNetworkPageInnerState
           orElse: () => AccidentsData(id: id),
         );
         final ok = await confirmDialog(context, 'Deseja apagar este acidente?');
-        if (ok) await _delete(id, yearHint: toDelete.date?.year);
-      },
-    );
-
-    return LayoutBuilder(
-      builder: (ctx, c) {
-        final available = c.maxWidth.isFinite ? c.maxWidth : 1200.0;
-        final double minWidth = math.max(1200.0, available);
-
-        return Scrollbar(
-          controller: _tableHCtrl,
-          thumbVisibility: true,
-          notificationPredicate: (notif) => notif.metrics.axis == Axis.horizontal,
-          child: SingleChildScrollView(
-            controller: _tableHCtrl,
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.zero,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: minWidth),
-              child: SizedBox(
-                width: minWidth,
-                child: Scrollbar(
-                  controller: _tableVCtrl,
-                  thumbVisibility: true,
-                  notificationPredicate: (notif) =>
-                  notif.metrics.axis == Axis.vertical,
-                  child: SingleChildScrollView(
-                    controller: _tableVCtrl,
-                    padding: EdgeInsets.zero,
-                    child: tableCore,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
+        if (ok) {
+          await _delete(id, yearHint: toDelete.date?.year);
+        }
       },
     );
   }
 
   Widget _buildLeftPanel(AccidentsState state) {
-    final pageItems = state.pageItems;
+    final items = state.view;
 
     final zeroTableGapsTheme = Theme.of(context).copyWith(
       dataTableTheme: const DataTableThemeData(
@@ -599,7 +538,9 @@ class _AccidentsRecordsNetworkPageInnerState
                         context,
                         'Deseja salvar este acidente?',
                       );
-                      if (ok) await _save(state);
+                      if (ok) {
+                        await _save(state);
+                      }
                     },
                     onClear: () => _createNew(state),
                     onGetLocation: () {
@@ -634,7 +575,10 @@ class _AccidentsRecordsNetworkPageInnerState
                         final y = res.selectedYear;
                         final m = res.selectedMonth;
                         if (y == state.year && m == state.month) return;
-                        context.read<AccidentsCubit>().changeFilter(year: y, month: m);
+                        context.read<AccidentsCubit>().changeFilter(
+                          year: y,
+                          month: m,
+                        );
                       },
                     ),
                   ),
@@ -643,7 +587,7 @@ class _AccidentsRecordsNetworkPageInnerState
                     'Acidentes cadastrados no sistema',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
-                  if (pageItems.isEmpty)
+                  if (items.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(12.0),
                       child: Text('Nenhum acidente encontrado'),
@@ -651,7 +595,7 @@ class _AccidentsRecordsNetworkPageInnerState
                   else
                     _buildScrollableTable(
                       context: context,
-                      pageItems: pageItems,
+                      items: items,
                       state: state,
                     ),
                 ],
