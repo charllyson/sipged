@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
 
 enum WorkspaceSnapEdge {

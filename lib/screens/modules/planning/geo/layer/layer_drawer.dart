@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_map.dart';
-import 'package:sipged/_blocs/modules/planning/geo/map/map_state.dart';
+import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/screens/modules/planning/geo/layer/layer_panel.dart';
 
 class LayerDrawer extends StatelessWidget {

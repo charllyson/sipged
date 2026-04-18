@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/map/map_state.dart';
+import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_cubit.dart';
 import 'package:sipged/_blocs/system/panels/docking/dock_panel_data.dart';
 

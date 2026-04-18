@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_import.dart';
 
 import 'feature_data.dart';
 
@@ -45,7 +46,7 @@ class FeatureState {
   final FeatureImportStatus importStatus;
   final String? importCollectionPath;
   final List<FeatureData> importFeatures;
-  final List<ImportColumnMeta> importColumns;
+  final List<FeatureImport> importColumns;
   final double importProgress;
   final Map<String, String> importFieldMapping;
 
@@ -89,7 +90,7 @@ class FeatureState {
     FeatureImportStatus? importStatus,
     String? importCollectionPath,
     List<FeatureData>? importFeatures,
-    List<ImportColumnMeta>? importColumns,
+    List<FeatureImport>? importColumns,
     double? importProgress,
     Map<String, String>? importFieldMapping,
     int? visualRevision,

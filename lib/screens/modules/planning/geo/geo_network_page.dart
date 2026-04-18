@@ -4,7 +4,7 @@ import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_repository.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_repository.dart';
-import 'package:sipged/_blocs/modules/planning/geo/map/map_cubit.dart';
+import 'package:sipged/_blocs/system/map/map_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_cubit.dart';
 import 'package:sipged/screens/modules/planning/geo/geo_network_view.dart';
 

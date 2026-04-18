@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_enums.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_import.dart';
 
 import '../layer/layer_data.dart';
 import 'feature_data.dart';
@@ -592,12 +594,12 @@ class FeatureCubit extends Cubit<FeatureState> {
     if (index < 0 || index >= state.importColumns.length) return;
     if (state.importColumns[index].selected == selected) return;
 
-    final cols = List<ImportColumnMeta>.from(state.importColumns);
+    final cols = List<FeatureImport>.from(state.importColumns);
     cols[index] = cols[index].copyWith(selected: selected);
 
     _emitIfChanged(
       state.copyWith(
-        importColumns: List<ImportColumnMeta>.unmodifiable(cols),
+        importColumns: List<FeatureImport>.unmodifiable(cols),
         clearError: true,
       ),
     );
@@ -609,7 +611,7 @@ class FeatureCubit extends Cubit<FeatureState> {
     final trimmed = newName.trim();
     if (trimmed.isEmpty) return;
 
-    final cols = List<ImportColumnMeta>.from(state.importColumns);
+    final cols = List<FeatureImport>.from(state.importColumns);
     final oldName = cols[index].name;
 
     if (trimmed == oldName) return;
@@ -672,7 +674,7 @@ class FeatureCubit extends Cubit<FeatureState> {
     _emitIfChanged(
       state.copyWith(
         selected: nextSelection,
-        importColumns: List<ImportColumnMeta>.unmodifiable(cols),
+        importColumns: List<FeatureImport>.unmodifiable(cols),
         importFeatures: List<FeatureData>.unmodifiable(feats),
         importFieldMapping: Map<String, String>.unmodifiable(newMapping),
         clearError: true,
@@ -684,7 +686,7 @@ class FeatureCubit extends Cubit<FeatureState> {
     if (index < 0 || index >= state.importColumns.length) return;
     if (state.importColumns[index].type == newType) return;
 
-    final cols = List<ImportColumnMeta>.from(state.importColumns);
+    final cols = List<FeatureImport>.from(state.importColumns);
     final colName = cols[index].name;
     cols[index] = cols[index].copyWith(type: newType);
 
@@ -709,7 +711,7 @@ class FeatureCubit extends Cubit<FeatureState> {
     _emitIfChanged(
       state.copyWith(
         selected: nextSelection,
-        importColumns: List<ImportColumnMeta>.unmodifiable(cols),
+        importColumns: List<FeatureImport>.unmodifiable(cols),
         importFeatures: List<FeatureData>.unmodifiable(feats),
         clearError: true,
       ),

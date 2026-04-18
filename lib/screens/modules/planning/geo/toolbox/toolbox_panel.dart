@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_map.dart';
-import 'package:sipged/_blocs/modules/planning/geo/map/map_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/map/map_state.dart';
+import 'package:sipged/_blocs/system/map/map_cubit.dart';
+import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
 import 'package:sipged/screens/modules/planning/geo/toolbox/toolbox_content.dart';
 

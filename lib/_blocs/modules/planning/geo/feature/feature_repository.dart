@@ -7,6 +7,8 @@ as vector_import_file_reader;
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_enums.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_import.dart';
 import 'package:xml/xml.dart' as xml;
 
 import 'feature_data.dart';
@@ -128,11 +130,11 @@ class FeatureRepository {
     }
   }
 
-  (List<FeatureData>, List<ImportColumnMeta>) buildImportedFeatures(
+  (List<FeatureData>, List<FeatureImport>) buildImportedFeatures(
       List<Map<String, dynamic>> rawFeatures,
       ) {
     if (rawFeatures.isEmpty) {
-      return (const <FeatureData>[], const <ImportColumnMeta>[]);
+      return (const <FeatureData>[], const <FeatureImport>[]);
     }
 
     final keys = <String>{};
@@ -155,7 +157,7 @@ class FeatureRepository {
 
     final columns = sortedKeys
         .map(
-          (name) => ImportColumnMeta(
+          (name) => FeatureImport(
         name: name,
         selected: true,
         type: inferredTypes[name] ?? TypeFieldGeoJson.string,
@@ -183,11 +185,11 @@ class FeatureRepository {
 
     return (
     List<FeatureData>.unmodifiable(features),
-    List<ImportColumnMeta>.unmodifiable(columns),
+    List<FeatureImport>.unmodifiable(columns),
     );
   }
 
-  Future<(List<FeatureData>, List<ImportColumnMeta>)>
+  Future<(List<FeatureData>, List<FeatureImport>)>
   loadFromFirestoreAsImportedFeatures({
     required String collectionPath,
     String? sourceLayerId,
@@ -214,7 +216,7 @@ class FeatureRepository {
 
     final docs = snap.docs;
     if (docs.isEmpty) {
-      return (const <FeatureData>[], const <ImportColumnMeta>[]);
+      return (const <FeatureData>[], const <FeatureImport>[]);
     }
 
     final keys = <String>{};
@@ -236,7 +238,7 @@ class FeatureRepository {
 
     final columns = sortedKeys
         .map(
-          (name) => ImportColumnMeta(
+          (name) => FeatureImport(
         name: name,
         selected: true,
         type: inferredTypes[name] ?? TypeFieldGeoJson.string,
@@ -285,7 +287,7 @@ class FeatureRepository {
 
     return (
     List<FeatureData>.unmodifiable(features),
-    List<ImportColumnMeta>.unmodifiable(columns),
+    List<FeatureImport>.unmodifiable(columns),
     );
   }
 

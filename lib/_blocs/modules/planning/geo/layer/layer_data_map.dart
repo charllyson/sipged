@@ -7,8 +7,8 @@ import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_state.dart';
-import 'package:sipged/_blocs/modules/planning/geo/map/map_cubit.dart';
-import 'package:sipged/_blocs/modules/planning/geo/map/map_state.dart';
+import 'package:sipged/_blocs/system/map/map_cubit.dart';
+import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/toolbox/toolbox_state.dart';
 import 'package:sipged/screens/modules/planning/geo/status/status_bar.dart';
 

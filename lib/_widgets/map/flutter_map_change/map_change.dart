@@ -7,9 +7,9 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
-import 'package:sipged/screens/modules/planning/geo/map/map_cache.dart';
-import 'package:sipged/screens/modules/planning/geo/map/map_hit_test.dart';
-import 'package:sipged/screens/modules/planning/geo/map/map_layers.dart';
+import 'package:sipged/_widgets/map/flutter_map_change/map_cache.dart';
+import 'package:sipged/_widgets/map/flutter_map_change/map_hit_test.dart';
+import 'package:sipged/_widgets/map/flutter_map_change/map_layers.dart';
 
 class MapChange extends StatefulWidget {
   const MapChange({

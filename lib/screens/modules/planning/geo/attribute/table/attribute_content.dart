@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_enums.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/table/paged/paged_colum.dart';

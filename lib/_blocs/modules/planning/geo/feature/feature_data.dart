@@ -3,78 +3,8 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:latlong2/latlong.dart';
-
-enum FeatureGeometryType {
-  point,
-  multiPoint,
-  lineString,
-  multiLineString,
-  polygon,
-  multiPolygon,
-  unknown,
-}
-
-enum FeatureGeometryFamily {
-  point,
-  line,
-  polygon,
-  unknown,
-}
-
-enum TypeFieldGeoJson {
-  string,
-  integer,
-  double_,
-  boolean,
-  datetime,
-}
-
-class ImportColumnMeta {
-  final String name;
-  final bool selected;
-  final TypeFieldGeoJson type;
-
-  const ImportColumnMeta({
-    required this.name,
-    required this.selected,
-    required this.type,
-  });
-
-  ImportColumnMeta copyWith({
-    String? name,
-    bool? selected,
-    TypeFieldGeoJson? type,
-  }) {
-    return ImportColumnMeta(
-      name: name ?? this.name,
-      selected: selected ?? this.selected,
-      type: type ?? this.type,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return other is ImportColumnMeta &&
-        other.name == name &&
-        other.selected == selected &&
-        other.type == type;
-  }
-
-  @override
-  int get hashCode => Object.hash(name, selected, type);
-}
-
-class FeatureParsedGeometry {
-  final List<LatLng> markerPoints;
-  final List<List<LatLng>> lineParts;
-  final List<List<LatLng>> polygonRings;
-
-  const FeatureParsedGeometry({
-    this.markerPoints = const [],
-    this.lineParts = const [],
-    this.polygonRings = const [],
-  });
-}
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_enums.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_parsed_geometry.dart';
 
 class FeatureData {
   final String? id;

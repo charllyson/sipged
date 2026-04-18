@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sipged/_blocs/modules/planning/geo/catalog/catalog_data.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/workspace/workspace_data.dart';
 import 'package:sipged/screens/modules/planning/geo/catalog/catalog_binding.dart';
 import 'package:sipged/screens/modules/planning/geo/catalog/catalog_field.dart';

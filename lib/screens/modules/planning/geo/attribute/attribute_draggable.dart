@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_binding.dart';
 import 'package:sipged/_widgets/draggable/draggable_field.dart';
 
 class AttributeDraggable extends StatelessWidget {

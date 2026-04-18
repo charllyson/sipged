@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data_binding.dart';
+import 'package:sipged/_blocs/modules/planning/geo/feature/feature_binding.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/layer/layer_data_map.dart';
-import 'package:sipged/_blocs/modules/planning/geo/map/map_state.dart';
+import 'package:sipged/_blocs/system/map/map_state.dart';
 import 'package:sipged/_widgets/buttons/header_icon_button.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_import.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/attribute_layer.dart';
