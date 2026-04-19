@@ -30,38 +30,23 @@ import 'package:sipged/_widgets/search/search_overlay.dart';
 import 'package:sipged/_widgets/search/search_widget.dart';
 
 class MapInteractivePage<T> extends StatefulWidget {
-  // =========================
-  // Configuração geral do mapa
-  // =========================
   final double? initialZoom;
   final double? maxZoom;
   final double? minZoom;
   final bool activeMap;
   final bool showLegend;
-
-  /// Se true, ao tocar no mapa cria/posiciona o pin de busca.
   final bool dropPinOnTap;
-
-  /// Se true, ao tocar fora, limpa seleção visual de marker.
   final bool clearMarkerSelectionOnMapTap;
-
-  /// Builder customizado do layer base.
   final Widget Function()? baseTileLayerBuilder;
-
-  /// Builder opcional para overlay absoluto acima do mapa.
   final Widget Function(
       MapController mapController,
       GlobalKey captureKey,
       )? overlayBuilder;
 
-  // =========================
-  // Polylines
-  // =========================
   final List<PolylineChangedData>? tappablePolylines;
   final Future<void> Function()? onClearPolylineSelection;
   final Future<void> Function(PolylineChangedData)? onSelectPolyline;
 
-  /// Exibição de tooltip customizado para polylines.
   final void Function({
   required BuildContext context,
   required Offset position,
@@ -71,9 +56,6 @@ class MapInteractivePage<T> extends StatefulWidget {
   Offset Function(Offset local)? toGlobal,
   })? onShowPolylineTooltip;
 
-  // =========================
-  // Markers / clusters
-  // =========================
   final List<MarkerChangedData<T>>? taggedMarkers;
 
   final Widget Function(
@@ -84,24 +66,13 @@ class MapInteractivePage<T> extends StatefulWidget {
 
   final List<Marker>? extraMarkers;
 
-  // =========================
-  // Polígonos
-  // =========================
   final List<PolygonChangedData>? polygonsChanged;
-
-  /// Cores opcionais por chave de região/título.
   final Map<String, Color>? polygonChangeColors;
 
-  // =========================
-  // Seleção de regiões
-  // =========================
   final bool allowMultiSelect;
   final List<String>? selectedRegionNames;
   final Function(String? region)? onRegionTap;
 
-  // =========================
-  // Busca
-  // =========================
   final bool showSearch;
   final bool showChangeMapType;
   final bool showMyLocation;
@@ -109,23 +80,14 @@ class MapInteractivePage<T> extends StatefulWidget {
   final double searchTargetZoom;
   final bool showSearchMarker;
 
-  // =========================
-  // Callbacks de câmera
-  // =========================
   final ValueChanged<double>? onZoomChanged;
   final void Function(double zoom, LatLng center)? onCameraChanged;
 
-  // =========================
-  // Integração externa
-  // =========================
   final void Function(double lat, double lon)? onMapTap;
   final void Function(MapController controller)? onControllerReady;
   final void Function(void Function(LatLng p) setActivePoint)? onBindSetActivePoint;
 
-  /// Lista opcional usada apenas para centralização inicial.
   final List<LatLng>? initialGeometryPoints;
-
-  /// Índice externo do mapa base.
   final int? selectedBaseIndex;
 
   const MapInteractivePage({
@@ -175,14 +137,11 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   final MapController _mapController = MapController();
   final GlobalKey _captureKey = GlobalKey();
 
-  // Índice do mapa base atual
   int _indexSelectedMap = 0;
 
-  // Debounce dos callbacks de câmera para evitar spam de eventos.
   Timer? _cameraDebounce;
   static const Duration _kCameraDebounce = Duration(milliseconds: 220);
 
-  // Animação pulsante da localização do usuário.
   static const Duration _kPulseDuration = Duration(seconds: 2);
   late final AnimationController _pulseController = AnimationController(
     vsync: this,
@@ -205,11 +164,12 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
   late final NetworkTileProvider _tileProvider = NetworkTileProvider();
 
-  // Notifiers leves para reduzir rebuilds amplos.
   final ValueNotifier<LatLng?> _userLocationVN = ValueNotifier<LatLng?>(null);
   final ValueNotifier<LatLng?> _searchHitVN = ValueNotifier<LatLng?>(null);
-  final ValueNotifier<Set<String>> _selectedRegionsVN = ValueNotifier<Set<String>>({});
-  final ValueNotifier<LatLng?> _selectedMarkerPositionVN = ValueNotifier<LatLng?>(null);
+  final ValueNotifier<Set<String>> _selectedRegionsVN =
+  ValueNotifier<Set<String>>({});
+  final ValueNotifier<LatLng?> _selectedMarkerPositionVN =
+  ValueNotifier<LatLng?>(null);
 
   late double _initZoom;
   late LatLng _initCenter;
@@ -217,13 +177,15 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   LatLng _lastCenter = const LatLng(-9.65, -36.7);
   double _lastZoom = 9.0;
 
-  late final MapInteractiveHelpers _helpers = MapInteractiveHelpers(norm: _norm);
+  late final MapInteractiveHelpers _helpers =
+  MapInteractiveHelpers(norm: _norm);
 
   String _norm(String s) =>
       removeDiacritics(s).replaceAll(RegExp(r'\s+'), ' ').trim().toUpperCase();
 
-  bool get _isOsmPublic =>
-      MapFlutterTypes.mapBase[_indexSelectedMap].url.contains('tile.openstreetmap.org');
+  bool get _isOsmPublic => MapFlutterTypes.mapBase[_indexSelectedMap]
+      .url
+      .contains('tile.openstreetmap.org');
 
   List<PolygonChangedData> get _regionalPolys =>
       widget.polygonsChanged ?? const <PolygonChangedData>[];
@@ -269,7 +231,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
   void didUpdateWidget(covariant MapInteractivePage<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Sincroniza seleção externa de regiões.
     final next = _helpers.toNormSet(widget.selectedRegionNames);
     final prev = _helpers.toNormSet(oldWidget.selectedRegionNames);
 
@@ -278,7 +239,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       _selectedRegionsVN.value = next;
     }
 
-    // Sincroniza índice externo do mapa base.
     if (widget.selectedBaseIndex != null &&
         widget.selectedBaseIndex != oldWidget.selectedBaseIndex &&
         widget.selectedBaseIndex != _indexSelectedMap) {
@@ -288,13 +248,11 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    // Reconstroi bbox de polígonos se necessário.
     _helpers.rebuildPolygonBBoxesIfNeeded(
       oldPolys: oldWidget.polygonsChanged ?? const [],
       newPolys: _regionalPolys,
     );
 
-    // Se antes não havia geometria e agora há, recentraliza.
     final hadOld = _helpers.hasAnyGeometry(
       initialGeometryPoints: oldWidget.initialGeometryPoints,
       polygons: oldWidget.polygonsChanged,
@@ -339,10 +297,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     super.dispose();
   }
 
-  // =========================================================
-  // HANDLERS
-  // =========================================================
-
   Future<void> _handleMyLocationTap() async {
     final loc = await _systemBloc.getUserCurrentLocation();
     if (!mounted) return;
@@ -376,10 +330,10 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
 
   void _handleMapSwitchTap() {
     setState(() {
-      _indexSelectedMap = (_indexSelectedMap + 1) % MapFlutterTypes.mapBase.length;
+      _indexSelectedMap =
+          (_indexSelectedMap + 1) % MapFlutterTypes.mapBase.length;
     });
 
-    // Força refresh mantendo câmera atual.
     Future.microtask(() {
       try {
         final c = _mapController.camera.center;
@@ -418,7 +372,10 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       toGlobal = rb.localToGlobal;
     }
 
-    final tapLatLng = _mapController.camera.screenOffsetToLatLng(details.localPosition);
+    final tapLatLng =
+    _mapController.camera.screenOffsetToLatLng(details.localPosition);
+
+    if (!mounted) return;
 
     onShow(
       context: context,
@@ -465,7 +422,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     for (final reg in regs) {
       final regionKeyNorm = _norm(reg.title);
 
-      // Rejeição rápida por bbox.
       if (!_helpers.containsInBBox(regionKeyNorm, point)) continue;
 
       final pts = reg.polygon.points;
@@ -506,11 +462,9 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     }
   }
 
-  // =========================================================
-  // BUSCA
-  // =========================================================
-
-  Future<List<SearchSuggestion<dynamic>>> _fetchAddressSuggestions(String q) async {
+  Future<List<SearchSuggestion<dynamic>>> _fetchAddressSuggestions(
+      String q,
+      ) async {
     if (q.trim().length < 3) return const [];
 
     final results = await _geocoder.search(q, limit: 8);
@@ -527,7 +481,10 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
         .toList(growable: false);
   }
 
-  void _onSuggestionTap(SearchSuggestion<dynamic> s, void Function(String) onSearch) {
+  void _onSuggestionTap(
+      SearchSuggestion<dynamic> s,
+      void Function(String) onSearch,
+      ) {
     final data = s.data;
     if (data is LatLng) {
       onSearch('${data.latitude},${data.longitude}');
@@ -582,16 +539,9 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
     });
   }
 
-  // =========================================================
-  // BUILD HELPERS
-  // =========================================================
-
   List<Widget> _buildMapChildren() {
     final children = <Widget>[];
 
-    // -------------------------
-    // Layer base
-    // -------------------------
     if (widget.activeMap) {
       if (widget.baseTileLayerBuilder != null) {
         children.add(widget.baseTileLayerBuilder!());
@@ -605,9 +555,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       }
     }
 
-    // -------------------------
-    // Polígonos
-    // -------------------------
     if (_regionalPolys.isNotEmpty) {
       children.add(
         PolygonChangedLayer(
@@ -620,9 +567,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-    // -------------------------
-    // Polylines
-    // -------------------------
     final lines = widget.tappablePolylines;
     if (lines != null && lines.isNotEmpty) {
       children.add(
@@ -638,9 +582,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       );
     }
 
-    // -------------------------
-    // Markers / clusters
-    // -------------------------
     children.add(
       MarkerChangedLayer<T>(
         taggedMarkers: widget.taggedMarkers,
@@ -653,9 +594,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       ),
     );
 
-    // -------------------------
-    // Localização do usuário
-    // -------------------------
     children.add(
       MapUserLocation(
         userLocationVN: _userLocationVN,
@@ -663,18 +601,12 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
       ),
     );
 
-    // -------------------------
-    // Pin da busca/toque
-    // -------------------------
     if (widget.showSearchMarker) {
       children.add(
         PinSearch(searchHitVN: _searchHitVN),
       );
     }
 
-    // -------------------------
-    // Attribution OSM
-    // -------------------------
     if (_isOsmPublic) {
       children.add(
         RichAttributionWidget(
@@ -764,7 +696,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
             children: _buildMapChildren(),
           ),
         ),
-
         if (widget.overlayBuilder != null)
           Positioned.fill(
             child: widget.overlayBuilder!(
@@ -772,7 +703,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
               _captureKey,
             ),
           ),
-
         if (hasLegend)
           Positioned(
             left: 8,
@@ -781,7 +711,6 @@ class _MapInteractivePageState<T> extends State<MapInteractivePage<T>>
               regionColors: widget.polygonChangeColors!,
             ),
           ),
-
         Positioned(
           top: 10,
           left: 10,

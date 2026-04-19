@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:geocoding/geocoding.dart' as geo;
@@ -6,20 +7,17 @@ import 'package:geolocator/geolocator.dart';
 import 'infractions_bloc.dart';
 import 'infractions_data.dart';
 
-// 🔔 Notificações centralizadas
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
 class InfractionsController extends ChangeNotifier {
   InfractionsController({required InfractionsBloc bloc}) : _bloc = bloc;
 
-  // ====== DEPS ======
   InfractionsBloc _bloc;
   void updateDeps(InfractionsBloc b) {
     _bloc = b;
   }
 
-  // ===== ESTADO BASE / LIFECYCLE =====
   bool initRan = false;
   bool isEditable = true;
   bool isSaving = false;
@@ -27,32 +25,27 @@ class InfractionsController extends ChangeNotifier {
   bool _loading = false;
   bool get loading => _loading;
 
-  // ===== SELEÇÃO E IDENTIFICAÇÃO =====
   String? currentInfractionId;
   InfractionsData? selectedInfraction;
 
-  // ===== FILTROS (SelectorDates) =====
-  int? selectedYear;   // null = todos os anos
-  int? selectedMonth;  // 1..12 ou null (todos)
+  int? selectedYear;
+  int? selectedMonth;
 
-  // ===== PAGINAÇÃO =====
   final int _itemsPerPage = 50;
   int currentPage = 1;
   int totalPages = 1;
   bool isFiltering = false;
   bool isPaging = false;
 
-  // ===== DADOS =====
-  List<InfractionsData> _allUniverse = []; // universo completo (todos os anos)
-  List<InfractionsData> get selectorUniverseAll => _allUniverse; // para o SelectorDates
-  List<InfractionsData> _filtered = [];     // após filtros (ano/mês)
-  List<InfractionsData> pageItems = [];     // fatia atual
+  List<InfractionsData> _allUniverse = [];
+  List<InfractionsData> get selectorUniverseAll => _allUniverse;
+  List<InfractionsData> _filtered = [];
+  List<InfractionsData> pageItems = [];
 
-  // ===== CONTROLLERS (FORM) =====
   final orderCtrl = TextEditingController();
   final aitNumberCtrl = TextEditingController();
-  final dateCtrl = TextEditingController(); // dd/MM/yyyy
-  final timeCtrl = TextEditingController(); // HH:mm
+  final dateCtrl = TextEditingController();
+  final timeCtrl = TextEditingController();
   final codeCtrl = TextEditingController();
   final descriptionCtrl = TextEditingController();
   final organCodeCtrl = TextEditingController();
@@ -62,9 +55,43 @@ class InfractionsController extends ChangeNotifier {
   final latitudeCtrl = TextEditingController();
   final longitudeCtrl = TextEditingController();
 
-  DateTime? _dateValue; // valor real de data/hora
+  DateTime? _dateValue;
 
-  // ===================== LIFECYCLE =====================
+  LocationSettings _locationSettings({
+    LocationAccuracy accuracy = LocationAccuracy.best,
+    Duration? timeLimit,
+  }) {
+    if (kIsWeb) {
+      return WebSettings(
+        accuracy: accuracy,
+        timeLimit: timeLimit,
+      );
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return AndroidSettings(
+          accuracy: accuracy,
+          timeLimit: timeLimit,
+          distanceFilter: 0,
+          forceLocationManager: false,
+        );
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return AppleSettings(
+          accuracy: accuracy,
+          timeLimit: timeLimit,
+          distanceFilter: 0,
+          pauseLocationUpdatesAutomatically: false,
+        );
+      default:
+        return LocationSettings(
+          accuracy: accuracy,
+          timeLimit: timeLimit,
+        );
+    }
+  }
+
   Future<void> postFrameInit(BuildContext context) async {
     if (initRan) return;
     initRan = true;
@@ -73,16 +100,15 @@ class InfractionsController extends ChangeNotifier {
     try {
       await _loadAllYearsUniverse();
 
-      // Ano inicial = mais recente no universo (fallback: ano atual)
       final yearsInData = _allUniverse
           .map((e) => e.dateInfraction?.year)
           .whereType<int>()
           .toList()
         ..sort((a, b) => b.compareTo(a));
-      selectedYear = yearsInData.isNotEmpty ? yearsInData.first : DateTime.now().year;
+      selectedYear =
+      yearsInData.isNotEmpty ? yearsInData.first : DateTime.now().year;
       selectedMonth = null;
 
-      // Filtro inicial e paginação
       await applyDateFilter(
         year: selectedYear,
         month: selectedMonth,
@@ -90,7 +116,6 @@ class InfractionsController extends ChangeNotifier {
         source: 'init',
       );
 
-      // Validação automática ligada aos campos essenciais
       _attachValidation();
       _safeNotify();
     } finally {
@@ -116,16 +141,24 @@ class InfractionsController extends ChangeNotifier {
   @override
   void dispose() {
     for (final c in [
-      orderCtrl, aitNumberCtrl, dateCtrl, timeCtrl, codeCtrl, descriptionCtrl,
-      organCodeCtrl, organAuthorityCtrl, addressCtrl, bairroCtrl,
-      latitudeCtrl, longitudeCtrl,
+      orderCtrl,
+      aitNumberCtrl,
+      dateCtrl,
+      timeCtrl,
+      codeCtrl,
+      descriptionCtrl,
+      organCodeCtrl,
+      organAuthorityCtrl,
+      addressCtrl,
+      bairroCtrl,
+      latitudeCtrl,
+      longitudeCtrl,
     ]) {
       c.dispose();
     }
     super.dispose();
   }
 
-  // ================= FILTROS + PAGINAÇÃO =================
   Future<void> applyDateFilter({
     int? year,
     int? month,
@@ -136,7 +169,8 @@ class InfractionsController extends ChangeNotifier {
 
     final targetYear = year;
     final targetMonth = month;
-    final sameFilters = (targetYear == selectedYear) && (targetMonth == selectedMonth);
+    final sameFilters =
+        (targetYear == selectedYear) && (targetMonth == selectedMonth);
 
     const trustedResetSources = {'init', 'selector', 'changeYear', 'changeMonth'};
     if (isPaging) resetToFirstPage = false;
@@ -150,7 +184,6 @@ class InfractionsController extends ChangeNotifier {
       selectedYear = targetYear;
       selectedMonth = targetMonth;
 
-      // Filtra em memória
       _filtered = _allUniverse.where((i) {
         final d = i.dateInfraction;
         if (d == null) return false;
@@ -159,7 +192,6 @@ class InfractionsController extends ChangeNotifier {
         return true;
       }).toList();
 
-      // Ordenação: order asc, fallback por data asc
       _filtered.sort((a, b) {
         final ao = a.orderInfraction ?? 0;
         final bo = b.orderInfraction ?? 0;
@@ -169,7 +201,6 @@ class InfractionsController extends ChangeNotifier {
         return ad.compareTo(bd);
       });
 
-      // Paginação
       final totalDocs = _filtered.length;
       totalPages = totalDocs == 0 ? 1 : ((totalDocs + _itemsPerPage - 1) ~/ _itemsPerPage);
 
@@ -182,7 +213,6 @@ class InfractionsController extends ChangeNotifier {
 
       _slicePage();
 
-      // Sugere próxima ordem + data/hora somente quando reseta
       if (allowReset) {
         orderCtrl.text = _calcNextOrder(_filtered).toString();
         final now = DateTime.now();
@@ -222,20 +252,28 @@ class InfractionsController extends ChangeNotifier {
     }
   }
 
-  // Helpers UI (mudança de filtros)
   Future<void> changeYear(int? year) async {
-    await applyDateFilter(year: year, month: selectedMonth, resetToFirstPage: true, source: 'changeYear');
+    await applyDateFilter(
+      year: year,
+      month: selectedMonth,
+      resetToFirstPage: true,
+      source: 'changeYear',
+    );
   }
 
   Future<void> changeMonth(int? month) async {
-    await applyDateFilter(year: selectedYear, month: month, resetToFirstPage: true, source: 'changeMonth');
+    await applyDateFilter(
+      year: selectedYear,
+      month: month,
+      resetToFirstPage: true,
+      source: 'changeMonth',
+    );
   }
 
   int _calcNextOrder(List<InfractionsData> list) {
     return (list.map((e) => e.orderInfraction ?? 0).fold(0, (a, b) => a > b ? a : b)) + 1;
   }
 
-  // ===================== TABLE -> FORM =====================
   void selectFromTable(InfractionsData item, int indexInPage) {
     selectedInfraction = item;
     currentInfractionId = item.id;
@@ -256,7 +294,7 @@ class InfractionsController extends ChangeNotifier {
     latitudeCtrl.text = (item.latitude?.toString() ?? '');
     longitudeCtrl.text = (item.longitude?.toString() ?? '');
 
-    _validateForm(); // mantém estado de validação coerente
+    _validateForm();
     _safeNotify();
   }
 
@@ -266,9 +304,18 @@ class InfractionsController extends ChangeNotifier {
     _dateValue = null;
 
     for (final c in [
-      orderCtrl, aitNumberCtrl, dateCtrl, timeCtrl, codeCtrl, descriptionCtrl,
-      organCodeCtrl, organAuthorityCtrl, addressCtrl, bairroCtrl,
-      latitudeCtrl, longitudeCtrl,
+      orderCtrl,
+      aitNumberCtrl,
+      dateCtrl,
+      timeCtrl,
+      codeCtrl,
+      descriptionCtrl,
+      organCodeCtrl,
+      organAuthorityCtrl,
+      addressCtrl,
+      bairroCtrl,
+      latitudeCtrl,
+      longitudeCtrl,
     ]) {
       c.clear();
     }
@@ -284,7 +331,6 @@ class InfractionsController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ================== SAVE / DELETE ==================
   Future<void> saveOrUpdate(BuildContext context) async {
     isSaving = true;
     _safeNotify();
@@ -295,13 +341,16 @@ class InfractionsController extends ChangeNotifier {
 
       final targetYear = data.dateInfraction?.year;
       if (targetYear == null) {
-        _notify('Informe a data da infração', type: AppNotificationType.warning, subtitle: 'Não foi possível determinar o ano.');
+        _notify(
+          'Informe a data da infração',
+          type: AppNotificationType.warning,
+          subtitle: 'Não foi possível determinar o ano.',
+        );
         return;
       }
 
       await _bloc.salvarOuAtualizarInfracao(year: targetYear, data: data);
 
-      // Recarrega universo completo e mantém filtros/página
       await _reloadAllUniverse();
       await applyDateFilter(
         year: selectedYear,
@@ -332,13 +381,16 @@ class InfractionsController extends ChangeNotifier {
       final targetYear = item.dateInfraction?.year ?? selectedYear;
 
       if (targetYear == null) {
-        _notify('Não foi possível determinar o ano do registro', type: AppNotificationType.warning, subtitle: 'Exclusão não executada.');
+        _notify(
+          'Não foi possível determinar o ano do registro',
+          type: AppNotificationType.warning,
+          subtitle: 'Exclusão não executada.',
+        );
         return;
       }
 
       await _bloc.deleteInfraction(year: targetYear, recordId: id);
 
-      // Recarrega universo e reaplica filtro mantendo página
       await _reloadAllUniverse();
       await applyDateFilter(
         year: selectedYear,
@@ -357,12 +409,17 @@ class InfractionsController extends ChangeNotifier {
     }
   }
 
-  // ===================== FORM HELPERS =====================
   InfractionsData _formToModel() {
     DateTime? baseDate = _dateValue ?? _parseDate(dateCtrl.text);
     final tod = _parseTimeOfDay(timeCtrl.text);
     if (baseDate != null && tod != null) {
-      baseDate = DateTime(baseDate.year, baseDate.month, baseDate.day, tod.hour, tod.minute);
+      baseDate = DateTime(
+        baseDate.year,
+        baseDate.month,
+        baseDate.day,
+        tod.hour,
+        tod.minute,
+      );
     }
 
     return InfractionsData(
@@ -381,7 +438,6 @@ class InfractionsController extends ChangeNotifier {
     );
   }
 
-  // ===== Validação automática =====
   void _attachValidation() {
     for (final c in [dateCtrl, timeCtrl, aitNumberCtrl, codeCtrl]) {
       c.addListener(_validateForm);
@@ -400,7 +456,6 @@ class InfractionsController extends ChangeNotifier {
     }
   }
 
-  // ===================== PARSERS/FORMATTERS =====================
   String _formatDateUI(DateTime? dt) {
     if (dt == null) return '';
     String two(int n) => n.toString().padLeft(2, '0');
@@ -425,7 +480,9 @@ class InfractionsController extends ChangeNotifier {
       return DateTime(y, mo, d);
     }
 
-    final m2 = RegExp(r'^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$').firstMatch(s);
+    final m2 = RegExp(
+      r'^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$',
+    ).firstMatch(s);
     if (m2 != null) {
       final y = int.parse(m2.group(1)!);
       final mo = int.parse(m2.group(2)!);
@@ -447,8 +504,8 @@ class InfractionsController extends ChangeNotifier {
     if (s.isEmpty) return null;
     final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(s);
     if (m == null) return null;
-    int h = int.parse(m.group(1)!);
-    int mi = int.parse(m.group(2)!);
+    final h = int.parse(m.group(1)!);
+    final mi = int.parse(m.group(2)!);
     if (h < 0 || h > 23 || mi < 0 || mi > 59) return null;
     return TimeOfDay(hour: h, minute: mi);
   }
@@ -465,7 +522,6 @@ class InfractionsController extends ChangeNotifier {
     return t.isEmpty ? null : t;
   }
 
-
   void _notify(
       String title, {
         AppNotificationType type = AppNotificationType.info,
@@ -479,35 +535,44 @@ class InfractionsController extends ChangeNotifier {
       AppNotification(
         id: id,
         title: Text(title),
-        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        subtitle:
+        (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
         type: type,
       ),
     );
   }
 
-  // ===================== GEOLOCALIZAÇÃO =====================
   Future<void> fillFromUserLocation(BuildContext context) async {
     try {
-      // Permissões
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          _notify('Permissão de localização negada.', type: AppNotificationType.warning);
+          _notify(
+            'Permissão de localização negada.',
+            type: AppNotificationType.warning,
+          );
           return;
         }
       }
       if (permission == LocationPermission.deniedForever) {
-        _notify('Permissão de localização negada permanentemente.', type: AppNotificationType.warning);
+        _notify(
+          'Permissão de localização negada permanentemente.',
+          type: AppNotificationType.warning,
+        );
         return;
       }
 
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.best);
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: _locationSettings(
+          accuracy: LocationAccuracy.best,
+        ),
+      );
       latitudeCtrl.text = pos.latitude.toStringAsFixed(6);
       longitudeCtrl.text = pos.longitude.toStringAsFixed(6);
 
-      // Reverse geocoding
-      final placemarks = await geo.placemarkFromCoordinates(pos.latitude, pos.longitude);
+      final placemarks =
+      await geo.placemarkFromCoordinates(pos.latitude, pos.longitude);
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
         addressCtrl.text = [
@@ -521,11 +586,14 @@ class InfractionsController extends ChangeNotifier {
 
       _safeNotify();
     } catch (e) {
-      _notify('Falha ao obter localização', type: AppNotificationType.error, subtitle: '$e');
+      _notify(
+        'Falha ao obter localização',
+        type: AppNotificationType.error,
+        subtitle: '$e',
+      );
     }
   }
 
-  // ===================== INFRA UTILS =====================
   void _setLoading(bool v) {
     if (_loading == v) return;
     _loading = v;

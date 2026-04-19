@@ -73,7 +73,11 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
   List<String>? _parseTags(String raw) {
     final s = raw.trim();
     if (s.isEmpty) return null;
-    final parts = s.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final parts = s
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     return parts.isEmpty ? null : parts;
   }
 
@@ -95,7 +99,6 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
     return buf.toString().trim();
   }
 
-
   List<OacInspectionEntry> _readInspectionsFromForm(ActiveOacsData form) {
     final raw = form.inspections ?? const <OacInspectionEntry>[];
     return raw.map((e) => e.copy()).toList(growable: true);
@@ -110,7 +113,8 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
       base.copyWith(
         inspections: inspections,
         // manter campos agregados do documento coerentes (opcional)
-        lastInspectionDate: inspections.isEmpty ? base.lastInspectionDate : inspections.first.date,
+        lastInspectionDate:
+        inspections.isEmpty ? base.lastInspectionDate : inspections.first.date,
         nextInspectionDate: base.nextInspectionDate, // você pode derivar se quiser
       ),
     );
@@ -138,6 +142,7 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
       builder: (context, st) {
         final cubit = context.read<ActiveOacsCubit>();
         final oac = st.form;
+        final messenger = ScaffoldMessenger.of(context);
 
         if (oac.id == null || oac.id!.isEmpty) {
           return const Padding(
@@ -178,25 +183,29 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
           _writeInspectionsToCubit(cubit: cubit, base: oac, inspections: updated);
           await cubit.upsert(cubit.state.form);
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Inspeção removida.')),
-            );
-          }
+          if (!mounted) return;
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Inspeção removida.')),
+          );
         }
 
         Future<void> onSaveInspection() async {
           if (!(_formKey.currentState?.validate() ?? false)) return;
 
-          final nowId = _editingInspectionId ?? 'insp_${DateTime.now().millisecondsSinceEpoch}';
+          final nowId =
+              _editingInspectionId ?? 'insp_${DateTime.now().millisecondsSinceEpoch}';
           final date = _date ?? DateTime.now();
 
           final entry = OacInspectionEntry(
             id: nowId,
             date: date,
-            inspectorUserId: _inspectorCtrl.text.trim().isEmpty ? null : _inspectorCtrl.text.trim(),
+            inspectorUserId: _inspectorCtrl.text.trim().isEmpty
+                ? null
+                : _inspectorCtrl.text.trim(),
             score: _parseDouble(_scoreCtrl.text),
-            method: _methodCtrl.text.trim().isEmpty ? null : _methodCtrl.text.trim(),
+            method: _methodCtrl.text.trim().isEmpty
+                ? null
+                : _methodCtrl.text.trim(),
             anomalies: _parseTags(_anomaliesCtrl.text),
             notes: _buildNotes(
               notes: _notesCtrl.text,
@@ -212,16 +221,25 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
             inspections[idx] = entry;
           }
 
-          _writeInspectionsToCubit(cubit: cubit, base: oac, inspections: inspections);
+          _writeInspectionsToCubit(
+            cubit: cubit,
+            base: oac,
+            inspections: inspections,
+          );
           await cubit.upsert(cubit.state.form);
 
+          if (!mounted) return;
           _clearInspectionForm();
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(idx == -1 ? 'Inspeção adicionada.' : 'Inspeção atualizada.')),
-            );
-          }
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                idx == -1
+                    ? 'Inspeção adicionada.'
+                    : 'Inspeção atualizada.',
+              ),
+            ),
+          );
         }
 
         Future<void> onUploadInspectionAttachment(String inspectionId) async {
@@ -238,7 +256,6 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
           if (mounted) setState(() {});
         }
 
-
         return Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -246,12 +263,12 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
             children: [
               const SectionTitle(text: 'Nova inspeção'),
               const SizedBox(height: 8),
-
               Form(
                 key: _formKey,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final width = constraints.maxWidth;
+
                     double w(int perLine) => width >= 900
                         ? (width - (perLine - 1) * 12) / perLine
                         : width >= 600
@@ -280,7 +297,9 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                           controller: _scoreCtrl,
                           labelText: 'Nota (0..5)',
                           width: w(4),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                         ),
                         CustomTextField(
                           controller: _methodCtrl,
@@ -302,7 +321,9 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                           controller: _costCtrl,
                           labelText: 'Custo estimado (R\$) (opcional)',
                           width: w(4),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
                         ),
                         SizedBox(
                           width: w(4),
@@ -324,10 +345,16 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                                       ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                       : const Icon(Icons.save_outlined),
-                                  label: Text(_editingInspectionId == null ? 'Salvar inspeção' : 'Atualizar inspeção'),
+                                  label: Text(
+                                    _editingInspectionId == null
+                                        ? 'Salvar inspeção'
+                                        : 'Atualizar inspeção',
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -343,17 +370,14 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                   },
                 ),
               ),
-
               const SizedBox(height: 16),
               const SectionTitle(text: 'Inspeções cadastradas'),
               const SizedBox(height: 8),
-
               if (inspections.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(8.0),
                   child: Text('Nenhuma inspeção cadastrada.'),
                 ),
-
               if (inspections.isNotEmpty)
                 Expanded(
                   child: ListView.separated(
@@ -367,7 +391,8 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                       final subtitle =
                           'Inspetor: ${ins.inspectorUserId ?? '-'} • Nota: ${ins.score?.toStringAsFixed(1) ?? '-'}';
 
-                      final attachments = _attachmentsByInspection[ins.id] ?? const <Attachment>[];
+                      final attachments =
+                          _attachmentsByInspection[ins.id] ?? const <Attachment>[];
 
                       return Card(
                         child: Padding(
@@ -380,7 +405,9 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                                   Expanded(
                                     child: Text(
                                       title,
-                                      style: const TextStyle(fontWeight: FontWeight.w700),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                   IconButton(
@@ -397,22 +424,21 @@ class _OacInspectionsPageState extends State<OacInspectionsPage> {
                               ),
                               Text(subtitle),
                               const SizedBox(height: 8),
-
                               if ((ins.anomalies ?? const <String>[]).isNotEmpty)
-                                Text('Anomalias: ${(ins.anomalies ?? const <String>[]).join(', ')}'),
-
+                                Text(
+                                  'Anomalias: ${(ins.anomalies ?? const <String>[]).join(', ')}',
+                                ),
                               if ((ins.notes ?? '').trim().isNotEmpty) ...[
                                 const SizedBox(height: 6),
                                 Text(ins.notes!.trim()),
                               ],
-
                               const SizedBox(height: 10),
-
                               SideListBox(
                                 title: 'Anexos da inspeção',
                                 items: attachments,
-                                onAddPressed: () => onUploadInspectionAttachment(ins.id),
-                                //onDelete: (a) => onRemoveInspectionAttachment(ins.id, a),
+                                onAddPressed: () =>
+                                    onUploadInspectionAttachment(ins.id),
+                                // onDelete: (a) => onRemoveInspectionAttachment(ins.id, a),
                               ),
                             ],
                           ),

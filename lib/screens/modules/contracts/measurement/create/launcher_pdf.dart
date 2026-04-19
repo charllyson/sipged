@@ -186,7 +186,7 @@ Future<Uint8List> buildPdfBytes({
             ];
 
             widgets.add(
-              pw.Table.fromTextArray(
+              pw.TableHelper.fromTextArray(
                 headers: subHeaders,
                 data: subData,
                 tableWidth: pw.TableWidth.max,

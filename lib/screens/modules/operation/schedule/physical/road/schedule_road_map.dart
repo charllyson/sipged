@@ -1,4 +1,3 @@
-// lib/screens/modules/operation/schedule/road/schedule_road_map.dart
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -12,16 +11,13 @@ import 'package:sipged/_widgets/schedule/modal/type.dart';
 import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
-// Notificações centralizadas
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-// ✅ Cubit/State do cronograma rodoviário
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
 import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
-
 import 'package:sipged/_widgets/schedule/stakes/line_segmentation.dart';
 import 'package:sipged/_widgets/schedule/stakes/zoom_listener.dart';
 
@@ -34,17 +30,12 @@ import 'package:sipged/_widgets/schedule/stakes/stakes_up_right.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 
-// ✅ Janela macOS-like
-
-// ====== constantes de estilo ======
 const double kLaneStrokeWidth = 7.0;
 const double kLaneStrokeWidthSelected = 10.0;
-const double kHitStrokeMin = 22.0; // área mínima de toque
+const double kHitStrokeMin = 22.0;
 
 class ScheduleRoadMap extends StatefulWidget {
   final ProcessData contractData;
-
-  /// Mantido apenas para compatibilidade com o Workspace (não é mais usado aqui).
   final ValueNotifier<bool>? externalPanelController;
 
   const ScheduleRoadMap({
@@ -58,14 +49,12 @@ class ScheduleRoadMap extends StatefulWidget {
 }
 
 class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
-  // Seleção múltipla no mapa
   final Set<String> _selectedTags = <String>{};
   bool _multiSelectMode = false;
   bool _modalOpen = false;
 
-  VoidCallback? _panelListener; // (compat) não usado para layout
+  VoidCallback? _panelListener;
 
-  // cache de segmentação
   SegmentedAxis? _cachedSegmented;
   String? _segKey;
 
@@ -73,7 +62,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   void initState() {
     super.initState();
 
-    // Compat: ouvimos o ValueNotifier só para manter estado local se precisar no futuro.
     if (widget.externalPanelController != null) {
       _panelListener = () {
         setState(() {});
@@ -90,7 +78,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     super.dispose();
   }
 
-  // ===== helpers de chave/cache =====
   String _makeAxisKey(List<LatLng> axis) {
     if (axis.isEmpty) return 'empty';
     final a = axis.first, b = axis.last;
@@ -107,15 +94,13 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
   }) {
     final key = '${_makeAxisKey(axis)}@$stepMeters@${_bucketZoom(zoom)}';
     if (_cachedSegmented == null || _segKey != key) {
-      _cachedSegmented = splitAxisByFixedStep(axis: axis, stepMeters: stepMeters);
+      _cachedSegmented =
+          splitAxisByFixedStep(axis: axis, stepMeters: stepMeters);
       _segKey = key;
     }
     return _cachedSegmented!;
   }
 
-  // ===== apagar traçado salvo =====
-
-  // ===== cópia segura (mantém tag e flags) =====
   PolylineChangedData _copyKeepingFlags(
       PolylineChangedData p, {
         Color? color,
@@ -132,7 +117,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     );
   }
 
-  // ===== estilo de seleção (suporta múltiplas) =====
   List<PolylineChangedData> _applySelectionStyle(
       List<PolylineChangedData> polylines,
       Set<String> selectedTags,
@@ -159,7 +143,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     }).toList();
   }
 
-  // ===== helpers “tocáveis” (ampliam área de toque) =====
   List<PolylineChangedData> _withTapHelpers(
       List<PolylineChangedData> src,
       ) {
@@ -168,7 +151,7 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       helpers.add(
         _copyKeepingFlags(
           p,
-          color: Colors.black.withValues(alpha: 0.01), // invisível mas clicável
+          color: Colors.black.withValues(alpha: 0.01),
           strokeWidth: math.max(p.strokeWidth, kHitStrokeMin),
         ),
       );
@@ -176,33 +159,27 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     return [...helpers, ...src];
   }
 
-  // ===== resolver label da faixa, independente da estrutura =====
   String _resolveLaneLabel(dynamic lane) {
     if (lane == null) return '';
 
-    // Se for Map
     if (lane is Map) {
       final v = lane['label'] ?? lane['labelText'] ?? lane['name'];
       if (v != null) return v.toString();
     }
 
-    // Tenta .label
     try {
       final value = (lane as dynamic).label;
       if (value != null) return value.toString();
     } catch (_) {}
 
-    // Tenta .labelText
     try {
       final value = (lane as dynamic).labelText;
       if (value != null) return value.toString();
     } catch (_) {}
 
-    // Fallback
     return lane.toString();
   }
 
-  // ===== cor por segmento =====
   Color _colorForSegment({
     required int segIdx,
     required int faixaIndex,
@@ -225,13 +202,12 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     return st.squareColor(data);
   }
 
-  // ===== lanes -> polylines segmentadas clicáveis =====
   List<PolylineChangedData> _buildLanePolylines({
     required SegmentedAxis segmented,
     required List lanes,
     required ScheduleRoadState st,
   }) {
-    const laneSpacing = 3.5; // distância lateral entre faixas (m)
+    const laneSpacing = 3.5;
     int le = 0, ce = 0, ld = 0;
     final out = <PolylineChangedData>[];
 
@@ -239,7 +215,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
       final rawLabel = _resolveLaneLabel(lanes[fi]);
       final label = rawLabel.toUpperCase();
 
-      // ===== identifica lado (LE / LD / CE) =====
       String side;
       if (label.contains('LE')) {
         side = 'LE';
@@ -249,7 +224,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         side = 'CE';
       }
 
-      // ===== define offset e direção de construção =====
       double offset = 0.0;
       bool buildRight = false, buildLeft = false;
 
@@ -267,7 +241,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         buildRight = true;
       }
 
-      // ===== cor por segmento =====
       Color colorForIdx(int segIdx) => _colorForSegment(
         segIdx: segIdx,
         faixaIndex: fi,
@@ -276,7 +249,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
       final totalSegs = segmented.segmentCount;
 
-      // ===== gera cada trecho de 20 m =====
       for (var segIdx = 0; segIdx < totalSegs; segIdx++) {
         if (buildRight) {
           final ptsR = segmented.offsetSegmentRight(segIdx, offset);
@@ -317,7 +289,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     return out;
   }
 
-  // ===== layer de estacas =====
   Widget _stakesLayer({
     required List<MarkerChangedData<Map<String, dynamic>>> markers,
   }) {
@@ -341,7 +312,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     );
   }
 
-  // ===================== Helpers de nome (mesma regra do Board) =====================
   String _extractSide(String raw) {
     final m = RegExp(
       r'\b(LE|CE|LD)\b',
@@ -385,17 +355,16 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     return '$base - E(s):$seq';
   }
 
-  // ========================= Parse de TAG para (faixaIndex, segIdx) =========================
   ({int faixaIndex, int segIdx})? _parseLaneSegFromTag(String? tag) {
     if (tag == null || tag.isEmpty) return null;
-    // padrão principal: lane$fi#seg$segIdx#R|L
+
     final m = RegExp(r'lane(\d+)#seg(\d+)#(?:R|L)').firstMatch(tag);
     if (m != null) {
       final fi = int.tryParse(m.group(1)!);
       final si = int.tryParse(m.group(2)!);
       if (fi != null && si != null) return (faixaIndex: fi, segIdx: si);
     }
-    // fallback para segR:12 / segL:34
+
     final m2 = RegExp(r'seg[RL]:(\d+)').firstMatch(tag);
     if (m2 != null) {
       final si = int.tryParse(m2.group(1)!);
@@ -406,7 +375,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
 
   int _segToEstaca(int segIdx) => segIdx + 1;
 
-  // ========================= Modal de célula única =========================
   Future<void> _openSingleSegmentModal({
     required ScheduleRoadState st,
     required int faixaIndex,
@@ -422,7 +390,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     final laneLabel = _resolveLaneLabel(st.lanes[faixaIndex]);
     final initialName = _formatRoadName(laneLabel: laneLabel, estaca: estaca);
 
-    // fotos/meta existentes
     final fotosAtuais = st.fotosAtuaisFor(estaca, faixaIndex);
     final metaByUrl = <String, pm.CarouselMetadata>{};
 
@@ -497,12 +464,16 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         },
       );
 
+      if (!mounted) return;
       await context.read<ScheduleRoadCubit>().reloadExecucoes();
+
+      if (!mounted) return;
       _toast(
         'Célula atualizada com sucesso!',
         type: AppNotificationType.success,
       );
     } catch (e) {
+      if (!mounted) return;
       _toast(
         'Falha ao salvar a célula: $e',
         type: AppNotificationType.error,
@@ -513,7 +484,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     }
   }
 
-  // ========================= Modal de lote a partir da seleção =========================
   Future<void> _openBulkModalFromSelected() async {
     final st = context.read<ScheduleRoadCubit>().state;
     if (!st.canBulkApply) {
@@ -576,12 +546,16 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         },
       );
 
+      if (!mounted) return;
       await context.read<ScheduleRoadCubit>().reloadExecucoes();
+
+      if (!mounted) return;
       _toast(
         'Aplicado em lote: ${targets.length} segmento(s).',
         type: AppNotificationType.success,
       );
     } catch (e) {
+      if (!mounted) return;
       _toast('Falha no lote: $e', type: AppNotificationType.error);
     } finally {
       _modalOpen = false;
@@ -594,7 +568,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
     }
   }
 
-  // ===================== Notificações centralizadas =====================
   void _toast(
       String msg, {
         AppNotificationType type = AppNotificationType.info,
@@ -641,18 +614,15 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
         _getSegmented(axis: sel.axis, stepMeters: 20.0, zoom: sel.mapZoom);
         final stFull = context.read<ScheduleRoadCubit>().state;
 
-        // constroi os segmentos por faixa
         final laneSegments = _buildLanePolylines(
           segmented: segmented,
           lanes: sel.lanes,
           st: stFull,
         );
 
-        // aplica seleção (múltipla) e amplia área de toque
         final styled = _applySelectionStyle(laneSegments, _selectedTags);
         final tappables = _withTapHelpers(styled);
 
-        // markers de estacas
         final showStakes = sel.mapZoom >= 14.0;
         final stakeMarkers = (!showStakes || sel.axis.isEmpty)
             ? const <MarkerChangedData<Map<String, dynamic>>>[]
@@ -669,7 +639,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
           ),
         );
 
-        // ===== Mapa base (SEM painel interno) =====
         return RepaintBoundary(
           child: Stack(
             children: [
@@ -702,10 +671,9 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                         _selectedTags.add(tag);
                       }
                     });
-                    return; // não abre modal no modo múltiplo
+                    return;
                   }
 
-                  // modo normal: abre modal de célula única (se possível parsear)
                   setState(() {
                     _selectedTags
                       ..clear()
@@ -725,8 +693,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                 clusterWidgetBuilder: (tagged, selectedPos, onSel) =>
                     _stakesLayer(markers: tagged),
               ),
-
-              // ===== FABs seleção múltipla / aplicar em lote =====
               Positioned(
                 left: 12,
                 bottom: 12,
@@ -734,7 +700,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Toggle seleção múltipla
                       Tooltip(
                         message: _multiSelectMode
                             ? 'Sair da seleção múltipla'
@@ -781,8 +746,6 @@ class _ScheduleRoadMapState extends State<ScheduleRoadMap> {
                         ),
                       ),
                       const SizedBox(height: 8),
-
-                      // Aplicar em lote (apenas no modo múltiplo)
                       if (_multiSelectMode)
                         Tooltip(
                           message: _selectedTags.length >= 2

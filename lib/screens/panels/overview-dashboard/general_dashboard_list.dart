@@ -1,4 +1,3 @@
-// lib/screens/panels/overview-dashboard/general_dashboard_list.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,7 +5,6 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
-
 import 'package:sipged/_blocs/modules/contracts/measurement/adjustment/adjustment_measurement_data.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/revision/revision_measurement_data.dart';
 
@@ -18,7 +16,6 @@ class GeneralDashboardList extends StatelessWidget {
   final int? selectedPointIndex;
   final String? selectedContractSummary;
 
-  /// 🆕 Listas completas vindas do Cubit/Repository (sem Store)
   final List<AdjustmentMeasurementData> allAdjustments;
   final List<RevisionMeasurementData> allRevisions;
 
@@ -46,11 +43,8 @@ class GeneralDashboardList extends StatelessWidget {
     double readAdjustmentValue() {
       if (contractId == null) return 0.0;
 
-      AdjustmentMeasurementData? item = allAdjustments.firstWhere(
-            (e) =>
-        e.contractId == contractId &&
-            e.order != null &&
-            e.order == order,
+      AdjustmentMeasurementData item = allAdjustments.firstWhere(
+            (e) => e.contractId == contractId && e.order != null && e.order == order,
         orElse: () => AdjustmentMeasurementData(),
       );
 
@@ -66,11 +60,8 @@ class GeneralDashboardList extends StatelessWidget {
     double readRevisionValue() {
       if (contractId == null) return 0.0;
 
-      RevisionMeasurementData? item = allRevisions.firstWhere(
-            (e) =>
-        e.contractId == contractId &&
-            e.order != null &&
-            e.order == order,
+      RevisionMeasurementData item = allRevisions.firstWhere(
+            (e) => e.contractId == contractId && e.order != null && e.order == order,
         orElse: () => RevisionMeasurementData(),
       );
 
@@ -98,10 +89,10 @@ class GeneralDashboardList extends StatelessWidget {
               onTap: () async {
                 if (contractId == null) return;
 
-                // ⚠️ Ainda usando ProcessStore (padrão antigo).
-                // Você pode migrar depois para ProcessCubit + State.
                 final store = context.read<ProcessStore>();
                 final ProcessData? contrato = await store.getById(contractId);
+
+                if (!context.mounted) return;
                 if (contrato == null) return;
 
                 store.select(contrato);
@@ -156,21 +147,9 @@ class GeneralDashboardList extends StatelessWidget {
                             ),
                             backgroundColor: Colors.grey.shade100,
                           ),
-                          ChipCard(
-                            'Medição',
-                            valorReport,
-                            Icons.bar_chart,
-                          ),
-                          ChipCard(
-                            'Reajuste',
-                            valorAdjustment,
-                            Icons.trending_up,
-                          ),
-                          ChipCard(
-                            'Revisão',
-                            valorRevision,
-                            Icons.change_circle,
-                          ),
+                          ChipCard('Medição', valorReport, Icons.bar_chart),
+                          ChipCard('Reajuste', valorAdjustment, Icons.trending_up),
+                          ChipCard('Revisão', valorRevision, Icons.change_circle),
                         ],
                       ),
                     ],

@@ -1,4 +1,3 @@
-// lib/_widgets/schedule/modal/schedule_modal_square.dart
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -109,7 +108,7 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
       case ScheduleStatus.aIniciar:
         return 0;
       case ScheduleStatus.emAndamento:
-        return 1; // 👈 ao marcar "em andamento", sobe pra 1% se não tiver valor salvo
+        return 1;
       case ScheduleStatus.concluido:
         return 100;
     }
@@ -157,8 +156,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
 
     _status = widget.initialStatus;
 
-    // Se vier um progress salvo, usamos ele e marcamos como "tocado".
-    // Se não vier, usamos o default do status.
     if (widget.initialProgress != null) {
       _progress = widget.initialProgress!.clamp(0, 100).toDouble();
       _progressTouched = true;
@@ -171,7 +168,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
     _selectedDate =
         widget.initialTakenAt ?? DateTime(now.year, now.month, now.day);
 
-    // Carrega fotos/comentário/data atuais apenas para seleção unitária
     if (!_isMulti) {
       final cubit = context.read<ScheduleRoadCubit>();
       final st = cubit.state;
@@ -202,8 +198,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
       }
     }
 
-    // Caso já exista comentário ou foto ao abrir,
-    // podemos também dar o bump (desde que progress ainda seja 0 e não tocado).
     if (_hasComment || _hasPhotos) {
       _bumpProgressIfNeeded();
     }
@@ -226,7 +220,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
     setState(() {
       _status = s;
 
-      // Só aplica default do status se o usuário ainda não mexeu no slider.
       if (!_progressTouched) {
         _progress = _initialProgressForStatus(s);
       }
@@ -247,7 +240,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
       _newNames.add(suggestedName);
     });
 
-    // Adicionou foto => pode disparar auto-bump
     _bumpProgressIfNeeded();
   }
 
@@ -283,7 +275,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
       _newMetas.removeAt(index);
       _newNames.removeAt(index);
     });
-    // Remover não derruba o percentual; só subimos, nunca baixamos automaticamente.
   }
 
   void _removeExistingAt(int index) {
@@ -292,10 +283,8 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
       _existingMetaByUrl.remove(_existingUrls[index]);
       _existingUrls.removeAt(index);
     });
-    // Mesmo comportamento: não abaixa automaticamente.
   }
 
-  /// Salva e depois fecha o modal
   Future<void> _handleConfirm(
       BuildContext context,
       VoidCallback defaultClose,
@@ -315,7 +304,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
       for (int i = 0; i < widget.targets.length; i++) {
         final t = widget.targets[i];
 
-        // Em seleção múltipla, preserva fotos atuais de cada célula
         List<String> finalUrls;
         if (_isMulti) {
           finalUrls = cubit.state.fotosAtuaisFor(t.estaca, t.faixaIndex);
@@ -337,9 +325,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
           currentUserId: widget.currentUserId,
           reloadAfter: i == widget.targets.length - 1,
         );
-
-        // 🔸 Se quiser persistir o _progress da célula,
-        // aqui é o ponto para chamar um método extra do Cubit/Repository.
       }
 
       success = true;
@@ -355,6 +340,8 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
 
   @override
   Widget build(BuildContext context) {
+    final canPopNow = !_saving && !_picking;
+
     return BlocListener<ScheduleRoadCubit, ScheduleRoadState>(
       listenWhen: (prev, curr) =>
       prev.loadingExecucoes != curr.loadingExecucoes ||
@@ -363,9 +350,8 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
         // Aqui você pode integrar com AppNotification/NotificationCenter
         // se quiser avisar erro no modal.
       },
-      child: WillPopScope(
-        // Só bloqueia o back se estiver tirando foto ou salvando
-        onWillPop: () async => !_saving && !_picking,
+      child: PopScope(
+        canPop: canPopNow,
         child: SafeArea(
           top: false,
           child: DraggableScrollableSheet(
@@ -392,16 +378,12 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
                     : Icons.apartment,
                 isLoading: isLoading,
                 scrollController: scrollController,
-
-                // personaliza pra ficar “claro” como o modal antigo
                 backgroundColor: Colors.white,
                 borderColor: Colors.grey.withValues(alpha: 0.2),
                 headerIconColor: Colors.blueGrey,
                 titleColor: Colors.black87,
                 footerBackgroundColor: Colors.grey.shade50,
                 onClose: onClose,
-
-                // ===== BODY =====
                 body: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -411,7 +393,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
                       targets: widget.targets,
                     ),
                     const SizedBox(height: 8),
-
                     ScheduleStatusRow(
                       showSlider: true,
                       status: _status,
@@ -421,7 +402,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
                       onProgressChanged: _setProgress,
                     ),
                     const SizedBox(height: 12),
-
                     ScheduleDateRow(
                       labelPrefix: 'Data do serviço:',
                       selectedDate: _selectedDate,
@@ -429,7 +409,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
                       onChanged: _setDate,
                     ),
                     const SizedBox(height: 12),
-
                     SchedulePhotoSection(
                       isMulti: _isMulti,
                       picking: _picking,
@@ -441,11 +420,9 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
                       onAddNewPhotoBytes: _isMulti ? null : _addNewPhotoBytes,
                       onPickPhotos: (_isMulti || !kIsWeb) ? null : _pickPhotos,
                       onRemoveNew: _isMulti ? null : _removeNewAt,
-                      onRemoveExisting:
-                      _isMulti ? null : _removeExistingAt,
+                      onRemoveExisting: _isMulti ? null : _removeExistingAt,
                     ),
                     const SizedBox(height: 12),
-
                     ScheduleCommentField(
                       controller: _commentCtrl,
                       enabled: !isLoading,
@@ -453,8 +430,6 @@ class _ScheduleModalSquareState extends State<ScheduleModalSquare> {
                     const SizedBox(height: 12),
                   ],
                 ),
-
-                // ===== FOOTER =====
                 bottomArea: ScheduleActionsRow(
                   type: widget.type,
                   confirmLabel: widget._confirmLabel(),

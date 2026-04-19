@@ -1,10 +1,3 @@
-// lib/_services/print/label_bitmap.dart
-// Render unificado: PNG preview + bitmap 1-bit (row-aligned) para impressão térmica.
-// Inclui logo central no QR: rotacionado 90° para direita e BINARIZADO (monocromático).
-//
-// ✅ Ajuste principal: logo central dentro de container branco com padding FIXO em mm (bem pequeno),
-// ocupando praticamente todo o espaço.
-
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -13,11 +6,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+// Render unificado: PNG preview + bitmap 1-bit (row-aligned) para impressão térmica.
+// Inclui logo central no QR: rotacionado 90° para direita e BINARIZADO (monocromático).
+//
+// ✅ Ajuste principal: logo central dentro de container branco com padding FIXO em mm (bem pequeno),
+// ocupando praticamente todo o espaço.
+
 int _mmToPx(double mm, {int dpi = 203}) => (mm * dpi / 25.4).round();
 int _idx(int x, int y, int w) => (y * w + x) * 4;
 
 class MonoBitmap {
   MonoBitmap(this.bytes, this.widthPx, this.heightPx);
+
   final Uint8List bytes;
   final int widthPx;
   final int heightPx;
@@ -32,7 +32,6 @@ class LabelLayoutConfig {
     this.textMaxLines = 3,
     this.spaceBetweenMm = 0.6,
     this.rotateTextClockwise = false,
-
     this.matchPreviewTextSizing = true,
     this.previewFontMinPx = 12,
     this.previewFontMaxPx = 16,
@@ -177,20 +176,26 @@ Future<ui.Image?> getQrCenterLogoMonoRot(LabelLayoutConfig cfg) {
 
   final thr = cfg.qrCenterMonoThreshold;
 
-  if (_cachedLogoKeyPath == path && _cachedLogoKeyThr == thr && _cachedLogoMonoRot != null) {
+  if (_cachedLogoKeyPath == path &&
+      _cachedLogoKeyThr == thr &&
+      _cachedLogoMonoRot != null) {
     return Future.value(_cachedLogoMonoRot);
   }
-  if (_cachedLogoKeyPath == path && _cachedLogoKeyThr == thr && _cachedLogoMonoRotFuture != null) {
+
+  if (_cachedLogoKeyPath == path &&
+      _cachedLogoKeyThr == thr &&
+      _cachedLogoMonoRotFuture != null) {
     return _cachedLogoMonoRotFuture!;
   }
 
   _cachedLogoKeyPath = path;
   _cachedLogoKeyThr = thr;
 
-  _cachedLogoMonoRotFuture = _loadLogoMonoRot90FromAsset(path, threshold: thr).then((img) {
-    _cachedLogoMonoRot = img;
-    return img;
-  }).catchError((_) => null);
+  _cachedLogoMonoRotFuture =
+      _loadLogoMonoRot90FromAsset(path, threshold: thr).then((img) {
+        _cachedLogoMonoRot = img;
+        return img;
+      }).catchError((_) => null);
 
   return _cachedLogoMonoRotFuture!;
 }
@@ -201,29 +206,37 @@ Future<ui.Image?> getQrCenterLogoMonoRot(LabelLayoutConfig cfg) {
 
 void _drawQrCenterLogo({
   required Canvas canvas,
-  required Rect qrLocalRect, // coordenadas LOCAIS do QR (ex.: 0..qrW)
+  required Rect qrLocalRect,
   required int dpi,
   required LabelLayoutConfig cfg,
   required ui.Image logoMonoRot,
 }) {
-  final side = (qrLocalRect.width * cfg.qrCenterImagePct).clamp(qrLocalRect.width * 0.10, qrLocalRect.width * 0.35);
+  final side = (qrLocalRect.width * cfg.qrCenterImagePct)
+      .clamp(qrLocalRect.width * 0.10, qrLocalRect.width * 0.35);
   final center = qrLocalRect.center;
 
   final logoRect = Rect.fromCenter(center: center, width: side, height: side);
 
-  // ✅ padding fixo em mm (bem pequeno)
-  final whitePadPx = _mmToPx(cfg.qrCenterWhitePadMm, dpi: dpi).toDouble().clamp(0.0, side * 0.25);
+  final whitePadPx = _mmToPx(cfg.qrCenterWhitePadMm, dpi: dpi)
+      .toDouble()
+      .clamp(0.0, side * 0.25);
   final whiteRect = logoRect.inflate(whitePadPx);
 
-  // ✅ raio fixo em mm
-  final radiusPx = _mmToPx(cfg.qrCenterCornerRadiusMm, dpi: dpi).toDouble().clamp(0.0, whiteRect.shortestSide / 2);
+  final radiusPx = _mmToPx(cfg.qrCenterCornerRadiusMm, dpi: dpi)
+      .toDouble()
+      .clamp(0.0, whiteRect.shortestSide / 2);
 
   canvas.drawRRect(
     RRect.fromRectAndRadius(whiteRect, Radius.circular(radiusPx)),
     Paint()..color = Colors.white,
   );
 
-  final src = Rect.fromLTWH(0, 0, logoMonoRot.width.toDouble(), logoMonoRot.height.toDouble());
+  final src = Rect.fromLTWH(
+    0,
+    0,
+    logoMonoRot.width.toDouble(),
+    logoMonoRot.height.toDouble(),
+  );
   final fit = applyBoxFit(BoxFit.contain, src.size, logoRect.size);
   final srcSub = Alignment.center.inscribe(fit.source, src);
   final dstSub = Alignment.center.inscribe(fit.destination, logoRect);
@@ -309,7 +322,7 @@ void _paintUnifiedLabel({
   }
 
   // ===== QR =====
-  final safeQr = (qrData.trim().isEmpty) ? ' ' : qrData.trim();
+  final safeQr = qrData.trim().isEmpty ? ' ' : qrData.trim();
   final ecc = (cfg.enableQrCenterImage && centerLogoMonoRot != null)
       ? QrErrorCorrectLevel.H
       : QrErrorCorrectLevel.M;
@@ -318,16 +331,21 @@ void _paintUnifiedLabel({
     data: safeQr,
     version: QrVersions.auto,
     gapless: true,
-    color: Colors.black,
-    emptyColor: Colors.white,
     errorCorrectionLevel: ecc,
+    eyeStyle: const QrEyeStyle(
+      eyeShape: QrEyeShape.square,
+      color: Colors.black,
+    ),
+    dataModuleStyle: const QrDataModuleStyle(
+      dataModuleShape: QrDataModuleShape.square,
+      color: Colors.black,
+    ),
   );
 
   canvas.save();
   canvas.translate(qrRect.left, qrRect.top);
   qrPainter.paint(canvas, Size(qrRect.width, qrRect.height));
 
-  // ✅ Logo PB no centro + cartão branco COM padding FIXO (mm)
   if (cfg.enableQrCenterImage && centerLogoMonoRot != null) {
     _drawQrCenterLogo(
       canvas: canvas,
@@ -352,7 +370,7 @@ void _paintUnifiedLabel({
 
   final tp = TextPainter(
     text: TextSpan(
-      text: (texto.isEmpty ? ' ' : texto),
+      text: texto.isEmpty ? ' ' : texto,
       style: TextStyle(
         color: Colors.black,
         fontSize: fontPx,
@@ -392,7 +410,10 @@ Future<Uint8List> renderLabelPng({
   final logo = await getQrCenterLogoMonoRot(cfg);
 
   final recorder = ui.PictureRecorder();
-  final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()));
+  final canvas = Canvas(
+    recorder,
+    Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+  );
 
   _paintUnifiedLabel(
     canvas: canvas,
@@ -465,7 +486,10 @@ Future<MonoBitmap> renderLabelMonoPackedRowAligned({
   final logo = await getQrCenterLogoMonoRot(cfg);
 
   final recorder = ui.PictureRecorder();
-  final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()));
+  final canvas = Canvas(
+    recorder,
+    Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+  );
 
   _paintUnifiedLabel(
     canvas: canvas,

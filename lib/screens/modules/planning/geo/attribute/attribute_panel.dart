@@ -220,6 +220,8 @@ class AttributePanel extends StatelessWidget {
       force: true,
     );
 
+    if (!context.mounted) return;
+
     if (shouldLoadOnMap) {
       await context.read<FeatureCubit>().reloadLayer(layer);
     }

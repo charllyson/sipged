@@ -24,14 +24,14 @@ class MapboxCubeWidget extends StatefulWidget {
 }
 
 class _MapboxCubeWidgetState extends State<MapboxCubeWidget> {
-  double _pitch = 20;   // inclinação inicial
-  double _bearing = 0;  // rotação inicial
+  double _pitch = 20;
+  double _bearing = 0;
   Offset? _lastPos;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      behavior: HitTestBehavior.opaque, // garante que o drag seja capturado
+      behavior: HitTestBehavior.opaque,
       onPanStart: (details) => _lastPos = details.localPosition,
       onPanUpdate: (details) {
         if (_lastPos == null) return;
@@ -41,15 +41,12 @@ class _MapboxCubeWidgetState extends State<MapboxCubeWidget> {
         _lastPos = details.localPosition;
 
         setState(() {
-          _bearing += dx * 0.6;   // gira em torno do eixo vertical (Y)
-          _pitch   -= dy * 0.6;   // inclina no eixo X
-          _pitch = _pitch.clamp(-80, 80); // permite inclinar para cima/baixo
+          _bearing += dx * 0.6;
+          _pitch -= dy * 0.6;
+          _pitch = _pitch.clamp(-80, 80);
         });
 
-        if (widget.onRotate != null) {
-          // envia deltas pro controller do Mapbox
-          widget.onRotate!(dx * 0.6, -dy * 0.6);
-        }
+        widget.onRotate?.call(dx * 0.6, -dy * 0.6);
       },
       onPanEnd: (_) => _lastPos = null,
       onDoubleTap: () {
@@ -59,76 +56,82 @@ class _MapboxCubeWidgetState extends State<MapboxCubeWidget> {
         });
         widget.onReset?.call();
       },
-      child: SizedBox(
+      child: const SizedBox(
         width: 80,
         height: 80,
-        // 👉 Centraliza o cubo dentro do box
         child: Center(
-          child: _buildCube(),
+          child: _CubeContent(),
         ),
       ),
     );
   }
+}
 
+class _CubeContent extends StatelessWidget {
+  const _CubeContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.findAncestorStateOfType<_MapboxCubeWidgetState>();
+    if (state == null) return const SizedBox.shrink();
+    return state._buildCube();
+  }
+}
+
+extension on _MapboxCubeWidgetState {
   Widget _buildCube() {
     const double size = 50;
     const double depth = size / 2;
 
     final faces = <Widget>[
-      // Frente (NORTE)
       _face(
         'NORTE',
         Colors.white,
-        transform: Matrix4.identity()..translate(0.0, 0.0, depth),
+        transform: Matrix4.identity()..translateByDouble(0.0, 0.0, depth, 1.0),
       ),
-      // Trás (SUL)
       _face(
         'SUL',
         Colors.white,
         transform: Matrix4.identity()
           ..rotateY(math.pi)
-          ..translate(0.0, 0.0, depth),
+          ..translateByDouble(0.0, 0.0, depth, 1.0),
       ),
-      // Direita (LESTE)
       _face(
         'LESTE',
         Colors.white,
         transform: Matrix4.identity()
           ..rotateY(math.pi / 2)
-          ..translate(0.0, 0.0, depth),
+          ..translateByDouble(0.0, 0.0, depth, 1.0),
       ),
-      // Esquerda (OESTE)
       _face(
         'OESTE',
         Colors.white,
         transform: Matrix4.identity()
           ..rotateY(-math.pi / 2)
-          ..translate(0.0, 0.0, depth),
+          ..translateByDouble(0.0, 0.0, depth, 1.0),
       ),
-      // Topo
       _face(
         'TOP',
         Colors.blue,
         colorText: Colors.white,
         transform: Matrix4.identity()
           ..rotateX(-math.pi / 2)
-          ..translate(0.0, 0.0, depth),
+          ..translateByDouble(0.0, 0.0, depth, 1.0),
       ),
-      // Base
       _face(
         'BASE',
         Colors.white,
         transform: Matrix4.identity()
           ..rotateX(math.pi / 2)
-          ..translate(0.0, 0.0, depth),
+          ..translateByDouble(0.0, 0.0, depth, 1.0),
       ),
     ];
 
     return Transform(
       transform: Matrix4.identity()
-        ..setEntry(3, 2, 0.001) // perspectiva
-        ..rotateX(_pitch * math.pi / 180)    // inclinação
-        ..rotateY(_bearing * math.pi / 180), // rotação em torno do eixo vertical
+        ..setEntry(3, 2, 0.001)
+        ..rotateX(_pitch * math.pi / 180)
+        ..rotateY(_bearing * math.pi / 180),
       alignment: Alignment.center,
       child: Stack(children: faces),
     );

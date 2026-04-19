@@ -20,9 +20,9 @@ class HorizontalBarChartShimmer extends StatelessWidget {
     final theme = Theme.of(context);
 
     final baseColor =
-    theme.colorScheme.surfaceVariant.withValues(alpha: 0.4);
+    theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4);
     final highlightColor =
-    theme.colorScheme.surfaceVariant.withValues(alpha: 0.8);
+    theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8);
 
     return SizedBox(
       height: height,

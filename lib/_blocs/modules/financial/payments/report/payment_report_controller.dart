@@ -109,7 +109,7 @@ class PaymentsReportController extends ChangeNotifier
   bool get isAdmin {
     final u = currentUser;
     if (u == null) return false;
-    return roles.roleForUser(u) == roles.UserProfile.ADMINISTRADOR;
+    return roles.roleForUser(u) == roles.UserProfile.administrador;
   }
 
   // ======= ORDENS: dropdown inteligente =======
@@ -226,7 +226,7 @@ class PaymentsReportController extends ChangeNotifier
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
 
-    if (roles.roleForUser(user) == roles.UserProfile.ADMINISTRADOR) return true;
+    if (roles.roleForUser(user) == roles.UserProfile.administrador) return true;
 
     final canEdit = perms.userCanModule(
       user: user,

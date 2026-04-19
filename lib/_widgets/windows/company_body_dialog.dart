@@ -6,10 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/windows/window_dialog.dart';
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-
-// ✅ novos utils (ajuste o path conforme sua estrutura)
 import 'package:sipged/_utils/mask/sipged_masks.dart';
-// se você não tiver SipGedMasks.cnpj pronto, pode usar o formatter genérico:
 
 Future<String?> showCreateCompanyBodyDialog(
     BuildContext context, {
@@ -20,6 +17,7 @@ Future<String?> showCreateCompanyBodyDialog(
   final nomeCtrl = TextEditingController();
   final cnpjCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
+  final setupCubit = context.read<SetupCubit>();
 
   String? validateNome(String? value) {
     if (value == null || value.trim().isEmpty) {
@@ -112,22 +110,18 @@ Future<String?> showCreateCompanyBodyDialog(
   final cnpj = cnpjCtrl.text.trim();
   if (nome.isEmpty) return null;
 
-  final system = context.read<SetupCubit>();
-
-  // garante companies carregadas (se o state vier vazio)
-  if (system.state.companies.isEmpty) {
-    await system.loadCompanies();
+  if (setupCubit.state.companies.isEmpty) {
+    await setupCubit.loadCompanies();
   }
 
-  final companies = system.state.companies;
+  final companies = setupCubit.state.companies;
   if (companies.isEmpty) {
-    // sem company cadastrada ainda: devolve só o nome (seu fluxo atual)
     return nome;
   }
 
   final parentCompanyId = companies.first.companyId ?? companies.first.id;
 
-  final created = await system.createCompanyBody(
+  final created = await setupCubit.createCompanyBody(
     parentCompanyId,
     nome,
     cnpj: cnpj,

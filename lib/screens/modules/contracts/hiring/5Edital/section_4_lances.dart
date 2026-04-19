@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/hiring/5Edital/section_4_lances.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,13 +8,10 @@ import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/input/drop_down_change.dart';
-
-// ✅ novo (remove mask_class.dart)
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
-// System
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_widgets/windows/company_body_dialog.dart';
@@ -70,20 +66,22 @@ class _SectionLancesState extends State<SectionLances> {
     super.initState();
     _rebuildFromData(widget.data);
 
-    // Garante a carga de companies + companiesBodies
-    Future.microtask(() async {
-      final system = context.read<SetupCubit>();
+    final system = context.read<SetupCubit>();
+    Future.microtask(() => _loadInitialCompanies(system));
+  }
 
-      if (system.state.companies.isEmpty) {
-        await system.loadCompanies();
-      }
+  Future<void> _loadInitialCompanies(SetupCubit system) async {
+    if (system.state.companies.isEmpty) {
+      await system.loadCompanies();
+      if (!mounted) return;
+    }
 
-      final companies = system.state.companies;
-      if (companies.isNotEmpty) {
-        final parentCompanyId = companies.first.companyId ?? companies.first.id;
-        await system.ensureCompanySetupLoaded(parentCompanyId);
-      }
-    });
+    final companies = system.state.companies;
+    if (companies.isNotEmpty) {
+      final parentCompanyId = companies.first.companyId ?? companies.first.id;
+      await system.ensureCompanySetupLoaded(parentCompanyId);
+      if (!mounted) return;
+    }
   }
 
   @override
@@ -106,8 +104,13 @@ class _SectionLancesState extends State<SectionLances> {
     for (final r in _rows) {
       r.dispose();
     }
-    _rows = data.lancesItems.map((m) => _LanceRowControllers.fromMap(m)).toList();
-    setState(() {});
+    _rows = data.lancesItems
+        .map((m) => _LanceRowControllers.fromMap(m))
+        .toList();
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _emitChange() {
@@ -135,19 +138,16 @@ class _SectionLancesState extends State<SectionLances> {
   Widget build(BuildContext context) {
     final isEditable = widget.isEditable;
 
-    // companiesBodies disponíveis (empresa selecionada)
     final systemState = context.watch<SetupCubit>().state;
     final List<SetupData> bodies = systemState.companyBodies;
 
     final List<String> bodyLabels =
     bodies.map((e) => e.label).toList(growable: false);
 
-    // Labels já usados nos lances (p/ manter compatibilidade com dados antigos)
     final Iterable<String> labelsFromRows = _rows
         .map((r) => r.licitanteCtrl.text.trim())
         .where((t) => t.isNotEmpty);
 
-    // União: Cubit + o que já está nas linhas
     final List<String> allLabels = {
       ...bodyLabels,
       ...labelsFromRows,
@@ -179,7 +179,6 @@ class _SectionLancesState extends State<SectionLances> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabeçalho
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -192,8 +191,6 @@ class _SectionLancesState extends State<SectionLances> {
               ],
             ),
             const SizedBox(height: 8),
-
-            // Cards
             ...List.generate(_rows.length, (i) {
               final l = _rows[i];
 
@@ -226,17 +223,12 @@ class _SectionLancesState extends State<SectionLances> {
                             onChanged: (label) {
                               final val = label ?? '';
                               l.licitanteCtrl.text = val;
-
-                              // (opcional) localizar se existe no cadastro
-                              final _ = findBodyByLabel(val);
-
+                              findBodyByLabel(val);
                               _emitChange();
                             },
                             onAddNewItem: showCreateCompanyBodyDialog,
                           ),
                         ),
-
-                        // ✅ dinheiro pt-BR com vírgula e milhar
                         SizedBox(
                           width: w3,
                           child: CustomTextField(
@@ -252,17 +244,18 @@ class _SectionLancesState extends State<SectionLances> {
                             onChanged: (_) => _emitChange(),
                           ),
                         ),
-
                         SizedBox(
                           width: w3,
                           child: DateFieldChange(
                             controller: l.dataHoraCtrl,
                             labelText: 'Data/Hora',
                             enabled: isEditable,
-                            inputFormatters:  [
-                              FilteringTextInputFormatter.allow(RegExp(r'[0-9/: ]')),
-                              LengthLimitingTextInputFormatter(16), // dd/MM/yyyy HH:mm
-                              SipGedMasks.dateDDMMYYYY, // aplica "dd/MM/yyyy"
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9/: ]'),
+                              ),
+                              LengthLimitingTextInputFormatter(16),
+                              SipGedMasks.dateDDMMYYYY,
                             ],
                             onChanged: (_) => _emitChange(),
                           ),

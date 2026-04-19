@@ -54,8 +54,8 @@ class _ManagerPermissionsUsersPageState
   }
 
   bool _isSuperUser(roles.UserProfile role) =>
-      role == roles.UserProfile.ADMINISTRADOR ||
-          role == roles.UserProfile.DESENVOLVEDOR;
+      role == roles.UserProfile.administrador ||
+          role == roles.UserProfile.desenvolvedor;
 
   /// Liga/desliga SOMENTE o "read" do módulo (override). Outras flags são preservadas.
   Future<void> _persistModuleRead(

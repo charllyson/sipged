@@ -1,4 +1,5 @@
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 
 class CesiumMarkerTapEvent {
   final String viewId;
@@ -24,25 +25,33 @@ class CesiumWebMessageBus {
     if (_initialized) return;
     _initialized = true;
 
-    html.window.onMessage.listen((event) {
-      final data = event.data;
-      if (data is! Map) return;
+    web.window.addEventListener(
+      'message',
+      ((web.Event event) {
+        final msgEvent = event as web.MessageEvent;
+        final data = msgEvent.data.dartify();
 
-      if (data["type"] == "markerClick") {
-        final handler = _listeners[data["viewId"]];
+        if (data is! Map) return;
+        if (data['type'] != 'markerClick') return;
+
+        final viewId = (data['viewId'] ?? '').toString();
+        final handler = _listeners[viewId];
         if (handler == null) return;
+
+        final lonRaw = data['lon'];
+        final latRaw = data['lat'];
 
         handler(
           CesiumMarkerTapEvent(
-            viewId: data["viewId"],
-            idExtra: data["idExtra"],
-            label: data["label"],
-            lon: (data["lon"] as num).toDouble(),
-            lat: (data["lat"] as num).toDouble(),
+            viewId: viewId,
+            idExtra: data['idExtra']?.toString(),
+            label: data['label']?.toString(),
+            lon: lonRaw is num ? lonRaw.toDouble() : 0.0,
+            lat: latRaw is num ? latRaw.toDouble() : 0.0,
           ),
         );
-      }
-    });
+      }).toJS,
+    );
   }
 
   static void register(String id, void Function(CesiumMarkerTapEvent) onTap) {

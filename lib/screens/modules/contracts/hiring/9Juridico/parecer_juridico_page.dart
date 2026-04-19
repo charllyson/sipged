@@ -1,22 +1,18 @@
-// lib/screens/modules/contracts/hiring/9Juridico/parecer_juridico_page.dart
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Users / Utils
 import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
-// Layout / Inputs / Widgets
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-// Pipeline / Progress
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
@@ -24,12 +20,10 @@ import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
-// Parecer Jurídico (Cubit + Data)
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/9Juridico/parecer_juridico_data.dart';
 
-// Seções (já no padrão Data)
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_2_documentos.dart';
 import 'package:sipged/screens/modules/contracts/hiring/9Juridico/section_3_checklist.dart';
@@ -70,8 +64,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   void initState() {
     super.initState();
     _progressBloc = ProgressCubit(repo: ProgressRepository());
-
-    // Dispara o load inicial via Cubit
     context.read<ParecerJuridicoCubit>().load(widget.contractId);
   }
 
@@ -102,30 +94,28 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
 
     await completer.future;
 
+    if (!mounted) return;
+
     if (!cubit.state.saveSuccess) {
       final err = cubit.state.error ?? 'Falha ao salvar';
-      if (mounted) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Parecer Jurídico'),
-            subtitle: const Text('Erro ao salvar.'),
-            details: Text(err),
-            type: AppNotificationType.error,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (mounted) {
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Parecer Jurídico'),
-          subtitle: const Text('Alterações salvas com sucesso.'),
-          type: AppNotificationType.success,
+          subtitle: const Text('Erro ao salvar.'),
+          details: Text(err),
+          type: AppNotificationType.error,
         ),
       );
+      return;
     }
+
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('Parecer Jurídico'),
+        subtitle: const Text('Alterações salvas com sucesso.'),
+        type: AppNotificationType.success,
+      ),
+    );
   }
 
   @override
@@ -198,7 +188,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 1) Metadados
                             SectionMetadados(
                               data: _formData,
                               isEditable: _isEditable,
@@ -207,8 +196,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                                 setState(() => _formData = updated);
                               },
                             ),
-
-                            // 2) Documentos / Peças analisadas
                             SectionDocumentos(
                               data: _formData,
                               isEditable: _isEditable,
@@ -216,8 +203,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                                 setState(() => _formData = updated);
                               },
                             ),
-
-                            // 3) Análise / Checklist (texto-resumo)
                             SectionChecklist(
                               data: _formData,
                               isEditable: _isEditable,
@@ -225,8 +210,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                                 setState(() => _formData = updated);
                               },
                             ),
-
-                            // 4) Conclusão
                             SectionConclusao(
                               data: _formData,
                               isEditable: _isEditable,
@@ -234,8 +217,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                                 setState(() => _formData = updated);
                               },
                             ),
-
-                            // 5) Pendências
                             SectionPendencias(
                               data: _formData,
                               isEditable: _isEditable,
@@ -243,8 +224,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                                 setState(() => _formData = updated);
                               },
                             ),
-
-                            // 6) Assinaturas
                             SectionAssinaturas(
                               data: _formData,
                               isEditable: _isEditable,
@@ -268,12 +247,18 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                         approved: pstate.approved,
                         onSave: _saveOnly,
                         onSaveAndNext: () async {
+                          final parecerCubit =
+                          context.read<ParecerJuridicoCubit>();
+                          final pipeline =
+                          context.read<PipelineProgressCubit>();
+                          final tab = DefaultTabController.of(context);
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final parecerId = context
-                              .read<ParecerJuridicoCubit>()
-                              .state
-                              .parecerId;
+                          if (!mounted) return;
+
+                          final parecerId = parecerCubit.state.parecerId;
 
                           if (parecerId == null || parecerId.isEmpty) {
                             NotificationCenter.instance.show(
@@ -295,7 +280,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
                           try {
                             await repo.approveStage(
                               contractId: widget.contractId,
@@ -310,19 +294,16 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                               completed: true,
                             );
 
-                            final pipeline =
-                            context.read<PipelineProgressCubit>();
+                            if (!mounted) return;
+
                             pipeline.setStageEnabled(
                               HiringStageKey.parecer,
                               true,
                             );
                             unawaited(pipeline.refresh());
 
-                            final tab =
-                            DefaultTabController.of(context);
                             tab.animateTo(
-                              (tab.index + 1)
-                                  .clamp(0, tab.length - 1),
+                              (tab.index + 1).clamp(0, tab.length - 1),
                             );
 
                             NotificationCenter.instance.show(
@@ -335,11 +316,11 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Parecer Jurídico'),
-                                subtitle:
-                                const Text('Erro ao aprovar.'),
+                                subtitle: const Text('Erro ao aprovar.'),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),
@@ -347,12 +328,15 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                           }
                         },
                         onUpdateApproved: () async {
+                          final parecerCubit =
+                          context.read<ParecerJuridicoCubit>();
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final parecerId = context
-                              .read<ParecerJuridicoCubit>()
-                              .state
-                              .parecerId;
+                          if (!mounted) return;
+
+                          final parecerId = parecerCubit.state.parecerId;
                           if (parecerId == null || parecerId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -373,7 +357,6 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
                           try {
                             await repo.touchApproval(
                               contractId: widget.contractId,
@@ -381,6 +364,8 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                               updatedByUid: uid,
                               updatedByName: nameOrEmail,
                             );
+
+                            if (!mounted) return;
 
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -392,6 +377,7 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Parecer Jurídico'),

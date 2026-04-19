@@ -3,31 +3,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Users / Utils
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-
-// Layout / Inputs / Widgets
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-// Pipeline / Progress
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
-
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
-// Dotação
 import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/7Dotacao/dotacao_state.dart';
 
-// Seções
 import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_1_identificacao.dart';
 import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_2_vinculacao_programatica.dart';
 import 'package:sipged/screens/modules/contracts/hiring/7Dotacao/section_3_natureza_despesa.dart';
@@ -69,8 +62,6 @@ class _DotacaoPageState extends State<DotacaoPage>
   void initState() {
     super.initState();
     _progressBloc = ProgressCubit(repo: ProgressRepository());
-
-    // Dispara o load inicial
     context.read<DotacaoCubit>().load(widget.contractId);
   }
 
@@ -101,30 +92,28 @@ class _DotacaoPageState extends State<DotacaoPage>
 
     await completer.future;
 
+    if (!mounted) return;
+
     if (!cubit.state.saveSuccess) {
       final err = cubit.state.error ?? 'Falha ao salvar';
-      if (mounted) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Dotação'),
-            subtitle: const Text('Erro ao salvar.'),
-            details: Text(err),
-            type: AppNotificationType.error,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (mounted) {
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Dotação'),
-          subtitle: const Text('Alterações salvas com sucesso.'),
-          type: AppNotificationType.success,
+          subtitle: const Text('Erro ao salvar.'),
+          details: Text(err),
+          type: AppNotificationType.error,
         ),
       );
+      return;
     }
+
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('Dotação'),
+        subtitle: const Text('Alterações salvas com sucesso.'),
+        type: AppNotificationType.success,
+      ),
+    );
   }
 
   @override
@@ -193,59 +182,44 @@ class _DotacaoPageState extends State<DotacaoPage>
                             SectionIdentificacao(
                               data: _formData,
                               isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             SectionVinculacaoProgramatica(
                               data: _formData,
                               isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             SectionNaturezaDespesa(
                               data: _formData,
                               isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             SectionReserva(
                               data: _formData,
                               isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             SectionEmpenho(
                               data: _formData,
                               isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             SectionCronograma(
                               data: _formData,
                               isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             SectionDocumentosLinks(
                               data: _formData,
                               isEditable: _isEditable,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                           ],
                         ),
                       ),
                     ],
                   ),
-                  bottomNavigationBar:
-                  BlocBuilder<ProgressCubit, ProgressState>(
+                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
                     builder: (context, pstate) {
                       return StageProgress(
                         title: 'Dotação Orçamentária',
@@ -254,17 +228,21 @@ class _DotacaoPageState extends State<DotacaoPage>
                         approved: pstate.approved,
                         onSave: _saveOnly,
                         onSaveAndNext: () async {
+                          final dotacaoCubit = context.read<DotacaoCubit>();
+                          final pipeline = context.read<PipelineProgressCubit>();
+                          final tab = DefaultTabController.of(context);
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final dotId =
-                              context.read<DotacaoCubit>().state.dotacaoId;
+                          if (!mounted) return;
+
+                          final dotId = dotacaoCubit.state.dotacaoId;
                           if (dotId == null || dotId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Dotação'),
-                                subtitle: const Text(
-                                  'Documento não encontrado para aprovar.',
-                                ),
+                                subtitle: const Text('Documento não encontrado para aprovar.'),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -278,7 +256,6 @@ class _DotacaoPageState extends State<DotacaoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
                           try {
                             await repo.approveStage(
                               contractId: widget.contractId,
@@ -293,37 +270,26 @@ class _DotacaoPageState extends State<DotacaoPage>
                               completed: true,
                             );
 
-                            // Libera MINUTA (próxima etapa)
-                            final pipeline =
-                            context.read<PipelineProgressCubit>();
-                            pipeline.setStageEnabled(
-                              HiringStageKey.minuta,
-                              true,
-                            );
+                            if (!mounted) return;
+
+                            pipeline.setStageEnabled(HiringStageKey.minuta, true);
                             unawaited(pipeline.refresh());
 
-                            final tab =
-                            DefaultTabController.of(context);
-                            tab.animateTo(
-                              (tab.index + 1)
-                                  .clamp(0, tab.length - 1),
-                            );
+                            tab.animateTo((tab.index + 1).clamp(0, tab.length - 1));
 
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Dotação'),
-                                subtitle: const Text(
-                                  'Aprovado e etapa concluída.',
-                                ),
+                                subtitle: const Text('Aprovado e etapa concluída.'),
                                 type: AppNotificationType.success,
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Dotação'),
-                                subtitle:
-                                const Text('Erro ao aprovar.'),
+                                subtitle: const Text('Erro ao aprovar.'),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),
@@ -331,17 +297,19 @@ class _DotacaoPageState extends State<DotacaoPage>
                           }
                         },
                         onUpdateApproved: () async {
+                          final dotacaoCubit = context.read<DotacaoCubit>();
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final dotId =
-                              context.read<DotacaoCubit>().state.dotacaoId;
+                          if (!mounted) return;
+
+                          final dotId = dotacaoCubit.state.dotacaoId;
                           if (dotId == null || dotId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Dotação'),
-                                subtitle: const Text(
-                                  'Documento não encontrado para atualizar.',
-                                ),
+                                subtitle: const Text('Documento não encontrado para atualizar.'),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -355,7 +323,6 @@ class _DotacaoPageState extends State<DotacaoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
                           try {
                             await repo.touchApproval(
                               contractId: widget.contractId,
@@ -364,22 +331,21 @@ class _DotacaoPageState extends State<DotacaoPage>
                               updatedByName: nameOrEmail,
                             );
 
+                            if (!mounted) return;
+
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Dotação'),
-                                subtitle: const Text(
-                                  'Aprovação atualizada.',
-                                ),
+                                subtitle: const Text('Aprovação atualizada.'),
                                 type: AppNotificationType.success,
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Dotação'),
-                                subtitle: const Text(
-                                  'Erro ao atualizar aprovação.',
-                                ),
+                                subtitle: const Text('Erro ao atualizar aprovação.'),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),

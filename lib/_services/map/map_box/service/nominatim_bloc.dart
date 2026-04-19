@@ -11,7 +11,42 @@ import 'package:latlong2/latlong.dart';
 class NominatimBloc extends BlocBase {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final String _docId = 'info'; // ID fixo do documento
+  final String _docId = 'info';
+
+  LocationSettings _locationSettings({
+    LocationAccuracy accuracy = LocationAccuracy.high,
+    Duration? timeLimit,
+  }) {
+    if (kIsWeb) {
+      return WebSettings(
+        accuracy: accuracy,
+        timeLimit: timeLimit,
+      );
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return AndroidSettings(
+          accuracy: accuracy,
+          timeLimit: timeLimit,
+          distanceFilter: 0,
+          forceLocationManager: false,
+        );
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return AppleSettings(
+          accuracy: accuracy,
+          timeLimit: timeLimit,
+          distanceFilter: 0,
+          pauseLocationUpdatesAutomatically: false,
+        );
+      default:
+        return LocationSettings(
+          accuracy: accuracy,
+          timeLimit: timeLimit,
+        );
+    }
+  }
 
   Future<Placemark?> getPlaceMarkAdapted(LatLng coords) async {
     if (kIsWeb) {
@@ -26,7 +61,8 @@ class NominatimBloc extends BlocBase {
         return Placemark(
           street: address['road'] ?? '',
           subLocality: address['suburb'] ?? '',
-          locality: address['city'] ?? address['town'] ?? address['village'] ?? '',
+          locality:
+          address['city'] ?? address['town'] ?? address['village'] ?? '',
           postalCode: address['postcode'] ?? '',
           administrativeArea: address['state'] ?? '',
           country: address['country'] ?? '',
@@ -36,7 +72,6 @@ class NominatimBloc extends BlocBase {
           subThoroughfare: '',
           name: data['name'] ?? '',
         );
-      } else {
       }
     } else {
       final placeMarks = await placemarkFromCoordinates(
@@ -48,9 +83,10 @@ class NominatimBloc extends BlocBase {
     return null;
   }
 
-
   Future<LatLng?> getCoordinates(String address) async {
-    final url = Uri.parse('https://c.openstreetmap.org/search?q=$address&format=json&limit=1');
+    final url = Uri.parse(
+      'https://c.openstreetmap.org/search?q=$address&format=json&limit=1',
+    );
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
@@ -69,12 +105,12 @@ class NominatimBloc extends BlocBase {
 
   Future<LatLng?> getUserCurrentLocation() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         return null;
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
@@ -86,8 +122,10 @@ class NominatimBloc extends BlocBase {
         return null;
       }
 
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: _locationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       return LatLng(position.latitude, position.longitude);
@@ -100,5 +138,4 @@ class NominatimBloc extends BlocBase {
     final docSnapshot = await _firestore.collection('system').doc(_docId).get();
     return docSnapshot.data()?['buildNumber'] ?? 0;
   }
-
 }

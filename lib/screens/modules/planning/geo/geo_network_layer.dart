@@ -2,13 +2,12 @@ part of 'geo_network_view.dart';
 
 extension _GeoNetworkLayer on _GeoNetworkViewState {
   Future<LayerData?> _askEditLayerData({
-    required BuildContext context,
     required LayerData current,
   }) async {
     final geoFeatureCubit = context.read<FeatureCubit>();
     final availableFields = await geoFeatureCubit.ensureLayerFieldNames(current);
 
-    if (!context.mounted) return null;
+    if (!mounted) return null;
 
     return LayerPropertiesDialog.show(
       context,
@@ -26,7 +25,6 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
     if (node == null) return;
 
     final edited = await _askEditLayerData(
-      context: context,
       current: node,
     );
 
@@ -37,10 +35,9 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
     await layersCubit.updateNodeById(id, (_) => edited);
   }
 
-  Future<void> _openImportDialog(
-      BuildContext context, {
-        required LayerData layer,
-      }) async {
+  Future<void> _openImportDialog({
+    required LayerData layer,
+  }) async {
     final featureCubit = context.read<FeatureCubit>();
     final path = layer.effectiveCollectionPath ?? '';
 
@@ -61,10 +58,9 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
     );
   }
 
-  Future<void> _openFirestoreTableDialog(
-      BuildContext context, {
-        required LayerData layer,
-      }) async {
+  Future<void> _openFirestoreTableDialog({
+    required LayerData layer,
+  }) async {
     final featureCubit = context.read<FeatureCubit>();
     final path = layer.effectiveCollectionPath ?? '';
 
@@ -86,18 +82,22 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
     );
   }
 
-  Future<void> _reloadLayerAfterImport(
-      BuildContext context, {
-        required LayerData layer,
-        required bool shouldLoadOnMap,
-      }) async {
-    await context.read<LayerCubit>().refreshLayerData(
+  Future<void> _reloadLayerAfterImport({
+    required LayerData layer,
+    required bool shouldLoadOnMap,
+  }) async {
+    final layersCubit = context.read<LayerCubit>();
+    final featureCubit = context.read<FeatureCubit>();
+
+    await layersCubit.refreshLayerData(
       layer,
       force: true,
     );
 
+    if (!mounted) return;
+
     if (shouldLoadOnMap) {
-      await context.read<FeatureCubit>().reloadLayer(layer);
+      await featureCubit.reloadLayer(layer);
     }
   }
 
@@ -119,29 +119,21 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
     final hasData = layersCubit.state.hasDataByLayer[layer.id] == true;
 
     if (hasData) {
-      await _openFirestoreTableDialog(
-        context,
-        layer: layer,
-      );
+      await _openFirestoreTableDialog(layer: layer);
       return;
     }
 
-    await _openImportDialog(
-      context,
-      layer: layer,
-    );
-
+    await _openImportDialog(layer: layer);
     if (!mounted) return;
 
     await _reloadLayerAfterImport(
-      context,
       layer: layer,
       shouldLoadOnMap: isAlreadyActive,
     );
-
     if (!mounted) return;
 
     await layersCubit.refreshLayerData(layer, force: true);
+    if (!mounted) return;
 
     final hasDataNow = layersCubit.state.hasDataByLayer[layer.id] == true;
     if (!hasDataNow) return;
@@ -151,6 +143,8 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
     }
 
     await featureCubit.ensureLayerLoaded(layer, force: true);
+    if (!mounted) return;
+
     await featureCubit.ensureLayerFieldNames(
       layer,
       force: true,
@@ -158,7 +152,6 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
   }
 
   Future<void> _openLayerTable(
-      BuildContext context,
       String id,
       List<LayerData> currentTree,
       ) async {
@@ -179,17 +172,14 @@ extension _GeoNetworkLayer on _GeoNetworkViewState {
       layer,
       force: true,
     );
+    if (!mounted) return;
 
     await featureCubit.ensureLayerFieldNames(
       layer,
       force: false,
     );
-
     if (!mounted) return;
 
-    await _openFirestoreTableDialog(
-      context,
-      layer: layer,
-    );
+    await _openFirestoreTableDialog(layer: layer);
   }
 }

@@ -6,7 +6,7 @@ import 'package:weather/weather.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-enum AppState { NOT_DOWNLOADED, DOWNLOADING, FINISHED_DOWNLOADING }
+enum AppState { notDownloaded, downloading, finishedDownloading }
 
 /// Não desenha UI; busca previsão e publica toasts no NotificationCenter.
 class WeatherFloatingWidget extends StatefulWidget {
@@ -30,7 +30,7 @@ class WeatherFloatingWidget extends StatefulWidget {
 class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
   final String apiKey = '12b6e28582eb9298577c734a31ba9f4f';
   late WeatherFactory ws;
-  AppState state = AppState.NOT_DOWNLOADED;
+  AppState state = AppState.notDownloaded;
   double? _lat, _lon;
 
   @override
@@ -42,7 +42,7 @@ class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
 
   Future<void> _initLocationAndWeather() async {
     if (!mounted) return;
-    setState(() => state = AppState.DOWNLOADING);
+    setState(() => state = AppState.downloading);
 
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -66,7 +66,7 @@ class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
     if (_lat == null || _lon == null) { _notifyError('Localização indefinida.'); return; }
     if (!mounted) return;
 
-    setState(() => state = AppState.DOWNLOADING);
+    setState(() => state = AppState.downloading);
     try {
       final forecasts = await ws.fiveDayForecastByLocation(_lat!, _lon!);
       if (!mounted) return;
@@ -85,7 +85,7 @@ class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
       }
 
       if (!mounted) return;
-      setState(() => state = AppState.FINISHED_DOWNLOADING);
+      setState(() => state = AppState.finishedDownloading);
     } catch (e) {
       _notifyError('Erro na previsão: $e');
     }
@@ -195,7 +195,7 @@ class _WeatherFloatingWidgetState extends State<WeatherFloatingWidget> {
         duration: const Duration(seconds: 6),
       ),
     );
-    if (mounted) setState(() => state = AppState.NOT_DOWNLOADED);
+    if (mounted) setState(() => state = AppState.notDownloaded);
   }
 
   @override

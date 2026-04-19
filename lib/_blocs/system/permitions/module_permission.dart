@@ -98,8 +98,8 @@ Map<String, bool> toFiveKeys(Map? raw) {
 // ---------------------------------------------------------------------------
 ModulePermissions defaultPermsForRole(up.UserProfile role) {
   switch (role) {
-    case up.UserProfile.ADMINISTRADOR:
-    case up.UserProfile.DESENVOLVEDOR:
+    case up.UserProfile.administrador:
+    case up.UserProfile.desenvolvedor:
       return const ModulePermissions(
         read: true,
         create: true,
@@ -108,10 +108,10 @@ ModulePermissions defaultPermsForRole(up.UserProfile role) {
         approve: true,
       );
 
-    case up.UserProfile.GESTOR_REGIONAL:
-    case up.UserProfile.FISCAL:
-    case up.UserProfile.COLABORADOR:
-    case up.UserProfile.LEITOR:
+    case up.UserProfile.gestorRegional:
+    case up.UserProfile.fiscal:
+    case up.UserProfile.colaborador:
+    case up.UserProfile.leitor:
       return const ModulePermissions(read: false);
   }
 }
@@ -196,7 +196,7 @@ bool userCanOnContract({
   }
 
   final role = up.roleForUser(user);
-  if (role == up.UserProfile.ADMINISTRADOR || role == up.UserProfile.DESENVOLVEDOR) {
+  if (role == up.UserProfile.administrador || role == up.UserProfile.desenvolvedor) {
     return true;
   }
 

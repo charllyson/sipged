@@ -1,32 +1,14 @@
-// lib/_widgets/files/dxf/dxf_render.dart
-//
-// Renderiza um DXF ASCII para uma imagem raster (ui.Image) com fundo transparente,
-// retornando também o modelo vetorial parseado (DxfModel) e as matrizes de conversão
-// MODELO↔IMAGEM. Compatível com o seu DxfController (loadBytes).
-//
-// Suporta entidades: LINE, (LW)POLYLINE, CIRCLE, ARC.
-//
-// Observações:
-// - hairlinePx controla a espessura final em pixels NA TELA (aprox.); o stroke é
-//   ajustado na escala para manter o traço fino consistente.
-// - desiredLongest controla a resolução de saída, escolhendo a maior dimensão
-//   (largura/altura) em pixels. 3600 costuma ficar nítido sem pesar demais.
-// - Se o DXF vier com bounds muito pequenos/grandes, normalizamos pela bbox.
-// - Fundo é transparente (RGBA), e também retornamos a cópia dos bytes RGBA para
-//   usos de snap por pixel.
-//
-// Dependências: dxf_model.dart
-
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'dxf_model.dart';
 
 class RenderResult {
   final ui.Image image;
-  final Uint8List? rgba;      // RGBA da imagem (opcional)
-  final int w, h;             // dimensões finais em px
-  final DxfModel model;       // modelo vetorial parseado
+  final Uint8List? rgba; // RGBA da imagem (opcional)
+  final int w, h; // dimensões finais em px
+  final DxfModel model; // modelo vetorial parseado
   final Matrix4 modelToImage; // transforma ponto do MODELO → IMAGEM (px)
   final Matrix4 imageToModel; // inversa (IMAGEM → MODELO)
 
@@ -59,20 +41,24 @@ class RenderService {
     Color backgroundColor = const Color(0x00000000),
   }) async {
     // 1) Parse
-    final text  = DxfModel.tryDecode(dxfBytes);
+    final text = DxfModel.tryDecode(dxfBytes);
     final model = DxfModel.parseAscii(text);
+
     if (model.isEmpty) {
-      throw Exception('DXF sem entidades suportadas (LINE, LWPOLYLINE, CIRCLE, ARC).');
+      throw Exception(
+        'DXF sem entidades suportadas (LINE, LWPOLYLINE, CIRCLE, ARC).',
+      );
     }
 
     // 2) Bounds do modelo
     final bb = model.bounds();
-    final wUnits = bb.width  <= 0 ? 1e-6 : bb.width;
+    final wUnits = bb.width <= 0 ? 1e-6 : bb.width;
     final hUnits = bb.height <= 0 ? 1e-6 : bb.height;
 
     // 3) Escala para caber no desiredLongest
     final longestUnits = (wUnits > hUnits) ? wUnits : hUnits;
-    final scale = (desiredLongest <= 0 ? 1.0 : (desiredLongest / longestUnits)).clamp(0.0001, 1e9);
+    final scale = (desiredLongest <= 0 ? 1.0 : (desiredLongest / longestUnits))
+        .clamp(0.0001, 1e9);
 
     // 4) Tamanho final da imagem (px) + padding
     final imgW = (wUnits * scale + pad * 2).ceil().clamp(1, 32768);
@@ -91,9 +77,9 @@ class RenderService {
 
     // 6) Matriz MODELO→IMAGEM
     final modelToImage = Matrix4.identity()
-      ..translate(pad, pad)
-      ..scale(scale, scale)
-      ..translate(-bb.left, -bb.top);
+      ..translateByDouble(pad, pad, 0, 1)
+      ..scaleByDouble(scale.toDouble(), scale.toDouble(), 1, 1)
+      ..translateByDouble(-bb.left, -bb.top, 0, 1);
 
     final imageToModel = Matrix4.inverted(modelToImage);
 
@@ -103,6 +89,7 @@ class RenderService {
     // 7) Stroke fino: converte hairlinePx da tela para espaço do MODELO
     //    Como não temos DPI/zoom de tela aqui, usamos aproximação pelo scale
     final px = hairlinePx.clamp(0.3, 2.0).toDouble();
+
     final stroke = Paint()
       ..style = PaintingStyle.stroke
       ..isAntiAlias = true

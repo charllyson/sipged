@@ -11,17 +11,21 @@ abstract final class SipGedTheme {
   // Feedback (exemplos)
   static const Color success = Color(0xFF2E7D32);
   static const Color warning = Color(0xFFF9A825);
-  static const Color danger  = Color(0xFFC62828);
-  static const Color info    = Color(0xFF1565C0);
+  static const Color danger = Color(0xFFC62828);
+  static const Color info = Color(0xFF1565C0);
   static const Color disabled = Color(0xFF999999);
   static const Color text = Color(0xFF333333);
 
+  static int _channel255(double normalized) {
+    return (normalized * 255.0).round().clamp(0, 255);
+  }
 
   static String colorToHex(Color color, {bool includeAlpha = true}) {
-    final a = color.alpha.toRadixString(16).padLeft(2, '0');
-    final r = color.red.toRadixString(16).padLeft(2, '0');
-    final g = color.green.toRadixString(16).padLeft(2, '0');
-    final b = color.blue.toRadixString(16).padLeft(2, '0');
+    final a = _channel255(color.a).toRadixString(16).padLeft(2, '0');
+    final r = _channel255(color.r).toRadixString(16).padLeft(2, '0');
+    final g = _channel255(color.g).toRadixString(16).padLeft(2, '0');
+    final b = _channel255(color.b).toRadixString(16).padLeft(2, '0');
+
     final hex = includeAlpha ? '$a$r$g$b' : '$r$g$b';
     return '#${hex.toUpperCase()}';
   }
@@ -57,5 +61,4 @@ abstract final class SipGedTheme {
         return const Color(0xFF2DD4BF);
     }
   }
-
 }

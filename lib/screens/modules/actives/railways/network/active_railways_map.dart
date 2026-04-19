@@ -26,9 +26,7 @@ class ActiveRailwaysMap extends StatefulWidget {
 }
 
 class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
-  // âncora do tooltip (LatLng na ferrovia)
   LatLng? _anchorLatLng;
-  // para reprojetar em pan/zoom
   MapController? _lastMapController;
   Offset Function(Offset local)? _toGlobal;
 
@@ -43,15 +41,10 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
     }
 
     return MapInteractivePage(
-      // polylines responsivas
       tappablePolylines:
       widget.state.buildStyledPolylines(zoom: widget.state.mapZoom),
-
-      // overlay invisível que já alimenta o zoom pro Cubit
       overlayBuilder: (MapController mc, GlobalKey _) =>
           _ZoomListenerOverlay(mapController: mc),
-
-      // 👉 atualiza o tooltip ancorado conforme pan/zoom
       onCameraChanged: (double _, LatLng _) {
         if (_anchorLatLng != null &&
             _lastMapController != null &&
@@ -63,21 +56,19 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
           TooltipOverlay.updatePosition(global);
         }
       },
-
       onClearPolylineSelection: () async {
-        context.read<ActiveRailwaysCubit>().selectPolyline(null);
+        final railwaysCubit = context.read<ActiveRailwaysCubit>();
+        railwaysCubit.selectPolyline(null);
+
         _anchorLatLng = null;
         _lastMapController = null;
         _toGlobal = null;
         TooltipOverlay.hide();
       },
-
       onSelectPolyline: (polyline) async {
-        context
-            .read<ActiveRailwaysCubit>()
-            .selectPolyline(polyline.tag?.toString());
+        final railwaysCubit = context.read<ActiveRailwaysCubit>();
+        railwaysCubit.selectPolyline(polyline.tag?.toString());
       },
-
       onShowPolylineTooltip: ({
         required BuildContext context,
         required Offset position,
@@ -109,11 +100,9 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
 
         if (fer == null) return;
 
-        // âncora ideal: projeção do toque na linha; fallback: centro/início/fim
         _anchorLatLng = fer.anchorForTap(tapLatLng);
         if (_anchorLatLng == null) return;
 
-        // guarda pra reprojetar durante pan/zoom
         _lastMapController = mapController;
         _toGlobal = toGlobal;
 
@@ -128,9 +117,16 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
           title: title,
           subtitle: subtitle.isEmpty ? null : subtitle,
           maxWidth: 320,
-          forceDownArrow: true, // seta sempre para baixo (aponta para a via)
+          forceDownArrow: true,
           onDetails: () async {
             TooltipOverlay.hide();
+
+            if (!context.mounted) return;
+
+            final media = MediaQuery.of(context);
+            final screenHeight = media.size.height;
+            final screenWidth = media.size.width;
+
             await showDialog(
               context: context,
               barrierDismissible: true,
@@ -141,8 +137,8 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  height: MediaQuery.of(context).size.height * 0.7,
-                  width: MediaQuery.of(context).size.width * 0.8,
+                  height: screenHeight * 0.7,
+                  width: screenWidth * 0.8,
                   child: ActiveRailwaysDetails(
                     fer: fer!,
                     enabled: false,
@@ -179,7 +175,6 @@ class _ActiveRailwaysMapState extends State<ActiveRailwaysMap> {
   }
 }
 
-/// Widget invisível que assina o mapEventStream e envia o zoom ao Cubit.
 class _ZoomListenerOverlay extends StatefulWidget {
   const _ZoomListenerOverlay({required this.mapController});
   final MapController mapController;
@@ -195,18 +190,21 @@ class _ZoomListenerOverlayState extends State<_ZoomListenerOverlay> {
   @override
   void initState() {
     super.initState();
-    // envia zoom inicial
+
+    final railwaysCubit = context.read<ActiveRailwaysCubit>();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final z = widget.mapController.camera.zoom;
       _last = z;
-      context.read<ActiveRailwaysCubit>().setMapZoom(z);
+      railwaysCubit.setMapZoom(z);
     });
 
     _sub = widget.mapController.mapEventStream.listen((_) {
       final z = widget.mapController.camera.zoom;
       if ((z - _last).abs() >= 0.05) {
         _last = z;
-        context.read<ActiveRailwaysCubit>().setMapZoom(z);
+        railwaysCubit.setMapZoom(z);
       }
     });
   }

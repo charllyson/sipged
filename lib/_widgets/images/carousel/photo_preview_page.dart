@@ -88,6 +88,41 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
     }
   }
 
+  LocationSettings _bestLocationSettings({
+    LocationAccuracy accuracy = LocationAccuracy.high,
+    Duration? timeLimit,
+  }) {
+    if (kIsWeb) {
+      return WebSettings(
+        accuracy: accuracy,
+        timeLimit: timeLimit,
+      );
+    }
+
+    if (Platform.isAndroid) {
+      return AndroidSettings(
+        accuracy: accuracy,
+        timeLimit: timeLimit,
+        distanceFilter: 0,
+        forceLocationManager: false,
+      );
+    }
+
+    if (Platform.isIOS || Platform.isMacOS) {
+      return AppleSettings(
+        accuracy: accuracy,
+        timeLimit: timeLimit,
+        distanceFilter: 0,
+        pauseLocationUpdatesAutomatically: false,
+      );
+    }
+
+    return LocationSettings(
+      accuracy: accuracy,
+      timeLimit: timeLimit,
+    );
+  }
+
   void _notify(
       String title, {
         AppNotificationType type = AppNotificationType.info,
@@ -167,7 +202,9 @@ class _PhotoPreviewPageState extends State<PhotoPreviewPage> {
         if (permission != LocationPermission.denied &&
             permission != LocationPermission.deniedForever) {
           final pos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
+            locationSettings: _bestLocationSettings(
+              accuracy: LocationAccuracy.high,
+            ),
           );
           lat = pos.latitude;
           lon = pos.longitude;

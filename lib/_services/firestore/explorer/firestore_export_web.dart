@@ -1,16 +1,32 @@
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 
 Future<void> downloadJson(String filename, String json) async {
-  final blob = html.Blob([json], 'application/json');
-  final url = html.Url.createObjectUrlFromBlob(blob);
-  html.AnchorElement(href: url)..download = filename..click();
-  html.Url.revokeObjectUrl(url);
+  final blob = web.Blob(
+    [json.toJS].toJS,
+    web.BlobPropertyBag(type: 'application/json'),
+  );
+  final url = web.URL.createObjectURL(blob);
+
+  final anchor = web.HTMLAnchorElement()
+    ..href = url
+    ..download = filename;
+
+  anchor.click();
+  web.URL.revokeObjectURL(url);
 }
 
 Future<void> downloadCsv(String filename, String csv) async {
-  final blob = html.Blob([csv], 'text/csv');
-  final url = html.Url.createObjectUrlFromBlob(blob);
-  html.AnchorElement(href: url)..download = filename..click();
-  html.Url.revokeObjectUrl(url);
+  final blob = web.Blob(
+    [csv.toJS].toJS,
+    web.BlobPropertyBag(type: 'text/csv'),
+  );
+  final url = web.URL.createObjectURL(blob);
+
+  final anchor = web.HTMLAnchorElement()
+    ..href = url
+    ..download = filename;
+
+  anchor.click();
+  web.URL.revokeObjectURL(url);
 }

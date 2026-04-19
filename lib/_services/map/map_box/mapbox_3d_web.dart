@@ -1,6 +1,6 @@
-// lib/_services/map/map_box/mapbox_3d_web.dart
 import 'dart:convert';
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 
 import 'package:flutter/material.dart';
 
@@ -8,7 +8,6 @@ import 'package:sipged/_services/map/map_box/mapbox_html_builder.dart';
 import 'package:sipged/_services/map/map_box/mapbox_3d_view_web.dart' as mapbox_web;
 import 'package:sipged/_services/map/map_box/mapbox_data.dart';
 
-/// Message bus estático para receber mensagens do iframe
 class MapboxWebMessageBus {
   static final Map<String, void Function(MapboxMarkerTapEvent)> _listeners = {};
   static bool _initialized = false;
@@ -17,12 +16,16 @@ class MapboxWebMessageBus {
     if (_initialized) return;
     _initialized = true;
 
-    html.window.onMessage.listen((event) {
-      final data = event.data;
-      if (data is! Map) return;
+    web.window.addEventListener(
+      'message',
+      ((web.Event event) {
+        final msgEvent = event as web.MessageEvent;
+        final data = msgEvent.data.dartify();
 
-      if (data['type'] == 'markerClick') {
-        final viewId = data['viewId'] as String? ?? "";
+        if (data is! Map) return;
+        if (data['type'] != 'markerClick') return;
+
+        final viewId = data['viewId'] as String? ?? '';
         final handler = _listeners[viewId];
         if (handler == null) return;
 
@@ -38,8 +41,8 @@ class MapboxWebMessageBus {
             lat: latNum is num ? latNum.toDouble() : 0.0,
           ),
         );
-      }
-    });
+      }).toJS,
+    );
   }
 
   static void register(
@@ -55,7 +58,6 @@ class MapboxWebMessageBus {
   }
 }
 
-/// Controller que o Flutter usa para controlar câmera/estilo do Mapbox.
 class Mapbox3DController {
   String? _viewId;
 
@@ -71,9 +73,10 @@ class Mapbox3DController {
     double? zoom,
     int durationMs = 300,
   }) {
-    if (_viewId == null) return;
+    final viewId = _viewId;
+    if (viewId == null) return;
 
-    mapbox_web.MapboxWebViewRegistry.postMessage(_viewId!, {
+    mapbox_web.MapboxWebViewRegistry.postMessage(viewId, {
       'type': 'cameraControl',
       'method': 'setCamera',
       'params': {
@@ -91,9 +94,10 @@ class Mapbox3DController {
     double dZoom = 0,
     int durationMs = 0,
   }) {
-    if (_viewId == null) return;
+    final viewId = _viewId;
+    if (viewId == null) return;
 
-    mapbox_web.MapboxWebViewRegistry.postMessage(_viewId!, {
+    mapbox_web.MapboxWebViewRegistry.postMessage(viewId, {
       'type': 'cameraControl',
       'method': 'deltaCamera',
       'params': {
@@ -106,9 +110,10 @@ class Mapbox3DController {
   }
 
   void setStyle(String styleUrl) {
-    if (_viewId == null) return;
+    final viewId = _viewId;
+    if (viewId == null) return;
 
-    mapbox_web.MapboxWebViewRegistry.postMessage(_viewId!, {
+    mapbox_web.MapboxWebViewRegistry.postMessage(viewId, {
       'type': 'cameraControl',
       'method': 'setStyle',
       'params': {
@@ -142,10 +147,10 @@ class _Mapbox3DViewState extends State<Mapbox3DView> {
   void initState() {
     super.initState();
 
-    _viewId = "mapbox-${DateTime.now().microsecondsSinceEpoch}";
+    _viewId = 'mapbox-${DateTime.now().microsecondsSinceEpoch}';
 
     final htmlStr = buildMapboxHtml(widget.config, viewId: _viewId);
-    _dataUrl = "data:text/html;base64,${base64Encode(utf8.encode(htmlStr))}";
+    _dataUrl = 'data:text/html;base64,${base64Encode(utf8.encode(htmlStr))}';
 
     widget.controller.attachView(_viewId);
 
@@ -159,12 +164,11 @@ class _Mapbox3DViewState extends State<Mapbox3DView> {
   void didUpdateWidget(covariant Mapbox3DView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final markersJson =
-    widget.config.markers.map((m) => m.toJson()).toList();
+    final markersJson = widget.config.markers.map((m) => m.toJson()).toList();
 
     mapbox_web.MapboxWebViewRegistry.postMessage(_viewId, {
-      "type": "updateMarkers",
-      "markers": markersJson,
+      'type': 'updateMarkers',
+      'markers': markersJson,
     });
   }
 

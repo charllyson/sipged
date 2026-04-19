@@ -1,17 +1,14 @@
-import 'dart:typed_data';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:sipged/_widgets/images/carousel/photo_preview_page.dart';
 import 'package:sipged/_widgets/images/carousel/custom_camera_page.dart';
+import 'package:sipged/_widgets/images/carousel/photo_preview_page.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-
-// Só usado fora do Web
-import 'dart:io' show Platform;
 
 class PhotoPickerSquare extends StatefulWidget {
   final bool enabled;
@@ -70,15 +67,15 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
     }
   }
 
-  Future<T?> _withBlockingDialog<T>(
-      BuildContext context, {
-        required String message,
-        required Future<T> Function() task,
-      }) async {
+  Future<T?> _withBlockingDialog<T>({
+    required String message,
+    required Future<T> Function() task,
+  }) async {
+    final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
     bool dialogOpen = false;
 
     showDialog<void>(
-      context: context,
+      context: navigator.context,
       useRootNavigator: true,
       barrierDismissible: false,
       barrierColor: const Color(0x80000000),
@@ -118,13 +115,13 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
     try {
       return await task();
     } finally {
-      if (dialogOpen && mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
+      if (dialogOpen && navigator.mounted && navigator.canPop()) {
+        navigator.pop();
       }
     }
   }
 
-  Future<void> _openChooser(BuildContext context) async {
+  Future<void> _openChooser() async {
     if (!widget.enabled || _busy) return;
 
     if (!_hasNewCallbacks) {
@@ -132,13 +129,15 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       return;
     }
 
+    final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
+
     await showModalBottomSheet<void>(
-      context: context,
+      context: navigator.context,
       backgroundColor: Colors.white,
       useSafeArea: true,
       useRootNavigator: true,
       isScrollControlled: true,
-      builder: (_) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -147,20 +146,20 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
                 leading: const Icon(Icons.photo_camera_outlined),
                 title: const Text('Tirar foto'),
                 onTap: () async {
-                  Navigator.of(context, rootNavigator: true).pop();
+                  Navigator.of(sheetContext).pop();
                   await Future<void>.delayed(const Duration(milliseconds: 120));
                   if (!mounted) return;
-                  await _runLocked(() => _pickFromCamera(context));
+                  await _runLocked(_pickFromCamera);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
                 title: const Text('Escolher da galeria'),
                 onTap: () async {
-                  Navigator.of(context, rootNavigator: true).pop();
+                  Navigator.of(sheetContext).pop();
                   await Future<void>.delayed(const Duration(milliseconds: 120));
                   if (!mounted) return;
-                  await _runLocked(() => _pickFromGallery(context));
+                  await _runLocked(_pickFromGallery);
                 },
               ),
             ],
@@ -170,7 +169,7 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
     );
   }
 
-  Future<void> _pickFromCamera(BuildContext context) async {
+  Future<void> _pickFromCamera() async {
     try {
       Uint8List? bytes;
 
@@ -184,13 +183,16 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
 
         if (file != null) {
           bytes = await _withBlockingDialog<Uint8List?>(
-            context,
             message: 'Carregando foto…',
             task: file.readAsBytes,
           );
         }
       } else if (Platform.isIOS) {
-        bytes = await Navigator.of(context, rootNavigator: true).push<Uint8List?>(
+        if (!mounted) return;
+        final NavigatorState navigator =
+        Navigator.of(context, rootNavigator: true);
+
+        bytes = await navigator.push<Uint8List?>(
           MaterialPageRoute(
             fullscreenDialog: true,
             builder: (_) => const CustomCameraPage(),
@@ -207,7 +209,6 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
 
         if (file != null) {
           bytes = await _withBlockingDialog<Uint8List?>(
-            context,
             message: 'Carregando foto…',
             task: file.readAsBytes,
           );
@@ -215,13 +216,15 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       }
 
       if (bytes == null || !mounted) return;
+      final Uint8List safeBytes = bytes;
 
-      final Uint8List? edited =
-      await Navigator.of(context, rootNavigator: true).push<Uint8List?>(
+      final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
+
+      final Uint8List? edited = await navigator.push<Uint8List?>(
         MaterialPageRoute(
           fullscreenDialog: true,
           builder: (_) => PhotoPreviewPage(
-            originalBytes: bytes!,
+            originalBytes: safeBytes,
             outputJpegQuality: 100,
             previewFit: BoxFit.contain,
             showOverlayInPreview: true,
@@ -245,7 +248,7 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
     }
   }
 
-  Future<void> _pickFromGallery(BuildContext context) async {
+  Future<void> _pickFromGallery() async {
     try {
       if (!kIsWeb && Platform.isIOS) {
         await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -259,19 +262,20 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       );
       if (file == null) return;
 
-      final bytes = await _withBlockingDialog<Uint8List?>(
-        context,
+      final Uint8List? bytes = await _withBlockingDialog<Uint8List?>(
         message: 'Carregando foto…',
         task: file.readAsBytes,
       );
       if (bytes == null || !mounted) return;
+      final Uint8List safeBytes = bytes;
 
-      final Uint8List? edited =
-      await Navigator.of(context, rootNavigator: true).push<Uint8List?>(
+      final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
+
+      final Uint8List? edited = await navigator.push<Uint8List?>(
         MaterialPageRoute(
           fullscreenDialog: true,
           builder: (_) => PhotoPreviewPage(
-            originalBytes: bytes,
+            originalBytes: safeBytes,
             outputJpegQuality: 100,
             previewFit: BoxFit.contain,
             showOverlayInPreview: true,
@@ -303,7 +307,7 @@ class _PhotoPickerSquareState extends State<PhotoPickerSquare> {
       width: 96,
       height: 96,
       child: InkWell(
-        onTap: enabled ? () => _openChooser(context) : null,
+        onTap: enabled ? _openChooser : null,
         borderRadius: BorderRadius.circular(10),
         child: Container(
           decoration: BoxDecoration(

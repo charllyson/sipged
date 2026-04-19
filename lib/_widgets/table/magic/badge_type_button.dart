@@ -49,7 +49,10 @@ class BadgeTypeButton extends StatelessWidget {
           return;
         }
         if (a.kind == _MenuKind.remove && onRemove != null) {
-          final ok = confirmDialog(context, 'Deseja realmente remover esta coluna?');
+          final ok = await confirmDialog(
+            context,
+            'Deseja realmente remover esta coluna?',
+          );
           if (ok != true) return;
           onRemove!.call();
         }

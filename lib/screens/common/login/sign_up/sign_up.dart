@@ -13,11 +13,8 @@ import 'package:sipged/_blocs/system/user/user_bloc.dart';
 import 'package:sipged/_blocs/system/user/user_event.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
-// 🔔 Notificações centralizadas
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-
-// 🪟 WindowDialog
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class SignUp extends StatefulWidget {
@@ -66,13 +63,17 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
       AppNotification(
         type: type,
         title: Text(title),
-        subtitle: (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
+        subtitle:
+        (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
       ),
     );
   }
 
   Future<void> _submit() async {
-    // 0) senha igual
+    final navigator = Navigator.of(context);
+    final repo = context.read<UserRepository>();
+    final userBloc = context.read<UserBloc>();
+
     if (_passController.text != _repeatPassController.text) {
       _passController.clear();
       _repeatPassController.clear();
@@ -112,16 +113,13 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
       return;
     }
 
-    // 1) valida form
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
     _formKey.currentState?.save();
 
     _loading.value = true;
-    try {
-      final repo = context.read<UserRepository>();
 
-      // ✅ padroniza email no cadastro (recomendado)
+    try {
       final email = _emailController.text.trim();
       final emailLower = email.toLowerCase();
 
@@ -139,7 +137,8 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
         if (!mounted) return;
         _notify(
           'Erro ao cadastrar',
-          subtitle: _loginCubit.state.errorMessage ?? 'Verifique os dados e tente novamente.',
+          subtitle: _loginCubit.state.errorMessage ??
+              'Verifique os dados e tente novamente.',
           type: AppNotificationType.error,
         );
         return;
@@ -147,22 +146,21 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
 
       final uid = _loginCubit.state.firebaseUser?.uid;
       if (uid != null) {
-        // garante UID no modelo antes de salvar
         newUser.uid = uid;
 
-        // 🔥 salva no Firestore via repository
         await repo.save(newUser);
 
-        // atualiza UserBloc (bind user atual)
-        final bloc = context.read<UserBloc>();
-        bloc
+        userBloc
           ..add(UserFetchByIdRequested(uid))
           ..add(const CurrentUserBindToggleRequested(true));
       }
 
       if (!mounted) return;
-      _notify('Cadastro realizado com sucesso!', type: AppNotificationType.success);
-      Navigator.of(context).pop();
+      _notify(
+        'Cadastro realizado com sucesso!',
+        type: AppNotificationType.success,
+      );
+      navigator.pop();
     } catch (e) {
       if (!mounted) return;
       _notify(
@@ -171,14 +169,18 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
         type: AppNotificationType.error,
       );
     } finally {
-      _loading.value = false;
+      if (mounted) {
+        _loading.value = false;
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final cpfDigits = (widget.userData.cpf ?? '').replaceAll(RegExp(r'\D'), '');
-    final cpfFormatted = cpfDigits.isEmpty ? '' : SipGedFormatNumbers.formatCPF(cpfDigits);
+    final cpfDigits =
+    (widget.userData.cpf ?? '').replaceAll(RegExp(r'\D'), '');
+    final cpfFormatted =
+    cpfDigits.isEmpty ? '' : SipGedFormatNumbers.formatCPF(cpfDigits);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -218,28 +220,31 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                               ),
                               CustomTextField(
                                 controller: _emailController,
-                                onSaved: (v) => widget.userData.email = v?.trim().toLowerCase(),
+                                onSaved: (v) =>
+                                widget.userData.email =
+                                    v?.trim().toLowerCase(),
                                 labelText: 'E-mail',
                                 prefixIcon: const Icon(Icons.account_circle),
                                 keyboardType: TextInputType.emailAddress,
                                 enabled: true,
                                 validator: validateEmailLogin,
                               ),
-
-                              // ✅ CPF apenas exibido, já formatado
                               CustomTextField(
                                 initialValue: cpfFormatted,
                                 labelText: 'CPF',
                                 enabled: false,
                                 prefixIcon: const Icon(Icons.account_box),
-                                suffix: const Icon(Icons.check_circle, color: Colors.green),
+                                suffix: const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                ),
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [CpfInputFormatter()],
                               ),
-
                               DateFieldChange(
                                 validator: validateDateToBirthday,
-                                onSaved: (v) => widget.userData.dateToBirthday = v,
+                                onSaved: (v) =>
+                                widget.userData.dateToBirthday = v,
                                 labelText: 'Data de nascimento',
                                 prefix: const Icon(Icons.cake),
                               ),
@@ -280,7 +285,8 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                                     )
                                         : const Text(
                                       'Cadastrar',
-                                      style: TextStyle(color: Colors.white),
+                                      style:
+                                      TextStyle(color: Colors.white),
                                     ),
                                   );
                                 },
@@ -294,7 +300,6 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
                 ),
               ],
             ),
-
             ValueListenableBuilder<bool>(
               valueListenable: _loading,
               builder: (_, loading, _) {

@@ -1,5 +1,6 @@
 // lib/_services/map/cesium/cesium_controller_web.dart
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 
 class Cesium3DController {
   String? _viewId;
@@ -14,16 +15,22 @@ class Cesium3DController {
     double? height,
     double duration = 1.5,
   }) {
-    if (_viewId == null) return;
+    final viewId = _viewId;
+    if (viewId == null) return;
 
-    html.window.postMessage({
+    final message = <String, Object?>{
       'type': 'camera',
       'method': 'flyTo',
-      'viewId': _viewId,
+      'viewId': viewId,
       'lon': lon,
       'lat': lat,
       'height': height,
       'duration': duration,
-    }, '*');
+    };
+
+    web.window.postMessage(
+      message.jsify() as JSAny,
+      '*'.toJS,
+    );
   }
 }

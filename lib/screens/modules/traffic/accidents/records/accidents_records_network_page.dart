@@ -102,6 +102,7 @@ class _AccidentsRecordsNetworkPageInnerState
 
     final nextOrder = maxOrder + 1;
 
+    if (!mounted) return;
     setState(() {
       _selectedAccident = null;
       _formData = AccidentsData(
@@ -153,18 +154,22 @@ class _AccidentsRecordsNetworkPageInnerState
     setState(() {
       _formData = _formData.copyWith(
         latLng: latLng ?? _formData.latLng,
-        street: suggestion.street.isNotEmpty ? suggestion.street : _formData.street,
+        street:
+        suggestion.street.isNotEmpty ? suggestion.street : _formData.street,
         subLocality: suggestion.subLocality.isNotEmpty
             ? suggestion.subLocality
             : _formData.subLocality,
-        locality: suggestion.city.isNotEmpty ? suggestion.city : _formData.locality,
+        locality:
+        suggestion.city.isNotEmpty ? suggestion.city : _formData.locality,
         administrativeArea: suggestion.administrativeArea.isNotEmpty
             ? suggestion.administrativeArea
             : _formData.administrativeArea,
         postalCode: suggestion.postalCode.isNotEmpty
             ? suggestion.postalCode
             : _formData.postalCode,
-        country: suggestion.country.isNotEmpty ? suggestion.country : _formData.country,
+        country: suggestion.country.isNotEmpty
+            ? suggestion.country
+            : _formData.country,
         isoCountryCode: suggestion.isoCountryCode.isNotEmpty
             ? suggestion.isoCountryCode
             : _formData.isoCountryCode,
@@ -184,7 +189,8 @@ class _AccidentsRecordsNetworkPageInnerState
 
   Future<void> _handlePublicReport(AccidentsData item) async {
     try {
-      final url = await context.read<AccidentsCubit>().generatePublicReportLink(
+      final cubit = context.read<AccidentsCubit>();
+      final url = await cubit.generatePublicReportLink(
         item,
         expiresIn: const Duration(days: 30),
       );
@@ -214,40 +220,52 @@ class _AccidentsRecordsNetworkPageInnerState
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.copy),
-                      label: const Text('Copiar link'),
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: url));
-                        if (!mounted) return;
-                        NotificationCenter.instance.show(
-                          AppNotification(
-                            title: const Text('Copiado'),
-                            subtitle: const Text('Link do boletim copiado.'),
-                            type: AppNotificationType.success,
-                            leadingLabel: const Text('QR'),
-                            duration: const Duration(seconds: 3),
-                          ),
+                    child: Builder(
+                      builder: (btnContext) {
+                        return OutlinedButton.icon(
+                          icon: const Icon(Icons.copy),
+                          label: const Text('Copiar link'),
+                          onPressed: () async {
+                            await Clipboard.setData(ClipboardData(text: url));
+                            if (!btnContext.mounted) return;
+                            NotificationCenter.instance.show(
+                              AppNotification(
+                                title: const Text('Copiado'),
+                                subtitle:
+                                const Text('Link do boletim copiado.'),
+                                type: AppNotificationType.success,
+                                leadingLabel: const Text('QR'),
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.block),
-                      label: const Text('Revogar'),
-                      onPressed: () async {
-                        final ok = await confirmDialog(
-                          context,
-                          'Deseja revogar o link público deste boletim?',
+                    child: Builder(
+                      builder: (btnContext) {
+                        return OutlinedButton.icon(
+                          icon: const Icon(Icons.block),
+                          label: const Text('Revogar'),
+                          onPressed: () async {
+                            final ok = await confirmDialog(
+                              btnContext,
+                              'Deseja revogar o link público deste boletim?',
+                            );
+                            if (!btnContext.mounted) return;
+                            if (!ok) return;
+
+                            await btnContext
+                                .read<AccidentsCubit>()
+                                .revokePublicReportLink(item);
+
+                            if (!btnContext.mounted) return;
+                            Navigator.of(btnContext).pop();
+                          },
                         );
-                        if (!ok) return;
-                        await context
-                            .read<AccidentsCubit>()
-                            .revokePublicReportLink(item);
-                        if (!mounted) return;
-                        Navigator.of(context).pop();
                       },
                     ),
                   ),
@@ -256,9 +274,13 @@ class _AccidentsRecordsNetworkPageInnerState
               const SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Fechar'),
+                child: Builder(
+                  builder: (btnContext) {
+                    return TextButton(
+                      onPressed: () => Navigator.of(btnContext).pop(),
+                      child: const Text('Fechar'),
+                    );
+                  },
                 ),
               ),
             ],
@@ -280,13 +302,17 @@ class _AccidentsRecordsNetworkPageInnerState
   }
 
   Future<void> _handlePrintLabel(AccidentsData item) async {
+    final cubit = context.read<AccidentsCubit>();
+
     String publicUrl = '';
     try {
-      publicUrl = await context.read<AccidentsCubit>().generatePublicReportLink(
+      publicUrl = await cubit.generatePublicReportLink(
         item,
         expiresIn: const Duration(days: 30),
       );
     } catch (_) {}
+
+    if (!mounted) return;
 
     final texto = _buildLabelText(item);
     final qrData = _buildLabelQrData(item, publicUrlOverride: publicUrl);
@@ -305,15 +331,23 @@ class _AccidentsRecordsNetworkPageInnerState
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancelar'),
+                Builder(
+                  builder: (btnContext) {
+                    return TextButton(
+                      onPressed: () => Navigator.of(btnContext).pop(false),
+                      child: const Text('Cancelar'),
+                    );
+                  },
                 ),
                 const SizedBox(width: 8),
-                FilledButton.icon(
-                  icon: const Icon(Icons.print),
-                  label: const Text('Imprimir'),
-                  onPressed: () => Navigator.of(context).pop(true),
+                Builder(
+                  builder: (btnContext) {
+                    return FilledButton.icon(
+                      icon: const Icon(Icons.print),
+                      label: const Text('Imprimir'),
+                      onPressed: () => Navigator.of(btnContext).pop(true),
+                    );
+                  },
                 ),
               ],
             ),
@@ -414,9 +448,8 @@ class _AccidentsRecordsNetworkPageInnerState
     final heightPx = bmp.heightPx;
     final bytesPerRow = (widthPx + 7) >> 3;
 
-    final limitFeedMm = (alturaMm + (useGap ? gapMm : 0) + 20)
-        .clamp(30, 120)
-        .toInt();
+    final limitFeedMm =
+    (alturaMm + (useGap ? gapMm : 0) + 20).clamp(30, 120).toInt();
 
     final setupLines = <String>[
       'SIZE $larguraMm mm,$alturaMm mm',
@@ -484,10 +517,12 @@ class _AccidentsRecordsNetworkPageInnerState
               (e) => e.id == id,
           orElse: () => AccidentsData(id: id),
         );
+
         final ok = await confirmDialog(context, 'Deseja apagar este acidente?');
-        if (ok) {
-          await _delete(id, yearHint: toDelete.date?.year);
-        }
+        if (!context.mounted) return;
+        if (!ok) return;
+
+        await _delete(id, yearHint: toDelete.date?.year);
       },
     );
   }
@@ -538,9 +573,10 @@ class _AccidentsRecordsNetworkPageInnerState
                         context,
                         'Deseja salvar este acidente?',
                       );
-                      if (ok) {
-                        await _save(state);
-                      }
+                      if (!context.mounted) return;
+                      if (!ok) return;
+
+                      await _save(state);
                     },
                     onClear: () => _createNew(state),
                     onGetLocation: () {
@@ -658,7 +694,9 @@ class _AccidentsRecordsNetworkPageInnerState
               duration: const Duration(seconds: 4),
             ),
           );
+
           await _createNew(state);
+          if (!context.mounted) return;
         }
 
         if (state.locationError != null &&

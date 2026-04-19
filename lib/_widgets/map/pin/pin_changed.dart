@@ -93,6 +93,12 @@ class _PinPainter extends CustomPainter {
   final double haloOpacity;
   final double haloScale;
 
+  int _channel255(double normalized) {
+    return (normalized * 255.0).round().clamp(0, 255);
+  }
+
+  bool get _hasBorderAlpha => _channel255(borderColor.a) > 0;
+
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
@@ -148,7 +154,7 @@ class _PinPainter extends CustomPainter {
           ..color = color,
       );
 
-      if (borderColor.alpha > 0) {
+      if (_hasBorderAlpha) {
         canvas.drawPath(
           path,
           Paint()
@@ -212,7 +218,7 @@ class _PinPainter extends CustomPainter {
         ..color = color,
     );
 
-    if (borderColor.alpha > 0) {
+    if (_hasBorderAlpha) {
       canvas.drawPath(
         path,
         Paint()

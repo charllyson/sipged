@@ -1,10 +1,9 @@
-// lib/screens/modules/financial/empenhos/empenho_form_section.dart
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart'; // (mantive só pq você passa NumberFormat no widget)
+import 'package:intl/intl.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
@@ -49,7 +48,6 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
 
   int _companyNonce = 0;
 
-  // demandas em memória (DFD)
   List<DfdData> _dfds = const [];
   bool _loadingDfds = false;
 
@@ -64,8 +62,11 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
     _totalCtrl = TextEditingController();
     _dateCtrl = TextEditingController();
 
+    final setupCubit = context.read<SetupCubit>();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      context.read<SetupCubit>().loadCompanies();
+      if (!mounted) return;
+      setupCubit.loadCompanies();
       await _loadDfds();
     });
   }
@@ -86,16 +87,13 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
     setState(() => _loadingDfds = true);
 
     try {
-      final snap = await FirebaseFirestore.instance
-          .collectionGroup('objeto')
-          .limit(1500)
-          .get();
+      final snap =
+      await FirebaseFirestore.instance.collectionGroup('objeto').limit(1500).get();
 
       final map = <String, DfdData>{};
 
       for (final doc in snap.docs) {
         final data = doc.data();
-
         final descricao = (data['descricaoObjeto'] ?? '').toString().trim();
         if (descricao.isEmpty) continue;
 
@@ -119,8 +117,10 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
       }
 
       final list = map.values.toList()
-        ..sort((a, b) =>
-            (a.descricaoObjeto ?? '').compareTo(b.descricaoObjeto ?? ''));
+        ..sort(
+              (a, b) =>
+              (a.descricaoObjeto ?? '').compareTo(b.descricaoObjeto ?? ''),
+        );
 
       if (!mounted) return;
       setState(() => _dfds = list);
@@ -128,8 +128,9 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
       if (!mounted) return;
       setState(() => _dfds = const []);
     } finally {
-      if (!mounted) return;
-      setState(() => _loadingDfds = false);
+      if (mounted) {
+        setState(() => _loadingDfds = false);
+      }
     }
   }
 
@@ -139,10 +140,7 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
       _fonteCtrl.text = s.fundingSourceLabel;
     }
     if (_numeroCtrl.text != s.numero) _numeroCtrl.text = s.numero;
-
-    // demanda: usa o label novo
     if (_demandaCtrl.text != s.demandLabel) _demandaCtrl.text = s.demandLabel;
-
     if (_totalCtrl.text != s.totalText) _totalCtrl.text = s.totalText;
 
     final dt = s.date;
@@ -154,7 +152,7 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
     final low = label.trim().toLowerCase();
     if (low.isEmpty) return null;
     for (final s in list) {
-      final l = (s.label).trim().toLowerCase();
+      final l = s.label.trim().toLowerCase();
       if (l == low) return s;
     }
     return null;
@@ -182,7 +180,8 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
         final setupCubit = context.read<SetupCubit>();
         await setupCubit.ensureCompanySetupLoaded(companyId);
 
-        if (mounted) setState(() => _companyNonce++);
+        if (!mounted) return;
+        setState(() => _companyNonce++);
       },
       child: BlocBuilder<EmpenhoCubit, EmpenhoState>(
         builder: (context, st) {
@@ -227,14 +226,10 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
               final somaFatias = empCubit.somaFatias;
               final totalValue = empCubit.totalValue;
 
-              // =========================
-              // CAMPOS (Wrap)
-              // =========================
               final camposWrap = Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  // CONTRATANTE
                   DropDownChange(
                     width: inputsWidth,
                     labelText: 'Contratante',
@@ -243,18 +238,18 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                     specialItemLabel: 'Adicionar contratante',
                     menuMaxHeight: 260,
                     onChanged: (label) async {
-                      final empCubit = context.read<EmpenhoCubit>();
+                      final localEmpCubit = context.read<EmpenhoCubit>();
                       final sysCubit = context.read<SetupCubit>();
 
                       final selectedLabel = _s(label);
 
                       if (selectedLabel.isEmpty) {
-                        empCubit.clearCompany();
+                        localEmpCubit.clearCompany();
+                        localEmpCubit.setFundingSourceId(null);
+                        localEmpCubit.setFundingSourceLabel('');
+                        localEmpCubit.clearFundingSourceId();
 
-                        empCubit.setFundingSourceId(null);
-                        empCubit.setFundingSourceLabel('');
-                        empCubit.clearFundingSourceId();
-
+                        if (!mounted) return;
                         setState(() => _companyNonce++);
                         return;
                       }
@@ -264,23 +259,24 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                         orElse: () => companies.first,
                       );
 
-                      final companyId = (selected.companyId ?? selected.id).trim();
+                      final selectedCompanyId =
+                      (selected.companyId ?? selected.id).trim();
 
-                      empCubit.setCompanyId(companyId);
-                      empCubit.setCompanyLabel(selected.label);
+                      localEmpCubit.setCompanyId(selectedCompanyId);
+                      localEmpCubit.setCompanyLabel(selected.label);
 
-                      // reset fonte ao trocar company
-                      empCubit.setFundingSourceId(null);
-                      empCubit.setFundingSourceLabel('');
-                      empCubit.clearFundingSourceId();
+                      localEmpCubit.setFundingSourceId(null);
+                      localEmpCubit.setFundingSourceLabel('');
+                      localEmpCubit.clearFundingSourceId();
 
+                      if (!mounted) return;
                       setState(() => _companyNonce++);
 
-                      await sysCubit.ensureCompanySetupLoaded(companyId);
+                      await sysCubit.ensureCompanySetupLoaded(selectedCompanyId);
                     },
                     onCreateNewItem: (label) async {
                       final sysCubit = context.read<SetupCubit>();
-                      final empCubit = context.read<EmpenhoCubit>();
+                      final localEmpCubit = context.read<EmpenhoCubit>();
 
                       final newLabel = _s(label);
                       if (newLabel.isEmpty) return;
@@ -288,22 +284,22 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                       final created = await sysCubit.createCompany(newLabel);
                       if (created == null) return;
 
-                      final companyId = (created.companyId ?? created.id).trim();
+                      final selectedCompanyId =
+                      (created.companyId ?? created.id).trim();
 
-                      empCubit.setCompanyId(companyId);
-                      empCubit.setCompanyLabel(created.label);
+                      localEmpCubit.setCompanyId(selectedCompanyId);
+                      localEmpCubit.setCompanyLabel(created.label);
 
-                      empCubit.setFundingSourceId(null);
-                      empCubit.setFundingSourceLabel('');
-                      empCubit.clearFundingSourceId();
+                      localEmpCubit.setFundingSourceId(null);
+                      localEmpCubit.setFundingSourceLabel('');
+                      localEmpCubit.clearFundingSourceId();
 
+                      if (!mounted) return;
                       setState(() => _companyNonce++);
 
-                      await sysCubit.ensureCompanySetupLoaded(companyId);
+                      await sysCubit.ensureCompanySetupLoaded(selectedCompanyId);
                     },
                   ),
-
-                  // FONTE DE RECURSO
                   DropDownChange(
                     key: ValueKey(
                       'funding-$_companyNonce-${st.companyId ?? "none"}',
@@ -319,13 +315,13 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                     specialItemLabel: 'Adicionar fonte',
                     menuMaxHeight: 260,
                     onChanged: (label) {
-                      final empCubit = context.read<EmpenhoCubit>();
-
+                      final localEmpCubit = context.read<EmpenhoCubit>();
                       final selectedLabel = _s(label);
+
                       if (selectedLabel.isEmpty) {
-                        empCubit.setFundingSourceId(null);
-                        empCubit.setFundingSourceLabel('');
-                        empCubit.clearFundingSourceId();
+                        localEmpCubit.setFundingSourceId(null);
+                        localEmpCubit.setFundingSourceLabel('');
+                        localEmpCubit.clearFundingSourceId();
                         return;
                       }
 
@@ -334,13 +330,15 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                         orElse: () => fundingSources.first,
                       );
 
-                      empCubit.setFundingSourceLabel(selected.label);
-                      empCubit.setFundingSourceId(selected.genericId ?? selected.id);
+                      localEmpCubit.setFundingSourceLabel(selected.label);
+                      localEmpCubit.setFundingSourceId(
+                        selected.genericId ?? selected.id,
+                      );
                     },
                     onCreateNewItem: (companySelected && childrenLoadedForCompany)
                         ? (label) async {
                       final sysCubit = context.read<SetupCubit>();
-                      final empCubit = context.read<EmpenhoCubit>();
+                      final localEmpCubit = context.read<EmpenhoCubit>();
 
                       final newLabel = _s(label);
                       if (newLabel.isEmpty) return;
@@ -351,14 +349,16 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                       );
                       if (created == null) return;
 
-                      empCubit.setFundingSourceLabel(created.label);
-                      empCubit.setFundingSourceId(
+                      localEmpCubit.setFundingSourceLabel(created.label);
+                      localEmpCubit.setFundingSourceId(
                         created.genericId ?? created.id,
                       );
                     }
                         : null,
                     onEditItem: (companySelected && childrenLoadedForCompany)
                         ? (oldLabel, newLabel) async {
+                      final localEmpCubit = context.read<EmpenhoCubit>();
+
                       final oldL = _s(oldLabel);
                       final newL = _s(newLabel);
                       if (oldL.isEmpty || newL.isEmpty) return;
@@ -366,10 +366,12 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                       final target = _findByLabel(fundingSources, oldL);
                       if (target == null) return;
 
-                      final sourceId = (target.genericId ?? target.id).trim();
+                      final sourceId =
+                      (target.genericId ?? target.id).trim();
                       if (sourceId.isEmpty) return;
 
-                      final updated = await setupCubit.updateFundingSourceName(
+                      final updated =
+                      await setupCubit.updateFundingSourceName(
                         companyId,
                         sourceId,
                         newL,
@@ -379,46 +381,45 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                       if (_fonteCtrl.text.trim().toLowerCase() ==
                           oldL.toLowerCase()) {
                         _fonteCtrl.text = updated.label;
-                        context
-                            .read<EmpenhoCubit>()
-                            .setFundingSourceLabel(updated.label);
+                        localEmpCubit.setFundingSourceLabel(updated.label);
                       }
                     }
                         : null,
                     onDeleteItem: (companySelected && childrenLoadedForCompany)
                         ? (ctx, label) async {
+                      final localEmpCubit = context.read<EmpenhoCubit>();
+
                       final lab = _s(label);
                       if (lab.isEmpty) return;
 
                       final target = _findByLabel(fundingSources, lab);
                       if (target == null) return;
 
-                      final sourceId = (target.genericId ?? target.id).trim();
+                      final sourceId =
+                      (target.genericId ?? target.id).trim();
                       if (sourceId.isEmpty) return;
 
-                      await setupCubit.deleteFundingSource(companyId, sourceId);
+                      await setupCubit.deleteFundingSource(
+                        companyId,
+                        sourceId,
+                      );
 
                       if (_fonteCtrl.text.trim().toLowerCase() ==
                           lab.toLowerCase()) {
                         _fonteCtrl.clear();
-                        final cubit = context.read<EmpenhoCubit>();
-                        cubit.setFundingSourceLabel('');
-                        cubit.setFundingSourceId(null);
-                        cubit.clearFundingSourceId();
+                        localEmpCubit.setFundingSourceLabel('');
+                        localEmpCubit.setFundingSourceId(null);
+                        localEmpCubit.clearFundingSourceId();
                       }
                     }
                         : null,
                   ),
-
-                  // NÚMERO
                   CustomTextField(
                     width: inputsWidth,
                     controller: _numeroCtrl,
                     labelText: 'Número do empenho',
                     onChanged: (v) => context.read<EmpenhoCubit>().setNumero(v),
                   ),
-
-                  // DATA
                   DateFieldChange(
                     width: inputsWidth,
                     controller: _dateCtrl,
@@ -427,12 +428,12 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                     enabled: true,
                     onChanged: (dt) => context.read<EmpenhoCubit>().setDate(dt),
                   ),
-
-                  // DEMANDA (id+label)
                   AutoCompleteChange<DfdData>(
                     controller: _demandaCtrl,
                     label: 'Creditar em',
-                    hint: _loadingDfds ? 'Carregando demandas…' : 'Digite para buscar',
+                    hint: _loadingDfds
+                        ? 'Carregando demandas…'
+                        : 'Digite para buscar',
                     enabled: !_loadingDfds && _dfds.isNotEmpty,
                     allList: _dfds,
                     initialId: (st.demandContractId ?? '').trim().isEmpty
@@ -454,14 +455,13 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                       }
 
                       final sel = _findDfdByContractId(demandContractId);
-                      final label = (sel?.descricaoObjeto ?? _demandaCtrl.text).trim();
+                      final label =
+                      (sel?.descricaoObjeto ?? _demandaCtrl.text).trim();
 
                       cubit.setDemandContractId(demandContractId);
                       cubit.setDemandLabel(label);
                     },
                   ),
-
-                  // TOTAL
                   CustomTextField(
                     width: inputsWidth,
                     controller: _totalCtrl,
@@ -472,9 +472,6 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                 ],
               );
 
-              // =========================
-              // BOTÕES
-              // =========================
               final botoes = Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -522,28 +519,17 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                 ],
               );
 
-              // =========================
-              // SIDE (Arquivos) - NOVO SideListBox
-              // =========================
               final side = SideListBox(
                 title: 'Arquivos do Empenho',
-                items: st.attachments, // List<Attachment>
+                items: st.attachments,
                 selectedIndex: st.selectedSideIndex,
-
-                // quando você tiver o upload pronto, liga aqui:
                 onAddPressed: null,
-
                 onTap: (i) => context.read<EmpenhoCubit>().selectSideIndex(i),
-                onDelete: (i) => context.read<EmpenhoCubit>().deleteAttachmentAt(i),
-
-                // ✅ novo: lista muda (reorder/remoção local etc.)
+                onDelete: (i) =>
+                    context.read<EmpenhoCubit>().deleteAttachmentAt(i),
                 onItemsChanged: (items) {
-                  // implemente no cubit
-                  // - normalize para List<Attachment>
                   context.read<EmpenhoCubit>().setAttachmentsFromUi(items);
                 },
-
-                // ✅ novo: rename embutido (SideListBox chama e aguarda bool)
                 onRenamePersist: ({
                   required int index,
                   required dynamic oldItem,
@@ -553,14 +539,12 @@ class _EmpenhoFormSectionState extends State<EmpenhoFormSection> {
                   final newAtt = newItem is Attachment ? newItem : null;
                   if (oldAtt == null || newAtt == null) return false;
 
-                  // implemente no cubit (persistência em Firestore)
                   return context.read<EmpenhoCubit>().persistRenameAttachment(
                     index: index,
                     oldItem: oldAtt,
                     newItem: newAtt,
                   );
                 },
-
                 width: sideWidth,
               );
 

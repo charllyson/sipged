@@ -1,4 +1,3 @@
-// lib/_widgets/toolBox/menuText/text_overlay_painter.dart
 import 'package:flutter/material.dart';
 
 /// Ferramentas de texto disponíveis na toolbox.
@@ -25,11 +24,10 @@ enum TextTool {
 /// - [text]: conteúdo textual.
 /// - [areaSize]: se não for `null`, o texto é um "texto em área" (com quebra),
 ///   limitado a essa largura/altura. Se `null`, é texto de ponto.
-/// - [vertical]: se `true`, representa texto vertical (você pode tratar na
-///   renderização com rotação, se desejar).
+/// - [vertical]: se `true`, representa texto vertical.
 /// - [monospace]: usa família monoespaçada.
 /// - [fontSize], [weight], [color]: estilo básico.
-/// - [align]: alinhamento do texto (aplicável quando houver múltiplas linhas).
+/// - [align]: alinhamento do texto.
 class TextItem {
   const TextItem({
     required this.position,
@@ -52,7 +50,7 @@ class TextItem {
   /// Dimensões da área de texto (se `null`, é texto de ponto).
   final Size? areaSize;
 
-  /// Se `true`, texto com orientação vertical (controle é do host).
+  /// Se `true`, texto com orientação vertical.
   final bool vertical;
 
   /// Se `true`, usa fonte monoespaçada.
@@ -67,7 +65,7 @@ class TextItem {
   /// Cor do texto.
   final Color color;
 
-  /// Alinhamento (útil para áreas com múltiplas linhas).
+  /// Alinhamento do texto.
   final TextAlign align;
 
   /// Constrói o [TextStyle] correspondente às propriedades atuais.
@@ -75,6 +73,7 @@ class TextItem {
     color: color,
     fontSize: fontSize,
     fontWeight: weight,
+    fontFamily: monospace ? 'monospace' : null,
   );
 
   /// Cópia com alterações.
@@ -102,77 +101,111 @@ class TextItem {
     );
   }
 
-  // ---------- (opcionais) Serialização p/ persistência ----------
-
   Map<String, dynamic> toMap() => {
-    'position': {'dx': position.dx, 'dy': position.dy},
+    'position': {
+      'dx': position.dx,
+      'dy': position.dy,
+    },
     if (areaSize != null)
-      'areaSize': {'w': areaSize!.width, 'h': areaSize!.height},
+      'areaSize': {
+        'w': areaSize!.width,
+        'h': areaSize!.height,
+      },
     'text': text,
     'vertical': vertical,
     'monospace': monospace,
     'fontSize': fontSize,
-    'weight': weight.index, // usa índice do enum FontWeight
-    'color': color.value,
-    'align': align.index,
+    'weight': weight.value,
+    'color': color.toARGB32(),
+    'align': align.name,
   };
 
   factory TextItem.fromMap(Map<String, dynamic> map) {
-    final pos = map['position'] as Map<String, dynamic>;
-    final area =
-    map['areaSize'] == null ? null : map['areaSize'] as Map<String, dynamic>;
+    final pos = Map<String, dynamic>.from(
+      (map['position'] as Map?) ?? const <String, dynamic>{},
+    );
+
+    final area = map['areaSize'] == null
+        ? null
+        : Map<String, dynamic>.from(map['areaSize'] as Map);
+
     return TextItem(
       position: Offset(
-        (pos['dx'] as num).toDouble(),
-        (pos['dy'] as num).toDouble(),
+        ((pos['dx'] ?? 0) as num).toDouble(),
+        ((pos['dy'] ?? 0) as num).toDouble(),
       ),
       text: (map['text'] ?? '') as String,
       areaSize: area == null
           ? null
           : Size(
-        (area['w'] as num).toDouble(),
-        (area['h'] as num).toDouble(),
+        ((area['w'] ?? 0) as num).toDouble(),
+        ((area['h'] ?? 0) as num).toDouble(),
       ),
       vertical: (map['vertical'] ?? false) as bool,
       monospace: (map['monospace'] ?? false) as bool,
       fontSize: (map['fontSize'] is num)
           ? (map['fontSize'] as num).toDouble()
           : 16.0,
-      weight: _fontWeightFromIndex(map['weight'] as int?),
-      color: Color((map['color'] ?? Colors.white.value) as int),
-      align: _textAlignFromIndex(map['align'] as int?),
+      weight: _fontWeightFromValue(map['weight']),
+      color: _colorFromMapValue(map['color']) ?? Colors.white,
+      align: _textAlignFromValue(map['align']),
     );
   }
 
-  static FontWeight _fontWeightFromIndex(int? i) {
-    // Mapeamento simples: 0..8 -> w100..w900
-    switch (i) {
-      case 0:
+  static Color? _colorFromMapValue(dynamic value) {
+    if (value == null) return null;
+
+    if (value is int) return Color(value);
+    if (value is num) return Color(value.toInt());
+
+    if (value is String) {
+      final asInt = int.tryParse(value);
+      if (asInt != null) return Color(asInt);
+    }
+
+    return null;
+  }
+
+  static FontWeight _fontWeightFromValue(dynamic v) {
+    final value = v is num ? v.toInt() : int.tryParse(v?.toString() ?? '');
+
+    switch (value) {
+      case 100:
         return FontWeight.w100;
-      case 1:
+      case 200:
         return FontWeight.w200;
-      case 2:
+      case 300:
         return FontWeight.w300;
-      case 3:
+      case 400:
         return FontWeight.w400;
-      case 4:
+      case 500:
         return FontWeight.w500;
-      case 5:
+      case 600:
         return FontWeight.w600;
-      case 6:
+      case 700:
         return FontWeight.w700;
-      case 7:
+      case 800:
         return FontWeight.w800;
-      case 8:
+      case 900:
         return FontWeight.w900;
       default:
         return FontWeight.w600;
     }
   }
 
-  static TextAlign _textAlignFromIndex(int? i) {
-    if (i == null) return TextAlign.start;
-    return TextAlign.values[i.clamp(0, TextAlign.values.length - 1)];
+  static TextAlign _textAlignFromValue(dynamic value) {
+    if (value is String) {
+      for (final item in TextAlign.values) {
+        if (item.name == value) return item;
+      }
+    }
+
+    if (value is int) {
+      final safeIndex = value.clamp(0, TextAlign.values.length - 1);
+      return TextAlign.values[safeIndex];
+    }
+
+    return TextAlign.start;
   }
 
   @override

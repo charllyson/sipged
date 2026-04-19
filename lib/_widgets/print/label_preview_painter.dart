@@ -147,11 +147,23 @@ class LabelPreviewPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
-    canvas.drawRRect(RRect.fromRectAndRadius(cycleRect, const Radius.circular(8)), cycleStroke);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(cycleRect, const Radius.circular(8)),
+      cycleStroke,
+    );
 
     if (drawHGap > 0.5) {
-      canvas.drawRRect(RRect.fromRectAndRadius(gapRect, const Radius.circular(6)), gapFill);
-      _drawDashedRect(canvas, gapRect.deflate(1.5), dashStroke, dash: 6, gap: 5);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(gapRect, const Radius.circular(6)),
+        gapFill,
+      );
+      _drawDashedRect(
+        canvas,
+        gapRect.deflate(1.5),
+        dashStroke,
+        dash: 6,
+        gap: 5,
+      );
       _drawCenteredCaption(
         canvas,
         gapRect,
@@ -162,10 +174,15 @@ class LabelPreviewPainter extends CustomPainter {
       );
     }
 
-    canvas.drawRRect(RRect.fromRectAndRadius(labelRect, const Radius.circular(8)), labelFill);
-    canvas.drawRRect(RRect.fromRectAndRadius(labelRect, const Radius.circular(8)), labelStroke);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(labelRect, const Radius.circular(8)),
+      labelFill,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(labelRect, const Radius.circular(8)),
+      labelStroke,
+    );
 
-    // ===== Padding / Inner =====
     final padPx = _mmToPreviewPx(math.max(0.0, cfg.padMm), scale);
     final inner = labelRect.deflate(padPx);
 
@@ -175,10 +192,12 @@ class LabelPreviewPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     if (inner.width > 10 && inner.height > 10) {
-      canvas.drawRRect(RRect.fromRectAndRadius(inner, const Radius.circular(6)), padStroke);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(inner, const Radius.circular(6)),
+        padStroke,
+      );
     }
 
-    // Layout do preview (texto em cima / QR embaixo) por causa da rotação do PreviewPanel
     final shortSidePx = math.min(inner.width, inner.height);
     final qrSidePx = shortSidePx;
     final spacePx = _mmToPreviewPx(math.max(0.0, cfg.spaceBetweenMm), scale);
@@ -221,15 +240,20 @@ class LabelPreviewPainter extends CustomPainter {
       ),
     );
 
-    // ===== QR =====
     final qrBg = Paint()..color = Colors.white.withValues(alpha: 0.98);
     final qrStroke = Paint()
       ..color = Colors.lightBlueAccent.withValues(alpha: 0.85)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
-    canvas.drawRRect(RRect.fromRectAndRadius(qrRect, const Radius.circular(6)), qrBg);
-    canvas.drawRRect(RRect.fromRectAndRadius(qrRect, const Radius.circular(6)), qrStroke);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(qrRect, const Radius.circular(6)),
+      qrBg,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(qrRect, const Radius.circular(6)),
+      qrStroke,
+    );
 
     final qrInset = math.max(3.0, qrRect.width * 0.06);
     final qrDrawRect = qrRect.deflate(qrInset);
@@ -244,18 +268,24 @@ class LabelPreviewPainter extends CustomPainter {
         data: safeData,
         version: QrVersions.auto,
         gapless: true,
-        color: const Color(0xFF000000),
-        emptyColor: const Color(0x00000000),
         errorCorrectionLevel: ecc,
+        eyeStyle: const QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: Color(0xFF000000),
+        ),
+        dataModuleStyle: const QrDataModuleStyle(
+          dataModuleShape: QrDataModuleShape.square,
+          color: Color(0xFF000000),
+        ),
       );
 
       canvas.save();
       canvas.translate(qrDrawRect.left, qrDrawRect.top);
       qp.paint(canvas, Size(qrDrawRect.width, qrDrawRect.height));
 
-      // ✅ Logo PB no centro com cartão branco + padding FIXO em mm (no preview também)
       if (cfg.enableQrCenterImage && centerLogoMonoRot != null) {
-        final side = (qrDrawRect.width * cfg.qrCenterImagePct).clamp(qrDrawRect.width * 0.10, qrDrawRect.width * 0.35);
+        final side = (qrDrawRect.width * cfg.qrCenterImagePct)
+            .clamp(qrDrawRect.width * 0.10, qrDrawRect.width * 0.35);
 
         final logoRect = Rect.fromCenter(
           center: Offset(qrDrawRect.width / 2, qrDrawRect.height / 2),
@@ -263,11 +293,13 @@ class LabelPreviewPainter extends CustomPainter {
           height: side,
         );
 
-        // ✅ padding fixo mm -> px do preview
-        final whitePadPx = _mmToPreviewPx(cfg.qrCenterWhitePadMm, scale).clamp(0.0, side * 0.25);
+        final whitePadPx = _mmToPreviewPx(cfg.qrCenterWhitePadMm, scale)
+            .clamp(0.0, side * 0.25);
+
         final whiteRect = logoRect.inflate(whitePadPx);
 
-        final radiusPx = _mmToPreviewPx(cfg.qrCenterCornerRadiusMm, scale).clamp(0.0, whiteRect.shortestSide / 2);
+        final radiusPx = _mmToPreviewPx(cfg.qrCenterCornerRadiusMm, scale)
+            .clamp(0.0, whiteRect.shortestSide / 2);
 
         canvas.drawRRect(
           RRect.fromRectAndRadius(whiteRect, Radius.circular(radiusPx)),
@@ -295,16 +327,22 @@ class LabelPreviewPainter extends CustomPainter {
       canvas.restore();
     } catch (_) {}
 
-    // ===== Texto =====
-    final textFill = Paint()..color = Colors.orangeAccent.withValues(alpha: 0.18);
+    final textFill = Paint()
+      ..color = Colors.orangeAccent.withValues(alpha: 0.18);
     final textStroke = Paint()
       ..color = Colors.orangeAccent.withValues(alpha: 0.9)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
 
     if (textRect.height > 6) {
-      canvas.drawRRect(RRect.fromRectAndRadius(textRect, const Radius.circular(6)), textFill);
-      canvas.drawRRect(RRect.fromRectAndRadius(textRect, const Radius.circular(6)), textStroke);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(textRect, const Radius.circular(6)),
+        textFill,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(textRect, const Radius.circular(6)),
+        textStroke,
+      );
 
       final caption = (text.isEmpty ? '(sem texto)' : text);
       _drawTextBlock(canvas, textRect.deflate(8), caption);
@@ -338,8 +376,6 @@ class LabelPreviewPainter extends CustomPainter {
       gapRulerRect: gapRulerRect,
     );
   }
-
-  // ========================= Seleção =========================
 
   void _drawSelectionOverlay(
       Canvas canvas, {
@@ -424,7 +460,8 @@ class LabelPreviewPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
-    final rr = RRect.fromRectAndRadius(r.inflate(2.0), Radius.circular(radius));
+    final rr =
+    RRect.fromRectAndRadius(r.inflate(2.0), Radius.circular(radius));
     canvas.drawRRect(rr, glow);
     canvas.drawRRect(rr, stroke);
   }
@@ -461,22 +498,29 @@ class LabelPreviewPainter extends CustomPainter {
     }
 
     if (selectedSection == PreviewSection.widthRuler) {
-      drawLineGlow(Offset(labelRect.left, baseY), Offset(labelRect.right, baseY));
+      drawLineGlow(
+        Offset(labelRect.left, baseY),
+        Offset(labelRect.right, baseY),
+      );
       return;
     }
 
     if (selectedSection == PreviewSection.heightRuler) {
-      drawLineGlow(Offset(baseX, labelRect.top), Offset(baseX, labelRect.bottom));
+      drawLineGlow(
+        Offset(baseX, labelRect.top),
+        Offset(baseX, labelRect.bottom),
+      );
       return;
     }
 
     if (selectedSection == PreviewSection.gap) {
       if (gMm <= 0.001 || gapRect.height <= 0.5) return;
-      drawLineGlow(Offset(baseX, gapRect.top), Offset(baseX, gapRect.bottom));
+      drawLineGlow(
+        Offset(baseX, gapRect.top),
+        Offset(baseX, gapRect.bottom),
+      );
     }
   }
-
-  // ========================= Réguas =========================
 
   void _drawMmRuler(
       Canvas canvas, {
@@ -502,7 +546,11 @@ class LabelPreviewPainter extends CustomPainter {
     );
 
     final baseY = labelRect.top - _gapFromLabelToRuler;
-    canvas.drawLine(Offset(labelRect.left, baseY), Offset(labelRect.right, baseY), baselinePaint);
+    canvas.drawLine(
+      Offset(labelRect.left, baseY),
+      Offset(labelRect.right, baseY),
+      baselinePaint,
+    );
 
     final stepW = _niceStepMm(wMm);
     for (double mm = 0; mm <= wMm + 0.001; mm += stepW) {
@@ -515,10 +563,19 @@ class LabelPreviewPainter extends CustomPainter {
     final topMin = baseY + _innerTextPadding;
     final topMax = labelRect.top - _innerTextPadding;
     final centerY = (topMin + topMax) / 2;
-    _drawCenteredText(canvas, Offset(labelRect.center.dx, centerY), '${wMm.toStringAsFixed(1)}mm', rulerTextStyle);
+    _drawCenteredText(
+      canvas,
+      Offset(labelRect.center.dx, centerY),
+      '${wMm.toStringAsFixed(1)}mm',
+      rulerTextStyle,
+    );
 
     final baseX = labelRect.left - _gapFromLabelToRuler;
-    canvas.drawLine(Offset(baseX, labelRect.top), Offset(baseX, labelRect.bottom), baselinePaint);
+    canvas.drawLine(
+      Offset(baseX, labelRect.top),
+      Offset(baseX, labelRect.bottom),
+      baselinePaint,
+    );
 
     final stepH = _niceStepMm(hMm);
     for (double mm = 0; mm <= hMm + 0.001; mm += stepH) {
@@ -541,7 +598,11 @@ class LabelPreviewPainter extends CustomPainter {
     );
 
     if (gMm > 0.001 && gapRect.height > 0.5) {
-      canvas.drawLine(Offset(baseX, gapRect.top), Offset(baseX, gapRect.bottom), baselinePaint);
+      canvas.drawLine(
+        Offset(baseX, gapRect.top),
+        Offset(baseX, gapRect.bottom),
+        baselinePaint,
+      );
 
       final stepG = _niceStepMm(gMm);
       for (double mm = 0; mm <= gMm + 0.001; mm += stepG) {
@@ -568,16 +629,22 @@ class LabelPreviewPainter extends CustomPainter {
     return 20;
   }
 
-  // ========================= Text helpers =========================
-
-  void _drawCenteredText(Canvas canvas, Offset center, String text, TextStyle style) {
+  void _drawCenteredText(
+      Canvas canvas,
+      Offset center,
+      String text,
+      TextStyle style,
+      ) {
     final tp = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     )..layout(maxWidth: 999);
 
-    tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
+    tp.paint(
+      canvas,
+      Offset(center.dx - tp.width / 2, center.dy - tp.height / 2),
+    );
   }
 
   void _drawCenteredRotatedText(
@@ -647,16 +714,55 @@ class LabelPreviewPainter extends CustomPainter {
     tp.paint(canvas, rect.topLeft);
   }
 
-  // ========================= Dash =========================
-
-  void _drawDashedRect(Canvas canvas, Rect rect, Paint paint, {double dash = 6, double gap = 5}) {
-    _drawDashedLine(canvas, rect.topLeft, rect.topRight, paint, dash: dash, gap: gap);
-    _drawDashedLine(canvas, rect.topRight, rect.bottomRight, paint, dash: dash, gap: gap);
-    _drawDashedLine(canvas, rect.bottomRight, rect.bottomLeft, paint, dash: dash, gap: gap);
-    _drawDashedLine(canvas, rect.bottomLeft, rect.topLeft, paint, dash: dash, gap: gap);
+  void _drawDashedRect(
+      Canvas canvas,
+      Rect rect,
+      Paint paint, {
+        double dash = 6,
+        double gap = 5,
+      }) {
+    _drawDashedLine(
+      canvas,
+      rect.topLeft,
+      rect.topRight,
+      paint,
+      dash: dash,
+      gap: gap,
+    );
+    _drawDashedLine(
+      canvas,
+      rect.topRight,
+      rect.bottomRight,
+      paint,
+      dash: dash,
+      gap: gap,
+    );
+    _drawDashedLine(
+      canvas,
+      rect.bottomRight,
+      rect.bottomLeft,
+      paint,
+      dash: dash,
+      gap: gap,
+    );
+    _drawDashedLine(
+      canvas,
+      rect.bottomLeft,
+      rect.topLeft,
+      paint,
+      dash: dash,
+      gap: gap,
+    );
   }
 
-  void _drawDashedLine(Canvas canvas, Offset a, Offset b, Paint paint, {double dash = 6, double gap = 5}) {
+  void _drawDashedLine(
+      Canvas canvas,
+      Offset a,
+      Offset b,
+      Paint paint, {
+        double dash = 6,
+        double gap = 5,
+      }) {
     final dx = b.dx - a.dx;
     final dy = b.dy - a.dy;
     final dist = math.sqrt(dx * dx + dy * dy);
@@ -668,7 +774,11 @@ class LabelPreviewPainter extends CustomPainter {
     double t = 0;
     while (t < dist) {
       final t2 = math.min(t + dash, dist);
-      canvas.drawLine(Offset(a.dx + ux * t, a.dy + uy * t), Offset(a.dx + ux * t2, a.dy + uy * t2), paint);
+      canvas.drawLine(
+        Offset(a.dx + ux * t, a.dy + uy * t),
+        Offset(a.dx + ux * t2, a.dy + uy * t2),
+        paint,
+      );
       t += dash + gap;
     }
   }

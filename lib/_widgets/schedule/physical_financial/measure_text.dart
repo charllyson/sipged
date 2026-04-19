@@ -10,17 +10,23 @@ class PhysFinMeasure {
     double safety = 0.0,
     ui.TextDirection textDirection = ui.TextDirection.ltr,
   }) {
-    final scale = MediaQuery.textScaleFactorOf(context);
+    final TextScaler textScaler = MediaQuery.textScalerOf(context);
+
     double maxW = 0;
+
     for (final s in strings) {
       final tp = TextPainter(
         text: TextSpan(text: s, style: style),
         textDirection: textDirection,
-        textScaleFactor: scale,
+        textScaler: textScaler,
         maxLines: 1,
       )..layout(minWidth: 0, maxWidth: double.infinity);
-      if (tp.width > maxW) maxW = tp.width;
+
+      if (tp.width > maxW) {
+        maxW = tp.width;
+      }
     }
+
     return maxW + padding + safety;
   }
 }

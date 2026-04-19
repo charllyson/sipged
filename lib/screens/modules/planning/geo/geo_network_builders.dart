@@ -134,10 +134,7 @@ extension _GeoNetworkBuilders on _GeoNetworkViewState {
                 ? 'Área de trabalho - Geral'
                 : 'Área de trabalho - ${scope.documentId}',
             icon: Icons.space_dashboard_outlined,
-
-            // Estável para drag/resize, mas reativo à hidratação real dos dados
             contentToken: 'workspace_area_main_${scopeKey}_$featuresToken',
-
             contentPadding: EdgeInsets.zero,
             child: RepaintBoundary(
               child: WorkspacePanel(

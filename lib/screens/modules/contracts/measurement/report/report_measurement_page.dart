@@ -1,22 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Cubit + Estado
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_state.dart';
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
 
-// DFD
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
-// Aditivos (Repository)
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
-
-// Contrato
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
-// UI e helpers
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
@@ -24,7 +18,6 @@ import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
-// Seções da página
 import '../create/create_detailed_reports_page.dart';
 import 'report_measurement_form_section.dart';
 import 'report_measurement_graph_section.dart';
@@ -112,9 +105,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     final cid = widget.contractData.id;
     if (cid == null) return;
 
-    // ============================
-    // Valor Demanda (DFD)
-    // ============================
     DfdCubit? dfdCubit;
     try {
       dfdCubit = DfdCubit();
@@ -128,9 +118,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
       } catch (_) {}
     }
 
-    // ============================
-    // Total de Aditivos (Repository)
-    // ============================
     try {
       final additivesRepo = AdditivesRepository();
       final list = await additivesRepo.ensureForContract(cid);
@@ -173,10 +160,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     final m = int.tryParse(parts[1]);
     final y = int.tryParse(parts[2]);
     if (d == null || m == null || y == null) return null;
-
     if (m < 1 || m > 12) return null;
     if (d < 1 || d > 31) return null;
-
     return DateTime(y, m, d);
   }
 
@@ -187,6 +172,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     for (int i = 1; i <= existing.length + 1; i++) {
       if (!existing.contains(i)) return i;
     }
+
     final max = existing.reduce((a, b) => a > b ? a : b);
     return max + 1;
   }
@@ -236,7 +222,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
     _validateForm();
   }
 
-  /// ✅ chamada pelo SideListBox via onItemsChanged
   void _applySideItemsFromWidget(List<dynamic> newItems) {
     final onlyAtt = newItems.whereType<Attachment>().toList();
 
@@ -260,13 +245,13 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
   Future<void> _removeAttachmentAt(int index) async {
     if (index < 0 || index >= _sideItems.length) return;
 
+    final cubit = context.read<ReportMeasurementCubit>();
     final ok = await confirmDialog(context, 'Remover este arquivo?');
     if (!ok) return;
 
     final m = _selectedMeasurement;
     if (m == null || (m.id == null || m.id!.isEmpty)) return;
 
-    final cubit = context.read<ReportMeasurementCubit>();
     final att = _sideItems[index];
 
     try {
@@ -275,6 +260,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         measurementId: m.id!,
         attachment: att,
       );
+
+      if (!mounted) return;
 
       setState(() {
         _sideItems.removeAt(index);
@@ -329,9 +316,10 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         }
       },
       builder: (context, state) {
-        final measurements = state.measurements;
         final cubit = context.read<ReportMeasurementCubit>();
+        final navigator = Navigator.of(context);
 
+        final measurements = state.measurements;
         final uploading = state.uploading;
         final uploadProgress = state.uploadProgress;
 
@@ -341,7 +329,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
         final totalMedicoes = cubit.sum(measurements);
         final totalDisponivel = _valorDemanda + _totalAditivos;
         final saldo = totalDisponivel - totalMedicoes;
-
         final selectedIndex = _selectedIndex;
 
         return Stack(
@@ -378,7 +365,9 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                             _fillFieldsFromMeasurement(measurements, m, i);
                           },
                         ),
-                        const SectionTitle(text: 'Cadastrar medições no sistema'),
+                        const SectionTitle(
+                          text: 'Cadastrar medições no sistema',
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: ReportMeasurementFormSection(
@@ -391,11 +380,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                             processNumberController: processCtrl,
                             dateController: dateCtrl,
                             valueController: valueCtrl,
-
-                            // ✅ overlay do SideListBox
                             sideLoading: uploading,
                             sideUploadProgress: uploadProgress,
-
                             onClear: () {
                               setState(() {
                                 _selectedIndex = null;
@@ -403,8 +389,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                               });
                               _fillFieldsFromMeasurement(measurements, null, null);
                             },
-
-                            // ✅ + real (pick -> upload -> firestore -> listar)
                             onAddSideItem: () async {
                               final m = _selectedMeasurement;
 
@@ -426,6 +410,8 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   contractId: contractId,
                                   measurementId: m.id!,
                                 );
+
+                                if (!mounted) return;
 
                                 setState(() {
                                   _sideItems = [..._sideItems, att];
@@ -451,7 +437,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 );
                               }
                             },
-
                             onSave: () async {
                               final ok = await confirmDialog(
                                 context,
@@ -465,12 +450,14 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   AppNotification(
                                     type: AppNotificationType.error,
                                     title: const Text('Data da medição inválida'),
-                                    subtitle: const Text('Use o formato dd/MM/aaaa.'),
+                                    subtitle:
+                                    const Text('Use o formato dd/MM/aaaa.'),
                                   ),
                                 );
                                 return;
                               }
 
+                              if (!mounted) return;
                               setState(() => _isSaving = true);
 
                               final isNew = _selectedMeasurement?.id == null;
@@ -494,7 +481,9 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   AppNotification(
                                     type: AppNotificationType.success,
                                     title: Text(
-                                      isNew ? 'Medição criada' : 'Medição atualizada',
+                                      isNew
+                                          ? 'Medição criada'
+                                          : 'Medição atualizada',
                                     ),
                                     subtitle: Text(
                                       'Boletim ${data.order ?? '-'} salvo com sucesso.',
@@ -510,12 +499,12 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                   ),
                                 );
                               } finally {
-                                if (mounted) setState(() => _isSaving = false);
+                                if (mounted) {
+                                  setState(() => _isSaving = false);
+                                }
                               }
                             },
-
                             onOpenMemoDeCalculo: null,
-
                             onOpenBoletimDeMedicao: () async {
                               final m = _selectedMeasurement;
 
@@ -532,7 +521,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 return;
                               }
 
-                              await Navigator.of(context).push(
+                              await navigator.push(
                                 MaterialPageRoute(
                                   builder: (_) => CreateDetailedReportPage(
                                     titulo: 'Boletim ${m.order ?? '-'}',
@@ -542,21 +531,12 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 ),
                               );
                             },
-
-                            // -------------------------
-                            // SIDE LIST
-                            // -------------------------
                             sideItems: _sideItems,
                             selectedSideIndex: _selectedSideIndex,
-                            onTapSideItem: (i) => setState(() => _selectedSideIndex = i),
-
-                            // ✅ delete real
+                            onTapSideItem: (i) =>
+                                setState(() => _selectedSideIndex = i),
                             onDeleteSideItem: (i) => _removeAttachmentAt(i),
-
-                            // ✅ já sincroniza listagem local quando SideListBox altera
                             onSideItemsChanged: _applySideItemsFromWidget,
-
-                            // ✅ rename persistido no Firestore
                             onRenamePersist: ({
                               required int index,
                               required Attachment oldItem,
@@ -596,7 +576,6 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                             },
                           ),
                         ),
-
                         const SectionTitle(text: 'Medições cadastradas no sistema'),
                         ReportMeasurementTableSection(
                           onTapItem: (ReportMeasurementData data) {
@@ -616,6 +595,7 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                             );
                             if (!ok) return;
 
+                            if (!mounted) return;
                             setState(() => _isSaving = true);
 
                             try {
@@ -628,7 +608,9 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 AppNotification(
                                   type: AppNotificationType.warning,
                                   title: const Text('Medição apagada'),
-                                  subtitle: const Text('O boletim foi removido com sucesso.'),
+                                  subtitle: const Text(
+                                    'O boletim foi removido com sucesso.',
+                                  ),
                                 ),
                               );
                             } catch (e) {
@@ -640,9 +622,12 @@ class _ReportMeasurementViewState extends State<_ReportMeasurementView> {
                                 ),
                               );
                             } finally {
-                              if (mounted) setState(() => _isSaving = false);
+                              if (mounted) {
+                                setState(() => _isSaving = false);
+                              }
                             }
 
+                            if (!mounted) return;
                             if (_selectedMeasurement?.id == id) {
                               setState(() {
                                 _selectedIndex = null;

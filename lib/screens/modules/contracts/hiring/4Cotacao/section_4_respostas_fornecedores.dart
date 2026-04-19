@@ -1,9 +1,7 @@
-// lib/screens/modules/contracts/hiring/4Cotacao/section_4_respostas_fornecedores.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/windows/company_body_dialog.dart';
-
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
@@ -81,26 +79,22 @@ class _SectionRespostasFornecedoresState
 
     _attachListeners();
 
-    // Garante carga de companies + companiesBodies (via SetupCubit novo)
-    Future.microtask(() async {
-      final system = context.read<SetupCubit>();
+    final system = context.read<SetupCubit>();
+    Future.microtask(() => _loadInitialCompanies(system));
+  }
 
-      // Se ainda não tem nenhuma company em memória, carrega
-      if (system.state.companies.isEmpty) {
-        await system.loadCompanies();
-      }
+  Future<void> _loadInitialCompanies(SetupCubit system) async {
+    if (system.state.companies.isEmpty) {
+      await system.loadCompanies();
+      if (!mounted) return;
+    }
 
-      final companies = system.state.companies;
-      if (companies.isNotEmpty) {
-        // Aqui pegamos a primeira empresa como "pai" padrão.
-        // Se quiser vincular à companyId da CotacaoData depois, é só trocar aqui.
-        final parentCompanyId =
-            companies.first.companyId ?? companies.first.id;
-
-        // Usa o helper que criamos para carregar tudo da empresa
-        await system.ensureCompanySetupLoaded(parentCompanyId);
-      }
-    });
+    final companies = system.state.companies;
+    if (companies.isNotEmpty) {
+      final parentCompanyId = companies.first.companyId ?? companies.first.id;
+      await system.ensureCompanySetupLoaded(parentCompanyId);
+      if (!mounted) return;
+    }
   }
 
   void _attachListeners() {
@@ -126,9 +120,7 @@ class _SectionRespostasFornecedoresState
   }
 
   @override
-  void didUpdateWidget(
-      covariant SectionRespostasFornecedores oldWidget,
-      ) {
+  void didUpdateWidget(covariant SectionRespostasFornecedores oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       final d = widget.data;
@@ -211,23 +203,18 @@ class _SectionRespostasFornecedoresState
     final datas = [_f1DataCtrl, _f2DataCtrl, _f3DataCtrl];
     final links = [_f1LinkCtrl, _f2LinkCtrl, _f3LinkCtrl];
 
-    // ========= companiesBodies disponíveis =========
     final systemState = context.watch<SetupCubit>().state;
-
-    // Agora pegamos direto da lista plana
     final List<SetupData> bodies = systemState.companyBodies;
 
     final List<String> bodyLabels =
     bodies.map((e) => e.label).toList(growable: false);
 
-    // nomes já preenchidos nos campos (p/ manter compatibilidade)
     final fornecedoresFromCtrls = [
       _f1NomeCtrl.text.trim(),
       _f2NomeCtrl.text.trim(),
       _f3NomeCtrl.text.trim(),
     ].where((t) => t.isNotEmpty);
 
-    // União: labels do Cubit + o que já está nos campos
     final List<String> allLabels = {
       ...bodyLabels,
       ...fornecedoresFromCtrls,
@@ -262,8 +249,6 @@ class _SectionRespostasFornecedoresState
               valorCtrl: valores[i],
               dataCtrl: datas[i],
               linkCtrl: links[i],
-
-              // Dropdown de companiesBodies
               fornecedoresLabels: allLabels,
               onAddNewEmpresa: showCreateCompanyBodyDialog,
               onChangedFornecedor: (label) {
@@ -275,7 +260,6 @@ class _SectionRespostasFornecedoresState
                     body!.cnpjCompanyContracted!.trim().isNotEmpty) {
                   cnpjs[i].text = body.cnpjCompanyContracted!;
                 }
-                // listeners dos controllers disparam _emitChange()
               },
             ),
           ),

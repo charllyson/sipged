@@ -1,5 +1,4 @@
 import 'dart:io' show File, Platform;
-import 'dart:typed_data';
 
 import 'package:exif/exif.dart' as exif;
 import 'package:extended_image/extended_image.dart';

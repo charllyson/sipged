@@ -32,16 +32,9 @@ class _FirebaseMigrationToolkitPageState
   bool _hasLoaded = false;
   String? _errorMessage;
 
-  /// Snapshot completo dos documentos
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _docs = [];
-
-  /// Lista simples de IDs (para facilitar em alguns pontos da UI)
   List<String> _docIds = [];
-
-  /// IDs selecionados (via checkbox do documento)
   Set<String> _selectedIds = {};
-
-  /// Campos selecionados por documento: docId -> { fieldName1, fieldName2, ... }
   final Map<String, Set<String>> _selectedFieldsByDocId = {};
 
   bool get _isAllSelected =>
@@ -130,10 +123,11 @@ class _FirebaseMigrationToolkitPageState
         ),
       );
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -147,7 +141,6 @@ class _FirebaseMigrationToolkitPageState
     });
   }
 
-  /// Selecionar / desmarcar todos os campos de um documento
   void _toggleSelectAllFieldsForDoc(String docId, Map<String, dynamic> data) {
     final keys = data.keys.toList();
     setState(() {
@@ -161,7 +154,6 @@ class _FirebaseMigrationToolkitPageState
     });
   }
 
-  /// Campo individual de um documento
   void _toggleFieldSelection(String docId, String fieldName, bool selected) {
     setState(() {
       final set = _selectedFieldsByDocId.putIfAbsent(docId, () => <String>{});
@@ -173,7 +165,6 @@ class _FirebaseMigrationToolkitPageState
     });
   }
 
-  /// Verifica se um campo está selecionado em todos os documentos que possuem esse campo.
   bool _isFieldSelectedInAllDocs(String fieldName) {
     int docsWithField = 0;
     int docsWithFieldSelected = 0;
@@ -192,7 +183,6 @@ class _FirebaseMigrationToolkitPageState
     return docsWithField > 0 && docsWithField == docsWithFieldSelected;
   }
 
-  /// Define seleção (true/false) de um campo para todos os documentos que possuem esse campo.
   void _setFieldSelectionForAllDocs(String fieldName, bool selected) {
     setState(() {
       for (final doc in _docs) {
@@ -211,7 +201,6 @@ class _FirebaseMigrationToolkitPageState
     });
   }
 
-  /// Alterna o estado do campo em todos os documentos.
   void _toggleFieldInAllDocs(String fieldName) {
     final isSelectedEverywhere = _isFieldSelectedInAllDocs(fieldName);
     _setFieldSelectionForAllDocs(fieldName, !isSelectedEverywhere);
@@ -226,12 +215,6 @@ class _FirebaseMigrationToolkitPageState
     return s;
   }
 
-  /// Copia campos selecionados para a coleção destino.
-  ///
-  /// Regra:
-  /// - Para cada doc selecionado:
-  ///   - Se houver campos selecionados para o doc: copia apenas esses campos.
-  ///   - Caso contrário: copia todos os campos do doc.
   Future<void> _copySelectedToTarget() async {
     final sourcePath = _pathCtrl.text.trim();
     final targetPath = _targetPathCtrl.text.trim();
@@ -239,11 +222,11 @@ class _FirebaseMigrationToolkitPageState
     if (sourcePath.isEmpty) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Origem não informada'),
-          subtitle: Text('Informe o caminho da coleção de origem.'),
+          title: const Text('Origem não informada'),
+          subtitle: const Text('Informe o caminho da coleção de origem.'),
           type: AppNotificationType.error,
-          leadingLabel: Text('Firebase'),
-          duration: Duration(seconds: 4),
+          leadingLabel: const Text('Firebase'),
+          duration: const Duration(seconds: 4),
         ),
       );
       return;
@@ -252,11 +235,11 @@ class _FirebaseMigrationToolkitPageState
     if (targetPath.isEmpty) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Destino não informado'),
-          subtitle: Text('Informe o caminho da coleção destino.'),
+          title: const Text('Destino não informado'),
+          subtitle: const Text('Informe o caminho da coleção destino.'),
           type: AppNotificationType.error,
-          leadingLabel: Text('Firebase'),
-          duration: Duration(seconds: 4),
+          leadingLabel: const Text('Firebase'),
+          duration: const Duration(seconds: 4),
         ),
       );
       return;
@@ -265,11 +248,12 @@ class _FirebaseMigrationToolkitPageState
     if (_selectedIds.isEmpty) {
       NotificationCenter.instance.show(
         AppNotification(
-          title: Text('Nenhum documento selecionado'),
-          subtitle: Text('Selecione ao menos um documento para copiar.'),
+          title: const Text('Nenhum documento selecionado'),
+          subtitle:
+          const Text('Selecione ao menos um documento para copiar.'),
           type: AppNotificationType.info,
-          leadingLabel: Text('Firebase'),
-          duration: Duration(seconds: 4),
+          leadingLabel: const Text('Firebase'),
+          duration: const Duration(seconds: 4),
         ),
       );
       return;
@@ -298,7 +282,6 @@ class _FirebaseMigrationToolkitPageState
               if (data.containsKey(key)) key: data[key],
           };
         } else {
-          // Nenhum campo específico selecionado -> copia todos do doc
           toCopy = Map<String, dynamic>.from(data);
         }
 
@@ -314,12 +297,13 @@ class _FirebaseMigrationToolkitPageState
       if (ops == 0) {
         NotificationCenter.instance.show(
           AppNotification(
-            title: Text('Nada para copiar'),
-            subtitle: Text(
-                'Nenhum campo selecionado ou dados vazios nos documentos escolhidos.'),
+            title: const Text('Nada para copiar'),
+            subtitle: const Text(
+              'Nenhum campo selecionado ou dados vazios nos documentos escolhidos.',
+            ),
             type: AppNotificationType.info,
-            leadingLabel: Text('Firebase'),
-            duration: Duration(seconds: 4),
+            leadingLabel: const Text('Firebase'),
+            duration: const Duration(seconds: 4),
           ),
         );
       } else {
@@ -329,7 +313,8 @@ class _FirebaseMigrationToolkitPageState
           AppNotification(
             title: const Text('Cópia concluída'),
             subtitle: Text(
-                'Campos copiados para "$targetPath" em $ops documento(s).'),
+              'Campos copiados para "$targetPath" em $ops documento(s).',
+            ),
             type: AppNotificationType.success,
             leadingLabel: const Text('Firebase'),
             duration: const Duration(seconds: 5),
@@ -347,10 +332,11 @@ class _FirebaseMigrationToolkitPageState
         ),
       );
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isCopying = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isCopying = false;
+        });
+      }
     }
   }
 
@@ -374,7 +360,6 @@ class _FirebaseMigrationToolkitPageState
               padding: EdgeInsets.only(left: 12.0),
               child: BackCircleButton(),
             ),
-
           ),
         ),
         toolbarHeight: barHeight,
@@ -410,8 +395,6 @@ class _FirebaseMigrationToolkitPageState
                     style: TextStyle(fontSize: 13, color: Colors.black87),
                   ),
                   const SizedBox(height: 16),
-
-                  // Campo origem + botão "Carregar"
                   Row(
                     children: [
                       Expanded(
@@ -430,18 +413,20 @@ class _FirebaseMigrationToolkitPageState
                               ? const SizedBox(
                             height: 16,
                             width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
                           )
-                              : const Icon(Icons.download_outlined, size: 18),
+                              : const Icon(
+                            Icons.download_outlined,
+                            size: 18,
+                          ),
                           label: const Text('Carregar'),
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 12),
-
-                  // Novo campo: coleção destino
                   CustomTextField(
                     controller: _targetPathCtrl,
                     labelText: 'Coleção destino (para cópia)',
@@ -450,11 +435,13 @@ class _FirebaseMigrationToolkitPageState
                   if (_errorMessage != null) ...[
                     Text(
                       _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 12),
                   ],
-
                   if (_isLoading)
                     const Padding(
                       padding: EdgeInsets.only(top: 16),
@@ -465,11 +452,11 @@ class _FirebaseMigrationToolkitPageState
                       padding: EdgeInsets.only(top: 16),
                       child: Text(
                         'Nenhum documento encontrado para esta coleção.',
-                        style: TextStyle(fontSize: 13, color: Colors.black54),
+                        style:
+                        TextStyle(fontSize: 13, color: Colors.black54),
                       ),
                     )
                   else if (_docIds.isNotEmpty) ...[
-                      // Selecionar todos os documentos
                       Row(
                         children: [
                           Checkbox(
@@ -492,7 +479,6 @@ class _FirebaseMigrationToolkitPageState
                         ],
                       ),
                       const SizedBox(height: 4),
-
                       Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
@@ -513,20 +499,16 @@ class _FirebaseMigrationToolkitPageState
                             final fieldKeys = data.keys.toList()..sort();
                             final selectedFieldSet =
                                 _selectedFieldsByDocId[id] ?? <String>{};
-                            final allFieldsSelected =
-                                fieldKeys.isNotEmpty &&
-                                    selectedFieldSet.length == fieldKeys.length;
+                            final allFieldsSelected = fieldKeys.isNotEmpty &&
+                                selectedFieldSet.length == fieldKeys.length;
                             final isDocSelected = _selectedIds.contains(id);
 
                             return ExpansionTile(
-                              tilePadding:
-                              const EdgeInsets.symmetric(horizontal: 8.0),
-                              childrenPadding: const EdgeInsets.fromLTRB(
-                                16,
-                                0,
-                                16,
-                                8,
+                              tilePadding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
                               ),
+                              childrenPadding:
+                              const EdgeInsets.fromLTRB(16, 0, 16, 8),
                               leading: Checkbox(
                                 value: isDocSelected,
                                 onChanged: (value) {
@@ -554,16 +536,12 @@ class _FirebaseMigrationToolkitPageState
                               visualDensity: VisualDensity.compact,
                               children: [
                                 const SizedBox(height: 4),
-
-                                // Linha: selecionar todos os campos desse doc
                                 Row(
                                   children: [
                                     Checkbox(
                                       value: allFieldsSelected,
-                                      onChanged: (_) => _toggleSelectAllFieldsForDoc(
-                                        id,
-                                        data,
-                                      ),
+                                      onChanged: (_) =>
+                                          _toggleSelectAllFieldsForDoc(id, data),
                                     ),
                                     const SizedBox(width: 4),
                                     const Text(
@@ -580,9 +558,7 @@ class _FirebaseMigrationToolkitPageState
                                     ),
                                   ],
                                 ),
-
                                 const SizedBox(height: 4),
-
                                 if (fieldKeys.isEmpty)
                                   const Padding(
                                     padding: EdgeInsets.only(bottom: 8.0),
@@ -663,9 +639,7 @@ class _FirebaseMigrationToolkitPageState
                           },
                         ),
                       ),
-
                       const SizedBox(height: 16),
-
                       Align(
                         alignment: Alignment.centerRight,
                         child: ElevatedButton.icon(
@@ -676,7 +650,9 @@ class _FirebaseMigrationToolkitPageState
                               ? const SizedBox(
                             height: 16,
                             width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
                           )
                               : const Icon(Icons.copy_all_outlined, size: 18),
                           label: const Text('Copiar campos selecionados'),

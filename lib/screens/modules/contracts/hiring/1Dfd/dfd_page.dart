@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/hiring/1Dfd/dfd_page.dart
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -48,7 +47,7 @@ import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_7_aprovacao
 import 'package:sipged/screens/modules/contracts/hiring/1Dfd/section_8_observacoes.dart';
 
 class DfdPage extends StatefulWidget {
-  final String contractId; // pode vir vazio para novo contrato
+  final String contractId;
   final bool readOnly;
 
   const DfdPage({
@@ -79,10 +78,8 @@ class _DfdPageState extends State<DfdPage>
     super.initState();
     _progressBloc = ProgressCubit(repo: ProgressRepository());
 
-    // Se já existe contractId, carregamos o DFD.
     final cid = widget.contractId.trim();
     if (cid.isNotEmpty) {
-      // Safe: chama após frame inicial para evitar qualquer interação com build.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.read<DfdCubit>().load(cid);
@@ -121,18 +118,18 @@ class _DfdPageState extends State<DfdPage>
 
     await completer.future;
 
+    if (!mounted) return;
+
     if (!cubit.state.saveSuccess || finalContractId == null) {
       final err = cubit.state.error ?? 'Falha ao salvar';
-      if (mounted) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('DFD'),
-            subtitle: const Text('Erro ao salvar.'),
-            details: Text(err),
-            type: AppNotificationType.error,
-          ),
-        );
-      }
+      NotificationCenter.instance.show(
+        AppNotification(
+          title: const Text('DFD'),
+          subtitle: const Text('Erro ao salvar.'),
+          details: Text(err),
+          type: AppNotificationType.error,
+        ),
+      );
       return;
     }
 
@@ -141,15 +138,13 @@ class _DfdPageState extends State<DfdPage>
       collectionName: 'dfd',
     );
 
-    if (mounted) {
-      NotificationCenter.instance.show(
-        AppNotification(
-          title: const Text('DFD'),
-          subtitle: const Text('Alterações salvas com sucesso.'),
-          type: AppNotificationType.success,
-        ),
-      );
-    }
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('DFD'),
+        subtitle: const Text('Alterações salvas com sucesso.'),
+        type: AppNotificationType.success,
+      ),
+    );
   }
 
   @override
@@ -176,7 +171,6 @@ class _DfdPageState extends State<DfdPage>
 
           final data = DfdData.fromSectionsMap(state.sectionsData);
 
-          // Listener é seguro para setState (não é build). Mantemos aqui.
           setState(() {
             _formData = data;
             _hydrated = true;
@@ -204,7 +198,8 @@ class _DfdPageState extends State<DfdPage>
                 ? 'Atualizando aprovação...'
                 : null;
 
-            final effectiveContractId = state.contractId ?? widget.contractId.trim();
+            final effectiveContractId =
+                state.contractId ?? widget.contractId.trim();
 
             return ScreenLock(
               locked: locked,
@@ -226,12 +221,10 @@ class _DfdPageState extends State<DfdPage>
                             data: _formData,
                             isEditable: !widget.readOnly,
                             onChanged: (updated) {
-                              // aqui é OK (originado por interação de UI)
                               setState(() => _formData = updated);
                             },
                           ),
                           const SizedBox(height: 12),
-
                           SectionObjeto(
                             data: _formData,
                             isEditable: !widget.readOnly,
@@ -240,7 +233,6 @@ class _DfdPageState extends State<DfdPage>
                             },
                           ),
                           const SizedBox(height: 12),
-
                           SectionLocalizacao(
                             data: _formData,
                             isEditable: !widget.readOnly,
@@ -249,7 +241,6 @@ class _DfdPageState extends State<DfdPage>
                             },
                           ),
                           const SizedBox(height: 12),
-
                           SectionEstimativa(
                             data: _formData,
                             isEditable: !widget.readOnly,
@@ -258,7 +249,6 @@ class _DfdPageState extends State<DfdPage>
                             },
                           ),
                           const SizedBox(height: 12),
-
                           SectionRiscos(
                             data: _formData,
                             isEditable: !widget.readOnly,
@@ -267,7 +257,6 @@ class _DfdPageState extends State<DfdPage>
                             },
                           ),
                           const SizedBox(height: 12),
-
                           SectionDocumentos(
                             data: _formData,
                             isEditable: !widget.readOnly,
@@ -277,7 +266,6 @@ class _DfdPageState extends State<DfdPage>
                             },
                           ),
                           const SizedBox(height: 12),
-
                           SectionAprovacao(
                             data: _formData,
                             users: users,
@@ -287,7 +275,6 @@ class _DfdPageState extends State<DfdPage>
                             },
                           ),
                           const SizedBox(height: 12),
-
                           SectionObservacoes(
                             data: _formData,
                             isEditable: !widget.readOnly,
@@ -310,9 +297,16 @@ class _DfdPageState extends State<DfdPage>
                       approved: pstate.approved,
                       onSave: _saveOnly,
                       onSaveAndNext: () async {
+                        final dfdCubit = context.read<DfdCubit>();
+                        final pipeline = context.read<PipelineProgressCubit>();
+                        final tabController = DefaultTabController.of(context);
+                        final repo = _progressBloc.repo;
+
                         await _saveOnly();
 
-                        final dfdState = context.read<DfdCubit>().state;
+                        if (!mounted) return;
+
+                        final dfdState = dfdCubit.state;
                         final dfdId = dfdState.dfdId;
                         final contractIdForApprove =
                             dfdState.contractId ?? widget.contractId.trim();
@@ -321,7 +315,9 @@ class _DfdPageState extends State<DfdPage>
                           NotificationCenter.instance.show(
                             AppNotification(
                               title: const Text('DFD'),
-                              subtitle: const Text('Documento não encontrado para aprovar.'),
+                              subtitle: const Text(
+                                'Documento não encontrado para aprovar.',
+                              ),
                               type: AppNotificationType.error,
                             ),
                           );
@@ -334,8 +330,6 @@ class _DfdPageState extends State<DfdPage>
                         (user?.displayName?.trim().isNotEmpty ?? false)
                             ? user!.displayName!
                             : (user?.email ?? uid);
-
-                        final repo = _progressBloc.repo;
 
                         try {
                           await repo.approveStage(
@@ -355,21 +349,28 @@ class _DfdPageState extends State<DfdPage>
                             completed: true,
                           );
 
-                          final pipeline = context.read<PipelineProgressCubit>();
+                          if (!mounted) return;
+
                           pipeline.setStageEnabled(HiringStageKey.etp, true);
                           unawaited(pipeline.refresh());
 
-                          final tab = DefaultTabController.of(context);
-                          tab.animateTo((tab.index + 1).clamp(0, tab.length - 1));
+                          tabController.animateTo(
+                            (tabController.index + 1)
+                                .clamp(0, tabController.length - 1),
+                          );
 
                           NotificationCenter.instance.show(
                             AppNotification(
                               title: const Text('DFD'),
-                              subtitle: const Text('Aprovado e etapa concluída.'),
+                              subtitle: const Text(
+                                'Aprovado e etapa concluída.',
+                              ),
                               type: AppNotificationType.success,
                             ),
                           );
                         } catch (e) {
+                          if (!mounted) return;
+
                           NotificationCenter.instance.show(
                             AppNotification(
                               title: const Text('DFD'),
@@ -381,9 +382,14 @@ class _DfdPageState extends State<DfdPage>
                         }
                       },
                       onUpdateApproved: () async {
+                        final dfdCubit = context.read<DfdCubit>();
+                        final repo = _progressBloc.repo;
+
                         await _saveOnly();
 
-                        final dfdState = context.read<DfdCubit>().state;
+                        if (!mounted) return;
+
+                        final dfdState = dfdCubit.state;
                         final dfdId = dfdState.dfdId;
                         final contractIdForApprove =
                             dfdState.contractId ?? widget.contractId.trim();
@@ -392,7 +398,9 @@ class _DfdPageState extends State<DfdPage>
                           NotificationCenter.instance.show(
                             AppNotification(
                               title: const Text('DFD'),
-                              subtitle: const Text('Documento não encontrado para atualizar.'),
+                              subtitle: const Text(
+                                'Documento não encontrado para atualizar.',
+                              ),
                               type: AppNotificationType.error,
                             ),
                           );
@@ -406,8 +414,6 @@ class _DfdPageState extends State<DfdPage>
                             ? user!.displayName!
                             : (user?.email ?? uid);
 
-                        final repo = _progressBloc.repo;
-
                         try {
                           await repo.touchApproval(
                             contractId: contractIdForApprove,
@@ -415,6 +421,8 @@ class _DfdPageState extends State<DfdPage>
                             updatedByUid: uid,
                             updatedByName: nameOrEmail,
                           );
+
+                          if (!mounted) return;
 
                           NotificationCenter.instance.show(
                             AppNotification(
@@ -424,10 +432,14 @@ class _DfdPageState extends State<DfdPage>
                             ),
                           );
                         } catch (e) {
+                          if (!mounted) return;
+
                           NotificationCenter.instance.show(
                             AppNotification(
                               title: const Text('DFD'),
-                              subtitle: const Text('Erro ao atualizar aprovação.'),
+                              subtitle: const Text(
+                                'Erro ao atualizar aprovação.',
+                              ),
                               details: Text('$e'),
                               type: AppNotificationType.error,
                             ),

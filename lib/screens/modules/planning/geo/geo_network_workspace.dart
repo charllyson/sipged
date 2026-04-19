@@ -51,56 +51,9 @@ extension _GeoNetworkWorkspace on _GeoNetworkViewState {
     );
   }
 
-
   Object _selectedWorkspaceItemToken() {
     final item = _selectedWorkspaceItem;
     return item?.id ?? 'no_selected_workspace_item';
-  }
-
-  void _handleCatalogItemTap(CatalogData item) {
-    _workspacePanelKey.currentState?.placeCatalogItemAutomatically(item);
-
-    setState(() {
-      _pendingCatalogPlacement = null;
-    });
-
-    _showSnack(
-      context,
-      '"${item.title}" adicionado à área de trabalho',
-    );
-  }
-
-  void _handleWorkspaceSelectionCatalogChanged(String? catalogItemId) {
-    setState(() {
-      if (_selectedWorkspaceItem != null) {
-        _selectedCatalogItemId = _selectedWorkspaceItem!.catalogItemId;
-        return;
-      }
-
-      if (_pendingCatalogPlacement != null) {
-        _selectedCatalogItemId = _pendingCatalogPlacement!.id;
-        return;
-      }
-
-      _selectedCatalogItemId = catalogItemId;
-    });
-  }
-
-  void _handleWorkspaceItemSelected(WorkspaceData? item) {
-    final nextWorkspaceId = item?.id;
-    final nextCatalogId = item?.catalogItemId;
-
-    if (_selectedWorkspaceItemId == nextWorkspaceId &&
-        _selectedCatalogItemId == nextCatalogId &&
-        _pendingCatalogPlacement == null) {
-      return;
-    }
-
-    setState(() {
-      _selectedWorkspaceItemId = nextWorkspaceId;
-      _selectedCatalogItemId = nextCatalogId;
-      _pendingCatalogPlacement = null;
-    });
   }
 
   void _handleWorkspacePropertyChanged(

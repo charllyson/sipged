@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:camera/camera.dart' as cam;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

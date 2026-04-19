@@ -107,9 +107,9 @@ class HorizontalChartBar extends StatelessWidget {
           Expanded(
             child: Row(
               children: List.generate(values.length, (i) {
-                final sliceValue = values[i];
-                final flex = flexFromValue(sliceValue);
-                final labelText =
+                final double sliceValue = values[i];
+                final int flex = flexFromValue(sliceValue);
+                final String labelText =
                 i < groupLegendLabels!.length ? groupLegendLabels![i] : '';
 
                 return Expanded(
@@ -170,7 +170,6 @@ class HorizontalChartBar extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // TRACK + SLICES CENTRALIZADOS
                   Align(
                     alignment: Alignment.center,
                     child: SizedBox(
@@ -178,7 +177,6 @@ class HorizontalChartBar extends StatelessWidget {
                       width: double.infinity,
                       child: Stack(
                         children: [
-                          // Fundo (track)
                           Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
@@ -197,15 +195,14 @@ class HorizontalChartBar extends StatelessWidget {
                               ),
                             ),
                           ),
-
-                          // Slices (clipadas)
                           ClipRRect(
                             borderRadius: BorderRadius.circular(6),
                             child: Row(
                               children: List.generate(values.length, (i) {
-                                final sliceValue = values[i];
-                                final flexTotal = flexFromValue(sliceValue);
-                                final baseColor = colors[i % colors.length];
+                                final double sliceValue = values[i];
+                                final int flexTotal = flexFromValue(sliceValue);
+                                final Color baseColor =
+                                colors[i % colors.length];
 
                                 final bool isSelectedSlice =
                                     selectedRowIndex != null &&
@@ -215,11 +212,10 @@ class HorizontalChartBar extends StatelessWidget {
 
                                 final String? sliceLabel =
                                 (groupLegendLabels != null &&
-                                    i < (groupLegendLabels?.length ?? 0))
+                                    i < groupLegendLabels!.length)
                                     ? groupLegendLabels![i]
                                     : null;
 
-                                // ✅ resolve hatch específico por fatia
                                 final SliceHatchStyle? hatchStyle =
                                 hatch?.resolve(
                                   sliceIndex: i,
@@ -251,12 +247,10 @@ class HorizontalChartBar extends StatelessWidget {
                                   );
                                 }
 
-                                // ✅ Hatch por fatia:
-                                // - cor da linha: hatchStyle.lineColor (informada)
-                                // - cor do fundo: mesma cor, com opacidade (para combinar)
                                 if (shouldHatch && !isSelectedSlice) {
-                                  final bg = hatchStyle.backgroundColor();
-                                  final lc = hatchStyle.lineColor;
+                                  final Color bg =
+                                  hatchStyle.backgroundColor();
+                                  final Color lc = hatchStyle.lineColor;
 
                                   return Expanded(
                                     flex: flexTotal,
@@ -274,11 +268,11 @@ class HorizontalChartBar extends StatelessWidget {
                                   );
                                 }
 
-                                final double alpha = sliceColor.opacity;
+                                final double alpha = sliceColor.a;
                                 final Color start =
                                 sliceColor.withValues(alpha: alpha);
-                                final Color end = sliceColor.withValues(alpha: 
-                                  (alpha * 0.9).clamp(0.0, 1.0),
+                                final Color end = sliceColor.withValues(
+                                  alpha: (alpha * 0.9).clamp(0.0, 1.0),
                                 );
 
                                 return Expanded(
@@ -303,8 +297,6 @@ class HorizontalChartBar extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  // OVERLAY “VAZANDO”
                   if (rangeOverlay != null && rangeOverlay!.isValid)
                     Positioned(
                       left: 0,

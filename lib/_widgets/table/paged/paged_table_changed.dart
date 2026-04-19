@@ -528,12 +528,12 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
         return Container(
           margin: widget.cardMargin,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.96),
+            color: Colors.white.withValues(alpha:0.96),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade300),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 3),
               ),
@@ -583,7 +583,7 @@ class _PagedTableChangedState<T> extends State<PagedTableChanged<T>> {
                               return const Color(0xFFE1F5FE);
                             }
                             if (states.contains(WidgetState.hovered)) {
-                              return Colors.blue.withOpacity(0.05);
+                              return Colors.blue.withValues(alpha:0.05);
                             }
                             return Colors.white;
                           }),

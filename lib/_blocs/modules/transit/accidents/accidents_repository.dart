@@ -1,15 +1,14 @@
-// lib/_blocs/modules/transit/accidents/accidents_repository.dart
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:equatable/equatable.dart';
 
 import 'accidents_data.dart';
 
@@ -36,7 +35,6 @@ class AccidentsRepository {
     ).trim();
     if (env.isNotEmpty) return _normalizeBase(env);
 
-    // Runtime web
     final uri = Uri.base;
     final scheme = uri.scheme.toLowerCase();
     if (scheme == 'http' || scheme == 'https') {
@@ -56,11 +54,48 @@ class AccidentsRepository {
     return b;
   }
 
+  LocationSettings _buildLocationSettings({
+    LocationAccuracy accuracy = LocationAccuracy.best,
+    Duration? timeLimit,
+  }) {
+    if (kIsWeb) {
+      return WebSettings(
+        accuracy: accuracy,
+        timeLimit: timeLimit,
+      );
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return AndroidSettings(
+        accuracy: accuracy,
+        timeLimit: timeLimit,
+        distanceFilter: 0,
+        forceLocationManager: false,
+      );
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
+      return AppleSettings(
+        accuracy: accuracy,
+        timeLimit: timeLimit,
+        distanceFilter: 0,
+        pauseLocationUpdatesAutomatically: false,
+      );
+    }
+
+    return LocationSettings(
+      accuracy: accuracy,
+      timeLimit: timeLimit,
+    );
+  }
+
   int _yearFromDateTime(DateTime dt, {bool local = true}) =>
       local ? dt.toLocal().year : dt.toUtc().year;
 
   Future<DocumentReference<Map<String, dynamic>>?> _getYearRefCompat(
-      int year) async {
+      int year,
+      ) async {
     final detRef = _db.collection('trafficAccidents').doc(year.toString());
     final detSnap = await detRef.get();
     if (detSnap.exists) return detRef;
@@ -76,15 +111,12 @@ class AccidentsRepository {
   }
 
   Future<DocumentReference<Map<String, dynamic>>> _getOrCreateYearRefCanonical(
-      int year) async {
+      int year,
+      ) async {
     final detRef = _db.collection('trafficAccidents').doc(year.toString());
     await detRef.set({'year': year}, SetOptions(merge: true));
     return detRef;
   }
-
-  // ===========================================================================
-  // CRUD
-  // ===========================================================================
 
   Future<void> deleteAccident({
     required String id,
@@ -151,10 +183,6 @@ class AccidentsRepository {
     });
   }
 
-  // ===========================================================================
-  // CONSULTAS
-  // ===========================================================================
-
   Future<List<AccidentsData>> getAllAccidents({
     int? year,
     int? month,
@@ -199,12 +227,9 @@ class AccidentsRepository {
     return snap.docs.map((d) => AccidentsData.fromDocument(d)).toList();
   }
 
-  // ===========================================================================
-  // AGREGAÇÕES
-  // ===========================================================================
-
   Future<Map<String, double>> getTotaisPorTipoAcidente(
-      List<AccidentsData> acidentes) async {
+      List<AccidentsData> acidentes,
+      ) async {
     final Map<String, double> totais = {};
     for (final a in acidentes) {
       final key = AccidentsData.canonicalType(a.typeOfAccident);
@@ -214,7 +239,8 @@ class AccidentsRepository {
   }
 
   Future<Map<String, double>> getValoresPorCidade(
-      List<AccidentsData> acidentes) async {
+      List<AccidentsData> acidentes,
+      ) async {
     final Map<String, double> totais = {};
     for (final a in acidentes) {
       final cidade = (a.city ?? '').trim();
@@ -223,10 +249,6 @@ class AccidentsRepository {
     }
     return totais;
   }
-
-  // ===========================================================================
-  // ✅ LINK PÚBLICO (QR) -> PDF
-  // ===========================================================================
 
   CollectionReference<Map<String, dynamic>> get _publicReports =>
       _db.collection('publicAccidentReports');
@@ -242,10 +264,9 @@ class AccidentsRepository {
     return sb.toString();
   }
 
-  /// ✅ Agora devolve URL de PDF (direto no browser)
   String buildPublicUrlFromToken(String token) {
     final base = _publicReportBaseUrl.trim();
-    if (base.isEmpty) return token; // fallback (não recomendado)
+    if (base.isEmpty) return token;
     final t = token.trim();
     return '$base/$t.pdf';
   }
@@ -280,7 +301,8 @@ class AccidentsRepository {
             'accidentId': accidentId,
             'recordPath': recordPath,
             'createdAt': FieldValue.serverTimestamp(),
-            'expiresAt': Timestamp.fromDate(accident.publicReportExpiresAt ?? expiresAt),
+            'expiresAt':
+            Timestamp.fromDate(accident.publicReportExpiresAt ?? expiresAt),
             'revokedAt': null,
             'enabled': true,
             'publicData': accident.toPublicReportMap(),
@@ -381,10 +403,6 @@ class AccidentsRepository {
     });
   }
 
-  // ===========================================================================
-  // UTILITÁRIO LEGADO
-  // ===========================================================================
-
   Future<void> corrigirDatasAcidentesCollectionGroup() async {
     final DateFormat formato = DateFormat('dd/MM/yyyy');
     final snap = await _db.collectionGroup('records').get();
@@ -401,10 +419,6 @@ class AccidentsRepository {
       }
     }
   }
-
-  // ===========================================================================
-  // GEOCODING / LOCALIZAÇÃO (ViaCEP + Nominatim, sem Google)
-  // ===========================================================================
 
   Future<AddressSuggestion> geocodeCep(String cep) async {
     final digits = cep.replaceAll(RegExp(r'\D'), '');
@@ -633,8 +647,10 @@ class AccidentsRepository {
     }
 
     final pos = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.best,
-      timeLimit: const Duration(seconds: 15),
+      locationSettings: _buildLocationSettings(
+        accuracy: LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 15),
+      ),
     );
 
     try {
@@ -666,10 +682,6 @@ class AccidentsRepository {
     }
   }
 }
-
-// ============================================================================
-// MODELO AUXILIAR: AddressSuggestion
-// ============================================================================
 
 class AddressSuggestion extends Equatable {
   final double? latitude;

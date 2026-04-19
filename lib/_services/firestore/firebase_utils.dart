@@ -1,12 +1,8 @@
-// lib/_services/firebase_utils.dart (ou onde estiver esse código)
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-// 🔔 Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-
-// ⬇️ NOVO: dialogo estilo macOS
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
 class FirebaseUtils {
@@ -19,7 +15,6 @@ class FirebaseUtils {
     const int batchSize = 500;
 
     try {
-      // Etapa 1: verificar e contar documentos
       final totalDocsSnapshot = await collectionRef.get();
       final totalDocs = totalDocsSnapshot.docs.length;
 
@@ -32,7 +27,8 @@ class FirebaseUtils {
         return;
       }
 
-      // Etapa 2: pedir confirmação (janela macOS)
+      if (!context.mounted) return;
+
       final bool confirm = await confirmDialog(
         context,
         'Tem certeza que deseja apagar a coleção:\n\n'
@@ -40,16 +36,15 @@ class FirebaseUtils {
             'Ela contém $totalDocs documentos.',
       );
 
+      if (!context.mounted) return;
       if (!confirm) return;
 
-      // Etapa 3: início
       _notify(
         'Apagando documentos…',
         subtitle: '$totalDocs docs em "$path"',
         type: AppNotificationType.info,
       );
 
-      // Etapa 4: apagar por lote
       while (true) {
         final querySnapshot = await collectionRef.limit(batchSize).get();
         if (querySnapshot.docs.isEmpty) break;
@@ -63,7 +58,6 @@ class FirebaseUtils {
         await Future.delayed(const Duration(milliseconds: 250));
       }
 
-      // Etapa 5: sucesso
       _notify(
         'Coleção deletada com sucesso',
         subtitle: '"$path" • $totalDocs docs',
@@ -72,7 +66,6 @@ class FirebaseUtils {
 
       onFinished?.call();
     } catch (e, stack) {
-      // ignore: unused_local_variable
       final _ = stack;
       _notify(
         'Erro ao deletar coleção',
@@ -82,7 +75,6 @@ class FirebaseUtils {
     }
   }
 
-  // 🔔 helper de notificação
   static void _notify(
       String title, {
         String? subtitle,

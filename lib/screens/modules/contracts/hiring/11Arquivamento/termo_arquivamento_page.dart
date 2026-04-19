@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/hiring/11Arquivamento/termo_arquivamento_page.dart
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -76,7 +75,6 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
     super.initState();
     _progressBloc = ProgressCubit(repo: ProgressRepository());
 
-    // Dispara o load inicial
     context.read<TermoArquivamentoCubit>().load(widget.contractId);
   }
 
@@ -107,30 +105,28 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
 
     await completer.future;
 
+    if (!mounted) return;
+
     if (!cubit.state.saveSuccess) {
       final err = cubit.state.error ?? 'Falha ao salvar';
-      if (mounted) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Termo de Arquivamento'),
-            subtitle: const Text('Erro ao salvar.'),
-            details: Text(err),
-            type: AppNotificationType.error,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (mounted) {
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Termo de Arquivamento'),
-          subtitle: const Text('Alterações salvas com sucesso.'),
-          type: AppNotificationType.success,
+          subtitle: const Text('Erro ao salvar.'),
+          details: Text(err),
+          type: AppNotificationType.error,
         ),
       );
+      return;
     }
+
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('Termo de Arquivamento'),
+        subtitle: const Text('Alterações salvas com sucesso.'),
+        type: AppNotificationType.success,
+      ),
+    );
   }
 
   @override
@@ -199,7 +195,6 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 1) Metadados
                             SectionMetadadosTA(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -208,8 +203,6 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               },
                             ),
                             const SizedBox(height: 12),
-
-                            // 2) Motivo e Abrangência
                             SectionMotivoAbrangenciaTA(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -218,8 +211,6 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               },
                             ),
                             const SizedBox(height: 12),
-
-                            // 3) Fundamentação
                             SectionFundamentacaoTA(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -228,8 +219,6 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               },
                             ),
                             const SizedBox(height: 12),
-
-                            // 4) Peças Anexas
                             SectionPecasAnexasTA(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -238,8 +227,6 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               },
                             ),
                             const SizedBox(height: 12),
-
-                            // 5) Decisão da Autoridade
                             SectionDecisaoAutoridadeTA(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -248,8 +235,6 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               },
                             ),
                             const SizedBox(height: 12),
-
-                            // 6) Reabertura
                             SectionReaberturaTA(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -263,8 +248,7 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                       ),
                     ],
                   ),
-                  bottomNavigationBar:
-                  BlocBuilder<ProgressCubit, ProgressState>(
+                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
                     builder: (context, pstate) {
                       return StageProgress(
                         title: 'Termo de Arquivamento',
@@ -273,10 +257,16 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                         approved: pstate.approved,
                         onSave: _saveOnly,
                         onSaveAndNext: () async {
+                          final taCubit = context.read<TermoArquivamentoCubit>();
+                          final pipeline = context.read<PipelineProgressCubit>();
+                          final tabController = DefaultTabController.of(context);
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final taId =
-                              context.read<TermoArquivamentoCubit>().state.taId;
+                          if (!mounted) return;
+
+                          final taId = taCubit.state.taId;
                           if (taId == null || taId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -297,8 +287,6 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
-
                           try {
                             await repo.approveStage(
                               contractId: widget.contractId,
@@ -313,20 +301,17 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               completed: true,
                             );
 
-                            // Última etapa (ajuste se quiser liberar algo depois)
-                            final pipeline =
-                            context.read<PipelineProgressCubit>();
+                            if (!mounted) return;
+
                             pipeline.setStageEnabled(
                               HiringStageKey.arquivamento,
                               true,
                             );
                             unawaited(pipeline.refresh());
 
-                            final controller =
-                            DefaultTabController.of(context);
-                            controller.animateTo(
-                              (controller.index + 1)
-                                  .clamp(0, controller.length - 1),
+                            tabController.animateTo(
+                              (tabController.index + 1)
+                                  .clamp(0, tabController.length - 1),
                             );
 
                             NotificationCenter.instance.show(
@@ -339,6 +324,8 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
+
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Termo de Arquivamento'),
@@ -350,10 +337,14 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                           }
                         },
                         onUpdateApproved: () async {
+                          final taCubit = context.read<TermoArquivamentoCubit>();
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final taId =
-                              context.read<TermoArquivamentoCubit>().state.taId;
+                          if (!mounted) return;
+
+                          final taId = taCubit.state.taId;
                           if (taId == null || taId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -374,8 +365,6 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
-
                           try {
                             await repo.touchApproval(
                               contractId: widget.contractId,
@@ -383,6 +372,8 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               updatedByUid: uid,
                               updatedByName: nameOrEmail,
                             );
+
+                            if (!mounted) return;
 
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -394,6 +385,8 @@ class _TermoArquivamentoPageState extends State<TermoArquivamentoPage>
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
+
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Termo de Arquivamento'),

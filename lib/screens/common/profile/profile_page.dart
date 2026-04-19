@@ -1,5 +1,5 @@
-// lib/screens/profile/user_profile_page.dart
 import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -29,14 +29,13 @@ class _UserProfilePageState extends State<UserProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _firstCtrl = TextEditingController();
   final _lastCtrl = TextEditingController();
-  static const double _cardsLift = 120; // ajuste fino aqui (ex.: 24 ~ 36)
-
+  static const double _cardsLift = 120;
 
   bool _saving = false;
 
   String? _currentPhoto;
-  Uint8List? _previewBytes; // web
-  XFile? _pickedFile;       // mobile
+  Uint8List? _previewBytes;
+  XFile? _pickedFile;
 
   bool _didPrefillOnce = false;
 
@@ -47,9 +46,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
     super.dispose();
   }
 
-  // -------------------- UI helpers --------------------
-
-  /// Header compacto, SEM avatar (para não duplicar com o card)
   Widget _header(UserData? user) {
     final theme = Theme.of(context);
     final displayName = _composeDisplayName(user);
@@ -74,7 +70,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  displayName.isEmpty ? 'Atualize suas informações' : displayName,
+                  displayName.isEmpty
+                      ? 'Atualize suas informações'
+                      : displayName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -97,7 +95,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.black.withValues(alpha: .06)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: .06), blurRadius: 18, offset: const Offset(0, 8)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
         ],
       ),
       child: child,
@@ -110,20 +112,23 @@ class _UserProfilePageState extends State<UserProfilePage> {
     return [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
   }
 
-  // -------------------- Foto --------------------
-
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final img = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final img = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
     if (img == null) return;
 
     if (kIsWeb) {
       final bytes = await img.readAsBytes();
+      if (!mounted) return;
       setState(() {
         _previewBytes = bytes;
         _pickedFile = null;
       });
     } else {
+      if (!mounted) return;
       setState(() {
         _pickedFile = img;
         _previewBytes = null;
@@ -132,21 +137,31 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   Future<String?> _uploadIfNeeded(String uid) async {
+    final messenger = ScaffoldMessenger.of(context);
+
     if (_previewBytes == null && _pickedFile == null) return _currentPhoto;
 
     try {
       final ref = FirebaseStorage.instance.ref('users/$uid/profile.jpg');
       UploadTask task;
+
       if (kIsWeb) {
-        task = ref.putData(_previewBytes!, SettableMetadata(contentType: 'image/jpeg'));
+        task = ref.putData(
+          _previewBytes!,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
       } else {
-        task = ref.putData(await _pickedFile!.readAsBytes(), SettableMetadata(contentType: 'image/jpeg'));
+        task = ref.putData(
+          await _pickedFile!.readAsBytes(),
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
       }
+
       final snap = await task.whenComplete(() => null);
       return await snap.ref.getDownloadURL();
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Não foi possível enviar a foto.')),
         );
       }
@@ -154,9 +169,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
     }
   }
 
-  // -------------------- Salvar --------------------
-
   Future<void> _onSave(UserData current) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final userBloc = context.read<UserBloc>();
+
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
@@ -183,47 +199,53 @@ class _UserProfilePageState extends State<UserProfilePage> {
         baseRole: current.baseRole,
       );
 
-      context.read<UserBloc>().add(UserSaveRequested(updated));
+      userBloc.add(UserSaveRequested(updated));
 
       final authUser = FirebaseAuth.instance.currentUser;
       final displayName = [_firstCtrl.text.trim(), _lastCtrl.text.trim()]
           .where((s) => s.isNotEmpty)
           .join(' ')
           .trim();
+
       if (authUser != null) {
-        await authUser.updateDisplayName(displayName.isEmpty ? null : displayName);
+        await authUser.updateDisplayName(
+          displayName.isEmpty ? null : displayName,
+        );
         if ((photoUrl ?? '').isNotEmpty) {
           await authUser.updatePhotoURL(photoUrl);
         }
       }
 
-      if (mounted) {
-        setState(() {
-          _currentPhoto = photoUrl ?? _currentPhoto;
-          _pickedFile = null;
-          _previewBytes = null;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perfil atualizado!')),
-        );
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _currentPhoto = photoUrl ?? _currentPhoto;
+        _pickedFile = null;
+        _previewBytes = null;
+      });
+
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Perfil atualizado!')),
+      );
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Falha ao salvar seu perfil.')),
         );
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
-
-  // -------------------- Build --------------------
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<UserBloc, UserState>(
-      buildWhen: (prev, curr) => prev.current != curr.current || prev.isLoadingUsers != curr.isLoadingUsers,
+      buildWhen: (prev, curr) =>
+      prev.current != curr.current ||
+          prev.isLoadingUsers != curr.isLoadingUsers,
       builder: (context, state) {
         final user = state.current;
 
@@ -255,10 +277,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
                       builder: (context, c) {
                         final isWide = c.maxWidth >= 860;
 
-                        // ----- Card da foto (sempre acima) -----
                         final photoCard = _glassCard(
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
+                            padding:
+                            const EdgeInsets.fromLTRB(16, 18, 16, 20),
                             child: Row(
                               children: [
                                 _AvatarEditable(
@@ -278,22 +300,29 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           ),
                         );
 
-                        // ----- Formulário -----
                         final formCard = _glassCard(
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
+                            padding:
+                            const EdgeInsets.fromLTRB(16, 18, 16, 20),
                             child: Form(
                               key: _formKey,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                crossAxisAlignment:
+                                CrossAxisAlignment.stretch,
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.account_circle, color: Colors.black54),
+                                      const Icon(
+                                        Icons.account_circle,
+                                        color: Colors.black54,
+                                      ),
                                       const SizedBox(width: 8),
                                       Text(
                                         'Informações básicas',
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),
@@ -320,10 +349,21 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                     spacing: 10,
                                     runSpacing: 10,
                                     children: [
-                                      _infoChip(Icons.email, user.email ?? 'sem e-mail'),
-                                      if ((user.cpf ?? '').isNotEmpty) _infoChip(Icons.badge, user.cpf!),
-                                      if ((user.cellPhone ?? '').isNotEmpty)
-                                        _infoChip(Icons.phone, user.cellPhone!),
+                                      _infoChip(
+                                        Icons.email,
+                                        user.email ?? 'sem e-mail',
+                                      ),
+                                      if ((user.cpf ?? '').isNotEmpty)
+                                        _infoChip(
+                                          Icons.badge,
+                                          user.cpf!,
+                                        ),
+                                      if ((user.cellPhone ?? '')
+                                          .isNotEmpty)
+                                        _infoChip(
+                                          Icons.phone,
+                                          user.cellPhone!,
+                                        ),
                                     ],
                                   ),
                                 ],
@@ -341,33 +381,47 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                   ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2.6, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.6,
+                                  color: Colors.white,
+                                ),
                               )
                                   : const Icon(Icons.save),
-                              label: Text(_saving ? 'Salvando...' : 'Salvar alterações'),
+                              label: Text(
+                                _saving
+                                    ? 'Salvando...'
+                                    : 'Salvar alterações',
+                              ),
                             ),
                           ],
                         );
 
-                        // ----- ÚNICO layout: coluna (foto acima do form), centralizado -----
                         return Center(
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
-                              // limita para leitura confortável em wide, mas mantém coluna
                               maxWidth: isWide ? 980 : c.maxWidth,
                             ),
                             child: SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                6,
+                                16,
+                                24,
+                              ),
                               child: Transform.translate(
                                 offset: const Offset(0, -_cardsLift),
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.stretch,
                                   children: [
                                     photoCard,
                                     const SizedBox(height: 10),
                                     formCard,
                                     const SizedBox(height: 12),
-                                    Align(alignment: Alignment.centerRight, child: actions),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: actions,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -386,13 +440,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
     );
   }
 
-  // -------------------- Widgets menores --------------------
-
   Widget _nameField() => CustomTextField(
     controller: _firstCtrl,
     labelText: 'Nome',
     hintText: 'Seu nome',
-    validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe seu nome' : null,
+    validator: (v) =>
+    (v == null || v.trim().isEmpty) ? 'Informe seu nome' : null,
   );
 
   Widget _surnameField() => CustomTextField(
@@ -425,7 +478,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
       height: 1,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.black.withValues(alpha: .06), Colors.transparent],
+          colors: [
+            Colors.black.withValues(alpha: .06),
+            Colors.transparent,
+          ],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
@@ -451,10 +507,16 @@ class _AvatarEditable extends StatelessWidget {
   Widget build(BuildContext context) {
     final avatar = () {
       if (previewBytes != null) {
-        return CircleAvatar(radius: radius, backgroundImage: MemoryImage(previewBytes!));
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: MemoryImage(previewBytes!),
+        );
       }
       if ((photoUrl ?? '').isNotEmpty) {
-        return CircleAvatar(radius: radius, backgroundImage: NetworkImage(photoUrl!));
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: NetworkImage(photoUrl!),
+        );
       }
       return CircleAvatar(
         radius: radius,
@@ -480,7 +542,13 @@ class _AvatarEditable extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.blue.shade600,
                   borderRadius: BorderRadius.circular(22),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .18), blurRadius: 10, offset: const Offset(0, 3))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .18),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: const Icon(Icons.edit, size: 18, color: Colors.white),
               ),

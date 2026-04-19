@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/hiring/10Publicacao/publicacao_extrato_page.dart
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -75,7 +74,6 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
     super.initState();
     _progressBloc = ProgressCubit(repo: ProgressRepository());
 
-    // Dispara o load inicial da Publicação/Extrato
     context.read<PublicacaoExtratoCubit>().load(widget.contractId);
   }
 
@@ -106,30 +104,28 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
 
     await completer.future;
 
+    if (!mounted) return;
+
     if (!cubit.state.saveSuccess) {
       final err = cubit.state.error ?? 'Falha ao salvar';
-      if (mounted) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Publicação / Extrato'),
-            subtitle: const Text('Erro ao salvar.'),
-            details: Text(err),
-            type: AppNotificationType.error,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (mounted) {
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Publicação / Extrato'),
-          subtitle: const Text('Alterações salvas com sucesso.'),
-          type: AppNotificationType.success,
+          subtitle: const Text('Erro ao salvar.'),
+          details: Text(err),
+          type: AppNotificationType.error,
         ),
       );
+      return;
     }
+
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('Publicação / Extrato'),
+        subtitle: const Text('Alterações salvas com sucesso.'),
+        type: AppNotificationType.success,
+      ),
+    );
   }
 
   @override
@@ -187,7 +183,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
               details: locked ? 'Aguarde...' : null,
               keepAppBarUndimmed: true,
               child: StageGate(
-                stageKey: HiringStageKey.publicacao, // ajuste o enum se for outro nome
+                stageKey: HiringStageKey.publicacao,
                 child: Scaffold(
                   body: Stack(
                     children: [
@@ -199,7 +195,6 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 1) Metadados
                             SectionMetadadosExtrato(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -208,8 +203,6 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               },
                             ),
                             const SizedBox(height: 12),
-
-                            // 2) Partes / Valores / Vigência
                             SectionPartesValoresVigencia(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -218,8 +211,6 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               },
                             ),
                             const SizedBox(height: 12),
-
-                            // 3) Veículo
                             SectionVeiculoPublicacao(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -228,8 +219,6 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               },
                             ),
                             const SizedBox(height: 12),
-
-                            // 4) Status / Prazos
                             SectionStatusPrazos(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -238,8 +227,6 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               },
                             ),
                             const SizedBox(height: 12),
-
-                            // 5) Responsável
                             SectionResponsavel(
                               data: _formData,
                               isEditable: !widget.readOnly,
@@ -252,8 +239,7 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                       ),
                     ],
                   ),
-                  bottomNavigationBar:
-                  BlocBuilder<ProgressCubit, ProgressState>(
+                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
                     builder: (context, pstate) {
                       return StageProgress(
                         title: 'Publicação / Extrato',
@@ -262,12 +248,16 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                         approved: pstate.approved,
                         onSave: _saveOnly,
                         onSaveAndNext: () async {
+                          final pubCubit = context.read<PublicacaoExtratoCubit>();
+                          final pipeline = context.read<PipelineProgressCubit>();
+                          final tabController = DefaultTabController.of(context);
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final pubId = context
-                              .read<PublicacaoExtratoCubit>()
-                              .state
-                              .pubId;
+                          if (!mounted) return;
+
+                          final pubId = pubCubit.state.pubId;
                           if (pubId == null || pubId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -288,8 +278,6 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
-
                           try {
                             await repo.approveStage(
                               contractId: widget.contractId,
@@ -304,20 +292,17 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               completed: true,
                             );
 
-                            // Libera ARQUIVAMENTO (última etapa do pipeline)
-                            final pipeline =
-                            context.read<PipelineProgressCubit>();
+                            if (!mounted) return;
+
                             pipeline.setStageEnabled(
                               HiringStageKey.arquivamento,
                               true,
                             );
                             unawaited(pipeline.refresh());
 
-                            final controller =
-                            DefaultTabController.of(context);
-                            controller.animateTo(
-                              (controller.index + 1)
-                                  .clamp(0, controller.length - 1),
+                            tabController.animateTo(
+                              (tabController.index + 1)
+                                  .clamp(0, tabController.length - 1),
                             );
 
                             NotificationCenter.instance.show(
@@ -330,6 +315,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
+
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Publicação / Extrato'),
@@ -342,12 +329,14 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                           }
                         },
                         onUpdateApproved: () async {
+                          final pubCubit = context.read<PublicacaoExtratoCubit>();
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final pubId = context
-                              .read<PublicacaoExtratoCubit>()
-                              .state
-                              .pubId;
+                          if (!mounted) return;
+
+                          final pubId = pubCubit.state.pubId;
                           if (pubId == null || pubId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -368,8 +357,6 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
-
                           try {
                             await repo.touchApproval(
                               contractId: widget.contractId,
@@ -377,6 +364,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               updatedByUid: uid,
                               updatedByName: nameOrEmail,
                             );
+
+                            if (!mounted) return;
 
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -388,6 +377,8 @@ class _PublicacaoExtratoPageState extends State<PublicacaoExtratoPage>
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
+
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Publicação / Extrato'),

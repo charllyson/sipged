@@ -1,34 +1,26 @@
-// lib/screens/modules/contracts/hiring/8Minuta/minuta_contrato_page.dart
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Users / Utils
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-
-// Layout / Inputs / Widgets
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
-// Pipeline / Progress
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
-
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
-// Minuta
 import 'package:sipged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_state.dart';
 
-// Seções
 import 'package:sipged/screens/modules/contracts/hiring/8Minuta/section_1_identificacao.dart';
 import 'package:sipged/screens/modules/contracts/hiring/8Minuta/section_2_partes_objeto.dart';
 import 'package:sipged/screens/modules/contracts/hiring/8Minuta/section_3_valor.dart';
@@ -67,8 +59,6 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
   void initState() {
     super.initState();
     _progressBloc = ProgressCubit(repo: ProgressRepository());
-
-    // Dispara o load inicial
     context.read<MinutaContratoCubit>().load(widget.contractId);
   }
 
@@ -99,38 +89,33 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
 
     await completer.future;
 
+    if (!mounted) return;
+
     if (!cubit.state.saveSuccess) {
       final err = cubit.state.error ?? 'Falha ao salvar';
-      if (mounted) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Minuta'),
-            subtitle: const Text('Erro ao salvar.'),
-            details: Text(err),
-            type: AppNotificationType.error,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (mounted) {
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Minuta'),
-          subtitle: const Text('Alterações salvas com sucesso.'),
-          type: AppNotificationType.success,
+          subtitle: const Text('Erro ao salvar.'),
+          details: Text(err),
+          type: AppNotificationType.error,
         ),
       );
+      return;
     }
+
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('Minuta'),
+        subtitle: const Text('Alterações salvas com sucesso.'),
+        type: AppNotificationType.success,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-
-    // (imports de UserBloc/UserData permanecem para uso nas seções,
-    // mesmo que esta página em si não use diretamente)
 
     return BlocProvider.value(
       value: _progressBloc,
@@ -235,10 +220,18 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
                         approved: pstate.approved,
                         onSave: _saveOnly,
                         onSaveAndNext: () async {
+                          final minutaCubit =
+                          context.read<MinutaContratoCubit>();
+                          final pipeline =
+                          context.read<PipelineProgressCubit>();
+                          final tab = DefaultTabController.of(context);
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final minutaId =
-                              context.read<MinutaContratoCubit>().state.minutaId;
+                          if (!mounted) return;
+
+                          final minutaId = minutaCubit.state.minutaId;
                           if (minutaId == null || minutaId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -259,7 +252,6 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
                           try {
                             await repo.approveStage(
                               contractId: widget.contractId,
@@ -274,20 +266,16 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
                               completed: true,
                             );
 
-                            // Libera PRÓXIMA etapa (ajuste se seu enum divergir)
-                            final pipeline =
-                            context.read<PipelineProgressCubit>();
+                            if (!mounted) return;
+
                             pipeline.setStageEnabled(
-                              HiringStageKey.minuta, // ou o próximo stage real
+                              HiringStageKey.minuta,
                               true,
                             );
                             unawaited(pipeline.refresh());
 
-                            final tab =
-                            DefaultTabController.of(context);
                             tab.animateTo(
-                              (tab.index + 1)
-                                  .clamp(0, tab.length - 1),
+                              (tab.index + 1).clamp(0, tab.length - 1),
                             );
 
                             NotificationCenter.instance.show(
@@ -300,11 +288,11 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Minuta'),
-                                subtitle:
-                                const Text('Erro ao aprovar.'),
+                                subtitle: const Text('Erro ao aprovar.'),
                                 details: Text('$e'),
                                 type: AppNotificationType.error,
                               ),
@@ -312,10 +300,15 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
                           }
                         },
                         onUpdateApproved: () async {
+                          final minutaCubit =
+                          context.read<MinutaContratoCubit>();
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final minutaId =
-                              context.read<MinutaContratoCubit>().state.minutaId;
+                          if (!mounted) return;
+
+                          final minutaId = minutaCubit.state.minutaId;
                           if (minutaId == null || minutaId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -336,7 +329,6 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
                           try {
                             await repo.touchApproval(
                               contractId: widget.contractId,
@@ -344,6 +336,8 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
                               updatedByUid: uid,
                               updatedByName: nameOrEmail,
                             );
+
+                            if (!mounted) return;
 
                             NotificationCenter.instance.show(
                               AppNotification(
@@ -355,6 +349,7 @@ class _MinutaContratoPageState extends State<MinutaContratoPage>
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Minuta'),

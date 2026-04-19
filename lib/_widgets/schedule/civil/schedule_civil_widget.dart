@@ -6,16 +6,13 @@ import 'package:latlong2/latlong.dart';
 import 'package:sipged/_services/files/dxf/dxf_selection_overlay.dart';
 import 'package:sipged/_widgets/input/text_field_in_line.dart';
 
-// Base/UI
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/schedule/modal/type.dart';
 import 'package:sipged/_widgets/schedule/civil/schedule_civil_controller.dart';
 
-// Modal unificado + tipos
 import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
 
-// Civil (render e UI)
 import 'package:sipged/_services/files/dxf/dxf_empty_hint.dart';
 import 'package:sipged/_widgets/schedule/civil/schedule_civil_board.dart';
 import 'package:sipged/_widgets/schedule/civil/schedule_civil_fit_utils.dart';
@@ -24,25 +21,20 @@ import 'package:sipged/_widgets/schedule/civil/polygon_painter.dart';
 import 'package:sipged/_widgets/schedule/civil/snap_utils.dart';
 import 'package:sipged/_widgets/schedule/civil/text_item.dart';
 
-// Domínio
 import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
-// BLoC/Auth
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
 import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
 import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_state.dart';
 
-// Storage
 import 'package:firebase_storage/firebase_storage.dart';
 
-// DXF modular
 import 'package:sipged/_services/files/dxf/dxf_controller.dart';
 import 'package:sipged/_services/files/dxf/dxf_to_geo.dart';
 
-// ✅ notificações ricas
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
@@ -51,15 +43,15 @@ class ScheduleCivilWidget extends StatefulWidget {
     super.key,
     required this.title,
     required this.controller,
-    this.initialPdfBytes,          // mantém o nome por compatibilidade, agora é DXF
-    this.pageNumber = 1,           // ignorado (só DXF)
-    this.allowPickNewPdf = true,   // controla o botão “Trocar DXF”
-    this.onPolylinesReady
+    this.initialPdfBytes,
+    this.pageNumber = 1,
+    this.allowPickNewPdf = true,
+    this.onPolylinesReady,
   });
 
   final String title;
-  final Uint8List? initialPdfBytes; // <- use como DXF
-  final int pageNumber;             // <- ignorado
+  final Uint8List? initialPdfBytes;
+  final int pageNumber;
   final bool allowPickNewPdf;
   final ScheduleCivilController controller;
   final void Function(List<List<LatLng>> polylines)? onPolylinesReady;
@@ -69,17 +61,13 @@ class ScheduleCivilWidget extends StatefulWidget {
 }
 
 class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
-  // Transform/viewport (aplicado sobre a imagem DXF)
   final TransformationController _tc = TransformationController();
   final GlobalKey _viewerKey = GlobalKey();
 
-  // DXF controller (novo)
   final DxfController _dxf = DxfController();
 
-  // Fonte (apenas DXF)
   Uint8List? _docBytes;
 
-  // Estados
   bool _loading = false;
   Object? _error;
 
@@ -93,42 +81,37 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     });
   }
 
-  // Hover / “seleção de linha” (feedback por pixel)
   Offset? _hoverSnap;
   Offset? _selectedEdge;
 
-  // Texto inline
   int? _editingTextIndex;
   Offset? _editingAnchor;
   final _textEditCtrl = TextEditingController();
   final _textEditFocus = FocusNode();
 
-  // FIT
   bool _didFitViewport = false;
   EdgeInsets _lastInset = EdgeInsets.zero;
   Size _lastViewport = Size.zero;
 
   final double _dxfHairlinePx = 0.9;
 
-  // Props locais por polígono
   final Map<int, Map<String, dynamic>> _polyProps = {};
   Map<String, dynamic> _propsForIndex(int idx) => _polyProps[idx] ??= {};
 
-  // CIVIL BACKEND
   final Map<int, String> _polygonIdByIndex = {};
   int _lastFeatureCount = 0;
   bool _savingNewFeature = false;
   bool _hydrating = false;
   String? _lastAssetUrl;
 
-  // AUTH
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  // ====== STATUS/Cores ======
   ScheduleStatus _statusFromKey(String? s) {
     final t = (s ?? '').toLowerCase();
     if (t.contains('conclu')) return ScheduleStatus.concluido;
-    if (t.contains('andament') || t.contains('progress')) return ScheduleStatus.emAndamento;
+    if (t.contains('andament') || t.contains('progress')) {
+      return ScheduleStatus.emAndamento;
+    }
     return ScheduleStatus.aIniciar;
   }
 
@@ -141,15 +124,19 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
   Color _statusBaseColor(ScheduleStatus st) {
     switch (st) {
-      case ScheduleStatus.concluido:   return const Color(0xFF34A853);
-      case ScheduleStatus.emAndamento: return const Color(0xFFF39C12);
-      case ScheduleStatus.aIniciar:    return const Color(0xFF9CA3AF);
+      case ScheduleStatus.concluido:
+        return const Color(0xFF34A853);
+      case ScheduleStatus.emAndamento:
+        return const Color(0xFFF39C12);
+      case ScheduleStatus.aIniciar:
+        return const Color(0xFF9CA3AF);
     }
   }
 
   Color _polyColorForIndex(int i, {double s = 0.85, double v = 0.95}) {
     final props = _propsForIndex(i);
-    final prog = (props['progress'] is num) ? (props['progress'] as num).toDouble() : null;
+    final prog =
+    (props['progress'] is num) ? (props['progress'] as num).toDouble() : null;
     final status = (props['status'] != null)
         ? _statusFromKey(props['status'] as String?)
         : _statusFromProgress(prog);
@@ -168,7 +155,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     return HSVColor.fromAHSV(1.0, hue, s, v).toColor();
   }
 
-  // ====== Helpers ======
   Future<String> _askAreaName({String initial = 'Área'}) async {
     final txt = TextEditingController(text: initial);
     final r = await showDialog<String>(
@@ -185,7 +171,11 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Nome da área', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+                const Text(
+                  'Nome da área',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 14),
                 CustomTextField(
                   controller: txt,
@@ -196,8 +186,14 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextButton(onPressed: () => Navigator.of(ctx).pop(''), child: const Text('Cancelar')),
-                    ElevatedButton(onPressed: () => Navigator.of(ctx).pop(txt.text.trim()), child: const Text('Salvar')),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(''),
+                      child: const Text('Cancelar'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(txt.text.trim()),
+                      child: const Text('Salvar'),
+                    ),
                   ],
                 ),
               ],
@@ -209,12 +205,16 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     return (r ?? '').trim();
   }
 
-  // injeta polígono via controller
-  Future<void> _addFeatureFromPoints({required String name, required List<Offset> points}) async {
+  Future<void> _addFeatureFromPoints({
+    required String name,
+    required List<Offset> points,
+  }) async {
     final c = widget.controller;
     final prevMode = c.mode;
     c.activateDraw();
-    c.current..clear()..addAll(points);
+    c.current
+      ..clear()
+      ..addAll(points);
     await c.finishPolygon(onAskName: (_) async => name);
     c.activateSelect();
     c.current.clear();
@@ -222,17 +222,14 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     if (prevMode != ToolMode.draw) c.mode = prevMode;
   }
 
-  // ========== Hydrate ==========
   Future<void> _hydrateFromBackend(CivilScheduleState st) async {
     _hydrating = true;
 
-    // 1) baixar DXF do backend (apenas dxf_url)
     final rawUrl = (st.assets['dxf_url'])?.toString() ?? '';
     if (rawUrl.isNotEmpty && rawUrl != _lastAssetUrl) {
       await _syncAssetFromBackend(rawUrl);
     }
 
-    // 2) desenhar polígonos do backend
     widget.controller.clearAll();
     _polygonIdByIndex.clear();
     _polyProps.clear();
@@ -245,21 +242,28 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       final pts = (d['points'] as List? ?? const [])
           .map((p) {
         final m = Map<String, dynamic>.from(p as Map);
-        return Offset((m['x'] as num).toDouble(), (m['y'] as num).toDouble());
+        return Offset(
+          (m['x'] as num).toDouble(),
+          (m['y'] as num).toDouble(),
+        );
       })
           .toList();
 
       await _addFeatureFromPoints(name: name, points: pts);
 
       final props = _propsForIndex(i);
-      props['status']     = d['status'];
-      props['comment']    = d['comentario'];
-      props['takenAtMs']  = (d['takenAtMs'] is num) ? (d['takenAtMs'] as num).toInt() : null;
-      props['photoUrls']  = (d['fotos'] is List) ? List<String>.from(d['fotos']) : const <String>[];
+      props['status'] = d['status'];
+      props['comment'] = d['comentario'];
+      props['takenAtMs'] =
+      (d['takenAtMs'] is num) ? (d['takenAtMs'] as num).toInt() : null;
+      props['photoUrls'] =
+      (d['fotos'] is List) ? List<String>.from(d['fotos']) : const <String>[];
       props['photoMetas'] = (d['fotos_meta'] is List)
           ? List<Map<String, dynamic>>.from(
         (d['fotos_meta'] as List).whereType<Object>().map(
-              (e) => (e is Map) ? Map<String, dynamic>.from(e) : <String, dynamic>{},
+              (e) => (e is Map)
+              ? Map<String, dynamic>.from(e)
+              : <String, dynamic>{},
         ),
       )
           : const <Map<String, dynamic>>[];
@@ -280,7 +284,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     _hydrating = false;
   }
 
-  // ========== Storage sync (DXF only) ==========
   Future<void> _syncAssetFromBackend(String rawUrl) async {
     try {
       _setBlocking(true, msg: 'Baixando DXF…');
@@ -290,8 +293,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
       setState(() {
         _docBytes = data;
-
-        // limpa estados de interação
         _hoverSnap = null;
         _didFitViewport = false;
         _selectedEdge = null;
@@ -307,7 +308,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
   @override
   void initState() {
     super.initState();
-    _docBytes = widget.initialPdfBytes; // trata como DXF inicial
+    _docBytes = widget.initialPdfBytes;
     _lastFeatureCount = widget.controller.features.length;
     widget.controller.addListener(_onControllerChanged);
     if (_docBytes != null) _renderDxf();
@@ -336,6 +337,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
   Future<void> _persistFeatureIfNeeded(int index) async {
     if (_savingNewFeature) return;
+
     final civil = context.read<CivilScheduleBloc?>();
     final cid = civil?.state.contractId;
     if (civil == null || cid == null) return;
@@ -346,7 +348,8 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       _polygonIdByIndex[index] = '__pending__';
 
       final f = widget.controller.features[index];
-      final points = f.points.map((p) => {'x': p.dx.toDouble(), 'y': p.dy.toDouble()}).toList();
+      final points =
+      f.points.map((p) => {'x': p.dx.toDouble(), 'y': p.dy.toDouble()}).toList();
 
       final newId = await civil.repo.upsertPolygon(
         contractId: cid,
@@ -385,7 +388,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     }
   }
 
-  // ========== Render DXF via controller ==========
   Future<void> _renderDxf() async {
     if (_docBytes == null) return;
     widget.controller.setPagePixelSize = null;
@@ -394,7 +396,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       _loading = true;
       _error = null;
       _didFitViewport = false;
-
       _hoverSnap = null;
       _editingTextIndex = null;
       _editingAnchor = null;
@@ -405,8 +406,11 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       _setBlocking(true, msg: 'Renderizando DXF…');
       await _dxf.loadBytes(_docBytes!, hairlinePx: _dxfHairlinePx);
       if (_dxf.model != null && widget.onPolylinesReady != null) {
-        final projector = autoDetectProjector(_dxf.model!); // ou UtmProjector(zone: 24/25, southHemisphere: true)
-        final lines = DxfToGeo.toPolylines(model: _dxf.model!, projector: projector);
+        final projector = autoDetectProjector(_dxf.model!);
+        final lines = DxfToGeo.toPolylines(
+          model: _dxf.model!,
+          projector: projector,
+        );
         widget.onPolylinesReady!(lines);
       }
 
@@ -430,10 +434,9 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     }
   }
 
-  // ========== Fit ==========
   Rect _autoContentBounds({int step = 1, int white = 235}) {
     if (_dxf.rgba == null || _dxf.w <= 0 || _dxf.h <= 0) {
-      final s = _dxf.sizePx ?? const Size(1,1);
+      final s = _dxf.sizePx ?? const Size(1, 1);
       return Rect.fromLTWH(0, 0, s.width, s.height);
     }
     int minX = _dxf.w, minY = _dxf.h, maxX = -1, maxY = -1;
@@ -457,7 +460,7 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     }
 
     if (maxX < 0) {
-      final s = _dxf.sizePx ?? const Size(1,1);
+      final s = _dxf.sizePx ?? const Size(1, 1);
       return Rect.fromLTWH(0, 0, s.width, s.height);
     }
 
@@ -495,31 +498,26 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     _didFitViewport = true;
   }
 
-  // ========== Conversões ==========
   Offset _toImageSpace(Offset globalPosition) {
     final ctx = _viewerKey.currentContext;
     if (ctx == null) return Offset.zero;
     final box = ctx.findRenderObject() as RenderBox?;
     if (box == null) return Offset.zero;
     final localInViewer = box.globalToLocal(globalPosition);
-    return _tc.toScene(localInViewer); // ponto em px da IMAGEM
+    return _tc.toScene(localInViewer);
   }
 
-  // ===== Texto =====
-
-
-
-  // ========== Interação ==========
   Future<void> _onTapDown(TapDownDetails d) async {
     if (_dxf.sizePx == null) return;
 
-    // Converte screen → image space
     var pImage = _toImageSpace(d.globalPosition);
 
-    // Snap por pixel (na imagem raster)
     if (widget.controller.snapEnabled) {
       pImage = SnapUtils.snapToEdge(
-        p: pImage, rgba: _dxf.rgba, w: _dxf.w, h: _dxf.h,
+        p: pImage,
+        rgba: _dxf.rgba,
+        w: _dxf.w,
+        h: _dxf.h,
         snapRadius: widget.controller.snapRadius,
         minGradient: widget.controller.snapMinGradient,
       );
@@ -527,45 +525,52 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
     final ctrl = widget.controller;
 
-    // Texto → editor inline
     if (ctrl.mode == ToolMode.text) {
       _startInlineTextEditor(pImage);
       return;
     }
 
-    // Delega pro controller (select/draw de polígonos) — OBS: ele também trabalha em "image space"
     ctrl.handleTap(
       pagePoint: pImage,
       onAskName: (s) => _askAreaName(initial: s),
     );
 
-    // Evita modal durante desenho
-    final bool isDrawingNow = ctrl.mode == ToolMode.draw && ctrl.current.isNotEmpty;
+    final bool isDrawingNow =
+        ctrl.mode == ToolMode.draw && ctrl.current.isNotEmpty;
 
-    // Hit-test de ENTIDADES DXF (quando nada de polígono foi selecionado)
     if (!isDrawingNow &&
         ctrl.mode == ToolMode.select &&
         ctrl.selectedIndex == null) {
-      setState(() {}); // redesenha overlay
+      setState(() {});
     }
 
-    // Fallback antigo: marcador na borda do DXF por snap de pixel
-    if (ctrl.mode == ToolMode.select && ctrl.selectedIndex == null && !isDrawingNow && _dxf.rgba != null) {
+    if (ctrl.mode == ToolMode.select &&
+        ctrl.selectedIndex == null &&
+        !isDrawingNow &&
+        _dxf.rgba != null) {
       final q = SnapUtils.snapToEdge(
-        p: pImage, rgba: _dxf.rgba, w: _dxf.w, h: _dxf.h,
-        snapRadius: ctrl.snapRadius, minGradient: ctrl.snapMinGradient,
+        p: pImage,
+        rgba: _dxf.rgba,
+        w: _dxf.w,
+        h: _dxf.h,
+        snapRadius: ctrl.snapRadius,
+        minGradient: ctrl.snapMinGradient,
       );
       if ((q - pImage).distance <= ctrl.snapRadius.toDouble()) {
         setState(() => _selectedEdge = q);
         Future.delayed(const Duration(milliseconds: 1200), () {
-          if (mounted && _selectedEdge == q) setState(() => _selectedEdge = null);
+          if (mounted && _selectedEdge == q) {
+            setState(() => _selectedEdge = null);
+          }
         });
       }
     }
 
-    // Se polígono selecionado, abre o modal
     final int? selected = ctrl.selectedIndex;
-    if (selected != null && selected >= 0 && !isDrawingNow && ctrl.mode != ToolMode.text) {
+    if (selected != null &&
+        selected >= 0 &&
+        !isDrawingNow &&
+        ctrl.mode != ToolMode.text) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _openScheduleModalForPolygonUnified(selected);
       });
@@ -575,15 +580,23 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
   void _onHover(PointerHoverEvent e) {
     if (widget.controller.mode != ToolMode.draw ||
         !widget.controller.snapEnabled ||
-        _dxf.sizePx == null) return;
+        _dxf.sizePx == null) {
+      return;
+    }
 
     var p = _toImageSpace(e.position);
-    if (p.dx < 0 || p.dy < 0 || p.dx > _dxf.sizePx!.width || p.dy > _dxf.sizePx!.height) {
+    if (p.dx < 0 ||
+        p.dy < 0 ||
+        p.dx > _dxf.sizePx!.width ||
+        p.dy > _dxf.sizePx!.height) {
       if (_hoverSnap != null) setState(() => _hoverSnap = null);
       return;
     }
     p = SnapUtils.snapToEdge(
-      p: p, rgba: _dxf.rgba, w: _dxf.w, h: _dxf.h,
+      p: p,
+      rgba: _dxf.rgba,
+      w: _dxf.w,
+      h: _dxf.h,
       snapRadius: widget.controller.snapRadius,
       minGradient: widget.controller.snapMinGradient,
     );
@@ -594,8 +607,8 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     if (_hoverSnap != null) setState(() => _hoverSnap = null);
   }
 
-  // ========== Upload DXF ==========
   Future<void> _pickAndReplace() async {
+    final civil = context.read<CivilScheduleBloc?>();
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['dxf'],
@@ -617,29 +630,27 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
     widget.controller.clearAll();
     widget.controller.setPagePixelSize = null;
-    await _renderDxf(); // render local imediato
+    await _renderDxf();
 
-    // sobe no Storage e salva meta dos assets
-    final civil = context.read<CivilScheduleBloc?>();
     if (civil != null && civil.state.contractId != null && _docBytes != null) {
-      civil.add(CivilAssetUploadRequested(
-        filename: name,
-        bytes: _docBytes!,
-        currentUserId: _uid,
-      ));
+      civil.add(
+        CivilAssetUploadRequested(
+          filename: name,
+          bytes: _docBytes!,
+          currentUserId: _uid,
+        ),
+      );
     }
 
     _setBlocking(false);
   }
 
-  // Insets / Viewport
   void _onInsetsReady(EdgeInsets inset, Size viewport) {
     _lastInset = inset;
     _lastViewport = viewport;
     if (_dxf.sizePx == null) return;
     if (!_didFitViewport) _applyFitToContent();
   }
-
 
   Widget _buildInteractiveViewer() {
     final ctrl = widget.controller;
@@ -653,7 +664,9 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
       opaque: true,
       cursor: ctrl.mode == ToolMode.draw
           ? SystemMouseCursors.precise
-          : (ctrl.mode == ToolMode.text ? SystemMouseCursors.text : SystemMouseCursors.grab),
+          : (ctrl.mode == ToolMode.text
+          ? SystemMouseCursors.text
+          : SystemMouseCursors.grab),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: _onTapDown,
@@ -671,17 +684,12 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
             height: _dxf.sizePx!.height,
             child: Stack(
               children: [
-                // DXF raster (com alpha)
                 RawImage(image: _dxf.image),
-
-                // 🔵 Overlay da ENTIDADE DXF selecionada
                 DxfSelectionOverlay(
                   model: _dxf.model,
                   pick: _dxf.selectedPick,
                   modelToImage: _dxf.modelToImage,
                 ),
-
-                // polígonos
                 CustomPaint(
                   size: _dxf.sizePx!,
                   painter: PolygonPainter(
@@ -692,12 +700,17 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                     percentForIndex: (i) {
                       final p = _propsForIndex(i)['progress'];
                       if (p is num) return p.toDouble();
-                      final st = _statusFromKey(_propsForIndex(i)['status'] as String?);
-                      return st == ScheduleStatus.concluido ? 100.0
+                      final st = _statusFromKey(
+                        _propsForIndex(i)['status'] as String?,
+                      );
+                      return st == ScheduleStatus.concluido
+                          ? 100.0
                           : (st == ScheduleStatus.aIniciar ? 0.0 : 50.0);
                     },
                     hasPhotosForIndex: (i) {
-                      final urls = (_propsForIndex(i)['photoUrls'] as List?)?.cast<String>() ?? const [];
+                      final urls = (_propsForIndex(i)['photoUrls'] as List?)
+                          ?.cast<String>() ??
+                          const [];
                       return urls.isNotEmpty;
                     },
                     hasCommentForIndex: (i) {
@@ -708,12 +721,10 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                     selectedIndex: ctrl.selectedIndex,
                   ),
                 ),
-
-                // marcador da linha dxf “selecionada” (fallback por pixel)
                 if (_selectedEdge != null)
                   Positioned(
                     left: _selectedEdge!.dx - 6,
-                    top:  _selectedEdge!.dy - 6,
+                    top: _selectedEdge!.dy - 6,
                     child: IgnorePointer(
                       ignoring: true,
                       child: Container(
@@ -722,14 +733,17 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.transparent,
-                          border: Border.all(color: const Color(0xFF8CC8FF), width: 2),
-                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3)],
+                          border: Border.all(
+                            color: const Color(0xFF8CC8FF),
+                            width: 2,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 3),
+                          ],
                         ),
                       ),
                     ),
                   ),
-
-                // editor inline
                 if (_editingAnchor != null)
                   Positioned(
                     left: _editingAnchor!.dx,
@@ -742,8 +756,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                       onCancel: _cancelInlineText,
                     ),
                   ),
-
-                // textos renderizados
                 ...List.generate(ctrl.texts.length, (i) {
                   final it = ctrl.texts[i];
                   final style = ctrl.defaultTextStyle.copyWith(
@@ -751,7 +763,9 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                     fontSize: it.fontSize,
                     fontWeight: it.weight,
                     shadows: (i == ctrl.selectedText)
-                        ? const [Shadow(color: Colors.black54, blurRadius: 6)]
+                        ? const [
+                      Shadow(color: Colors.black54, blurRadius: 6),
+                    ]
                         : null,
                   );
 
@@ -791,10 +805,17 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
   }
 
   Widget _buildScreenBlocker() {
-    if (!(_blocking || _loading || _dxf.isLoading)) return const SizedBox.shrink();
+    if (!(_blocking || _loading || _dxf.isLoading)) {
+      return const SizedBox.shrink();
+    }
     return Stack(
       children: [
-        const Positioned.fill(child: ModalBarrier(dismissible: false, color: Color(0x80000000))),
+        const Positioned.fill(
+          child: ModalBarrier(
+            dismissible: false,
+            color: Color(0x80000000),
+          ),
+        ),
         Positioned.fill(
           child: Center(
             child: Container(
@@ -807,9 +828,19 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.6)),
+                  const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.6),
+                  ),
                   const SizedBox(width: 12),
-                  Text(_blockingMsg, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  Text(
+                    _blockingMsg,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -819,13 +850,13 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     );
   }
 
-  // ===== Texto inline =====
   void _startInlineTextEditor(Offset scenePos, {int? editIndex}) {
     final ctrl = widget.controller;
     setState(() {
       _editingTextIndex = editIndex;
       _editingAnchor = scenePos;
-      _textEditCtrl.text = (editIndex != null) ? ctrl.texts[editIndex].text : '';
+      _textEditCtrl.text =
+      (editIndex != null) ? ctrl.texts[editIndex].text : '';
       ctrl.selectedText = editIndex;
       ctrl.mode = ToolMode.text;
     });
@@ -845,17 +876,21 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
 
     setState(() {
       if (_editingTextIndex == null) {
-        ctrl.texts.add(TextItem(
-          text: txt,
-          position: _editingAnchor!,
-          color: ctrl.defaultTextStyle.color ?? Colors.white,
-          fontSize: ctrl.defaultTextStyle.fontSize ?? 16,
-          weight: ctrl.defaultTextStyle.fontWeight ?? FontWeight.w600,
-          areaSize: (ctrl.textTool == TextTool.area || ctrl.textTool == TextTool.verticalArea)
-              ? Size(ctrl.textDefaultWidth, ctrl.textDefaultHeight)
-              : null,
-          vertical: (ctrl.textTool == TextTool.verticalPoint || ctrl.textTool == TextTool.verticalArea),
-        ));
+        ctrl.texts.add(
+          TextItem(
+            text: txt,
+            position: _editingAnchor!,
+            color: ctrl.defaultTextStyle.color ?? Colors.white,
+            fontSize: ctrl.defaultTextStyle.fontSize ?? 16,
+            weight: ctrl.defaultTextStyle.fontWeight ?? FontWeight.w600,
+            areaSize: (ctrl.textTool == TextTool.area ||
+                ctrl.textTool == TextTool.verticalArea)
+                ? Size(ctrl.textDefaultWidth, ctrl.textDefaultHeight)
+                : null,
+            vertical: (ctrl.textTool == TextTool.verticalPoint ||
+                ctrl.textTool == TextTool.verticalArea),
+          ),
+        );
         ctrl.selectedText = ctrl.texts.length - 1;
       } else {
         final i = _editingTextIndex!;
@@ -887,9 +922,10 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     _textEditCtrl.clear();
   }
 
-  // ===== Modal unificado =====
   Future<void> _openScheduleModalForPolygonUnified(int polyIndex) async {
     final ctrl = widget.controller;
+    final civilBloc = context.read<CivilScheduleBloc>();
+    final navigator = Navigator.of(context);
 
     final currentName = ctrl.features[polyIndex].name;
     final props = _propsForIndex(polyIndex);
@@ -897,12 +933,15 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     final String? statusKey = props['status'] as String?;
     final String? comment = props['comment'] as String?;
     final int? takenAtMs = props['takenAtMs'] as int?;
-    final DateTime? takenAt = takenAtMs != null ? DateTime.fromMillisecondsSinceEpoch(takenAtMs) : null;
+    final DateTime? takenAt =
+    takenAtMs != null ? DateTime.fromMillisecondsSinceEpoch(takenAtMs) : null;
 
-    final List<String> existingUrls = (props['photoUrls'] as List?)?.cast<String>() ?? const [];
+    final List<String> existingUrls =
+        (props['photoUrls'] as List?)?.cast<String>() ?? const [];
 
-    final double? initialProgress =
-    (props['progress'] is num) ? (props['progress'] as num).toDouble().clamp(0, 100) : null;
+    final double? initialProgress = (props['progress'] is num)
+        ? (props['progress'] as num).toDouble().clamp(0, 100)
+        : null;
 
     final List metas = (props['photoMetas'] as List?) ?? const [];
     final Map<String, pm.CarouselMetadata> existingMetaByUrl = {
@@ -911,7 +950,9 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
           m['url'] as String: pm.CarouselMetadata(
             name: m['name']?.toString(),
             takenAt: (m['takenAtMs'] is num)
-                ? DateTime.fromMillisecondsSinceEpoch((m['takenAtMs'] as num).toInt())
+                ? DateTime.fromMillisecondsSinceEpoch(
+              (m['takenAtMs'] as num).toInt(),
+            )
                 : null,
             lat: (m['lat'] as num?)?.toDouble(),
             lng: (m['lng'] as num?)?.toDouble(),
@@ -931,29 +972,26 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
     final polygonId = _polygonIdByIndex[polyIndex];
 
     if (polygonId == null) {
-      final civil = context.read<CivilScheduleBloc>();
       final f = widget.controller.features[polyIndex];
       final points = f.points.map((p) => {'x': p.dx, 'y': p.dy}).toList();
-      await civil.repo.upsertPolygon(
-        contractId: civil.state.contractId!,
-        page: civil.state.currentPage,
+      await civilBloc.repo.upsertPolygon(
+        contractId: civilBloc.state.contractId!,
+        page: civilBloc.state.currentPage,
         name: f.name,
         status: 'a_iniciar',
         points: points
-            .map((m) => {'x': (m['x'] as num).toDouble(), 'y': (m['y'] as num).toDouble()})
+            .map(
+              (m) => {
+            'x': (m['x'] as num).toDouble(),
+            'y': (m['y'] as num).toDouble(),
+          },
+        )
             .toList(),
         currentUserId: _uid,
       );
-      civil.add(const CivilRefreshRequested());
+      civilBloc.add(const CivilRefreshRequested());
       return;
     }
-
-    final civilBloc = context.read<CivilScheduleBloc>();
-   /* final ScheduleRoadBloc adapter = ScheduleBlocAdapterForCivil(
-      civilBloc: civilBloc,
-      polygonId: polygonId,
-      currentUserId: _uid,
-    );*/
 
     await showModalBottomSheet<void>(
       context: context,
@@ -971,7 +1009,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
               physics: const ClampingScrollPhysics(),
               child: MultiBlocProvider(
                 providers: [
-                  //BlocProvider<ScheduleRoadBloc>.value(value: adapter),
                   BlocProvider<CivilScheduleBloc>.value(value: civilBloc),
                 ],
                 child: ScheduleModalSquare(
@@ -993,8 +1030,8 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                   initialProgress: initialProgress,
                   onDelete: () {
                     civilBloc.add(CivilPolygonDeleteRequested(polygonId));
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
+                    if (navigator.canPop()) {
+                      navigator.pop();
                     }
                     civilBloc.add(const CivilRefreshRequested());
 
@@ -1013,21 +1050,19 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
         );
       },
     );
-    //await adapter.close();
 
     if (mounted) setState(() {});
   }
 
-  // ========= Build =========
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<CivilScheduleBloc, CivilScheduleState>(
       listenWhen: (prev, curr) =>
-      prev.contractId  != curr.contractId  ||
+      prev.contractId != curr.contractId ||
           prev.currentPage != curr.currentPage ||
-          prev.assets      != curr.assets      ||
-          prev.polygons    != curr.polygons    ||
-          prev.error       != curr.error,
+          prev.assets != curr.assets ||
+          prev.polygons != curr.polygons ||
+          prev.error != curr.error,
       listener: (ctx, st) async {
         await _hydrateFromBackend(st);
         if ((st.error ?? '').isNotEmpty && mounted) {
@@ -1041,7 +1076,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
         }
       },
       builder: (ctx, st) {
-        // erro de render
         if (_error != null || _dxf.error != null) {
           return Scaffold(
             body: Center(
@@ -1053,7 +1087,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
           );
         }
 
-        // ainda sem DXF
         if (_docBytes == null || _dxf.image == null || _dxf.sizePx == null) {
           return Scaffold(
             body: Stack(
@@ -1064,7 +1097,9 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                   contentPadding: 24,
                   onInsetsReady: (inset, viewport) {},
                   childBuilder: (context, inset, viewport) =>
-                      DxfPdfEmptyHint(onPickFile: widget.allowPickNewPdf ? _pickAndReplace : null),
+                      DxfPdfEmptyHint(
+                        onPickFile: widget.allowPickNewPdf ? _pickAndReplace : null,
+                      ),
                 ),
                 _buildScreenBlocker(),
               ],
@@ -1079,7 +1114,6 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
           );
         }
 
-        // normal
         return Scaffold(
           body: Stack(
             children: [
@@ -1088,7 +1122,8 @@ class _ScheduleCivilWidgetState extends State<ScheduleCivilWidget> {
                 showBoard: true,
                 contentPadding: 0,
                 onInsetsReady: _onInsetsReady,
-                childBuilder: (context, inset, viewport) => _buildInteractiveViewer(),
+                childBuilder: (context, inset, viewport) =>
+                    _buildInteractiveViewer(),
               ),
               _buildScreenBlocker(),
             ],

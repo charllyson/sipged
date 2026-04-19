@@ -14,7 +14,6 @@ import 'package:sipged/_widgets/list/files/side_list_box.dart';
 import 'package:sipged/_blocs/modules/financial/budget/budget_cubit.dart';
 import 'package:sipged/_blocs/modules/financial/budget/budget_state.dart';
 
-// ✅ para filtrar só Attachment no onItemsChanged (SideListBox aceita dynamic)
 import 'package:sipged/_widgets/list/files/attachment.dart';
 
 class BudgetFormSection extends StatefulWidget {
@@ -52,8 +51,10 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
     _descCtrl = TextEditingController();
     _amountCtrl = TextEditingController();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      context.read<SetupCubit>().loadCompanies();
+    final setupCubit = context.read<SetupCubit>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setupCubit.loadCompanies();
     });
   }
 
@@ -75,7 +76,6 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
     }
     final desiredYear = s.year <= 0 ? '' : s.year.toString();
     if (_yearCtrl.text != desiredYear) _yearCtrl.text = desiredYear;
-
     if (_codeCtrl.text != s.budgetCode) _codeCtrl.text = s.budgetCode;
     if (_descCtrl.text != s.description) _descCtrl.text = s.description;
     if (_amountCtrl.text != s.amountText) _amountCtrl.text = s.amountText;
@@ -85,7 +85,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
     final low = label.trim().toLowerCase();
     if (low.isEmpty) return null;
     for (final s in list) {
-      final l = (s.label).trim().toLowerCase();
+      final l = s.label.trim().toLowerCase();
       if (l == low) return s;
     }
     return null;
@@ -103,7 +103,8 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
         final setupCubit = context.read<SetupCubit>();
         await setupCubit.ensureCompanySetupLoaded(companyId);
 
-        if (mounted) setState(() => _companyNonce++);
+        if (!mounted) return;
+        setState(() => _companyNonce++);
       },
       child: BlocBuilder<BudgetCubit, BudgetState>(
         builder: (context, st) {
@@ -143,18 +144,14 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
               final double minCardHeight = isSmallScreen ? 260.0 : 170.0;
 
-              final cubit = context.read<BudgetCubit>();
-              final formOk = cubit.formValidated;
-              final amountValue = cubit.amountValue;
+              final budgetCubit = context.read<BudgetCubit>();
+              final formOk = budgetCubit.formValidated;
+              final amountValue = budgetCubit.amountValue;
 
-              // =========================
-              // CAMPOS
-              // =========================
               final camposWrap = Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  // CONTRATANTE (Órgão)
                   DropDownChange(
                     width: inputsWidth,
                     labelText: 'Contratante',
@@ -163,18 +160,18 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                     specialItemLabel: 'Adicionar contratante',
                     menuMaxHeight: 260,
                     onChanged: (label) async {
-                      final budgetCubit = context.read<BudgetCubit>();
+                      final localBudgetCubit = context.read<BudgetCubit>();
                       final sysCubit = context.read<SetupCubit>();
 
                       final selectedLabel = _s(label);
 
                       if (selectedLabel.isEmpty) {
-                        budgetCubit.clearCompany();
+                        localBudgetCubit.clearCompany();
+                        localBudgetCubit.setFundingSourceId(null);
+                        localBudgetCubit.setFundingSourceLabel('');
+                        localBudgetCubit.clearFundingSourceId();
 
-                        budgetCubit.setFundingSourceId(null);
-                        budgetCubit.setFundingSourceLabel('');
-                        budgetCubit.clearFundingSourceId();
-
+                        if (!mounted) return;
                         setState(() => _companyNonce++);
                         return;
                       }
@@ -185,20 +182,22 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       );
 
                       final id = (selected.companyId ?? selected.id).trim();
-                      budgetCubit.setCompanyId(id);
-                      budgetCubit.setCompanyLabel(selected.label);
 
-                      // reset fonte ao trocar company
-                      budgetCubit.setFundingSourceId(null);
-                      budgetCubit.setFundingSourceLabel('');
-                      budgetCubit.clearFundingSourceId();
+                      localBudgetCubit.setCompanyId(id);
+                      localBudgetCubit.setCompanyLabel(selected.label);
 
+                      localBudgetCubit.setFundingSourceId(null);
+                      localBudgetCubit.setFundingSourceLabel('');
+                      localBudgetCubit.clearFundingSourceId();
+
+                      if (!mounted) return;
                       setState(() => _companyNonce++);
+
                       await sysCubit.ensureCompanySetupLoaded(id);
                     },
                     onCreateNewItem: (label) async {
                       final sysCubit = context.read<SetupCubit>();
-                      final budgetCubit = context.read<BudgetCubit>();
+                      final localBudgetCubit = context.read<BudgetCubit>();
 
                       final newLabel = _s(label);
                       if (newLabel.isEmpty) return;
@@ -207,19 +206,20 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       if (created == null) return;
 
                       final id = (created.companyId ?? created.id).trim();
-                      budgetCubit.setCompanyId(id);
-                      budgetCubit.setCompanyLabel(created.label);
 
-                      budgetCubit.setFundingSourceId(null);
-                      budgetCubit.setFundingSourceLabel('');
-                      budgetCubit.clearFundingSourceId();
+                      localBudgetCubit.setCompanyId(id);
+                      localBudgetCubit.setCompanyLabel(created.label);
 
+                      localBudgetCubit.setFundingSourceId(null);
+                      localBudgetCubit.setFundingSourceLabel('');
+                      localBudgetCubit.clearFundingSourceId();
+
+                      if (!mounted) return;
                       setState(() => _companyNonce++);
+
                       await sysCubit.ensureCompanySetupLoaded(id);
                     },
                   ),
-
-                  // FONTE DE RECURSO
                   DropDownChange(
                     showSpecialAlways: true,
                     key: ValueKey(
@@ -236,13 +236,13 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                     specialItemLabel: 'Adicionar fonte',
                     menuMaxHeight: 260,
                     onChanged: (label) {
-                      final budgetCubit = context.read<BudgetCubit>();
+                      final localBudgetCubit = context.read<BudgetCubit>();
                       final selectedLabel = _s(label);
 
                       if (selectedLabel.isEmpty) {
-                        budgetCubit.setFundingSourceId(null);
-                        budgetCubit.setFundingSourceLabel('');
-                        budgetCubit.clearFundingSourceId();
+                        localBudgetCubit.setFundingSourceId(null);
+                        localBudgetCubit.setFundingSourceLabel('');
+                        localBudgetCubit.clearFundingSourceId();
                         return;
                       }
 
@@ -251,15 +251,16 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                         orElse: () => fundingSources.first,
                       );
 
-                      budgetCubit.setFundingSourceLabel(selected.label);
-                      budgetCubit.setFundingSourceId(
+                      localBudgetCubit.setFundingSourceLabel(selected.label);
+                      localBudgetCubit.setFundingSourceId(
                         (selected.genericId ?? selected.id).trim(),
                       );
                     },
                     onCreateNewItem: (companySelected && childrenLoadedForCompany)
                         ? (label) async {
                       final sysCubit = context.read<SetupCubit>();
-                      final budgetCubit = context.read<BudgetCubit>();
+                      final localBudgetCubit =
+                      context.read<BudgetCubit>();
 
                       final newLabel = _s(label);
                       if (newLabel.isEmpty) return;
@@ -270,14 +271,18 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       );
                       if (created == null) return;
 
-                      budgetCubit.setFundingSourceLabel(created.label);
-                      budgetCubit.setFundingSourceId(
+                      localBudgetCubit
+                          .setFundingSourceLabel(created.label);
+                      localBudgetCubit.setFundingSourceId(
                         (created.genericId ?? created.id).trim(),
                       );
                     }
                         : null,
                     onEditItem: (companySelected && childrenLoadedForCompany)
                         ? (oldLabel, newLabel) async {
+                      final localBudgetCubit =
+                      context.read<BudgetCubit>();
+
                       final oldL = _s(oldLabel);
                       final newL = _s(newLabel);
                       if (oldL.isEmpty || newL.isEmpty) return;
@@ -285,7 +290,8 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       final target = _findByLabel(fundingSources, oldL);
                       if (target == null) return;
 
-                      final sourceId = (target.genericId ?? target.id).trim();
+                      final sourceId =
+                      (target.genericId ?? target.id).trim();
                       if (sourceId.isEmpty) return;
 
                       final updated =
@@ -299,38 +305,41 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                       if (_fonteCtrl.text.trim().toLowerCase() ==
                           oldL.toLowerCase()) {
                         _fonteCtrl.text = updated.label;
-                        context
-                            .read<BudgetCubit>()
+                        localBudgetCubit
                             .setFundingSourceLabel(updated.label);
                       }
                     }
                         : null,
                     onDeleteItem: (companySelected && childrenLoadedForCompany)
                         ? (ctx, label) async {
+                      final localBudgetCubit =
+                      context.read<BudgetCubit>();
+
                       final lab = _s(label);
                       if (lab.isEmpty) return;
 
                       final target = _findByLabel(fundingSources, lab);
                       if (target == null) return;
 
-                      final sourceId = (target.genericId ?? target.id).trim();
+                      final sourceId =
+                      (target.genericId ?? target.id).trim();
                       if (sourceId.isEmpty) return;
 
-                      await setupCubit.deleteFundingSource(companyId, sourceId);
+                      await setupCubit.deleteFundingSource(
+                        companyId,
+                        sourceId,
+                      );
 
                       if (_fonteCtrl.text.trim().toLowerCase() ==
                           lab.toLowerCase()) {
                         _fonteCtrl.clear();
-                        final c = context.read<BudgetCubit>();
-                        c.setFundingSourceLabel('');
-                        c.setFundingSourceId(null);
-                        c.clearFundingSourceId();
+                        localBudgetCubit.setFundingSourceLabel('');
+                        localBudgetCubit.setFundingSourceId(null);
+                        localBudgetCubit.clearFundingSourceId();
                       }
                     }
                         : null,
                   ),
-
-                  // EXERCÍCIO (ANO)
                   CustomTextField(
                     width: inputsWidth,
                     controller: _yearCtrl,
@@ -338,45 +347,40 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                     keyboardType: TextInputType.number,
                     onChanged: (v) => context.read<BudgetCubit>().setYearText(v),
                   ),
-
-                  // CÓDIGO (opcional)
                   CustomTextField(
                     width: inputsWidth,
                     controller: _codeCtrl,
                     labelText: 'Código (opcional)',
-                    onChanged: (v) => context.read<BudgetCubit>().setBudgetCode(v),
+                    onChanged: (v) =>
+                        context.read<BudgetCubit>().setBudgetCode(v),
                   ),
-
-                  // DESCRIÇÃO
                   CustomTextField(
                     width: inputsWidth,
                     controller: _descCtrl,
                     labelText: 'Descrição',
-                    onChanged: (v) => context.read<BudgetCubit>().setDescription(v),
+                    onChanged: (v) =>
+                        context.read<BudgetCubit>().setDescription(v),
                   ),
-
-                  // VALOR
                   CustomTextField(
                     width: inputsWidth,
                     controller: _amountCtrl,
                     labelText: 'Valor orçado',
                     keyboardType: TextInputType.number,
-                    onChanged: (v) => context.read<BudgetCubit>().setAmountText(v),
+                    onChanged: (v) =>
+                        context.read<BudgetCubit>().setAmountText(v),
                   ),
                 ],
               );
 
-              // =========================
-              // BOTÕES
-              // =========================
               final botoes = Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
                     icon: const Icon(Icons.save),
                     label: Text(st.selected == null ? 'Salvar' : 'Atualizar'),
-                    onPressed:
-                    formOk ? () => context.read<BudgetCubit>().saveOrUpdate() : null,
+                    onPressed: formOk
+                        ? () => context.read<BudgetCubit>().saveOrUpdate()
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   if (st.selected != null)
@@ -391,7 +395,9 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
               final resumo = Row(
                 children: [
                   Expanded(
-                    child: Text('Valor: ${widget.currency.format(amountValue)}'),
+                    child: Text(
+                      'Valor: ${widget.currency.format(amountValue)}',
+                    ),
                   ),
                 ],
               );
@@ -407,16 +413,15 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
                 ],
               );
 
-              // =========================
-              // SIDE (Arquivos)
-              // =========================
               final side = SideListBox(
                 title: 'Arquivos do Orçamento',
-                items: st.attachments, // List<Attachment>
+                items: st.attachments,
                 selectedIndex: st.selectedSideIndex,
                 onAddPressed: null,
                 onTap: (i) => context.read<BudgetCubit>().selectSideIndex(i),
-                onDelete: (i) => context.read<BudgetCubit>().deleteAttachmentAt(i), enableRename: true,
+                onDelete: (i) =>
+                    context.read<BudgetCubit>().deleteAttachmentAt(i),
+                enableRename: true,
                 onItemsChanged: (newItems) {
                   final list = newItems.whereType<Attachment>().toList();
                   context.read<BudgetCubit>().setAttachments(list);

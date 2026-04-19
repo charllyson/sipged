@@ -1,4 +1,3 @@
-// lib/screens/modules/actives/oaes/active_oaes_map_cesium.dart
 import 'package:flutter/material.dart';
 
 import 'package:sipged/_widgets/map/map_box/map_mapbox_layer.dart';
@@ -40,8 +39,15 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       final d = m.data;
       final nota = d.score?.toDouble() ?? 0;
       final Color notaColor = ActiveOaesData.getColorByNota(nota);
+
+      final red = (notaColor.r * 255).round().clamp(0, 255);
+      final green = (notaColor.g * 255).round().clamp(0, 255);
+      final blue = (notaColor.b * 255).round().clamp(0, 255);
+
       final colorHex =
-          '#${notaColor.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+          '#${red.toRadixString(16).padLeft(2, '0')}'
+          '${green.toRadixString(16).padLeft(2, '0')}'
+          '${blue.toRadixString(16).padLeft(2, '0')}';
 
       return MapboxData(
         lon: m.point.longitude,
@@ -66,8 +72,10 @@ class ActiveOaesMapMapbox extends StatelessWidget {
       bearing: 0,
       onMarkerTap: (evt) {
         if (onOpenDetails == null) return;
+
         final idExtra = evt.idExtra;
         if (idExtra == null || idExtra.isEmpty) return;
+
         final marker = findMarkerById(idExtra);
         if (marker != null) {
           onOpenDetails!(marker);

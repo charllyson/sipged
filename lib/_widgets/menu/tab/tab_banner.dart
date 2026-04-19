@@ -13,11 +13,13 @@ import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
 import 'package:sipged/_widgets/list/search/search_user_permission_widget.dart';
 
 // RBAC (módulo)
-import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/permitions/module_permission.dart'
+as perms;
 // perfis
 import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 // ✅ ACL do contrato
-import 'package:sipged/_blocs/system/permitions/contract_permission.dart' as acl;
+import 'package:sipged/_blocs/system/permitions/contract_permission.dart'
+as acl;
 
 import 'package:sipged/_widgets/stamp/stamp.dart';
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
@@ -100,17 +102,20 @@ class _TabBannerState extends State<TabBanner> {
       BuildContext context,
       ProcessData contrato,
       ) async {
-    final contractBloc = widget.contractsBloc ?? context.read<ProcessBloc>();
+    final ProcessBloc contractBloc =
+        widget.contractsBloc ?? context.read<ProcessBloc>();
+    final ProcessStore processStore = context.read<ProcessStore>();
     final userState = context.read<UserBloc>().state;
+    final mediaQuery = MediaQuery.of(context);
 
     // precisa pelo menos conseguir ler o contrato
     if (!_can('read', c: contrato)) return;
 
-    final canEditParticipants = _can('edit', c: contrato);
-    final users = userState.all;
+    final bool canEditParticipants = _can('edit', c: contrato);
+    final List<UserData> users = userState.all;
 
-    final screenW = MediaQuery.of(context).size.width;
-    final dialogW = math.min(screenW - 64, 760.0);
+    final double screenW = mediaQuery.size.width;
+    final double dialogW = math.min(screenW - 64, 760.0);
 
     await showWindowDialog<void>(
       context: context,
@@ -126,9 +131,9 @@ class _TabBannerState extends State<TabBanner> {
         participantsMode: true,
         labelFor: (uid) => userState.labelFor(uid),
         getRole: (uid) {
-          final st = context.read<UserBloc>().state;
-          final u = st.byId[uid];
-          final base = (u != null) ? roles.roleForUser(u) : roles.UserProfile.LEITOR;
+          final u = userState.byId[uid];
+          final base =
+          (u != null) ? roles.roleForUser(u) : roles.UserProfile.leitor;
           return roles.UserRoleCodec.label(base);
         },
         getPerms: (uid) {
@@ -158,6 +163,7 @@ class _TabBannerState extends State<TabBanner> {
           for (final uid in uids) {
             if (!atuais.containsKey(uid)) {
               final initialPerms = perms.initialDocPerms();
+
               await contractBloc.addParticipant(
                 contractId: contrato.id!,
                 userId: uid,
@@ -175,10 +181,12 @@ class _TabBannerState extends State<TabBanner> {
             }
           }
 
-          await context.read<ProcessStore>().refresh();
+          await processStore.refresh();
+
+          if (!mounted) return;
           await _refreshLocalContract(
             contrato,
-            rebuildDialog: () => setState(() {}),
+            rebuildDialog: mounted ? () => setState(() {}) : null,
           );
         }
             : null,
@@ -212,12 +220,15 @@ class _TabBannerState extends State<TabBanner> {
     final userState = context.read<UserBloc>().state;
 
     final ids = contract.permissionContractId.keys.toList();
-    final users = ids.map((id) => userState.byId[id] ?? UserData(uid: id)).toList();
+    final users =
+    ids.map((id) => userState.byId[id] ?? UserData(uid: id)).toList();
 
     final visible = users
-        .where((u) =>
-    (u.name?.trim().isNotEmpty ?? false) ||
-        (u.email?.trim().isNotEmpty ?? false))
+        .where(
+          (u) =>
+      (u.name?.trim().isNotEmpty ?? false) ||
+          (u.email?.trim().isNotEmpty ?? false),
+    )
         .toList();
 
     final primary = visible.isNotEmpty ? visible.first : null;
@@ -229,8 +240,9 @@ class _TabBannerState extends State<TabBanner> {
 
     final others = (users.length > 1) ? users.length - 1 : 0;
 
-    final isMobile = MediaQuery.of(context).size.width < 720;
-    final isNarrow = MediaQuery.of(context).size.width < 520;
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 720;
+    final isNarrow = width < 520;
 
     const titleStyle = TextStyle(
       color: Colors.black87,
@@ -296,7 +308,11 @@ class _TabBannerState extends State<TabBanner> {
                   ? Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(titleText, textAlign: TextAlign.center, style: titleStyle),
+                  Text(
+                    titleText,
+                    textAlign: TextAlign.center,
+                    style: titleStyle,
+                  ),
                   const SizedBox(height: 2),
                   participantsRow,
                 ],
@@ -324,7 +340,10 @@ class _TabBannerState extends State<TabBanner> {
             ),
             if (widget.showStamp) ...[
               const SizedBox(width: 12),
-              Align(alignment: Alignment.centerRight, child: stampWidget),
+              Align(
+                alignment: Alignment.centerRight,
+                child: stampWidget,
+              ),
             ],
           ],
         ),

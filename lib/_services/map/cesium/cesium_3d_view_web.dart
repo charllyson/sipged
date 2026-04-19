@@ -1,5 +1,5 @@
-// lib/_services/map/cesium/cesium_3d_view_web.dart
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/foundation.dart';
@@ -30,27 +30,23 @@ class Cesium3DView extends StatelessWidget {
       );
     }
 
-    // viewId estável pro iframe / comunicação
     final id = viewId ?? 'cesium-${DateTime.now().microsecondsSinceEpoch}';
     controller.attach(id);
 
     if (!_registered.contains(id)) {
-      // ignore: undefined_prefixed_name
       ui_web.platformViewRegistry.registerViewFactory(
         id,
             (int _) {
-          final iframe = html.IFrameElement()
+          final iframe = web.HTMLIFrameElement()
             ..src = '/cesium_view.html'
             ..style.border = 'none'
             ..style.width = '100%'
             ..style.height = '100%';
 
-          // Permissões básicas
-          iframe.sandbox?.add('allow-scripts');
-          iframe.sandbox?.add('allow-same-origin');
-          iframe.sandbox?.add('allow-popups');
+          iframe.sandbox.add('allow-scripts');
+          iframe.sandbox.add('allow-same-origin');
+          iframe.sandbox.add('allow-popups');
 
-          // Envia config inicial para o HTML ao carregar
           iframe.onLoad.listen((_) {
             iframe.contentWindow?.postMessage(
               {
@@ -62,8 +58,8 @@ class Cesium3DView extends StatelessWidget {
                 'markers': config.markers
                     .map((m) => m.toJson())
                     .toList(growable: false),
-              },
-              '*',
+              }.jsify() as JSAny,
+              '*'.toJS,
             );
           });
 

@@ -59,7 +59,7 @@ class ListDemandStatus extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       elevation: 0,
-      color: Colors.white.withOpacity(0.82),
+      color: Colors.white.withValues(alpha:0.82),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(color: Colors.grey.shade300),
@@ -85,7 +85,7 @@ class ListDemandStatus extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: Colors.blue.withOpacity(0.10),
+                  color: Colors.blue.withValues(alpha: 0.10),
                 ),
                 child: Text('$total'),
               ),

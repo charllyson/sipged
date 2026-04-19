@@ -19,21 +19,20 @@ class SearchOverlay {
   final Color? hintColor;
   final SearchExpandSide expandSide;
 
-  // ✅ Tipagem correta (compat com SearchAction ajustado)
-  final Future<List<SearchSuggestion<dynamic>>> Function(String)? fetchSuggestions;
+  final Future<List<SearchSuggestion<dynamic>>> Function(String)?
+  fetchSuggestions;
   final void Function(SearchSuggestion<dynamic>)? onSuggestionTap;
 
   OverlayEntry? _entry;
   bool _visible = false;
   bool _expanded = false;
 
-  // Estado interno
-  final List<SearchSuggestion<dynamic>> _suggestions = <SearchSuggestion<dynamic>>[];
+  final List<SearchSuggestion<dynamic>> _suggestions =
+  <SearchSuggestion<dynamic>>[];
   Timer? _debounce;
   int _reqSeq = 0;
   bool _loading = false;
 
-  // Controle de listener p/ evitar duplicidade
   bool _listeningController = false;
 
   SearchOverlay(
@@ -83,55 +82,50 @@ class SearchOverlay {
     _entry = OverlayEntry(builder: (ctx) {
       final media = MediaQuery.of(ctx);
 
-      // Se o anchor sumiu (ex: rota mudou), fecha.
       final r = _anchorRect();
       if (r == Rect.zero) {
-        // ⚠️ não chama _close direto aqui (reentrância),
-        // apenas agenda e retorna vazio.
         Future.microtask(_close);
         return const SizedBox.shrink();
       }
 
-      // largura disponível com respiro
       final available = media.size.width - 32.0;
-      final targetMax = math.max(200.0, math.min(maxWidth, available)).toDouble();
+      final targetMax =
+      math.max(200.0, math.min(maxWidth, available)).toDouble();
 
       final top = (r.top + (r.height - height) / 2)
           .clamp(8.0, media.size.height - height - 8.0);
 
-      final originX = expandSide == SearchExpandSide.left ? r.right : r.left;
+      final originX =
+      expandSide == SearchExpandSide.left ? r.right : r.left;
 
       const double listTopGap = 6.0;
       const double itemH = 52.0;
       const int maxItems = 6;
       const double listMaxH = itemH * maxItems + 4.0;
 
-      // “endWidth” depende do estado (_expanded)
       final endWidth = _expanded ? targetMax : 0.0;
 
       return Stack(
         children: [
-          // backdrop para fechar
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: _close,
             ),
           ),
-
           TweenAnimationBuilder<double>(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOut,
             tween: Tween<double>(begin: 0.0, end: endWidth),
             builder: (ctx, w, child) {
-              final left = expandSide == SearchExpandSide.left ? (originX - w) : originX;
+              final left = expandSide == SearchExpandSide.left
+                  ? (originX - w)
+                  : originX;
 
-              // evita hit-test quando minúsculo
               final canInteract = w >= 12.0;
 
               return Stack(
                 children: [
-                  // input
                   Positioned(
                     top: top,
                     left: left,
@@ -151,21 +145,20 @@ class SearchOverlay {
                       ),
                     ),
                   ),
-
-                  // sugestões
                   if (canInteract && (_loading || _suggestions.isNotEmpty))
                     Positioned(
                       top: top + height + listTopGap,
                       left: left,
                       width: w,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: listMaxH),
+                        constraints:
+                        const BoxConstraints(maxHeight: listMaxH),
                         child: Material(
                           elevation: 14,
                           shadowColor: Colors.black45,
                           borderRadius: BorderRadius.circular(10),
                           color: Colors.white,
-                          clipBehavior: Clip.antiAlias, // ✅ evita “pixel estourando”
+                          clipBehavior: Clip.antiAlias,
                           child: _loading
                               ? const _OverlayLoading()
                               : (_suggestions.isEmpty
@@ -173,31 +166,44 @@ class SearchOverlay {
                               : Scrollbar(
                             thumbVisibility: true,
                             child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 6,
+                              ),
                               itemCount: _suggestions.length,
                               separatorBuilder: (_, _) =>
-                              const Divider(height: 1, thickness: 0.5),
+                              const Divider(
+                                height: 1,
+                                thickness: 0.5,
+                              ),
                               itemBuilder: (ctx, i) {
                                 final s = _suggestions[i];
                                 return ListTile(
                                   dense: true,
                                   leading: Icon(
-                                    s.icon ?? _iconForKind(s.kind),
+                                    s.icon ??
+                                        _iconForKind(s.kind),
                                     size: 20,
                                     color: Colors.black54,
                                   ),
                                   title: Text(
                                     s.title,
                                     maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 14),
+                                    overflow:
+                                    TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                    ),
                                   ),
-                                  subtitle: (s.subtitle?.isNotEmpty ?? false)
+                                  subtitle:
+                                  (s.subtitle?.isNotEmpty ??
+                                      false)
                                       ? Text(
                                     s.subtitle!,
                                     maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    overflow: TextOverflow
+                                        .ellipsis,
+                                    style:
+                                    const TextStyle(
                                       fontSize: 12,
                                       color: Colors.black54,
                                     ),
@@ -225,7 +231,6 @@ class SearchOverlay {
     overlay.insert(_entry!);
     _visible = true;
 
-    // anima expand
     Future.microtask(() {
       if (!_visible) return;
       _expanded = true;
@@ -246,7 +251,6 @@ class SearchOverlay {
 
     _removeControllerListening();
 
-    // dá tempo da animação recolher
     await Future.delayed(const Duration(milliseconds: 200));
 
     _entry?.remove();
@@ -255,10 +259,8 @@ class SearchOverlay {
     _visible = false;
     _suggestions.clear();
     _loading = false;
-    _reqSeq++; // invalida qualquer request pendente
+    _reqSeq++;
   }
-
-  // ===== search =====
 
   void _onQueryChanged() => _scheduleFetch();
 
@@ -298,8 +300,7 @@ class SearchOverlay {
       if (mySeq != _reqSeq) return;
       _suggestions.clear();
     } finally {
-      if (!_visible) return;
-      if (mySeq == _reqSeq) {
+      if (_visible && mySeq == _reqSeq) {
         _loading = false;
         _entry?.markNeedsBuild();
       }

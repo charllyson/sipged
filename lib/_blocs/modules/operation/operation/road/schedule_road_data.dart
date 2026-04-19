@@ -213,10 +213,10 @@ class ScheduleRoadData extends Equatable {
       fotos: _asStringList(m['fotos']),
       fotosMeta: _asMapList(m['fotos_meta']),
       takenAtMs: _parseTakenAtMs(m['takenAtMs'] ?? m['takenAt']),
-      key: meta?.key ?? def.key,
-      label: meta?.label ?? def.label,
-      icon: meta?.icon ?? def.icon,
-      color: meta?.color ?? def.color,
+      key: meta?.key ?? _asString(m['key']) ?? def.key,
+      label: meta?.label ?? _asString(m['label']) ?? def.label,
+      icon: meta?.icon ?? _asIconData(m['icon']) ?? def.icon,
+      color: meta?.color ?? _asColor(m['color']) ?? def.color,
       geometryType: _asString(m['geometryType']),
       multiLine: _parseMulti(m['multiLine']),
       points: _parsePoints(m['points']),
@@ -247,7 +247,7 @@ class ScheduleRoadData extends Equatable {
         'key': key,
         'label': label,
         'icon': icon.codePoint,
-        'color': color.value,
+        'color': color.toARGB32(),
       });
     }
 
@@ -308,6 +308,18 @@ class ScheduleRoadData extends Equatable {
   }
 
   static String? _asString(dynamic v) => v?.toString();
+
+  static IconData? _asIconData(dynamic v) {
+    final codePoint = _asInt(v);
+    if (codePoint == null) return null;
+    return IconData(codePoint, fontFamily: 'MaterialIcons');
+  }
+
+  static Color? _asColor(dynamic v) {
+    final colorInt = _asInt(v);
+    if (colorInt == null) return null;
+    return Color(colorInt);
+  }
 
   static List<String> _asStringList(dynamic v) {
     if (v is List) {
@@ -453,7 +465,7 @@ class ScheduleRoadData extends Equatable {
     key,
     label,
     icon.codePoint,
-    color.value,
+    color.toARGB32(),
     geometryType,
     multiLine,
     points,

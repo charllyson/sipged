@@ -70,14 +70,16 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
   void _ensureUsersLoadedOnce() {
     if (_requestedUsersLoad) return;
 
-    final userState = context.read<UserBloc>().state;
+    final userBloc = context.read<UserBloc>();
+    final userState = userBloc.state;
+
     if (!userState.initialized && userState.all.isEmpty) {
       _requestedUsersLoad = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        context
-            .read<UserBloc>()
-            .add(const UsersEnsureLoadedRequested(listenRealtime: true));
+        userBloc.add(
+          const UsersEnsureLoadedRequested(listenRealtime: true),
+        );
       });
     }
   }
@@ -245,6 +247,9 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       return;
     }
 
+    final scheduleCubit = context.read<ScheduleRoadCubit>();
+    final scaffoldContext = context;
+
     final cellKey = '${e.numero}_${e.faixaIndex}';
     setState(() {
       _selectedKeys
@@ -290,7 +295,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
       );
 
       await showModalBottomSheet<void>(
-        context: context,
+        context: scaffoldContext,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (sheetCtx) {
@@ -298,7 +303,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
           return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
             child: BlocProvider.value(
-              value: context.read<ScheduleRoadCubit>(),
+              value: scheduleCubit,
               child: ScheduleModalSquare(
                 currentUserId: _uid,
                 tipoLabel: state.titleForHeader,
@@ -321,7 +326,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
         },
       );
 
-      await context.read<ScheduleRoadCubit>().reloadExecucoes();
+      await scheduleCubit.reloadExecucoes();
       _toast(
         'Célula atualizada com sucesso!',
         type: AppNotificationType.success,
@@ -394,7 +399,10 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
   }
 
   Future<void> _openBulkWithUnifiedModal() async {
-    final state = context.read<ScheduleRoadCubit>().state;
+    final scheduleCubit = context.read<ScheduleRoadCubit>();
+    final scaffoldContext = context;
+    final state = scheduleCubit.state;
+
     if (!state.canBulkApply) {
       _toast('Selecione um serviço específico para editar em lote.');
       return;
@@ -439,7 +447,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
     _modalOpen = true;
     try {
       await showModalBottomSheet<void>(
-        context: context,
+        context: scaffoldContext,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (sheetCtx) {
@@ -447,7 +455,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
           return Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
             child: BlocProvider.value(
-              value: context.read<ScheduleRoadCubit>(),
+              value: scheduleCubit,
               child: ScheduleModalSquare(
                 currentUserId: _uid,
                 tipoLabel: state.titleForHeader,
@@ -460,7 +468,7 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
         },
       );
 
-      await context.read<ScheduleRoadCubit>().reloadExecucoes();
+      await scheduleCubit.reloadExecucoes();
       _toast(
         'Aplicado em lote: ${targets.length} célula(s).',
         type: AppNotificationType.success,

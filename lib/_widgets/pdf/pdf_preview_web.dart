@@ -1,5 +1,4 @@
-// lib/_widgets/files/pdf/pdf_preview_web.dart
-import 'dart:html' as html;
+import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +7,6 @@ class PdfPreview extends StatelessWidget {
   final String pdfUrl;
   const PdfPreview({super.key, required this.pdfUrl});
 
-  // evita registrar a mesma factory repetidas vezes (hot reload)
   static final Set<String> _registered = <String>{};
 
   @override
@@ -16,14 +14,16 @@ class PdfPreview extends StatelessWidget {
     final viewId = 'pdf-${pdfUrl.hashCode}';
 
     if (kIsWeb && !_registered.contains(viewId)) {
-      // ignore: undefined_prefixed_name
       ui_web.platformViewRegistry.registerViewFactory(
         viewId,
-            (int _) => html.IFrameElement()
-          ..src = pdfUrl
-          ..style.border = 'none'
-          ..style.height = '100%'
-          ..style.width = '100%',
+            (int _) {
+          final iframe = web.HTMLIFrameElement()
+            ..src = pdfUrl
+            ..style.border = 'none'
+            ..style.height = '100%'
+            ..style.width = '100%';
+          return iframe;
+        },
       );
       _registered.add(viewId);
     }
@@ -32,7 +32,6 @@ class PdfPreview extends StatelessWidget {
       return const Center(child: Text('Disponível apenas na Web'));
     }
 
-    // controla o tamanho dentro do Dialog
     final maxH = MediaQuery.of(context).size.height * 0.9;
 
     return ConstrainedBox(

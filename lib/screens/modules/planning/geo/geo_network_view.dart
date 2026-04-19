@@ -55,7 +55,6 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
   static const String _panelAtributosId = 'push_panel_atributos';
   static const String _workspaceGroupId = 'group_area_trabalho';
 
-
   static const List<PushPanelData> _basePanels = [
     PushPanelData(
       id: _panelFerramentasId,
@@ -180,6 +179,52 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
     });
   }
 
+  void _handleCatalogItemTap(CatalogData item) {
+    _workspacePanelKey.currentState?.placeCatalogItemAutomatically(item);
+
+    setState(() {
+      _pendingCatalogPlacement = null;
+    });
+
+    _showSnack(
+      context,
+      '"${item.title}" adicionado à área de trabalho',
+    );
+  }
+
+  void _handleWorkspaceSelectionCatalogChanged(String? catalogItemId) {
+    setState(() {
+      if (_selectedWorkspaceItem != null) {
+        _selectedCatalogItemId = _selectedWorkspaceItem!.catalogItemId;
+        return;
+      }
+
+      if (_pendingCatalogPlacement != null) {
+        _selectedCatalogItemId = _pendingCatalogPlacement!.id;
+        return;
+      }
+
+      _selectedCatalogItemId = catalogItemId;
+    });
+  }
+
+  void _handleWorkspaceItemSelected(WorkspaceData? item) {
+    final nextWorkspaceId = item?.id;
+    final nextCatalogId = item?.catalogItemId;
+
+    if (_selectedWorkspaceItemId == nextWorkspaceId &&
+        _selectedCatalogItemId == nextCatalogId &&
+        _pendingCatalogPlacement == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedWorkspaceItemId = nextWorkspaceId;
+      _selectedCatalogItemId = nextCatalogId;
+      _pendingCatalogPlacement = null;
+    });
+  }
+
   void _toggleWorkspaceVisibility(BuildContext context) {
     context.read<MapCubit>().toggleWorkspacePanelVisibility();
   }
@@ -258,7 +303,6 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
           genericState: genericState,
           onOpenLayerTable: (layer) async {
             await _openLayerTable(
-              context,
               layer.id,
               mapData.currentTree,
             );
@@ -332,6 +376,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
               layer,
               force: false,
             );
+            if (!context.mounted) return;
 
             await context.read<FeatureCubit>().ensureLayerLoaded(
               layer,
@@ -415,7 +460,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
                       .handleMapBackgroundTap(latLng, mapData.currentTree)
                       .then((error) {
                     if (!mounted) return;
-                    if (error != null) _showSnack(context, error);
+                    if (error != null) _showSnack(this.context, error);
                   });
 
                   return editorState.isPointToolSelected ||
@@ -583,7 +628,7 @@ class _GeoNetworkViewState extends State<GeoNetworkView> {
               onConnectLayer: (id) =>
                   _handleConnectLayer(id, mapData.currentTree),
               onOpenTable: (id) =>
-                  _openLayerTable(context, id, mapData.currentTree),
+                  _openLayerTable(id, mapData.currentTree),
             ),
             endDrawerEnableOpenDragGesture: true,
             appBar: UpBar(

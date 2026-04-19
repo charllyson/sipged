@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/hiring/5Edital/section_6_resultado.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,7 +12,6 @@ import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
-// System
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_widgets/windows/company_body_dialog.dart';
 
@@ -58,20 +56,22 @@ class _SectionResultadoState extends State<SectionResultado> {
     _adjudicacaoLinkCtrl = TextEditingController(text: d.adjudicacaoLink);
     _homologacaoLinkCtrl = TextEditingController(text: d.homologacaoLink);
 
-    // Garante ao menos a lista base de companies + companiesBodies carregada
-    Future.microtask(() async {
-      final system = context.read<SetupCubit>();
+    final system = context.read<SetupCubit>();
+    Future.microtask(() => _loadInitialCompanies(system));
+  }
 
-      if (system.state.companies.isEmpty) {
-        await system.loadCompanies();
-      }
-      final companies = system.state.companies;
-      if (companies.isNotEmpty) {
-        final parentCompanyId =
-            companies.first.companyId ?? companies.first.id;
-        await system.ensureCompanySetupLoaded(parentCompanyId);
-      }
-    });
+  Future<void> _loadInitialCompanies(SetupCubit system) async {
+    if (system.state.companies.isEmpty) {
+      await system.loadCompanies();
+      if (!mounted) return;
+    }
+
+    final companies = system.state.companies;
+    if (companies.isNotEmpty) {
+      final parentCompanyId = companies.first.companyId ?? companies.first.id;
+      await system.ensureCompanySetupLoaded(parentCompanyId);
+      if (!mounted) return;
+    }
   }
 
   @override
@@ -129,8 +129,9 @@ class _SectionResultadoState extends State<SectionResultado> {
     final hasWinner =
         d.vencedor.trim().isNotEmpty && d.highlightWinner == true;
 
-    final baseBg =
-    isDark ? cs.surfaceContainerHighest.withValues(alpha: 0.6) : Colors.grey.shade100;
+    final baseBg = isDark
+        ? cs.surfaceContainerHighest.withValues(alpha: 0.6)
+        : Colors.grey.shade100;
     final baseBorder = cs.outlineVariant;
 
     final winnerBg = Colors.green.shade50;
@@ -139,14 +140,12 @@ class _SectionResultadoState extends State<SectionResultado> {
     final cardBg = hasWinner ? winnerBg : baseBg;
     final cardBorder = hasWinner ? winnerBorder : baseBorder;
 
-    // companiesBodies disponíveis (empresa selecionada)
     final systemState = context.watch<SetupCubit>().state;
     final List<SetupData> bodies = systemState.companyBodies;
 
     final List<String> bodyLabels =
     bodies.map((e) => e.label).toList(growable: false);
 
-    // União: labels do Cubit + o vencedor já salvo (se não estiver na lista)
     final List<String> allLabels = {
       ...bodyLabels,
       if (_vencedorCtrl.text.trim().isNotEmpty) _vencedorCtrl.text.trim(),
@@ -203,9 +202,7 @@ class _SectionResultadoState extends State<SectionResultado> {
               children: [
                 Row(
                   children: [
-                    const SectionTitle(
-                      text: 'Resultado',
-                    ),
+                    const SectionTitle(text: 'Resultado'),
                     const SizedBox(width: 8),
                     if (hasWinner)
                       Row(
@@ -233,7 +230,6 @@ class _SectionResultadoState extends State<SectionResultado> {
                   spacing: 12,
                   runSpacing: 12,
                   children: [
-                    // VENCEDOR como DropDownButtonChange (companiesBodies)
                     SizedBox(
                       width: w4,
                       child: DropDownChange(
@@ -249,14 +245,11 @@ class _SectionResultadoState extends State<SectionResultado> {
 
                           final body = findBodyByLabel(val);
                           if (body?.cnpjCompanyContracted != null &&
-                              body!.cnpjCompanyContracted!
-                                  .trim()
-                                  .isNotEmpty) {
+                              body!.cnpjCompanyContracted!.trim().isNotEmpty) {
                             _vencedorCnpjCtrl.text =
                             body.cnpjCompanyContracted!;
                           }
 
-                          // ao escolher vencedor, marca highlightWinner se houver valor
                           _emitChange(highlightWinner: val.isNotEmpty);
                         },
                         onAddNewItem: showCreateCompanyBodyDialog,
@@ -267,7 +260,7 @@ class _SectionResultadoState extends State<SectionResultado> {
                       child: CustomTextField(
                         controller: _vencedorCnpjCtrl,
                         labelText: 'CNPJ do vencedor',
-                        enabled: false, // travado
+                        enabled: false,
                         readOnly: true,
                       ),
                     ),

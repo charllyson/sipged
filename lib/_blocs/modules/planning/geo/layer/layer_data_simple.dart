@@ -265,8 +265,8 @@ class LayerDataSimple {
         orElse: () => LayerStrokePattern.solid,
       ),
       dashArray: rawDashArray
-          .where((e) => e is num)
-          .map((e) => (e as num).toDouble())
+          .whereType<num>()
+          .map((e) => e.toDouble())
           .toList(growable: false),
       offset: (map['offset'] as num?)?.toDouble() ?? 0,
       useCustomDashPattern: map['useCustomDashPattern'] == true,

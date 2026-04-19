@@ -69,8 +69,8 @@ class ProcessStore extends ChangeNotifier {
     final baseRole = roles.roleForUser(user);
 
     // 🔹 Admin & Dev: acesso total, independente da ACL do documento
-    if (baseRole == roles.UserProfile.ADMINISTRADOR ||
-        baseRole == roles.UserProfile.DESENVOLVEDOR) {
+    if (baseRole == roles.UserProfile.administrador ||
+        baseRole == roles.UserProfile.desenvolvedor) {
       return source;
     }
 

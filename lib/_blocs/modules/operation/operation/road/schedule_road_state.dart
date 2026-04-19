@@ -143,8 +143,7 @@ class ScheduleRoadState extends Equatable {
         : multiLine as List<List<LatLng>>?;
     final nextPoints =
     points is _Unset ? this.points : points as List<LatLng>?;
-    final nextAxis =
-    axis is _Unset ? this.axis : axis as List<LatLng>;
+    final nextAxis = axis is _Unset ? this.axis : axis as List<LatLng>;
     final nextServiceTotals = serviceTotals ?? this.serviceTotals;
     final nextPhysfinPeriods = physfinPeriods ?? this.physfinPeriods;
     final nextPhysfinGrid = physfinGrid ?? this.physfinGrid;
@@ -187,7 +186,10 @@ class ScheduleRoadState extends Equatable {
       lanesRevision: lanesRevision ??
           (lanes != null ? this.lanesRevision + 1 : this.lanesRevision),
       execRevision: execRevision ??
-          (execucoes != null || execIndex != null || minDate != null || maxDate != null
+          (execucoes != null ||
+              execIndex != null ||
+              minDate != null ||
+              maxDate != null
               ? this.execRevision + 1
               : this.execRevision),
       geometryRevision: geometryRevision ??
@@ -377,16 +379,26 @@ class ScheduleRoadState extends Equatable {
     return dtTaken ?? e.updatedAt ?? e.createdAt;
   }
 
+  int _channel255(double normalized) {
+    return (normalized * 255.0).round().clamp(0, 255);
+  }
+
   Color _blendWithWhite(Color base, double amount) {
     final a = amount.clamp(0.0, 1.0);
 
     int mix(int c, int w, double alpha) =>
         (c + ((w - c) * alpha)).round().clamp(0, 255);
 
-    final r = mix(base.red, 255, a);
-    final g = mix(base.green, 255, a);
-    final b = mix(base.blue, 255, a);
-    return Color.fromARGB(base.alpha, r, g, b);
+    final baseR = _channel255(base.r);
+    final baseG = _channel255(base.g);
+    final baseB = _channel255(base.b);
+    final baseA = _channel255(base.a);
+
+    final r = mix(baseR, 255, a);
+    final g = mix(baseG, 255, a);
+    final b = mix(baseB, 255, a);
+
+    return Color.fromARGB(baseA, r, g, b);
   }
 
   Color _shadeRelative(Color base, DateTime? dt) {

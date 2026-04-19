@@ -367,22 +367,58 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       }
                     },
                     onEditItem: (widget.isEditable && _companyId != null)
-                        ? (oldLabel, newLabel) async {
+                        ? (ctx, oldLabel) async {
+                      final controller = TextEditingController(text: oldLabel);
+
+                      final newLabel = await showDialog<String>(
+                        context: ctx,
+                        builder: (dialogCtx) => AlertDialog(
+                          title: const Text('Editar região'),
+                          content: TextField(
+                            controller: controller,
+                            autofocus: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Novo nome da região',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogCtx).pop(),
+                              child: const Text('Cancelar'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogCtx).pop(controller.text.trim()),
+                              child: const Text('Salvar'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (newLabel == null || newLabel.trim().isEmpty) return;
+
                       final list = systemCubit.getRegionsForCompany(_companyId);
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
                             (r) => r.label == oldLabel,
-                        orElse: () => list.first,
+                        orElse: () => const SetupData(id: '', label: ''),
                       );
 
                       if (target.id.isEmpty) return;
 
-                      final updated =
-                      await systemCubit.updateRegionName(_companyId!, target.id, newLabel);
+                      final updated = await systemCubit.updateRegionName(
+                        _companyId!,
+                        target.id,
+                        newLabel.trim(),
+                      );
 
-                      if (updated != null && _regionDocId == target.id) {
-                        setState(() => _regionalCtrl.text = updated.label);
+                      if (updated != null && mounted) {
+                        setState(() {
+                          if (_regionDocId == target.id) {
+                            _regionalCtrl.text = updated.label;
+                          }
+                        });
                         _emitChange();
                       }
                     }

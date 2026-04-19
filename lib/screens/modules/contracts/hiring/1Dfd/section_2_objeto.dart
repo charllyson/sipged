@@ -37,10 +37,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
   late final TextEditingController _justificativaCtrl;
   late final TextEditingController _rodoviaCtrl;
 
-  // Extensão em METROS (inteiro com milhar)
   late final TextEditingController _extensaoMetrosCtrl;
-
-  // Valor: controller NÃO tem "R$" (prefixo só visual)
   late final TextEditingController _valorDemandaCtrl;
 
   late final FocusNode _extensaoFocus;
@@ -68,7 +65,9 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     );
 
     _valorDemandaCtrl = TextEditingController(
-      text: d.valorDemanda != null ? SipGedFormatMoney.brlNoSymbol(d.valorDemanda!) : '',
+      text: d.valorDemanda != null
+          ? SipGedFormatMoney.brlNoSymbol(d.valorDemanda!)
+          : '',
     );
 
     _extensaoFocus = FocusNode();
@@ -92,11 +91,15 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           final len = _extensaoMetrosCtrl.text.length;
-          _extensaoMetrosCtrl.selection = TextSelection.collapsed(offset: len);
+          _extensaoMetrosCtrl.selection =
+              TextSelection.collapsed(offset: len);
         });
       } else {
         final meters = SipGedFormatNumbers.toInt(_extensaoMetrosCtrl.text);
-        _syncControllerText(_extensaoMetrosCtrl, meters == null ? '' : _metersToText(meters));
+        _syncControllerText(
+          _extensaoMetrosCtrl,
+          meters == null ? '' : _metersToText(meters),
+        );
       }
     });
 
@@ -111,7 +114,10 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
         });
       } else {
         final parsed = SipGedFormatNumbers.toDouble(_valorDemandaCtrl.text);
-        _syncControllerText(_valorDemandaCtrl, parsed == null ? '' : SipGedFormatMoney.brlNoSymbol(parsed));
+        _syncControllerText(
+          _valorDemandaCtrl,
+          parsed == null ? '' : SipGedFormatMoney.brlNoSymbol(parsed),
+        );
       }
     });
   }
@@ -131,13 +137,19 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     }
 
     if (oldData.tipoContratacao != newData.tipoContratacao) {
-      _syncControllerText(_tipoContratacaoCtrl, newData.tipoContratacao ?? '');
+      _syncControllerText(
+        _tipoContratacaoCtrl,
+        newData.tipoContratacao ?? '',
+      );
     }
     if (oldData.tipoObra != newData.tipoObra) {
       _syncControllerText(_tipoObraCtrl, newData.tipoObra ?? '');
     }
     if (oldData.descricaoObjeto != newData.descricaoObjeto) {
-      _syncControllerText(_descricaoObjetoCtrl, newData.descricaoObjeto ?? '');
+      _syncControllerText(
+        _descricaoObjetoCtrl,
+        newData.descricaoObjeto ?? '',
+      );
     }
     if (oldData.justificativa != newData.justificativa) {
       _syncControllerText(_justificativaCtrl, newData.justificativa ?? '');
@@ -146,14 +158,22 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
       _syncControllerText(_rodoviaCtrl, newData.rodovia ?? '');
     }
 
-    final newMetersText = newData.extensaoKm != null ? _kmToMetersText(newData.extensaoKm!) : '';
-    final oldMetersText = oldData.extensaoKm != null ? _kmToMetersText(oldData.extensaoKm!) : '';
+    final newMetersText = newData.extensaoKm != null
+        ? _kmToMetersText(newData.extensaoKm!)
+        : '';
+    final oldMetersText = oldData.extensaoKm != null
+        ? _kmToMetersText(oldData.extensaoKm!)
+        : '';
     if (newMetersText != oldMetersText && !_extensaoFocus.hasFocus) {
       _syncControllerText(_extensaoMetrosCtrl, newMetersText);
     }
 
-    final newValorText = newData.valorDemanda != null ? SipGedFormatMoney.brlNoSymbol(newData.valorDemanda!) : '';
-    final oldValorText = oldData.valorDemanda != null ? SipGedFormatMoney.brlNoSymbol(oldData.valorDemanda!) : '';
+    final newValorText = newData.valorDemanda != null
+        ? SipGedFormatMoney.brlNoSymbol(newData.valorDemanda!)
+        : '';
+    final oldValorText = oldData.valorDemanda != null
+        ? SipGedFormatMoney.brlNoSymbol(oldData.valorDemanda!)
+        : '';
     if (newValorText != oldValorText && !_valorFocus.hasFocus) {
       _syncControllerText(_valorDemandaCtrl, newValorText);
     }
@@ -185,6 +205,49 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
   String? _normalizeId(String? v) {
     final s = (v ?? '').trim();
     return s.isEmpty ? null : s;
+  }
+
+  Future<String?> _askNewLabel(
+      BuildContext dialogContext, {
+        required String title,
+        required String initialValue,
+        String labelText = 'Novo nome',
+      }) async {
+    final ctrl = TextEditingController(text: initialValue);
+
+    final result = await showDialog<String>(
+      context: dialogContext,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: InputDecoration(labelText: labelText),
+            onSubmitted: (value) {
+              Navigator.of(ctx).pop(value.trim());
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()),
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    ctrl.dispose();
+
+    if (result == null) return null;
+    final trimmed = result.trim();
+    if (trimmed.isEmpty || trimmed == initialValue.trim()) return null;
+    return trimmed;
   }
 
   void _ensureCompanySetupLoaded() {
@@ -224,8 +287,8 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     _emitChange();
   }
 
-  // ===== somente “adaptações” de exibição (sem parse/formatter local) =====
-  String _metersToText(int meters) => SipGedFormatNumbers.formatDigitsWithDots(meters.toString());
+  String _metersToText(int meters) =>
+      SipGedFormatNumbers.formatDigitsWithDots(meters.toString());
 
   String _kmToMetersText(double km) {
     final meters = (km * 1000.0).round();
@@ -237,8 +300,12 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     final km = meters == null ? null : (meters / 1000.0);
 
     final updated = widget.data.copyWith(
-      tipoContratacao: _tipoContratacaoCtrl.text.trim().isEmpty ? null : _tipoContratacaoCtrl.text.trim(),
-      tipoObra: _tipoObraCtrl.text.trim().isEmpty ? null : _tipoObraCtrl.text.trim(),
+      tipoContratacao: _tipoContratacaoCtrl.text.trim().isEmpty
+          ? null
+          : _tipoContratacaoCtrl.text.trim(),
+      tipoObra: _tipoObraCtrl.text.trim().isEmpty
+          ? null
+          : _tipoObraCtrl.text.trim(),
       descricaoObjeto: _descricaoObjetoCtrl.text,
       justificativa: _justificativaCtrl.text,
       rodovia: _rodoviaCtrl.text,
@@ -302,7 +369,9 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     key: ValueKey('roads-$_roadsNonce-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Rodovia',
-                    tooltipMessage: _companyId == null ? 'Selecione o contratante na identificação' : null,
+                    tooltipMessage: _companyId == null
+                        ? 'Selecione o contratante na identificação'
+                        : null,
                     controller: _rodoviaCtrl,
                     items: roads.map((e) => e.label).toList(),
                     enabled: widget.isEditable && _companyId != null,
@@ -317,34 +386,18 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     onCreateNewItem: (!widget.isEditable || _companyId == null)
                         ? null
                         : (label) async {
-                      final created = await systemCubit.createRoad(_companyId!, label);
+                      final created = await systemCubit.createRoad(
+                        _companyId!,
+                        label,
+                      );
                       if (!mounted || created == null) return;
                       _syncControllerText(_rodoviaCtrl, created.label);
                       setState(() {});
                     },
                     onEditItem: (widget.isEditable && _companyId != null)
-                        ? (oldLabel, newLabel) async {
-                      final list = systemCubit.getRoadsForCompany(_companyId);
-                      if (list.isEmpty) return;
-
-                      final target = list.firstWhere(
-                            (r) => r.label == oldLabel,
-                        orElse: () => list.first,
-                      );
-                      if (target.id.isEmpty) return;
-
-                      final updated = await systemCubit.updateRoadName(_companyId!, target.id, newLabel);
-                      if (!mounted || updated == null) return;
-
-                      if (_rodoviaCtrl.text == oldLabel) {
-                        _syncControllerText(_rodoviaCtrl, updated.label);
-                        setState(() {});
-                      }
-                    }
-                        : null,
-                    onDeleteItem: (widget.isEditable && _companyId != null)
                         ? (ctx, label) async {
-                      final list = systemCubit.getRoadsForCompany(_companyId);
+                      final list =
+                      systemCubit.getRoadsForCompany(_companyId);
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -353,7 +406,43 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                       );
                       if (target.id.isEmpty) return;
 
-                      await systemCubit.deleteRoad(_companyId!, target.id);
+                      final newLabel = await _askNewLabel(
+                        ctx,
+                        title: 'Editar rodovia',
+                        initialValue: label,
+                        labelText: 'Nome da rodovia',
+                      );
+                      if (newLabel == null) return;
+
+                      final updated = await systemCubit.updateRoadName(
+                        _companyId!,
+                        target.id,
+                        newLabel,
+                      );
+                      if (!mounted || updated == null) return;
+
+                      if (_rodoviaCtrl.text == label) {
+                        _syncControllerText(_rodoviaCtrl, updated.label);
+                        setState(() {});
+                      }
+                    }
+                        : null,
+                    onDeleteItem: (widget.isEditable && _companyId != null)
+                        ? (ctx, label) async {
+                      final list =
+                      systemCubit.getRoadsForCompany(_companyId);
+                      if (list.isEmpty) return;
+
+                      final target = list.firstWhere(
+                            (r) => r.label == label,
+                        orElse: () => list.first,
+                      );
+                      if (target.id.isEmpty) return;
+
+                      await systemCubit.deleteRoad(
+                        _companyId!,
+                        target.id,
+                      );
 
                       if (!mounted) return;
                       if (_rodoviaCtrl.text == label) {
@@ -364,7 +453,6 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                         : null,
                   ),
                 ),
-
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
@@ -373,12 +461,13 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     enabled: widget.isEditable,
                     labelText: 'Extensão (metros)',
                     hintText: 'Ex.: 1.234',
-                    inputFormatters: const [SipGedThousandsIntCursorFormatter()],
+                    inputFormatters: const [
+                      SipGedThousandsIntCursorFormatter(),
+                    ],
                     keyboardType: TextInputType.number,
                     validator: null,
                   ),
                 ),
-
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
@@ -388,7 +477,6 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     labelText: 'Nome da demanda',
                   ),
                 ),
-
                 SizedBox(
                   width: w3,
                   child: CustomTextField(
@@ -403,14 +491,14 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     validator: null,
                   ),
                 ),
-
                 SizedBox(
                   width: inputW1(context, inner),
                   child: CustomTextField(
                     controller: _justificativaCtrl,
                     enabled: widget.isEditable,
                     validator: null,
-                    labelText: 'Justificativa da contratação (problema/objetivo)',
+                    labelText:
+                    'Justificativa da contratação (problema/objetivo)',
                     maxLines: 4,
                   ),
                 ),

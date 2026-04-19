@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_cubit.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_data.dart';
 import 'package:sipged/_blocs/modules/planning/geo/feature/feature_state.dart';
-import 'package:sipged/_widgets/table/paged/paged_table_changed.dart';
 import 'package:sipged/_widgets/table/paged/paged_table_metrics.dart';
 import 'package:sipged/_widgets/windows/window_dialog.dart';
 import 'package:sipged/screens/modules/planning/geo/attribute/table/attribute_bottom_bar.dart';
@@ -24,7 +23,6 @@ class AttributePage extends StatefulWidget {
   final String? description;
   final AttributeMode mode;
 
-  /// Camada real que está sendo editada quando a origem é Firestore.
   final String? sourceLayerId;
 
   const AttributePage({
@@ -65,6 +63,8 @@ class _AttributePageState extends State<AttributePage> {
     });
 
     Future.microtask(() {
+      if (!mounted) return;
+
       final cubit = context.read<FeatureCubit>();
 
       if (widget.mode == AttributeMode.firestore) {
@@ -101,6 +101,7 @@ class _AttributePageState extends State<AttributePage> {
       listener: (context, state) {
         if (widget.mode == AttributeMode.importFile &&
             state.importStatus == FeatureImportStatus.success) {
+          if (!context.mounted) return;
           Navigator.of(context).pop(true);
         }
       },
@@ -108,7 +109,10 @@ class _AttributePageState extends State<AttributePage> {
         title: dialogTitle,
         width: 1400,
         contentPadding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-        onClose: () => Navigator.of(context).pop(false),
+        onClose: () {
+          if (!context.mounted) return;
+          Navigator.of(context).pop(false);
+        },
         child: SizedBox(
           height: 760,
           child: BlocBuilder<FeatureCubit, FeatureState>(
@@ -130,14 +134,16 @@ class _AttributePageState extends State<AttributePage> {
               if (state.importStatus == FeatureImportStatus.failure) {
                 return AttributeError(
                   error: state.error,
-                  onClose: () => Navigator.of(context).pop(false),
+                  onClose: () {
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop(false);
+                  },
                 );
               }
 
               if (state.importFeatures.isEmpty) {
                 _syncFieldControllers(const []);
                 _clearFormFields();
-
                 return _center('Nenhuma feição encontrada.');
               }
 
@@ -344,8 +350,7 @@ class _AttributePageState extends State<AttributePage> {
     for (int i = 0; i < state.importFeatures.length; i++) {
       final feature = state.importFeatures[i];
 
-      final matchesTitle =
-      feature.title.toLowerCase().contains(normalizedQuery);
+      final matchesTitle = feature.title.toLowerCase().contains(normalizedQuery);
       if (matchesTitle) {
         result.add(i);
         continue;

@@ -36,7 +36,50 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => c.postFrameInit(context));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      c.postFrameInit(context);
+    });
+  }
+
+  Future<void> _handleSave(InfractionsController ctrl) async {
+    final ok = await confirmDialog(
+      context,
+      'Deseja salvar esta infração?',
+    );
+
+    if (!mounted) return;
+    if (!ok) return;
+
+    await ctrl.saveOrUpdate(context);
+  }
+
+  Future<void> _handleDelete(
+      InfractionsController ctrl,
+      String id,
+      ) async {
+    final ok = await confirmDialog(
+      context,
+      'Deseja apagar esta infração?',
+    );
+
+    if (!mounted) return;
+    if (!ok) return;
+
+    await ctrl.deleteInfraction(context, id);
+  }
+
+  Future<void> _handleApplyDateFilter(
+      InfractionsController ctrl, {
+        required int? year,
+        required int? month,
+      }) async {
+    await ctrl.applyDateFilter(
+      year: year,
+      month: month,
+      resetToFirstPage: true,
+      source: 'selector',
+    );
   }
 
   @override
@@ -58,44 +101,50 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const UpBar(),
-                            SectionTitle(text: 'Cadastrar infrações de trânsito no sistema'),
+                            const SectionTitle(
+                              text: 'Cadastrar infrações de trânsito no sistema',
+                            ),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 9.0),
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
                                   final maxW = constraints.maxWidth;
                                   final isSmall = maxW <= 900;
-                                  final double leftWidth  = isSmall ? maxW : (maxW - 12) / 2;
-                                  final double rightWidth = isSmall ? maxW : (maxW - 12) / 2;
+                                  final double leftWidth =
+                                  isSmall ? maxW : (maxW - 12) / 2;
+                                  final double rightWidth =
+                                  isSmall ? maxW : (maxW - 12) / 2;
 
                                   if (isSmall) {
                                     // ===== MOBILE =====
                                     return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                       children: [
                                         InfractionsFormSection(
                                           itemsPerLineOverride: 1,
                                           isEditable: ctrl.isEditable,
                                           formValidated: ctrl.formValidated,
-                                          currentInfractionId: ctrl.currentInfractionId,
+                                          currentInfractionId:
+                                          ctrl.currentInfractionId,
                                           orderCtrl: ctrl.orderCtrl,
                                           aitNumberCtrl: ctrl.aitNumberCtrl,
                                           dateCtrl: ctrl.dateCtrl,
                                           timeCtrl: ctrl.timeCtrl,
                                           codeCtrl: ctrl.codeCtrl,
-                                          descriptionCtrl: ctrl.descriptionCtrl,
+                                          descriptionCtrl:
+                                          ctrl.descriptionCtrl,
                                           organCodeCtrl: ctrl.organCodeCtrl,
-                                          organAuthorityCtrl: ctrl.organAuthorityCtrl,
+                                          organAuthorityCtrl:
+                                          ctrl.organAuthorityCtrl,
                                           addressCtrl: ctrl.addressCtrl,
                                           bairroCtrl: ctrl.bairroCtrl,
                                           latitudeCtrl: ctrl.latitudeCtrl,
                                           longitudeCtrl: ctrl.longitudeCtrl,
-                                          onSave: () async {
-                                            final ok = await confirmDialog(context, 'Deseja salvar esta infração?');
-                                            if (ok) await ctrl.saveOrUpdate(context);
-                                          },
+                                          onSave: () => _handleSave(ctrl),
                                           onClear: ctrl.createNew,
-                                          onGetLocation: () => ctrl.fillFromUserLocation(context),
+                                          onGetLocation: () =>
+                                              ctrl.fillFromUserLocation(context),
                                         ),
                                         const SizedBox(height: 12),
 
@@ -106,10 +155,11 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                           child: Card(
                                             elevation: 6,
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(16),
+                                              borderRadius:
+                                              BorderRadius.circular(16),
                                             ),
                                             clipBehavior: Clip.antiAlias,
-                                            child: MapInteractivePage(
+                                            child: const MapInteractivePage(
                                               initialZoom: 9,
                                               activeMap: true,
                                               showLegend: true,
@@ -121,46 +171,56 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                   }
 
                                   // ===== DESKTOP =====
-                                  double mapH = _formHeight ?? _minDeskHeight;
+                                  final double mapH = _formHeight ?? _minDeskHeight;
 
                                   return Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                     children: [
-                                      // COLUNA ESQUERDA: FORM (altura natural medido por _SizeReporter)
+                                      // COLUNA ESQUERDA: FORM
                                       SizedBox(
                                         width: leftWidth,
                                         child: _SizeReporter(
                                           onSize: (size) {
                                             final h = size.height;
-                                            if (_formHeight != h) {
+                                            if (_formHeight != h && mounted) {
                                               setState(() => _formHeight = h);
                                             }
                                           },
                                           child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                            BorderRadius.circular(8),
                                             child: InfractionsFormSection(
                                               itemsPerLineOverride: 2,
                                               isEditable: ctrl.isEditable,
-                                              formValidated: ctrl.formValidated,
-                                              currentInfractionId: ctrl.currentInfractionId,
+                                              formValidated:
+                                              ctrl.formValidated,
+                                              currentInfractionId:
+                                              ctrl.currentInfractionId,
                                               orderCtrl: ctrl.orderCtrl,
-                                              aitNumberCtrl: ctrl.aitNumberCtrl,
+                                              aitNumberCtrl:
+                                              ctrl.aitNumberCtrl,
                                               dateCtrl: ctrl.dateCtrl,
                                               timeCtrl: ctrl.timeCtrl,
                                               codeCtrl: ctrl.codeCtrl,
-                                              descriptionCtrl: ctrl.descriptionCtrl,
-                                              organCodeCtrl: ctrl.organCodeCtrl,
-                                              organAuthorityCtrl: ctrl.organAuthorityCtrl,
+                                              descriptionCtrl:
+                                              ctrl.descriptionCtrl,
+                                              organCodeCtrl:
+                                              ctrl.organCodeCtrl,
+                                              organAuthorityCtrl:
+                                              ctrl.organAuthorityCtrl,
                                               addressCtrl: ctrl.addressCtrl,
                                               bairroCtrl: ctrl.bairroCtrl,
-                                              latitudeCtrl: ctrl.latitudeCtrl,
-                                              longitudeCtrl: ctrl.longitudeCtrl,
-                                              onSave: () async {
-                                                final ok = await confirmDialog(context, 'Deseja salvar esta infração?');
-                                                if (ok) await ctrl.saveOrUpdate(context);
-                                              },
+                                              latitudeCtrl:
+                                              ctrl.latitudeCtrl,
+                                              longitudeCtrl:
+                                              ctrl.longitudeCtrl,
+                                              onSave: () => _handleSave(ctrl),
                                               onClear: ctrl.createNew,
-                                              onGetLocation: () => ctrl.fillFromUserLocation(context),
+                                              onGetLocation: () =>
+                                                  ctrl.fillFromUserLocation(
+                                                    context,
+                                                  ),
                                             ),
                                           ),
                                         ),
@@ -168,11 +228,13 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
 
                                       const SizedBox(width: 12),
 
-                                      // COLUNA DIREITA: MAPA (segue a altura do form, com mínimo)
+                                      // COLUNA DIREITA: MAPA
                                       SizedBox(
                                         width: rightWidth,
-                                        height: mapH < _minDeskHeight ? _minDeskHeight : mapH,
-                                        child: MapInteractivePage(
+                                        height: mapH < _minDeskHeight
+                                            ? _minDeskHeight
+                                            : mapH,
+                                        child: const MapInteractivePage(
                                           initialZoom: 9,
                                           activeMap: true,
                                           showLegend: true,
@@ -183,21 +245,29 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                 },
                               ),
                             ),
-                            SectionTitle(text: 'Filtrar por data infrações de trânsito'),
+                            const SectionTitle(
+                              text: 'Filtrar por data infrações de trânsito',
+                            ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                              padding:
+                              const EdgeInsets.symmetric(horizontal: 12.0),
                               child: InfractionsSelectorDatesSection(
                                 allInfractions: ctrl.selectorUniverseAll,
                                 initialYear: ctrl.selectedYear,
                                 initialMonth: ctrl.selectedMonth,
                                 onSelectionChanged: (res) async {
-                                  final y = res.selectedYear, m = res.selectedMonth;
-                                  if (y == ctrl.selectedYear && m == ctrl.selectedMonth) return;
-                                  await ctrl.applyDateFilter(
+                                  final y = res.selectedYear;
+                                  final m = res.selectedMonth;
+
+                                  if (y == ctrl.selectedYear &&
+                                      m == ctrl.selectedMonth) {
+                                    return;
+                                  }
+
+                                  await _handleApplyDateFilter(
+                                    ctrl,
                                     year: y,
                                     month: m,
-                                    resetToFirstPage: true,
-                                    source: 'selector',
                                   );
                                 },
                               ),
@@ -210,18 +280,19 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
                                 child: Text('Nenhuma infração encontrada'),
                               )
                             else ...[
-                              SectionTitle(text: 'Infrações cadastradas no sistema'),
+                              const SectionTitle(
+                                text: 'Infrações cadastradas no sistema',
+                              ),
                               InfractionsTableSection(
                                 listData: ctrl.pageItems,
                                 selectedItem: ctrl.selectedInfraction,
                                 onTapItem: (item) {
                                   final idx = ctrl.pageItems.indexOf(item);
-                                  if (idx != -1) ctrl.selectFromTable(item, idx);
+                                  if (idx != -1) {
+                                    ctrl.selectFromTable(item, idx);
+                                  }
                                 },
-                                onDelete: (id) async {
-                                  final ok = await confirmDialog(context, 'Deseja apagar esta infração?');
-                                  if (ok) await ctrl.deleteInfraction(context, id);
-                                },
+                                onDelete: (id) => _handleDelete(ctrl, id),
                               ),
                             ],
                             const SizedBox(height: 12),
@@ -237,14 +308,23 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
 
             // Overlay de "salvando..."
             Consumer<InfractionsController>(
-              builder: (_, ctrl, _) => ctrl.isSaving
-                  ? Stack(
-                children: [
-                  ModalBarrier(dismissible: false, color: Colors.black.withValues(alpha: 0.4)),
-                  const Center(child: CircularProgressIndicator()),
-                ],
-              )
-                  : const SizedBox.shrink(),
+              builder: (_, ctrl, _) {
+                if (!ctrl.isSaving) {
+                  return const SizedBox.shrink();
+                }
+
+                return Stack(
+                  children: [
+                    ModalBarrier(
+                      dismissible: false,
+                      color: Colors.black.withValues(alpha: 0.4),
+                    ),
+                    const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -255,7 +335,11 @@ class _InfractionsRecordsPageState extends State<InfractionsRecordsPage> {
 
 /// Widget auxiliar para medir o tamanho do filho após o layout
 class _SizeReporter extends StatefulWidget {
-  const _SizeReporter({required this.child, required this.onSize});
+  const _SizeReporter({
+    required this.child,
+    required this.onSize,
+  });
+
   final Widget child;
   final ValueChanged<Size> onSize;
 
@@ -269,12 +353,15 @@ class _SizeReporterState extends State<_SizeReporter> {
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final s = context.size;
-      if (s != null && s != _old) {
-        _old = s;
-        widget.onSize(s);
+      if (!mounted) return;
+
+      final size = context.size;
+      if (size != null && size != _old) {
+        _old = size;
+        widget.onSize(size);
       }
     });
+
     return widget.child;
   }
 }

@@ -1,26 +1,21 @@
-// lib/screens/modules/contracts/hiring/4Cotacao/cotacao_page.dart
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// ===== Progress (etapas)
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_state.dart';
 
-// ===== Cotação
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
-// ===== Widgets / UI
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/tab/stage_progress.dart';
 
-// ===== Seções
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_1_metadados.dart';
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_2_objeto_itens.dart';
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_3_convite_divulgacao.dart';
@@ -29,20 +24,11 @@ import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_5_vence
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_6_consolidacao_resultado.dart';
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/section_7_anexos.dart';
 
-// ===== Utils
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-
-// ===== Overlay leve
 import 'package:sipged/_widgets/overlays/screen_lock.dart';
-
-// ===== Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
-
-// ===== Pipeline (habilitação dinâmica das abas)
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
-
-// ===== Stage Gate (habilitação por etapa)
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 
 class CotacaoPage extends StatefulWidget {
@@ -71,16 +57,12 @@ class _CotacaoPageState extends State<CotacaoPage>
   String? _currentCotacaoId;
 
   final _scrollController = ScrollController();
-
-  // Controle de quantidade de fornecedores visíveis na seção 4
   int _fornCount = 1;
 
   @override
   void initState() {
     super.initState();
     _progressBloc = ProgressCubit(repo: ProgressRepository());
-
-    // Dispara o load inicial da Cotação
     context.read<CotacaoCubit>().load(widget.contractId);
   }
 
@@ -93,12 +75,8 @@ class _CotacaoPageState extends State<CotacaoPage>
 
   void _inferFornCountFromData(CotacaoData d) {
     int count = 1;
-    if ((d.f2Nome ?? '').isNotEmpty || (d.f2Valor ?? '').isNotEmpty) {
-      count = 2;
-    }
-    if ((d.f3Nome ?? '').isNotEmpty || (d.f3Valor ?? '').isNotEmpty) {
-      count = 3;
-    }
+    if ((d.f2Nome ?? '').isNotEmpty || (d.f2Valor ?? '').isNotEmpty) count = 2;
+    if ((d.f3Nome ?? '').isNotEmpty || (d.f3Valor ?? '').isNotEmpty) count = 3;
     _fornCount = count.clamp(1, 3);
   }
 
@@ -131,30 +109,28 @@ class _CotacaoPageState extends State<CotacaoPage>
 
     await completer.future;
 
+    if (!mounted) return;
+
     if (!cubit.state.saveSuccess) {
       final err = cubit.state.error ?? 'Falha ao salvar';
-      if (mounted) {
-        NotificationCenter.instance.show(
-          AppNotification(
-            title: const Text('Cotação'),
-            subtitle: const Text('Erro ao salvar.'),
-            details: Text(err),
-            type: AppNotificationType.error,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (mounted) {
       NotificationCenter.instance.show(
         AppNotification(
           title: const Text('Cotação'),
-          subtitle: const Text('Alterações salvas com sucesso.'),
-          type: AppNotificationType.success,
+          subtitle: const Text('Erro ao salvar.'),
+          details: Text(err),
+          type: AppNotificationType.error,
         ),
       );
+      return;
     }
+
+    NotificationCenter.instance.show(
+      AppNotification(
+        title: const Text('Cotação'),
+        subtitle: const Text('Alterações salvas com sucesso.'),
+        type: AppNotificationType.success,
+      ),
+    );
   }
 
   @override
@@ -223,80 +199,49 @@ class _CotacaoPageState extends State<CotacaoPage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 1) Metadados
                             SectionMetadados(
                               data: _formData,
                               isEditable: !widget.readOnly,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             const SizedBox(height: 12),
-
-                            // 2) Objeto/Itens
                             SectionObjetoItens(
                               data: _formData,
                               isEditable: !widget.readOnly,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             const SizedBox(height: 12),
-
-                            // 3) Convite / Divulgação
                             SectionConviteDivulgacao(
                               data: _formData,
                               isEditable: !widget.readOnly,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             const SizedBox(height: 12),
-
-                            // 4) Respostas dos Fornecedores
                             SectionRespostasFornecedores(
                               data: _formData,
                               isEditable: !widget.readOnly,
                               fornCount: _fornCount,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
-                              onAdd: (!widget.readOnly && _fornCount < 3)
-                                  ? _addFornecedor
-                                  : null,
-                              onRemoveOne: (!widget.readOnly && _fornCount > 1)
-                                  ? _removeFornecedor
-                                  : null,
+                              onChanged: (updated) => setState(() => _formData = updated),
+                              onAdd: (!widget.readOnly && _fornCount < 3) ? _addFornecedor : null,
+                              onRemoveOne: (!widget.readOnly && _fornCount > 1) ? _removeFornecedor : null,
                             ),
                             const SizedBox(height: 12),
-
-                            // Empresa vencedora
                             SectionVencedora(
                               data: _formData,
                               isEditable: !widget.readOnly,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             const SizedBox(height: 12),
-
-                            // 5) Consolidação / Resultado
                             SectionConsolidacaoResultado(
                               data: _formData,
                               isEditable: !widget.readOnly,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             const SizedBox(height: 12),
-
-                            // 6) Anexos/Evidências
                             SectionAnexos(
                               data: _formData,
                               isEditable: !widget.readOnly,
-                              onChanged: (updated) {
-                                setState(() => _formData = updated);
-                              },
+                              onChanged: (updated) => setState(() => _formData = updated),
                             ),
                             const SizedBox(height: 8),
                           ],
@@ -304,8 +249,7 @@ class _CotacaoPageState extends State<CotacaoPage>
                       ),
                     ],
                   ),
-                  bottomNavigationBar:
-                  BlocBuilder<ProgressCubit, ProgressState>(
+                  bottomNavigationBar: BlocBuilder<ProgressCubit, ProgressState>(
                     builder: (context, pstate) {
                       return StageProgress(
                         title: 'Cotação de preços',
@@ -314,17 +258,21 @@ class _CotacaoPageState extends State<CotacaoPage>
                         approved: pstate.approved,
                         onSave: _saveOnly,
                         onSaveAndNext: () async {
+                          final cotacaoCubit = context.read<CotacaoCubit>();
+                          final pipeline = context.read<PipelineProgressCubit>();
+                          final controller = DefaultTabController.of(context);
+                          final repo = _progressBloc.repo;
+
                           await _saveOnly();
 
-                          final cotId =
-                              context.read<CotacaoCubit>().state.cotacaoId;
+                          if (!mounted) return;
+
+                          final cotId = cotacaoCubit.state.cotacaoId;
                           if (cotId == null || cotId.isEmpty) {
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Cotação'),
-                                subtitle: const Text(
-                                  'Documento não encontrado para aprovar.',
-                                ),
+                                subtitle: const Text('Documento não encontrado para aprovar.'),
                                 type: AppNotificationType.error,
                               ),
                             );
@@ -338,8 +286,6 @@ class _CotacaoPageState extends State<CotacaoPage>
                               ? user!.displayName!
                               : (user?.email ?? uid);
 
-                          final repo = _progressBloc.repo;
-
                           try {
                             await repo.approveStage(
                               contractId: widget.contractId,
@@ -348,38 +294,30 @@ class _CotacaoPageState extends State<CotacaoPage>
                               approverName: nameOrEmail,
                             );
 
-                            // aqui podemos usar only completed = true
                             await repo.setCompleted(
                               contractId: widget.contractId,
                               collectionName: 'cotacao',
                               completed: true,
                             );
 
-                            // Libera EDITAL otimistamente
-                            final pipeline =
-                            context.read<PipelineProgressCubit>();
-                            pipeline.setStageEnabled(
-                              HiringStageKey.edital,
-                              true,
-                            );
+                            if (!mounted) return;
+
+                            pipeline.setStageEnabled(HiringStageKey.edital, true);
                             unawaited(pipeline.refresh());
 
-                            final controller =
-                            DefaultTabController.of(context);
                             controller.animateTo(
-                              (controller.index + 1)
-                                  .clamp(0, controller.length - 1),
+                              (controller.index + 1).clamp(0, controller.length - 1),
                             );
 
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Cotação'),
-                                subtitle:
-                                const Text('Aprovado e etapa concluída.'),
+                                subtitle: const Text('Aprovado e etapa concluída.'),
                                 type: AppNotificationType.success,
                               ),
                             );
                           } catch (e) {
+                            if (!mounted) return;
                             NotificationCenter.instance.show(
                               AppNotification(
                                 title: const Text('Cotação'),

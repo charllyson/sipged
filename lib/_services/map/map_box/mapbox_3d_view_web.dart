@@ -1,24 +1,22 @@
-// lib/_services/map/map_box/mapbox_3d_view_web.dart
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// Registry que encapsula o HtmlElementView + iframe do Mapbox.
 class MapboxWebViewRegistry {
-  static final Map<String, html.IFrameElement> _iframes =
-  <String, html.IFrameElement>{};
+  static final Map<String, web.HTMLIFrameElement> _iframes =
+  <String, web.HTMLIFrameElement>{};
 
   static void registerViewFactory(String viewId, String htmlUrl) {
     if (!kIsWeb) return;
     if (_iframes.containsKey(viewId)) return;
 
-    // ignore: undefined_prefixed_name
     ui_web.platformViewRegistry.registerViewFactory(
       viewId,
           (int _) {
-        final iframe = html.IFrameElement()
+        final iframe = web.HTMLIFrameElement()
           ..src = htmlUrl
           ..style.border = 'none'
           ..style.width = '100%'
@@ -32,11 +30,13 @@ class MapboxWebViewRegistry {
 
   static void postMessage(String viewId, Object message) {
     final iframe = _iframes[viewId];
-    iframe?.contentWindow?.postMessage(message, '*');
+    iframe?.contentWindow?.postMessage(
+      message.jsify() as JSAny,
+      '*'.toJS,
+    );
   }
 }
 
-/// Widget que rende o HtmlElementView do Mapbox.
 class Mapbox3DView extends StatelessWidget {
   final String htmlUrl;
   final String viewId;
