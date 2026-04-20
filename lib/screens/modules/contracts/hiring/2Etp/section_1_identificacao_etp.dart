@@ -1,9 +1,8 @@
-// lib/screens/modules/contracts/hiring/2Etp/section_1_identificacao_etp.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/2Etp/etp_data.dart';
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
@@ -14,7 +13,6 @@ import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-
 
 class SectionIdentificacaoEtp extends StatefulWidget {
   final bool isEditable;
@@ -97,7 +95,9 @@ class _SectionIdentificacaoEtpState extends State<SectionIdentificacaoEtp>
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -133,8 +133,6 @@ class _SectionIdentificacaoEtpState extends State<SectionIdentificacaoEtp>
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
-
-                // ✅ Responsável técnico (agora genérico)
                 SizedBox(
                   width: w4,
                   child: AutoCompleteChange<UserData>(
@@ -156,7 +154,6 @@ class _SectionIdentificacaoEtpState extends State<SectionIdentificacaoEtp>
                     onChanged: (String id) {
                       _responsavelUserId = id.isEmpty ? null : id;
 
-                      // Opcional: reforçar nome com base no user selecionado
                       if (id.isNotEmpty) {
                         final u = users.cast<UserData?>().firstWhere(
                               (e) => (e?.uid ?? '') == id,
@@ -171,7 +168,6 @@ class _SectionIdentificacaoEtpState extends State<SectionIdentificacaoEtp>
                     },
                   ),
                 ),
-
                 SizedBox(
                   width: w4,
                   child: CustomTextField(

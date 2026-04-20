@@ -1,9 +1,9 @@
+// lib/_widgets/user/user_greeting.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -25,13 +25,12 @@ class _UserGreetingState extends State<UserGreeting> {
     final fb = widget.firebaseUser;
     if (fb == null || _dispatched) return;
 
-    // Se o usuário ainda não estiver no estado, dispara uma busca por id.
-    final state = context.read<UserBloc>().state;
+    final state = context.read<UserCubit>().state;
     final already =
         (state.current?.uid == fb.uid) || state.byId.containsKey(fb.uid);
 
     if (!already) {
-      context.read<UserBloc>().add(UserFetchByIdRequested(fb.uid));
+      context.read<UserCubit>().fetchById(fb.uid);
     }
     _dispatched = true;
   }
@@ -43,9 +42,8 @@ class _UserGreetingState extends State<UserGreeting> {
     final fb = widget.firebaseUser;
     if (fb == null) return const Text('Olá, Usuário', style: style);
 
-    return BlocSelector<UserBloc, UserState, UserData?>(
+    return BlocSelector<UserCubit, UserState, UserData?>(
       selector: (state) {
-        // Prioriza o "current"; se não for o mesmo uid, tenta o cache byId.
         if (state.current?.uid == fb.uid) return state.current;
         return state.byId[fb.uid];
       },

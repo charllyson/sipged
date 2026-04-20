@@ -2,20 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_repository.dart';
 
-// === Pipeline (habilitação de etapas) ===
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/pipeline_progress_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/progress_repository.dart';
 
-// === Componentes ===
 import 'package:sipged/_widgets/menu/tab/stage_gate.dart';
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
-// === BLOCs e Controllers globais ===
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 
 import 'package:sipged/screens/modules/contracts/hiring/1Dfd/dfd_page.dart';
 import 'package:sipged/screens/modules/contracts/hiring/2Etp/etp_page.dart';
@@ -31,13 +28,13 @@ import 'package:sipged/screens/modules/contracts/hiring/11Arquivamento/termo_arq
 
 class TabBarHiringPage extends StatefulWidget {
   final ProcessData? contractData;
-  final ProcessBloc? contractsBloc;
+  final ProcessCubit? contractsCubit;
   final int initialTabIndex;
 
   const TabBarHiringPage({
     super.key,
     this.contractData,
-    this.contractsBloc,
+    this.contractsCubit,
     this.initialTabIndex = 0,
   });
 
@@ -47,12 +44,9 @@ class TabBarHiringPage extends StatefulWidget {
 
 class _TabBarHiringPageState extends State<TabBarHiringPage>
     with AutomaticKeepAliveClientMixin {
-  // 🔑 ID REAL DO CONTRATO (para Firestore)
   String get _contractId => widget.contractData?.id ?? '';
 
-  // 🔑 ID LOCAL DA PÁGINA (para controllers / PageStorage / estado de UI)
   late final String _pageInstanceKey;
-
   late final PipelineProgressCubit _pipelineCubit;
   final _progressRepo = ProgressRepository();
 
@@ -62,9 +56,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
   void initState() {
     super.initState();
 
-    // 🔑 Gera um ID local único para esta instância de tela
-    // - Se tiver id de contrato, "C_<id>"
-    // - Se for novo (id vazio), "NEW_<timestamp>"
     final rawId = _contractId;
     if (rawId.isNotEmpty) {
       _pageInstanceKey = 'C_$rawId';
@@ -92,9 +83,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
   @override
   bool get wantKeepAlive => true;
 
-  /// Mapeia o índice da aba ao stageKey correspondente no pipeline.
-  ///
-  /// Importante: o índice 0 é usado pelo "Resumo" no TabChangedWidget.
   String? _stageKeyForTabIndex(int index) {
     switch (index) {
       case 1:
@@ -120,14 +108,13 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
       case 11:
         return HiringStageKey.arquivamento;
       default:
-        return null; // 0 (Resumo) não tem stageKey
+        return null;
     }
   }
 
   Future<void> _loadDfdDescricao() async {
     final id = _contractId;
     if (id.isEmpty) return;
-
 
     try {
       final repo = DfdRepository();
@@ -169,7 +156,7 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
             final stageKey = _stageKeyForTabIndex(idx);
 
             if (stageKey == null) {
-              return StampConfig(
+              return const StampConfig(
                 show: false,
                 approved: false,
                 approvedLabel: '',
@@ -221,7 +208,7 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
 
           return TabChanged(
             contractData: c,
-            contractsBloc: widget.contractsBloc,
+            contractsCubit: widget.contractsCubit,
             initialTabIndex: widget.initialTabIndex,
             textBanner: _dfdDescricaoObjeto,
             resolveStampForTab: ({
@@ -232,7 +219,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
               return makeConfig(idx: tabIndex, approved: ok);
             },
             tabs: [
-              // DFD
               ContractTabDescriptor(
                 label: 'Demanda',
                 builder: (_) {
@@ -242,8 +228,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // ETP
               ContractTabDescriptor(
                 label: 'Estudo Preliminar',
                 builder: (_) {
@@ -256,8 +240,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // TR
               ContractTabDescriptor(
                 label: 'Termo de Referência',
                 builder: (_) {
@@ -270,8 +252,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // Cotação
               ContractTabDescriptor(
                 label: 'Cotação',
                 builder: (_) {
@@ -283,8 +263,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // Edital
               ContractTabDescriptor(
                 label: 'Edital',
                 builder: (_) {
@@ -296,8 +274,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // Habilitação
               ContractTabDescriptor(
                 label: 'Habilitação',
                 builder: (_) {
@@ -309,8 +285,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // Dotação
               ContractTabDescriptor(
                 label: 'Dotação Orçamentária',
                 builder: (_) {
@@ -322,8 +296,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // Minuta
               ContractTabDescriptor(
                 label: 'Minuta do Contrato',
                 builder: (_) {
@@ -335,8 +307,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // Jurídico
               ContractTabDescriptor(
                 label: 'Parecer Jurídico',
                 builder: (_) {
@@ -348,8 +318,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // Publicação
               ContractTabDescriptor(
                 label: 'Publicação do Extrato',
                 builder: (_) {
@@ -361,8 +329,6 @@ class _TabBarHiringPageState extends State<TabBarHiringPage>
                   );
                 },
               ),
-
-              // Arquivamento
               ContractTabDescriptor(
                 label: 'Arquivamento',
                 builder: (_) {

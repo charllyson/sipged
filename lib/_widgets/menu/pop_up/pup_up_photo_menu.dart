@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
 import 'package:sipged/admPanel/system_hub_page.dart';
@@ -16,9 +16,8 @@ class PopUpPhotoMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Lê o usuário atual do UserBloc (se ainda não carregou, mostra loading)
-    final userData = context.select<UserBloc, UserData?>(
-          (b) => b.state.initialized ? b.state.current : null,
+    final userData = context.select<UserCubit, UserData?>(
+          (c) => c.state.initialized ? c.state.current : null,
     );
 
     if (userData == null) {
@@ -31,10 +30,9 @@ class PopUpPhotoMenu extends StatelessWidget {
       );
     }
 
-    // ✅ Usa o novo modelo para checar papel global
-    final base = roles.roleForUser(userData); // BaseRole
-    final isAdmin =
-        base == roles.UserProfile.administrador || base == roles.UserProfile.desenvolvedor;
+    final base = roles.roleForUser(userData);
+    final isAdmin = base == roles.UserProfile.administrador ||
+        base == roles.UserProfile.desenvolvedor;
 
     return PopupMenuButton<String>(
       color: Colors.white,
@@ -42,18 +40,21 @@ class PopUpPhotoMenu extends StatelessWidget {
         switch (value) {
           case 'perfil':
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const UserProfilePage()),
+              MaterialPageRoute(
+                builder: (_) => const UserProfilePage(),
+              ),
             );
             break;
 
           case 'administrador':
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => SystemHubPage()),
+              MaterialPageRoute(
+                builder: (_) => SystemHubPage(),
+              ),
             );
             break;
 
           case 'sair':
-          // ✅ Login agora é Cubit (não criar instância manual)
             await context.read<LoginCubit>().signOut();
             break;
         }
@@ -68,7 +69,10 @@ class PopUpPhotoMenu extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 userData.baseProfile ?? '',
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -90,7 +94,10 @@ class PopUpPhotoMenu extends StatelessWidget {
             children: [
               Icon(Icons.logout, color: Colors.red),
               SizedBox(width: 8),
-              Text('Sair', style: TextStyle(color: Colors.red)),
+              Text(
+                'Sair',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),

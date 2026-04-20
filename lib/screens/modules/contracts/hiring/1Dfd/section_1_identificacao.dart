@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
@@ -364,7 +364,9 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
+    );
 
     final setupCubit = context.read<SetupCubit>();
     final setupState = context.watch<SetupCubit>().state;
@@ -614,8 +616,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
                       if (updated != null && _unitId == id) {
                         setState(
-                              () =>
-                          _unidadeSolicitanteCtrl.text = updated.label,
+                              () => _unidadeSolicitanteCtrl.text = updated.label,
                         );
                         _emitChange();
                       }

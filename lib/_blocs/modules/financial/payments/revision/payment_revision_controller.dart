@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // ✅ necessário (ctx.read<UserBloc>())
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
 import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 import 'package:sipged/_utils/formats/sipged_format_money.dart';
@@ -10,7 +10,7 @@ import 'package:sipged/_utils/formats/sipged_format_money.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/pdf/pdf_preview.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -21,7 +21,6 @@ import 'package:sipged/_blocs/modules/financial/payments/revision/payment_revisi
 import 'package:sipged/_blocs/modules/financial/payments/revision/payments_revisions_data.dart';
 import 'package:sipged/_blocs/modules/financial/payments/revision/payment_revision_storage_bloc.dart';
 
-// permissões
 import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
 
@@ -36,44 +35,35 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
         _additivesRepository = additivesRepository,
         _storageBloc = storageBloc ?? PaymentRevisionStorageBloc();
 
-  // --- Dependências
   final PaymentRevisionBloc _paymentRevisionBloc;
   final AdditivesRepository _additivesRepository;
   final PaymentRevisionStorageBloc _storageBloc;
 
-  // --- User stream
   StreamSubscription<UserState>? _userSub;
 
-  // --- Contexto
   UserData? currentUser;
   ProcessData? contract;
 
-  // valor da demanda (DFD) — você ainda não está carregando aqui
   final double _valorDemanda = 0.0;
 
-  // --- Dados
   List<PaymentsRevisionsData> _revisions = <PaymentsRevisionsData>[];
   List<PaymentsRevisionsData> _lastSnapshot = <PaymentsRevisionsData>[];
   PaymentsRevisionsData? _selected;
   String? _currentId;
 
-  // --- SideListBox (dinâmico: Attachment)
   List<dynamic> sideItems = const <dynamic>[];
   int? selectedSideIndex;
 
   bool get canAddFile => isEditable && _selected?.idRevisionPayment != null;
 
-  // --- Estado UI
   int? selectedIndex;
   bool isEditable = false;
   bool isSaving = false;
   bool formValidated = false;
 
-  // --- Totais
   double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
-  // --- Controllers
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -85,7 +75,6 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
   final fontCtrl = TextEditingController();
   final taxCtrl = TextEditingController();
 
-  // --- Getters
   List<PaymentsRevisionsData> get revisions => _revisions;
   PaymentsRevisionsData? get selected => _selected;
   String? get currentPaymentRevisionId => _currentId;
@@ -103,14 +92,12 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
   double get valorInicialBase => _valorInicial;
   double get valorAditivosTotal => _valorAditivos;
 
-  // permissões
   bool get isAdmin {
     final u = currentUser;
     if (u == null) return false;
     return roles.roleForUser(u) == roles.UserProfile.administrador;
   }
 
-  // ======= ORDENS: dropdown inteligente =======
   Set<int> get _existingOrders => _lastSnapshot
       .map((v) => v.orderPaymentRevision ?? 0)
       .where((n) => n > 0)
@@ -127,11 +114,13 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
 
   List<String> get orderNumberOptions {
     final set = _existingOrders;
-    final maxPlusOne = set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
+    final maxPlusOne =
+    set.isEmpty ? 1 : (set.reduce((a, b) => a > b ? a : b) + 1);
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
-  Set<String> get greyOrderItems => _existingOrders.map((e) => e.toString()).toSet();
+  Set<String> get greyOrderItems =>
+      _existingOrders.map((e) => e.toString()).toSet();
 
   void onChangeOrderNumber(String? v) {
     final picked = int.tryParse(v ?? '');
@@ -140,21 +129,19 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
     final idx =
     _lastSnapshot.indexWhere((x) => (x.orderPaymentRevision ?? -1) == picked);
     if (idx >= 0) {
-      selectRow(_lastSnapshot[idx]); // existente → carrega
+      selectRow(_lastSnapshot[idx]);
     } else {
-      createNew(overrideOrder: picked); // livre → inicia novo
+      createNew(overrideOrder: picked);
       notifyListeners();
     }
   }
 
-  // ✅ usado pelo page/form para sincronizar mudanças locais do SideListBox (opcional)
   void setSideItemsLocal(List<dynamic> items, {int? selected}) {
-    sideItems = items;
+    sideItems = List<dynamic>.from(items);
     selectedSideIndex = selected;
     notifyListeners();
   }
 
-  // --- Init/Dispose
   Future<void> init(
       BuildContext context, {
         required ProcessData? contractData,
@@ -162,12 +149,12 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
     contract = contractData;
     if (contract?.id == null) return;
 
-    final userBloc = context.read<UserBloc>();
-    currentUser = userBloc.state.current;
+    final userCubit = context.read<UserCubit>();
+    currentUser = userCubit.state.current;
     isEditable = _canEditUser(currentUser);
 
     _userSub?.cancel();
-    _userSub = userBloc.stream.listen((st) {
+    _userSub = userCubit.stream.listen((st) {
       final prevId = currentUser?.uid;
       currentUser = st.current;
       final nowId = currentUser?.uid;
@@ -220,7 +207,6 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
     super.dispose();
   }
 
-  // --- Permissão (módulo: payments_revision)
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
     if (roles.roleForUser(user) == roles.UserProfile.administrador) return true;
@@ -238,15 +224,12 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
     return canEdit || canCreate;
   }
 
-  // --- Core
   Future<void> _loadInitial() async {
     if (contract?.id == null) return;
 
-    // ✅ usa valorDemanda do DfdData (por enquanto é 0.0, você ainda não carrega aqui)
     _valorInicial = _valorDemanda;
-
-    // ✅ usa repositório de aditivos no padrão novo
-    _valorAditivos = await _additivesRepository.getAllAdditivesValue(contract!.id!);
+    _valorAditivos =
+    await _additivesRepository.getAllAdditivesValue(contract!.id!);
 
     _revisions = await _paymentRevisionBloc.getAllReportPaymentsOfContract(
       contractId: contract!.id!,
@@ -254,7 +237,6 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
 
     _lastSnapshot = List<PaymentsRevisionsData>.from(_revisions);
 
-    // define próxima ordem livre
     final next = _nextAvailableOrder(_existingOrders);
     orderCtrl.text = '$next';
 
@@ -273,7 +255,6 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
     }
   }
 
-  // --- Side list helpers (multi-anexos + migração de pdfUrl)
   Future<void> _refreshSideList() async {
     final p = _selected;
 
@@ -283,15 +264,15 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
       return;
     }
 
-    // 1) já tem attachments
     if ((p.attachments ?? const []).isNotEmpty) {
       sideItems = List<dynamic>.from(p.attachments!);
       selectedSideIndex = null;
       return;
     }
 
-    // 2) migra pdfUrl legado → Attachment único
-    if ((p.pdfUrl ?? '').isNotEmpty && p.idRevisionPayment != null && contract?.id != null) {
+    if ((p.pdfUrl ?? '').isNotEmpty &&
+        p.idRevisionPayment != null &&
+        contract?.id != null) {
       final att = Attachment(
         id: 'legacy-pdf',
         label: 'Documento da revisão',
@@ -317,7 +298,6 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
       return;
     }
 
-    // 3) materializa arquivos existentes no Storage
     if (contract?.id != null && p.idRevisionPayment != null) {
       final files = await _storageBloc.listarArquivosDaRevisao(
         contractId: contract!.id!,
@@ -360,7 +340,6 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
     selectedSideIndex = null;
   }
 
-  // --- Ações UI
   void selectRow(PaymentsRevisionsData data) {
     final idx = _revisions.indexOf(data);
     if (idx == -1) return;
@@ -437,8 +416,8 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
         electronicTicketPaymentRevision: electronicTicketCtrl.text,
         fontPaymentRevision: fontCtrl.text,
         taxPaymentRevision: SipGedFormatMoney.parseBrl(taxCtrl.text),
-        pdfUrl: _selected?.pdfUrl, // legado preservado
-        attachments: _selected?.attachments, // mantém anexos numa edição
+        pdfUrl: _selected?.pdfUrl,
+        attachments: _selected?.attachments,
       );
 
       await _paymentRevisionBloc.saveOrUpdatePayment(data);
@@ -529,7 +508,6 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
     }
   }
 
-  // ---------- Anexos (SideListBox) ----------
   String _suggestLabelFromName(String original) {
     final base =
     original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
@@ -551,7 +529,8 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
       isSaving = true;
       notifyListeners();
 
-      final (Uint8List bytes, String originalName) = await _storageBloc.pickFileBytes();
+      final (Uint8List bytes, String originalName) =
+      await _storageBloc.pickFileBytes();
 
       final suggestion = _suggestLabelFromName(originalName);
       final label = await askLabelDialog(context, suggestion);
@@ -582,7 +561,6 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
     }
   }
 
-  /// ✅ NOVO: persistência de rename (com rollback)
   Future<bool> handleRenamePersist({
     required int index,
     required Attachment oldItem,
@@ -598,12 +576,11 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
       return false;
     }
 
-    // garante que o item é o mesmo
-    if (p.attachments![index].id != oldItem.id) {
-      // tenta achar pelo id (caso reordene)
+    int resolvedIndex = index;
+    if (p.attachments![resolvedIndex].id != oldItem.id) {
       final realIndex = p.attachments!.indexWhere((a) => a.id == oldItem.id);
       if (realIndex < 0) return false;
-      index = realIndex;
+      resolvedIndex = realIndex;
     }
 
     try {
@@ -624,7 +601,7 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
       );
 
       final next = List<Attachment>.from(p.attachments!);
-      next[index] = updated;
+      next[resolvedIndex] = updated;
 
       await _paymentRevisionBloc.setAttachments(
         contractId: contract!.id!,
@@ -634,17 +611,16 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
 
       _selected = p..attachments = next;
       sideItems = List<dynamic>.from(next);
-      selectedSideIndex = index;
+      selectedSideIndex = resolvedIndex;
 
       return true;
     } catch (_) {
-      // rollback local
       final next = List<Attachment>.from(p.attachments!);
-      next[index] = oldItem;
+      next[resolvedIndex] = oldItem;
 
       _selected = p..attachments = next;
       sideItems = List<dynamic>.from(next);
-      selectedSideIndex = index;
+      selectedSideIndex = resolvedIndex;
 
       return false;
     } finally {
@@ -664,7 +640,7 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
       final atts = List<Attachment>.from(p.attachments ?? const []);
       if (index >= 0 && index < atts.length) {
         final removed = atts.removeAt(index);
-        if ((removed.path).isNotEmpty) {
+        if (removed.path.isNotEmpty) {
           await _storageBloc.deleteStorageByPath(removed.path);
         }
         await _paymentRevisionBloc.setAttachments(
@@ -701,7 +677,7 @@ class PaymentsRevisionController extends ChangeNotifier with SipGedValidation {
       selectedSideIndex = index;
       notifyListeners();
     } else {
-      url = p.pdfUrl; // legado
+      url = p.pdfUrl;
     }
 
     if (url == null || url.isEmpty) return;

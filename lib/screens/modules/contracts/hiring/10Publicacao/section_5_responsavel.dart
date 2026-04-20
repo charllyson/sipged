@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
@@ -31,7 +31,6 @@ class _SectionResponsavelState extends State<SectionResponsavel>
     with SipGedValidation {
   late final TextEditingController _responsavelCtrl;
 
-  // ✅ guardamos o ID localmente para validar por ID
   String? _responsavelUserId;
 
   @override
@@ -57,7 +56,9 @@ class _SectionResponsavelState extends State<SectionResponsavel>
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

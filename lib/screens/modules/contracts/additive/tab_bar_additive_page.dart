@@ -1,8 +1,7 @@
-// lib/screens/modules/contracts/hiring/physical_financial/tab_bar_additive_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
@@ -10,19 +9,17 @@ import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_rep
 
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
 import 'package:sipged/_widgets/schedule/physical_financial/schedule_physical_financial_widget.dart';
-
-// 👉 usar a AdditivePage do módulo contracts/additives
 import 'package:sipged/screens/modules/contracts/additive/additive_page.dart';
 
 class TabBarAdditivePage extends StatelessWidget {
   final ProcessData? contractData;
-  final ProcessBloc? contractsBloc;
+  final ProcessCubit? contractsCubit;
   final int initialTabIndex;
 
   const TabBarAdditivePage({
     super.key,
     this.contractData,
-    this.contractsBloc,
+    this.contractsCubit,
     this.initialTabIndex = 0,
   });
 
@@ -30,7 +27,7 @@ class TabBarAdditivePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return TabChanged(
       contractData: contractData,
-      contractsBloc: contractsBloc,
+      contractsCubit: contractsCubit,
       initialTabIndex: initialTabIndex,
       tabs: [
         ContractTabDescriptor(

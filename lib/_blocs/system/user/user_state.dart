@@ -1,3 +1,4 @@
+// lib/_blocs/system/user/user_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -31,33 +32,39 @@ class UserState extends Equatable {
   UserState copyWith({
     bool? initialized,
     UserData? current,
+    bool setCurrentNull = false,
     List<UserData>? all,
     Map<String, UserData>? byId,
     bool? isLoadingUsers,
-    String? loadUsersError, // passe null para manter, '' para limpar
+    String? loadUsersError, // null = mantém | '' = limpa
     bool? realtimeEnabled,
     bool? currentBindEnabled,
   }) {
     return UserState(
       initialized: initialized ?? this.initialized,
-      current: current ?? this.current,
+      current: setCurrentNull ? null : (current ?? this.current),
       all: all ?? this.all,
       byId: byId ?? this.byId,
       isLoadingUsers: isLoadingUsers ?? this.isLoadingUsers,
-      loadUsersError: loadUsersError,
+      loadUsersError: loadUsersError ?? this.loadUsersError,
       realtimeEnabled: realtimeEnabled ?? this.realtimeEnabled,
       currentBindEnabled: currentBindEnabled ?? this.currentBindEnabled,
     );
   }
 
-  /// Helper de rótulo (Nome Sobrenome) com fallback
   String labelFor(String? uid, {String fallback = '—'}) {
     if (uid == null || uid.isEmpty) return fallback;
-    final u = byId[uid];
-    final name = (u?.name ?? '').trim();
-    final surname = (u?.surname ?? '').trim();
-    final full = [name, surname].where((s) => s.isNotEmpty).join(' ').trim();
-    return full.isEmpty ? (u?.uid ?? fallback) : full;
+
+    final user = byId[uid];
+    final name = (user?.name ?? '').trim();
+    final surname = (user?.surname ?? '').trim();
+
+    final full = [name, surname]
+        .where((s) => s.isNotEmpty)
+        .join(' ')
+        .trim();
+
+    return full.isEmpty ? (user?.uid ?? fallback) : full;
   }
 
   @override

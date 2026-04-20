@@ -14,7 +14,7 @@ import 'package:sipged/_utils/formats/sipged_format_money.dart';
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/pdf/pdf_preview.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -60,12 +60,10 @@ class PaymentsAdjustmentController extends ChangeNotifier
   final double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
-  // SideListBox (String | Attachment)
   List<dynamic> sideItems = const <dynamic>[];
   int? selectedSideIndex;
   bool get canAddFile => isEditable && _selected?.idPaymentAdjustment != null;
 
-  // controllers
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -83,6 +81,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
 
   List<String> get chartLabels =>
       _payments.map((e) => (e.orderPaymentAdjustment ?? 0).toString()).toList();
+
   List<double> get chartValues =>
       _payments.map((e) => e.valuePaymentAdjustment ?? 0.0).toList();
 
@@ -98,7 +97,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
     return roles.roleForUser(u) == roles.UserProfile.administrador;
   }
 
-  // ======= ORDENS (dropdown inteligente) =======
   Set<int> get _existingOrders => _lastSnapshot
       .map((v) => v.orderPaymentAdjustment ?? 0)
       .where((n) => n > 0)
@@ -144,12 +142,12 @@ class PaymentsAdjustmentController extends ChangeNotifier
     contract = contractData;
     if (contract?.id == null) return;
 
-    final userBloc = context.read<UserBloc>();
-    currentUser = userBloc.state.current;
+    final userCubit = context.read<UserCubit>();
+    currentUser = userCubit.state.current;
     isEditable = _canEditUser(currentUser);
 
     _userSub?.cancel();
-    _userSub = userBloc.stream.listen((st) {
+    _userSub = userCubit.stream.listen((st) {
       final prevId = currentUser?.uid;
       currentUser = st.current;
       final nowId = currentUser?.uid;
@@ -413,8 +411,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
     }
   }
 
-  // ====== SideList (anexos) ======
-
   String _suggestLabelFromName(String original) {
     final base =
     original.split('/').last.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
@@ -422,7 +418,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
     return 'Reajuste $ord - $base';
   }
 
-  /// ✅ ÚNICO ponto que "materializa" a sideItems do selected
   Future<void> _refreshSideList({required bool notify}) async {
     final v = _selected;
 
@@ -433,7 +428,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
       return;
     }
 
-    // 1) attachments já existem no doc
     final existing = v.attachments ?? const <Attachment>[];
     if (existing.isNotEmpty) {
       sideItems = List<dynamic>.from(existing);
@@ -442,7 +436,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
       return;
     }
 
-    // 2) migra pdfUrl legado -> vira attachment e zera pdfUrl
     if ((v.pdfUrl ?? '').isNotEmpty &&
         v.idPaymentAdjustment != null &&
         contract?.id != null) {
@@ -472,7 +465,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
       return;
     }
 
-    // 3) materializa arquivos do Storage (se houver) e salva como attachments
     if (contract?.id != null && v.idPaymentAdjustment != null) {
       final files = await _storageBloc.listarArquivosDoPagamento(
         contractId: contract!.id!,
@@ -566,17 +558,13 @@ class PaymentsAdjustmentController extends ChangeNotifier
     }
   }
 
-  /// ✅ NOVO: persistência do rename vindo do SideListBox
-  /// Retorna true/false para o widget manter/reverter
   Future<bool> handleRenamePersist({
     required int index,
     required Attachment oldItem,
     required Attachment newItem,
   }) async {
     final v = _selected;
-    if (v == null ||
-        contract?.id == null ||
-        v.idPaymentAdjustment == null) {
+    if (v == null || contract?.id == null || v.idPaymentAdjustment == null) {
       return false;
     }
 
@@ -584,7 +572,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
     if (index < 0 || index >= atts.length) return false;
 
     try {
-      // Só atualiza metadados (label); NÃO mexe no storage
       atts[index] = Attachment(
         id: oldItem.id,
         label: newItem.label,
@@ -613,8 +600,6 @@ class PaymentsAdjustmentController extends ChangeNotifier
     }
   }
 
-  /// ✅ NOVO: mantém controller sincronizado quando SideListBox altera a lista
-  /// (por exemplo, rename otimista já aplicado)
   void syncSideItemsFromWidget(List<dynamic> newItems) {
     sideItems = List<dynamic>.from(newItems);
 
@@ -630,9 +615,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
 
   Future<void> handleDeleteFile(int index, BuildContext context) async {
     final v = _selected;
-    if (v == null ||
-        v.idPaymentAdjustment == null ||
-        contract?.id == null) {
+    if (v == null || v.idPaymentAdjustment == null || contract?.id == null) {
       return;
     }
 
@@ -643,7 +626,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
       final atts = List<Attachment>.from(v.attachments ?? const []);
       if (index >= 0 && index < atts.length) {
         final removed = atts.removeAt(index);
-        if ((removed.path).isNotEmpty) {
+        if (removed.path.isNotEmpty) {
           await _storageBloc.deleteStorageByPath(removed.path);
         }
         await _paymentAdjustmentBloc.setAttachments(
@@ -681,7 +664,7 @@ class PaymentsAdjustmentController extends ChangeNotifier
       selectedSideIndex = index;
       notifyListeners();
     } else {
-      url = v.pdfUrl; // legado
+      url = v.pdfUrl;
     }
 
     if (url == null || url.isEmpty) return;

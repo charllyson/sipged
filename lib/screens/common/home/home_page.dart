@@ -1,15 +1,15 @@
-// lib/screens/home/home_page.dart
+// lib/screens/common/home/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
-import 'package:sipged/_blocs/system/module/module_data.dart'; // MenuItem + PagesData
+import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/screens/common/home/hero_header.dart';
 import 'package:sipged/_widgets/draw/background/soft_bubbles.dart';
-import 'package:sipged/screens/common/home/themed_actions_grid.dart'; // tipos do drawer
+import 'package:sipged/screens/common/home/themed_actions_grid.dart';
 
 class HomeBody extends StatelessWidget {
   const HomeBody({super.key, this.onSelect});
@@ -21,7 +21,7 @@ class HomeBody extends StatelessWidget {
       children: [
         const BackgroundChange(),
         const SoftBubbles(),
-        BlocBuilder<UserBloc, UserState>(
+        BlocBuilder<UserCubit, UserState>(
           builder: (context, state) {
             final user = state.current;
             return LayoutBuilder(

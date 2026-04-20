@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/6Habilitacao/habilitacao_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
@@ -92,7 +92,9 @@ class _SectionMetadadosState extends State<SectionMetadados>
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -133,8 +135,6 @@ class _SectionMetadadosState extends State<SectionMetadados>
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
-
-                // ✅ Responsável pela checagem (genérico)
                 SizedBox(
                   width: w4,
                   child: AutoCompleteChange<UserData>(
@@ -159,7 +159,6 @@ class _SectionMetadadosState extends State<SectionMetadados>
                     },
                   ),
                 ),
-
                 SizedBox(
                   width: w4,
                   child: CustomTextField(

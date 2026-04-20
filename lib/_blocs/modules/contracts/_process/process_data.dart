@@ -1,53 +1,71 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
 
-class ProcessData extends ChangeNotifier {
-  /// Identificação e metadados
-  String? id;
+class ProcessData {
+  final String? id;
 
-  DateTime? publicationDate;
-  int? initialValidityExecution;
-  int? initialValidityContract;
+  /// Identificação e metadados principais
+  final DateTime? publicationDate;
+  final int? initialValidityExecution;
+  final int? initialValidityContract;
 
   /// ACL por contrato
-  Map<String, Map<String, bool>> permissionContractId = {};
+  final Map<String, Map<String, bool>> permissionContractId;
 
   /// Metadados por participante
-  Map<String, Map<String, dynamic>> participantsInfo = {};
+  final Map<String, Map<String, dynamic>> participantsInfo;
 
-  ProcessData({
+  const ProcessData({
     this.id,
+    this.publicationDate,
     this.initialValidityExecution,
     this.initialValidityContract,
-    this.publicationDate,
     this.permissionContractId = const {},
-    Map<String, Map<String, dynamic>>? participantsInfo,
-  }) : participantsInfo = participantsInfo ?? {};
+    this.participantsInfo = const {},
+  });
 
   factory ProcessData.empty() {
-    return ProcessData(
+    return const ProcessData(
       id: null,
-      publicationDate: DateTime(2000),
-      initialValidityContract: 0,
+      publicationDate: null,
       initialValidityExecution: 0,
+      initialValidityContract: 0,
       permissionContractId: {},
       participantsInfo: {},
     );
   }
 
-  /// Helper genérico para ler datas aceitando Timestamp / DateTime / String
-  static DateTime? _readDate(dynamic v) {
-    if (v == null) return null;
-    if (v is Timestamp) return v.toDate();
-    if (v is DateTime) return v;
-    if (v is String && v.trim().isNotEmpty) {
-      // tenta ISO ou dd/MM/yyyy
+  ProcessData copyWith({
+    String? id,
+    DateTime? publicationDate,
+    int? initialValidityExecution,
+    int? initialValidityContract,
+    Map<String, Map<String, bool>>? permissionContractId,
+    Map<String, Map<String, dynamic>>? participantsInfo,
+  }) {
+    return ProcessData(
+      id: id ?? this.id,
+      publicationDate: publicationDate ?? this.publicationDate,
+      initialValidityExecution:
+      initialValidityExecution ?? this.initialValidityExecution,
+      initialValidityContract:
+      initialValidityContract ?? this.initialValidityContract,
+      permissionContractId:
+      permissionContractId ?? this.permissionContractId,
+      participantsInfo: participantsInfo ?? this.participantsInfo,
+    );
+  }
+
+  static DateTime? _readDate(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+
+    if (value is String && value.trim().isNotEmpty) {
       try {
-        return DateTime.parse(v);
+        return DateTime.parse(value);
       } catch (_) {
-        // último chute: dd/MM/yyyy
         try {
-          final parts = v.split('/');
+          final parts = value.split('/');
           if (parts.length == 3) {
             final d = int.parse(parts[0]);
             final m = int.parse(parts[1]);
@@ -57,41 +75,50 @@ class ProcessData extends ChangeNotifier {
         } catch (_) {}
       }
     }
+
     return null;
   }
 
-  /// Recuperando informações no banco de dados
   factory ProcessData.fromDocument({required DocumentSnapshot snapshot}) {
     if (!snapshot.exists) {
-      throw Exception("Contrato não encontrado");
+      throw Exception('Contrato não encontrado');
     }
+
     final data = snapshot.data() as Map<String, dynamic>?;
     if (data == null) {
-      throw Exception("Os dados do contrato estão vazios");
+      throw Exception('Os dados do contrato estão vazios');
     }
 
-    final rawPerms = data['permissionContractId'];
-    final rawParts = data['participantsInfo'];
+    return ProcessData.fromJson(data, id: snapshot.id);
+  }
+
+  factory ProcessData.fromJson(Map<String, dynamic> json, {String? id}) {
+    final rawPerms = json['permissionContractId'];
+    final rawParts = json['participantsInfo'];
 
     return ProcessData(
-      id: snapshot.id,
-      publicationDate: _readDate(data['datapublicacaodoe']),
+      id: id,
+      publicationDate: _readDate(json['datapublicacaodoe']),
       initialValidityExecution:
-      (data['initialvalidityexecutiondays'] as num?)?.toInt(),
+      (json['initialvalidityexecutiondays'] as num?)?.toInt(),
       initialValidityContract:
-      (data['initialvaliditycontractdays'] as num?)?.toInt(),
-      permissionContractId:
-      (rawPerms is Map<String, dynamic>)
+      (json['initialvaliditycontractdays'] as num?)?.toInt(),
+      permissionContractId: (rawPerms is Map<String, dynamic>)
           ? rawPerms.map(
-            (userId, perm) =>
-            MapEntry(userId, Map<String, bool>.from(perm as Map)),
+            (userId, perm) => MapEntry(
+          userId,
+          Map<String, bool>.from((perm as Map).map(
+                (k, v) => MapEntry(k.toString(), v == true),
+          )),
+        ),
       )
           : <String, Map<String, bool>>{},
-      participantsInfo:
-      (rawParts is Map<String, dynamic>)
+      participantsInfo: (rawParts is Map<String, dynamic>)
           ? rawParts.map(
-            (uid, meta) =>
-            MapEntry(uid, Map<String, dynamic>.from(meta as Map)),
+            (uid, meta) => MapEntry(
+          uid,
+          Map<String, dynamic>.from(meta as Map),
+        ),
       )
           : <String, Map<String, dynamic>>{},
     );
@@ -105,65 +132,95 @@ class ProcessData extends ChangeNotifier {
         'initialvalidityexecutiondays': initialValidityExecution,
       if (initialValidityContract != null)
         'initialvaliditycontractdays': initialValidityContract,
-      if (permissionContractId.isNotEmpty)
-        'permissionContractId': permissionContractId,
-      if (participantsInfo.isNotEmpty) 'participantsInfo': participantsInfo,
+      'permissionContractId': permissionContractId,
+      'participantsInfo': participantsInfo,
     };
   }
 
-  factory ProcessData.fromJson(Map<String, dynamic> json, {String? id}) {
-    return ProcessData(
-      id: id,
-      publicationDate: _readDate(json['datapublicacaodoe']),
-      initialValidityExecution:
-      (json['initialvalidityexecutiondays'] as num?)?.toInt(),
-      initialValidityContract:
-      (json['initialvaliditycontractdays'] as num?)?.toInt(),
-      permissionContractId:
-      (json['permissionContractId'] as Map<String, dynamic>?)
-          ?.map(
-            (key, value) =>
-            MapEntry(key, Map<String, bool>.from(value)),
-      ) ??
-          {},
-      participantsInfo:
-      (json['participantsInfo'] as Map<String, dynamic>?)
-          ?.map(
-            (k, v) => MapEntry(k, Map<String, dynamic>.from(v)),
-      ) ??
-          {},
+  ProcessData copyWithUpdatedPermission({
+    required String userId,
+    required String permissionType,
+    required bool value,
+  }) {
+    final updatedPerms =
+    Map<String, Map<String, bool>>.from(permissionContractId);
+
+    final userPerms = Map<String, bool>.from(updatedPerms[userId] ?? {});
+    userPerms[permissionType] = value;
+    updatedPerms[userId] = userPerms;
+
+    return copyWith(permissionContractId: updatedPerms);
+  }
+
+  ProcessData copyWithParticipantPerms({
+    required String userId,
+    required Map<String, bool> perms,
+  }) {
+    final updatedPerms =
+    Map<String, Map<String, bool>>.from(permissionContractId);
+    updatedPerms[userId] = Map<String, bool>.from(perms);
+
+    return copyWith(permissionContractId: updatedPerms);
+  }
+
+  ProcessData copyWithParticipantMeta({
+    required String userId,
+    required Map<String, dynamic> meta,
+  }) {
+    final updatedMeta =
+    Map<String, Map<String, dynamic>>.from(participantsInfo);
+    updatedMeta[userId] = Map<String, dynamic>.from(meta);
+
+    return copyWith(participantsInfo: updatedMeta);
+  }
+
+  ProcessData copyWithParticipantRole({
+    required String userId,
+    required String role,
+  }) {
+    final updatedMeta =
+    Map<String, Map<String, dynamic>>.from(participantsInfo);
+
+    final current = Map<String, dynamic>.from(updatedMeta[userId] ?? {});
+    current['role'] = role;
+    updatedMeta[userId] = current;
+
+    return copyWith(participantsInfo: updatedMeta);
+  }
+
+  ProcessData copyWithAddedParticipant({
+    required String userId,
+    required Map<String, bool> perms,
+    Map<String, dynamic> meta = const {},
+  }) {
+    final updatedPerms =
+    Map<String, Map<String, bool>>.from(permissionContractId);
+    updatedPerms[userId] = Map<String, bool>.from(perms);
+
+    final updatedMeta =
+    Map<String, Map<String, dynamic>>.from(participantsInfo);
+    if (meta.isNotEmpty) {
+      updatedMeta[userId] = Map<String, dynamic>.from(meta);
+    }
+
+    return copyWith(
+      permissionContractId: updatedPerms,
+      participantsInfo: updatedMeta,
     );
   }
 
-  // Atualiza as permissões do usuário para um contrato específico usando o ID do documento
-  void updateContractPermissions(
-      String contractDocId, String permissionType, bool value) {
-    if (permissionContractId[contractDocId] == null) {
-      permissionContractId[contractDocId] = {};
-    }
-    permissionContractId[contractDocId]![permissionType] = value;
-  }
+  ProcessData copyWithRemovedParticipant(String userId) {
+    final updatedPerms =
+    Map<String, Map<String, bool>>.from(permissionContractId);
+    final updatedMeta =
+    Map<String, Map<String, dynamic>>.from(participantsInfo);
 
-  // ---- Helpers locais de participantes (inalterados) ----
-  void upsertParticipantLocal(
-      String uid, {
-        bool read = true,
-        bool edit = false,
-        bool delete = false,
-        Map<String, dynamic>? meta,
-      }) {
-    permissionContractId[uid] = {'read': read, 'edit': edit, 'delete': delete};
-    if (meta != null) {
-      final m = Map<String, dynamic>.from(participantsInfo[uid] ?? {});
-      m.addAll(meta);
-      participantsInfo[uid] = m;
-    }
-    notifyListeners();
-  }
+    updatedPerms.remove(userId);
+    updatedMeta.remove(userId);
 
-  void removeParticipantLocal(String uid) {
-    permissionContractId.remove(uid);
-    participantsInfo.remove(uid);
-    notifyListeners();
+    return copyWith(
+      permissionContractId: updatedPerms,
+      participantsInfo: updatedMeta,
+    );
   }
 }

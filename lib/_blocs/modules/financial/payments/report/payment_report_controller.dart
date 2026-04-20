@@ -1,6 +1,3 @@
-// ==============================
-// lib/_blocs/modules/financial/payments/report/payment_report_controller.dart
-// ==============================
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -12,7 +9,7 @@ import 'package:sipged/_blocs/modules/financial/payments/report/payment_reports_
 import 'package:sipged/_blocs/modules/financial/payments/report/payments_reports_data.dart';
 import 'package:sipged/_blocs/modules/financial/payments/report/payments_report_storage_bloc.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -21,18 +18,15 @@ import 'package:sipged/_utils/formats/sipged_format_dates.dart';
 import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
 import 'package:sipged/_utils/validates/sipged_validation.dart';
-// permissões
 import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
 
-// anexos + preview
 import 'package:sipged/_widgets/list/files/attachment.dart';
 import 'package:sipged/_widgets/pdf/pdf_preview.dart';
 
 import 'package:sipged/_widgets/windows/show_window_dialog.dart';
 
-class PaymentsReportController extends ChangeNotifier
-    with SipGedValidation {
+class PaymentsReportController extends ChangeNotifier with SipGedValidation {
   PaymentsReportController({
     required PaymentReportBloc paymentReportBloc,
     required AdditivesRepository additivesRepository,
@@ -41,38 +35,30 @@ class PaymentsReportController extends ChangeNotifier
         _additivesRepository = additivesRepository,
         _storageBloc = storageBloc ?? PaymentsReportStorageBloc();
 
-  // --- Dependências
   final PaymentReportBloc _paymentReportBloc;
   final AdditivesRepository _additivesRepository;
   final PaymentsReportStorageBloc _storageBloc;
 
-  // --- User stream
   StreamSubscription<UserState>? _userSub;
 
-  // --- Contexto
   UserData? currentUser;
   ProcessData? contract;
 
-  // valor da demanda (DFD)
   final double _valorDemanda = 0.0;
 
-  // --- Dados
   List<PaymentsReportData> _reports = <PaymentsReportData>[];
   List<PaymentsReportData> _lastSnapshot = <PaymentsReportData>[];
   PaymentsReportData? _selected;
   String? _currentId;
 
-  // --- Estado UI
   int? selectedIndex;
   bool isEditable = false;
   bool isSaving = false;
   bool formValidated = false;
 
-  // --- Totais
   double _valorInicial = 0.0;
   double _valorAditivos = 0.0;
 
-  // --- Campos
   final orderCtrl = TextEditingController();
   final processCtrl = TextEditingController();
   final valueCtrl = TextEditingController();
@@ -84,35 +70,31 @@ class PaymentsReportController extends ChangeNotifier
   final fontCtrl = TextEditingController();
   final taxCtrl = TextEditingController();
 
-  // --- SideListBox (múltiplos anexos com rótulo)
   List<dynamic> sideItems = const <dynamic>[];
   int? selectedSideIndex;
 
   bool get canAddFile => isEditable && _selected?.idPaymentReport != null;
 
-  // --- Getters de lista/gráficos
   List<PaymentsReportData> get reports => _reports;
   PaymentsReportData? get selected => _selected;
   String? get currentPaymentReportId => _currentId;
 
   List<String> get chartLabels =>
       _reports.map((e) => (e.orderPaymentReport ?? 0).toString()).toList();
+
   List<double> get chartValues =>
       _reports.map((e) => e.valuePaymentReport ?? 0.0).toList();
 
-  double get totalMedicoes =>
-      chartValues.fold<double>(0.0, (a, b) => a + b);
+  double get totalMedicoes => chartValues.fold<double>(0.0, (a, b) => a + b);
   double get valorTotal => _valorInicial + _valorAditivos;
   double get saldo => valorTotal - totalMedicoes;
 
-  // admin via papel global
   bool get isAdmin {
     final u = currentUser;
     if (u == null) return false;
     return roles.roleForUser(u) == roles.UserProfile.administrador;
   }
 
-  // ======= ORDENS: dropdown inteligente =======
   Set<int> get _existingOrders => _lastSnapshot
       .map((v) => v.orderPaymentReport ?? 0)
       .where((n) => n > 0)
@@ -127,7 +109,6 @@ class PaymentsReportController extends ChangeNotifier
     return max + 1;
   }
 
-  /// Opções mostradas no dropdown (1 .. maxExistente+1)
   List<String> get orderNumberOptions {
     final set = _existingOrders;
     final maxPlusOne =
@@ -135,11 +116,9 @@ class PaymentsReportController extends ChangeNotifier
     return List<String>.generate(maxPlusOne, (i) => '${i + 1}');
   }
 
-  /// Itens em cinza (já usados)
   Set<String> get greyOrderItems =>
       _existingOrders.map((e) => e.toString()).toSet();
 
-  /// Clique num item do dropdown
   void onChangeOrderNumber(String? v) {
     final picked = int.tryParse(v ?? '');
     if (picked == null || picked <= 0) return;
@@ -147,17 +126,14 @@ class PaymentsReportController extends ChangeNotifier
     final idx = _lastSnapshot
         .indexWhere((x) => (x.orderPaymentReport ?? -1) == picked);
     if (idx >= 0) {
-      // já existe -> carrega registro
       selectRow(_lastSnapshot[idx]);
     } else {
-      // livre -> inicia novo naquela ordem
       createNew();
       orderCtrl.text = '$picked';
       notifyListeners();
     }
   }
 
-  // --- Init/Dispose
   Future<void> init(
       BuildContext context, {
         required ProcessData? contractData,
@@ -165,12 +141,12 @@ class PaymentsReportController extends ChangeNotifier
     contract = contractData;
     if (contract?.id == null) return;
 
-    final userBloc = context.read<UserBloc>();
-    currentUser = userBloc.state.current;
+    final userCubit = context.read<UserCubit>();
+    currentUser = userCubit.state.current;
     isEditable = _canEditUser(currentUser);
 
     _userSub?.cancel();
-    _userSub = userBloc.stream.listen((st) {
+    _userSub = userCubit.stream.listen((st) {
       final prevId = currentUser?.uid;
       currentUser = st.current;
       final nowId = currentUser?.uid;
@@ -222,7 +198,6 @@ class PaymentsReportController extends ChangeNotifier
     super.dispose();
   }
 
-  // --- Permissão (módulo: payments_report)
   bool _canEditUser(UserData? user) {
     if (user == null) return false;
 
@@ -241,14 +216,10 @@ class PaymentsReportController extends ChangeNotifier
     return canEdit || canCreate;
   }
 
-  // --- Core
   Future<void> _loadInitial() async {
     if (contract?.id == null) return;
 
-    // ✅ usa valor da demanda vindo do DfdData
     _valorInicial = _valorDemanda;
-
-    // ✅ usa repositório de aditivos no padrão novo
     _valorAditivos =
     await _additivesRepository.getAllAdditivesValue(contract!.id!);
 
@@ -257,7 +228,6 @@ class PaymentsReportController extends ChangeNotifier
 
     _lastSnapshot = List<PaymentsReportData>.from(_reports);
 
-    // Define próxima ordem livre
     final next = _nextAvailableOrder(_existingOrders);
     orderCtrl.text = '$next';
 
@@ -276,7 +246,6 @@ class PaymentsReportController extends ChangeNotifier
     }
   }
 
-  // --- Ações UI
   void selectRow(PaymentsReportData data) {
     final idx = _reports.indexOf(data);
     if (idx == -1) return;
@@ -307,7 +276,6 @@ class PaymentsReportController extends ChangeNotifier
     _selected = null;
     _currentId = null;
 
-    // mantém o valor escolhido no dropdown; se vazio, usa próxima livre
     if (orderCtrl.text.trim().isEmpty) {
       final next = _nextAvailableOrder(_existingOrders);
       orderCtrl.text = '$next';
@@ -354,8 +322,8 @@ class PaymentsReportController extends ChangeNotifier
         electronicTicketPaymentReport: electronicTicketCtrl.text,
         fontPaymentReport: fontCtrl.text,
         taxPaymentReport: SipGedFormatMoney.parseBrl(taxCtrl.text),
-        pdfUrl: _selected?.pdfUrl, // legado preservado
-        attachments: _selected?.attachments, // mantém anexos numa edição
+        pdfUrl: _selected?.pdfUrl,
+        attachments: _selected?.attachments,
       );
 
       await _paymentReportBloc.saveOrUpdatePayment(data);
@@ -442,7 +410,6 @@ class PaymentsReportController extends ChangeNotifier
     }
   }
 
-  // ======== SideListBox (multi-anexos com rótulo) ========
   Future<void> _refreshSideList() async {
     final p = _selected;
     if (p == null) {
@@ -452,7 +419,6 @@ class PaymentsReportController extends ChangeNotifier
       return;
     }
 
-    // 1) se já houver attachments no doc, usa-os
     if ((p.attachments ?? const []).isNotEmpty) {
       sideItems = List<dynamic>.from(p.attachments!);
       selectedSideIndex = null;
@@ -460,7 +426,6 @@ class PaymentsReportController extends ChangeNotifier
       return;
     }
 
-    // 2) se houver pdfUrl legado, cria um attachment único e salva
     if ((p.pdfUrl ?? '').isNotEmpty &&
         p.idPaymentReport != null &&
         contract?.id != null) {
@@ -487,7 +452,6 @@ class PaymentsReportController extends ChangeNotifier
       return;
     }
 
-    // 3) materializa arquivos do Storage (se existirem)
     if (contract?.id != null && p.idPaymentReport != null) {
       final files = await _storageBloc.listarArquivosDoPagamento(
         contractId: contract!.id!,
@@ -498,11 +462,9 @@ class PaymentsReportController extends ChangeNotifier
             .map(
               (f) => Attachment(
             id: f.name,
-            label:
-            f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+            label: f.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
             url: f.url,
-            path:
-            'contracts/${contract!.id}/payments/${p.idPaymentReport}/${f.name}',
+            path: 'contracts/${contract!.id}/payments/${p.idPaymentReport}/${f.name}',
             ext: RegExp(r'\.([a-z0-9]+)$', caseSensitive: false)
                 .firstMatch(f.name)
                 ?.group(0) ??
@@ -642,9 +604,7 @@ class PaymentsReportController extends ChangeNotifier
       BuildContext context,
       ) async {
     final p = _selected;
-    if (p == null ||
-        p.idPaymentReport == null ||
-        contract?.id == null) {
+    if (p == null || p.idPaymentReport == null || contract?.id == null) {
       return;
     }
 
@@ -652,10 +612,10 @@ class PaymentsReportController extends ChangeNotifier
       isSaving = true;
       notifyListeners();
 
-      final atts = p.attachments ?? [];
+      final atts = List<Attachment>.from(p.attachments ?? const []);
       if (index >= 0 && index < atts.length) {
         final removed = atts.removeAt(index);
-        if ((removed.path).isNotEmpty) {
+        if (removed.path.isNotEmpty) {
           await _storageBloc.deleteStorageByPath(removed.path);
         }
         await _paymentReportBloc.setAttachments(
@@ -686,6 +646,7 @@ class PaymentsReportController extends ChangeNotifier
 
     String? url;
     if ((p.attachments ?? []).isNotEmpty) {
+      if (index < 0 || index >= p.attachments!.length) return;
       final att = p.attachments![index];
       url = att.url;
       selectedSideIndex = index;
@@ -705,7 +666,6 @@ class PaymentsReportController extends ChangeNotifier
     );
   }
 
-  // compat para salvar URL legado diretamente (se ainda usar em algum ponto)
   Future<void> savePdfUrl(String url) async {
     if (_selected?.idPaymentReport == null || contract?.id == null) return;
     await _paymentReportBloc.salvarUrlPdfDePayment(
@@ -717,16 +677,9 @@ class PaymentsReportController extends ChangeNotifier
     await _refreshSideList();
   }
 
-  // =========================
-  // SideListBox (NOVO) hooks
-  // =========================
-
-  /// SideListBox novo pode avisar a lista atual (pós rename / delete etc.)
-  /// Aqui a gente só sincroniza com o controller.
   void setSideItems(List<dynamic> newItems) {
     sideItems = List<dynamic>.from(newItems);
 
-    // Se todos forem Attachment, mantém o selected.attachments sincronizado em memória.
     final p = _selected;
     if (p != null) {
       final atts = _extractAttachments(newItems);
@@ -738,8 +691,6 @@ class PaymentsReportController extends ChangeNotifier
     notifyListeners();
   }
 
-  /// Persistência do rename do SideListBox novo.
-  /// Retorne true se salvou OK; false pra UI reverter.
   Future<bool> persistRenameAttachment({
     required int index,
     required Attachment oldItem,
@@ -754,30 +705,28 @@ class PaymentsReportController extends ChangeNotifier
 
     final current = List<Attachment>.from(p.attachments ?? const []);
 
-    // Segurança: se index não bate, tenta achar pelo id/url
-    int idx = (index >= 0 && index < current.length) ? index : -1;
-    if (idx == -1) {
-      idx = current.indexWhere((a) =>
-      a.id == oldItem.id ||
-          (a.url.isNotEmpty && a.url == oldItem.url));
+    int resolvedIndex = (index >= 0 && index < current.length) ? index : -1;
+    if (resolvedIndex == -1) {
+      resolvedIndex = current.indexWhere(
+            (a) => a.id == oldItem.id || (a.url.isNotEmpty && a.url == oldItem.url),
+      );
     }
-    if (idx == -1) return false;
+    if (resolvedIndex == -1) return false;
 
-    // Atualiza apenas o label + auditoria
     final updated = Attachment(
-      id: current[idx].id,
+      id: current[resolvedIndex].id,
       label: newItem.label,
-      url: current[idx].url,
-      path: current[idx].path,
-      ext: current[idx].ext,
-      size: current[idx].size,
-      createdAt: current[idx].createdAt,
-      createdBy: current[idx].createdBy,
+      url: current[resolvedIndex].url,
+      path: current[resolvedIndex].path,
+      ext: current[resolvedIndex].ext,
+      size: current[resolvedIndex].size,
+      createdAt: current[resolvedIndex].createdAt,
+      createdBy: current[resolvedIndex].createdBy,
       updatedAt: DateTime.now(),
       updatedBy: currentUser?.uid,
     );
 
-    current[idx] = updated;
+    current[resolvedIndex] = updated;
 
     try {
       await _paymentReportBloc.setAttachments(
@@ -786,15 +735,11 @@ class PaymentsReportController extends ChangeNotifier
         attachments: current,
       );
 
-      // Mantém memória + UI sincronizadas
       p.attachments = current;
-
-      // sideItems precisa refletir o rename (pra UI não depender do refresh)
       sideItems = List<dynamic>.from(current);
 
-      // mantém seleção
       if (selectedSideIndex != null && selectedSideIndex == index) {
-        selectedSideIndex = idx;
+        selectedSideIndex = resolvedIndex;
       }
 
       notifyListeners();
@@ -804,7 +749,6 @@ class PaymentsReportController extends ChangeNotifier
     }
   }
 
-  /// Helper: se a lista for toda Attachment, retorna; senão, null
   List<Attachment>? _extractAttachments(List<dynamic> items) {
     if (items.isEmpty) return <Attachment>[];
     for (final it in items) {
@@ -812,5 +756,4 @@ class PaymentsReportController extends ChangeNotifier
     }
     return items.cast<Attachment>().toList();
   }
-
 }

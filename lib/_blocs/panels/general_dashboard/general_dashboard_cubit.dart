@@ -1,12 +1,11 @@
-// lib/_blocs/panels/general_dashboard/general_dashboard_cubit.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_blocs/modules/contracts/apostilles/apostilles_repository.dart';
 
 import 'general_dashboard_state.dart';
 
+import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
 
 import 'package:sipged/_blocs/modules/contracts/additives/additives_data.dart';
 import 'package:sipged/_blocs/modules/contracts/additives/additives_repository.dart';
@@ -30,7 +29,7 @@ import 'package:sipged/_widgets/charts/treemap/treemap_style.dart';
 
 class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
   GeneralDashboardCubit({
-    required this.store,
+    required this.processCubit,
     required this.reportMeasurementCubit,
     required this.adjustmentMeasurementCubit,
     required this.revisionMeasurementCubit,
@@ -40,44 +39,33 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     required this.editalCubit,
   }) : super(const GeneralDashboardState());
 
-  // Injeções
-  final ProcessStore store;
+  final ProcessCubit processCubit;
 
-  // Cubits de medição / reajuste / revisão
   final ReportMeasurementCubit reportMeasurementCubit;
   final AdjustmentMeasurementCubit adjustmentMeasurementCubit;
   final RevisionMeasurementCubit revisionMeasurementCubit;
 
-  // Aditivos / Apostilas
-  final AdditivesRepository additivesRepository; ///DEVE CHAMAR O REPO E NAO O CUBIT
+  final AdditivesRepository additivesRepository;
   final ApostillesRepository apostillesRepository;
 
-  // DFD / Edital
   final DfdCubit dfdCubit;
   final EditalCubit editalCubit;
 
   int _applyRunId = 0;
 
-  // Caches do DFD / Edital
   final Map<String, String> _roadNameByContract = {};
   final Map<String, String> _regionByContract = {};
   final Map<String, String> _statusByContract = {};
   final Map<String, String> _naturezaByContract = {};
   final Map<String, String> _winnerByContract = {};
-
-  /// Município por contrato (DFD.municipio)
   final Map<String, String> _municipioByContract = {};
-
-  /// valorDemanda por contrato (usando DFD)
   final Map<String, double> _valueByContract = {};
 
-  /// Contratos para os quais já tentamos buscar DFD uma vez
   final Set<String> _dfdCheckedContracts = {};
-
-  /// Contratos para os quais já tentamos buscar Edital uma vez
   final Set<String> _editalCheckedContracts = {};
 
-  // ========= HELPERS =========
+  List<ProcessData> get _allContractsFromProcessCubit =>
+      processCubit.state.allProcesses;
 
   String? _idToString(Object? id) {
     if (id == null) return null;
@@ -111,7 +99,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return null;
   }
 
-  /// Extrai contractId de qualquer coisa (Report/Adjustment/RevisionData)
   String? _extractContractId(dynamic entry) {
     try {
       final direct = _dynString((entry as dynamic).contractId) ??
@@ -136,14 +123,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return null;
   }
 
-  /// Pré-carrega labels de DFD/Edital para os contratos informados.
-  ///
-  /// Importante: com os sets [_dfdCheckedContracts] e [_editalCheckedContracts],
-  /// cada contrato só dispara as chamadas remotas de DFD/Edital **uma vez**.
   Future<void> _preloadDfdLabels(Iterable<ProcessData> base) async {
-    final swTotal = Stopwatch()..start();
-
-
     final futures = <Future<void>>[];
 
     for (final c in base) {
@@ -167,7 +147,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
 
       final precisaAlgoDeEdital = precisaVencedor;
 
-      // Se já tentamos DFD uma vez para este contrato, não tentamos de novo
       final jaTentouDfd = _dfdCheckedContracts.contains(id);
       final jaTentouEdital = _editalCheckedContracts.contains(id);
 
@@ -176,7 +155,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       }
 
       futures.add(() async {
-        // DFD
         if (precisaAlgoDeDfd && !jaTentouDfd) {
           _dfdCheckedContracts.add(id);
 
@@ -219,7 +197,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
           }
         }
 
-        // Edital (vencedor)
         if (precisaAlgoDeEdital && !jaTentouEdital) {
           _editalCheckedContracts.add(id);
           final EditalData? edital = await editalCubit.getDataForContract(id);
@@ -234,8 +211,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     if (futures.isNotEmpty) {
       await Future.wait(futures);
     }
-
-    swTotal.stop();
   }
 
   Map<String, String> get regionByMunicipio {
@@ -298,7 +273,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     return 'EM PROJETO';
   }
 
-  /// MUNICÍPIO (DFD.municipio)
   String _getMunicipioLabel(ProcessData c) {
     final id = _idToString(c.id);
     final cached = (id != null) ? _municipioByContract[id] : null;
@@ -322,8 +296,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     final list = set.toList()..sort();
     return list;
   }
-
-  // ========= PUBLIC GETTERS =========
 
   bool get houveInteracaoComFiltros =>
       state.selectedStatus != null ||
@@ -379,8 +351,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     }
     return out;
   }
-
-  // ===== STATUS (derivados) =====
 
   Map<String, double> get totaisStatusAtuais {
     switch (state.tipoDeValorSelecionado) {
@@ -438,8 +408,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
 
   List<double> get valuesStatusGeneralContracts =>
       valuesStatusGeneralContractsFiltered;
-
-  // ===== REGIÃO =====
 
   Map<String, double> get totaisRegiaoAtuais {
     switch (state.tipoDeValorSelecionado) {
@@ -508,8 +476,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     });
   }
 
-  // ===== EMPRESA =====
-
   Map<String, double> get totaisEmpresaAtuais {
     switch (state.tipoDeValorSelecionado) {
       case 'Valor contratado':
@@ -554,9 +520,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
           .toList();
 
   List<double> get valuesCompany =>
-      state.uniqueCompanies
-          .map((e) => totaisEmpresaAtuais[e] ?? 0.0)
-          .toList();
+      state.uniqueCompanies.map((e) => totaisEmpresaAtuais[e] ?? 0.0).toList();
 
   List<Color> get barColorsEmpresa {
     return List.generate(state.uniqueCompanies.length, (i) {
@@ -567,8 +531,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       return Colors.blueAccent;
     });
   }
-
-  // ===== Radar (natureza intervenção) =====
 
   List<String> get radarServiceLabels {
     final set = <String>{};
@@ -671,14 +633,10 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
 
     return raw
         .where(
-          (s) =>
-      s.values.length == labels.length &&
-          s.values.any((v) => v > 0),
+          (s) => s.values.length == labels.length && s.values.any((v) => v > 0),
     )
         .toList(growable: false);
   }
-
-  // ===== Treemap rodovias =====
 
   List<TreemapItem> get treemapRodovias {
     final ordenado = state.totaisRodoviaFull.entries.toList()
@@ -701,24 +659,13 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         .toList();
   }
 
-  // ========= CICLO DE VIDA =========
-
   Future<void> initialize() async {
-    final swTotal = Stopwatch()..start();
-
     emit(state.copyWith(isLoading: true));
 
-    final swContracts = Stopwatch()..start();
-    final allContracts = store.all;
-    swContracts.stop();
+    final allContracts = _allContractsFromProcessCubit;
 
-    final swPreload = Stopwatch()..start();
     await _preloadDfdLabels(allContracts);
-    swPreload.stop();
-
-    final swReloadGroups = Stopwatch()..start();
     await _reloadMeasurementGroups();
-    swReloadGroups.stop();
 
     final uniqueCompanies = _extractCompanies(allContracts);
 
@@ -729,35 +676,22 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       selectedYear: DateTime.now().year,
     ));
 
-    final swApply = Stopwatch()..start();
     await aplicarFiltrosERecalcular();
-    swApply.stop();
 
     emit(state.copyWith(
       initialized: true,
       isLoading: false,
     ));
-
-    swTotal.stop();
   }
 
-  /// Recarrega listas globais de medições/reajustes/revisões e recalcula
   Future<void> refreshAndRecalc() async {
-    final sw = Stopwatch()..start();
-
     await _reloadMeasurementGroups();
     await aplicarFiltrosERecalcular();
-
-    sw.stop();
   }
 
-  /// Usado em hot-reload
   Future<void> onHotReload() => refreshAndRecalc();
 
-  /// Carrega TODAS medições/reajustes/revisões (collectionGroup) via cubits
   Future<void> _reloadMeasurementGroups() async {
-    final sw = Stopwatch()..start();
-
     final results = await Future.wait([
       reportMeasurementCubit.getAllMeasurementsCollectionGroup(),
       adjustmentMeasurementCubit.getAllAdjustmentsCollectionGroup(),
@@ -773,16 +707,12 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       allAdjustments: allAdjustments,
       allRevisions: allRevisions,
     ));
-
-    sw.stop();
   }
-
-  // ========= MUTAÇÕES DE FILTRO =========
 
   Future<void> onStatusSelected(String? status) async {
     final sel = status?.trim();
-    final same = (state.selectedStatus ?? '').toUpperCase() ==
-        (sel ?? '').toUpperCase();
+    final same =
+        (state.selectedStatus ?? '').toUpperCase() == (sel ?? '').toUpperCase();
 
     if (sel == null || same) {
       emit(state.copyWith(
@@ -797,7 +727,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       ));
     } else {
       final selUpper = sel.toUpperCase();
-      final regs = store.all
+      final regs = _allContractsFromProcessCubit
           .where((c) => _getStatusLabel(c).toUpperCase() == selUpper)
           .map((c) => _getRegionLabel(c).toUpperCase())
           .where((r) => r.isNotEmpty && r != 'SEM REGIÃO')
@@ -835,7 +765,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
           selectedMunicipio: null,
         ));
       } else {
-        final contratosEmpresa = store.all.where(
+        final contratosEmpresa = _allContractsFromProcessCubit.where(
               (c) => _getWinnerLabel(c).toUpperCase() == company.toUpperCase(),
         );
 
@@ -883,7 +813,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     if (index < 0 || index >= state.uniqueCompanies.length) return;
 
     final company = state.uniqueCompanies[index];
-    final contratosEmpresa = store.all.where(
+    final contratosEmpresa = _allContractsFromProcessCubit.where(
           (c) => _getWinnerLabel(c).toUpperCase() == company.toUpperCase(),
     );
 
@@ -985,7 +915,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         selectedMunicipio: null,
       ));
     } else {
-      final regs = store.all
+      final regs = _allContractsFromProcessCubit
           .where((c) => _getRoadLabel(c).toUpperCase() == sel.toUpperCase())
           .map((c) => _getRegionLabel(c).toUpperCase())
           .where((r) => r.isNotEmpty && r != 'SEM REGIÃO')
@@ -1007,7 +937,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     await aplicarFiltrosERecalcular();
   }
 
-  /// Filtro por município (chamado pelo mapa/GeoJSON)
   Future<void> onMunicipioSelected(String? municipio) async {
     final sel = municipio?.trim();
     final same = (state.selectedMunicipio ?? '').toUpperCase() ==
@@ -1058,11 +987,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     ));
   }
 
-  // ========= FILTRO / RECÁLCULO =========
-
-  List<ProcessData> _filterContracts(
-      List<ProcessData> base,
-      ) {
+  List<ProcessData> _filterContracts(List<ProcessData> base) {
     final selStatus = state.selectedStatus?.toUpperCase();
     final selCompany = state.selectedCompany?.toUpperCase();
     final selRoad = state.selectedRoad?.toUpperCase();
@@ -1081,8 +1006,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
           regionsUpper.any((r) => region.contains(r));
       final matchStatus = selStatus == null || statusDfd == selStatus;
       final matchRoad = selRoad == null || road == selRoad;
-      final matchMunicipio =
-          selMunicipio == null || municipio == selMunicipio;
+      final matchMunicipio = selMunicipio == null || municipio == selMunicipio;
 
       return matchCompany &&
           matchRegion &&
@@ -1094,28 +1018,19 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
 
   Future<void> aplicarFiltrosERecalcular() async {
     final runId = ++_applyRunId;
-    final swTotal = Stopwatch()..start();
 
     final allContracts =
-    state.allContracts.isEmpty ? store.all : state.allContracts;
+    state.allContracts.isEmpty ? _allContractsFromProcessCubit : state.allContracts;
 
-    // Listas globais de medição/reajuste/revisão já carregadas via _reloadMeasurementGroups
     final allMeasurements = state.allMeasurements;
     final allAdjustments = state.allAdjustments;
     final allRevisions = state.allRevisions;
 
-    // Garante DFD/valorDemanda/municipio para quem ainda não foi tentado
-    final swPreload = Stopwatch()..start();
     await _preloadDfdLabels(allContracts);
-    swPreload.stop();
     if (isClosed || runId != _applyRunId) return;
 
-    final swFilter = Stopwatch()..start();
     final filtered = _filterContracts(allContracts);
-    swFilter.stop();
 
-    // ===== Cálculos em mapas locais (iniciais, filtrados) =====
-    final swMapsIni = Stopwatch()..start();
     final statusIni = <String, double>{};
     final empIni = <String, double>{};
     final regIni = <String, double>{};
@@ -1130,9 +1045,7 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       empIni[empresa] = (empIni[empresa] ?? 0.0) + valor;
       regIni[regiao] = (regIni[regiao] ?? 0.0) + valor;
     }
-    swMapsIni.stop();
 
-    // ===== Preparação de IDs / mapas auxiliares =====
     final allIds = <String>{
       for (final c in allContracts)
         if (_idToString(c.id) != null) _idToString(c.id)!,
@@ -1148,25 +1061,16 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
         if (_idToString(c.id) != null) _idToString(c.id)!: c,
     };
 
-    // ===== Carregar aditivos/apostilas UMA VEZ só =====
-    final swAddAll = Stopwatch()..start();
     final allAdditives = allIds.isNotEmpty
         ? await additivesRepository.getAdditivesByContractIds(allIds)
         : <AdditivesData>[];
-    swAddAll.stop();
     if (isClosed || runId != _applyRunId) return;
 
-    final swApAll = Stopwatch()..start();
     final allApostilles = allIds.isNotEmpty
         ? await apostillesRepository.getApostillesByContractIds(allIds)
         : <ApostillesData>[];
-    swApAll.stop();
     if (isClosed || runId != _applyRunId) return;
 
-    // ===== Mapas FULL e FILTRADOS de uma vez (status, empresa, região) =====
-    final swMapsFull = Stopwatch()..start();
-
-    // FULL iniciais
     final regIniFull = <String, double>{};
     final empIniFull = <String, double>{};
     final statusIniFull = <String, double>{};
@@ -1182,7 +1086,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       statusIniFull[status] = (statusIniFull[status] ?? 0.0) + valor;
     }
 
-    // FULL aditivos/apostilas
     final regAdFull = <String, double>{};
     final regApFull = <String, double>{};
 
@@ -1192,7 +1095,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     final statusAdFull = <String, double>{};
     final statusApFull = <String, double>{};
 
-    // FILTRADOS aditivos/apostilas
     final statusAd = <String, double>{};
     final empAd = <String, double>{};
     final regAd = <String, double>{};
@@ -1201,7 +1103,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     final empAp = <String, double>{};
     final regAp = <String, double>{};
 
-    // Percorre TODOS aditivos só UMA vez
     for (final ad in allAdditives) {
       final adId = _idToString(ad.contractId);
       if (adId == null) continue;
@@ -1213,12 +1114,10 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       final status = _getStatusLabel(c);
       final valor = ad.additiveValue ?? 0.0;
 
-      // FULL
       regAdFull[regiao] = (regAdFull[regiao] ?? 0.0) + valor;
       empAdFull[empresa] = (empAdFull[empresa] ?? 0.0) + valor;
       statusAdFull[status] = (statusAdFull[status] ?? 0.0) + valor;
 
-      // FILTRADO
       if (filtradosIds.contains(adId)) {
         regAd[regiao] = (regAd[regiao] ?? 0.0) + valor;
         empAd[empresa] = (empAd[empresa] ?? 0.0) + valor;
@@ -1226,7 +1125,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       }
     }
 
-    // Percorre TODAS apostilas só UMA vez
     for (final ap in allApostilles) {
       final apId = _idToString(ap.contractId);
       if (apId == null) continue;
@@ -1238,12 +1136,10 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       final status = _getStatusLabel(c);
       final valor = ap.apostilleValue ?? 0.0;
 
-      // FULL
       regApFull[regiao] = (regApFull[regiao] ?? 0.0) + valor;
       empApFull[empresa] = (empApFull[empresa] ?? 0.0) + valor;
       statusApFull[status] = (statusApFull[status] ?? 0.0) + valor;
 
-      // FILTRADO
       if (filtradosIds.contains(apId)) {
         regAp[regiao] = (regAp[regiao] ?? 0.0) + valor;
         empAp[empresa] = (empAp[empresa] ?? 0.0) + valor;
@@ -1251,10 +1147,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       }
     }
 
-    swMapsFull.stop();
-
-    // ===== Rodovias Full / Filtrado =====
-    final swRod = Stopwatch()..start();
     final rodFull = <String, double>{};
     for (final c in allContracts) {
       final rod = _getRoadLabel(c);
@@ -1272,10 +1164,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       if (valor == 0.0) continue;
       rodFiltrado[rod] = (rodFiltrado[rod] ?? 0.0) + valor;
     }
-    swRod.stop();
-
-    // ===== Totais Medições / Reajustes / Revisões =====
-    final swMed = Stopwatch()..start();
 
     final idsFiltro = filtradosIds;
 
@@ -1297,13 +1185,10 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
     }).toList();
     final totalRevisoes = revisionMeasurementCubit.sum(entriesRev);
 
-    swMed.stop();
-
     final uniqueCompanies = _extractCompanies(allContracts);
 
     if (isClosed || runId != _applyRunId) return;
 
-    final swEmit = Stopwatch()..start();
     emit(state.copyWith(
       allContracts: allContracts,
       filteredContracts: filtered,
@@ -1311,7 +1196,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       allAdjustments: allAdjustments,
       allRevisions: allRevisions,
       uniqueCompanies: uniqueCompanies,
-      // FILTRADOS
       totaisStatusIniciais: statusIni,
       totaisStatusAditivos: statusAd,
       totaisStatusApostilas: statusAp,
@@ -1321,7 +1205,6 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       totaisEmpresaIniciais: empIni,
       totaisEmpresaAditivos: empAd,
       totaisEmpresaApostilas: empAp,
-      // FULL
       totaisStatusIniciaisFull: statusIniFull,
       totaisStatusAditivosFull: statusAdFull,
       totaisStatusApostilasFull: statusApFull,
@@ -1337,7 +1220,5 @@ class GeneralDashboardCubit extends Cubit<GeneralDashboardState> {
       totalReajustes: totalReajustes,
       totalRevisoes: totalRevisoes,
     ));
-    swEmit.stop();
-    swTotal.stop();
-    }
+  }
 }

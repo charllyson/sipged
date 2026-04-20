@@ -1,3 +1,4 @@
+// lib/screens/login/sign_up.dart
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,8 +10,7 @@ import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_repository.dart';
 
 import 'package:sipged/_widgets/notification/app_notification.dart';
@@ -72,7 +72,7 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
   Future<void> _submit() async {
     final navigator = Navigator.of(context);
     final repo = context.read<UserRepository>();
-    final userBloc = context.read<UserBloc>();
+    final userCubit = context.read<UserCubit>();
 
     if (_passController.text != _repeatPassController.text) {
       _passController.clear();
@@ -149,10 +149,8 @@ class _SignUpState extends State<SignUp> with SipGedValidation {
         newUser.uid = uid;
 
         await repo.save(newUser);
-
-        userBloc
-          ..add(UserFetchByIdRequested(uid))
-          ..add(const CurrentUserBindToggleRequested(true));
+        await userCubit.fetchById(uid);
+        await userCubit.setCurrentUserBindEnabled(true);
       }
 
       if (!mounted) return;

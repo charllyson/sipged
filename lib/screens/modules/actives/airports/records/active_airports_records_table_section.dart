@@ -180,7 +180,7 @@ class ActiveOaesRecordsTableSection extends StatelessWidget {
   static String _getArea(ActiveOaesData a) => _fmtNum(a.area);
 
   static String _getStructureType(ActiveOaesData a) =>
-      a.estructureType ?? '-';
+      a.structureType ?? '-';
 
   static String _getRelatedContracts(ActiveOaesData a) =>
       a.relatedContracts ?? '-';

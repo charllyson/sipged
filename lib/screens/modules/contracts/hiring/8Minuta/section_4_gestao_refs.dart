@@ -1,6 +1,5 @@
-// lib/screens/modules/contracts/hiring/8Minuta/section_4_gestao_refs.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ necessário para context.select
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
@@ -9,7 +8,7 @@ import 'package:sipged/_widgets/input/drop_down_change.dart'
     show DropDownChange;
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/8Minuta/minuta_contrato_data.dart';
 
@@ -101,7 +100,9 @@ class _SectionGestaoRefsState extends State<SectionGestaoRefs> {
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +117,6 @@ class _SectionGestaoRefsState extends State<SectionGestaoRefs> {
               spacing: 12,
               runSpacing: 12,
               children: [
-                // ✅ Gestor (genérico)
                 SizedBox(
                   width: w4,
                   child: AutoCompleteChange<UserData>(
@@ -135,8 +135,6 @@ class _SectionGestaoRefsState extends State<SectionGestaoRefs> {
                     },
                   ),
                 ),
-
-                // ✅ Fiscal (genérico)
                 SizedBox(
                   width: w4,
                   child: AutoCompleteChange<UserData>(
@@ -155,7 +153,6 @@ class _SectionGestaoRefsState extends State<SectionGestaoRefs> {
                     },
                   ),
                 ),
-
                 SizedBox(
                   width: w4,
                   child: DropDownChange(

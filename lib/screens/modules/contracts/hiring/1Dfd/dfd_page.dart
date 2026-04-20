@@ -16,7 +16,7 @@ import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_state.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_stages.dart';
 
 // ===== Usuários
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 // ===== Widgets / UI
@@ -151,8 +151,8 @@ class _DfdPageState extends State<DfdPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final users = context.select<UserBloc, List<UserData>>(
-          (b) => b.state.all,
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
     );
 
     return BlocProvider.value(

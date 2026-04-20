@@ -45,7 +45,7 @@ class _ListOaesTableState extends State<ListOaesTable> {
       _txt(oae.identificationName),
       _txt(oae.region),
       _txt(oae.road),
-      _txt(oae.estructureType),
+      _txt(oae.structureType),
       _txt(oae.relatedContracts),
     ].join('|');
   }
@@ -148,7 +148,7 @@ class _ListOaesTableState extends State<ListOaesTable> {
         ),
         PagedColum<ActiveOaesData>(
           title: 'TIPO DE ESTRUTURA',
-          getter: (o) => _txt(o.estructureType),
+          getter: (o) => _txt(o.structureType),
           textAlign: TextAlign.left,
           width: 250,
         ),

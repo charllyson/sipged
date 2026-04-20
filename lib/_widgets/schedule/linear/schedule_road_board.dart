@@ -2,30 +2,22 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Domínio / dados
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_data.dart';
 
-// Widgets do Schedule
 import 'package:sipged/_widgets/schedule/linear/schedule_grid.dart';
 import 'package:sipged/_widgets/schedule/linear/schedule_status.dart';
 import 'package:sipged/_widgets/schedule/modal/type.dart';
 
-// Modal unificado
 import 'package:sipged/screens/modules/operation/schedule/physical/road/schedule_modal_square.dart';
 
-// Cubit
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_state.dart';
 
-// Usuários
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
-// Metadados por URL pro carrossel
 import 'package:sipged/_widgets/images/carousel/carousel_metadata.dart' as pm;
 
-// Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
@@ -70,15 +62,16 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
   void _ensureUsersLoadedOnce() {
     if (_requestedUsersLoad) return;
 
-    final userBloc = context.read<UserBloc>();
-    final userState = userBloc.state;
+    final userCubit = context.read<UserCubit>();
+    final userState = userCubit.state;
 
     if (!userState.initialized && userState.all.isEmpty) {
       _requestedUsersLoad = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        userBloc.add(
-          const UsersEnsureLoadedRequested(listenRealtime: true),
+        userCubit.warmup(
+          listenRealtime: true,
+          bindCurrentUser: true,
         );
       });
     }
@@ -145,8 +138,8 @@ class _ScheduleRoadBoardState extends State<ScheduleRoadBoard>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final userLabelResolver = context.select<UserBloc, String Function(String?)>(
-          (bloc) => bloc.state.labelFor,
+    final userLabelResolver = context.select<UserCubit, String Function(String?)>(
+          (cubit) => cubit.state.labelFor,
     );
 
     return BlocConsumer<ScheduleRoadCubit, ScheduleRoadState>(

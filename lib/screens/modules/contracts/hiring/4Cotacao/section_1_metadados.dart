@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/0Stages/hiring_data.dart';
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
 
@@ -101,7 +101,9 @@ class _SectionMetadadosState extends State<SectionMetadados>
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -151,8 +153,6 @@ class _SectionMetadadosState extends State<SectionMetadados>
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
-
-                // ✅ Responsável pela pesquisa (genérico)
                 SizedBox(
                   width: w5,
                   child: AutoCompleteChange<UserData>(
@@ -177,7 +177,6 @@ class _SectionMetadadosState extends State<SectionMetadados>
                     },
                   ),
                 ),
-
                 SizedBox(
                   width: w5,
                   child: DropDownChange(

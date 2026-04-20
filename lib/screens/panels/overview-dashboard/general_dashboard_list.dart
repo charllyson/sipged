@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_blocs/modules/contracts/measurement/report/report_measurement_data.dart';
@@ -89,13 +89,13 @@ class GeneralDashboardList extends StatelessWidget {
               onTap: () async {
                 if (contractId == null) return;
 
-                final store = context.read<ProcessStore>();
-                final ProcessData? contrato = await store.getById(contractId);
+                final processCubit = context.read<ProcessCubit>();
+                final ProcessData? contrato = await processCubit.getById(contractId);
 
                 if (!context.mounted) return;
                 if (contrato == null) return;
 
-                store.select(contrato);
+                processCubit.select(contrato);
 
                 Navigator.push(
                   context,

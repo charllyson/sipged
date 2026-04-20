@@ -4,11 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-// User
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
-// Roads
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_state.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/roads/active_roads_data.dart';
@@ -16,7 +13,6 @@ import 'package:sipged/screens/modules/actives/roads/records/list_roads_page.dar
 
 import 'tab_bar_roads_page.dart';
 
-// Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
@@ -24,8 +20,7 @@ class ActiveRoadsRecordsPage extends StatefulWidget {
   const ActiveRoadsRecordsPage({super.key});
 
   @override
-  State<ActiveRoadsRecordsPage> createState() =>
-      _ActiveRoadsRecordsPageState();
+  State<ActiveRoadsRecordsPage> createState() => _ActiveRoadsRecordsPageState();
 }
 
 class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
@@ -38,11 +33,9 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
 
     if (!_firedUserWarmup) {
       _firedUserWarmup = true;
-      context.read<UserBloc>().add(
-        const UserWarmupRequested(
-          listenRealtime: true,
-          bindCurrentUser: true,
-        ),
+      context.read<UserCubit>().warmup(
+        listenRealtime: true,
+        bindCurrentUser: true,
       );
     }
   }
@@ -66,15 +59,12 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
       builder: (context, st) {
         final cubit = context.read<ActiveRoadsCubit>();
 
-        // warmup das rodovias (1x)
         if (!_firedRoadsWarmup && !st.initialized) {
           _firedRoadsWarmup = true;
           cubit.warmup();
         }
 
-        // ================== ESTADO CARREGANDO ==================
-        if (!st.initialized ||
-            st.loadStatus == ActiveRoadsLoadStatus.loading) {
+        if (!st.initialized || st.loadStatus == ActiveRoadsLoadStatus.loading) {
           return const Scaffold(
             appBar: UpBar(),
             body: Stack(
@@ -86,7 +76,6 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
           );
         }
 
-        // ================== ESTADO ERRO ==================
         if (st.loadStatus == ActiveRoadsLoadStatus.failure) {
           if (st.error != null && st.error!.isNotEmpty) {
             NotificationCenter.instance.show(
@@ -102,7 +91,6 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
           );
         }
 
-        // ================== ESTADO OK ==================
         final roads = st.all;
 
         void onTapRoad(ActiveRoadsData item) {
@@ -134,7 +122,7 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
         }
 
         return Scaffold(
-          appBar: UpBar(),
+          appBar: const UpBar(),
           body: Stack(
             children: [
               const BackgroundChange(),
@@ -150,8 +138,6 @@ class _ActiveRoadsRecordsPageState extends State<ActiveRoadsRecordsPage> {
               ),
             ],
           ),
-
-          // Botão flutuante para adicionar rodovia
           floatingActionButton: FloatingActionButton.extended(
             onPressed: onAddRoad,
             icon: const Icon(Icons.add, color: Colors.white),

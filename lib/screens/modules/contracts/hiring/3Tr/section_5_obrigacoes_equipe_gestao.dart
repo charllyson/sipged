@@ -1,4 +1,3 @@
-// lib/screens/modules/contracts/hiring/3Tr/section_5_obrigacoes_equipe_gestao.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
@@ -9,7 +8,7 @@ import 'package:sipged/_widgets/input/drop_down_change.dart';
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/3Tr/tr_data.dart';
 
@@ -105,7 +104,9 @@ class _SectionObrigacoesEquipeGestaoState
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -144,8 +145,6 @@ class _SectionObrigacoesEquipeGestaoState
                         ),
                       ),
                       const SizedBox(height: 12),
-
-                      // ✅ Fiscal (genérico)
                       SizedBox(
                         width: w3,
                         child: AutoCompleteChange<UserData>(
@@ -166,8 +165,6 @@ class _SectionObrigacoesEquipeGestaoState
                         ),
                       ),
                       const SizedBox(height: 12),
-
-                      // ✅ Gestor (genérico)
                       SizedBox(
                         width: w3,
                         child: AutoCompleteChange<UserData>(

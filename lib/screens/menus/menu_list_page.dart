@@ -1,25 +1,19 @@
-// lib/screens/menus/menu_list_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
-// ===== Process (core) =====
+import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
 
-// ===== Dashboards / Stores auxiliares =====
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_cubit.dart';
 
-// ===== Setores (Operação) =====
 import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_bloc.dart';
 import 'package:sipged/_blocs/modules/operation/operation/civil/civil_schedule_event.dart';
 
-// ✅ Road agora usa Cubit
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_repository.dart';
 import 'package:sipged/_blocs/modules/operation/operation/road/schedule_road_cubit.dart';
 
-// ===== UI / Serviços =====
 import 'package:sipged/_widgets/notification/notification_center.dart';
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_services/files/dxf/map_overlay_cubit.dart';
@@ -29,7 +23,6 @@ import 'package:sipged/screens/modules/financial/budget/budget_network_page.dart
 import 'package:sipged/screens/modules/financial/dashboard/financial_dashboard_network_page.dart';
 import 'package:sipged/screens/modules/financial/empenhos/empenho_network_page.dart';
 
-// ===== Páginas =====
 import 'package:sipged/screens/modules/operation/schedule/financial/hiring_schedule_page.dart';
 import 'package:sipged/screens/modules/traffic/accidents/dashboard/accident_dashboard_page.dart';
 import 'package:sipged/screens/panels/specific-dashboard/specific_dashboard_page.dart';
@@ -68,16 +61,12 @@ import 'package:sipged/screens/modules/traffic/accidents/records/accidents_recor
 import 'package:sipged/screens/modules/traffic/infractions/infractions_dashboard_page.dart';
 import 'package:sipged/screens/modules/traffic/infractions/infractions_records_page.dart';
 
-// ===== Sistema / Usuários =====
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-// ===== DFD via BLoC =====
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
 
-// ===== Publicação (para número do contrato) =====
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/10Publicacao/publicacao_extrato_data.dart';
 
@@ -90,13 +79,8 @@ class MenuListPage extends StatefulWidget {
 
 class _MenuListPageState extends State<MenuListPage> {
   ModuleItem? _selectedItem;
-  bool _didWarmupUserBloc = false;
-  bool _didWarmupStores = false;
-
-  @override
-  void initState() {
-    super.initState();
-  }
+  bool _didWarmupUserCubit = false;
+  bool _didWarmupProcessCubit = false;
 
   void _onSelectPage(ModuleItem item) {
     setState(() => _selectedItem = item);
@@ -132,7 +116,9 @@ class _MenuListPageState extends State<MenuListPage> {
     final numero = (publicacao?.numeroContrato ?? '').trim();
     final descricao = (dfd?.descricaoObjeto ?? '').trim();
 
-    if (numero.isNotEmpty && descricao.isNotEmpty) return '$numero - $descricao';
+    if (numero.isNotEmpty && descricao.isNotEmpty) {
+      return '$numero - $descricao';
+    }
     if (numero.isNotEmpty) return numero;
     if (descricao.isNotEmpty) return descricao;
 
@@ -144,7 +130,7 @@ class _MenuListPageState extends State<MenuListPage> {
       ProcessData contract,
       ) async {
     final navigator = Navigator.of(context);
-    final dfdBloc = context.read<DfdCubit>();
+    final dfdCubit = context.read<DfdCubit>();
 
     final contractId = contract.id ?? '';
     if (contractId.isEmpty) {
@@ -158,7 +144,7 @@ class _MenuListPageState extends State<MenuListPage> {
       return;
     }
 
-    final DfdData? dfd = await dfdBloc.getDataForContract(contractId);
+    final DfdData? dfd = await dfdCubit.getDataForContract(contractId);
     if (!context.mounted) return;
 
     final tipoObra = (dfd?.tipoObra ?? '').trim().toUpperCase();
@@ -271,18 +257,17 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleItem.specificDashboard:
         return _buildContractsListPage((context, contract) async {
           final navigator = Navigator.of(context);
-          final store = context.read<ProcessStore>();
-          final dfdBloc = context.read<DfdCubit>();
+          final processCubit = context.read<ProcessCubit>();
+          final dfdCubit = context.read<DfdCubit>();
 
-          store.select(contract);
+          processCubit.select(contract);
 
           final DfdData? dfd =
-          await dfdBloc.getDataForContract(contract.id ?? '');
+          await dfdCubit.getDataForContract(contract.id ?? '');
           if (!context.mounted) return;
 
           final km = dfd?.extensaoKm ?? 0.0;
           final totalEstacas = ((km * 1000) / 20).ceil();
-
           final contractId = contract.id ?? '';
 
           final resumoContrato =
@@ -320,13 +305,15 @@ class _MenuListPageState extends State<MenuListPage> {
           )
               .then((_) async {
             if (!storesCtx.mounted) return;
-            await storesCtx.read<ProcessStore>().refresh();
+            await storesCtx.read<ProcessCubit>().refresh(
+              currentUser: currentUser,
+            );
           });
         }, pageTitle: 'Contratação');
 
       case ModuleItem.processValidityRecords:
         return _buildContractsListPage((context, contract) {
-          context.read<ProcessStore>().select(contract);
+          context.read<ProcessCubit>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => ValidityTabBarPage(contractData: contract),
@@ -336,7 +323,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleItem.processAdditiveRecords:
         return _buildContractsListPage((context, contract) {
-          context.read<ProcessStore>().select(contract);
+          context.read<ProcessCubit>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => TabBarAdditivePage(contractData: contract),
@@ -346,7 +333,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleItem.processApostillesRecords:
         return _buildContractsListPage((context, contract) {
-          context.read<ProcessStore>().select(contract);
+          context.read<ProcessCubit>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => TabBarApostillesPage(contractData: contract),
@@ -356,7 +343,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleItem.processHiringBudget:
         return _buildContractsListPage((context, contract) {
-          context.read<ProcessStore>().select(contract);
+          context.read<ProcessCubit>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => HiringBudgetPage(contractData: contract),
@@ -367,10 +354,10 @@ class _MenuListPageState extends State<MenuListPage> {
       case ModuleItem.processHiringSchedule:
         return _buildContractsListPage((context, contract) async {
           final navigator = Navigator.of(context);
-          final store = context.read<ProcessStore>();
-          final dfdBloc = context.read<DfdCubit>();
+          final processCubit = context.read<ProcessCubit>();
+          final dfdCubit = context.read<DfdCubit>();
 
-          store.select(contract);
+          processCubit.select(contract);
 
           final contractId = contract.id ?? '';
           if (contractId.isEmpty) {
@@ -384,7 +371,7 @@ class _MenuListPageState extends State<MenuListPage> {
             return;
           }
 
-          final DfdData? dfd = await dfdBloc.getDataForContract(contractId);
+          final DfdData? dfd = await dfdCubit.getDataForContract(contractId);
           if (!context.mounted) return;
 
           final km = dfd?.extensaoKm ?? 0.0;
@@ -416,7 +403,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleItem.processMeasurementsRecords:
         return _buildContractsListPage((context, contract) {
-          context.read<ProcessStore>().select(contract);
+          context.read<ProcessCubit>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => TabBarMeasurementPage(contractData: contract),
@@ -426,16 +413,16 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleItem.operationMonitoringWork:
         return _buildContractsListPage((context, contract) async {
-          context.read<ProcessStore>().select(contract);
+          context.read<ProcessCubit>().select(contract);
           await _navigateByWorkType(context, contract);
         }, pageTitle: 'Diário de Obra');
 
       case ModuleItem.planningProjectRegistration:
-        return GeoNetworkPage();
+        return const GeoNetworkPage();
 
       case ModuleItem.planningRightOfWayRecords:
         return _buildContractsListPage((context, contract) {
-          context.read<ProcessStore>().select(contract);
+          context.read<ProcessCubit>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => LandPage(contractData: contract),
@@ -463,7 +450,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleItem.financialBudget:
         return _buildContractsListPage((context, contract) {
-          context.read<ProcessStore>().select(contract);
+          context.read<ProcessCubit>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => BudgetNetworkPage(contractData: contract),
@@ -476,7 +463,7 @@ class _MenuListPageState extends State<MenuListPage> {
 
       case ModuleItem.financialCommitmentRecords:
         return _buildContractsListPage((context, contract) {
-          context.read<ProcessStore>().select(contract);
+          context.read<ProcessCubit>().select(contract);
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) =>
@@ -519,22 +506,20 @@ class _MenuListPageState extends State<MenuListPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_didWarmupUserBloc) {
-      _didWarmupUserBloc = true;
-      final userBloc = context.read<UserBloc>();
+    if (!_didWarmupUserCubit) {
+      _didWarmupUserCubit = true;
+      final userCubit = context.read<UserCubit>();
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        userBloc.add(
-          const UserWarmupRequested(
-            listenRealtime: true,
-            bindCurrentUser: true,
-          ),
+        userCubit.warmup(
+          listenRealtime: true,
+          bindCurrentUser: true,
         );
       });
     }
 
-    return BlocBuilder<UserBloc, UserState>(
+    return BlocBuilder<UserCubit, UserState>(
       buildWhen: (prev, curr) =>
       prev.current != curr.current ||
           prev.isLoadingUsers != curr.isLoadingUsers,
@@ -548,13 +533,13 @@ class _MenuListPageState extends State<MenuListPage> {
           );
         }
 
-        if (!_didWarmupStores) {
-          _didWarmupStores = true;
-          final processStore = context.read<ProcessStore>();
+        if (!_didWarmupProcessCubit) {
+          _didWarmupProcessCubit = true;
+          final processCubit = context.read<ProcessCubit>();
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            processStore.warmup(currentUser);
+            processCubit.warmup(currentUser);
           });
         }
 

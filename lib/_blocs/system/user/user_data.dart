@@ -8,8 +8,8 @@ import 'package:sipged/screens/menus/menu_drawer.dart';
 /// Modelo de usuário SEM responsabilidades de permissão.
 ///
 /// Toda a lógica de papéis/permissões deve ficar em:
-/// - lib/_utils/user_permission.dart  (BaseRole, helpers)
-/// - lib/_utils/module_permission.dart  (Perms, checagem módulo/doc)
+/// - lib/_utils/user_permission.dart
+/// - lib/_utils/module_permission.dart
 class UserData extends ChangeNotifier {
   // ===== Identificação e perfil =====
   String? uid;
@@ -22,7 +22,7 @@ class UserData extends ChangeNotifier {
 
   // ===== Foto =====
   String? urlPhoto;
-  XFile? filePhoto; // uso em runtime (upload), não persiste no Firestore
+  XFile? filePhoto; // uso em runtime, não persiste
 
   // ===== Contato =====
   String? cellPhone;
@@ -43,43 +43,36 @@ class UserData extends ChangeNotifier {
   bool? profileWork;
   bool? profileLegal;
 
-  /// Paleta base conforme o perfil:
-  /// - Obras    → azul muito claro
-  /// - Jurídico → vinho rosado muito claro
-  /// - Comum    → cinza claro neutro
   static BgPalette paletteForUser(UserData? user) {
     final isWorks = user?.profileWork == true;
     final isLegal = user?.profileLegal == true;
 
     if (isWorks) {
-      // 🌊 Azul muito suave (quase branco)
       return const BgPalette(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFF7FBFF), // azul gelo
-            Color(0xFFE3F2FD), // azul bem claro
+            Color(0xFFF7FBFF),
+            Color(0xFFE3F2FD),
           ],
         ),
       );
     }
 
     if (isLegal) {
-      // 🍷 Marsala / rosado muito claro
       return const BgPalette(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFEF6F8), // quase branco com toque rosado
-            Color(0xFFFDECEF), // tom levemente mais quente
+            Color(0xFFFEF6F8),
+            Color(0xFFFDECEF),
           ],
         ),
       );
     }
 
-    // ⚪ Neutro padrão
     return const BgPalette(
       gradient: LinearGradient(
         begin: Alignment.topLeft,
@@ -92,28 +85,28 @@ class UserData extends ChangeNotifier {
     );
   }
 
-
   static DrawerPalette drawerPaletteForUser(UserData? user) {
     final isWorks = user?.profileWork == true;
     final isLegal = user?.profileLegal == true;
 
     if (isWorks) {
       return const DrawerPalette(
-        background: Color(0xFF1B2033), // azul escuro original
+        background: Color(0xFF1B2033),
         sectionTitle: Colors.white70,
         sectionSubtitle: Colors.white38,
       );
     }
+
     if (isLegal) {
       return const DrawerPalette(
-        background: Color(0xFF3B0012), // vinho escuro
+        background: Color(0xFF3B0012),
         sectionTitle: Colors.white70,
         sectionSubtitle: Colors.white38,
       );
     }
 
     return const DrawerPalette(
-      background: Color(0xFF202124), // cinza neutro
+      background: Color(0xFF202124),
       sectionTitle: Colors.white70,
       sectionSubtitle: Colors.white38,
     );
@@ -141,17 +134,16 @@ class UserData extends ChangeNotifier {
     this.profileLegal = false,
   });
 
-  /// Construtor a partir do documento do Firebase.
   factory UserData.fromDocument({
     required DocumentSnapshot<Map<String, dynamic>> snapshot,
   }) {
     if (!snapshot.exists) {
-      throw Exception("Documento do usuário não encontrado");
+      throw Exception('Documento do usuário não encontrado');
     }
 
     final data = snapshot.data();
     if (data == null) {
-      throw Exception("Dados do usuário estão vazios");
+      throw Exception('Dados do usuário estão vazios');
     }
 
     return UserData(
@@ -172,15 +164,10 @@ class UserData extends ChangeNotifier {
       baseProfile: data['baseProfile'] as String?,
       userSnap: snapshot,
       profileWork: data['profileWork'] as bool? ?? false,
-      profileLegal: data['profileLegal'] as bool? ?? false
+      profileLegal: data['profileLegal'] as bool? ?? false,
     );
   }
 
-  /// Converte para mapa para salvar no Firestore.
-  ///
-  /// Observações:
-  /// - Campos `filePhoto` e `userSnap` não são persistidos.
-  /// - `lastSignIn` é atualizado no momento do save.
   Map<String, dynamic> toMap() {
     return {
       'name': name,
@@ -191,17 +178,22 @@ class UserData extends ChangeNotifier {
       'gender': gender,
       'photo': urlPhoto,
       'cellPhone': cellPhone,
-      'themeDark': themeDark,
+      'themeDark': themeDark ?? false,
       'geoPoint': geoPoint,
       'dateToBirthday':
       dateToBirthday != null ? Timestamp.fromDate(dateToBirthday!) : null,
       'createUser':
       createUser != null ? Timestamp.fromDate(createUser!) : Timestamp.now(),
       'lastSignIn': Timestamp.now(),
+
+      // CAMPOS IMPORTANTES QUE PRECISAM PERSISTIR
+      'baseRole': baseRole,
+      'baseProfile': baseProfile,
+      'profileWork': profileWork ?? false,
+      'profileLegal': profileLegal ?? false,
     };
   }
 
-  /// Atualiza campos mutáveis e notifica ouvintes (útil na UI).
   void update({
     String? name,
     String? surname,
@@ -214,6 +206,10 @@ class UserData extends ChangeNotifier {
     bool? themeDark,
     GeoPoint? geoPoint,
     DateTime? dateToBirthday,
+    String? baseRole,
+    String? baseProfile,
+    bool? profileWork,
+    bool? profileLegal,
   }) {
     this.name = name ?? this.name;
     this.surname = surname ?? this.surname;
@@ -226,9 +222,14 @@ class UserData extends ChangeNotifier {
     this.themeDark = themeDark ?? this.themeDark;
     this.geoPoint = geoPoint ?? this.geoPoint;
     this.dateToBirthday = dateToBirthday ?? this.dateToBirthday;
+    this.baseRole = baseRole ?? this.baseRole;
+    this.baseProfile = baseProfile ?? this.baseProfile;
+    this.profileWork = profileWork ?? this.profileWork;
+    this.profileLegal = profileLegal ?? this.profileLegal;
+
     notifyListeners();
   }
-  /// Instância "vazia" de usuário, útil como placeholder / default.
+
   static UserData empty() {
     return UserData(
       uid: null,
@@ -252,4 +253,12 @@ class UserData extends ChangeNotifier {
       profileLegal: false,
     );
   }
+
+  String get fullName {
+    final n = (name ?? '').trim();
+    final s = (surname ?? '').trim();
+    return [n, s].where((e) => e.isNotEmpty).join(' ').trim();
+  }
+
+  bool get hasValidUid => (uid ?? '').trim().isNotEmpty;
 }

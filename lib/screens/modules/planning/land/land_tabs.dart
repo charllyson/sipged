@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_blocs/modules/planning/land/property/land_property_cubit.dart';
@@ -31,13 +31,13 @@ import 'package:sipged/screens/modules/planning/land/land_table.dart';
 
 class LandTabs extends StatefulWidget {
   final ProcessData? contractData;
-  final ProcessBloc? contractsBloc;
+  final ProcessCubit? contractsCubit;
   final int initialTabIndex;
 
   const LandTabs({
     super.key,
     this.contractData,
-    this.contractsBloc,
+    this.contractsCubit,
     this.initialTabIndex = 0,
   });
 
@@ -86,8 +86,7 @@ class _LandTabsState extends State<LandTabs> {
   }
 
   Widget _buildPropertyTable() {
-    return LandTable(
-    );
+    return LandTable();
   }
 
   Widget _buildPropertyTab() {
@@ -199,7 +198,7 @@ class _LandTabsState extends State<LandTabs> {
   Widget build(BuildContext context) {
     return TabChanged(
       contractData: _contractData,
-      contractsBloc: widget.contractsBloc,
+      contractsCubit: widget.contractsCubit,
       initialTabIndex: widget.initialTabIndex,
       tabs: [
         ContractTabDescriptor(

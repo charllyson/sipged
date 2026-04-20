@@ -20,7 +20,7 @@ class ActiveOaesData {
   double? width;
   double? area;
 
-  String? estructureType;
+  String? structureType;
   String? relatedContracts;
   double? valueIntervention;
   double? linearCostMedia;
@@ -54,7 +54,7 @@ class ActiveOaesData {
     this.extension,
     this.width,
     this.area,
-    this.estructureType,
+    this.structureType,
     this.relatedContracts,
     this.valueIntervention,
     this.linearCostMedia,
@@ -134,7 +134,7 @@ class ActiveOaesData {
       extension: _toDouble(data['extension']),
       width: _toDouble(data['width']),
       area: _toDouble(data['area']),
-      estructureType: data['structureType'] as String?,
+      structureType: data['structureType'] as String?,
       relatedContracts: data['relatedContracts'] as String?,
       valueIntervention: _toDouble(data['valueIntervention']),
       linearCostMedia: _toDouble(data['linearCostMedia']),
@@ -166,7 +166,7 @@ class ActiveOaesData {
       extension: _toDouble(map['extension']),
       width: _toDouble(map['width']),
       area: _toDouble(map['area']),
-      estructureType: map['structureType'] as String?,
+      structureType: map['structureType'] as String?,
       relatedContracts: map['relatedContracts'] as String?,
       valueIntervention: _toDouble(map['valueIntervention']),
       linearCostMedia: _toDouble(map['linearCostMedia']),
@@ -198,7 +198,7 @@ class ActiveOaesData {
     extension = d.extension;
     width = d.width;
     area = d.area;
-    estructureType = d.estructureType;
+    structureType = d.structureType;
     relatedContracts = d.relatedContracts;
     valueIntervention = d.valueIntervention;
     linearCostMedia = d.linearCostMedia;
@@ -260,7 +260,7 @@ class ActiveOaesData {
       extension: extension ?? this.extension,
       width: width ?? this.width,
       area: area ?? this.area,
-      estructureType: structureType ?? estructureType,
+      structureType: structureType ?? this.structureType,
       relatedContracts: relatedContracts ?? this.relatedContracts,
       valueIntervention: valueIntervention ?? this.valueIntervention,
       linearCostMedia: linearCostMedia ?? this.linearCostMedia,
@@ -293,7 +293,7 @@ class ActiveOaesData {
       'extension': extension,
       'width': width,
       'area': area,
-      'structureType': estructureType,
+      'structureType': structureType,
       'relatedContracts': relatedContracts,
       'valueIntervention': valueIntervention,
       'linearCostMedia': linearCostMedia,
@@ -324,7 +324,7 @@ class ActiveOaesData {
       if (extension != null) 'extension': extension,
       if (width != null) 'width': width,
       if (area != null) 'area': area,
-      if (estructureType != null) 'estructureType': estructureType,
+      if (structureType != null) 'estructureType': structureType,
       if (relatedContracts != null) 'relatedContracts': relatedContracts,
       if (valueIntervention != null) 'valueIntervention': valueIntervention,
       if (linearCostMedia != null) 'linearCostMedia': linearCostMedia,

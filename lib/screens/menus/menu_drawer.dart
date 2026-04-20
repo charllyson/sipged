@@ -1,3 +1,4 @@
+// lib/screens/menus/menu_drawer.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,17 +10,14 @@ import 'package:sipged/_blocs/system/module/module_data.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/images/logos/sisgeo_logo.dart';
 
-// BLoC
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
+// Cubit
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 
 // Permissões centralizadas
-import 'package:sipged/_blocs/system/permitions/module_permission.dart' as perms;
+import 'package:sipged/_blocs/system/permitions/module_permission.dart'
+as perms;
 
-/// =======================================================
-/// DrawerMenu dinâmico (muda cor conforme o perfil do usuário)
-/// =======================================================
 class DrawerMenu extends StatefulWidget {
   final void Function(ModuleItem) onTap;
   final VoidCallback? onTapHome;
@@ -44,16 +42,16 @@ class _DrawerMenuState extends State<DrawerMenu> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _didInit) return;
       _didInit = true;
-      context.read<UserBloc>().add(const UserWarmupRequested(
+      context.read<UserCubit>().warmup(
         listenRealtime: true,
         bindCurrentUser: true,
-      ));
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<UserBloc, UserState>(
+    return BlocBuilder<UserCubit, UserState>(
       builder: (context, state) {
         final userData = _resolveCurrentUserData(state);
         final bgPalette = UserData.drawerPaletteForUser(userData);
@@ -67,10 +65,18 @@ class _DrawerMenuState extends State<DrawerMenu> {
     );
   }
 
-  Widget _buildContent(BuildContext context, UserData? userData, UserState state, DrawerPalette palette) {
+  Widget _buildContent(
+      BuildContext context,
+      UserData? userData,
+      UserState state,
+      DrawerPalette palette,
+      ) {
     if (_firebaseUser == null) {
       return const Center(
-        child: Text('Não autenticado', style: TextStyle(color: Colors.white70)),
+        child: Text(
+          'Não autenticado',
+          style: TextStyle(color: Colors.white70),
+        ),
       );
     }
 
@@ -80,7 +86,6 @@ class _DrawerMenuState extends State<DrawerMenu> {
 
     return ListView(
       children: [
-        // ===== LOGO =====
         Padding(
           padding: const EdgeInsets.all(16),
           child: SiGedLogo(
@@ -94,8 +99,6 @@ class _DrawerMenuState extends State<DrawerMenu> {
           ),
         ),
         const SizedBox(height: 12),
-
-        // ====== DOCUMENTOS ======
         ..._buildSection(
           title: 'MÓDULOS',
           user: userData,
@@ -104,11 +107,9 @@ class _DrawerMenuState extends State<DrawerMenu> {
           items: [
             ...ModuleData.panelDashboard,
             ...ModuleData.drawerDocuments,
-            ...ModuleData.drawerDepartments
+            ...ModuleData.drawerDepartments,
           ],
         ),
-
-        // ====== ATIVOS ======
         ..._buildSection(
           title: 'ATIVOS',
           user: userData,
@@ -140,7 +141,11 @@ class _DrawerMenuState extends State<DrawerMenu> {
     if (visibleGroups.isEmpty) return const <Widget>[];
 
     return [
-      DividerText(text: title, colorTitle: colorTitle, subTitle: colorSubTitle),
+      DividerText(
+        text: title,
+        colorTitle: colorTitle,
+        subTitle: colorSubTitle,
+      ),
       const SizedBox(height: 8),
       ...visibleGroups,
       const SizedBox(height: 12),
@@ -154,11 +159,13 @@ class _DrawerMenuState extends State<DrawerMenu> {
     required UserData user,
   }) {
     final visible = children
-        .where((s) => perms.userCanModule(
-      user: user,
-      module: s.permissionModule,
-      action: 'read',
-    ))
+        .where(
+          (s) => perms.userCanModule(
+        user: user,
+        module: s.permissionModule,
+        action: 'read',
+      ),
+    )
         .toList();
 
     if (visible.isEmpty) return null;
@@ -167,14 +174,19 @@ class _DrawerMenuState extends State<DrawerMenu> {
       data: ThemeData.dark().copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         leading: Icon(icon, color: Colors.white),
-        title: Text(label, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        title: Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
         iconColor: Colors.white,
         collapsedIconColor: Colors.white,
         children: visible
-            .map((s) => _SubMenuRowSimple(
-          label: s.label,
-          onTap: () => widget.onTap(s.menuItem),
-        ))
+            .map(
+              (s) => _SubMenuRowSimple(
+            label: s.label,
+            onTap: () => widget.onTap(s.menuItem),
+          ),
+        )
             .toList(),
       ),
     );

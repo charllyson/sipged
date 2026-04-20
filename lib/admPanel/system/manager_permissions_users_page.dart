@@ -1,3 +1,4 @@
+// lib/screens/adm/manager_permissions_users_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -8,9 +9,8 @@ import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-// Bloc de usuário
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
+// Cubit de usuário
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 
 // ✅ helpers centralizados
@@ -35,17 +35,13 @@ class _ManagerPermissionsUsersPageState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _didInit) return;
       _didInit = true;
-      context
-          .read<UserBloc>()
-          .add(const UsersEnsureLoadedRequested(listenRealtime: true));
+      context.read<UserCubit>().ensureLoaded(listenRealtime: true);
     });
   }
 
   Future<void> _reloadUsers() async {
     if (!mounted) return;
-    context
-        .read<UserBloc>()
-        .add(const UsersEnsureLoadedRequested(listenRealtime: true));
+    await context.read<UserCubit>().ensureLoaded(listenRealtime: true);
   }
 
   Future<void> _persistRole(UserData user, roles.UserProfile newRole) async {
@@ -57,7 +53,6 @@ class _ManagerPermissionsUsersPageState
       role == roles.UserProfile.administrador ||
           role == roles.UserProfile.desenvolvedor;
 
-  /// Liga/desliga SOMENTE o "read" do módulo (override). Outras flags são preservadas.
   Future<void> _persistModuleRead(
       UserData user,
       String module,
@@ -69,7 +64,6 @@ class _ManagerPermissionsUsersPageState
     await _reloadUsers();
   }
 
-  /// Marca/Desmarca todos os módulos do grupo (apenas read)
   Future<void> _persistGroupRead(
       UserData user,
       List<String> modules,
@@ -77,7 +71,6 @@ class _ManagerPermissionsUsersPageState
       ) async {
     if (modules.isEmpty) return;
 
-    // otimiza: dispara todas as gravações em paralelo
     final futures = <Future<void>>[];
     for (final m in modules) {
       final current = pp.getOverrideForUserModule(user, m);
@@ -91,7 +84,7 @@ class _ManagerPermissionsUsersPageState
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<UserBloc, UserState>(
+    return BlocBuilder<UserCubit, UserState>(
       builder: (context, state) {
         if (state.isLoadingUsers && state.all.isEmpty) {
           return const Scaffold(
@@ -119,10 +112,9 @@ class _ManagerPermissionsUsersPageState
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: () => context.read<UserBloc>().add(
-                        const UsersEnsureLoadedRequested(
-                            listenRealtime: true),
-                      ),
+                      onPressed: () => context
+                          .read<UserCubit>()
+                          .ensureLoaded(listenRealtime: true),
                       child: const Text('Tentar novamente'),
                     ),
                   ],
@@ -138,16 +130,16 @@ class _ManagerPermissionsUsersPageState
             backgroundColor: Colors.white,
             appBar: const UpBar(leading: BackCircleButton()),
             body: const Center(
-                child: Text('Nenhum usuário encontrado.')),
+              child: Text('Nenhum usuário encontrado.'),
+            ),
           );
         }
 
-        // ✅ fonte única: grupos e itens exatamente como no drawer/home
         final groups = ModuleData.permissionModulesByDrawerGroup();
 
         return Scaffold(
           appBar: UpBar(
-            leading: Padding(
+            leading: const Padding(
               padding: EdgeInsets.only(left: 12.0),
               child: BackCircleButton(),
             ),
@@ -158,8 +150,6 @@ class _ManagerPermissionsUsersPageState
             itemCount: users.length,
             itemBuilder: (context, index) {
               final user = users[index];
-
-              // ✅ papel base normalizado
               final baseRole = roles.roleForUser(user);
               final isSuper = _isSuperUser(baseRole);
 
@@ -176,7 +166,6 @@ class _ManagerPermissionsUsersPageState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header do card de usuário
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -238,7 +227,6 @@ class _ManagerPermissionsUsersPageState
                             );
                           }
 
-                          // layout estreito
                           return Wrap(
                             spacing: 12,
                             runSpacing: 8,
@@ -292,26 +280,21 @@ class _ManagerPermissionsUsersPageState
                         },
                       ),
                     ),
-
                     Container(
                       height: 1,
                       color: Colors.grey,
                       width: double.infinity,
                     ),
-
-                    // ===== Acesso aos MÓDULOS agrupados =====
                     Column(
                       children: groups.entries.map((entry) {
-                        final groupLabel = entry.key; // já vem em upper do helper
+                        final groupLabel = entry.key;
                         final items = entry.value;
 
-                        // módulos válidos e não vazios
                         final modules = items
                             .map((e) => e.module.trim())
                             .where((m) => m.isNotEmpty)
                             .toList(growable: false);
 
-                        // estado do grupo (override.read)
                         int checkedCount = 0;
                         for (final m in modules) {
                           if (pp.getOverrideForUserModule(user, m).read) {
@@ -340,7 +323,10 @@ class _ManagerPermissionsUsersPageState
                                       : (v) async {
                                     final target = (v ?? false);
                                     await _persistGroupRead(
-                                        user, modules, target);
+                                      user,
+                                      modules,
+                                      target,
+                                    );
                                   },
                                 ),
                                 const SizedBox(width: 6),
@@ -369,8 +355,9 @@ class _ManagerPermissionsUsersPageState
 
                                 return CheckboxListTile(
                                   dense: true,
-                                  contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
                                   controlAffinity:
                                   ListTileControlAffinity.leading,
                                   title: Text(
@@ -392,7 +379,10 @@ class _ManagerPermissionsUsersPageState
                                       : (v) async {
                                     if (v == null) return;
                                     await _persistModuleRead(
-                                        user, moduleId, v);
+                                      user,
+                                      moduleId,
+                                      v,
+                                    );
                                   },
                                 );
                               }),
@@ -412,7 +402,6 @@ class _ManagerPermissionsUsersPageState
   }
 }
 
-/// ✅ resolve controller no build: cria 1x e atualiza quando baseRole mudar.
 class _RoleDropdown extends StatefulWidget {
   const _RoleDropdown({
     required this.baseRole,

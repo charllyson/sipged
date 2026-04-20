@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_widgets/menu/tab/tab_changed_widget.dart';
@@ -10,13 +10,13 @@ import 'package:sipged/screens/modules/contracts/measurement/revision/revision_m
 
 class TabBarMeasurementPage extends StatelessWidget {
   final ProcessData? contractData;
-  final ProcessBloc? contractsBloc;
+  final ProcessCubit? contractsCubit;
   final int initialTabIndex;
 
   const TabBarMeasurementPage({
     super.key,
     this.contractData,
-    this.contractsBloc,
+    this.contractsCubit,
     this.initialTabIndex = 0,
   });
 
@@ -24,22 +24,19 @@ class TabBarMeasurementPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return TabChanged(
       contractData: contractData,
-      contractsBloc: contractsBloc,
+      contractsCubit: contractsCubit,
       initialTabIndex: initialTabIndex,
       tabs: [
-        // 1) Boletim → liberado mesmo sem ID
         ContractTabDescriptor(
           label: 'Boletim',
           requireSavedContract: false,
           builder: (c) => ReportMeasurement(contractData: c!),
         ),
-        // 2) Reajustamento → exige contrato salvo
         ContractTabDescriptor(
           label: 'Reajustamento',
           requireSavedContract: true,
           builder: (c) => AdjustmentMeasurement(contractData: c!),
         ),
-        // 3) Revisões → exige contrato salvo
         ContractTabDescriptor(
           label: 'Revisões',
           requireSavedContract: true,

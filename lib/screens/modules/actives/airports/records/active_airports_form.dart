@@ -86,7 +86,7 @@ class _ActiveOaesFormState extends State<ActiveOaesForm> {
     _setIfDiff(_extensionCtrl, _fmtNumberLoose(f.extension));
     _setIfDiff(_widthCtrl, _fmtNumberLoose(f.width));
     _setIfDiff(_areaCtrl, _fmtNumberLoose(f.area));
-    _setIfDiff(_structureCtrl, f.estructureType ?? f.estructureType ?? '');
+    _setIfDiff(_structureCtrl, f.structureType ?? f.structureType ?? '');
     _setIfDiff(_contractsCtrl, f.relatedContracts ?? '');
     _setIfDiff(_linearCostCtrl, _fmtMoneyBR(f.linearCostMedia));
     _setIfDiff(_estimateCtrl, _fmtMoneyBR(f.costEstimate));

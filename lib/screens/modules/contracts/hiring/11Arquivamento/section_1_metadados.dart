@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ===== Users
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_utils/mask/sipged_masks.dart';
 
@@ -51,7 +51,6 @@ class _SectionMetadadosTAState extends State<SectionMetadadosTA>
     _dataCtrl = TextEditingController(text: d.taData ?? '');
     _processoCtrl = TextEditingController(text: d.taProcesso ?? '');
 
-    // texto é só UI; o modelo guarda o ID
     _responsavelCtrl = TextEditingController();
     _responsavelUserId = d.taResponsavelUserId;
   }
@@ -96,7 +95,9 @@ class _SectionMetadadosTAState extends State<SectionMetadadosTA>
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,8 +148,6 @@ class _SectionMetadadosTAState extends State<SectionMetadadosTA>
                     onChanged: (_) => _emitChange(),
                   ),
                 ),
-
-                // ✅ Responsável (genérico) + validação por ID
                 SizedBox(
                   width: w4,
                   child: AutoCompleteChange<UserData>(

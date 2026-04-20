@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';
 
@@ -122,8 +122,8 @@ class _ParecerJuridicoPageState extends State<ParecerJuridicoPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    final users = context.select<UserBloc, List<UserData>>(
-          (b) => b.state.all,
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
     );
 
     return BlocProvider.value(

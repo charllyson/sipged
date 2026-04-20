@@ -383,7 +383,7 @@ class ActiveOaesState extends Equatable {
         extensionStr: _fmtNum(a.extension),
         widthStr: _fmtNum(a.width),
         areaStr: _fmtNum(a.area),
-        structureType: a.estructureType ?? '-',
+        structureType: a.structureType ?? '-',
         relatedContracts: a.relatedContracts ?? '-',
         valueInterventionStr: _fmtMoneyBR(a.valueIntervention),
         linearCostMediaStr: _fmtMoneyBR(a.linearCostMedia),

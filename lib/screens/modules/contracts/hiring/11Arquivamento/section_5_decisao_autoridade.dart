@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ===== Users
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 // ===== Dados / Inputs
@@ -14,7 +14,6 @@ import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/input/drop_down_change.dart'
     show DropDownChange;
-
 
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -51,7 +50,7 @@ class _SectionDecisaoAutoridadeTAState
     super.initState();
     final d = widget.data;
 
-    _autoridadeCtrl = TextEditingController(); // texto é UI; modelo guarda ID
+    _autoridadeCtrl = TextEditingController();
     _decisaoCtrl = TextEditingController(text: d.taDecisao ?? '');
     _dataDecisaoCtrl = TextEditingController(text: d.taDataDecisao ?? '');
     _observacoesCtrl =
@@ -100,7 +99,9 @@ class _SectionDecisaoAutoridadeTAState
 
   @override
   Widget build(BuildContext context) {
-    final users = context.select<UserBloc, List<UserData>>((b) => b.state.all);
+    final users = context.select<UserCubit, List<UserData>>(
+          (c) => c.state.all,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

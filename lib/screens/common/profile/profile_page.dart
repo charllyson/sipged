@@ -1,3 +1,4 @@
+// lib/screens/common/profile/profile_page.dart
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -8,8 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
@@ -70,9 +70,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  displayName.isEmpty
-                      ? 'Atualize suas informações'
-                      : displayName,
+                  displayName.isEmpty ? 'Atualize suas informações' : displayName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -171,7 +169,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   Future<void> _onSave(UserData current) async {
     final messenger = ScaffoldMessenger.of(context);
-    final userBloc = context.read<UserBloc>();
+    final userCubit = context.read<UserCubit>();
 
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -197,9 +195,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
         createUser: current.createUser,
         baseProfile: current.baseProfile,
         baseRole: current.baseRole,
+        profileWork: current.profileWork,
+        profileLegal: current.profileLegal,
       );
 
-      userBloc.add(UserSaveRequested(updated));
+      await userCubit.saveUser(updated);
 
       final authUser = FirebaseAuth.instance.currentUser;
       final displayName = [_firstCtrl.text.trim(), _lastCtrl.text.trim()]
@@ -242,7 +242,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<UserBloc, UserState>(
+    return BlocBuilder<UserCubit, UserState>(
       buildWhen: (prev, curr) =>
       prev.current != curr.current ||
           prev.isLoadingUsers != curr.isLoadingUsers,
@@ -358,8 +358,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                                           Icons.badge,
                                           user.cpf!,
                                         ),
-                                      if ((user.cellPhone ?? '')
-                                          .isNotEmpty)
+                                      if ((user.cellPhone ?? '').isNotEmpty)
                                         _infoChip(
                                           Icons.phone,
                                           user.cellPhone!,

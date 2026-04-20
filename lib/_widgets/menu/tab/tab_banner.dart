@@ -1,23 +1,19 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/images/mini_avatars/mini_avatars.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
-import 'package:sipged/_blocs/modules/contracts/_process/process_store.dart';
 
 import 'package:sipged/_widgets/list/search/search_user_permission_widget.dart';
 
-// RBAC (módulo)
 import 'package:sipged/_blocs/system/permitions/module_permission.dart'
 as perms;
-// perfis
 import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
-// ✅ ACL do contrato
 import 'package:sipged/_blocs/system/permitions/contract_permission.dart'
 as acl;
 
@@ -32,7 +28,7 @@ class TabBanner extends StatefulWidget {
     this.onTap,
     this.interactive = true,
     this.userData,
-    this.contractsBloc,
+    this.contractsCubit,
     this.showStamp = false,
     this.stampApproved = false,
     this.stampScaleFactor = 1.0,
@@ -50,7 +46,7 @@ class TabBanner extends StatefulWidget {
   final VoidCallback? onTap;
   final bool interactive;
   final UserData? userData;
-  final ProcessBloc? contractsBloc;
+  final ProcessCubit? contractsCubit;
 
   final bool showStamp;
   final bool stampApproved;
@@ -78,13 +74,14 @@ class _TabBannerState extends State<TabBanner> {
   @override
   void didUpdateWidget(covariant TabBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.contract.id != widget.contract.id) {
+    if (oldWidget.contract.id != widget.contract.id ||
+        oldWidget.contract != widget.contract) {
       _contractData = widget.contract;
     }
   }
 
   UserData? _currentUser() {
-    final st = context.read<UserBloc>().state;
+    final st = context.read<UserCubit>().state;
     return widget.userData ?? st.current;
   }
 
@@ -102,13 +99,11 @@ class _TabBannerState extends State<TabBanner> {
       BuildContext context,
       ProcessData contrato,
       ) async {
-    final ProcessBloc contractBloc =
-        widget.contractsBloc ?? context.read<ProcessBloc>();
-    final ProcessStore processStore = context.read<ProcessStore>();
-    final userState = context.read<UserBloc>().state;
+    final ProcessCubit contractCubit =
+        widget.contractsCubit ?? context.read<ProcessCubit>();
+    final userState = context.read<UserCubit>().state;
     final mediaQuery = MediaQuery.of(context);
 
-    // precisa pelo menos conseguir ler o contrato
     if (!_can('read', c: contrato)) return;
 
     final bool canEditParticipants = _can('edit', c: contrato);
@@ -152,11 +147,10 @@ class _TabBannerState extends State<TabBanner> {
 
           for (final uid in atuais.keys.toList()) {
             if (!uids.contains(uid)) {
-              await contractBloc.removeParticipant(
+              await contractCubit.removeParticipant(
                 contractId: contrato.id!,
                 userId: uid,
               );
-              contrato.removeParticipantLocal(uid);
             }
           }
 
@@ -164,48 +158,31 @@ class _TabBannerState extends State<TabBanner> {
             if (!atuais.containsKey(uid)) {
               final initialPerms = perms.initialDocPerms();
 
-              await contractBloc.addParticipant(
+              await contractCubit.addParticipant(
                 contractId: contrato.id!,
                 userId: uid,
                 permMap: initialPerms,
                 meta: const {},
               );
-
-              contrato.upsertParticipantLocal(
-                uid,
-                read: initialPerms['read']!,
-                edit: initialPerms['edit']!,
-                delete: initialPerms['delete']!,
-                meta: const {},
-              );
             }
           }
 
-          await processStore.refresh();
-
           if (!mounted) return;
-          await _refreshLocalContract(
-            contrato,
-            rebuildDialog: mounted ? () => setState(() {}) : null,
-          );
+          await _refreshLocalContract(contrato);
         }
             : null,
       ),
     );
   }
 
-  Future<void> _refreshLocalContract(
-      ProcessData contrato, {
-        VoidCallback? rebuildDialog,
-      }) async {
-    final bloc = widget.contractsBloc ?? context.read<ProcessBloc>();
+  Future<void> _refreshLocalContract(ProcessData contrato) async {
+    final cubit = widget.contractsCubit ?? context.read<ProcessCubit>();
     if (contrato.id == null) return;
 
-    final fresh = await bloc.getContractById(contrato.id!);
+    final fresh = await cubit.getById(contrato.id!);
     if (fresh == null || !mounted) return;
 
     setState(() => _contractData = fresh);
-    rebuildDialog?.call();
   }
 
   @override
@@ -214,10 +191,9 @@ class _TabBannerState extends State<TabBanner> {
     final titleText = widget.titleText?.trim() ?? '';
     if (titleText.isEmpty) return const SizedBox.shrink();
 
-    // ✅ se não pode ler, não mostra banner
     if (!_can('read', c: contract)) return const SizedBox.shrink();
 
-    final userState = context.read<UserBloc>().state;
+    final userState = context.read<UserCubit>().state;
 
     final ids = contract.permissionContractId.keys.toList();
     final users =

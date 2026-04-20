@@ -6,18 +6,14 @@ import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/screens/modules/actives/oaes/records/list_oaes_page.dart';
 import 'package:sipged/screens/modules/actives/oaes/records/tab_bar_oaes_page.dart';
 
-// BLoC de usuário
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 
-// Cubit de OAEs
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-// notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
@@ -38,11 +34,9 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
 
     if (!_firedUserWarmup) {
       _firedUserWarmup = true;
-      context.read<UserBloc>().add(
-        const UserWarmupRequested(
-          listenRealtime: true,
-          bindCurrentUser: true,
-        ),
+      context.read<UserCubit>().warmup(
+        listenRealtime: true,
+        bindCurrentUser: true,
       );
     }
   }
@@ -53,14 +47,12 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
       builder: (context, st) {
         final cubit = context.read<ActiveOaesCubit>();
 
-        // warmup das rodovias (1x)
         if (!_firedOaesWarmup && !st.initialized) {
           _firedOaesWarmup = true;
           cubit.warmup();
         }
 
-        if (!st.initialized ||
-            st.loadStatus == ActiveOaesLoadStatus.loading) {
+        if (!st.initialized || st.loadStatus == ActiveOaesLoadStatus.loading) {
           return const Scaffold(
             appBar: UpBar(
               leading: Padding(
@@ -72,12 +64,12 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
             body: Stack(
               children: [
                 BackgroundChange(),
-                Center(
-                    child: Text('Carregando OAE\'s...')),
+                Center(child: Text('Carregando OAE\'s...')),
               ],
             ),
           );
         }
+
         final oaes = st.all;
 
         void onTapOae(ActiveOaesData item) {
@@ -85,7 +77,6 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
           if (idx != -1) {
             cubit.selectByIndex(idx);
           } else {
-            // fallback: joga o item direto para o form
             cubit.patchForm(item);
           }
 
@@ -111,9 +102,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
           );
         }
 
-        // 🔹 Novo: ação do botão flutuante "Adicionar OAE"
         void onAddOae() {
-          // limpa seleção e deixa o form em branco
           cubit.clearSelection();
 
           Navigator.of(context).push(
@@ -127,7 +116,7 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
         }
 
         return Scaffold(
-          appBar: UpBar(),
+          appBar: const UpBar(),
           body: Stack(
             children: [
               const BackgroundChange(),
@@ -140,12 +129,13 @@ class _ActiveOaesRecordsPageState extends State<ActiveOaesRecordsPage> {
               ),
             ],
           ),
-
-          // 🔹 Botão flutuante no canto inferior direito
           floatingActionButton: FloatingActionButton.extended(
             onPressed: onAddOae,
             icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text('Adicionar OAE', style: TextStyle(color: Colors.white)),
+            label: const Text(
+              'Adicionar OAE',
+              style: TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.blue.shade800,
           ),
         );

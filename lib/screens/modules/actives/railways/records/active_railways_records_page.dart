@@ -5,9 +5,8 @@ import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/menu/footBar/foot_bar.dart';
 import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_state.dart';
-import 'package:sipged/_blocs/system/user/user_event.dart';
 
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/railway/active_railways_state.dart';
@@ -17,7 +16,6 @@ import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'active_railways_form.dart';
 import 'active_railways_records_table_section.dart';
 
-// 🔔 Notificações
 import 'package:sipged/_widgets/notification/app_notification.dart';
 import 'package:sipged/_widgets/notification/notification_center.dart';
 
@@ -34,25 +32,24 @@ class _ActiveRailwaysRecordsPageState
   bool _firedUserWarmup = false;
   bool _firedWarmup = false;
 
-  ActiveRailwayData? _editing; // registro atualmente em edição
+  ActiveRailwayData? _editing;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // garante warmup do UserBloc apenas uma vez
     if (!_firedUserWarmup) {
       _firedUserWarmup = true;
-      context.read<UserBloc>().add(const UserWarmupRequested(
+      context.read<UserCubit>().warmup(
         listenRealtime: true,
         bindCurrentUser: true,
-      ));
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<UserBloc, UserState>(
+    return BlocBuilder<UserCubit, UserState>(
       buildWhen: (a, b) =>
       a.current != b.current || a.isLoadingUsers != b.isLoadingUsers,
       builder: (context, userState) {
@@ -67,7 +64,6 @@ class _ActiveRailwaysRecordsPageState
           builder: (context, st) {
             final cubit = context.read<ActiveRailwaysCubit>();
 
-            // dispara warmup 1x se ainda não inicializado
             if (!_firedWarmup && !st.initialized) {
               _firedWarmup = true;
               cubit.warmup();
@@ -79,8 +75,8 @@ class _ActiveRailwaysRecordsPageState
                 body: Center(child: CircularProgressIndicator()),
               );
             }
+
             if (st.loadStatus == ActiveRailwaysLoadStatus.failure) {
-              // 🔔 Notificação de erro de carregamento
               NotificationCenter.instance.show(
                 AppNotification(
                   title: const Text('Falha ao carregar ferrovias'),
@@ -118,7 +114,7 @@ class _ActiveRailwaysRecordsPageState
                             ActiveRailwaysRecordsTableSection(
                               futureRailways: Future.value(st.all),
                               onTapItem: (item) {
-                                setState(() => _editing = item); // carrega no form
+                                setState(() => _editing = item);
                                 final rotulo =
                                     item.codigo ?? item.nome ?? item.id ?? '';
                                 NotificationCenter.instance.show(
@@ -151,7 +147,6 @@ class _ActiveRailwaysRecordsPageState
                     const FootBar(),
                   ],
                 ),
-
                 if (st.savingOrImporting)
                   Stack(
                     children: [

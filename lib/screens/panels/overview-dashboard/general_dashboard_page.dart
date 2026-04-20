@@ -32,13 +32,8 @@ class GeneralDashboardPage extends StatefulWidget {
 }
 
 class _GeneralDashboardPageState extends State<GeneralDashboardPage> {
-  /// Lista de medições filtradas pelo seletor de ano/mês.
   List<ReportMeasurementData> _filteredMeasurements = [];
-
-  /// Índice do ponto selecionado no gráfico de medições.
   int? _selectedPointIndex;
-
-  /// Resumo do contrato selecionado (texto exibido na tabela/resumo).
   String? _selectedContractSummary;
 
   @override
@@ -65,28 +60,20 @@ class _GeneralDashboardPageState extends State<GeneralDashboardPage> {
                       const SizedBox(height: 8),
                       const GeneralDashboardSummary(),
                       const SizedBox(height: 12),
-
                       const GeneralDashboardTypeFiltered(),
                       const SizedBox(height: 12),
 
-                      /// 🔹 Primeira linha de gráficos (por tipo/status/etc.)
                       GeneralDashboardStatusServicesRegion(cubit: cubit),
                       const SizedBox(height: 8),
 
-                      /// 🔹 Segunda linha de gráficos (por região/empresa/etc.)
                       GeneralDashboardCompanyActives(cubit: cubit),
                       const SizedBox(height: 8),
 
                       DividerText(text: 'Mapa das Regionais'),
                       const SizedBox(height: 8),
 
-                      /// 🔹 Mapa das regionais:
-                      /// - selectedRegionNames: municípios filtrados (destaque forte)
-                      /// - strongMunicipios: todos municípios que têm contratos (opacidade "forte")
-                      /// - onRegionTap: filtra por município no Cubit
                       GeneralDashboardMap(
-                        selectedRegionNames:
-                        cubit.municipiosSelecionadosParaMapa,
+                        selectedRegionNames: cubit.municipiosSelecionadosParaMapa,
                         strongMunicipios: cubit.municipiosComContratosGeral,
                         onRegionTap: (municipio) =>
                             cubit.onMunicipioSelected(municipio),
@@ -105,9 +92,6 @@ class _GeneralDashboardPageState extends State<GeneralDashboardPage> {
                       ),
                       const SizedBox(height: 8),
 
-                      // ------------------------------------------------------------------
-                      // Linha de resumo + seletor de datas
-                      // ------------------------------------------------------------------
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         clipBehavior: Clip.none,
@@ -144,13 +128,11 @@ class _GeneralDashboardPageState extends State<GeneralDashboardPage> {
                               onSelectionChanged: (result) {
                                 if (!mounted) return;
 
-                                // Atualiza o filtro global (ano/mês) no Cubit
                                 cubit.updateSelectedYearMonth(
                                   result.selectedYear,
                                   result.selectedMonth,
                                 );
 
-                                // Mantém o controle local das medições filtradas
                                 setState(() {
                                   _filteredMeasurements = result.filteredItems;
                                   _selectedPointIndex = null;
@@ -164,9 +146,6 @@ class _GeneralDashboardPageState extends State<GeneralDashboardPage> {
                       ),
                       const SizedBox(height: 8),
 
-                      // ------------------------------------------------------------------
-                      // Gráfico de medições + seleção de contrato
-                      // ------------------------------------------------------------------
                       MeasurementContractSection(
                         filteredMeasurements: _filteredMeasurements,
                         selectedIndex: _selectedPointIndex,
@@ -177,24 +156,22 @@ class _GeneralDashboardPageState extends State<GeneralDashboardPage> {
                           String resumo = 'Contrato não encontrado';
 
                           if (contractId != null && contractId.isNotEmpty) {
-                            // Busca descrição do DFD (objeto do contrato)
                             final dfdCubit = context.read<DfdCubit>();
-                            final DfdData? dfd = await dfdCubit
-                                .getDataForContract(contractId);
+                            final DfdData? dfd =
+                            await dfdCubit.getDataForContract(contractId);
 
-                            resumo = dfd?.descricaoObjeto ??
-                                'Contrato não encontrado';
+                            resumo =
+                                dfd?.descricaoObjeto ?? 'Contrato não encontrado';
 
-                            // Mantém interação com o "store" de contratos, se existir
-                            final contrato = await cubit.store.getById(
-                              contractId,
-                            );
+                            final contrato =
+                            await cubit.processCubit.getById(contractId);
                             if (contrato != null) {
-                              cubit.store.select(contrato);
+                              cubit.processCubit.select(contrato);
                             }
                           }
 
                           if (!mounted) return;
+
                           setState(() {
                             _selectedPointIndex = index;
                             _selectedContractSummary = resumo;
@@ -203,11 +180,6 @@ class _GeneralDashboardPageState extends State<GeneralDashboardPage> {
                       ),
                       const SizedBox(height: 8),
 
-                      // ------------------------------------------------------------------
-                      // Lista de resumo da medição selecionada
-                      // ------------------------------------------------------------------
-                      /// 🔹 Usa todos os ajustes e revisões já carregados no DemandsDashboardCubit,
-                      /// sem depender mais de *Store* separado para reajustes/revisões.
                       GeneralDashboardList(
                         currentFiltered: _filteredMeasurements,
                         selectedPointIndex: _selectedPointIndex,

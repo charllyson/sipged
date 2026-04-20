@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
+
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
-import 'package:sipged/_blocs/modules/contracts/_process/process_bloc.dart';
+import 'package:sipged/_blocs/modules/contracts/_process/process_cubit.dart';
 import 'package:sipged/_blocs/modules/contracts/_process/process_data.dart';
 
 import 'package:sipged/_widgets/draw/background/background_change.dart';
 import 'package:sipged/_widgets/buttons/back_circle_button.dart';
 import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
-
-import 'package:sipged/_widgets/menu/tab/tab_blocked.dart';
 import 'package:sipged/_widgets/menu/tab/tab_banner.dart';
 
-/// Descriptor de cada aba (rótulo + builder da página)
+import 'package:sipged/_widgets/menu/tab/tab_blocked.dart';
+
 class ContractTabDescriptor {
   final String label;
   final Widget Function(ProcessData? contract) builder;
-
-  /// Se true, a aba mostra um bloqueio quando o contrato não foi salvo (id == null)
   final bool requireSavedContract;
-
   final String? textBanner;
 
   const ContractTabDescriptor({
@@ -29,7 +26,6 @@ class ContractTabDescriptor {
   });
 }
 
-/// Config do selo por aba
 class StampConfig {
   final bool show;
   final bool approved;
@@ -56,23 +52,20 @@ class StampConfig {
   static const hidden = StampConfig(show: false, approved: false);
 }
 
-/// Decide o selo por aba
 typedef ResolveStampForTab = StampConfig Function({
 required int tabIndex,
 required ProcessData contract,
 });
 
-/// Scaffold reutilizável de abas para contratos com barra superior customizável.
 class TabChanged extends StatefulWidget {
   final UserData? userData;
   final ProcessData? contractData;
-  final ProcessBloc? contractsBloc;
+  final ProcessCubit? contractsCubit;
   final int initialTabIndex;
   final List<ContractTabDescriptor> tabs;
   final String Function(ProcessData c)? bannerTitleBuilder;
   final String blockedMessage;
 
-  // ===== Estilo da barra superior =====
   final double topBarHeight;
   final List<Color>? topBarColors;
   final Color? topBarColor;
@@ -80,7 +73,6 @@ class TabChanged extends StatefulWidget {
   final Alignment topBarEnd;
   final Color topBarBorderColor;
 
-  // TabBar
   final Color labelColor;
   final Color unselectedLabelColor;
   final Color indicatorColor;
@@ -88,23 +80,20 @@ class TabChanged extends StatefulWidget {
   final bool tabsIsScrollable;
   final TabAlignment tabAlignment;
 
-  // Trailing (foto/menu)
   final Widget? trailing;
-
-  // Resolver selo por aba
   final ResolveStampForTab? resolveStampForTab;
-
   final String? textBanner;
 
   const TabChanged({
     super.key,
     this.userData,
     this.contractData,
-    this.contractsBloc,
+    this.contractsCubit,
     this.initialTabIndex = 0,
     required this.tabs,
     this.bannerTitleBuilder,
-    this.blockedMessage = '⚠️ Para acessar esta aba, salve primeiro as informações principais do contrato.',
+    this.blockedMessage =
+    '⚠️ Para acessar esta aba, salve primeiro as informações principais do contrato.',
     this.topBarHeight = 72.0,
     this.topBarColors = const [Color(0xFF1B2031), Color(0xFF1B2039)],
     this.topBarColor,
@@ -136,6 +125,15 @@ class _TabChangedState extends State<TabChanged> {
   }
 
   @override
+  void didUpdateWidget(covariant TabChanged oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.contractData?.id != widget.contractData?.id ||
+        oldWidget.contractData != widget.contractData) {
+      _contractData = widget.contractData;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final double safeTop = MediaQuery.of(context).padding.top;
     final double topBarTotal = safeTop + widget.topBarHeight;
@@ -151,8 +149,6 @@ class _TabChangedState extends State<TabChanged> {
         body: Stack(
           children: [
             const BackgroundChange(),
-
-            // Conteúdo abaixo da UpBar
             Padding(
               padding: EdgeInsets.only(top: topBarTotal),
               child: Column(
@@ -174,6 +170,7 @@ class _TabChangedState extends State<TabChanged> {
 
                             return TabBanner(
                               contract: c,
+                              contractsCubit: widget.contractsCubit,
                               titleText: widget.textBanner,
                               showStamp: cfg.show,
                               stampApproved: cfg.approved,
@@ -207,8 +204,6 @@ class _TabChangedState extends State<TabChanged> {
                 ],
               ),
             ),
-
-            // UpBar com Back + Tabs + Trailing
             Positioned(
               top: 0,
               left: 0,
@@ -240,10 +235,8 @@ class _TabChangedState extends State<TabChanged> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(width: 8),
-                    // === BackCircleButton (como antes) ===
                     BackCircleButton(),
                     const SizedBox(width: 12),
-                    // Tabs
                     Expanded(
                       child: TabBar(
                         isScrollable: widget.tabsIsScrollable,

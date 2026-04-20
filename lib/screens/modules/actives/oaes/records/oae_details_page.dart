@@ -9,7 +9,7 @@ import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_cubit.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_state.dart';
 import 'package:sipged/_blocs/modules/actives/oaes/active_oaes_data.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_widgets/input/auto_complete_change.dart';
@@ -31,7 +31,6 @@ class OaeDetailsPage extends StatefulWidget {
 class _OaeDetailsPageState extends State<OaeDetailsPage> {
   final _formKey = GlobalKey<FormState>();
 
-  // controllers principais
   final _orderCtrl = TextEditingController();
   final _scoreCtrl = TextEditingController();
 
@@ -57,20 +56,16 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
 
   final _lastDateInterventionCtrl = TextEditingController();
 
-  // novos controllers + IDs
   final _createdByCtrl = TextEditingController();
   final _updatedByCtrl = TextEditingController();
   String? _createdById;
   String? _updatedById;
-
-  // read-only infos
 
   DateTime? _lastDateIntervention;
 
   String? _currentId;
   bool _hydrated = false;
 
-  // ====== MAPA OAEs ======
   MapController? _mapController;
   void Function(LatLng)? _setActivePoint;
 
@@ -118,7 +113,7 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
     _widthCtrl.text = d.width?.toString() ?? '';
     _areaCtrl.text = d.area?.toString() ?? '';
 
-    _structureTypeCtrl.text = d.estructureType ?? '';
+    _structureTypeCtrl.text = d.structureType ?? '';
     _relatedContractsCtrl.text = d.relatedContracts ?? '';
     _valueInterventionCtrl.text = d.valueIntervention?.toString() ?? '';
     _linearCostMediaCtrl.text = d.linearCostMedia?.toString() ?? '';
@@ -131,17 +126,12 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
 
     _lastDateIntervention = d.lastDateIntervention;
 
-    // datas
-
-    // IDs de usuário
     _createdById = d.createdBy;
     _updatedById = d.updatedBy;
 
-    // textos (preenchidos pelo Autocomplete)
     _createdByCtrl.text = '';
     _updatedByCtrl.text = '';
 
-    // se já tem lat/lon, posiciona o mapa
     _moveMapToCurrentLatLng();
   }
 
@@ -156,7 +146,6 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
     return double.tryParse(t);
   }
 
-
   bool _isValidLatLng(double lat, double lng) =>
       lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 
@@ -167,9 +156,7 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
     if (!_isValidLatLng(lat, lon)) return;
 
     final pos = LatLng(lat, lon);
-    if (_mapController != null) {
-      _mapController!.move(pos, 16);
-    }
+    _mapController?.move(pos, 16);
     _setActivePoint?.call(pos);
   }
 
@@ -221,13 +208,13 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-          Text(data.id == null ? 'OAE salva com sucesso.' : 'OAE atualizada.'),
+          content: Text(
+            data.id == null ? 'OAE salva com sucesso.' : 'OAE atualizada.',
+          ),
         ),
       );
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -242,11 +229,9 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
         final isSaving = st.saving;
         final isEditing = form.id != null;
 
-        // pega lista de usuários
-        final userState = context.watch<UserBloc>().state;
+        final userState = context.watch<UserCubit>().state;
         final List<UserData> allUsers = userState.all;
 
-        // Painel ESQUERDO: formulário
         Widget buildLeftPanel() {
           return Form(
             key: _formKey,
@@ -304,33 +289,28 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             controller: _extensionCtrl,
                             labelText: 'Extensão (m)',
                             width: w(4),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
                           ),
                           CustomTextField(
                             controller: _widthCtrl,
                             labelText: 'Largura (m)',
                             width: w(4),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
                           ),
                           CustomTextField(
                             controller: _areaCtrl,
                             labelText: 'Área (m²)',
                             width: w(4),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
                           ),
                           CustomTextField(
                             controller: _structureTypeCtrl,
                             labelText: 'Tipo de estrutura',
                             width: w(4),
                           ),
-
-                          // Latitude com sync no blur
                           SizedBox(
                             width: w(4),
                             child: Focus(
@@ -348,8 +328,6 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                               ),
                             ),
                           ),
-
-                          // Longitude com sync no blur
                           SizedBox(
                             width: w(4),
                             child: Focus(
@@ -371,17 +349,14 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             controller: _altitudeCtrl,
                             labelText: 'Altitude',
                             width: w(4),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 16),
                       const SectionTitle(text: 'Dados técnicos'),
                       const SizedBox(height: 8),
-
                       Wrap(
                         spacing: 12,
                         runSpacing: 12,
@@ -390,9 +365,8 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             controller: _scoreCtrl,
                             labelText: 'Nota (0 a 5)',
                             width: w(4),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
                           ),
                           CustomTextField(
                             controller: _relatedContractsCtrl,
@@ -403,25 +377,22 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                             controller: _valueInterventionCtrl,
                             labelText: 'Valor intervenção',
                             width: w(4),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
                           ),
                           CustomTextField(
                             controller: _linearCostMediaCtrl,
                             labelText: 'Custo linear médio',
                             width: w(4),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
                           ),
                           CustomTextField(
                             controller: _costEstimateCtrl,
                             labelText: 'Custo estimado',
                             width: w(3),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
                           ),
                           CustomTextField(
                             controller: _companyBuildCtrl,
@@ -439,11 +410,9 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 16),
                       const SectionTitle(text: 'Registros'),
                       const SizedBox(height: 8),
-
                       Wrap(
                         spacing: 12,
                         runSpacing: 8,
@@ -480,17 +449,14 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 24),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           ElevatedButton.icon(
                             style: ButtonStyle(
-                              backgroundColor: WidgetStateProperty.all(
-                                  Colors.blue.shade800
-                              ),
+                              backgroundColor:
+                              WidgetStateProperty.all(Colors.blue.shade800),
                             ),
                             onPressed: isSaving ? null : () => _handleSave(st),
                             icon: isSaving
@@ -501,9 +467,14 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
                                 strokeWidth: 2,
                               ),
                             )
-                                : const Icon(Icons.save_outlined, color: Colors.white),
+                                : const Icon(
+                              Icons.save_outlined,
+                              color: Colors.white,
+                            ),
                             label: Text(
-                                isEditing ? 'Atualizar OAE' : 'Salvar OAE', style: const TextStyle(color: Colors.white))
+                              isEditing ? 'Atualizar OAE' : 'Salvar OAE',
+                              style: const TextStyle(color: Colors.white),
+                            ),
                           ),
                         ],
                       ),
@@ -515,17 +486,14 @@ class _OaeDetailsPageState extends State<OaeDetailsPage> {
           );
         }
 
-        // Painel DIREITO: mapa
         Widget buildRightPanel() {
           return OaeMapSection(
             onControllerReady: (mc) {
               _mapController = mc;
-              // quando o controller chega, se já houver lat/lon, move o mapa
               _moveMapToCurrentLatLng();
             },
             onBindSetActivePoint: (fn) {
               _setActivePoint = fn;
-              // idem: se já tiver lat/lon, posiciona o pin
               _moveMapToCurrentLatLng();
             },
             onMapTap: _onMapTap,

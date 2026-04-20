@@ -1,40 +1,43 @@
-// lib/_widgets/background/background_change.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_blocs/system/user/user_bloc.dart';
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 
 class BackgroundChange extends StatelessWidget {
   const BackgroundChange({
     super.key,
-    this.color,     // override opcional
-    this.gradient,  // override opcional
+    this.color,
+    this.gradient,
   });
 
-  /// Se você passar [gradient] ou [color], eles têm prioridade sobre o tema do usuário.
   final Color? color;
   final Gradient? gradient;
 
   @override
   Widget build(BuildContext context) {
-    // 1) Overrides explícitos vencem
     if (gradient != null) {
-      return Container(decoration: BoxDecoration(gradient: gradient));
-    }
-    if (color != null) {
-      return Container(decoration: BoxDecoration(color: color));
+      return Container(
+        decoration: BoxDecoration(gradient: gradient),
+      );
     }
 
-    // 2) Paleta automática por perfil do usuário
-    final user = context.select<UserBloc, UserData?>((b) => b.state.current);
+    if (color != null) {
+      return Container(
+        decoration: BoxDecoration(color: color),
+      );
+    }
+
+    final user = context.select<UserCubit, UserData?>(
+          (c) => c.state.current,
+    );
+
     final palette = UserData.paletteForUser(user);
 
     return Container(
-
       decoration: BoxDecoration(
         gradient: palette.gradient,
-        color: palette.color, // usado quando gradient == null
+        color: palette.color,
       ),
     );
   }
@@ -43,5 +46,9 @@ class BackgroundChange extends StatelessWidget {
 class BgPalette {
   final Color? color;
   final Gradient? gradient;
-  const BgPalette({this.color, this.gradient});
+
+  const BgPalette({
+    this.color,
+    this.gradient,
+  });
 }
