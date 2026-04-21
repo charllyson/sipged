@@ -1,8 +1,10 @@
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'setup_data.dart';
-import 'setup_state.dart';
 import 'setup_repository.dart';
+import 'setup_state.dart';
 
 class SetupCubit extends Cubit<SetupState> {
   final SetupRepository _repo;
@@ -11,30 +13,106 @@ class SetupCubit extends Cubit<SetupState> {
       : _repo = repository ?? SetupRepository(),
         super(SetupState.initial());
 
-  // =========================
-  // COMPANIES
-  // =========================
-
   Future<void> loadCompanies() async {
     try {
-      emit(state.copyWith(isLoading: true, clearError: true));
+      emit(state.copyWith(
+        isLoading: true,
+        clearError: true,
+      ));
 
       final companies = await _repo.loadCompanies();
 
-      emit(state.copyWith(isLoading: false, companies: companies));
+      emit(state.copyWith(
+        isLoading: false,
+        hasLoadedCompanies: true,
+        companies: companies,
+      ));
     } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
+      emit(state.copyWith(
+        isLoading: false,
+        hasLoadedCompanies: true,
+        error: e.toString(),
+      ));
     }
   }
 
-  Future<SetupData?> createCompany(String label, {String? cnpj}) async {
+  Future<SetupData?> saveCompanyProfile({
+    String? companyId,
+    required String label,
+    String? cnpj,
+    Uint8List? logoBytes,
+    String? logoFileName,
+    String? logoContentType,
+    bool removeLogo = false,
+    String? oldLogoPath,
+  }) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final created = await _repo.createCompany(label, cnpj: cnpj);
-      final updated = List<SetupData>.from(state.companies)..add(created);
+      final saved = await _repo.saveCompanyProfile(
+        companyId: companyId,
+        label: label,
+        cnpj: cnpj,
+        logoBytes: logoBytes,
+        logoFileName: logoFileName,
+        logoContentType: logoContentType,
+        removeLogo: removeLogo,
+        oldLogoPath: oldLogoPath,
+      );
 
-      emit(state.copyWith(isLoading: false, companies: updated));
+      final savedId = saved.companyId ?? saved.id;
+      final exists = state.companies.any(
+            (c) => (c.companyId ?? c.id) == savedId,
+      );
+
+      final updatedCompanies = exists
+          ? state.companies
+          .map((c) => ((c.companyId ?? c.id) == savedId) ? saved : c)
+          .toList()
+          : (List<SetupData>.from(state.companies)..add(saved));
+
+      updatedCompanies.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+
+      emit(
+        state.copyWith(
+          isLoading: false,
+          companies: updatedCompanies,
+          selectedCompanyId: savedId,
+        ),
+      );
+
+      return saved;
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, error: e.toString()));
+      return null;
+    }
+  }
+
+  Future<SetupData?> createCompany(
+      String label, {
+        String? cnpj,
+        Uint8List? logoBytes,
+        String? logoFileName,
+        String? logoContentType,
+      }) async {
+    try {
+      emit(state.copyWith(isLoading: true, clearError: true));
+
+      final created = await _repo.createCompany(
+        label,
+        cnpj: cnpj,
+        logoBytes: logoBytes,
+        logoFileName: logoFileName,
+        logoContentType: logoContentType,
+      );
+
+      final updated = List<SetupData>.from(state.companies)..add(created);
+      updated.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+
+      emit(state.copyWith(
+        isLoading: false,
+        companies: updated,
+      ));
 
       return created;
     } catch (e) {
@@ -43,7 +121,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 EDITAR nome de company
   Future<SetupData?> updateCompanyName(
       String companyId,
       String newLabel,
@@ -51,17 +128,15 @@ class SetupCubit extends Cubit<SetupState> {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updatedCompany =
-      await _repo.updateCompanyName(companyId, newLabel);
+      final updatedCompany = await _repo.updateCompanyName(companyId, newLabel);
 
       final updatedList = state.companies.map((c) {
         final same =
-            (c.companyId != null && c.companyId == companyId) ||
-                c.id == companyId;
+            (c.companyId != null && c.companyId == companyId) || c.id == companyId;
         return same ? updatedCompany : c;
-      }).toList();
+      }).toList()
+        ..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
 
-      // Se a company editada é a selecionada, mantemos o selectedCompanyId.
       emit(
         state.copyWith(
           isLoading: false,
@@ -76,7 +151,49 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 DELETAR company
+  Future<SetupData?> updateCompanyLogo({
+    required String companyId,
+    required Uint8List bytes,
+    required String fileName,
+    String? contentType,
+  }) async {
+    try {
+      emit(state.copyWith(isLoading: true, clearError: true));
+
+      final current = state.companies.cast<SetupData?>().firstWhere(
+            (c) =>
+        c != null &&
+            ((c.companyId != null && c.companyId == companyId) ||
+                c.id == companyId),
+        orElse: () => null,
+      );
+
+      final updatedCompany = await _repo.updateCompanyLogo(
+        companyId: companyId,
+        bytes: bytes,
+        fileName: fileName,
+        contentType: contentType,
+        oldLogoPath: current?.logoPath,
+      );
+
+      final updatedList = state.companies.map((c) {
+        final same =
+            (c.companyId != null && c.companyId == companyId) || c.id == companyId;
+        return same ? updatedCompany : c;
+      }).toList();
+
+      emit(state.copyWith(
+        isLoading: false,
+        companies: updatedList,
+      ));
+
+      return updatedCompany;
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, error: e.toString()));
+      return null;
+    }
+  }
+
   Future<void> deleteCompany(String companyId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
@@ -85,8 +202,7 @@ class SetupCubit extends Cubit<SetupState> {
 
       final updatedCompanies = state.companies.where((c) {
         final same =
-            (c.companyId != null && c.companyId == companyId) ||
-                c.id == companyId;
+            (c.companyId != null && c.companyId == companyId) || c.id == companyId;
         return !same;
       }).toList();
 
@@ -97,7 +213,6 @@ class SetupCubit extends Cubit<SetupState> {
           isLoading: false,
           companies: updatedCompanies,
           selectedCompanyId: isSelected ? null : state.selectedCompanyId,
-          // se apagou a empresa selecionada, limpa filhos também
           units: isSelected ? const [] : state.units,
           roads: isSelected ? const [] : state.roads,
           regions: isSelected ? const [] : state.regions,
@@ -112,7 +227,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// Helper: encontra o companyId pelo label (companyName/label).
   String? findCompanyIdByLabel(String label) {
     final normalized = label.trim().toLowerCase();
     if (normalized.isEmpty) return null;
@@ -120,16 +234,11 @@ class SetupCubit extends Cubit<SetupState> {
     for (final c in state.companies) {
       final name = (c.companyName ?? c.label).trim().toLowerCase();
       if (name == normalized) {
-        // companies têm tanto id quanto companyId preenchidos
         return c.companyId ?? c.id;
       }
     }
     return null;
   }
-
-  // =========================
-  // SELECT COMPANY AND LOAD CHILDREN (pacotão)
-  // =========================
 
   Future<void> selectCompany(String companyId) async {
     try {
@@ -174,10 +283,6 @@ class SetupCubit extends Cubit<SetupState> {
     await selectCompany(companyId);
   }
 
-  // =========================
-  // UNITS
-  // =========================
-
   Future<SetupData?> createUnit(String companyId, String label) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
@@ -200,7 +305,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 EDITAR unidade
   Future<SetupData?> updateUnitName(
       String companyId,
       String unitId,
@@ -209,12 +313,10 @@ class SetupCubit extends Cubit<SetupState> {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updatedUnit =
-      await _repo.updateUnitName(companyId, unitId, newLabel);
+      final updatedUnit = await _repo.updateUnitName(companyId, unitId, newLabel);
 
       final updatedList = state.units.map((u) {
-        final same = (u.unitId != null && u.unitId == unitId) ||
-            u.id == unitId;
+        final same = (u.unitId != null && u.unitId == unitId) || u.id == unitId;
         return same ? updatedUnit : u;
       }).toList();
 
@@ -233,19 +335,14 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 DELETAR unidade
-  Future<void> deleteUnit(
-      String companyId,
-      String unitId,
-      ) async {
+  Future<void> deleteUnit(String companyId, String unitId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       await _repo.deleteUnit(companyId, unitId);
 
       final updatedList = state.units.where((u) {
-        final same = (u.unitId != null && u.unitId == unitId) ||
-            u.id == unitId;
+        final same = (u.unitId != null && u.unitId == unitId) || u.id == unitId;
         return !same;
       }).toList();
 
@@ -261,9 +358,7 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// Carrega UNIDADES de uma empresa específica
-  Future<void> loadUnitsForCompany(String companyId,
-      {bool forceReload = false}) async {
+  Future<void> loadUnitsForCompany(String companyId, {bool forceReload = false}) async {
     if (!forceReload &&
         state.selectedCompanyId == companyId &&
         state.units.isNotEmpty) {
@@ -287,16 +382,11 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// Getter usado nas telas: retorna units se forem da empresa atual
   List<SetupData> getUnitsForCompany(String? companyId) {
     if (companyId == null) return const [];
     if (companyId != state.selectedCompanyId) return const [];
     return state.units;
   }
-
-  // =========================
-  // ROADS
-  // =========================
 
   Future<SetupData?> createRoad(String companyId, String label) async {
     try {
@@ -320,7 +410,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 EDITAR rodovia
   Future<SetupData?> updateRoadName(
       String companyId,
       String roadId,
@@ -329,12 +418,10 @@ class SetupCubit extends Cubit<SetupState> {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updatedRoad =
-      await _repo.updateRoadName(companyId, roadId, newLabel);
+      final updatedRoad = await _repo.updateRoadName(companyId, roadId, newLabel);
 
       final updatedList = state.roads.map((r) {
-        final same = (r.roadId != null && r.roadId == roadId) ||
-            r.id == roadId;
+        final same = (r.roadId != null && r.roadId == roadId) || r.id == roadId;
         return same ? updatedRoad : r;
       }).toList();
 
@@ -353,19 +440,14 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 DELETAR rodovia
-  Future<void> deleteRoad(
-      String companyId,
-      String roadId,
-      ) async {
+  Future<void> deleteRoad(String companyId, String roadId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       await _repo.deleteRoad(companyId, roadId);
 
       final updatedList = state.roads.where((r) {
-        final same = (r.roadId != null && r.roadId == roadId) ||
-            r.id == roadId;
+        final same = (r.roadId != null && r.roadId == roadId) || r.id == roadId;
         return !same;
       }).toList();
 
@@ -381,8 +463,7 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> loadRoadsForCompany(String companyId,
-      {bool forceReload = false}) async {
+  Future<void> loadRoadsForCompany(String companyId, {bool forceReload = false}) async {
     if (!forceReload &&
         state.selectedCompanyId == companyId &&
         state.roads.isNotEmpty) {
@@ -412,10 +493,6 @@ class SetupCubit extends Cubit<SetupState> {
     return state.roads;
   }
 
-  // =========================
-  // REGIONS
-  // =========================
-
   Future<SetupData?> createRegion(
       String companyId,
       String label, {
@@ -424,8 +501,11 @@ class SetupCubit extends Cubit<SetupState> {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final created =
-      await _repo.createRegion(companyId, label, municipios: municipios);
+      final created = await _repo.createRegion(
+        companyId,
+        label,
+        municipios: municipios,
+      );
       final updated = List<SetupData>.from(state.regions)..add(created);
 
       emit(
@@ -454,9 +534,8 @@ class SetupCubit extends Cubit<SetupState> {
       final updatedRegion =
       await _repo.updateRegionMunicipios(companyId, regionId, municipios);
 
-      final updatedList = state.regions
-          .map((r) => r.regionId == regionId ? updatedRegion : r)
-          .toList();
+      final updatedList =
+      state.regions.map((r) => r.regionId == regionId ? updatedRegion : r).toList();
 
       emit(
         state.copyWith(
@@ -473,7 +552,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 EDITAR região (nome)
   Future<SetupData?> updateRegionName(
       String companyId,
       String regionId,
@@ -485,9 +563,8 @@ class SetupCubit extends Cubit<SetupState> {
       final updatedRegion =
       await _repo.updateRegionName(companyId, regionId, newLabel);
 
-      final updatedList = state.regions
-          .map((r) => r.regionId == regionId ? updatedRegion : r)
-          .toList();
+      final updatedList =
+      state.regions.map((r) => r.regionId == regionId ? updatedRegion : r).toList();
 
       emit(
         state.copyWith(
@@ -504,18 +581,13 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 DELETAR região
-  Future<void> deleteRegion(
-      String companyId,
-      String regionId,
-      ) async {
+  Future<void> deleteRegion(String companyId, String regionId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       await _repo.deleteRegion(companyId, regionId);
 
-      final updatedList =
-      state.regions.where((r) => r.regionId != regionId).toList();
+      final updatedList = state.regions.where((r) => r.regionId != regionId).toList();
 
       emit(
         state.copyWith(
@@ -529,8 +601,7 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> loadRegionsForCompany(String companyId,
-      {bool forceReload = false}) async {
+  Future<void> loadRegionsForCompany(String companyId, {bool forceReload = false}) async {
     if (!forceReload &&
         state.selectedCompanyId == companyId &&
         state.regions.isNotEmpty) {
@@ -560,14 +631,7 @@ class SetupCubit extends Cubit<SetupState> {
     return state.regions;
   }
 
-  // =========================
-  // FUNDING SOURCES
-  // =========================
-
-  Future<SetupData?> createFundingSource(
-      String companyId,
-      String label,
-      ) async {
+  Future<SetupData?> createFundingSource(String companyId, String label) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
@@ -589,7 +653,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 EDITAR fonte de recurso
   Future<SetupData?> updateFundingSourceName(
       String companyId,
       String sourceId,
@@ -602,8 +665,7 @@ class SetupCubit extends Cubit<SetupState> {
       await _repo.updateFundingSourceName(companyId, sourceId, newLabel);
 
       final updatedList = state.fundingSources.map((f) {
-        final same = (f.genericId != null && f.genericId == sourceId) ||
-            f.id == sourceId;
+        final same = (f.genericId != null && f.genericId == sourceId) || f.id == sourceId;
         return same ? updated : f;
       }).toList();
 
@@ -622,19 +684,14 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 DELETAR fonte de recurso
-  Future<void> deleteFundingSource(
-      String companyId,
-      String sourceId,
-      ) async {
+  Future<void> deleteFundingSource(String companyId, String sourceId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       await _repo.deleteFundingSource(companyId, sourceId);
 
       final updatedList = state.fundingSources.where((f) {
-        final same = (f.genericId != null && f.genericId == sourceId) ||
-            f.id == sourceId;
+        final same = (f.genericId != null && f.genericId == sourceId) || f.id == sourceId;
         return !same;
       }).toList();
 
@@ -650,8 +707,7 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> loadFundingSourcesForCompany(String companyId,
-      {bool forceReload = false}) async {
+  Future<void> loadFundingSourcesForCompany(String companyId, {bool forceReload = false}) async {
     if (!forceReload &&
         state.selectedCompanyId == companyId &&
         state.fundingSources.isNotEmpty) {
@@ -681,10 +737,6 @@ class SetupCubit extends Cubit<SetupState> {
     return state.fundingSources;
   }
 
-  // =========================
-  // PROGRAMS
-  // =========================
-
   Future<SetupData?> createProgram(String companyId, String label) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
@@ -707,7 +759,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 EDITAR programa
   Future<SetupData?> updateProgramName(
       String companyId,
       String programId,
@@ -716,12 +767,10 @@ class SetupCubit extends Cubit<SetupState> {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updated =
-      await _repo.updateProgramName(companyId, programId, newLabel);
+      final updated = await _repo.updateProgramName(companyId, programId, newLabel);
 
       final updatedList = state.programs.map((p) {
-        final same = (p.genericId != null && p.genericId == programId) ||
-            p.id == programId;
+        final same = (p.genericId != null && p.genericId == programId) || p.id == programId;
         return same ? updated : p;
       }).toList();
 
@@ -740,19 +789,14 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 DELETAR programa
-  Future<void> deleteProgram(
-      String companyId,
-      String programId,
-      ) async {
+  Future<void> deleteProgram(String companyId, String programId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       await _repo.deleteProgram(companyId, programId);
 
       final updatedList = state.programs.where((p) {
-        final same = (p.genericId != null && p.genericId == programId) ||
-            p.id == programId;
+        final same = (p.genericId != null && p.genericId == programId) || p.id == programId;
         return !same;
       }).toList();
 
@@ -768,8 +812,7 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> loadProgramsForCompany(String companyId,
-      {bool forceReload = false}) async {
+  Future<void> loadProgramsForCompany(String companyId, {bool forceReload = false}) async {
     if (!forceReload &&
         state.selectedCompanyId == companyId &&
         state.programs.isNotEmpty) {
@@ -799,18 +842,12 @@ class SetupCubit extends Cubit<SetupState> {
     return state.programs;
   }
 
-  // =========================
-  // EXPENSE NATURES
-  // =========================
-
-  Future<SetupData?> createExpenseNature(
-      String companyId, String label) async {
+  Future<SetupData?> createExpenseNature(String companyId, String label) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       final created = await _repo.createExpenseNature(companyId, label);
-      final updated =
-      List<SetupData>.from(state.expenseNatures)..add(created);
+      final updated = List<SetupData>.from(state.expenseNatures)..add(created);
 
       emit(
         state.copyWith(
@@ -827,7 +864,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 EDITAR natureza de despesa
   Future<SetupData?> updateExpenseNatureName(
       String companyId,
       String natureId,
@@ -836,12 +872,11 @@ class SetupCubit extends Cubit<SetupState> {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updated = await _repo.updateExpenseNatureName(
-          companyId, natureId, newLabel);
+      final updated =
+      await _repo.updateExpenseNatureName(companyId, natureId, newLabel);
 
       final updatedList = state.expenseNatures.map((n) {
-        final same = (n.genericId != null && n.genericId == natureId) ||
-            n.id == natureId;
+        final same = (n.genericId != null && n.genericId == natureId) || n.id == natureId;
         return same ? updated : n;
       }).toList();
 
@@ -860,19 +895,14 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 DELETAR natureza de despesa
-  Future<void> deleteExpenseNature(
-      String companyId,
-      String natureId,
-      ) async {
+  Future<void> deleteExpenseNature(String companyId, String natureId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       await _repo.deleteExpenseNature(companyId, natureId);
 
       final updatedList = state.expenseNatures.where((n) {
-        final same = (n.genericId != null && n.genericId == natureId) ||
-            n.id == natureId;
+        final same = (n.genericId != null && n.genericId == natureId) || n.id == natureId;
         return !same;
       }).toList();
 
@@ -888,9 +918,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// Helper de compatibilidade:
-  /// garante que TUDO da empresa esteja carregado (unidades, regiões, etc.)
-  /// sem recarregar à toa se já estiver em memória.
   Future<void> ensureCompanySetupLoaded(String? companyId) async {
     final id = companyId?.trim();
     if (id == null || id.isEmpty) return;
@@ -905,17 +932,11 @@ class SetupCubit extends Cubit<SetupState> {
         state.expenseNatures.isNotEmpty;
 
     if (alreadySelected && hasAllChildren) {
-      // Já está tudo carregado para essa empresa
       return;
     }
 
-    // Usa o "pacotão" que já criamos
     await selectCompany(id);
   }
-
-  // =========================
-  // COMPANY BODIES (empresas contratadas / licitantes)
-  // =========================
 
   Future<SetupData?> createCompanyBody(
       String companyId,
@@ -947,7 +968,6 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 EDITAR empresa contratada / licitante
   Future<SetupData?> updateCompanyBodyName(
       String companyId,
       String bodyId,
@@ -956,12 +976,11 @@ class SetupCubit extends Cubit<SetupState> {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updated = await _repo.updateCompanyBodyName(
-          companyId, bodyId, newLabel);
+      final updated =
+      await _repo.updateCompanyBodyName(companyId, bodyId, newLabel);
 
       final updatedList = state.companyBodies.map((b) {
-        final same = (b.genericId != null && b.genericId == bodyId) ||
-            b.id == bodyId;
+        final same = (b.genericId != null && b.genericId == bodyId) || b.id == bodyId;
         return same ? updated : b;
       }).toList();
 
@@ -980,19 +999,14 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  /// 🔥 DELETAR empresa contratada / licitante
-  Future<void> deleteCompanyBody(
-      String companyId,
-      String bodyId,
-      ) async {
+  Future<void> deleteCompanyBody(String companyId, String bodyId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       await _repo.deleteCompanyBody(companyId, bodyId);
 
       final updatedList = state.companyBodies.where((b) {
-        final same = (b.genericId != null && b.genericId == bodyId) ||
-            b.id == bodyId;
+        final same = (b.genericId != null && b.genericId == bodyId) || b.id == bodyId;
         return !same;
       }).toList();
 
@@ -1041,8 +1055,7 @@ class SetupCubit extends Cubit<SetupState> {
     return state.companyBodies;
   }
 
-  Future<void> loadExpenseNaturesForCompany(String companyId,
-      {bool forceReload = false}) async {
+  Future<void> loadExpenseNaturesForCompany(String companyId, {bool forceReload = false}) async {
     if (!forceReload &&
         state.selectedCompanyId == companyId &&
         state.expenseNatures.isNotEmpty) {
@@ -1057,7 +1070,7 @@ class SetupCubit extends Cubit<SetupState> {
       emit(
         state.copyWith(
           isLoading: false,
-          expenseNatures: list,//
+          expenseNatures: list,
           selectedCompanyId: companyId,
         ),
       );

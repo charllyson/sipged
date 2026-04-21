@@ -13,7 +13,7 @@ import 'package:sipged/_widgets/map/flutter_map/map_interactive.dart';
 import 'package:sipged/_widgets/map/polygon/polygon_changed_data.dart';
 
 class GeneralDashboardMap extends StatelessWidget {
-  /// MUNICÍPIOS selecionados (para destaque mais forte)
+  /// MUNICÍPIOS selecionados (para destaque mais forte / filtro ativo)
   final List<String> selectedRegionNames;
 
   /// Todos os municípios que possuem contratos (para estilo "forte")
@@ -123,59 +123,68 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
     }
   }
 
-  /// ✅ Normaliza do mesmo jeito do MapInteractive (pra bater com strongMunicipios)
-  String _norm(String s) =>
-      s
-          .toUpperCase()
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
+  /// Normaliza nomes para comparação consistente
+  String _norm(String s) => s.toUpperCase().replaceAll(RegExp(r'\s+'), ' ').trim();
 
   Set<String> _normSet(List<String> xs) => xs.map(_norm).toSet();
 
-  /// ✅ Aplica “forte/fraco” diretamente no PolygonChanged.
-  /// Agora não existe mais strongPolygonNames no MapInteractive.
+  /// Aplica estilos:
+  /// - selecionado/filtro ativo => vermelho
+  /// - com contrato => azul
+  /// - sem contrato => cinza claro
   List<PolygonChangedData> _applyStrengthStyle({
     required List<PolygonChangedData> polys,
     required List<String> strongNames,
+    required List<String> selectedNames,
   }) {
     if (polys.isEmpty) return polys;
 
     final strong = _normSet(strongNames);
+    final selected = _normSet(selectedNames);
 
-    // 🎨 noData mais “clean”
-    const noDataFill = Color(0xFF9CA3AF);      // cinza claro
-    const noDataBorder = Color(0xFFB0B7C3);    // ✅ cinza ainda mais claro (linha)
-    const noDataAlpha = 0.10;                 // bem transparente
+    // Sem dados
+    const noDataFill = Color(0xFF9CA3AF);
+    const noDataBorder = Color(0xFFB0B7C3);
+    const noDataAlpha = 0.10;
 
-// (data/selected mantém como está)
-    const dataFill = Color(0xFF5AA7FF);
-    const dataBorder = Color(0xFF2E78D6);
-
-    const selectedFill = Color(0xFF1E6BFF);
-    const selectedBorder = Color(0xFF0B2F7A);
-
+    // Com dados
+    const dataFill = Color(0xFF9CA3AF);
+    const dataBorder = Color(0xFFB0B7C3);
     const dataAlpha = 0.42;
-    const selectedAlpha = 0.62;
+
+    // Filtro ativo / selecionado => vermelho
+    const filteredFill = Color(0xFF5AA7FF);
+    const filteredBorder = Color(0xFF2E78D6);
+    const filteredAlpha = 0.58;
 
     return polys.map((p) {
-      final isStrong = strong.contains(_norm(p.title));
+      final name = _norm(p.title);
+      final isSelected = selected.contains(name);
+      final isStrong = strong.contains(name);
+
+      if (isSelected) {
+        return p.copyWith(
+          normalFillColor: filteredFill.withValues(alpha: filteredAlpha),
+          normalBorderColor: filteredBorder,
+          normalBorderWidth: 2.2,
+          selectedFillColor: filteredFill.withValues(alpha: 0.72),
+          selectedBorderColor: filteredBorder,
+          selectedBorderWidth: 2.6,
+        );
+      }
 
       return p.copyWith(
         normalFillColor: (isStrong ? dataFill : noDataFill)
             .withValues(alpha: isStrong ? dataAlpha : noDataAlpha),
-
-        // ✅ borda noData cinza clara e fina
-        normalBorderColor: isStrong ? dataBorder : noDataBorder.withValues(alpha: 0.75),
-        normalBorderWidth: isStrong ? 1.0 : 0.35,   // ✅ mais fina
-
-        selectedFillColor: selectedFill.withValues(alpha: selectedAlpha),
-        selectedBorderColor: selectedBorder,
-        selectedBorderWidth: isStrong ? 2.2 : 2.0,
+        normalBorderColor:
+        isStrong ? dataBorder : noDataBorder.withValues(alpha: 0.75),
+        normalBorderWidth: isStrong ? 1.0 : 0.35,
+        selectedFillColor: filteredFill.withValues(alpha: 0.72),
+        selectedBorderColor: filteredBorder,
+        selectedBorderWidth: isStrong ? 2.4 : 2.2,
       );
     }).toList(growable: false);
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -211,13 +220,12 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
                 );
               }
 
-              // ✅ Polígonos com estilo forte/fraco aplicado no modelo
               final styledPolys = _applyStrengthStyle(
                 polys: state.cityPolygons,
                 strongNames: widget.strongMunicipios,
+                selectedNames: widget.selectedRegionNames,
               );
 
-              // pontos para o MapInteractive centralizar / encaixar
               final geomPoints = _geometryPointsFromPolygons(styledPolys);
 
               if (!_hasFitToPolygonsOnce &&
@@ -235,15 +243,14 @@ class _OverviewDashboardMapBodyState extends State<_OverviewDashboardMapBody>
                 maxZoom: 14,
                 activeMap: true,
                 showLegend: false,
-
                 polygonsChanged: styledPolys,
                 allowMultiSelect: false,
                 showSearch: false,
 
-                // MUNICÍPIOS selecionados
+                // mantém a seleção lógica
                 selectedRegionNames: widget.selectedRegionNames,
 
-                // Mantém cores (mesmo sem legenda, isso pinta o mapa no novo MapInteractive)
+                // pode manter, mas agora a cor principal vem do PolygonChangedData
                 polygonChangeColors: GeneralDashboardStyle.regionsColors,
 
                 onControllerReady: (ctrl) {

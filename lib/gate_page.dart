@@ -15,12 +15,26 @@ import 'package:sipged/_blocs/system/user/user_data.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
+import 'package:sipged/screens/common/setup/initial_setup_page.dart';
 import 'package:sipged/screens/menus/menu_list_page.dart';
 
-const bool kForceInitialSetupOverlay = false;
+const bool kForceInitialSetupOverlay = true;
 
-class GatePage extends StatelessWidget {
+class GatePage extends StatefulWidget {
   const GatePage({super.key});
+
+  @override
+  State<GatePage> createState() => _GatePageState();
+}
+
+class _GatePageState extends State<GatePage> {
+  Future<void>? _setupLoadFuture;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _setupLoadFuture ??= context.read<SetupCubit>().loadCompanies();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,21 +97,36 @@ class GatePage extends StatelessWidget {
                 return const SignIn();
               }
 
-              return BlocBuilder<SetupCubit, SetupState>(
-                builder: (context, setupState) {
-                  final base = MenuListPage();
-                  final needsSetup =
-                      kForceInitialSetupOverlay || setupState.companies.isEmpty;
+              return FutureBuilder<void>(
+                future: _setupLoadFuture,
+                builder: (context, setupLoadSnapshot) {
+                  if (setupLoadSnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
 
-                  if (!needsSetup) return base;
+                  return BlocBuilder<SetupCubit, SetupState>(
+                    builder: (context, setupState) {
+                      final base = const MenuListPage();
 
-                  return Stack(
-                    children: [
-                      base,
-                      /*Positioned.fill(
-                        child: InitialSetupPage(user: userData),
-                      ),*/
-                    ],
+                      final needsSetup = kForceInitialSetupOverlay ||
+                          setupState.companies.isEmpty;
+
+                      if (!needsSetup) return base;
+
+                      return Stack(
+                        children: [
+                          base,
+                          Positioned.fill(
+                            child: InitialSetupPage(user: userData),
+                          ),
+                        ],
+                      );
+                    },
                   );
                 },
               );

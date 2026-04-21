@@ -1,13 +1,13 @@
-// lib/_blocs/system/info/setup_state.dart
 import 'package:equatable/equatable.dart';
 import 'setup_data.dart';
 
 class SetupState extends Equatable {
   final bool isLoading;
+  final bool hasLoadedCompanies;
   final String? error;
 
   final List<SetupData> companies;
-  final List<SetupData> companyBodies; // empresas contratadas / licitantes
+  final List<SetupData> companyBodies;
   final List<SetupData> units;
   final List<SetupData> roads;
   final List<SetupData> regions;
@@ -19,6 +19,7 @@ class SetupState extends Equatable {
 
   const SetupState({
     required this.isLoading,
+    required this.hasLoadedCompanies,
     required this.error,
     required this.companies,
     required this.companyBodies,
@@ -33,6 +34,7 @@ class SetupState extends Equatable {
 
   factory SetupState.initial() => const SetupState(
     isLoading: false,
+    hasLoadedCompanies: false,
     error: null,
     companies: [],
     companyBodies: [],
@@ -47,6 +49,7 @@ class SetupState extends Equatable {
 
   SetupState copyWith({
     bool? isLoading,
+    bool? hasLoadedCompanies,
     String? error,
     bool clearError = false,
     List<SetupData>? companies,
@@ -61,6 +64,7 @@ class SetupState extends Equatable {
   }) {
     return SetupState(
       isLoading: isLoading ?? this.isLoading,
+      hasLoadedCompanies: hasLoadedCompanies ?? this.hasLoadedCompanies,
       error: clearError ? null : (error ?? this.error),
       companies: companies ?? this.companies,
       companyBodies: companyBodies ?? this.companyBodies,
@@ -77,6 +81,7 @@ class SetupState extends Equatable {
   @override
   List<Object?> get props => [
     isLoading,
+    hasLoadedCompanies,
     error,
     companies,
     companyBodies,

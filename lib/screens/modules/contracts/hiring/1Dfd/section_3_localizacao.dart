@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/1Dfd/dfd_data.dart';
-import 'package:sipged/_blocs/system/setup/setup_region_map.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/setup_region_map.dart';
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_utils/validates/sipged_validation.dart';

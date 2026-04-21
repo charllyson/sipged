@@ -1,4 +1,3 @@
-// lib/_blocs/system/info/setup_data.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -14,10 +13,6 @@ Timestamp? _dateToFirestore(DateTime? value) {
   return Timestamp.fromDate(value);
 }
 
-/// Modelo genérico para as coleções de "setup"
-/// (companies, companiesBodies, units, roads, regions,
-///  funding_sources, programs, expense_natures, etc.)
-/// Cada campo conhecido do Firestore vira um atributo aqui.
 class SetupData extends Equatable {
   final String id;
 
@@ -37,6 +32,10 @@ class SetupData extends Equatable {
   final String? genericId;
   final String? name;
   final String? cnpj;
+
+  final String? logoUrl;
+  final String? logoPath;
+
   final DateTime? createdAt;
   final String? createdBy;
   final DateTime? updatedAt;
@@ -61,12 +60,13 @@ class SetupData extends Equatable {
     this.genericId,
     this.name,
     this.cnpj,
+    this.logoUrl,
+    this.logoPath,
     this.createdAt,
     this.createdBy,
     this.updatedAt,
     this.updatedBy,
     this.extra = const {},
-
   });
 
   const SetupData.empty()
@@ -87,18 +87,14 @@ class SetupData extends Equatable {
         genericId = null,
         name = null,
         cnpj = null,
+        logoUrl = null,
+        logoPath = null,
         createdAt = null,
         createdBy = null,
         updatedAt = null,
         updatedBy = null,
         extra = const {};
 
-  // ---------------------------------------------------------------------------
-  // FROM MAP / TO MAP
-  // ---------------------------------------------------------------------------
-
-  /// Factory genérica para QUALQUER doc de setup
-  /// (companies, units, regions, programs, etc.)
   factory SetupData.fromMap({
     required String id,
     required Map<String, dynamic>? map,
@@ -106,7 +102,6 @@ class SetupData extends Equatable {
   }) {
     if (map == null) return const SetupData.empty();
 
-    // Fazemos uma cópia para ir "consumindo" as chaves conhecidas
     final raw = Map<String, dynamic>.from(map);
 
     final companyId = raw.remove('companyId')?.toString();
@@ -116,30 +111,31 @@ class SetupData extends Equatable {
     final regionId = raw.remove('regionId')?.toString();
     final regionName = raw.remove('regionName')?.toString();
 
-    // Muitas coleções usam "id" + "name"
     final genericId = raw.remove('id')?.toString();
     final name = raw.remove('name')?.toString();
 
-    final parentId =
-        forcedParentId ?? raw.remove('parentId')?.toString();
+    final parentId = forcedParentId ?? raw.remove('parentId')?.toString();
 
     final cnpjValue = (raw.remove('cnpj') ?? '').toString().trim();
     final cnpj = cnpjValue.isEmpty ? null : cnpjValue;
 
-    // Municipios pode vir como List<dynamic>, List<String> ou null
+    final logoUrlValue = (raw.remove('logoUrl') ?? '').toString().trim();
+    final logoPathValue = (raw.remove('logoPath') ?? '').toString().trim();
+
+    final logoUrl = logoUrlValue.isEmpty ? null : logoUrlValue;
+    final logoPath = logoPathValue.isEmpty ? null : logoPathValue;
+
     List<String>? municipios;
     final municipiosDynamic = raw.remove('municipios');
     if (municipiosDynamic is List) {
       municipios = municipiosDynamic.map((e) => e.toString()).toList();
     }
 
-    // Auditoria
     final createdAt = _dateFromFirestore(raw.remove('createdAt'));
     final updatedAt = _dateFromFirestore(raw.remove('updatedAt'));
     final createdBy = raw.remove('createdBy')?.toString();
     final updatedBy = raw.remove('updatedBy')?.toString();
 
-    // Label preferencial (ordem de prioridade)
     final label = (companyName ??
         regionName ??
         unitName ??
@@ -148,7 +144,6 @@ class SetupData extends Equatable {
         '')
         .toString();
 
-    // roads: em geral usam "id" + "name"
     final roadId = genericId;
     final roadName = name;
 
@@ -169,15 +164,16 @@ class SetupData extends Equatable {
       genericId: genericId,
       name: name,
       cnpj: cnpj,
+      logoUrl: logoUrl,
+      logoPath: logoPath,
       createdAt: createdAt,
       createdBy: createdBy,
       updatedAt: updatedAt,
       updatedBy: updatedBy,
-      extra: raw, // tudo que sobrou e não foi mapeado
+      extra: raw,
     );
   }
 
-  /// Atalho se você estiver com o DocumentSnapshot em mãos
   factory SetupData.fromDoc(
       DocumentSnapshot<Map<String, dynamic>> doc, {
         String? forcedParentId,
@@ -189,9 +185,6 @@ class SetupData extends Equatable {
     );
   }
 
-  /// Converte de volta para Map que será salvo no Firestore.
-  /// OBS: não adiciono createdAt/updatedAt com serverTimestamp aqui,
-  /// isso continua sendo responsabilidade do repositório.
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{
       'companyId': companyId,
@@ -205,21 +198,17 @@ class SetupData extends Equatable {
       'parentId': parentId,
       if (municipios != null) 'municipios': municipios,
       if (cnpjCompanyContracted != null) 'cnpj': cnpjCompanyContracted,
+      if (logoUrl != null) 'logoUrl': logoUrl,
+      if (logoPath != null) 'logoPath': logoPath,
       if (createdAt != null) 'createdAt': _dateToFirestore(createdAt),
       if (createdBy != null) 'createdBy': createdBy,
       if (updatedAt != null) 'updatedAt': _dateToFirestore(updatedAt),
       if (updatedBy != null) 'updatedBy': updatedBy,
     };
 
-    // Campos extras que não mapeamos explicitamente
     map.addAll(extra);
-
     return map;
   }
-
-  // ---------------------------------------------------------------------------
-  // copyWith
-  // ---------------------------------------------------------------------------
 
   SetupData copyWith({
     String? id,
@@ -238,6 +227,8 @@ class SetupData extends Equatable {
     String? genericId,
     String? name,
     String? cnpj,
+    String? logoUrl,
+    String? logoPath,
     DateTime? createdAt,
     String? createdBy,
     DateTime? updatedAt,
@@ -262,6 +253,8 @@ class SetupData extends Equatable {
       genericId: genericId ?? this.genericId,
       name: name ?? this.name,
       cnpj: cnpj ?? this.cnpj,
+      logoUrl: logoUrl ?? this.logoUrl,
+      logoPath: logoPath ?? this.logoPath,
       createdAt: createdAt ?? this.createdAt,
       createdBy: createdBy ?? this.createdBy,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -269,10 +262,6 @@ class SetupData extends Equatable {
       extra: extra ?? Map<String, dynamic>.from(this.extra),
     );
   }
-
-  // ---------------------------------------------------------------------------
-  // Equatable
-  // ---------------------------------------------------------------------------
 
   @override
   List<Object?> get props => [
@@ -292,6 +281,8 @@ class SetupData extends Equatable {
     genericId,
     name,
     cnpj,
+    logoUrl,
+    logoPath,
     createdAt,
     createdBy,
     updatedAt,
@@ -299,27 +290,45 @@ class SetupData extends Equatable {
     extra,
   ];
 
-  // ===========================================================================
-  // ↓↓↓ A PARTIR DAQUI, SÓ COISAS DE UI / MÓDULO (igual você já usava) ↓↓↓
-  // ===========================================================================
-
-  /// Lista de módulos visíveis no dropdown
   static List<String> moduleName = [
     'DER',
     'DNIT-RO',
     'AM PRECATÓRIOS',
   ];
 
-  /// 🔥 MÓDULO PADRÃO DO SISTEMA
   static const String defaultModuleLabel = 'DER';
   static String? selectedUF = 'AL';
 
   static List<String> ufs = const [
-    'AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT',
-    'PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'
+    'AC',
+    'AL',
+    'AM',
+    'AP',
+    'BA',
+    'CE',
+    'DF',
+    'ES',
+    'GO',
+    'MA',
+    'MG',
+    'MS',
+    'MT',
+    'PA',
+    'PB',
+    'PE',
+    'PI',
+    'PR',
+    'RJ',
+    'RN',
+    'RO',
+    'RR',
+    'RS',
+    'SC',
+    'SE',
+    'SP',
+    'TO'
   ];
 
-  /// Qual flag de perfil do usuário habilita cada área do dropdown?
   static String? profileKeyForArea(String areaLabel) {
     switch (areaLabel.trim().toUpperCase()) {
       case 'DNIT-RO':
@@ -332,7 +341,6 @@ class SetupData extends Equatable {
     }
   }
 
-  /// Helper: converte o rótulo do módulo em "flavor" (usado no Firebase)
   static String flavorForArea(String areaLabel) {
     switch (areaLabel.trim().toUpperCase()) {
       case 'DNIT-RO':
@@ -345,7 +353,6 @@ class SetupData extends Equatable {
     }
   }
 
-  /// mapeia o moduleName -> gradient
   static Gradient gradientForModule(String name) {
     switch (name.toUpperCase()) {
       case 'DNIT-RO':
@@ -360,9 +367,9 @@ class SetupData extends Equatable {
       case 'AM PRECATÓRIOS':
         return const LinearGradient(
           colors: [
-            Color(0xFF4B0016), // Bordô
-            Color(0xFF800020), // Burgundy
-            Color(0xFF955251), // Marsala
+            Color(0xFF4B0016),
+            Color(0xFF800020),
+            Color(0xFF955251),
           ],
           stops: [0.0, 0.58, 1.0],
           begin: Alignment.topLeft,
@@ -380,17 +387,4 @@ class SetupData extends Equatable {
         );
     }
   }
-
-  /*static List<Color> palette = <Color>[
-    Colors.blue.shade300,
-    Colors.orange.shade300,
-    Colors.green.shade300,
-    Colors.purple.shade300,
-    Colors.red.shade300,
-    Colors.teal.shade300,
-    Colors.indigo.shade300,
-    Colors.amber.shade300,
-    Colors.cyan.shade300,
-    Colors.pink.shade300,
-  ];*/
 }
