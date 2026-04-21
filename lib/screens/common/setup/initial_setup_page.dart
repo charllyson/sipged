@@ -10,18 +10,31 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
+import 'package:sipged/_widgets/buttons/back_circle_button.dart';
+import 'package:sipged/_widgets/draw/background/background_change.dart';
+import 'package:sipged/_widgets/menu/upBar/up_bar.dart';
 import 'package:sipged/_widgets/windows/window_dialog.dart';
 import 'package:sipged/screens/common/setup/initial_setup_form.dart';
 import 'package:sipged/screens/common/setup/initial_setup_header.dart';
 import 'package:sipged/screens/modules/contracts/hiring/1Dfd/setup_region_map.dart';
 
+enum InitialSetupPresentationMode {
+  dialog,
+  page,
+}
+
 class InitialSetupPage extends StatefulWidget {
   final UserData user;
+  final InitialSetupPresentationMode presentationMode;
 
   const InitialSetupPage({
     super.key,
     required this.user,
+    this.presentationMode = InitialSetupPresentationMode.dialog,
   });
+
+  bool get isDialog => presentationMode == InitialSetupPresentationMode.dialog;
+  bool get isPage => presentationMode == InitialSetupPresentationMode.page;
 
   @override
   State<InitialSetupPage> createState() => _InitialSetupPageState();
@@ -171,7 +184,8 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     if (!mounted) return;
 
     if (saved == null) {
-      final msg = setup.state.error ?? 'Falha ao salvar configurações do sistema.';
+      final msg =
+          setup.state.error ?? 'Falha ao salvar configurações do sistema.';
       _error(msg);
       return;
     }
@@ -189,6 +203,8 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       _saving = false;
       _hydrateFromCompany(saved);
     });
+
+    _success('Configurações salvas com sucesso.');
   }
 
   void _error(String msg) {
@@ -331,11 +347,12 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (!mounted) return;
 
-    if (context.read<SetupCubit>().state.error == null) {
+    final cubit = context.read<SetupCubit>();
+    if (cubit.state.error == null) {
       _success('Unidade removida com sucesso.');
       _clearUnitSelection();
     } else {
-      _error(context.read<SetupCubit>().state.error!);
+      _error(cubit.state.error!);
     }
   }
 
@@ -373,11 +390,12 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (!mounted) return;
 
-    if (context.read<SetupCubit>().state.error == null) {
+    final cubit = context.read<SetupCubit>();
+    if (cubit.state.error == null) {
       _success('Rodovia removida com sucesso.');
       _clearRoadSelection();
     } else {
-      _error(context.read<SetupCubit>().state.error!);
+      _error(cubit.state.error!);
     }
   }
 
@@ -434,11 +452,12 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (!mounted) return;
 
-    if (context.read<SetupCubit>().state.error == null) {
+    final cubit = context.read<SetupCubit>();
+    if (cubit.state.error == null) {
       _success('Região removida com sucesso.');
       _clearRegionSelection();
     } else {
-      _error(context.read<SetupCubit>().state.error!);
+      _error(cubit.state.error!);
     }
   }
 
@@ -476,11 +495,12 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (!mounted) return;
 
-    if (context.read<SetupCubit>().state.error == null) {
+    final cubit = context.read<SetupCubit>();
+    if (cubit.state.error == null) {
       _success('Fonte removida com sucesso.');
       _clearFundingSelection();
     } else {
-      _error(context.read<SetupCubit>().state.error!);
+      _error(cubit.state.error!);
     }
   }
 
@@ -518,11 +538,12 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (!mounted) return;
 
-    if (context.read<SetupCubit>().state.error == null) {
+    final cubit = context.read<SetupCubit>();
+    if (cubit.state.error == null) {
       _success('Programa removido com sucesso.');
       _clearProgramSelection();
     } else {
-      _error(context.read<SetupCubit>().state.error!);
+      _error(cubit.state.error!);
     }
   }
 
@@ -562,15 +583,16 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
 
     if (!mounted) return;
 
-    if (context.read<SetupCubit>().state.error == null) {
+    final cubit = context.read<SetupCubit>();
+    if (cubit.state.error == null) {
       _success('Natureza de despesa removida com sucesso.');
       _clearExpenseNatureSelection();
     } else {
-      _error(context.read<SetupCubit>().state.error!);
+      _error(cubit.state.error!);
     }
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar({bool pageMode = false}) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
@@ -578,7 +600,9 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
         border: const Border(
           top: BorderSide(color: Colors.black12),
         ),
-        boxShadow: [
+        boxShadow: pageMode
+            ? null
+            : [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
@@ -598,7 +622,7 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
                 : const Icon(Icons.check),
-            label: const Text('Salvar e entrar'),
+            label: Text(pageMode ? 'Salvar configurações' : 'Salvar e entrar'),
           ),
         ],
       ),
@@ -629,249 +653,313 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocListener<SetupCubit, SetupState>(
-      listener: (context, state) {
-        _hydrateFromCompany(state.companyProfile);
-      },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.30),
-            ),
+  List<Widget> _buildSections(SetupState state) {
+    final hasCompany =
+        state.companyProfile != null || _empresaNomeCtrl.text.trim().isNotEmpty;
+
+    return [
+      InitialSetupHeader(
+        empresaFantasiaCtrl: _empresaFantasiaCtrl,
+        empresaNomeCtrl: _empresaNomeCtrl,
+        empresaCnpjCtrl: _empresaCnpjCtrl,
+        saving: _saving,
+        logoBytes: _logoBytes,
+        existingLogoUrl: _existingLogoUrl,
+        onPickLogo: _pickLogo,
+        cnpjValidator: (v) {
+          final raw = v?.replaceAll(RegExp(r'\D'), '') ?? '';
+          if (raw.isEmpty) return 'Informe o CNPJ';
+          if (raw.length != 14) return 'CNPJ inválido';
+          if (!CNPJValidator.isValid(raw)) return 'CNPJ inválido';
+          return null;
+        },
+      ),
+      const SizedBox(height: 24),
+      InitialSetupForm(
+        controller: _newUnitCtrl,
+        labelText: 'Nome da unidade',
+        enabled: hasCompany && !_saving,
+        items: state.units,
+        selectedItem: _selectedUnit,
+        onSelectItem: _selectUnit,
+        onClearSelection: _clearUnitSelection,
+        addLabel: 'Adicionar unidade',
+        saveLabel: 'Atualizar unidade',
+        removeLabel: 'Remover unidade',
+        primaryEnabled: _newUnitCtrl.text.trim().isNotEmpty && hasCompany,
+        onPrimaryAction: _saveUnit,
+        onRemoveAction: _deleteUnit,
+      ),
+      const SizedBox(height: 30),
+      InitialSetupForm(
+        controller: _newRoadCtrl,
+        labelText: 'Nome da estrada/rodovia',
+        enabled: hasCompany && !_saving,
+        items: state.roads,
+        selectedItem: _selectedRoad,
+        onSelectItem: _selectRoad,
+        onClearSelection: _clearRoadSelection,
+        addLabel: 'Adicionar rodovia',
+        saveLabel: 'Atualizar rodovia',
+        removeLabel: 'Remover rodovia',
+        primaryEnabled: _newRoadCtrl.text.trim().isNotEmpty && hasCompany,
+        onPrimaryAction: _saveRoad,
+        onRemoveAction: _deleteRoad,
+      ),
+      const SizedBox(height: 30),
+      InitialSetupForm(
+        controller: _newRegionCtrl,
+        labelText: 'Nome da região',
+        enabled: hasCompany && !_saving,
+        items: state.regions,
+        selectedItem: _selectedRegion,
+        onSelectItem: _selectRegion,
+        onClearSelection: _clearRegionSelection,
+        addLabel: 'Adicionar região',
+        saveLabel: 'Atualizar região',
+        removeLabel: 'Remover região',
+        primaryEnabled: _newRegionCtrl.text.trim().isNotEmpty && hasCompany,
+        onPrimaryAction: _saveRegion,
+        onRemoveAction: _deleteRegion,
+        trailingWidget: IconButton(
+          onPressed: !hasCompany || _saving
+              ? null
+              : () async {
+            final selected = await setupRegionMap(context);
+            if (selected != null && mounted) {
+              setState(() {
+                _selectedMunicipios = selected;
+              });
+            }
+          },
+          icon: const Icon(Icons.search),
+        ),
+        extraBottom: _buildMunicipiosSelecionados(),
+      ),
+      const SizedBox(height: 30),
+      InitialSetupForm(
+        controller: _newFundingCtrl,
+        labelText: 'Nome da fonte',
+        enabled: hasCompany && !_saving,
+        items: state.fundingSources,
+        selectedItem: _selectedFunding,
+        onSelectItem: _selectFunding,
+        onClearSelection: _clearFundingSelection,
+        addLabel: 'Adicionar fonte',
+        saveLabel: 'Atualizar fonte',
+        removeLabel: 'Remover fonte',
+        primaryEnabled: _newFundingCtrl.text.trim().isNotEmpty && hasCompany,
+        onPrimaryAction: _saveFunding,
+        onRemoveAction: _deleteFunding,
+      ),
+      const SizedBox(height: 30),
+      InitialSetupForm(
+        controller: _newProgramCtrl,
+        labelText: 'Nome do programa',
+        enabled: hasCompany && !_saving,
+        items: state.programs,
+        selectedItem: _selectedProgram,
+        onSelectItem: _selectProgram,
+        onClearSelection: _clearProgramSelection,
+        addLabel: 'Adicionar programa',
+        saveLabel: 'Atualizar programa',
+        removeLabel: 'Remover programa',
+        primaryEnabled: _newProgramCtrl.text.trim().isNotEmpty && hasCompany,
+        onPrimaryAction: _saveProgram,
+        onRemoveAction: _deleteProgram,
+      ),
+      const SizedBox(height: 30),
+      InitialSetupForm(
+        controller: _newExpenseNatureCtrl,
+        labelText: 'Nome da natureza de despesa',
+        enabled: hasCompany && !_saving,
+        items: state.expenseNatures,
+        selectedItem: _selectedExpenseNature,
+        onSelectItem: _selectExpenseNature,
+        onClearSelection: _clearExpenseNatureSelection,
+        addLabel: 'Adicionar natureza de despesa',
+        saveLabel: 'Atualizar natureza de despesa',
+        removeLabel: 'Remover natureza de despesa',
+        primaryEnabled:
+        _newExpenseNatureCtrl.text.trim().isNotEmpty && hasCompany,
+        onPrimaryAction: _saveExpenseNature,
+        onRemoveAction: _deleteExpenseNature,
+      ),
+    ];
+  }
+
+  Widget _buildDialogMode() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            color: Colors.black.withValues(alpha: 0.30),
           ),
-          Center(
-            child: LayoutBuilder(
-              builder: (_, constraints) {
-                final width = (constraints.maxWidth * 0.9).clamp(680.0, 1200.0);
-                final dialogHeight =
-                (constraints.maxHeight * 0.9).clamp(400.0, 800.0);
+        ),
+        Center(
+          child: LayoutBuilder(
+            builder: (_, constraints) {
+              final width = (constraints.maxWidth * 0.9).clamp(680.0, 1200.0);
+              final dialogHeight =
+              (constraints.maxHeight * 0.9).clamp(400.0, 800.0);
 
-                return WindowDialog(
-                  width: width,
-                  title: 'Configurações iniciais do SIPGED',
-                  onClose: null,
-                  showMinimize: false,
-                  contentPadding: EdgeInsets.zero,
-                  child: SizedBox(
-                    height: dialogHeight,
-                    child: BlocBuilder<SetupCubit, SetupState>(
-                      builder: (context, state) {
-                        final hasCompany = state.companyProfile != null ||
-                            _empresaNomeCtrl.text.trim().isNotEmpty;
-
-                        return Form(
-                          key: _formKey,
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: Scrollbar(
-                                  thumbVisibility: true,
-                                  child: SingleChildScrollView(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      12,
-                                      12,
-                                      12,
-                                      20,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                      children: [
-                                        InitialSetupHeader(
-                                          empresaFantasiaCtrl:
-                                          _empresaFantasiaCtrl,
-                                          empresaNomeCtrl: _empresaNomeCtrl,
-                                          empresaCnpjCtrl: _empresaCnpjCtrl,
-                                          saving: _saving,
-                                          logoBytes: _logoBytes,
-                                          existingLogoUrl: _existingLogoUrl,
-                                          onPickLogo: _pickLogo,
-                                          cnpjValidator: (v) {
-                                            final raw = v?.replaceAll(
-                                              RegExp(r'\D'),
-                                              '',
-                                            ) ??
-                                                '';
-                                            if (raw.isEmpty) {
-                                              return 'Informe o CNPJ';
-                                            }
-                                            if (raw.length != 14) {
-                                              return 'CNPJ inválido';
-                                            }
-                                            if (!CNPJValidator.isValid(raw)) {
-                                              return 'CNPJ inválido';
-                                            }
-                                            return null;
-                                          },
-                                        ),
-                                        const SizedBox(height: 24),
-                                        InitialSetupForm(
-                                          controller: _newUnitCtrl,
-                                          labelText: 'Nome da unidade',
-                                          enabled: hasCompany && !_saving,
-                                          items: state.units,
-                                          selectedItem: _selectedUnit,
-                                          onSelectItem: _selectUnit,
-                                          onClearSelection: _clearUnitSelection,
-                                          addLabel: 'Adicionar unidade',
-                                          saveLabel: 'Atualizar unidade',
-                                          removeLabel: 'Remover unidade',
-                                          primaryEnabled: _newUnitCtrl.text
-                                              .trim()
-                                              .isNotEmpty &&
-                                              hasCompany,
-                                          onPrimaryAction: _saveUnit,
-                                          onRemoveAction: _deleteUnit,
-                                        ),
-                                        const SizedBox(height: 30),
-                                        InitialSetupForm(
-                                          controller: _newRoadCtrl,
-                                          labelText: 'Nome da estrada/rodovia',
-                                          enabled: hasCompany && !_saving,
-                                          items: state.roads,
-                                          selectedItem: _selectedRoad,
-                                          onSelectItem: _selectRoad,
-                                          onClearSelection: _clearRoadSelection,
-                                          addLabel: 'Adicionar rodovia',
-                                          saveLabel: 'Atualizar rodovia',
-                                          removeLabel: 'Remover rodovia',
-                                          primaryEnabled: _newRoadCtrl.text
-                                              .trim()
-                                              .isNotEmpty &&
-                                              hasCompany,
-                                          onPrimaryAction: _saveRoad,
-                                          onRemoveAction: _deleteRoad,
-                                        ),
-                                        const SizedBox(height: 30),
-                                        InitialSetupForm(
-                                          controller: _newRegionCtrl,
-                                          labelText: 'Nome da região',
-                                          enabled: hasCompany && !_saving,
-                                          items: state.regions,
-                                          selectedItem: _selectedRegion,
-                                          onSelectItem: _selectRegion,
-                                          onClearSelection:
-                                          _clearRegionSelection,
-                                          addLabel: 'Adicionar região',
-                                          saveLabel: 'Atualizar região',
-                                          removeLabel: 'Remover região',
-                                          primaryEnabled: _newRegionCtrl.text
-                                              .trim()
-                                              .isNotEmpty &&
-                                              hasCompany,
-                                          onPrimaryAction: _saveRegion,
-                                          onRemoveAction: _deleteRegion,
-                                          trailingWidget: IconButton(
-                                            onPressed: !hasCompany || _saving
-                                                ? null
-                                                : () async {
-                                              final selected =
-                                              await setupRegionMap(
-                                                  context);
-                                              if (selected != null &&
-                                                  mounted) {
-                                                setState(() {
-                                                  _selectedMunicipios =
-                                                      selected;
-                                                });
-                                              }
-                                            },
-                                            icon: const Icon(Icons.search),
-                                          ),
-                                          extraBottom:
-                                          _buildMunicipiosSelecionados(),
-                                        ),
-                                        const SizedBox(height: 30),
-                                        InitialSetupForm(
-                                          controller: _newFundingCtrl,
-                                          labelText: 'Nome da fonte',
-                                          enabled: hasCompany && !_saving,
-                                          items: state.fundingSources,
-                                          selectedItem: _selectedFunding,
-                                          onSelectItem: _selectFunding,
-                                          onClearSelection:
-                                          _clearFundingSelection,
-                                          addLabel: 'Adicionar fonte',
-                                          saveLabel: 'Atualizar fonte',
-                                          removeLabel: 'Remover fonte',
-                                          primaryEnabled: _newFundingCtrl.text
-                                              .trim()
-                                              .isNotEmpty &&
-                                              hasCompany,
-                                          onPrimaryAction: _saveFunding,
-                                          onRemoveAction: _deleteFunding,
-                                        ),
-                                        const SizedBox(height: 30),
-                                        InitialSetupForm(
-                                          controller: _newProgramCtrl,
-                                          labelText: 'Nome do programa',
-                                          enabled: hasCompany && !_saving,
-                                          items: state.programs,
-                                          selectedItem: _selectedProgram,
-                                          onSelectItem: _selectProgram,
-                                          onClearSelection:
-                                          _clearProgramSelection,
-                                          addLabel: 'Adicionar programa',
-                                          saveLabel: 'Atualizar programa',
-                                          removeLabel: 'Remover programa',
-                                          primaryEnabled: _newProgramCtrl.text
-                                              .trim()
-                                              .isNotEmpty &&
-                                              hasCompany,
-                                          onPrimaryAction: _saveProgram,
-                                          onRemoveAction: _deleteProgram,
-                                        ),
-                                        const SizedBox(height: 30),
-                                        InitialSetupForm(
-                                          controller: _newExpenseNatureCtrl,
-                                          labelText:
-                                          'Nome da natureza de despesa',
-                                          enabled: hasCompany && !_saving,
-                                          items: state.expenseNatures,
-                                          selectedItem: _selectedExpenseNature,
-                                          onSelectItem:
-                                          _selectExpenseNature,
-                                          onClearSelection:
-                                          _clearExpenseNatureSelection,
-                                          addLabel:
-                                          'Adicionar natureza de despesa',
-                                          saveLabel:
-                                          'Atualizar natureza de despesa',
-                                          removeLabel:
-                                          'Remover natureza de despesa',
-                                          primaryEnabled:
-                                          _newExpenseNatureCtrl.text
-                                              .trim()
-                                              .isNotEmpty &&
-                                              hasCompany,
-                                          onPrimaryAction:
-                                          _saveExpenseNature,
-                                          onRemoveAction:
-                                          _deleteExpenseNature,
-                                        ),
-                                      ],
-                                    ),
+              return WindowDialog(
+                width: width,
+                title: 'Configurações iniciais do SIPGED',
+                onClose: null,
+                showMinimize: false,
+                contentPadding: EdgeInsets.zero,
+                child: SizedBox(
+                  height: dialogHeight,
+                  child: BlocBuilder<SetupCubit, SetupState>(
+                    builder: (context, state) {
+                      return Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: Scrollbar(
+                                thumbVisibility: true,
+                                child: SingleChildScrollView(
+                                  padding:
+                                  const EdgeInsets.fromLTRB(12, 12, 12, 20),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    children: _buildSections(state),
                                   ),
                                 ),
                               ),
-                              _buildBottomBar(),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                            ),
+                            _buildBottomBar(pageMode: false),
+                          ],
+                        ),
+                      );
+                    },
                   ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPageMode() {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: UpBar(
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12.0),
+          child: BackCircleButton(),
+        ),
+        titleWidgets: const [
+          Text(
+            'Configurações iniciais do SIPGED',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: BackgroundChange(),
+          ),
+          SafeArea(
+            top: false,
+            child: BlocBuilder<SetupCubit, SetupState>(
+              builder: (context, state) {
+                final media = MediaQuery.of(context);
+                final topSafe = media.padding.top;
+                const appBarHeight = 56.0;
+                final topOffset = topSafe + appBarHeight + 12;
+
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxWidth = constraints.maxWidth >= 1500
+                        ? 1200.0
+                        : constraints.maxWidth >= 1100
+                        ? 1000.0
+                        : constraints.maxWidth >= 800
+                        ? constraints.maxWidth * 0.88
+                        : constraints.maxWidth - 24;
+
+                    return Padding(
+                      padding: EdgeInsets.fromLTRB(12, topOffset, 12, 12),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: maxWidth,
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Colors.black.withValues(alpha: 0.06),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: Scrollbar(
+                                      thumbVisibility: true,
+                                      child: SingleChildScrollView(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          20,
+                                          20,
+                                          20,
+                                          24,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                          children: _buildSections(state),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  _buildBottomBar(pageMode: true),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
           ),
         ],
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<SetupCubit, SetupState>(
+      listener: (context, state) {
+        _hydrateFromCompany(state.companyProfile);
+      },
+      child: widget.isPage ? _buildPageMode() : _buildDialogMode(),
     );
   }
 }

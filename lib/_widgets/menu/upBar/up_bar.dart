@@ -9,13 +9,8 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? titleWidgets;
   final List<Widget>? subtitleWidgets;
 
-  /// Botão principal da esquerda (menu principal, voltar, etc.)
   final Widget? leading;
-
-  /// Botões adicionais à esquerda, exibidos logo após o slot do leading.
   final List<Widget> leadingActions;
-
-  /// Ações da direita.
   final List<Widget> actions;
 
   final bool showPhotoMenu;
@@ -34,16 +29,9 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
   final bool includeSafeTop;
   final double safeTopFallback;
 
-  /// Largura do slot reservado ao leading.
   final double leadingSlotWidth;
-
-  /// Espaço entre o leading e os botões adicionais à esquerda.
   final double gapAfterLeading;
-
-  /// Largura reservada para cada ação lateral.
   final double actionSlotWidth;
-
-  /// Espaçamento entre ações laterais.
   final double actionSpacing;
 
   const UpBar({
@@ -74,58 +62,42 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
 
   bool get _hasSubtitle => (subtitleWidgets?.isNotEmpty ?? false);
 
-  /// Regra inteligente:
-  /// - se existe leading, reserva o slot;
-  /// - se não existe leading, mas existem leadingActions, também reserva;
-  /// - caso contrário, não reserva.
   bool get _shouldReserveLeadingSlot =>
       leading != null || leadingActions.isNotEmpty;
 
-  double _windowTopPaddingRaw() {
+  double _safeTop(BuildContext context) {
     if (!includeSafeTop) return 0.0;
 
-    try {
-      final dispatcher = WidgetsBinding.instance.platformDispatcher;
-      if (dispatcher.views.isEmpty) return safeTopFallback;
-
-      final view = dispatcher.views.first;
-      final paddingTop = view.padding.top / view.devicePixelRatio;
-
-      if (paddingTop.isFinite && paddingTop >= 0) {
-        return paddingTop;
-      }
-    } catch (_) {}
+    final mediaTop = MediaQuery.maybeOf(context)?.padding.top;
+    if (mediaTop != null && mediaTop >= 0) {
+      return mediaTop;
+    }
 
     return safeTopFallback;
   }
 
-  double _devicePixelRatio() {
-    try {
-      final dispatcher = WidgetsBinding.instance.platformDispatcher;
-      if (dispatcher.views.isEmpty) return 1.0;
-      return dispatcher.views.first.devicePixelRatio;
-    } catch (_) {
-      return 1.0;
-    }
-  }
-
-  double _snapToPhysicalPixel(double value) {
-    final dpr = _devicePixelRatio();
-    if (dpr <= 0) return value;
-    return (value * dpr).roundToDouble() / dpr;
-  }
-
-  double _safeTop() => _snapToPhysicalPixel(_windowTopPaddingRaw());
-
   double _contentHeight() =>
       titleHeight + (_hasSubtitle ? subtitleHeight : 0.0);
 
-  double _totalHeight() => _safeTop() + _contentHeight();
+  double _totalHeight(BuildContext context) =>
+      _safeTop(context) + _contentHeight();
 
-  double totalHeight(BuildContext context) => _totalHeight();
+  double totalHeight(BuildContext context) => _totalHeight(context);
 
   @override
-  Size get preferredSize => Size.fromHeight(_totalHeight());
+  Size get preferredSize {
+    final dispatcher = WidgetsBinding.instance.platformDispatcher;
+    double safeTop = safeTopFallback;
+
+    if (includeSafeTop && dispatcher.views.isNotEmpty) {
+      final view = dispatcher.views.first;
+      safeTop = view.padding.top / view.devicePixelRatio;
+    }
+
+    return Size.fromHeight(
+      safeTop + titleHeight + (_hasSubtitle ? subtitleHeight : 0.0),
+    );
+  }
 
   double _reservedLeftWidth() {
     double width = sideGap;
@@ -173,9 +145,10 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double safeTop = _safeTop();
-    final double leftPad = _reservedLeftWidth();
-    final double rightPad = _reservedRightWidth();
+    final safeTop = _safeTop(context);
+    final leftPad = _reservedLeftWidth();
+    final rightPad = _reservedRightWidth();
+    final photoSlotSize = actionSlotWidth;
 
     final bg = decoration ??
         BoxDecoration(
@@ -197,7 +170,7 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
     return Material(
       color: Colors.transparent,
       child: SizedBox(
-        height: _totalHeight(),
+        height: _totalHeight(context),
         child: DecoratedBox(
           decoration: bg,
           child: Padding(
@@ -228,6 +201,8 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.center,
                                     children: _withSpacing(
                                       titleWidgets ?? const [],
                                       itemsSpacing,
@@ -239,17 +214,18 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
                           ),
                         ),
                       ),
-
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Padding(
                           padding: EdgeInsets.only(left: sideGap),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               if (_shouldReserveLeadingSlot)
                                 SizedBox(
                                   width: leadingSlotWidth,
+                                  height: titleHeight,
                                   child: leading != null
                                       ? Align(
                                     alignment: Alignment.centerLeft,
@@ -263,6 +239,8 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
                               if (leadingActions.isNotEmpty)
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.center,
                                   children: _withSpacing(
                                     leadingActions,
                                     actionSpacing,
@@ -272,25 +250,30 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
                           ),
                         ),
                       ),
-
                       Align(
                         alignment: Alignment.centerRight,
                         child: Padding(
                           padding: EdgeInsets.only(right: sideGap),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               if (actions.isNotEmpty)
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
-                                  children:
-                                  _withSpacing(actions, actionSpacing),
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.center,
+                                  children: _withSpacing(actions, actionSpacing),
                                 ),
                               if (actions.isNotEmpty && showPhotoMenu)
                                 const SizedBox(width: 8),
                               if (showPhotoMenu)
-                                Tight(
-                                  child: photoMenu ?? const PopUpPhotoMenu(),
+                                SizedBox.square(
+                                  dimension: photoSlotSize,
+                                  child: Center(
+                                    child: photoMenu ??
+                                        const PopUpPhotoMenu(),
+                                  ),
                                 ),
                             ],
                           ),
@@ -311,6 +294,7 @@ class UpBar extends StatelessWidget implements PreferredSizeWidget {
                           physics: const BouncingScrollPhysics(),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: _withSpacing(
                               subtitleWidgets ?? const [],
                               itemsSpacing,

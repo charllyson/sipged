@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:sipged/_blocs/system/user/user_cubit.dart';
+import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/cards/basic/basic_card.dart';
 import 'package:sipged/_widgets/tiles/tile_widget.dart';
 import 'package:sipged/admPanel/system/manager_permissions_users_page.dart';
+import 'package:sipged/screens/common/setup/initial_setup_page.dart';
 
 import '../../_widgets/buttons/back_circle_button.dart';
 import '../../_widgets/menu/upBar/up_bar.dart';
@@ -14,6 +19,10 @@ class SettingsSystemPage extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final user = context.select<UserCubit, UserData?>(
+          (c) => c.state.initialized ? c.state.current : null,
+    );
+
     final topSafe = MediaQuery.of(context).padding.top;
     const barHeight = 72.0;
     final topPadding = topSafe + barHeight + 12;
@@ -21,20 +30,11 @@ class SettingsSystemPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        automaticallyImplyLeading: false,
-        flexibleSpace: SafeArea(
-          bottom: false,
-          child: UpBar(
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
-            ),
-          ),
+      appBar: UpBar(
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12.0),
+          child: BackCircleButton(),
         ),
-        toolbarHeight: barHeight,
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -54,12 +54,44 @@ class SettingsSystemPage extends StatelessWidget {
                     title: 'Gerenciar permissões de usuário',
                     subtitle: 'Perfis base + permissões granulares por módulo',
                     leading: Icons.security_outlined,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ManagerPermissionsUsersPage(),
-                      ),
-                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ManagerPermissionsUsersPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TileWidget(
+                    title: 'Configurações iniciais do sistema',
+                    subtitle:
+                    'Empresa, logo, unidades, rodovias, regiões, fontes, programas e natureza de despesa',
+                    leading: Icons.settings_suggest_outlined,
+                    onTap: () {
+                      if (user == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Usuário não carregado. Tente novamente.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => InitialSetupPage(
+                            user: user,
+                            presentationMode:
+                            InitialSetupPresentationMode.page,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
                   BasicCard(

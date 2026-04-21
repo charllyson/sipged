@@ -53,24 +53,15 @@ class SystemHubPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        automaticallyImplyLeading: false,
-        flexibleSpace: SafeArea(
-          bottom: false,
-          child: UpBar(
-            leading: const Padding(
-              padding: EdgeInsets.only(left: 12.0),
-              child: BackCircleButton(),
-            ),
-          ),
+      extendBodyBehindAppBar: false,
+      appBar: UpBar(
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12.0),
+          child: BackCircleButton(),
         ),
-        toolbarHeight: 72,
       ),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final cross = _gridCountForWidth(constraints.maxWidth);

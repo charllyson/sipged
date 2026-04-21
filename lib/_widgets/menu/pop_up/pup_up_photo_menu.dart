@@ -6,13 +6,16 @@ import 'package:sipged/_blocs/system/user/user_cubit.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/images/photo_circle/photo_circle.dart';
 import 'package:sipged/admPanel/system_hub_page.dart';
-
-// ✅ helper de papéis globais
 import 'package:sipged/_blocs/system/permitions/user_permission.dart' as roles;
 import 'package:sipged/screens/common/profile/profile_page.dart';
 
 class PopUpPhotoMenu extends StatelessWidget {
-  const PopUpPhotoMenu({super.key});
+  final double photoSize;
+
+  const PopUpPhotoMenu({
+    super.key,
+    this.photoSize = 40,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +39,9 @@ class PopUpPhotoMenu extends StatelessWidget {
 
     return PopupMenuButton<String>(
       color: Colors.white,
+      padding: EdgeInsets.zero,
+      menuPadding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 180),
       onSelected: (value) async {
         switch (value) {
           case 'perfil':
@@ -49,7 +55,7 @@ class PopUpPhotoMenu extends StatelessWidget {
           case 'administrador':
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (_) => SystemHubPage(),
+                builder: (_) => const SystemHubPage(),
               ),
             );
             break;
@@ -102,9 +108,12 @@ class PopUpPhotoMenu extends StatelessWidget {
           ),
         ),
       ],
-      child: Padding(
-        padding: const EdgeInsets.only(right: 16.0),
-        child: PhotoCircle(userData: userData),
+      child: SizedBox.square(
+        dimension: photoSize,
+        child: PhotoCircle(
+          userData: userData,
+          size: photoSize,
+        ),
       ),
     );
   }
