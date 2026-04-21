@@ -12,7 +12,6 @@ import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
-// Service novo de localidades IBGE
 import 'package:sipged/_blocs/system/location/ibge_location_service.dart';
 
 class SectionLocalizacao extends StatefulWidget {
@@ -33,23 +32,19 @@ class SectionLocalizacao extends StatefulWidget {
 
 class _SectionLocalizacaoState extends State<SectionLocalizacao>
     with SipGedValidation {
-  // controllers
   late final TextEditingController _ufCtrl;
   late final TextEditingController _municipioCtrl;
   late final TextEditingController _regionalCtrl;
   late final TextEditingController _kmInicialCtrl;
   late final TextEditingController _kmFinalCtrl;
 
-  // estado de UF / municípios
   List<String> _ufs = const [];
   List<String> _munisDaUf = const [];
   String? _ufSelecionada;
 
-  // company/region auxiliares
   String? _companyId;
   String? _regionDocId;
 
-  // Service IBGE (novo)
   late final IBGELocationService _ibgeService;
 
   @override
@@ -69,17 +64,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
     _regionDocId = d.regionId;
 
     _initIbgeUfMunicipios();
-
-    // ✅ NÃO chame ensureCompanySetupLoaded no build.
-    // Chame aqui/updates.
-    if ((_companyId ?? '').isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
-      });
-    } else {
-      _resolveCompanyIdFromData();
-    }
+    context.read<SetupCubit>().loadSystemSetup();
   }
 
   @override
@@ -99,32 +84,8 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
     sync(_kmInicialCtrl, d.kmInicial ?? '');
     sync(_kmFinalCtrl, d.kmFinal ?? '');
 
-    // company mudou?
-    final oldCompany = _companyId;
-    final newCompany = d.companyId;
-
-    if (oldCompany != newCompany) {
-      _companyId = newCompany;
-
-      if ((_companyId ?? '').isNotEmpty) {
-        // ✅ agenda pro pós-frame para não mexer em estado durante build
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
-        });
-      }
-    }
-
-    // region mudou?
     if (oldWidget.data.regionId != widget.data.regionId) {
       _regionDocId = widget.data.regionId;
-    }
-
-    // se label mudou e ainda não temos companyId
-    if (oldWidget.data.orgaoDemandante != widget.data.orgaoDemandante) {
-      if ((_companyId ?? '').isEmpty) {
-        _resolveCompanyIdFromData();
-      }
     }
 
     _updateUfSelectionFromController();
@@ -140,6 +101,21 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
     super.dispose();
   }
 
+  void _syncCompanyFromSetup(SetupData? company) {
+    if (company == null) return;
+
+    final newCompanyId = (company.companyId ?? company.id).trim();
+    if (_companyId == newCompanyId) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _companyId = newCompanyId;
+      });
+      _emitChange();
+    });
+  }
+
   void _emitChange() {
     final updated = widget.data.copyWith(
       uf: _ufCtrl.text,
@@ -151,29 +127,6 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
       companyId: _companyId ?? widget.data.companyId,
     );
     widget.onChanged(updated);
-  }
-
-  Future<void> _resolveCompanyIdFromData() async {
-    if (!mounted) return;
-    final label = (widget.data.orgaoDemandante ?? '').trim();
-    if (label.isEmpty) return;
-
-    final systemCubit = context.read<SetupCubit>();
-    if (systemCubit.state.companies.isEmpty) {
-      await systemCubit.loadCompanies();
-    }
-
-    final id = systemCubit.findCompanyIdByLabel(label);
-    if (!mounted || id == null) return;
-
-    setState(() {
-      _companyId = id;
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<SetupCubit>().ensureCompanySetupLoaded(id);
-    });
   }
 
   Future<void> _initIbgeUfMunicipios() async {
@@ -203,9 +156,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
           _municipioCtrl.text = '';
         }
       });
-    } catch (_) {
-      // se quiser logar
-    }
+    } catch (_) {}
   }
 
   void _updateUfSelectionFromController() async {
@@ -228,9 +179,13 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
   @override
   Widget build(BuildContext context) {
     final systemCubit = context.read<SetupCubit>();
-    context.watch<SetupCubit>(); // somente para rebuild
+    final setupState = context.watch<SetupCubit>().state;
+    final SetupData? company = setupState.companyProfile;
 
-    final List<SetupData> regions = systemCubit.getRegionsForCompany(_companyId);
+    _syncCompanyFromSetup(company);
+
+    final bool hasCompanyConfigured = company != null;
+    final List<SetupData> regions = systemCubit.getRegions();
     final d = widget.data;
 
     return Column(
@@ -282,15 +237,15 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                 SizedBox(
                   width: w5,
                   child: DropDownChange(
-                    key: ValueKey('regions-${widget.data.orgaoDemandante}-${_companyId ?? "none"}'),
+                    key: ValueKey('regions-${_companyId ?? "none"}'),
                     width: w5,
                     labelText: 'Região/Área',
-                    tooltipMessage: _companyId == null
-                        ? 'Selecione o contratante na identificação'
+                    tooltipMessage: !hasCompanyConfigured
+                        ? 'Configure o contratante no setup do sistema'
                         : 'Clique no ícone de info para gerenciar municípios da região',
                     controller: _regionalCtrl,
                     items: regions.map((e) => e.label).toList(),
-                    enabled: widget.isEditable && _companyId != null,
+                    enabled: widget.isEditable && hasCompanyConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar região/área',
                     showSpecialWhenEmpty: true,
@@ -310,9 +265,9 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       setState(() {});
                     },
                     onDetailsTap: (ctx, label) async {
-                      if (_companyId == null) return;
+                      if (!hasCompanyConfigured) return;
 
-                      final regionsList = systemCubit.getRegionsForCompany(_companyId);
+                      final regionsList = systemCubit.getRegions();
 
                       final region = regionsList.firstWhere(
                             (r) => r.label == label,
@@ -328,7 +283,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                           .toSet()
                           .toList();
 
-                      int initialUfCode = 27; // fallback AL
+                      int initialUfCode = 27;
                       final ufSigla = _ufCtrl.text.trim().toUpperCase();
                       if (ufSigla.isNotEmpty) {
                         final maybeId = _ibgeService.getUfIdBySigla(ufSigla);
@@ -346,7 +301,6 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       if (selectedMunicipios == null) return;
 
                       await systemCubit.updateRegionMunicipios(
-                        _companyId!,
                         region.id,
                         selectedMunicipios,
                       );
@@ -355,10 +309,10 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                         _emitChange();
                       }
                     },
-                    onCreateNewItem: (!widget.isEditable || _companyId == null)
+                    onCreateNewItem: (!widget.isEditable || !hasCompanyConfigured)
                         ? null
                         : (label) async {
-                      final created = await systemCubit.createRegion(_companyId!, label);
+                      final created = await systemCubit.createRegion(label);
                       if (created != null) {
                         _regionDocId = created.id;
                         _regionalCtrl.text = created.label;
@@ -366,7 +320,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                         setState(() {});
                       }
                     },
-                    onEditItem: (widget.isEditable && _companyId != null)
+                    onEditItem: (widget.isEditable && hasCompanyConfigured)
                         ? (ctx, oldLabel) async {
                       final controller = TextEditingController(text: oldLabel);
 
@@ -387,8 +341,8 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                               child: const Text('Cancelar'),
                             ),
                             ElevatedButton(
-                              onPressed: () =>
-                                  Navigator.of(dialogCtx).pop(controller.text.trim()),
+                              onPressed: () => Navigator.of(dialogCtx)
+                                  .pop(controller.text.trim()),
                               child: const Text('Salvar'),
                             ),
                           ],
@@ -397,7 +351,7 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
                       if (newLabel == null || newLabel.trim().isEmpty) return;
 
-                      final list = systemCubit.getRegionsForCompany(_companyId);
+                      final list = systemCubit.getRegions();
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -408,7 +362,6 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       if (target.id.isEmpty) return;
 
                       final updated = await systemCubit.updateRegionName(
-                        _companyId!,
                         target.id,
                         newLabel.trim(),
                       );
@@ -423,9 +376,9 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
                       }
                     }
                         : null,
-                    onDeleteItem: (widget.isEditable && _companyId != null)
+                    onDeleteItem: (widget.isEditable && hasCompanyConfigured)
                         ? (ctx, label) async {
-                      final list = systemCubit.getRegionsForCompany(_companyId);
+                      final list = systemCubit.getRegions();
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -435,9 +388,10 @@ class _SectionLocalizacaoState extends State<SectionLocalizacao>
 
                       if (target.id.isEmpty) return;
 
-                      await systemCubit.deleteRegion(_companyId!, target.id);
+                      await systemCubit.deleteRegion(target.id);
 
-                      if (_regionDocId == target.id || _regionalCtrl.text == label) {
+                      if (_regionDocId == target.id ||
+                          _regionalCtrl.text == label) {
                         setState(() {
                           _regionDocId = null;
                           _regionalCtrl.clear();

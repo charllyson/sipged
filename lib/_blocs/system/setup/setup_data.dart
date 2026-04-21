@@ -22,6 +22,7 @@ class SetupData extends Equatable {
   final List<String>? municipios;
   final String? companyId;
   final String? companyName;
+  final String? fantasyName;
   final String? fonteRecurso;
   final String? unitId;
   final String? unitName;
@@ -50,6 +51,7 @@ class SetupData extends Equatable {
     this.municipios,
     this.companyId,
     this.companyName,
+    this.fantasyName,
     this.fonteRecurso,
     this.unitId,
     this.unitName,
@@ -77,6 +79,7 @@ class SetupData extends Equatable {
         municipios = null,
         companyId = null,
         companyName = null,
+        fantasyName = null,
         fonteRecurso = null,
         unitId = null,
         unitName = null,
@@ -104,8 +107,9 @@ class SetupData extends Equatable {
 
     final raw = Map<String, dynamic>.from(map);
 
-    final companyId = raw.remove('companyId')?.toString();
+    final companyIdRaw = raw.remove('companyId')?.toString();
     final companyName = raw.remove('companyName')?.toString();
+    final fantasyName = raw.remove('fantasyName')?.toString();
     final unitId = raw.remove('unitId')?.toString();
     final unitName = raw.remove('unitName')?.toString();
     final regionId = raw.remove('regionId')?.toString();
@@ -136,7 +140,11 @@ class SetupData extends Equatable {
     final createdBy = raw.remove('createdBy')?.toString();
     final updatedBy = raw.remove('updatedBy')?.toString();
 
+    final effectiveCompanyId =
+        companyIdRaw ?? (id == 'company' ? 'company' : null);
+
     final label = (companyName ??
+        fantasyName ??
         regionName ??
         unitName ??
         name ??
@@ -153,8 +161,9 @@ class SetupData extends Equatable {
       parentId: parentId,
       cnpjCompanyContracted: cnpj,
       municipios: municipios,
-      companyId: companyId,
+      companyId: effectiveCompanyId,
       companyName: companyName,
+      fantasyName: fantasyName,
       unitId: unitId,
       unitName: unitName,
       roadId: roadId,
@@ -189,6 +198,7 @@ class SetupData extends Equatable {
     final map = <String, dynamic>{
       'companyId': companyId,
       'companyName': companyName,
+      'fantasyName': fantasyName,
       'unitId': unitId,
       'unitName': unitName,
       'regionId': regionId,
@@ -218,6 +228,7 @@ class SetupData extends Equatable {
     List<String>? municipios,
     String? companyId,
     String? companyName,
+    String? fantasyName,
     String? unitId,
     String? unitName,
     String? roadId,
@@ -244,6 +255,7 @@ class SetupData extends Equatable {
       municipios: municipios ?? this.municipios,
       companyId: companyId ?? this.companyId,
       companyName: companyName ?? this.companyName,
+      fantasyName: fantasyName ?? this.fantasyName,
       unitId: unitId ?? this.unitId,
       unitName: unitName ?? this.unitName,
       roadId: roadId ?? this.roadId,
@@ -272,6 +284,7 @@ class SetupData extends Equatable {
     municipios,
     companyId,
     companyName,
+    fantasyName,
     unitId,
     unitName,
     roadId,
@@ -293,7 +306,6 @@ class SetupData extends Equatable {
   static List<String> moduleName = [
     'DER',
     'DNIT-RO',
-    'AM PRECATÓRIOS',
   ];
 
   static const String defaultModuleLabel = 'DER';
@@ -333,8 +345,6 @@ class SetupData extends Equatable {
     switch (areaLabel.trim().toUpperCase()) {
       case 'DNIT-RO':
         return 'profileWork';
-      case 'AM PRECATÓRIOS':
-        return 'profileLegal';
       case 'DER':
       default:
         return 'profileWork';
@@ -345,8 +355,6 @@ class SetupData extends Equatable {
     switch (areaLabel.trim().toUpperCase()) {
       case 'DNIT-RO':
         return 'dnitro';
-      case 'AM PRECATÓRIOS':
-        return 'amprecatorios';
       case 'DER':
       default:
         return 'der';
@@ -361,17 +369,6 @@ class SetupData extends Equatable {
             Color.fromARGB(255, 27, 32, 51),
             Color.fromARGB(255, 144, 202, 249),
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-      case 'AM PRECATÓRIOS':
-        return const LinearGradient(
-          colors: [
-            Color(0xFF4B0016),
-            Color(0xFF800020),
-            Color(0xFF955251),
-          ],
-          stops: [0.0, 0.58, 1.0],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );

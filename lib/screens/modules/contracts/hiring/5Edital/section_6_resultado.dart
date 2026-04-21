@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
-import 'package:sipged/_utils/mask/sipged_masks.dart';
 
 import 'package:sipged/_widgets/input/date_field_change.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
@@ -13,7 +11,7 @@ import 'package:sipged/_widgets/input/drop_down_change.dart';
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/_widgets/windows/company_body_dialog.dart';
+import 'package:sipged/screens/common/setup/company_body_dialog.dart';
 
 class SectionResultado extends StatefulWidget {
   final bool isEditable;
@@ -56,22 +54,7 @@ class _SectionResultadoState extends State<SectionResultado> {
     _adjudicacaoLinkCtrl = TextEditingController(text: d.adjudicacaoLink);
     _homologacaoLinkCtrl = TextEditingController(text: d.homologacaoLink);
 
-    final system = context.read<SetupCubit>();
-    Future.microtask(() => _loadInitialCompanies(system));
-  }
-
-  Future<void> _loadInitialCompanies(SetupCubit system) async {
-    if (system.state.companies.isEmpty) {
-      await system.loadCompanies();
-      if (!mounted) return;
-    }
-
-    final companies = system.state.companies;
-    if (companies.isNotEmpty) {
-      final parentCompanyId = companies.first.companyId ?? companies.first.id;
-      await system.ensureCompanySetupLoaded(parentCompanyId);
-      if (!mounted) return;
-    }
+    context.read<SetupCubit>().loadSystemSetup();
   }
 
   @override
@@ -271,9 +254,6 @@ class _SectionResultadoState extends State<SectionResultado> {
                         labelText: 'Valor vencedor (R\$)',
                         enabled: isEditable,
                         keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
                         onChanged: (_) => _emitChange(),
                       ),
                     ),
@@ -283,11 +263,6 @@ class _SectionResultadoState extends State<SectionResultado> {
                         controller: _dataResultadoCtrl,
                         labelText: 'Data do resultado',
                         enabled: isEditable,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(8),
-                          SipGedMasks.dateDDMMYYYY,
-                        ],
                         onChanged: (_) => _emitChange(),
                       ),
                     ),
@@ -297,11 +272,6 @@ class _SectionResultadoState extends State<SectionResultado> {
                         controller: _adjudicacaoDataCtrl,
                         labelText: 'Data da adjudicação',
                         enabled: isEditable,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(8),
-                          SipGedMasks.dateDDMMYYYY,
-                        ],
                         onChanged: (_) => _emitChange(),
                       ),
                     ),
@@ -311,11 +281,6 @@ class _SectionResultadoState extends State<SectionResultado> {
                         controller: _homologacaoDataCtrl,
                         labelText: 'Data da homologação',
                         enabled: isEditable,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(8),
-                          SipGedMasks.dateDDMMYYYY,
-                        ],
                         onChanged: (_) => _emitChange(),
                       ),
                     ),

@@ -110,19 +110,9 @@ Future<String?> showCreateCompanyBodyDialog(
   final cnpj = cnpjCtrl.text.trim();
   if (nome.isEmpty) return null;
 
-  if (setupCubit.state.companies.isEmpty) {
-    await setupCubit.loadCompanies();
-  }
-
-  final companies = setupCubit.state.companies;
-  if (companies.isEmpty) {
-    return nome;
-  }
-
-  final parentCompanyId = companies.first.companyId ?? companies.first.id;
+  await setupCubit.loadSystemSetup();
 
   final created = await setupCubit.createCompanyBody(
-    parentCompanyId,
     nome,
     cnpj: cnpj,
   );

@@ -18,17 +18,6 @@ class FirebaseOptionsFlavors {
           measurementId: "G-GN7022MXZ2",
         );
 
-      case 'amprecatorios':
-        return const FirebaseOptions(
-          apiKey: "AIzaSyAY3EIQVdughSK8CBKOUVtr4fKhi4TMdGU",
-          authDomain: "meloemonte.firebaseapp.com",
-          projectId: "meloemonte",
-          storageBucket: "meloemonte.firebasestorage.app",
-          messagingSenderId: "572384566535",
-          appId: "1:572384566535:web:8543604bcbc69b905db9a2",
-          measurementId: "G-TKX4SV3BNH",
-        );
-
       case 'der':
       default:
         return const FirebaseOptions(

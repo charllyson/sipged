@@ -38,7 +38,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
   late final TextEditingController _descCtrl;
   late final TextEditingController _amountCtrl;
 
-  int _companyNonce = 0;
+  int _fundingNonce = 0;
 
   @override
   void initState() {
@@ -54,7 +54,7 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
     final setupCubit = context.read<SetupCubit>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      setupCubit.loadCompanies();
+      setupCubit.loadSystemSetup();
     });
   }
 
@@ -81,6 +81,28 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
     if (_amountCtrl.text != s.amountText) _amountCtrl.text = s.amountText;
   }
 
+  void _syncCompanyFromSetup(SetupData? company) {
+    if (company == null) return;
+
+    final companyId = (company.companyId ?? company.id).trim();
+    final companyLabel = (company.companyName ?? company.label).trim();
+
+    final cubit = context.read<BudgetCubit>();
+    final state = cubit.state;
+
+    final needsUpdate = (state.companyId ?? '').trim() != companyId ||
+        state.companyLabel.trim() != companyLabel;
+
+    if (!needsUpdate) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      cubit.setCompanyId(companyId);
+      cubit.setCompanyLabel(companyLabel);
+      setState(() => _fundingNonce++);
+    });
+  }
+
   SetupData? _findByLabel(List<SetupData> list, String label) {
     final low = label.trim().toLowerCase();
     if (low.isEmpty) return null;
@@ -93,373 +115,292 @@ class _BudgetFormSectionState extends State<BudgetFormSection> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<BudgetCubit, BudgetState>(
-      listenWhen: (prev, curr) =>
-      (prev.companyId ?? '').trim() != (curr.companyId ?? '').trim(),
-      listener: (context, st) async {
-        final companyId = (st.companyId ?? '').trim();
-        if (companyId.isEmpty) return;
+    return BlocBuilder<BudgetCubit, BudgetState>(
+      builder: (context, st) {
+        _syncFromState(st);
 
-        final setupCubit = context.read<SetupCubit>();
-        await setupCubit.ensureCompanySetupLoaded(companyId);
+        final theme = Theme.of(context);
+        final bool isDark = theme.brightness == Brightness.dark;
 
-        if (!mounted) return;
-        setState(() => _companyNonce++);
-      },
-      child: BlocBuilder<BudgetCubit, BudgetState>(
-        builder: (context, st) {
-          _syncFromState(st);
+        final setupCubit = context.watch<SetupCubit>();
+        final company = setupCubit.state.companyProfile;
+        final fundingSources = setupCubit.getFundingSources();
 
-          final theme = Theme.of(context);
-          final bool isDark = theme.brightness == Brightness.dark;
+        _syncCompanyFromSetup(company);
 
-          final setupCubit = context.watch<SetupCubit>();
-          final companies = setupCubit.state.companies;
+        final bool companyConfigured = company != null;
 
-          final companyId = (st.companyId ?? '').trim();
-          final bool companySelected = companyId.isNotEmpty;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isSmallScreen = constraints.maxWidth < 700;
+            final double sideWidth =
+            isSmallScreen ? constraints.maxWidth : 300.0;
 
-          final bool childrenLoadedForCompany =
-              companySelected && setupCubit.state.selectedCompanyId == companyId;
+            final double inputsWidth = responsiveInputWidth(
+              context: context,
+              itemsPerLine: 4,
+              reservedWidth: isSmallScreen ? 0.0 : (sideWidth + 12.0),
+              spacing: 12.0,
+              margin: 12.0,
+              extraPadding: 24.0,
+              spaceBetweenReserved: 12.0,
+            );
 
-          final fundingSources = childrenLoadedForCompany
-              ? setupCubit.getFundingSourcesForCompany(companyId)
-              : const <SetupData>[];
+            final double minCardHeight = isSmallScreen ? 260.0 : 170.0;
 
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final bool isSmallScreen = constraints.maxWidth < 700;
-              final double sideWidth =
-              isSmallScreen ? constraints.maxWidth : 300.0;
+            final budgetCubit = context.read<BudgetCubit>();
+            final formOk = budgetCubit.formValidated;
+            final amountValue = budgetCubit.amountValue;
 
-              final double inputsWidth = responsiveInputWidth(
-                context: context,
-                itemsPerLine: 4,
-                reservedWidth: isSmallScreen ? 0.0 : (sideWidth + 12.0),
-                spacing: 12.0,
-                margin: 12.0,
-                extraPadding: 24.0,
-                spaceBetweenReserved: 12.0,
-              );
+            final camposWrap = Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                CustomTextField(
+                  width: inputsWidth,
+                  labelText: 'Contratante',
+                  controller: _companyCtrl,
+                  enabled: false,
+                  readOnly: true,
+                  hintText: companyConfigured
+                      ? null
+                      : 'Configure o contratante no setup do sistema',
+                ),
+                DropDownChange(
+                  showSpecialAlways: true,
+                  key: ValueKey('budget-funding-$_fundingNonce'),
+                  width: inputsWidth,
+                  labelText: 'Fonte de recurso',
+                  controller: _fonteCtrl,
+                  enabled: companyConfigured,
+                  tooltipMessage: !companyConfigured
+                      ? 'Configure o contratante no setup do sistema'
+                      : null,
+                  items: fundingSources.map((e) => e.label).toList(),
+                  specialItemLabel: 'Adicionar fonte',
+                  menuMaxHeight: 260,
+                  onChanged: (label) {
+                    final localBudgetCubit = context.read<BudgetCubit>();
+                    final selectedLabel = _s(label);
 
-              final double minCardHeight = isSmallScreen ? 260.0 : 170.0;
-
-              final budgetCubit = context.read<BudgetCubit>();
-              final formOk = budgetCubit.formValidated;
-              final amountValue = budgetCubit.amountValue;
-
-              final camposWrap = Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  DropDownChange(
-                    width: inputsWidth,
-                    labelText: 'Contratante',
-                    controller: _companyCtrl,
-                    items: companies.map((e) => e.label).toList(),
-                    specialItemLabel: 'Adicionar contratante',
-                    menuMaxHeight: 260,
-                    onChanged: (label) async {
-                      final localBudgetCubit = context.read<BudgetCubit>();
-                      final sysCubit = context.read<SetupCubit>();
-
-                      final selectedLabel = _s(label);
-
-                      if (selectedLabel.isEmpty) {
-                        localBudgetCubit.clearCompany();
-                        localBudgetCubit.setFundingSourceId(null);
-                        localBudgetCubit.setFundingSourceLabel('');
-                        localBudgetCubit.clearFundingSourceId();
-
-                        if (!mounted) return;
-                        setState(() => _companyNonce++);
-                        return;
-                      }
-
-                      final SetupData selected = companies.firstWhere(
-                            (c) => c.label == selectedLabel,
-                        orElse: () => companies.first,
-                      );
-
-                      final id = (selected.companyId ?? selected.id).trim();
-
-                      localBudgetCubit.setCompanyId(id);
-                      localBudgetCubit.setCompanyLabel(selected.label);
-
+                    if (selectedLabel.isEmpty) {
                       localBudgetCubit.setFundingSourceId(null);
                       localBudgetCubit.setFundingSourceLabel('');
                       localBudgetCubit.clearFundingSourceId();
+                      return;
+                    }
 
-                      if (!mounted) return;
-                      setState(() => _companyNonce++);
+                    final SetupData selected = fundingSources.firstWhere(
+                          (f) => f.label == selectedLabel,
+                      orElse: () => fundingSources.first,
+                    );
 
-                      await sysCubit.ensureCompanySetupLoaded(id);
-                    },
-                    onCreateNewItem: (label) async {
-                      final sysCubit = context.read<SetupCubit>();
-                      final localBudgetCubit = context.read<BudgetCubit>();
+                    localBudgetCubit.setFundingSourceLabel(selected.label);
+                    localBudgetCubit.setFundingSourceId(
+                      (selected.genericId ?? selected.id).trim(),
+                    );
+                  },
+                  onCreateNewItem: companyConfigured
+                      ? (label) async {
+                    final sysCubit = context.read<SetupCubit>();
+                    final localBudgetCubit = context.read<BudgetCubit>();
 
-                      final newLabel = _s(label);
-                      if (newLabel.isEmpty) return;
+                    final newLabel = _s(label);
+                    if (newLabel.isEmpty) return;
 
-                      final created = await sysCubit.createCompany(newLabel);
-                      if (created == null) return;
+                    final created =
+                    await sysCubit.createFundingSource(newLabel);
+                    if (created == null) return;
 
-                      final id = (created.companyId ?? created.id).trim();
+                    localBudgetCubit.setFundingSourceLabel(created.label);
+                    localBudgetCubit.setFundingSourceId(
+                      (created.genericId ?? created.id).trim(),
+                    );
 
-                      localBudgetCubit.setCompanyId(id);
-                      localBudgetCubit.setCompanyLabel(created.label);
+                    if (!mounted) return;
+                    setState(() => _fundingNonce++);
+                  }
+                      : null,
+                  onEditItem: companyConfigured
+                      ? (oldLabel, newLabel) async {
+                    final localBudgetCubit = context.read<BudgetCubit>();
 
-                      localBudgetCubit.setFundingSourceId(null);
-                      localBudgetCubit.setFundingSourceLabel('');
-                      localBudgetCubit.clearFundingSourceId();
+                    final oldL = _s(oldLabel);
+                    final newL = _s(newLabel);
+                    if (oldL.isEmpty || newL.isEmpty) return;
 
-                      if (!mounted) return;
-                      setState(() => _companyNonce++);
+                    final target = _findByLabel(fundingSources, oldL);
+                    if (target == null) return;
 
-                      await sysCubit.ensureCompanySetupLoaded(id);
-                    },
-                  ),
-                  DropDownChange(
-                    showSpecialAlways: true,
-                    key: ValueKey(
-                      'budget-funding-$_companyNonce-${st.companyId ?? "none"}',
-                    ),
-                    width: inputsWidth,
-                    labelText: 'Fonte de recurso',
-                    controller: _fonteCtrl,
-                    enabled: companySelected && childrenLoadedForCompany,
-                    tooltipMessage: !companySelected
-                        ? 'Selecione o contratante'
-                        : (!childrenLoadedForCompany ? 'Carregando fontes…' : null),
-                    items: fundingSources.map((e) => e.label).toList(),
-                    specialItemLabel: 'Adicionar fonte',
-                    menuMaxHeight: 260,
-                    onChanged: (label) {
-                      final localBudgetCubit = context.read<BudgetCubit>();
-                      final selectedLabel = _s(label);
+                    final sourceId =
+                    (target.genericId ?? target.id).trim();
+                    if (sourceId.isEmpty) return;
 
-                      if (selectedLabel.isEmpty) {
-                        localBudgetCubit.setFundingSourceId(null);
-                        localBudgetCubit.setFundingSourceLabel('');
-                        localBudgetCubit.clearFundingSourceId();
-                        return;
-                      }
+                    final updated = await setupCubit.updateFundingSourceName(
+                      sourceId,
+                      newL,
+                    );
+                    if (updated == null) return;
 
-                      final SetupData selected = fundingSources.firstWhere(
-                            (f) => f.label == selectedLabel,
-                        orElse: () => fundingSources.first,
-                      );
-
-                      localBudgetCubit.setFundingSourceLabel(selected.label);
-                      localBudgetCubit.setFundingSourceId(
-                        (selected.genericId ?? selected.id).trim(),
-                      );
-                    },
-                    onCreateNewItem: (companySelected && childrenLoadedForCompany)
-                        ? (label) async {
-                      final sysCubit = context.read<SetupCubit>();
-                      final localBudgetCubit =
-                      context.read<BudgetCubit>();
-
-                      final newLabel = _s(label);
-                      if (newLabel.isEmpty) return;
-
-                      final created = await sysCubit.createFundingSource(
-                        companyId,
-                        newLabel,
-                      );
-                      if (created == null) return;
-
+                    if (_fonteCtrl.text.trim().toLowerCase() ==
+                        oldL.toLowerCase()) {
+                      _fonteCtrl.text = updated.label;
                       localBudgetCubit
-                          .setFundingSourceLabel(created.label);
-                      localBudgetCubit.setFundingSourceId(
-                        (created.genericId ?? created.id).trim(),
-                      );
+                          .setFundingSourceLabel(updated.label);
                     }
-                        : null,
-                    onEditItem: (companySelected && childrenLoadedForCompany)
-                        ? (oldLabel, newLabel) async {
-                      final localBudgetCubit =
-                      context.read<BudgetCubit>();
 
-                      final oldL = _s(oldLabel);
-                      final newL = _s(newLabel);
-                      if (oldL.isEmpty || newL.isEmpty) return;
+                    if (!mounted) return;
+                    setState(() => _fundingNonce++);
+                  }
+                      : null,
+                  onDeleteItem: companyConfigured
+                      ? (ctx, label) async {
+                    final localBudgetCubit = context.read<BudgetCubit>();
 
-                      final target = _findByLabel(fundingSources, oldL);
-                      if (target == null) return;
+                    final lab = _s(label);
+                    if (lab.isEmpty) return;
 
-                      final sourceId =
-                      (target.genericId ?? target.id).trim();
-                      if (sourceId.isEmpty) return;
+                    final target = _findByLabel(fundingSources, lab);
+                    if (target == null) return;
 
-                      final updated =
-                      await setupCubit.updateFundingSourceName(
-                        companyId,
-                        sourceId,
-                        newL,
-                      );
-                      if (updated == null) return;
+                    final sourceId =
+                    (target.genericId ?? target.id).trim();
+                    if (sourceId.isEmpty) return;
 
-                      if (_fonteCtrl.text.trim().toLowerCase() ==
-                          oldL.toLowerCase()) {
-                        _fonteCtrl.text = updated.label;
-                        localBudgetCubit
-                            .setFundingSourceLabel(updated.label);
-                      }
+                    await setupCubit.deleteFundingSource(sourceId);
+
+                    if (_fonteCtrl.text.trim().toLowerCase() ==
+                        lab.toLowerCase()) {
+                      _fonteCtrl.clear();
+                      localBudgetCubit.setFundingSourceLabel('');
+                      localBudgetCubit.setFundingSourceId(null);
+                      localBudgetCubit.clearFundingSourceId();
                     }
-                        : null,
-                    onDeleteItem: (companySelected && childrenLoadedForCompany)
-                        ? (ctx, label) async {
-                      final localBudgetCubit =
-                      context.read<BudgetCubit>();
 
-                      final lab = _s(label);
-                      if (lab.isEmpty) return;
+                    if (!mounted) return;
+                    setState(() => _fundingNonce++);
+                  }
+                      : null,
+                ),
+                CustomTextField(
+                  width: inputsWidth,
+                  controller: _yearCtrl,
+                  labelText: 'Exercício (Ano)',
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => context.read<BudgetCubit>().setYearText(v),
+                ),
+                CustomTextField(
+                  width: inputsWidth,
+                  controller: _codeCtrl,
+                  labelText: 'Código (opcional)',
+                  onChanged: (v) =>
+                      context.read<BudgetCubit>().setBudgetCode(v),
+                ),
+                CustomTextField(
+                  width: inputsWidth,
+                  controller: _descCtrl,
+                  labelText: 'Descrição',
+                  onChanged: (v) =>
+                      context.read<BudgetCubit>().setDescription(v),
+                ),
+                CustomTextField(
+                  width: inputsWidth,
+                  controller: _amountCtrl,
+                  labelText: 'Valor orçado',
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) =>
+                      context.read<BudgetCubit>().setAmountText(v),
+                ),
+              ],
+            );
 
-                      final target = _findByLabel(fundingSources, lab);
-                      if (target == null) return;
-
-                      final sourceId =
-                      (target.genericId ?? target.id).trim();
-                      if (sourceId.isEmpty) return;
-
-                      await setupCubit.deleteFundingSource(
-                        companyId,
-                        sourceId,
-                      );
-
-                      if (_fonteCtrl.text.trim().toLowerCase() ==
-                          lab.toLowerCase()) {
-                        _fonteCtrl.clear();
-                        localBudgetCubit.setFundingSourceLabel('');
-                        localBudgetCubit.setFundingSourceId(null);
-                        localBudgetCubit.clearFundingSourceId();
-                      }
-                    }
-                        : null,
-                  ),
-                  CustomTextField(
-                    width: inputsWidth,
-                    controller: _yearCtrl,
-                    labelText: 'Exercício (Ano)',
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) => context.read<BudgetCubit>().setYearText(v),
-                  ),
-                  CustomTextField(
-                    width: inputsWidth,
-                    controller: _codeCtrl,
-                    labelText: 'Código (opcional)',
-                    onChanged: (v) =>
-                        context.read<BudgetCubit>().setBudgetCode(v),
-                  ),
-                  CustomTextField(
-                    width: inputsWidth,
-                    controller: _descCtrl,
-                    labelText: 'Descrição',
-                    onChanged: (v) =>
-                        context.read<BudgetCubit>().setDescription(v),
-                  ),
-                  CustomTextField(
-                    width: inputsWidth,
-                    controller: _amountCtrl,
-                    labelText: 'Valor orçado',
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) =>
-                        context.read<BudgetCubit>().setAmountText(v),
-                  ),
-                ],
-              );
-
-              final botoes = Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
+            final botoes = Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.save),
+                  label: Text(st.selected == null ? 'Salvar' : 'Atualizar'),
+                  onPressed: formOk
+                      ? () => context.read<BudgetCubit>().saveOrUpdate()
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                if (st.selected != null)
                   TextButton.icon(
-                    icon: const Icon(Icons.save),
-                    label: Text(st.selected == null ? 'Salvar' : 'Atualizar'),
-                    onPressed: formOk
-                        ? () => context.read<BudgetCubit>().saveOrUpdate()
-                        : null,
+                    icon: const Icon(Icons.restore),
+                    label: const Text('Limpar'),
+                    onPressed: () => context.read<BudgetCubit>().select(null),
                   ),
-                  const SizedBox(width: 12),
-                  if (st.selected != null)
-                    TextButton.icon(
-                      icon: const Icon(Icons.restore),
-                      label: const Text('Limpar'),
-                      onPressed: () => context.read<BudgetCubit>().select(null),
-                    ),
-                ],
-              );
+              ],
+            );
 
-              final resumo = Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Valor: ${widget.currency.format(amountValue)}',
-                    ),
-                  ),
-                ],
-              );
-
-              final corpo = Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  camposWrap,
-                  const SizedBox(height: 12),
-                  resumo,
-                  const SizedBox(height: 12),
-                  botoes,
-                ],
-              );
-
-              final side = SideListBox(
-                title: 'Arquivos do Orçamento',
-                items: st.attachments,
-                selectedIndex: st.selectedSideIndex,
-                onAddPressed: null,
-                onTap: (i) => context.read<BudgetCubit>().selectSideIndex(i),
-                onDelete: (i) =>
-                    context.read<BudgetCubit>().deleteAttachmentAt(i),
-                enableRename: true,
-                onItemsChanged: (newItems) {
-                  final list = newItems.whereType<Attachment>().toList();
-                  context.read<BudgetCubit>().setAttachments(list);
-                },
-                onRenamePersist: null,
-                width: sideWidth,
-              );
-
-              return BasicCard(
-                isDark: isDark,
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: minCardHeight),
-                  child: isSmallScreen
-                      ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      side,
-                      const SizedBox(height: 12),
-                      corpo,
-                    ],
-                  )
-                      : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox.shrink(),
-                      side,
-                      const SizedBox(width: 12),
-                      Expanded(child: corpo),
-                    ],
+            final resumo = Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Valor: ${widget.currency.format(amountValue)}',
                   ),
                 ),
-              );
-            },
-          );
-        },
-      ),
+              ],
+            );
+
+            final corpo = Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                camposWrap,
+                const SizedBox(height: 12),
+                resumo,
+                const SizedBox(height: 12),
+                botoes,
+              ],
+            );
+
+            final side = SideListBox(
+              title: 'Arquivos do Orçamento',
+              items: st.attachments,
+              selectedIndex: st.selectedSideIndex,
+              onAddPressed: null,
+              onTap: (i) => context.read<BudgetCubit>().selectSideIndex(i),
+              onDelete: (i) =>
+                  context.read<BudgetCubit>().deleteAttachmentAt(i),
+              enableRename: true,
+              onItemsChanged: (newItems) {
+                final list = newItems.whereType<Attachment>().toList();
+                context.read<BudgetCubit>().setAttachments(list);
+              },
+              onRenamePersist: null,
+              width: sideWidth,
+            );
+
+            return BasicCard(
+              isDark: isDark,
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: minCardHeight),
+                child: isSmallScreen
+                    ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    side,
+                    const SizedBox(height: 12),
+                    corpo,
+                  ],
+                )
+                    : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox.shrink(),
+                    side,
+                    const SizedBox(width: 12),
+                    Expanded(child: corpo),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

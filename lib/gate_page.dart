@@ -18,7 +18,7 @@ import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/screens/common/setup/initial_setup_page.dart';
 import 'package:sipged/screens/menus/menu_list_page.dart';
 
-const bool kForceInitialSetupOverlay = true;
+const bool kForceInitialSetupOverlay = false;
 
 class GatePage extends StatefulWidget {
   const GatePage({super.key});
@@ -33,7 +33,7 @@ class _GatePageState extends State<GatePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _setupLoadFuture ??= context.read<SetupCubit>().loadCompanies();
+    _setupLoadFuture ??= context.read<SetupCubit>().loadSystemSetup();
   }
 
   @override
@@ -113,8 +113,9 @@ class _GatePageState extends State<GatePage> {
                     builder: (context, setupState) {
                       final base = const MenuListPage();
 
-                      final needsSetup = kForceInitialSetupOverlay ||
-                          setupState.companies.isEmpty;
+                      final needsSetup =
+                          kForceInitialSetupOverlay ||
+                              setupState.companyProfile == null;
 
                       if (!needsSetup) return base;
 

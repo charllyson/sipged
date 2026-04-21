@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:sipged/_widgets/windows/company_body_dialog.dart';
+import 'package:sipged/screens/common/setup/company_body_dialog.dart';
 import 'package:sipged/_widgets/texts/section_text_name.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/4Cotacao/cotacao_data.dart';
 import 'package:sipged/screens/modules/contracts/hiring/4Cotacao/fornecedor_card.dart';
 
-// System / Companies
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
 
@@ -79,22 +78,7 @@ class _SectionRespostasFornecedoresState
 
     _attachListeners();
 
-    final system = context.read<SetupCubit>();
-    Future.microtask(() => _loadInitialCompanies(system));
-  }
-
-  Future<void> _loadInitialCompanies(SetupCubit system) async {
-    if (system.state.companies.isEmpty) {
-      await system.loadCompanies();
-      if (!mounted) return;
-    }
-
-    final companies = system.state.companies;
-    if (companies.isNotEmpty) {
-      final parentCompanyId = companies.first.companyId ?? companies.first.id;
-      await system.ensureCompanySetupLoaded(parentCompanyId);
-      if (!mounted) return;
-    }
+    context.read<SetupCubit>().loadSystemSetup();
   }
 
   void _attachListeners() {

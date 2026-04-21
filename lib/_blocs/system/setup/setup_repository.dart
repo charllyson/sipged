@@ -7,6 +7,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'setup_data.dart';
 
 class SetupRepository {
+  static const String systemCollection = 'system';
+  static const String companyDocId = 'company';
+
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
   final FirebaseStorage _storage;
@@ -21,15 +24,19 @@ class SetupRepository {
 
   String? get _currentUserId => _auth.currentUser?.uid;
 
-  Future<List<SetupData>> loadCompanies() async {
-    final snap =
-    await _firestore.collection('companies').orderBy('companyName').get();
+  DocumentReference<Map<String, dynamic>> get _companyRef =>
+      _firestore.collection(systemCollection).doc(companyDocId);
 
-    return snap.docs.map((d) => SetupData.fromDoc(d)).toList();
+  CollectionReference<Map<String, dynamic>> _childCollection(String name) =>
+      _companyRef.collection(name);
+
+  Future<SetupData?> loadCompanyProfile() async {
+    final snap = await _companyRef.get();
+    if (!snap.exists || snap.data() == null) return null;
+    return SetupData.fromDoc(snap);
   }
 
   Future<Map<String, String>?> uploadCompanyLogo({
-    required String companyId,
     required Uint8List bytes,
     required String fileName,
     String? contentType,
@@ -38,13 +45,13 @@ class SetupRepository {
         ? 'logo_${DateTime.now().millisecondsSinceEpoch}.png'
         : fileName.trim();
 
-    final path = 'companies/$companyId/logo/$safeFileName';
+    final path = 'system/company/logo/$safeFileName';
     final ref = _storage.ref(path);
 
     final metadata = SettableMetadata(
       contentType: contentType ?? 'image/png',
       customMetadata: {
-        'companyId': companyId,
+        'docId': companyDocId,
         'uploadedBy': _currentUserId ?? '',
       },
     );
@@ -70,8 +77,8 @@ class SetupRepository {
   }
 
   Future<SetupData> saveCompanyProfile({
-    String? companyId,
     required String label,
+    required String fantasyName,
     String? cnpj,
     Uint8List? logoBytes,
     String? logoFileName,
@@ -79,18 +86,8 @@ class SetupRepository {
     bool removeLogo = false,
     String? oldLogoPath,
   }) async {
-    final normalizedId = companyId?.trim();
-    if (normalizedId == null || normalizedId.isEmpty) {
-      return createCompany(
-        label,
-        cnpj: cnpj,
-        logoBytes: logoBytes,
-        logoFileName: logoFileName,
-        logoContentType: logoContentType,
-      );
-    }
-
-    final ref = _firestore.collection('companies').doc(normalizedId);
+    final trimmedLabel = label.trim();
+    final trimmedFantasyName = fantasyName.trim();
     final trimmedCnpj = cnpj?.trim();
 
     String? logoUrl;
@@ -106,7 +103,6 @@ class SetupRepository {
       }
 
       final upload = await uploadCompanyLogo(
-        companyId: normalizedId,
         bytes: logoBytes,
         fileName: logoFileName ?? 'logo.png',
         contentType: logoContentType,
@@ -116,145 +112,101 @@ class SetupRepository {
       logoPath = upload?['logoPath'];
     }
 
-    final update = <String, dynamic>{
-      'companyName': label.trim(),
-      'cnpj': trimmedCnpj,
+    final exists = (await _companyRef.get()).exists;
+
+    final data = <String, dynamic>{
+      'companyId': companyDocId,
+      'companyName': trimmedLabel,
+      'fantasyName': trimmedFantasyName,
+      'cnpj': (trimmedCnpj == null || trimmedCnpj.isEmpty) ? null : trimmedCnpj,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUserId,
+      if (!exists) 'createdAt': FieldValue.serverTimestamp(),
+      if (!exists) 'createdBy': _currentUserId,
     };
 
     if (removeLogo) {
-      update['logoUrl'] = FieldValue.delete();
-      update['logoPath'] = FieldValue.delete();
+      data['logoUrl'] = FieldValue.delete();
+      data['logoPath'] = FieldValue.delete();
     }
 
     if (logoBytes != null) {
-      update['logoUrl'] = logoUrl;
-      update['logoPath'] = logoPath;
+      data['logoUrl'] = logoUrl;
+      data['logoPath'] = logoPath;
     }
 
-    await ref.set(update, SetOptions(merge: true));
+    await _companyRef.set(data, SetOptions(merge: true));
 
-    final snap = await ref.get();
-    return SetupData.fromDoc(snap);
-  }
-
-  Future<SetupData> createCompany(
-      String label, {
-        String? cnpj,
-        Uint8List? logoBytes,
-        String? logoFileName,
-        String? logoContentType,
-      }) async {
-    final col = _firestore.collection('companies');
-    final ref = col.doc();
-    final id = ref.id;
-
-    final trimmedCnpj = cnpj?.trim();
-
-    String? logoUrl;
-    String? logoPath;
-
-    if (logoBytes != null) {
-      final upload = await uploadCompanyLogo(
-        companyId: id,
-        bytes: logoBytes,
-        fileName: logoFileName ?? 'logo.png',
-        contentType: logoContentType,
-      );
-      logoUrl = upload?['logoUrl'];
-      logoPath = upload?['logoPath'];
-    }
-
-    final data = <String, dynamic>{
-      'companyId': id,
-      'companyName': label.trim(),
-      if (trimmedCnpj != null && trimmedCnpj.isNotEmpty) 'cnpj': trimmedCnpj,
-      if (logoUrl != null && logoUrl.isNotEmpty) 'logoUrl': logoUrl,
-      if (logoPath != null && logoPath.isNotEmpty) 'logoPath': logoPath,
-      'createdAt': FieldValue.serverTimestamp(),
-      'createdBy': _currentUserId,
-    };
-
-    await ref.set(data);
-
-    final snap = await ref.get();
+    final snap = await _companyRef.get();
     return SetupData.fromDoc(snap);
   }
 
   Future<SetupData> updateCompanyName(
-      String companyId,
-      String newLabel,
-      ) async {
-    final ref = _firestore.collection('companies').doc(companyId);
-
-    await ref.update({
+      String newLabel, {
+        String? fantasyName,
+      }) async {
+    await _companyRef.set({
+      'companyId': companyDocId,
       'companyName': newLabel.trim(),
+      if (fantasyName != null) 'fantasyName': fantasyName.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUserId,
-    });
+    }, SetOptions(merge: true));
 
-    final snap = await ref.get();
+    final snap = await _companyRef.get();
     return SetupData.fromDoc(snap);
   }
 
   Future<SetupData> updateCompanyLogo({
-    required String companyId,
     required Uint8List bytes,
     required String fileName,
     String? contentType,
     String? oldLogoPath,
   }) async {
-    final ref = _firestore.collection('companies').doc(companyId);
-
     if (oldLogoPath != null && oldLogoPath.trim().isNotEmpty) {
       await deleteFileByPath(oldLogoPath);
     }
 
     final upload = await uploadCompanyLogo(
-      companyId: companyId,
       bytes: bytes,
       fileName: fileName,
       contentType: contentType,
     );
 
-    await ref.update({
+    await _companyRef.set({
+      'companyId': companyDocId,
       'logoUrl': upload?['logoUrl'],
       'logoPath': upload?['logoPath'],
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': _currentUserId,
-    });
+    }, SetOptions(merge: true));
 
-    final snap = await ref.get();
+    final snap = await _companyRef.get();
     return SetupData.fromDoc(snap);
   }
 
-  Future<void> deleteCompany(String companyId) async {
-    final ref = _firestore.collection('companies').doc(companyId);
-
-    final snap = await ref.get();
+  Future<void> deleteCompanyProfile() async {
+    final snap = await _companyRef.get();
     final data = snap.data();
     final oldLogoPath = data?['logoPath']?.toString();
 
     await deleteFileByPath(oldLogoPath);
-    await ref.delete();
+    await _companyRef.delete();
   }
 
-  Future<List<SetupData>> loadCompanyBodies(String companyId) async {
-    final col = _firestore.collection('companies/$companyId/companiesBodies');
-    final snap = await col.orderBy('name').get();
+  Future<List<SetupData>> loadCompanyBodies() async {
+    final snap = await _childCollection('companiesBodies').orderBy('name').get();
 
     return snap.docs
-        .map((d) => SetupData.fromDoc(d, forcedParentId: companyId))
+        .map((d) => SetupData.fromDoc(d, forcedParentId: companyDocId))
         .toList();
   }
 
   Future<SetupData> createCompanyBody(
-      String companyId,
       String label, {
         String? cnpj,
       }) async {
-    final col = _firestore.collection('companies/$companyId/companiesBodies');
+    final col = _childCollection('companiesBodies');
     final ref = col.doc();
     final id = ref.id;
 
@@ -264,7 +216,7 @@ class SetupRepository {
       'id': id,
       'name': label.trim(),
       if (trimmedCnpj != null && trimmedCnpj.isNotEmpty) 'cnpj': trimmedCnpj,
-      'companyId': companyId,
+      'companyId': companyDocId,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': _currentUserId,
     };
@@ -274,16 +226,15 @@ class SetupRepository {
     return SetupData.fromMap(
       id: id,
       map: data,
-      forcedParentId: companyId,
+      forcedParentId: companyDocId,
     );
   }
 
   Future<SetupData> updateCompanyBodyName(
-      String companyId,
       String bodyId,
       String newLabel,
       ) async {
-    final ref = _firestore.doc('companies/$companyId/companiesBodies/$bodyId');
+    final ref = _childCollection('companiesBodies').doc(bodyId);
 
     await ref.update({
       'name': newLabel.trim(),
@@ -292,32 +243,30 @@ class SetupRepository {
     });
 
     final snap = await ref.get();
-    return SetupData.fromDoc(snap, forcedParentId: companyId);
+    return SetupData.fromDoc(snap, forcedParentId: companyDocId);
   }
 
-  Future<void> deleteCompanyBody(String companyId, String bodyId) async {
-    final ref = _firestore.doc('companies/$companyId/companiesBodies/$bodyId');
-    await ref.delete();
+  Future<void> deleteCompanyBody(String bodyId) async {
+    await _childCollection('companiesBodies').doc(bodyId).delete();
   }
 
-  Future<List<SetupData>> loadUnits(String companyId) async {
-    final col = _firestore.collection('companies/$companyId/units');
-    final snap = await col.orderBy('unitName').get();
+  Future<List<SetupData>> loadUnits() async {
+    final snap = await _childCollection('units').orderBy('unitName').get();
 
     return snap.docs
-        .map((d) => SetupData.fromDoc(d, forcedParentId: companyId))
+        .map((d) => SetupData.fromDoc(d, forcedParentId: companyDocId))
         .toList();
   }
 
-  Future<SetupData> createUnit(String companyId, String label) async {
-    final col = _firestore.collection('companies/$companyId/units');
+  Future<SetupData> createUnit(String label) async {
+    final col = _childCollection('units');
     final ref = col.doc();
     final id = ref.id;
 
     final data = <String, dynamic>{
       'unitId': id,
       'unitName': label.trim(),
-      'companyId': companyId,
+      'companyId': companyDocId,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': _currentUserId,
     };
@@ -327,16 +276,15 @@ class SetupRepository {
     return SetupData.fromMap(
       id: id,
       map: data,
-      forcedParentId: companyId,
+      forcedParentId: companyDocId,
     );
   }
 
   Future<SetupData> updateUnitName(
-      String companyId,
       String unitId,
       String newLabel,
       ) async {
-    final ref = _firestore.doc('companies/$companyId/units/$unitId');
+    final ref = _childCollection('units').doc(unitId);
 
     await ref.update({
       'unitName': newLabel.trim(),
@@ -345,32 +293,30 @@ class SetupRepository {
     });
 
     final snap = await ref.get();
-    return SetupData.fromDoc(snap, forcedParentId: companyId);
+    return SetupData.fromDoc(snap, forcedParentId: companyDocId);
   }
 
-  Future<void> deleteUnit(String companyId, String unitId) async {
-    final ref = _firestore.doc('companies/$companyId/units/$unitId');
-    await ref.delete();
+  Future<void> deleteUnit(String unitId) async {
+    await _childCollection('units').doc(unitId).delete();
   }
 
-  Future<List<SetupData>> loadRoads(String companyId) async {
-    final col = _firestore.collection('companies/$companyId/roads');
-    final snap = await col.orderBy('name').get();
+  Future<List<SetupData>> loadRoads() async {
+    final snap = await _childCollection('roads').orderBy('name').get();
 
     return snap.docs
-        .map((d) => SetupData.fromDoc(d, forcedParentId: companyId))
+        .map((d) => SetupData.fromDoc(d, forcedParentId: companyDocId))
         .toList();
   }
 
-  Future<SetupData> createRoad(String companyId, String label) async {
-    final col = _firestore.collection('companies/$companyId/roads');
+  Future<SetupData> createRoad(String label) async {
+    final col = _childCollection('roads');
     final ref = col.doc();
     final id = ref.id;
 
     final data = <String, dynamic>{
       'id': id,
       'name': label.trim(),
-      'companyId': companyId,
+      'companyId': companyDocId,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': _currentUserId,
     };
@@ -380,16 +326,15 @@ class SetupRepository {
     return SetupData.fromMap(
       id: id,
       map: data,
-      forcedParentId: companyId,
+      forcedParentId: companyDocId,
     );
   }
 
   Future<SetupData> updateRoadName(
-      String companyId,
       String roadId,
       String newLabel,
       ) async {
-    final ref = _firestore.doc('companies/$companyId/roads/$roadId');
+    final ref = _childCollection('roads').doc(roadId);
 
     await ref.update({
       'name': newLabel.trim(),
@@ -398,29 +343,26 @@ class SetupRepository {
     });
 
     final snap = await ref.get();
-    return SetupData.fromDoc(snap, forcedParentId: companyId);
+    return SetupData.fromDoc(snap, forcedParentId: companyDocId);
   }
 
-  Future<void> deleteRoad(String companyId, String roadId) async {
-    final ref = _firestore.doc('companies/$companyId/roads/$roadId');
-    await ref.delete();
+  Future<void> deleteRoad(String roadId) async {
+    await _childCollection('roads').doc(roadId).delete();
   }
 
-  Future<List<SetupData>> loadRegions(String companyId) async {
-    final col = _firestore.collection('companies/$companyId/regions');
-    final snap = await col.orderBy('regionName').get();
+  Future<List<SetupData>> loadRegions() async {
+    final snap = await _childCollection('regions').orderBy('regionName').get();
 
     return snap.docs
-        .map((d) => SetupData.fromDoc(d, forcedParentId: companyId))
+        .map((d) => SetupData.fromDoc(d, forcedParentId: companyDocId))
         .toList();
   }
 
   Future<SetupData> createRegion(
-      String companyId,
       String label, {
         List<String>? municipios,
       }) async {
-    final col = _firestore.collection('companies/$companyId/regions');
+    final col = _childCollection('regions');
     final ref = col.doc();
     final id = ref.id;
 
@@ -433,7 +375,7 @@ class SetupRepository {
     final data = <String, dynamic>{
       'regionId': id,
       'regionName': label.trim(),
-      'companyId': companyId,
+      'companyId': companyDocId,
       if (muniClean.isNotEmpty) 'municipios': muniClean,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': _currentUserId,
@@ -444,16 +386,15 @@ class SetupRepository {
     return SetupData.fromMap(
       id: id,
       map: data,
-      forcedParentId: companyId,
+      forcedParentId: companyDocId,
     );
   }
 
   Future<SetupData> updateRegionMunicipios(
-      String companyId,
       String regionId,
       List<String> municipios,
       ) async {
-    final ref = _firestore.doc('companies/$companyId/regions/$regionId');
+    final ref = _childCollection('regions').doc(regionId);
 
     final muniClean =
     municipios.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
@@ -465,15 +406,14 @@ class SetupRepository {
     });
 
     final snap = await ref.get();
-    return SetupData.fromDoc(snap, forcedParentId: companyId);
+    return SetupData.fromDoc(snap, forcedParentId: companyDocId);
   }
 
   Future<SetupData> updateRegionName(
-      String companyId,
       String regionId,
       String newLabel,
       ) async {
-    final ref = _firestore.doc('companies/$companyId/regions/$regionId');
+    final ref = _childCollection('regions').doc(regionId);
 
     await ref.update({
       'regionName': newLabel.trim(),
@@ -482,32 +422,30 @@ class SetupRepository {
     });
 
     final snap = await ref.get();
-    return SetupData.fromDoc(snap, forcedParentId: companyId);
+    return SetupData.fromDoc(snap, forcedParentId: companyDocId);
   }
 
-  Future<void> deleteRegion(String companyId, String regionId) async {
-    final ref = _firestore.doc('companies/$companyId/regions/$regionId');
-    await ref.delete();
+  Future<void> deleteRegion(String regionId) async {
+    await _childCollection('regions').doc(regionId).delete();
   }
 
-  Future<List<SetupData>> loadFundingSources(String companyId) async {
-    final col = _firestore.collection('companies/$companyId/funding_sources');
-    final snap = await col.orderBy('name').get();
+  Future<List<SetupData>> loadFundingSources() async {
+    final snap = await _childCollection('funding_sources').orderBy('name').get();
 
     return snap.docs
-        .map((d) => SetupData.fromDoc(d, forcedParentId: companyId))
+        .map((d) => SetupData.fromDoc(d, forcedParentId: companyDocId))
         .toList();
   }
 
-  Future<SetupData> createFundingSource(String companyId, String label) async {
-    final col = _firestore.collection('companies/$companyId/funding_sources');
+  Future<SetupData> createFundingSource(String label) async {
+    final col = _childCollection('funding_sources');
     final ref = col.doc();
     final id = ref.id;
 
     final data = <String, dynamic>{
       'id': id,
       'name': label.trim(),
-      'companyId': companyId,
+      'companyId': companyDocId,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': _currentUserId,
     };
@@ -517,16 +455,15 @@ class SetupRepository {
     return SetupData.fromMap(
       id: id,
       map: data,
-      forcedParentId: companyId,
+      forcedParentId: companyDocId,
     );
   }
 
   Future<SetupData> updateFundingSourceName(
-      String companyId,
       String sourceId,
       String newLabel,
       ) async {
-    final ref = _firestore.doc('companies/$companyId/funding_sources/$sourceId');
+    final ref = _childCollection('funding_sources').doc(sourceId);
 
     await ref.update({
       'name': newLabel.trim(),
@@ -535,32 +472,30 @@ class SetupRepository {
     });
 
     final snap = await ref.get();
-    return SetupData.fromDoc(snap, forcedParentId: companyId);
+    return SetupData.fromDoc(snap, forcedParentId: companyDocId);
   }
 
-  Future<void> deleteFundingSource(String companyId, String sourceId) async {
-    final ref = _firestore.doc('companies/$companyId/funding_sources/$sourceId');
-    await ref.delete();
+  Future<void> deleteFundingSource(String sourceId) async {
+    await _childCollection('funding_sources').doc(sourceId).delete();
   }
 
-  Future<List<SetupData>> loadPrograms(String companyId) async {
-    final col = _firestore.collection('companies/$companyId/programs');
-    final snap = await col.orderBy('name').get();
+  Future<List<SetupData>> loadPrograms() async {
+    final snap = await _childCollection('programs').orderBy('name').get();
 
     return snap.docs
-        .map((d) => SetupData.fromDoc(d, forcedParentId: companyId))
+        .map((d) => SetupData.fromDoc(d, forcedParentId: companyDocId))
         .toList();
   }
 
-  Future<SetupData> createProgram(String companyId, String label) async {
-    final col = _firestore.collection('companies/$companyId/programs');
+  Future<SetupData> createProgram(String label) async {
+    final col = _childCollection('programs');
     final ref = col.doc();
     final id = ref.id;
 
     final data = <String, dynamic>{
       'id': id,
       'name': label.trim(),
-      'companyId': companyId,
+      'companyId': companyDocId,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': _currentUserId,
     };
@@ -570,16 +505,15 @@ class SetupRepository {
     return SetupData.fromMap(
       id: id,
       map: data,
-      forcedParentId: companyId,
+      forcedParentId: companyDocId,
     );
   }
 
   Future<SetupData> updateProgramName(
-      String companyId,
       String programId,
       String newLabel,
       ) async {
-    final ref = _firestore.doc('companies/$companyId/programs/$programId');
+    final ref = _childCollection('programs').doc(programId);
 
     await ref.update({
       'name': newLabel.trim(),
@@ -588,32 +522,30 @@ class SetupRepository {
     });
 
     final snap = await ref.get();
-    return SetupData.fromDoc(snap, forcedParentId: companyId);
+    return SetupData.fromDoc(snap, forcedParentId: companyDocId);
   }
 
-  Future<void> deleteProgram(String companyId, String programId) async {
-    final ref = _firestore.doc('companies/$companyId/programs/$programId');
-    await ref.delete();
+  Future<void> deleteProgram(String programId) async {
+    await _childCollection('programs').doc(programId).delete();
   }
 
-  Future<List<SetupData>> loadExpenseNatures(String companyId) async {
-    final col = _firestore.collection('companies/$companyId/expense_natures');
-    final snap = await col.orderBy('name').get();
+  Future<List<SetupData>> loadExpenseNatures() async {
+    final snap = await _childCollection('expense_natures').orderBy('name').get();
 
     return snap.docs
-        .map((d) => SetupData.fromDoc(d, forcedParentId: companyId))
+        .map((d) => SetupData.fromDoc(d, forcedParentId: companyDocId))
         .toList();
   }
 
-  Future<SetupData> createExpenseNature(String companyId, String label) async {
-    final col = _firestore.collection('companies/$companyId/expense_natures');
+  Future<SetupData> createExpenseNature(String label) async {
+    final col = _childCollection('expense_natures');
     final ref = col.doc();
     final id = ref.id;
 
     final data = <String, dynamic>{
       'id': id,
       'name': label.trim(),
-      'companyId': companyId,
+      'companyId': companyDocId,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': _currentUserId,
     };
@@ -623,16 +555,15 @@ class SetupRepository {
     return SetupData.fromMap(
       id: id,
       map: data,
-      forcedParentId: companyId,
+      forcedParentId: companyDocId,
     );
   }
 
   Future<SetupData> updateExpenseNatureName(
-      String companyId,
       String natureId,
       String newLabel,
       ) async {
-    final ref = _firestore.doc('companies/$companyId/expense_natures/$natureId');
+    final ref = _childCollection('expense_natures').doc(natureId);
 
     await ref.update({
       'name': newLabel.trim(),
@@ -641,11 +572,10 @@ class SetupRepository {
     });
 
     final snap = await ref.get();
-    return SetupData.fromDoc(snap, forcedParentId: companyId);
+    return SetupData.fromDoc(snap, forcedParentId: companyDocId);
   }
 
-  Future<void> deleteExpenseNature(String companyId, String natureId) async {
-    final ref = _firestore.doc('companies/$companyId/expense_natures/$natureId');
-    await ref.delete();
+  Future<void> deleteExpenseNature(String natureId) async {
+    await _childCollection('expense_natures').doc(natureId).delete();
   }
 }

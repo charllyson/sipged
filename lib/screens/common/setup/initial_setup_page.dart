@@ -1,20 +1,19 @@
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:brasil_fields/brasil_fields.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
-import 'package:sipged/screens/modules/contracts/hiring/1Dfd/setup_region_map.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
-
-import 'package:sipged/_widgets/input/drop_down_change.dart';
-import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/windows/window_dialog.dart';
+import 'package:sipged/screens/common/setup/initial_setup_form.dart';
+import 'package:sipged/screens/common/setup/initial_setup_header.dart';
+import 'package:sipged/screens/modules/contracts/hiring/1Dfd/setup_region_map.dart';
 
 class InitialSetupPage extends StatefulWidget {
   final UserData user;
@@ -31,45 +30,67 @@ class InitialSetupPage extends StatefulWidget {
 class _InitialSetupPageState extends State<InitialSetupPage> {
   final _formKey = GlobalKey<FormState>();
 
+  final _empresaFantasiaCtrl = TextEditingController();
   final _empresaNomeCtrl = TextEditingController();
   final _empresaCnpjCtrl = TextEditingController();
 
   final _newUnitCtrl = TextEditingController();
   final _newRoadCtrl = TextEditingController();
-
   final _newRegionCtrl = TextEditingController();
-  List<String> _selectedMunicipios = [];
-
   final _newFundingCtrl = TextEditingController();
   final _newProgramCtrl = TextEditingController();
   final _newExpenseNatureCtrl = TextEditingController();
+
+  List<String> _selectedMunicipios = [];
 
   Uint8List? _logoBytes;
   String? _logoFileName;
   String? _logoContentType;
 
-  String? _selectedCompanyId;
   String? _existingLogoUrl;
   String? _existingLogoPath;
   bool _removeCurrentLogo = false;
-
   bool _saving = false;
+  bool _hydratedFromState = false;
 
-  String? get _effectiveCompanyId => _selectedCompanyId?.trim().isEmpty ?? true
-      ? null
-      : _selectedCompanyId!.trim();
+  SetupData? _selectedUnit;
+  SetupData? _selectedRoad;
+  SetupData? _selectedRegion;
+  SetupData? _selectedFunding;
+  SetupData? _selectedProgram;
+  SetupData? _selectedExpenseNature;
 
   @override
   void initState() {
     super.initState();
+
+    _newUnitCtrl.addListener(_refresh);
+    _newRoadCtrl.addListener(_refresh);
+    _newRegionCtrl.addListener(_refresh);
+    _newFundingCtrl.addListener(_refresh);
+    _newProgramCtrl.addListener(_refresh);
+    _newExpenseNatureCtrl.addListener(_refresh);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<SetupCubit>().loadCompanies();
+      context.read<SetupCubit>().loadSystemSetup();
     });
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _newUnitCtrl.removeListener(_refresh);
+    _newRoadCtrl.removeListener(_refresh);
+    _newRegionCtrl.removeListener(_refresh);
+    _newFundingCtrl.removeListener(_refresh);
+    _newProgramCtrl.removeListener(_refresh);
+    _newExpenseNatureCtrl.removeListener(_refresh);
+
+    _empresaFantasiaCtrl.dispose();
     _empresaNomeCtrl.dispose();
     _empresaCnpjCtrl.dispose();
     _newUnitCtrl.dispose();
@@ -79,6 +100,22 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     _newProgramCtrl.dispose();
     _newExpenseNatureCtrl.dispose();
     super.dispose();
+  }
+
+  void _hydrateFromCompany(SetupData? company) {
+    if (company == null) return;
+    if (_hydratedFromState && _empresaNomeCtrl.text.isNotEmpty) return;
+
+    _empresaFantasiaCtrl.text = company.fantasyName ?? '';
+    _empresaNomeCtrl.text = company.companyName ?? company.label;
+    _empresaCnpjCtrl.text = company.cnpj ?? company.cnpjCompanyContracted ?? '';
+    _existingLogoUrl = company.logoUrl;
+    _existingLogoPath = company.logoPath;
+    _logoBytes = null;
+    _logoFileName = null;
+    _logoContentType = null;
+    _removeCurrentLogo = false;
+    _hydratedFromState = true;
   }
 
   Future<void> _pickLogo() async {
@@ -112,86 +149,6 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     });
   }
 
-  void _removeLogo() {
-    setState(() {
-      _logoBytes = null;
-      _logoFileName = null;
-      _logoContentType = null;
-      _existingLogoUrl = null;
-      _existingLogoPath = null;
-      _removeCurrentLogo = true;
-    });
-  }
-
-  Future<String?> _askNewLabel(
-      BuildContext dialogContext, {
-        required String title,
-        required String initialValue,
-        String labelText = 'Novo nome',
-      }) async {
-    final ctrl = TextEditingController(text: initialValue);
-
-    final result = await showDialog<String>(
-      context: dialogContext,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(title),
-          content: TextField(
-            controller: ctrl,
-            autofocus: true,
-            decoration: InputDecoration(labelText: labelText),
-            onSubmitted: (value) => Navigator.of(ctx).pop(value.trim()),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()),
-              child: const Text('Salvar'),
-            ),
-          ],
-        );
-      },
-    );
-
-    ctrl.dispose();
-
-    if (result == null) return null;
-    final trimmed = result.trim();
-    if (trimmed.isEmpty || trimmed == initialValue.trim()) return null;
-    return trimmed;
-  }
-
-  void _applySelectedCompany(SetupData company) {
-    setState(() {
-      _selectedCompanyId = company.companyId ?? company.id;
-      _empresaNomeCtrl.text = company.companyName ?? company.label;
-      _empresaCnpjCtrl.text = company.cnpj ?? company.cnpjCompanyContracted ?? '';
-      _existingLogoUrl = company.logoUrl;
-      _existingLogoPath = company.logoPath;
-      _logoBytes = null;
-      _logoFileName = null;
-      _logoContentType = null;
-      _removeCurrentLogo = false;
-    });
-  }
-
-  void _clearSelectedCompany() {
-    setState(() {
-      _selectedCompanyId = null;
-      _empresaNomeCtrl.clear();
-      _empresaCnpjCtrl.clear();
-      _existingLogoUrl = null;
-      _existingLogoPath = null;
-      _logoBytes = null;
-      _logoFileName = null;
-      _logoContentType = null;
-      _removeCurrentLogo = false;
-    });
-  }
-
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_saving) return;
@@ -201,8 +158,8 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     final setup = context.read<SetupCubit>();
 
     final saved = await setup.saveCompanyProfile(
-      companyId: _effectiveCompanyId,
       label: _empresaNomeCtrl.text.trim(),
+      fantasyName: _empresaFantasiaCtrl.text.trim(),
       cnpj: _empresaCnpjCtrl.text.trim(),
       logoBytes: _logoBytes,
       logoFileName: _logoFileName,
@@ -211,21 +168,27 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
       oldLogoPath: _existingLogoPath,
     );
 
+    if (!mounted) return;
+
     if (saved == null) {
-      _error('Falha ao salvar empresa.');
+      final msg = setup.state.error ?? 'Falha ao salvar configurações do sistema.';
+      _error(msg);
       return;
     }
 
-    final companyId = saved.companyId ?? saved.id;
-
-    await setup.selectCompany(companyId);
-    await setup.loadCompanies();
+    await setup.reloadChildren();
 
     if (!mounted) return;
 
-    _applySelectedCompany(saved);
+    if (setup.state.error != null) {
+      _error(setup.state.error!);
+      return;
+    }
 
-    setState(() => _saving = false);
+    setState(() {
+      _saving = false;
+      _hydrateFromCompany(saved);
+    });
   }
 
   void _error(String msg) {
@@ -240,225 +203,371 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     );
   }
 
-  Widget _buildLogoPreview() {
-    Widget child;
+  void _success(String msg) {
+    if (!mounted) return;
 
-    if (_logoBytes != null) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.memory(
-          _logoBytes!,
-          fit: BoxFit.contain,
-        ),
-      );
-    } else if ((_existingLogoUrl ?? '').isNotEmpty) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          _existingLogoUrl!,
-          fit: BoxFit.contain,
-          errorBuilder: (_, _, _) =>
-          const Icon(Icons.image_not_supported_outlined, size: 34),
-        ),
-      );
-    } else {
-      child = const Icon(Icons.image_outlined, size: 38);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
+  }
+
+  void _clearUnitSelection() {
+    setState(() {
+      _selectedUnit = null;
+      _newUnitCtrl.clear();
+    });
+  }
+
+  void _clearRoadSelection() {
+    setState(() {
+      _selectedRoad = null;
+      _newRoadCtrl.clear();
+    });
+  }
+
+  void _clearRegionSelection() {
+    setState(() {
+      _selectedRegion = null;
+      _newRegionCtrl.clear();
+      _selectedMunicipios = [];
+    });
+  }
+
+  void _clearFundingSelection() {
+    setState(() {
+      _selectedFunding = null;
+      _newFundingCtrl.clear();
+    });
+  }
+
+  void _clearProgramSelection() {
+    setState(() {
+      _selectedProgram = null;
+      _newProgramCtrl.clear();
+    });
+  }
+
+  void _clearExpenseNatureSelection() {
+    setState(() {
+      _selectedExpenseNature = null;
+      _newExpenseNatureCtrl.clear();
+    });
+  }
+
+  void _selectUnit(SetupData item) {
+    setState(() {
+      _selectedUnit = item;
+      _newUnitCtrl.text = item.label;
+    });
+  }
+
+  void _selectRoad(SetupData item) {
+    setState(() {
+      _selectedRoad = item;
+      _newRoadCtrl.text = item.label;
+    });
+  }
+
+  void _selectRegion(SetupData item) {
+    setState(() {
+      _selectedRegion = item;
+      _newRegionCtrl.text = item.label;
+      _selectedMunicipios = List<String>.from(item.municipios ?? []);
+    });
+  }
+
+  void _selectFunding(SetupData item) {
+    setState(() {
+      _selectedFunding = item;
+      _newFundingCtrl.text = item.label;
+    });
+  }
+
+  void _selectProgram(SetupData item) {
+    setState(() {
+      _selectedProgram = item;
+      _newProgramCtrl.text = item.label;
+    });
+  }
+
+  void _selectExpenseNature(SetupData item) {
+    setState(() {
+      _selectedExpenseNature = item;
+      _newExpenseNatureCtrl.text = item.label;
+    });
+  }
+
+  Future<void> _saveUnit() async {
+    final name = _newUnitCtrl.text.trim();
+    if (name.isEmpty) return;
+
+    final cubit = context.read<SetupCubit>();
+
+    if (_selectedUnit == null) {
+      final created = await cubit.createUnit(name);
+      if (created != null && mounted) {
+        _success('Unidade adicionada com sucesso.');
+        _clearUnitSelection();
+      }
+      return;
     }
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _saving ? null : _pickLogo,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 110,
-          height: 110,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.black12),
-            color: Colors.white,
-          ),
-          child: Stack(
-            children: [
-              Positioned.fill(child: child),
-              Positioned(
-                right: 6,
-                bottom: 6,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.65),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    (_logoBytes != null || (_existingLogoUrl ?? '').isNotEmpty)
-                        ? Icons.edit
-                        : Icons.add,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    final unitId = _selectedUnit!.unitId ?? _selectedUnit!.id;
+    final updated = await cubit.updateUnitName(unitId, name);
+    if (updated != null && mounted) {
+      _success('Unidade atualizada com sucesso.');
+      setState(() {
+        _selectedUnit = updated;
+        _newUnitCtrl.text = updated.label;
+      });
+    }
   }
 
-  Widget _buildHeaderCard(SetupState state) {
-    final setupCubit = context.read<SetupCubit>();
-    final companies = state.companies;
+  Future<void> _deleteUnit() async {
+    if (_selectedUnit == null) return;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.grey.withValues(alpha: 0.05),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildLogoPreview(),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              children: [
-                DropDownChange(
-                  labelText: 'Razão social',
-                  controller: _empresaNomeCtrl,
-                  enabled: !_saving,
-                  validator: (v) {
-                    if ((v ?? '').trim().isEmpty) {
-                      return 'Informe a razão social';
-                    }
-                    return null;
-                  },
-                  items: companies.map((e) => e.label).toList(),
-                  specialItemLabel: 'Adicionar razão social',
-                  menuMaxHeight: 260,
-                  onChanged: (label) async {
-                    if (_saving) return;
+    final unitId = _selectedUnit!.unitId ?? _selectedUnit!.id;
+    await context.read<SetupCubit>().deleteUnit(unitId);
 
-                    if (label == null || label.trim().isEmpty) {
-                      _clearSelectedCompany();
-                      return;
-                    }
+    if (!mounted) return;
 
-                    final selected = companies.firstWhere(
-                          (c) => c.label == label,
-                      orElse: () => companies.first,
-                    );
-
-                    _applySelectedCompany(selected);
-                    await setupCubit.selectCompany(selected.companyId ?? selected.id);
-                  },
-                  onCreateNewItem: !_saving
-                      ? (label) async {
-                    final created = await setupCubit.createCompany(label.trim());
-                    if (!mounted || created == null) return;
-
-                    _applySelectedCompany(created);
-                    await setupCubit.selectCompany(created.companyId ?? created.id);
-                  }
-                      : null,
-                  onEditItem: !_saving
-                      ? (ctx, label) async {
-                    final list = setupCubit.state.companies;
-                    if (list.isEmpty) return;
-
-                    final target = list.firstWhere(
-                          (c) => c.label == label,
-                      orElse: () => list.first,
-                    );
-
-                    final id = target.companyId ?? target.id;
-                    if (id.isEmpty) return;
-
-                    final newLabel = await _askNewLabel(
-                      ctx,
-                      title: 'Editar razão social',
-                      initialValue: label,
-                      labelText: 'Razão social',
-                    );
-                    if (newLabel == null) return;
-
-                    final updated = await setupCubit.updateCompanyName(id, newLabel);
-                    if (!mounted || updated == null) return;
-
-                    if (_selectedCompanyId == id) {
-                      _applySelectedCompany(updated);
-                    }
-                  }
-                      : null,
-                  onDeleteItem: !_saving
-                      ? (ctx, label) async {
-                    final list = setupCubit.state.companies;
-                    if (list.isEmpty) return;
-
-                    final target = list.firstWhere(
-                          (c) => c.label == label,
-                      orElse: () => list.first,
-                    );
-
-                    final id = target.companyId ?? target.id;
-                    if (id.isEmpty) return;
-
-                    await setupCubit.deleteCompany(id);
-                    if (!mounted) return;
-
-                    if (_selectedCompanyId == id) {
-                      _clearSelectedCompany();
-                    }
-                  }
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                CustomTextField(
-                  controller: _empresaCnpjCtrl,
-                  labelText: 'CNPJ',
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(14),
-                  ],
-                  validator: (v) {
-                    final raw = v?.replaceAll(RegExp(r'\D'), '') ?? '';
-                    if (raw.isEmpty) return 'Informe o CNPJ';
-                    if (raw.length != 14) return 'CNPJ inválido';
-                    if (!CNPJValidator.isValid(raw)) return 'CNPJ inválido';
-                    return null;
-                  },
-                ),
-                if (_logoBytes != null || (_existingLogoUrl ?? '').isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      onPressed: _saving ? null : _removeLogo,
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 0),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('Remover logo'),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    if (context.read<SetupCubit>().state.error == null) {
+      _success('Unidade removida com sucesso.');
+      _clearUnitSelection();
+    } else {
+      _error(context.read<SetupCubit>().state.error!);
+    }
   }
 
-  Widget _plusButton(Future<void> Function() onPressed) {
-    return IconButton(
-      onPressed: _saving ? null : onPressed,
-      icon: const Icon(Icons.add),
+  Future<void> _saveRoad() async {
+    final name = _newRoadCtrl.text.trim();
+    if (name.isEmpty) return;
+
+    final cubit = context.read<SetupCubit>();
+
+    if (_selectedRoad == null) {
+      final created = await cubit.createRoad(name);
+      if (created != null && mounted) {
+        _success('Rodovia adicionada com sucesso.');
+        _clearRoadSelection();
+      }
+      return;
+    }
+
+    final roadId = _selectedRoad!.roadId ?? _selectedRoad!.id;
+    final updated = await cubit.updateRoadName(roadId, name);
+    if (updated != null && mounted) {
+      _success('Rodovia atualizada com sucesso.');
+      setState(() {
+        _selectedRoad = updated;
+        _newRoadCtrl.text = updated.label;
+      });
+    }
+  }
+
+  Future<void> _deleteRoad() async {
+    if (_selectedRoad == null) return;
+
+    final roadId = _selectedRoad!.roadId ?? _selectedRoad!.id;
+    await context.read<SetupCubit>().deleteRoad(roadId);
+
+    if (!mounted) return;
+
+    if (context.read<SetupCubit>().state.error == null) {
+      _success('Rodovia removida com sucesso.');
+      _clearRoadSelection();
+    } else {
+      _error(context.read<SetupCubit>().state.error!);
+    }
+  }
+
+  Future<void> _saveRegion() async {
+    final name = _newRegionCtrl.text.trim();
+    if (name.isEmpty) return;
+
+    final cubit = context.read<SetupCubit>();
+
+    if (_selectedRegion == null) {
+      final created = await cubit.createRegion(
+        name,
+        municipios: _selectedMunicipios,
+      );
+
+      if (created != null && mounted) {
+        _success('Região adicionada com sucesso.');
+        _clearRegionSelection();
+      }
+      return;
+    }
+
+    final regionId = _selectedRegion!.regionId ?? _selectedRegion!.id;
+
+    final updatedName = await cubit.updateRegionName(regionId, name);
+    if (updatedName == null) {
+      if (mounted && cubit.state.error != null) {
+        _error(cubit.state.error!);
+      }
+      return;
+    }
+
+    final updatedRegion = await cubit.updateRegionMunicipios(
+      regionId,
+      _selectedMunicipios,
     );
+
+    if (updatedRegion != null && mounted) {
+      _success('Região atualizada com sucesso.');
+      setState(() {
+        _selectedRegion = updatedRegion;
+        _newRegionCtrl.text = updatedRegion.label;
+        _selectedMunicipios =
+        List<String>.from(updatedRegion.municipios ?? []);
+      });
+    }
+  }
+
+  Future<void> _deleteRegion() async {
+    if (_selectedRegion == null) return;
+
+    final regionId = _selectedRegion!.regionId ?? _selectedRegion!.id;
+    await context.read<SetupCubit>().deleteRegion(regionId);
+
+    if (!mounted) return;
+
+    if (context.read<SetupCubit>().state.error == null) {
+      _success('Região removida com sucesso.');
+      _clearRegionSelection();
+    } else {
+      _error(context.read<SetupCubit>().state.error!);
+    }
+  }
+
+  Future<void> _saveFunding() async {
+    final name = _newFundingCtrl.text.trim();
+    if (name.isEmpty) return;
+
+    final cubit = context.read<SetupCubit>();
+
+    if (_selectedFunding == null) {
+      final created = await cubit.createFundingSource(name);
+      if (created != null && mounted) {
+        _success('Fonte adicionada com sucesso.');
+        _clearFundingSelection();
+      }
+      return;
+    }
+
+    final sourceId = _selectedFunding!.genericId ?? _selectedFunding!.id;
+    final updated = await cubit.updateFundingSourceName(sourceId, name);
+    if (updated != null && mounted) {
+      _success('Fonte atualizada com sucesso.');
+      setState(() {
+        _selectedFunding = updated;
+        _newFundingCtrl.text = updated.label;
+      });
+    }
+  }
+
+  Future<void> _deleteFunding() async {
+    if (_selectedFunding == null) return;
+
+    final sourceId = _selectedFunding!.genericId ?? _selectedFunding!.id;
+    await context.read<SetupCubit>().deleteFundingSource(sourceId);
+
+    if (!mounted) return;
+
+    if (context.read<SetupCubit>().state.error == null) {
+      _success('Fonte removida com sucesso.');
+      _clearFundingSelection();
+    } else {
+      _error(context.read<SetupCubit>().state.error!);
+    }
+  }
+
+  Future<void> _saveProgram() async {
+    final name = _newProgramCtrl.text.trim();
+    if (name.isEmpty) return;
+
+    final cubit = context.read<SetupCubit>();
+
+    if (_selectedProgram == null) {
+      final created = await cubit.createProgram(name);
+      if (created != null && mounted) {
+        _success('Programa adicionado com sucesso.');
+        _clearProgramSelection();
+      }
+      return;
+    }
+
+    final programId = _selectedProgram!.genericId ?? _selectedProgram!.id;
+    final updated = await cubit.updateProgramName(programId, name);
+    if (updated != null && mounted) {
+      _success('Programa atualizado com sucesso.');
+      setState(() {
+        _selectedProgram = updated;
+        _newProgramCtrl.text = updated.label;
+      });
+    }
+  }
+
+  Future<void> _deleteProgram() async {
+    if (_selectedProgram == null) return;
+
+    final programId = _selectedProgram!.genericId ?? _selectedProgram!.id;
+    await context.read<SetupCubit>().deleteProgram(programId);
+
+    if (!mounted) return;
+
+    if (context.read<SetupCubit>().state.error == null) {
+      _success('Programa removido com sucesso.');
+      _clearProgramSelection();
+    } else {
+      _error(context.read<SetupCubit>().state.error!);
+    }
+  }
+
+  Future<void> _saveExpenseNature() async {
+    final name = _newExpenseNatureCtrl.text.trim();
+    if (name.isEmpty) return;
+
+    final cubit = context.read<SetupCubit>();
+
+    if (_selectedExpenseNature == null) {
+      final created = await cubit.createExpenseNature(name);
+      if (created != null && mounted) {
+        _success('Natureza de despesa adicionada com sucesso.');
+        _clearExpenseNatureSelection();
+      }
+      return;
+    }
+
+    final natureId =
+        _selectedExpenseNature!.genericId ?? _selectedExpenseNature!.id;
+    final updated = await cubit.updateExpenseNatureName(natureId, name);
+    if (updated != null && mounted) {
+      _success('Natureza de despesa atualizada com sucesso.');
+      setState(() {
+        _selectedExpenseNature = updated;
+        _newExpenseNatureCtrl.text = updated.label;
+      });
+    }
+  }
+
+  Future<void> _deleteExpenseNature() async {
+    if (_selectedExpenseNature == null) return;
+
+    final natureId =
+        _selectedExpenseNature!.genericId ?? _selectedExpenseNature!.id;
+    await context.read<SetupCubit>().deleteExpenseNature(natureId);
+
+    if (!mounted) return;
+
+    if (context.read<SetupCubit>().state.error == null) {
+      _success('Natureza de despesa removida com sucesso.');
+      _clearExpenseNatureSelection();
+    } else {
+      _error(context.read<SetupCubit>().state.error!);
+    }
   }
 
   Widget _buildBottomBar() {
@@ -496,298 +605,273 @@ class _InitialSetupPageState extends State<InitialSetupPage> {
     );
   }
 
+  Widget _buildMunicipiosSelecionados() {
+    if (_selectedMunicipios.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: _selectedMunicipios
+            .map(
+              (e) => Text(
+            e,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.blue,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        )
+            .toList(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(
-            color: Colors.black.withValues(alpha: 0.30),
+    return BlocListener<SetupCubit, SetupState>(
+      listener: (context, state) {
+        _hydrateFromCompany(state.companyProfile);
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.30),
+            ),
           ),
-        ),
-        Center(
-          child: LayoutBuilder(
-            builder: (_, constraints) {
-              final width = (constraints.maxWidth * 0.9).clamp(680.0, 1200.0);
-              final dialogHeight =
-              (constraints.maxHeight * 0.9).clamp(400.0, 800.0);
+          Center(
+            child: LayoutBuilder(
+              builder: (_, constraints) {
+                final width = (constraints.maxWidth * 0.9).clamp(680.0, 1200.0);
+                final dialogHeight =
+                (constraints.maxHeight * 0.9).clamp(400.0, 800.0);
 
-              return WindowDialog(
-                width: width,
-                title: 'Configurações iniciais do SIGED',
-                onClose: null,
-                showMinimize: false,
-                contentPadding: EdgeInsets.zero,
-                child: SizedBox(
-                  height: dialogHeight,
-                  child: BlocBuilder<SetupCubit, SetupState>(
-                    builder: (context, state) {
-                      final companyId = _effectiveCompanyId ?? state.selectedCompanyId;
-                      final hasCompany = (companyId ?? '').isNotEmpty;
+                return WindowDialog(
+                  width: width,
+                  title: 'Configurações iniciais do SIPGED',
+                  onClose: null,
+                  showMinimize: false,
+                  contentPadding: EdgeInsets.zero,
+                  child: SizedBox(
+                    height: dialogHeight,
+                    child: BlocBuilder<SetupCubit, SetupState>(
+                      builder: (context, state) {
+                        final hasCompany = state.companyProfile != null ||
+                            _empresaNomeCtrl.text.trim().isNotEmpty;
 
-                      return Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: Scrollbar(
-                                thumbVisibility: true,
-                                child: SingleChildScrollView(
-                                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      _buildHeaderCard(state),
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: state.units
-                                            .map((e) => Chip(label: Text(e.label)))
-                                            .toList(),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: CustomTextField(
-                                              controller: _newUnitCtrl,
-                                              labelText: 'Nome da unidade',
-                                              enabled: hasCompany && !_saving,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          _plusButton(() async {
-                                            final name = _newUnitCtrl.text.trim();
-                                            if (name.isEmpty || !hasCompany) return;
-
-                                            final created = await context
-                                                .read<SetupCubit>()
-                                                .createUnit(companyId!, name);
-
-                                            if (created != null && mounted) {
-                                              _newUnitCtrl.clear();
+                        return Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: Scrollbar(
+                                  thumbVisibility: true,
+                                  child: SingleChildScrollView(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      12,
+                                      12,
+                                      20,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                      children: [
+                                        InitialSetupHeader(
+                                          empresaFantasiaCtrl:
+                                          _empresaFantasiaCtrl,
+                                          empresaNomeCtrl: _empresaNomeCtrl,
+                                          empresaCnpjCtrl: _empresaCnpjCtrl,
+                                          saving: _saving,
+                                          logoBytes: _logoBytes,
+                                          existingLogoUrl: _existingLogoUrl,
+                                          onPickLogo: _pickLogo,
+                                          cnpjValidator: (v) {
+                                            final raw = v?.replaceAll(
+                                              RegExp(r'\D'),
+                                              '',
+                                            ) ??
+                                                '';
+                                            if (raw.isEmpty) {
+                                              return 'Informe o CNPJ';
                                             }
-                                          }),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: state.roads
-                                            .map((e) => Chip(label: Text(e.label)))
-                                            .toList(),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: CustomTextField(
-                                              controller: _newRoadCtrl,
-                                              labelText: 'Nome da estrada/rodovia',
-                                              enabled: hasCompany && !_saving,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          _plusButton(() async {
-                                            final name = _newRoadCtrl.text.trim();
-                                            if (name.isEmpty || !hasCompany) return;
-
-                                            final created = await context
-                                                .read<SetupCubit>()
-                                                .createRoad(companyId!, name);
-
-                                            if (created != null && mounted) {
-                                              _newRoadCtrl.clear();
+                                            if (raw.length != 14) {
+                                              return 'CNPJ inválido';
                                             }
-                                          }),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: state.regions
-                                            .map((e) => Chip(label: Text(e.label)))
-                                            .toList(),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: CustomTextField(
-                                              controller: _newRegionCtrl,
-                                              labelText: 'Nome da região',
-                                              enabled: hasCompany && !_saving,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          IconButton(
+                                            if (!CNPJValidator.isValid(raw)) {
+                                              return 'CNPJ inválido';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                        const SizedBox(height: 24),
+                                        InitialSetupForm(
+                                          controller: _newUnitCtrl,
+                                          labelText: 'Nome da unidade',
+                                          enabled: hasCompany && !_saving,
+                                          items: state.units,
+                                          selectedItem: _selectedUnit,
+                                          onSelectItem: _selectUnit,
+                                          onClearSelection: _clearUnitSelection,
+                                          addLabel: 'Adicionar unidade',
+                                          saveLabel: 'Atualizar unidade',
+                                          removeLabel: 'Remover unidade',
+                                          primaryEnabled: _newUnitCtrl.text
+                                              .trim()
+                                              .isNotEmpty &&
+                                              hasCompany,
+                                          onPrimaryAction: _saveUnit,
+                                          onRemoveAction: _deleteUnit,
+                                        ),
+                                        const SizedBox(height: 30),
+                                        InitialSetupForm(
+                                          controller: _newRoadCtrl,
+                                          labelText: 'Nome da estrada/rodovia',
+                                          enabled: hasCompany && !_saving,
+                                          items: state.roads,
+                                          selectedItem: _selectedRoad,
+                                          onSelectItem: _selectRoad,
+                                          onClearSelection: _clearRoadSelection,
+                                          addLabel: 'Adicionar rodovia',
+                                          saveLabel: 'Atualizar rodovia',
+                                          removeLabel: 'Remover rodovia',
+                                          primaryEnabled: _newRoadCtrl.text
+                                              .trim()
+                                              .isNotEmpty &&
+                                              hasCompany,
+                                          onPrimaryAction: _saveRoad,
+                                          onRemoveAction: _deleteRoad,
+                                        ),
+                                        const SizedBox(height: 30),
+                                        InitialSetupForm(
+                                          controller: _newRegionCtrl,
+                                          labelText: 'Nome da região',
+                                          enabled: hasCompany && !_saving,
+                                          items: state.regions,
+                                          selectedItem: _selectedRegion,
+                                          onSelectItem: _selectRegion,
+                                          onClearSelection:
+                                          _clearRegionSelection,
+                                          addLabel: 'Adicionar região',
+                                          saveLabel: 'Atualizar região',
+                                          removeLabel: 'Remover região',
+                                          primaryEnabled: _newRegionCtrl.text
+                                              .trim()
+                                              .isNotEmpty &&
+                                              hasCompany,
+                                          onPrimaryAction: _saveRegion,
+                                          onRemoveAction: _deleteRegion,
+                                          trailingWidget: IconButton(
                                             onPressed: !hasCompany || _saving
                                                 ? null
                                                 : () async {
                                               final selected =
-                                              await setupRegionMap(context);
-                                              if (selected != null && mounted) {
+                                              await setupRegionMap(
+                                                  context);
+                                              if (selected != null &&
+                                                  mounted) {
                                                 setState(() {
-                                                  _selectedMunicipios = selected;
+                                                  _selectedMunicipios =
+                                                      selected;
                                                 });
                                               }
                                             },
                                             icon: const Icon(Icons.search),
                                           ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      if (_selectedMunicipios.isNotEmpty)
-                                        Wrap(
-                                          spacing: 6,
-                                          runSpacing: 6,
-                                          children: _selectedMunicipios
-                                              .map((e) => Chip(label: Text(e)))
-                                              .toList(),
+                                          extraBottom:
+                                          _buildMunicipiosSelecionados(),
                                         ),
-                                      const SizedBox(height: 8),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: _plusButton(() async {
-                                          final name = _newRegionCtrl.text.trim();
-                                          if (name.isEmpty || !hasCompany) return;
-
-                                          final created = await context
-                                              .read<SetupCubit>()
-                                              .createRegion(
-                                            companyId!,
-                                            name,
-                                            municipios: _selectedMunicipios,
-                                          );
-
-                                          if (created != null && mounted) {
-                                            _newRegionCtrl.clear();
-                                            setState(() => _selectedMunicipios = []);
-                                          }
-                                        }),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: state.fundingSources
-                                            .map((e) => Chip(label: Text(e.label)))
-                                            .toList(),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: CustomTextField(
-                                              controller: _newFundingCtrl,
-                                              labelText: 'Nome da fonte',
-                                              enabled: hasCompany && !_saving,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          _plusButton(() async {
-                                            final name = _newFundingCtrl.text.trim();
-                                            if (name.isEmpty || !hasCompany) return;
-
-                                            final created = await context
-                                                .read<SetupCubit>()
-                                                .createFundingSource(companyId!, name);
-
-                                            if (created != null && mounted) {
-                                              _newFundingCtrl.clear();
-                                            }
-                                          }),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: state.programs
-                                            .map((e) => Chip(label: Text(e.label)))
-                                            .toList(),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: CustomTextField(
-                                              controller: _newProgramCtrl,
-                                              labelText: 'Nome do programa',
-                                              enabled: hasCompany && !_saving,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          _plusButton(() async {
-                                            final name = _newProgramCtrl.text.trim();
-                                            if (name.isEmpty || !hasCompany) return;
-
-                                            final created = await context
-                                                .read<SetupCubit>()
-                                                .createProgram(companyId!, name);
-
-                                            if (created != null && mounted) {
-                                              _newProgramCtrl.clear();
-                                            }
-                                          }),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: state.expenseNatures
-                                            .map((e) => Chip(label: Text(e.label)))
-                                            .toList(),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: CustomTextField(
-                                              controller: _newExpenseNatureCtrl,
-                                              labelText: 'Nome da natureza de despesa',
-                                              enabled: hasCompany && !_saving,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          _plusButton(() async {
-                                            final name =
-                                            _newExpenseNatureCtrl.text.trim();
-                                            if (name.isEmpty || !hasCompany) return;
-
-                                            final created = await context
-                                                .read<SetupCubit>()
-                                                .createExpenseNature(companyId!, name);
-
-                                            if (created != null && mounted) {
-                                              _newExpenseNatureCtrl.clear();
-                                            }
-                                          }),
-                                        ],
-                                      ),
-                                    ],
+                                        const SizedBox(height: 30),
+                                        InitialSetupForm(
+                                          controller: _newFundingCtrl,
+                                          labelText: 'Nome da fonte',
+                                          enabled: hasCompany && !_saving,
+                                          items: state.fundingSources,
+                                          selectedItem: _selectedFunding,
+                                          onSelectItem: _selectFunding,
+                                          onClearSelection:
+                                          _clearFundingSelection,
+                                          addLabel: 'Adicionar fonte',
+                                          saveLabel: 'Atualizar fonte',
+                                          removeLabel: 'Remover fonte',
+                                          primaryEnabled: _newFundingCtrl.text
+                                              .trim()
+                                              .isNotEmpty &&
+                                              hasCompany,
+                                          onPrimaryAction: _saveFunding,
+                                          onRemoveAction: _deleteFunding,
+                                        ),
+                                        const SizedBox(height: 30),
+                                        InitialSetupForm(
+                                          controller: _newProgramCtrl,
+                                          labelText: 'Nome do programa',
+                                          enabled: hasCompany && !_saving,
+                                          items: state.programs,
+                                          selectedItem: _selectedProgram,
+                                          onSelectItem: _selectProgram,
+                                          onClearSelection:
+                                          _clearProgramSelection,
+                                          addLabel: 'Adicionar programa',
+                                          saveLabel: 'Atualizar programa',
+                                          removeLabel: 'Remover programa',
+                                          primaryEnabled: _newProgramCtrl.text
+                                              .trim()
+                                              .isNotEmpty &&
+                                              hasCompany,
+                                          onPrimaryAction: _saveProgram,
+                                          onRemoveAction: _deleteProgram,
+                                        ),
+                                        const SizedBox(height: 30),
+                                        InitialSetupForm(
+                                          controller: _newExpenseNatureCtrl,
+                                          labelText:
+                                          'Nome da natureza de despesa',
+                                          enabled: hasCompany && !_saving,
+                                          items: state.expenseNatures,
+                                          selectedItem: _selectedExpenseNature,
+                                          onSelectItem:
+                                          _selectExpenseNature,
+                                          onClearSelection:
+                                          _clearExpenseNatureSelection,
+                                          addLabel:
+                                          'Adicionar natureza de despesa',
+                                          saveLabel:
+                                          'Atualizar natureza de despesa',
+                                          removeLabel:
+                                          'Remover natureza de despesa',
+                                          primaryEnabled:
+                                          _newExpenseNatureCtrl.text
+                                              .trim()
+                                              .isNotEmpty &&
+                                              hasCompany,
+                                          onPrimaryAction:
+                                          _saveExpenseNature,
+                                          onRemoveAction:
+                                          _deleteExpenseNature,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            _buildBottomBar(),
-                          ],
-                        ),
-                      );
-                    },
+                              _buildBottomBar(),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

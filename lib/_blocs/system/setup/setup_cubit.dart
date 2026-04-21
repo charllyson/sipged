@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'setup_data.dart';
@@ -13,32 +15,84 @@ class SetupCubit extends Cubit<SetupState> {
       : _repo = repository ?? SetupRepository(),
         super(SetupState.initial());
 
-  Future<void> loadCompanies() async {
+  String get companyDocId => SetupRepository.companyDocId;
+
+  Future<void> loadSystemSetup() async {
     try {
       emit(state.copyWith(
         isLoading: true,
         clearError: true,
       ));
 
-      final companies = await _repo.loadCompanies();
+      final results = await Future.wait<dynamic>([
+        _repo.loadCompanyProfile(),
+        _repo.loadCompanyBodies(),
+        _repo.loadUnits(),
+        _repo.loadRoads(),
+        _repo.loadRegions(),
+        _repo.loadFundingSources(),
+        _repo.loadPrograms(),
+        _repo.loadExpenseNatures(),
+      ]);
 
       emit(state.copyWith(
         isLoading: false,
-        hasLoadedCompanies: true,
-        companies: companies,
+        hasLoadedSystem: true,
+        companyProfile: results[0] as SetupData?,
+        companyBodies: results[1] as List<SetupData>,
+        units: results[2] as List<SetupData>,
+        roads: results[3] as List<SetupData>,
+        regions: results[4] as List<SetupData>,
+        fundingSources: results[5] as List<SetupData>,
+        programs: results[6] as List<SetupData>,
+        expenseNatures: results[7] as List<SetupData>,
       ));
     } catch (e) {
       emit(state.copyWith(
         isLoading: false,
-        hasLoadedCompanies: true,
+        hasLoadedSystem: true,
         error: e.toString(),
       ));
     }
   }
 
+  Future<void> ensureSystemSetupLoaded() async {
+    if (state.hasLoadedSystem) return;
+    await loadSystemSetup();
+  }
+
+  Future<void> reloadChildren() async {
+    try {
+      emit(state.copyWith(isLoading: true, clearError: true));
+
+      final results = await Future.wait<dynamic>([
+        _repo.loadCompanyBodies(),
+        _repo.loadUnits(),
+        _repo.loadRoads(),
+        _repo.loadRegions(),
+        _repo.loadFundingSources(),
+        _repo.loadPrograms(),
+        _repo.loadExpenseNatures(),
+      ]);
+
+      emit(state.copyWith(
+        isLoading: false,
+        companyBodies: results[0] as List<SetupData>,
+        units: results[1] as List<SetupData>,
+        roads: results[2] as List<SetupData>,
+        regions: results[3] as List<SetupData>,
+        fundingSources: results[4] as List<SetupData>,
+        programs: results[5] as List<SetupData>,
+        expenseNatures: results[6] as List<SetupData>,
+      ));
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, error: e.toString()));
+    }
+  }
+
   Future<SetupData?> saveCompanyProfile({
-    String? companyId,
     required String label,
+    required String fantasyName,
     String? cnpj,
     Uint8List? logoBytes,
     String? logoFileName,
@@ -50,8 +104,8 @@ class SetupCubit extends Cubit<SetupState> {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       final saved = await _repo.saveCompanyProfile(
-        companyId: companyId,
         label: label,
+        fantasyName: fantasyName,
         cnpj: cnpj,
         logoBytes: logoBytes,
         logoFileName: logoFileName,
@@ -60,89 +114,51 @@ class SetupCubit extends Cubit<SetupState> {
         oldLogoPath: oldLogoPath,
       );
 
-      final savedId = saved.companyId ?? saved.id;
-      final exists = state.companies.any(
-            (c) => (c.companyId ?? c.id) == savedId,
-      );
-
-      final updatedCompanies = exists
-          ? state.companies
-          .map((c) => ((c.companyId ?? c.id) == savedId) ? saved : c)
-          .toList()
-          : (List<SetupData>.from(state.companies)..add(saved));
-
-      updatedCompanies.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          companies: updatedCompanies,
-          selectedCompanyId: savedId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        companyProfile: saved,
+        hasLoadedSystem: true,
+      ));
 
       return saved;
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
-      return null;
-    }
-  }
-
-  Future<SetupData?> createCompany(
-      String label, {
-        String? cnpj,
-        Uint8List? logoBytes,
-        String? logoFileName,
-        String? logoContentType,
-      }) async {
-    try {
-      emit(state.copyWith(isLoading: true, clearError: true));
-
-      final created = await _repo.createCompany(
-        label,
-        cnpj: cnpj,
-        logoBytes: logoBytes,
-        logoFileName: logoFileName,
-        logoContentType: logoContentType,
-      );
-
-      final updated = List<SetupData>.from(state.companies)..add(created);
-      updated.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    } on FirebaseException catch (e, s) {
+      debugPrint(
+          'saveCompanyProfile FirebaseException: ${e.code} - ${e.message}');
+      debugPrintStack(stackTrace: s);
 
       emit(state.copyWith(
         isLoading: false,
-        companies: updated,
+        error: 'Firebase (${e.code}): ${e.message}',
       ));
+      return null;
+    } catch (e, s) {
+      debugPrint('saveCompanyProfile error: $e');
+      debugPrintStack(stackTrace: s);
 
-      return created;
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
+      emit(state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      ));
       return null;
     }
   }
 
   Future<SetupData?> updateCompanyName(
-      String companyId,
-      String newLabel,
-      ) async {
+      String newLabel, {
+        String? fantasyName,
+      }) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updatedCompany = await _repo.updateCompanyName(companyId, newLabel);
-
-      final updatedList = state.companies.map((c) {
-        final same =
-            (c.companyId != null && c.companyId == companyId) || c.id == companyId;
-        return same ? updatedCompany : c;
-      }).toList()
-        ..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          companies: updatedList,
-        ),
+      final updatedCompany = await _repo.updateCompanyName(
+        newLabel,
+        fantasyName: fantasyName,
       );
+
+      emit(state.copyWith(
+        isLoading: false,
+        companyProfile: updatedCompany,
+      ));
 
       return updatedCompany;
     } catch (e) {
@@ -152,7 +168,6 @@ class SetupCubit extends Cubit<SetupState> {
   }
 
   Future<SetupData?> updateCompanyLogo({
-    required String companyId,
     required Uint8List bytes,
     required String fileName,
     String? contentType,
@@ -160,31 +175,16 @@ class SetupCubit extends Cubit<SetupState> {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final current = state.companies.cast<SetupData?>().firstWhere(
-            (c) =>
-        c != null &&
-            ((c.companyId != null && c.companyId == companyId) ||
-                c.id == companyId),
-        orElse: () => null,
-      );
-
       final updatedCompany = await _repo.updateCompanyLogo(
-        companyId: companyId,
         bytes: bytes,
         fileName: fileName,
         contentType: contentType,
-        oldLogoPath: current?.logoPath,
+        oldLogoPath: state.companyProfile?.logoPath,
       );
-
-      final updatedList = state.companies.map((c) {
-        final same =
-            (c.companyId != null && c.companyId == companyId) || c.id == companyId;
-        return same ? updatedCompany : c;
-      }).toList();
 
       emit(state.copyWith(
         isLoading: false,
-        companies: updatedList,
+        companyProfile: updatedCompany,
       ));
 
       return updatedCompany;
@@ -194,34 +194,23 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> deleteCompany(String companyId) async {
+  Future<void> deleteCompanyProfile() async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      await _repo.deleteCompany(companyId);
+      await _repo.deleteCompanyProfile();
 
-      final updatedCompanies = state.companies.where((c) {
-        final same =
-            (c.companyId != null && c.companyId == companyId) || c.id == companyId;
-        return !same;
-      }).toList();
-
-      final isSelected = state.selectedCompanyId == companyId;
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          companies: updatedCompanies,
-          selectedCompanyId: isSelected ? null : state.selectedCompanyId,
-          units: isSelected ? const [] : state.units,
-          roads: isSelected ? const [] : state.roads,
-          regions: isSelected ? const [] : state.regions,
-          fundingSources: isSelected ? const [] : state.fundingSources,
-          programs: isSelected ? const [] : state.programs,
-          expenseNatures: isSelected ? const [] : state.expenseNatures,
-          companyBodies: isSelected ? const [] : state.companyBodies,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        clearCompanyProfile: true,
+        companyBodies: const [],
+        units: const [],
+        roads: const [],
+        regions: const [],
+        fundingSources: const [],
+        programs: const [],
+        expenseNatures: const [],
+      ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
@@ -231,72 +220,26 @@ class SetupCubit extends Cubit<SetupState> {
     final normalized = label.trim().toLowerCase();
     if (normalized.isEmpty) return null;
 
-    for (final c in state.companies) {
-      final name = (c.companyName ?? c.label).trim().toLowerCase();
-      if (name == normalized) {
-        return c.companyId ?? c.id;
-      }
-    }
+    final company = state.companyProfile;
+    if (company == null) return null;
+
+    final name = (company.companyName ?? company.label).trim().toLowerCase();
+    if (name == normalized) return companyDocId;
+
     return null;
   }
 
-  Future<void> selectCompany(String companyId) async {
-    try {
-      emit(
-        state.copyWith(
-          isLoading: true,
-          clearError: true,
-          selectedCompanyId: companyId,
-        ),
-      );
-
-      final results = await Future.wait([
-        _repo.loadCompanyBodies(companyId),
-        _repo.loadUnits(companyId),
-        _repo.loadRoads(companyId),
-        _repo.loadRegions(companyId),
-        _repo.loadFundingSources(companyId),
-        _repo.loadPrograms(companyId),
-        _repo.loadExpenseNatures(companyId),
-      ]);
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          companyBodies: results[0],
-          units: results[1],
-          roads: results[2],
-          regions: results[3],
-          fundingSources: results[4],
-          programs: results[5],
-          expenseNatures: results[6],
-        ),
-      );
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
-    }
-  }
-
-  Future<void> reloadChildrenForSelectedCompany() async {
-    final companyId = state.selectedCompanyId;
-    if (companyId == null) return;
-    await selectCompany(companyId);
-  }
-
-  Future<SetupData?> createUnit(String companyId, String label) async {
+  Future<SetupData?> createUnit(String label) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final created = await _repo.createUnit(companyId, label);
+      final created = await _repo.createUnit(label);
       final updated = List<SetupData>.from(state.units)..add(created);
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          units: updated,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        units: updated,
+      ));
 
       return created;
     } catch (e) {
@@ -306,27 +249,23 @@ class SetupCubit extends Cubit<SetupState> {
   }
 
   Future<SetupData?> updateUnitName(
-      String companyId,
       String unitId,
       String newLabel,
       ) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updatedUnit = await _repo.updateUnitName(companyId, unitId, newLabel);
+      final updatedUnit = await _repo.updateUnitName(unitId, newLabel);
 
       final updatedList = state.units.map((u) {
         final same = (u.unitId != null && u.unitId == unitId) || u.id == unitId;
         return same ? updatedUnit : u;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          units: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        units: updatedList,
+      ));
 
       return updatedUnit;
     } catch (e) {
@@ -335,73 +274,39 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> deleteUnit(String companyId, String unitId) async {
+  Future<void> deleteUnit(String unitId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      await _repo.deleteUnit(companyId, unitId);
+      await _repo.deleteUnit(unitId);
 
       final updatedList = state.units.where((u) {
         final same = (u.unitId != null && u.unitId == unitId) || u.id == unitId;
         return !same;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          units: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        units: updatedList,
+      ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
-  Future<void> loadUnitsForCompany(String companyId, {bool forceReload = false}) async {
-    if (!forceReload &&
-        state.selectedCompanyId == companyId &&
-        state.units.isNotEmpty) {
-      return;
-    }
+  List<SetupData> getUnits() => state.units;
 
+  Future<SetupData?> createRoad(String label) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final units = await _repo.loadUnits(companyId);
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          units: units,
-          selectedCompanyId: companyId,
-        ),
-      );
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
-    }
-  }
-
-  List<SetupData> getUnitsForCompany(String? companyId) {
-    if (companyId == null) return const [];
-    if (companyId != state.selectedCompanyId) return const [];
-    return state.units;
-  }
-
-  Future<SetupData?> createRoad(String companyId, String label) async {
-    try {
-      emit(state.copyWith(isLoading: true, clearError: true));
-
-      final created = await _repo.createRoad(companyId, label);
+      final created = await _repo.createRoad(label);
       final updated = List<SetupData>.from(state.roads)..add(created);
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          roads: updated,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        roads: updated,
+      ));
 
       return created;
     } catch (e) {
@@ -411,27 +316,23 @@ class SetupCubit extends Cubit<SetupState> {
   }
 
   Future<SetupData?> updateRoadName(
-      String companyId,
       String roadId,
       String newLabel,
       ) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updatedRoad = await _repo.updateRoadName(companyId, roadId, newLabel);
+      final updatedRoad = await _repo.updateRoadName(roadId, newLabel);
 
       final updatedList = state.roads.map((r) {
         final same = (r.roadId != null && r.roadId == roadId) || r.id == roadId;
         return same ? updatedRoad : r;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          roads: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        roads: updatedList,
+      ));
 
       return updatedRoad;
     } catch (e) {
@@ -440,61 +341,29 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> deleteRoad(String companyId, String roadId) async {
+  Future<void> deleteRoad(String roadId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      await _repo.deleteRoad(companyId, roadId);
+      await _repo.deleteRoad(roadId);
 
       final updatedList = state.roads.where((r) {
         final same = (r.roadId != null && r.roadId == roadId) || r.id == roadId;
         return !same;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          roads: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        roads: updatedList,
+      ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
-  Future<void> loadRoadsForCompany(String companyId, {bool forceReload = false}) async {
-    if (!forceReload &&
-        state.selectedCompanyId == companyId &&
-        state.roads.isNotEmpty) {
-      return;
-    }
-
-    try {
-      emit(state.copyWith(isLoading: true, clearError: true));
-
-      final roads = await _repo.loadRoads(companyId);
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          roads: roads,
-          selectedCompanyId: companyId,
-        ),
-      );
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
-    }
-  }
-
-  List<SetupData> getRoadsForCompany(String? companyId) {
-    if (companyId == null) return const [];
-    if (companyId != state.selectedCompanyId) return const [];
-    return state.roads;
-  }
+  List<SetupData> getRoads() => state.roads;
 
   Future<SetupData?> createRegion(
-      String companyId,
       String label, {
         List<String>? municipios,
       }) async {
@@ -502,19 +371,15 @@ class SetupCubit extends Cubit<SetupState> {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       final created = await _repo.createRegion(
-        companyId,
         label,
         municipios: municipios,
       );
       final updated = List<SetupData>.from(state.regions)..add(created);
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          regions: updated,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        regions: updated,
+      ));
 
       return created;
     } catch (e) {
@@ -524,7 +389,6 @@ class SetupCubit extends Cubit<SetupState> {
   }
 
   Future<SetupData?> updateRegionMunicipios(
-      String companyId,
       String regionId,
       List<String> municipios,
       ) async {
@@ -532,18 +396,16 @@ class SetupCubit extends Cubit<SetupState> {
       emit(state.copyWith(isLoading: true, clearError: true));
 
       final updatedRegion =
-      await _repo.updateRegionMunicipios(companyId, regionId, municipios);
+      await _repo.updateRegionMunicipios(regionId, municipios);
 
-      final updatedList =
-      state.regions.map((r) => r.regionId == regionId ? updatedRegion : r).toList();
+      final updatedList = state.regions
+          .map((r) => r.regionId == regionId ? updatedRegion : r)
+          .toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          regions: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        regions: updatedList,
+      ));
 
       return updatedRegion;
     } catch (e) {
@@ -553,26 +415,22 @@ class SetupCubit extends Cubit<SetupState> {
   }
 
   Future<SetupData?> updateRegionName(
-      String companyId,
       String regionId,
       String newLabel,
       ) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updatedRegion =
-      await _repo.updateRegionName(companyId, regionId, newLabel);
+      final updatedRegion = await _repo.updateRegionName(regionId, newLabel);
 
-      final updatedList =
-      state.regions.map((r) => r.regionId == regionId ? updatedRegion : r).toList();
+      final updatedList = state.regions
+          .map((r) => r.regionId == regionId ? updatedRegion : r)
+          .toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          regions: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        regions: updatedList,
+      ));
 
       return updatedRegion;
     } catch (e) {
@@ -581,70 +439,37 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> deleteRegion(String companyId, String regionId) async {
+  Future<void> deleteRegion(String regionId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      await _repo.deleteRegion(companyId, regionId);
+      await _repo.deleteRegion(regionId);
 
-      final updatedList = state.regions.where((r) => r.regionId != regionId).toList();
+      final updatedList =
+      state.regions.where((r) => r.regionId != regionId).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          regions: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        regions: updatedList,
+      ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
-  Future<void> loadRegionsForCompany(String companyId, {bool forceReload = false}) async {
-    if (!forceReload &&
-        state.selectedCompanyId == companyId &&
-        state.regions.isNotEmpty) {
-      return;
-    }
+  List<SetupData> getRegions() => state.regions;
 
+  Future<SetupData?> createFundingSource(String label) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final regions = await _repo.loadRegions(companyId);
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          regions: regions,
-          selectedCompanyId: companyId,
-        ),
-      );
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
-    }
-  }
-
-  List<SetupData> getRegionsForCompany(String? companyId) {
-    if (companyId == null) return const [];
-    if (companyId != state.selectedCompanyId) return const [];
-    return state.regions;
-  }
-
-  Future<SetupData?> createFundingSource(String companyId, String label) async {
-    try {
-      emit(state.copyWith(isLoading: true, clearError: true));
-
-      final created = await _repo.createFundingSource(companyId, label);
+      final created = await _repo.createFundingSource(label);
       final updated = List<SetupData>.from(state.fundingSources)..add(created);
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          fundingSources: updated,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        fundingSources: updated,
+      ));
 
       return created;
     } catch (e) {
@@ -654,28 +479,24 @@ class SetupCubit extends Cubit<SetupState> {
   }
 
   Future<SetupData?> updateFundingSourceName(
-      String companyId,
       String sourceId,
       String newLabel,
       ) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updated =
-      await _repo.updateFundingSourceName(companyId, sourceId, newLabel);
+      final updated = await _repo.updateFundingSourceName(sourceId, newLabel);
 
       final updatedList = state.fundingSources.map((f) {
-        final same = (f.genericId != null && f.genericId == sourceId) || f.id == sourceId;
+        final same =
+            (f.genericId != null && f.genericId == sourceId) || f.id == sourceId;
         return same ? updated : f;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          fundingSources: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        fundingSources: updatedList,
+      ));
 
       return updated;
     } catch (e) {
@@ -684,73 +505,40 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> deleteFundingSource(String companyId, String sourceId) async {
+  Future<void> deleteFundingSource(String sourceId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      await _repo.deleteFundingSource(companyId, sourceId);
+      await _repo.deleteFundingSource(sourceId);
 
       final updatedList = state.fundingSources.where((f) {
-        final same = (f.genericId != null && f.genericId == sourceId) || f.id == sourceId;
+        final same =
+            (f.genericId != null && f.genericId == sourceId) || f.id == sourceId;
         return !same;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          fundingSources: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        fundingSources: updatedList,
+      ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
-  Future<void> loadFundingSourcesForCompany(String companyId, {bool forceReload = false}) async {
-    if (!forceReload &&
-        state.selectedCompanyId == companyId &&
-        state.fundingSources.isNotEmpty) {
-      return;
-    }
+  List<SetupData> getFundingSources() => state.fundingSources;
 
+  Future<SetupData?> createProgram(String label) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final list = await _repo.loadFundingSources(companyId);
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          fundingSources: list,
-          selectedCompanyId: companyId,
-        ),
-      );
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
-    }
-  }
-
-  List<SetupData> getFundingSourcesForCompany(String? companyId) {
-    if (companyId == null) return const [];
-    if (companyId != state.selectedCompanyId) return const [];
-    return state.fundingSources;
-  }
-
-  Future<SetupData?> createProgram(String companyId, String label) async {
-    try {
-      emit(state.copyWith(isLoading: true, clearError: true));
-
-      final created = await _repo.createProgram(companyId, label);
+      final created = await _repo.createProgram(label);
       final updated = List<SetupData>.from(state.programs)..add(created);
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          programs: updated,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        programs: updated,
+      ));
 
       return created;
     } catch (e) {
@@ -760,27 +548,24 @@ class SetupCubit extends Cubit<SetupState> {
   }
 
   Future<SetupData?> updateProgramName(
-      String companyId,
       String programId,
       String newLabel,
       ) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updated = await _repo.updateProgramName(companyId, programId, newLabel);
+      final updated = await _repo.updateProgramName(programId, newLabel);
 
       final updatedList = state.programs.map((p) {
-        final same = (p.genericId != null && p.genericId == programId) || p.id == programId;
+        final same =
+            (p.genericId != null && p.genericId == programId) || p.id == programId;
         return same ? updated : p;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          programs: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        programs: updatedList,
+      ));
 
       return updated;
     } catch (e) {
@@ -789,73 +574,40 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> deleteProgram(String companyId, String programId) async {
+  Future<void> deleteProgram(String programId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      await _repo.deleteProgram(companyId, programId);
+      await _repo.deleteProgram(programId);
 
       final updatedList = state.programs.where((p) {
-        final same = (p.genericId != null && p.genericId == programId) || p.id == programId;
+        final same =
+            (p.genericId != null && p.genericId == programId) || p.id == programId;
         return !same;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          programs: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        programs: updatedList,
+      ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
-  Future<void> loadProgramsForCompany(String companyId, {bool forceReload = false}) async {
-    if (!forceReload &&
-        state.selectedCompanyId == companyId &&
-        state.programs.isNotEmpty) {
-      return;
-    }
+  List<SetupData> getPrograms() => state.programs;
 
+  Future<SetupData?> createExpenseNature(String label) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final list = await _repo.loadPrograms(companyId);
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          programs: list,
-          selectedCompanyId: companyId,
-        ),
-      );
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
-    }
-  }
-
-  List<SetupData> getProgramsForCompany(String? companyId) {
-    if (companyId == null) return const [];
-    if (companyId != state.selectedCompanyId) return const [];
-    return state.programs;
-  }
-
-  Future<SetupData?> createExpenseNature(String companyId, String label) async {
-    try {
-      emit(state.copyWith(isLoading: true, clearError: true));
-
-      final created = await _repo.createExpenseNature(companyId, label);
+      final created = await _repo.createExpenseNature(label);
       final updated = List<SetupData>.from(state.expenseNatures)..add(created);
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          expenseNatures: updated,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        expenseNatures: updated,
+      ));
 
       return created;
     } catch (e) {
@@ -865,28 +617,24 @@ class SetupCubit extends Cubit<SetupState> {
   }
 
   Future<SetupData?> updateExpenseNatureName(
-      String companyId,
       String natureId,
       String newLabel,
       ) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updated =
-      await _repo.updateExpenseNatureName(companyId, natureId, newLabel);
+      final updated = await _repo.updateExpenseNatureName(natureId, newLabel);
 
       final updatedList = state.expenseNatures.map((n) {
-        final same = (n.genericId != null && n.genericId == natureId) || n.id == natureId;
+        final same =
+            (n.genericId != null && n.genericId == natureId) || n.id == natureId;
         return same ? updated : n;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          expenseNatures: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        expenseNatures: updatedList,
+      ));
 
       return updated;
     } catch (e) {
@@ -895,71 +643,43 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> deleteExpenseNature(String companyId, String natureId) async {
+  Future<void> deleteExpenseNature(String natureId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      await _repo.deleteExpenseNature(companyId, natureId);
+      await _repo.deleteExpenseNature(natureId);
 
       final updatedList = state.expenseNatures.where((n) {
-        final same = (n.genericId != null && n.genericId == natureId) || n.id == natureId;
+        final same =
+            (n.genericId != null && n.genericId == natureId) || n.id == natureId;
         return !same;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          expenseNatures: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        expenseNatures: updatedList,
+      ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
-  Future<void> ensureCompanySetupLoaded(String? companyId) async {
-    final id = companyId?.trim();
-    if (id == null || id.isEmpty) return;
-
-    final alreadySelected = state.selectedCompanyId == id;
-
-    final hasAllChildren = state.units.isNotEmpty &&
-        state.roads.isNotEmpty &&
-        state.regions.isNotEmpty &&
-        state.fundingSources.isNotEmpty &&
-        state.programs.isNotEmpty &&
-        state.expenseNatures.isNotEmpty;
-
-    if (alreadySelected && hasAllChildren) {
-      return;
-    }
-
-    await selectCompany(id);
-  }
+  List<SetupData> getExpenseNatures() => state.expenseNatures;
 
   Future<SetupData?> createCompanyBody(
-      String companyId,
       String label, {
         String? cnpj,
       }) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final created = await _repo.createCompanyBody(
-        companyId,
-        label,
-        cnpj: cnpj,
-      );
+      final created = await _repo.createCompanyBody(label, cnpj: cnpj);
       final updated = List<SetupData>.from(state.companyBodies)..add(created);
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          companyBodies: updated,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        companyBodies: updated,
+      ));
 
       return created;
     } catch (e) {
@@ -969,28 +689,24 @@ class SetupCubit extends Cubit<SetupState> {
   }
 
   Future<SetupData?> updateCompanyBodyName(
-      String companyId,
       String bodyId,
       String newLabel,
       ) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      final updated =
-      await _repo.updateCompanyBodyName(companyId, bodyId, newLabel);
+      final updated = await _repo.updateCompanyBodyName(bodyId, newLabel);
 
       final updatedList = state.companyBodies.map((b) {
-        final same = (b.genericId != null && b.genericId == bodyId) || b.id == bodyId;
+        final same =
+            (b.genericId != null && b.genericId == bodyId) || b.id == bodyId;
         return same ? updated : b;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          companyBodies: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        companyBodies: updatedList,
+      ));
 
       return updated;
     } catch (e) {
@@ -999,89 +715,26 @@ class SetupCubit extends Cubit<SetupState> {
     }
   }
 
-  Future<void> deleteCompanyBody(String companyId, String bodyId) async {
+  Future<void> deleteCompanyBody(String bodyId) async {
     try {
       emit(state.copyWith(isLoading: true, clearError: true));
 
-      await _repo.deleteCompanyBody(companyId, bodyId);
+      await _repo.deleteCompanyBody(bodyId);
 
       final updatedList = state.companyBodies.where((b) {
-        final same = (b.genericId != null && b.genericId == bodyId) || b.id == bodyId;
+        final same =
+            (b.genericId != null && b.genericId == bodyId) || b.id == bodyId;
         return !same;
       }).toList();
 
-      emit(
-        state.copyWith(
-          isLoading: false,
-          companyBodies: updatedList,
-          selectedCompanyId: companyId,
-        ),
-      );
+      emit(state.copyWith(
+        isLoading: false,
+        companyBodies: updatedList,
+      ));
     } catch (e) {
       emit(state.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
-  Future<void> loadCompanyBodiesForCompany(
-      String companyId, {
-        bool forceReload = false,
-      }) async {
-    if (!forceReload &&
-        state.selectedCompanyId == companyId &&
-        state.companyBodies.isNotEmpty) {
-      return;
-    }
-
-    try {
-      emit(state.copyWith(isLoading: true, clearError: true));
-
-      final list = await _repo.loadCompanyBodies(companyId);
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          companyBodies: list,
-          selectedCompanyId: companyId,
-        ),
-      );
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
-    }
-  }
-
-  List<SetupData> getCompanyBodiesForCompany(String? companyId) {
-    if (companyId == null) return const [];
-    if (companyId != state.selectedCompanyId) return const [];
-    return state.companyBodies;
-  }
-
-  Future<void> loadExpenseNaturesForCompany(String companyId, {bool forceReload = false}) async {
-    if (!forceReload &&
-        state.selectedCompanyId == companyId &&
-        state.expenseNatures.isNotEmpty) {
-      return;
-    }
-
-    try {
-      emit(state.copyWith(isLoading: true, clearError: true));
-
-      final list = await _repo.loadExpenseNatures(companyId);
-
-      emit(
-        state.copyWith(
-          isLoading: false,
-          expenseNatures: list,
-          selectedCompanyId: companyId,
-        ),
-      );
-    } catch (e) {
-      emit(state.copyWith(isLoading: false, error: e.toString()));
-    }
-  }
-
-  List<SetupData> getExpenseNaturesForCompany(String? companyId) {
-    if (companyId == null) return const [];
-    if (companyId != state.selectedCompanyId) return const [];
-    return state.expenseNatures;
-  }
+  List<SetupData> getCompanyBodies() => state.companyBodies;
 }

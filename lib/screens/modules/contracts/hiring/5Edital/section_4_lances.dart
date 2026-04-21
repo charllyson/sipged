@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:sipged/_utils/formats/sipged_format_money.dart';
 
@@ -8,13 +7,12 @@ import 'package:sipged/_widgets/texts/section_text_name.dart';
 import 'package:sipged/_widgets/input/text_field_change.dart';
 import 'package:sipged/_widgets/layout/responsive_utils.dart';
 import 'package:sipged/_widgets/input/drop_down_change.dart';
-import 'package:sipged/_utils/mask/sipged_masks.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_data.dart';
-import 'package:sipged/_widgets/windows/company_body_dialog.dart';
+import 'package:sipged/screens/common/setup/company_body_dialog.dart';
 
 class SectionLances extends StatefulWidget {
   final bool isEditable;
@@ -65,23 +63,7 @@ class _SectionLancesState extends State<SectionLances> {
   void initState() {
     super.initState();
     _rebuildFromData(widget.data);
-
-    final system = context.read<SetupCubit>();
-    Future.microtask(() => _loadInitialCompanies(system));
-  }
-
-  Future<void> _loadInitialCompanies(SetupCubit system) async {
-    if (system.state.companies.isEmpty) {
-      await system.loadCompanies();
-      if (!mounted) return;
-    }
-
-    final companies = system.state.companies;
-    if (companies.isNotEmpty) {
-      final parentCompanyId = companies.first.companyId ?? companies.first.id;
-      await system.ensureCompanySetupLoaded(parentCompanyId);
-      if (!mounted) return;
-    }
+    context.read<SetupCubit>().loadSystemSetup();
   }
 
   @override
@@ -250,13 +232,6 @@ class _SectionLancesState extends State<SectionLances> {
                             controller: l.dataHoraCtrl,
                             labelText: 'Data/Hora',
                             enabled: isEditable,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9/: ]'),
-                              ),
-                              LengthLimitingTextInputFormatter(16),
-                              SipGedMasks.dateDDMMYYYY,
-                            ],
                             onChanged: (_) => _emitChange(),
                           ),
                         ),

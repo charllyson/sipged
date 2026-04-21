@@ -11,7 +11,7 @@ import 'package:sipged/_widgets/layout/responsive_utils.dart';
 
 import 'package:sipged/_blocs/modules/contracts/hiring/5Edital/edital_data.dart';
 import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
-import 'package:sipged/_widgets/windows/company_body_dialog.dart';
+import 'package:sipged/screens/common/setup/company_body_dialog.dart';
 
 class SectionPropostas extends StatefulWidget {
   final bool isEditable;
@@ -76,23 +76,7 @@ class _SectionPropostasState extends State<SectionPropostas> {
   void initState() {
     super.initState();
     _rebuildFromData(widget.data);
-
-    final system = context.read<SetupCubit>();
-    Future.microtask(() => _loadInitialCompanies(system));
-  }
-
-  Future<void> _loadInitialCompanies(SetupCubit system) async {
-    if (system.state.companies.isEmpty) {
-      await system.loadCompanies();
-      if (!mounted) return;
-    }
-
-    final companies = system.state.companies;
-    if (companies.isNotEmpty) {
-      final parentCompanyId = companies.first.companyId ?? companies.first.id;
-      await system.ensureCompanySetupLoaded(parentCompanyId);
-      if (!mounted) return;
-    }
+    context.read<SetupCubit>().loadSystemSetup();
   }
 
   @override
@@ -284,10 +268,8 @@ class _SectionPropostasState extends State<SectionPropostas> {
                       children: [
                         Text(
                           'Proposta ${i + 1}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(
+                          style:
+                          Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: Colors.grey,
                           ),

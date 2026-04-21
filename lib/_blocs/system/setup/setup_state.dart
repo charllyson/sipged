@@ -3,10 +3,10 @@ import 'setup_data.dart';
 
 class SetupState extends Equatable {
   final bool isLoading;
-  final bool hasLoadedCompanies;
+  final bool hasLoadedSystem;
   final String? error;
 
-  final List<SetupData> companies;
+  final SetupData? companyProfile;
   final List<SetupData> companyBodies;
   final List<SetupData> units;
   final List<SetupData> roads;
@@ -15,13 +15,11 @@ class SetupState extends Equatable {
   final List<SetupData> programs;
   final List<SetupData> expenseNatures;
 
-  final String? selectedCompanyId;
-
   const SetupState({
     required this.isLoading,
-    required this.hasLoadedCompanies,
+    required this.hasLoadedSystem,
     required this.error,
-    required this.companies,
+    required this.companyProfile,
     required this.companyBodies,
     required this.units,
     required this.roads,
@@ -29,14 +27,13 @@ class SetupState extends Equatable {
     required this.fundingSources,
     required this.programs,
     required this.expenseNatures,
-    required this.selectedCompanyId,
   });
 
   factory SetupState.initial() => const SetupState(
     isLoading: false,
-    hasLoadedCompanies: false,
+    hasLoadedSystem: false,
     error: null,
-    companies: [],
+    companyProfile: null,
     companyBodies: [],
     units: [],
     roads: [],
@@ -44,15 +41,15 @@ class SetupState extends Equatable {
     fundingSources: [],
     programs: [],
     expenseNatures: [],
-    selectedCompanyId: null,
   );
 
   SetupState copyWith({
     bool? isLoading,
-    bool? hasLoadedCompanies,
+    bool? hasLoadedSystem,
     String? error,
     bool clearError = false,
-    List<SetupData>? companies,
+    SetupData? companyProfile,
+    bool clearCompanyProfile = false,
     List<SetupData>? companyBodies,
     List<SetupData>? units,
     List<SetupData>? roads,
@@ -60,13 +57,13 @@ class SetupState extends Equatable {
     List<SetupData>? fundingSources,
     List<SetupData>? programs,
     List<SetupData>? expenseNatures,
-    String? selectedCompanyId,
   }) {
     return SetupState(
       isLoading: isLoading ?? this.isLoading,
-      hasLoadedCompanies: hasLoadedCompanies ?? this.hasLoadedCompanies,
+      hasLoadedSystem: hasLoadedSystem ?? this.hasLoadedSystem,
       error: clearError ? null : (error ?? this.error),
-      companies: companies ?? this.companies,
+      companyProfile:
+      clearCompanyProfile ? null : (companyProfile ?? this.companyProfile),
       companyBodies: companyBodies ?? this.companyBodies,
       units: units ?? this.units,
       roads: roads ?? this.roads,
@@ -74,16 +71,15 @@ class SetupState extends Equatable {
       fundingSources: fundingSources ?? this.fundingSources,
       programs: programs ?? this.programs,
       expenseNatures: expenseNatures ?? this.expenseNatures,
-      selectedCompanyId: selectedCompanyId ?? this.selectedCompanyId,
     );
   }
 
   @override
   List<Object?> get props => [
     isLoading,
-    hasLoadedCompanies,
+    hasLoadedSystem,
     error,
-    companies,
+    companyProfile,
     companyBodies,
     units,
     roads,
@@ -91,6 +87,5 @@ class SetupState extends Equatable {
     fundingSources,
     programs,
     expenseNatures,
-    selectedCompanyId,
   ];
 }

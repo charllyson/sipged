@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:sipged/_blocs/modules/actives/oacs/active_oacs_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_cubit.dart';
 import 'package:sipged/_blocs/system/login/login_repository.dart';
@@ -142,7 +144,7 @@ Future<void> bootstrapAndRunApp() async {
           BlocProvider<MapOverlayCubit>(create: (_) => MapOverlayCubit()),
 
           BlocProvider<SetupCubit>(
-            create: (_) => SetupCubit()..loadCompanies(),
+            create: (_) => SetupCubit()..loadSystemSetup(),
           ),
 
           RepositoryProvider<LoginRepository>(

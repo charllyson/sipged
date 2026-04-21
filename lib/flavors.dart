@@ -14,5 +14,4 @@ class Flavor {
 
   static bool get isDER => name == 'der';
   static bool get isDNITRR => name == 'dnitro';
-  static bool get isAMPRECATORIOS => name == 'amprecatorios';
 }

@@ -74,7 +74,8 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     _valorFocus = FocusNode();
 
     _companyId = _normalizeId(d.companyId);
-    _ensureCompanySetupLoaded();
+
+    context.read<SetupCubit>().loadSystemSetup();
 
     _tipoContratacaoCtrl.addListener(_onAnyFieldChanged);
     _tipoObraCtrl.addListener(_onAnyFieldChanged);
@@ -133,7 +134,6 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     if (_companyId != newCompanyId) {
       _companyId = newCompanyId;
       _roadsNonce++;
-      _ensureCompanySetupLoaded();
     }
 
     if (oldData.tipoContratacao != newData.tipoContratacao) {
@@ -250,12 +250,19 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
     return trimmed;
   }
 
-  void _ensureCompanySetupLoaded() {
-    if ((_companyId ?? '').isEmpty) return;
+  void _syncCompanyFromSetup(SetupData? company) {
+    if (company == null) return;
+
+    final newCompanyId = _normalizeId(company.companyId ?? company.id);
+    if (_companyId == newCompanyId) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
+      setState(() {
+        _companyId = newCompanyId;
+        _roadsNonce++;
+      });
+      _emitChange();
     });
   }
 
@@ -319,9 +326,13 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
 
   @override
   Widget build(BuildContext context) {
-    context.watch<SetupCubit>();
+    final setupState = context.watch<SetupCubit>().state;
     final systemCubit = context.read<SetupCubit>();
-    final List<SetupData> roads = systemCubit.getRoadsForCompany(_companyId);
+
+    _syncCompanyFromSetup(setupState.companyProfile);
+
+    final bool hasCompanyConfigured = setupState.companyProfile != null;
+    final List<SetupData> roads = systemCubit.getRoads();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,12 +380,12 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                     key: ValueKey('roads-$_roadsNonce-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Rodovia',
-                    tooltipMessage: _companyId == null
-                        ? 'Selecione o contratante na identificação'
+                    tooltipMessage: !hasCompanyConfigured
+                        ? 'Configure o contratante no setup do sistema'
                         : null,
                     controller: _rodoviaCtrl,
                     items: roads.map((e) => e.label).toList(),
-                    enabled: widget.isEditable && _companyId != null,
+                    enabled: widget.isEditable && hasCompanyConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar rodovia',
                     showSpecialWhenEmpty: true,
@@ -383,21 +394,17 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                       _syncControllerText(_rodoviaCtrl, value ?? '');
                       setState(() {});
                     },
-                    onCreateNewItem: (!widget.isEditable || _companyId == null)
+                    onCreateNewItem: (!widget.isEditable || !hasCompanyConfigured)
                         ? null
                         : (label) async {
-                      final created = await systemCubit.createRoad(
-                        _companyId!,
-                        label,
-                      );
+                      final created = await systemCubit.createRoad(label);
                       if (!mounted || created == null) return;
                       _syncControllerText(_rodoviaCtrl, created.label);
                       setState(() {});
                     },
-                    onEditItem: (widget.isEditable && _companyId != null)
+                    onEditItem: (widget.isEditable && hasCompanyConfigured)
                         ? (ctx, label) async {
-                      final list =
-                      systemCubit.getRoadsForCompany(_companyId);
+                      final list = systemCubit.getRoads();
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -415,7 +422,6 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                       if (newLabel == null) return;
 
                       final updated = await systemCubit.updateRoadName(
-                        _companyId!,
                         target.id,
                         newLabel,
                       );
@@ -427,10 +433,9 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                       }
                     }
                         : null,
-                    onDeleteItem: (widget.isEditable && _companyId != null)
+                    onDeleteItem: (widget.isEditable && hasCompanyConfigured)
                         ? (ctx, label) async {
-                      final list =
-                      systemCubit.getRoadsForCompany(_companyId);
+                      final list = systemCubit.getRoads();
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -439,10 +444,7 @@ class _SectionObjetoState extends State<SectionObjeto> with SipGedValidation {
                       );
                       if (target.id.isEmpty) return;
 
-                      await systemCubit.deleteRoad(
-                        _companyId!,
-                        target.id,
-                      );
+                      await systemCubit.deleteRoad(target.id);
 
                       if (!mounted) return;
                       if (_rodoviaCtrl.text == label) {

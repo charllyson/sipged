@@ -55,8 +55,7 @@ class _SectionEstimativaState extends State<SectionEstimativa>
 
     _companyId = d.companyId;
 
-    _ensureCompanySetupIfNeeded();
-    _resolveCompanyIdFromData();
+    context.read<SetupCubit>().loadSystemSetup();
   }
 
   @override
@@ -82,19 +81,14 @@ class _SectionEstimativaState extends State<SectionEstimativa>
     } else {
       final currentParsed = _parseDouble(_estimativaValorCtrl.text);
       final newFormatted = _formatDouble(estimFromData);
-      if (currentParsed != estimFromData && _estimativaValorCtrl.text != newFormatted) {
+      if (currentParsed != estimFromData &&
+          _estimativaValorCtrl.text != newFormatted) {
         _estimativaValorCtrl.text = newFormatted;
       }
     }
 
-    // company mudou
     if (oldWidget.data.companyId != d.companyId) {
       _companyId = d.companyId;
-      _ensureCompanySetupIfNeeded();
-    }
-
-    if (oldWidget.data.orgaoDemandante != d.orgaoDemandante) {
-      _resolveCompanyIdFromData();
     }
   }
 
@@ -109,17 +103,23 @@ class _SectionEstimativaState extends State<SectionEstimativa>
     super.dispose();
   }
 
-  void _ensureCompanySetupIfNeeded() {
-    if ((_companyId ?? '').isEmpty) return;
+  void _syncCompanyFromSetup(SetupData? company) {
+    if (company == null) return;
 
-    // ✅ agenda pós-frame (garante que não é durante build)
+    final newCompanyId = (company.companyId ?? company.id).trim();
+    if (_companyId == newCompanyId) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
+      setState(() {
+        _companyId = newCompanyId;
+      });
+      _emitChange();
     });
   }
 
-  String _formatDouble(double value) => value.toStringAsFixed(2).replaceAll('.', ',');
+  String _formatDouble(double value) =>
+      value.toStringAsFixed(2).replaceAll('.', ',');
 
   double? _parseDouble(String text) {
     final s = text.trim();
@@ -141,39 +141,19 @@ class _SectionEstimativaState extends State<SectionEstimativa>
     widget.onChanged(updated);
   }
 
-  Future<void> _resolveCompanyIdFromData() async {
-    if (!mounted) return;
-    if ((_companyId ?? '').isNotEmpty) {
-      _ensureCompanySetupIfNeeded();
-      return;
-    }
-
-    final label = (widget.data.orgaoDemandante ?? '').trim();
-    if (label.isEmpty) return;
-
-    final systemCubit = context.read<SetupCubit>();
-    if (systemCubit.state.companies.isEmpty) {
-      await systemCubit.loadCompanies();
-    }
-
-    final id = systemCubit.findCompanyIdByLabel(label);
-    if (!mounted || id == null) return;
-
-    setState(() {
-      _companyId = id;
-    });
-
-    _ensureCompanySetupIfNeeded();
-  }
-
   @override
   Widget build(BuildContext context) {
     final systemCubit = context.read<SetupCubit>();
-    context.watch<SetupCubit>(); // rebuild
+    final setupState = context.watch<SetupCubit>().state;
+    final SetupData? company = setupState.companyProfile;
 
-    final List<SetupData> fundingSources = systemCubit.getFundingSourcesForCompany(_companyId);
-    final List<SetupData> programs = systemCubit.getProgramsForCompany(_companyId);
-    final List<SetupData> expenseNatures = systemCubit.getExpenseNaturesForCompany(_companyId);
+    _syncCompanyFromSetup(company);
+
+    final bool hasCompanyConfigured = company != null;
+
+    final List<SetupData> fundingSources = systemCubit.getFundingSources();
+    final List<SetupData> programs = systemCubit.getPrograms();
+    final List<SetupData> expenseNatures = systemCubit.getExpenseNatures();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,13 +170,15 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                 SizedBox(
                   width: w3,
                   child: DropDownChange(
-                    key: ValueKey('funding-${widget.data.orgaoDemandante}-${_companyId ?? "none"}'),
+                    key: ValueKey('funding-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Fonte de recurso',
-                    tooltipMessage: _companyId == null ? 'Selecione o contratante na identificação' : null,
+                    tooltipMessage: !hasCompanyConfigured
+                        ? 'Configure o contratante no setup do sistema'
+                        : null,
                     controller: _fonteRecursoCtrl,
                     items: fundingSources.map((e) => e.label).toList(),
-                    enabled: widget.isEditable && _companyId != null,
+                    enabled: widget.isEditable && hasCompanyConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar fonte de recurso',
                     showSpecialWhenEmpty: true,
@@ -211,13 +193,15 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                 SizedBox(
                   width: w3,
                   child: DropDownChange(
-                    key: ValueKey('programs-${widget.data.orgaoDemandante}-${_companyId ?? "none"}'),
+                    key: ValueKey('programs-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Programa de trabalho / Ação',
-                    tooltipMessage: _companyId == null ? 'Selecione o contratante na identificação' : null,
+                    tooltipMessage: !hasCompanyConfigured
+                        ? 'Configure o contratante no setup do sistema'
+                        : null,
                     controller: _programaTrabalhoCtrl,
                     items: programs.map((e) => e.label).toList(),
-                    enabled: widget.isEditable && _companyId != null,
+                    enabled: widget.isEditable && hasCompanyConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar programa/ação',
                     showSpecialWhenEmpty: true,
@@ -241,13 +225,15 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                 SizedBox(
                   width: w3,
                   child: DropDownChange(
-                    key: ValueKey('expense-${widget.data.orgaoDemandante}-${_companyId ?? "none"}'),
+                    key: ValueKey('expense-${_companyId ?? "none"}'),
                     width: w3,
                     labelText: 'Natureza da despesa (ND)',
-                    tooltipMessage: _companyId == null ? 'Selecione o contratante na identificação' : null,
+                    tooltipMessage: !hasCompanyConfigured
+                        ? 'Configure o contratante no setup do sistema'
+                        : null,
                     controller: _naturezaDespesaCtrl,
                     items: expenseNatures.map((e) => e.label).toList(),
-                    enabled: widget.isEditable && _companyId != null,
+                    enabled: widget.isEditable && hasCompanyConfigured,
                     validator: null,
                     specialItemLabel: 'Adicionar ND',
                     showSpecialWhenEmpty: true,
@@ -274,7 +260,8 @@ class _SectionEstimativaState extends State<SectionEstimativa>
                   child: CustomTextField(
                     controller: _metodologiaEstimativaCtrl,
                     enabled: widget.isEditable,
-                    labelText: 'Metodologia da estimativa (ex.: SINAPI, DER, etc.)',
+                    labelText:
+                    'Metodologia da estimativa (ex.: SINAPI, DER, etc.)',
                     onChanged: (_) => _emitChange(),
                   ),
                 ),

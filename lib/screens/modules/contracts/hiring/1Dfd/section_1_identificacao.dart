@@ -120,11 +120,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     _orgaoDemandanteId = _normalizeId(d.orgaoDemandanteId) ?? _companyId;
     _unidadeSolicitanteId = _normalizeId(d.unidadeSolicitanteId) ?? _unitId;
 
-    final setup = context.read<SetupCubit>();
-    setup.loadCompanies();
-    if ((_companyId ?? '').isNotEmpty) {
-      setup.ensureCompanySetupLoaded(_companyId!);
-    }
+    context.read<SetupCubit>().loadSystemSetup();
   }
 
   @override
@@ -166,18 +162,11 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     _syncControllerText(_statusContratoCtrl, _statusContrato ?? '');
     _syncControllerText(_naturezaIntervencaoCtrl, _naturezaIntervencao ?? '');
 
-    final oldCompanyId = _companyId;
-
     _companyId = _normalizeId(d.companyId);
     _unitId = _normalizeId(d.unitId);
 
     _orgaoDemandanteId = _normalizeId(d.orgaoDemandanteId) ?? _companyId;
     _unidadeSolicitanteId = _normalizeId(d.unidadeSolicitanteId) ?? _unitId;
-
-    if (oldCompanyId != _companyId && (_companyId ?? '').isNotEmpty) {
-      context.read<SetupCubit>().ensureCompanySetupLoaded(_companyId!);
-      _companyNonce++;
-    }
   }
 
   @override
@@ -263,6 +252,32 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
     }
 
     _syncing = false;
+  }
+
+  void _syncCompanyFromSetup(SetupData? company) {
+    if (company == null) return;
+
+    final newCompanyId = _normalizeId(company.companyId ?? company.id);
+    final newCompanyLabel = company.companyName ?? company.label;
+
+    final needsSync = _companyId != newCompanyId ||
+        _orgaoDemandanteCtrl.text != newCompanyLabel ||
+        _orgaoDemandanteId != newCompanyId;
+
+    if (!needsSync) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        _companyId = newCompanyId;
+        _orgaoDemandanteId = newCompanyId;
+        _syncControllerText(_orgaoDemandanteCtrl, newCompanyLabel);
+        _companyNonce++;
+      });
+
+      _emitChange();
+    });
   }
 
   static bool _isPlaceholder(String ch) => ch == '9' || ch == '#';
@@ -370,9 +385,12 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
     final setupCubit = context.read<SetupCubit>();
     final setupState = context.watch<SetupCubit>().state;
+    final SetupData? company = setupState.companyProfile;
 
-    final companies = setupState.companies;
-    final List<SetupData> units = setupCubit.getUnitsForCompany(_companyId);
+    _syncCompanyFromSetup(company);
+
+    final List<SetupData> units = setupCubit.getUnits();
+    final hasCompanyConfigured = company != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,142 +406,19 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
               children: [
                 SizedBox(
                   width: w4,
-                  child: DropDownChange(
-                    width: w4,
-                    labelText: 'Contratante',
+                  child: CustomTextField(
                     controller: _orgaoDemandanteCtrl,
-                    enabled: widget.isEditable,
-                    validator: (v) => widget.isEditable
-                        ? validateDropdown(v, message: 'Selecione o contratante')
-                        : null,
-                    items: companies.map((e) => e.label).toList(),
-                    specialItemLabel: 'Adicionar contratante',
-                    menuMaxHeight: 260,
-                    onChanged: (label) async {
-                      if (!widget.isEditable) return;
-
-                      if (label == null || label.isEmpty) {
-                        setState(() {
-                          _companyId = null;
-                          _unitId = null;
-                          _orgaoDemandanteId = null;
-                          _unidadeSolicitanteId = null;
-                          _unidadeSolicitanteCtrl.clear();
-                          _orgaoDemandanteCtrl.clear();
-                          _companyNonce++;
-                        });
-                        _emitChange();
-                        return;
+                    enabled: false,
+                    labelText: 'Contratante',
+                    hintText: hasCompanyConfigured
+                        ? null
+                        : 'Configure o contratante em Configurações iniciais',
+                    validator: widget.isEditable
+                        ? (v) {
+                      if ((v ?? '').trim().isEmpty) {
+                        return 'Configure o contratante no setup do sistema';
                       }
-
-                      final selected = companies.firstWhere(
-                            (c) => c.label == label,
-                        orElse: () => companies.first,
-                      );
-
-                      final selectedCompanyId = selected.id;
-
-                      setState(() {
-                        _companyId = selectedCompanyId;
-                        _orgaoDemandanteId = selectedCompanyId;
-                        _orgaoDemandanteCtrl.text = selected.label;
-
-                        _companyNonce++;
-                        _unidadeSolicitanteCtrl.clear();
-                        _unitId = null;
-                        _unidadeSolicitanteId = null;
-                      });
-
-                      await setupCubit.ensureCompanySetupLoaded(selectedCompanyId);
-                      _emitChange();
-                    },
-                    onCreateNewItem: widget.isEditable
-                        ? (label) async {
-                      final created = await setupCubit.createCompany(label);
-                      if (!mounted || created == null) return;
-
-                      final createdCompanyId = created.id;
-
-                      setState(() {
-                        _companyId = createdCompanyId;
-                        _orgaoDemandanteId = createdCompanyId;
-                        _orgaoDemandanteCtrl.text = created.label;
-
-                        _companyNonce++;
-                        _unidadeSolicitanteCtrl.clear();
-                        _unitId = null;
-                        _unidadeSolicitanteId = null;
-                      });
-
-                      await setupCubit.ensureCompanySetupLoaded(
-                        createdCompanyId,
-                      );
-                      _emitChange();
-                    }
-                        : null,
-                    onEditItem: widget.isEditable
-                        ? (ctx, label) async {
-                      final list = setupCubit.state.companies;
-                      if (list.isEmpty) return;
-
-                      final target = list.firstWhere(
-                            (c) => c.label == label,
-                        orElse: () => list.first,
-                      );
-
-                      final id = target.id;
-                      if (id.isEmpty) return;
-
-                      final newLabel = await _askNewLabel(
-                        ctx,
-                        title: 'Editar contratante',
-                        initialValue: label,
-                        labelText: 'Nome do contratante',
-                      );
-                      if (newLabel == null) return;
-
-                      final updated = await setupCubit.updateCompanyName(
-                        id,
-                        newLabel,
-                      );
-                      if (!mounted) return;
-
-                      if (updated != null && _companyId == id) {
-                        setState(
-                              () => _orgaoDemandanteCtrl.text = updated.label,
-                        );
-                        _emitChange();
-                      }
-                    }
-                        : null,
-                    onDeleteItem: widget.isEditable
-                        ? (ctx, label) async {
-                      final list = setupCubit.state.companies;
-                      if (list.isEmpty) return;
-
-                      final target = list.firstWhere(
-                            (c) => c.label == label,
-                        orElse: () => list.first,
-                      );
-
-                      final id = target.id;
-                      if (id.isEmpty) return;
-
-                      await setupCubit.deleteCompany(id);
-                      if (!mounted) return;
-
-                      if (_companyId == id) {
-                        setState(() {
-                          _companyId = null;
-                          _unitId = null;
-                          _orgaoDemandanteId = null;
-                          _unidadeSolicitanteId = null;
-                          _orgaoDemandanteCtrl.clear();
-                          _unidadeSolicitanteCtrl.clear();
-                          _companyNonce++;
-                        });
-                        _emitChange();
-                      }
+                      return null;
                     }
                         : null,
                   ),
@@ -533,11 +428,12 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                   child: DropDownChange(
                     key: ValueKey('units-$_companyNonce-${_companyId ?? "none"}'),
                     width: w4,
-                    tooltipMessage:
-                    _companyId == null ? 'Selecione o contratante' : null,
+                    tooltipMessage: !hasCompanyConfigured
+                        ? 'Configure primeiro o contratante no setup do sistema'
+                        : null,
                     labelText: 'Unidade/Setor solicitante',
                     controller: _unidadeSolicitanteCtrl,
-                    enabled: widget.isEditable && _companyId != null,
+                    enabled: widget.isEditable && hasCompanyConfigured,
                     validator: null,
                     showSpecialAlways: true,
                     specialItemLabel: 'Adicionar unidade',
@@ -569,10 +465,9 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
 
                       _emitChange();
                     },
-                    onCreateNewItem: (widget.isEditable && _companyId != null)
+                    onCreateNewItem: (widget.isEditable && hasCompanyConfigured)
                         ? (label) async {
-                      final created =
-                      await setupCubit.createUnit(_companyId!, label);
+                      final created = await setupCubit.createUnit(label);
                       if (!mounted || created == null) return;
 
                       final createdUnitId = created.id;
@@ -586,9 +481,9 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                       _emitChange();
                     }
                         : null,
-                    onEditItem: (widget.isEditable && _companyId != null)
+                    onEditItem: (widget.isEditable && hasCompanyConfigured)
                         ? (ctx, label) async {
-                      final list = setupCubit.getUnitsForCompany(_companyId);
+                      final list = setupCubit.getUnits();
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -607,11 +502,8 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                       );
                       if (newLabel == null) return;
 
-                      final updated = await setupCubit.updateUnitName(
-                        _companyId!,
-                        id,
-                        newLabel,
-                      );
+                      final updated =
+                      await setupCubit.updateUnitName(id, newLabel);
                       if (!mounted) return;
 
                       if (updated != null && _unitId == id) {
@@ -622,9 +514,9 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                       }
                     }
                         : null,
-                    onDeleteItem: (widget.isEditable && _companyId != null)
+                    onDeleteItem: (widget.isEditable && hasCompanyConfigured)
                         ? (ctx, label) async {
-                      final list = setupCubit.getUnitsForCompany(_companyId);
+                      final list = setupCubit.getUnits();
                       if (list.isEmpty) return;
 
                       final target = list.firstWhere(
@@ -635,7 +527,7 @@ class _SectionIdentificacaoState extends State<SectionIdentificacao>
                       final id = target.id;
                       if (id.isEmpty) return;
 
-                      await setupCubit.deleteUnit(_companyId!, id);
+                      await setupCubit.deleteUnit(id);
                       if (!mounted) return;
 
                       if (_unitId == id) {
