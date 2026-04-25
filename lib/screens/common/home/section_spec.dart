@@ -1,15 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sipged/_widgets/cards/basic/basic_card.dart';
-
-class SectionSpec<T> {
-  final String title;
-  final List<BasicCardItem<T>> items;
-
-  const SectionSpec({
-    required this.title,
-    required this.items,
-  });
-}
+import 'package:sipged/screens/common/home/module_tile.dart';
+import 'package:sipged/screens/common/home/module_data_item.dart';
+import 'package:sipged/screens/common/home/section_header.dart';
 
 class SectionGrid<T> extends StatelessWidget {
   const SectionGrid({
@@ -21,7 +13,7 @@ class SectionGrid<T> extends StatelessWidget {
   });
 
   final String title;
-  final List<BasicCardItem<T>> items;
+  final List<ModuleDataItem<T>> items;
   final void Function(T value)? onSelect;
   final bool isDark;
 
@@ -29,104 +21,44 @@ class SectionGrid<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final titleColor = isDark ? Colors.white : Colors.blueGrey.shade900;
     final subtitleColor = isDark
-        ? Colors.white.withValues(alpha: 0.72)
-        : Colors.blueGrey.shade700;
+        ? Colors.white.withValues(alpha: 0.62)
+        : Colors.blueGrey.shade600;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              letterSpacing: .6,
-              color: titleColor,
-            ),
-          ),
+        SectionHeader(
+          title: title,
+          titleColor: titleColor,
+          subtitleColor: subtitleColor,
         ),
+        const SizedBox(height: 14),
         LayoutBuilder(
-          builder: (context, c) {
-            final w = c.maxWidth;
-            int cross = 1;
-
-            if (w >= 1100) {
-              cross = 3;
-            } else if (w >= 740) {
-              cross = 2;
-            }
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final crossAxisCount = _resolveCrossAxisCount(width);
+            final spacing = _resolveSpacing(width);
+            final itemExtent = _resolveItemExtent(width);
 
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: cross,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 16 / 7,
-              ),
+              padding: EdgeInsets.zero,
               itemCount: items.length,
-              itemBuilder: (context, i) {
-                final item = items[i];
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                mainAxisSpacing: spacing,
+                crossAxisSpacing: spacing,
+                mainAxisExtent: itemExtent,
+              ),
+              itemBuilder: (context, index) {
+                final item = items[index];
 
-                return BasicCard(
+                return ModuleTile<T>(
+                  item: item,
                   isDark: isDark,
+                  compact: width < 600,
                   onTap: () => onSelect?.call(item.value),
-                  borderRadius: 16,
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    children: [
-                      Container(
-                        height: 56,
-                        width: 56,
-                        decoration: BoxDecoration(
-                          color:
-                          item.color.withValues(alpha: isDark ? 0.18 : 0.12),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(
-                          item.icon,
-                          size: 28,
-                          color: item.color,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.2,
-                                color: titleColor,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              item.subtitle,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                color: subtitleColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
                 );
               },
             );
@@ -134,5 +66,32 @@ class SectionGrid<T> extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  int _resolveCrossAxisCount(double width) {
+    if (width >= 1180) return 8;
+    if (width >= 1040) return 7;
+    if (width >= 900) return 6;
+    if (width >= 720) return 5;
+
+    // iPhone / celulares médios e grandes: semelhante ao iOS, 4 apps por linha.
+    if (width >= 340) return 4;
+
+    // Celulares muito estreitos.
+    if (width >= 260) return 3;
+
+    return 2;
+  }
+
+  double _resolveSpacing(double width) {
+    if (width >= 720) return 20;
+    if (width >= 340) return 12;
+    return 10;
+  }
+
+  double _resolveItemExtent(double width) {
+    if (width >= 720) return 148;
+    if (width >= 340) return 134;
+    return 128;
   }
 }

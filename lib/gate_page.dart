@@ -132,7 +132,9 @@ class _GatePageState extends State<GatePage> {
             builder: (context, userSnapshot) {
               if (userSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
-                  body: LoadingTreeDotsGrey(),
+                  body: LoadingTreeDotsGrey(
+                    message: Text('Carregando os dados...'),
+                  ),
                 );
               }
 
@@ -164,7 +166,9 @@ class _GatePageState extends State<GatePage> {
                   if (setupLoadSnapshot.connectionState ==
                       ConnectionState.waiting) {
                     return const Scaffold(
-                      body: LoadingTreeDotsGrey(),
+                      body: LoadingTreeDotsGrey(
+                        message: Text('Carregando a configuração...'),
+                      ),
                     );
                   }
 

@@ -200,7 +200,7 @@ class ModuleData {
       icon: Icons.document_scanner,
       subItems: [
         MenuDrawerSubItem(
-          label: 'CONTRATAÇÃO',
+          label: 'CONTRATOS',
           menuItem: ModuleItem.processHiringRecords,
           permissionModule: modHiringRecords,
           homeIcon: Icons.gavel,
@@ -216,7 +216,7 @@ class ModuleData {
           homeColor: Color(0xFF0EA5E9),
         ),
         MenuDrawerSubItem(
-          label: 'APOSTILAMENTOS',
+          label: 'REAJUSTES',
           menuItem: ModuleItem.processApostillesRecords,
           permissionModule: modApostillesRecords,
           homeIcon: Icons.bookmark_added,
@@ -290,7 +290,7 @@ class ModuleData {
           homeColor: Color(0xFF1E40AF),
         ),
         MenuDrawerSubItem(
-          label: 'DESAPROPRIAÇÕES',
+          label: 'FAIXA DE DOMÍNO',
           menuItem: ModuleItem.planningRightOfWayRecords,
           permissionModule: modPlanningRightWayRecords,
           homeIcon: Icons.signpost_outlined,
@@ -424,7 +424,7 @@ class ModuleData {
           homeColor: Color(0xFF334155),
         ),
         MenuDrawerSubItem(
-          label: 'LEVANTAMENTO',
+          label: 'REGISTROS',
           menuItem: ModuleItem.activeOAEsRegistration,
           permissionModule: modActiveOAEsRecords,
           homeIcon: Icons.assignment_outlined,
@@ -446,7 +446,7 @@ class ModuleData {
           homeColor: Color(0xFF334155),
         ),
         MenuDrawerSubItem(
-          label: 'LEVANTAMENTO',
+          label: 'REGISTROS',
           menuItem: ModuleItem.activeAirportsRegistration,
           permissionModule: modActiveAirportsRecords,
           homeIcon: Icons.assignment_turned_in_outlined,
@@ -468,7 +468,7 @@ class ModuleData {
           homeColor: Color(0xFF334155),
         ),
         MenuDrawerSubItem(
-          label: 'LEVANTAMENTO',
+          label: 'REGISTROS',
           menuItem: ModuleItem.activeRailwaysRegistration,
           permissionModule: modActiveRailwaysRecords,
           homeIcon: Icons.fact_check_outlined,
@@ -490,7 +490,7 @@ class ModuleData {
           homeColor: Color(0xFF334155),
         ),
         MenuDrawerSubItem(
-          label: 'LEVANTAMENTO',
+          label: 'REGISTROS',
           menuItem: ModuleItem.activeRegistrationPorts,
           permissionModule: modActivePortsRecords,
           homeIcon: Icons.checklist_outlined,

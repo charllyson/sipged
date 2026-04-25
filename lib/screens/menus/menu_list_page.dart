@@ -310,7 +310,7 @@ class _MenuListPageState extends State<MenuListPage> {
               currentUser: currentUser,
             );
           });
-        }, pageTitle: 'Contratação');
+        }, pageTitle: 'Contratos');
 
       case ModuleItem.processValidityRecords:
         return _buildContractsListPage((context, contract) {
@@ -429,7 +429,7 @@ class _MenuListPageState extends State<MenuListPage> {
               builder: (_) => LandPage(contractData: contract),
             ),
           );
-        }, pageTitle: 'Desapropriações');
+        }, pageTitle: 'Faixa de Domínio');
 
       case ModuleItem.planningEnvironmentRecords:
         return const GeoNetworkPage();
@@ -531,8 +531,7 @@ class _MenuListPageState extends State<MenuListPage> {
           return const Scaffold(
             backgroundColor: Colors.white,
             body: LoadingTreeDotsGrey(
-              size: 34,
-              strokeWidth: 3,
+              message: Text('Carregando usuário...'),
             ),
           );
         }
@@ -558,7 +557,7 @@ class _MenuListPageState extends State<MenuListPage> {
           body: Stack(
             children: [
               if (_selectedItem == null)
-                HomeBody(onSelect: _onSelectPage)
+                HomePage(onSelect: _onSelectPage)
               else
                 _getPage(_selectedItem!, currentUser),
               const _PositionedDrawerButton(),

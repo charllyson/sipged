@@ -153,4 +153,5 @@ flutter:
     - assets/logos/sipged/sipged.png
     - assets/logos/sipged/sipged-mono.png
     - .env
-    - assets/rive/tree-dots-grey-loading.riv
+    - assets/rive/tree-dots-blue-loading.riv
+    - assets/rive/tree-dots-withe-loading.riv

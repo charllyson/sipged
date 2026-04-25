@@ -5,7 +5,7 @@ import 'package:sipged/_blocs/system/setup/setup_cubit.dart';
 import 'package:sipged/_blocs/system/setup/setup_state.dart';
 import 'package:sipged/_blocs/system/user/user_data.dart';
 import 'package:sipged/_widgets/menu/pop_up/pup_up_photo_menu.dart';
-import 'package:sipged/_widgets/loading/loading_tree_dots_grey.dart';
+import 'package:sipged/screens/common/home/company_logo.dart';
 
 class HeroHeader extends StatelessWidget {
   const HeroHeader({
@@ -33,8 +33,10 @@ class HeroHeader extends StatelessWidget {
             : 'Sistema Integrado de Planejamento e Gestão de Dados';
 
         final logoUrl = (company?.logoUrl ?? '').trim();
+        final userName = (user?.name ?? '').trim();
 
         return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Wrap(
               spacing: 16,
@@ -42,9 +44,7 @@ class HeroHeader extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               alignment: WrapAlignment.center,
               children: [
-                _CompanyLogo(
-                  logoUrl: logoUrl,
-                ),
+                CompanyLogo(logoUrl: logoUrl),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 720),
                   child: Column(
@@ -74,36 +74,40 @@ class HeroHeader extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 18),
-            if (user?.name != null && user!.name!.trim().isNotEmpty)
+            if (userName.isNotEmpty)
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const PopUpPhotoMenu(),
-                  const SizedBox(width: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .6),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.black.withValues(alpha: .06),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: .04),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: .62),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: Colors.black.withValues(alpha: .06),
                         ),
-                      ],
-                    ),
-                    child: Text(
-                      'Olá, ${user!.name}!',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.blueGrey.shade800,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .04),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        'Olá, $userName!',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.blueGrey.shade800,
+                        ),
                       ),
                     ),
                   ),
@@ -112,61 +116,6 @@ class HeroHeader extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _CompanyLogo extends StatelessWidget {
-  const _CompanyLogo({
-    required this.logoUrl,
-  });
-
-  final String logoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final borderRadius = BorderRadius.circular(16);
-
-    if (logoUrl.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: borderRadius,
-        child: SizedBox(
-          width: 88,
-          height: 88,
-          child: Image.network(
-            logoUrl,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) {
-              return _fallbackLogo(borderRadius);
-            },
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return const SizedBox(
-                width: 88,
-                height: 88,
-                child: LoadingTreeDotsGrey(
-                  size: 22,
-                  strokeWidth: 2,
-                ),
-              );
-            },
-          ),
-        ),
-      );
-    }
-
-    return _fallbackLogo(borderRadius);
-  }
-
-  Widget _fallbackLogo(BorderRadius borderRadius) {
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: Image.asset(
-        'assets/logos/sipged/sipged.png',
-        height: 88,
-        width: 88,
-        fit: BoxFit.contain,
-      ),
     );
   }
 }

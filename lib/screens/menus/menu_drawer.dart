@@ -81,7 +81,10 @@ class _DrawerMenuState extends State<DrawerMenu> {
     }
 
     if (userData == null || state.isLoadingUsers) {
-      return const LoadingTreeDotsGrey();
+      return const LoadingTreeDotsGrey(
+        message: Text('Carregando módulos', style: TextStyle(color: Colors.white)),
+        variant: LoadingTreeDotsVariant.white,
+      );
     }
 
     return ListView(
